@@ -166,3 +166,10 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         return mi
+
+
+def get_tdmi(data, min_shift = 1, max_shift = 100, nn = DEFAULT_NN):
+    ts = TimeSeries(data, discrete = False)
+    tdmi = [get_1d_mi(ts, ts, shift=shift, k=nn) for shift in range(min_shift, max_shift)]
+
+    return tdmi
