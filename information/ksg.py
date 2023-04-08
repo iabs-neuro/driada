@@ -4,12 +4,11 @@
 import numpy as np
 import numpy.linalg as la
 from numpy import log
-from scipy.special import digamma
 from sklearn.neighbors import BallTree, KDTree
 
+from ._info_utils import py_fast_digamma
+
 DEFAULT_NN = 5
-
-
 # UTILITY FUNCTIONS
 
 def add_noise(x, intens=1e-10):
@@ -18,11 +17,21 @@ def add_noise(x, intens=1e-10):
 
 
 def query_neighbors(tree, x, k):
-    return tree.query(x, k=k + 1, breadth_first=False)[0][:, k]
+    # return tree.query(x, k=k+1, breadth_first = False)[0][:, k]
+    return tree.query(x, k=k + 1)[0][:, k]
 
 
-def count_neighbors(tree, x, r):
-    return tree.query_radius(x, r, count_only=True)
+def _count_neighbors_single(tree, x, radii, ind):
+    dists, indices = tree.query(x[ind:ind + 1], k=DEFAULT_NN, distance_upper_bound=radii[ind])
+    return len(np.unique(indices[0])) - 2
+
+
+def count_neighbors(tree, x, radii):
+    return tree.query_radius(x, radii, count_only=True)
+    # dists, indices = tree.query(x, k=DEFAULT_NN, distance_upper_bound=r)
+    # out = tree.query(x, k=DEFAULT_NN, distance_upper_bound=r)
+    # return np.array([_count_neighbors_single(tree, x, radii, ind) for ind in range(len(x))])
+    # return np.array([len(nn)-1 for nn in tree.query_ball_point(x, radii)])
 
 
 def build_tree(points, lf=5):
@@ -30,6 +39,7 @@ def build_tree(points, lf=5):
         return BallTree(points, metric='chebyshev')
 
     return KDTree(points, metric='chebyshev', leaf_size=lf)
+    # return KDTree(points, leafsize = lf)
     # return KDTree(points, copy_data=True, leafsize = 5)
 
 
@@ -53,7 +63,8 @@ def avgdigamma(points, dvec, lf=30, tree=None):
     # inf_inds = np.where(digamma(num_points) == -np.inf)
     # print(num_points[inf_inds])
 
-    return np.mean(digamma(num_points))
+    digammas = list(map(py_fast_digamma, num_points))
+    return np.mean(digammas)
 
 
 # CONTINUOUS ESTIMATORS
@@ -70,7 +81,7 @@ def nonparam_entropy_c(x, k=DEFAULT_NN, base=np.e):
     x = add_noise(x)
     tree = build_tree(x)
     nn = query_neighbors(tree, x, k)
-    const = digamma(n_elements) - digamma(k) + n_features * log(2)
+    const = py_fast_digamma(n_elements) - py_fast_digamma(k) + n_features * log(2)
     return (const + n_features * np.log(nn).mean()) / log(base)
 
 
@@ -84,13 +95,15 @@ def nonparam_cond_entropy_cc(x, y, k=DEFAULT_NN, base=np.e):
     return entropy_union_xy - entropy_y
 
 
-def nonparam_mi_cc(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
-                   lf=30, precomputed_tree_x=None, precomputed_tree_y=None):
+def nonparam_mi_cc_mod(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
+                       lf=5, precomputed_tree_x=None, precomputed_tree_y=None):
     """
     Mutual information of x and y (conditioned on z if z is not None)
     """
+
     assert len(x) == len(y), "Arrays should have same length"
     assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
+
     x, y = np.asarray(x), np.asarray(y)
     x, y = x.reshape(x.shape[0], -1), y.reshape(y.shape[0], -1)
     x = add_noise(x)
@@ -111,8 +124,8 @@ def nonparam_mi_cc(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
     if z is None:
         a = avgdigamma(x, dvec, tree=precomputed_tree_x, lf=lf)
         b = avgdigamma(y, dvec, tree=precomputed_tree_y, lf=lf)
-        c = digamma(k)
-        d = digamma(len(x))
+        c = py_fast_digamma(k)
+        d = py_fast_digamma(len(x))
 
         # print(a, b, c, d)
 
@@ -122,7 +135,7 @@ def nonparam_mi_cc(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
         xz = np.c_[x, z]
         yz = np.c_[y, z]
         a, b, c, d = avgdigamma(xz, dvec), avgdigamma(
-            yz, dvec), avgdigamma(z, dvec), digamma(k)
+            yz, dvec), avgdigamma(z, dvec), py_fast_digamma(k)
 
     return (-a - b + c + d) / log(base)
 
