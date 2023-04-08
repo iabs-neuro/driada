@@ -1,0 +1,150 @@
+# Written by Greg Ver Steeg
+# Go to http://www.isi.edu/~gregv/npeet.html
+
+import numpy as np
+import numpy.linalg as la
+from numpy import log
+from scipy.special import digamma
+from sklearn.neighbors import BallTree, KDTree
+
+DEFAULT_NN = 5
+
+
+# UTILITY FUNCTIONS
+
+def add_noise(x, intens=1e-10):
+    # small noise to break degeneracy, see doc.
+    return x + intens * np.random.random_sample(x.shape)
+
+
+def query_neighbors(tree, x, k):
+    return tree.query(x, k=k + 1, breadth_first=False)[0][:, k]
+
+
+def count_neighbors(tree, x, r):
+    return tree.query_radius(x, r, count_only=True)
+
+
+def build_tree(points, lf=5):
+    if points.shape[1] >= 20:
+        return BallTree(points, metric='chebyshev')
+
+    return KDTree(points, metric='chebyshev', leaf_size=lf)
+    # return KDTree(points, copy_data=True, leafsize = 5)
+
+
+def avgdigamma(points, dvec, lf=30, tree=None):
+    # This part finds number of neighbors in some radius in the marginal space
+    # returns expectation value of <psi(nx)>
+    if tree is None:
+        tree = build_tree(points, lf=lf)
+
+    dvec = dvec - 1e-15
+    num_points = count_neighbors(tree, points, dvec)
+    num_points = num_points.astype(float)
+
+    zero_inds = np.where(num_points == 0)[0]
+    if 1.0 * len(zero_inds) / len(num_points) > 0.01:
+        raise Exception('No neighbours in more than 1% points, check input!')
+    else:
+        if len(zero_inds) != 0:
+            num_points[zero_inds] = 0.5
+
+    # inf_inds = np.where(digamma(num_points) == -np.inf)
+    # print(num_points[inf_inds])
+
+    return np.mean(digamma(num_points))
+
+
+# CONTINUOUS ESTIMATORS
+
+def nonparam_entropy_c(x, k=DEFAULT_NN, base=np.e):
+    """ The classic K-L k-nearest neighbor continuous entropy estimator.
+    """
+    assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
+    # xs_columns = np.expand_dims(xs, axis=0).T
+    x = np.asarray(x)
+    if len(x.shape) == 1:
+        x = x.reshape(-1, 1)
+    n_elements, n_features = x.shape
+    x = add_noise(x)
+    tree = build_tree(x)
+    nn = query_neighbors(tree, x, k)
+    const = digamma(n_elements) - digamma(k) + n_features * log(2)
+    return (const + n_features * np.log(nn).mean()) / log(base)
+
+
+def nonparam_cond_entropy_cc(x, y, k=DEFAULT_NN, base=np.e):
+    """ The classic K-L k-nearest neighbor continuous entropy estimator for the
+        entropy of X conditioned on Y.
+    """
+    xy = np.c_[x, y]
+    entropy_union_xy = nonparam_entropy_c(xy, k=k, base=base)
+    entropy_y = nonparam_entropy_c(y, k=k, base=base)
+    return entropy_union_xy - entropy_y
+
+
+def nonparam_mi_cc(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
+                   lf=30, precomputed_tree_x=None, precomputed_tree_y=None):
+    """
+    Mutual information of x and y (conditioned on z if z is not None)
+    """
+    assert len(x) == len(y), "Arrays should have same length"
+    assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
+    x, y = np.asarray(x), np.asarray(y)
+    x, y = x.reshape(x.shape[0], -1), y.reshape(y.shape[0], -1)
+    x = add_noise(x)
+    y = add_noise(y)
+
+    points = [x, y]
+    if z is not None:
+        z = np.asarray(z)
+        z = z.reshape(z.shape[0], -1)
+        points.append(z)
+
+    points = np.hstack(points)
+
+    # Find nearest neighbors in joint space, p=inf means max-norm
+    tree = build_tree(points, lf=lf)
+    dvec = query_neighbors(tree, points, k)
+
+    if z is None:
+        a = avgdigamma(x, dvec, tree=precomputed_tree_x, lf=lf)
+        b = avgdigamma(y, dvec, tree=precomputed_tree_y, lf=lf)
+        c = digamma(k)
+        d = digamma(len(x))
+
+        # print(a, b, c, d)
+
+        if alpha > 0:
+            d += lnc_correction(tree, points, k, alpha)
+    else:
+        xz = np.c_[x, z]
+        yz = np.c_[y, z]
+        a, b, c, d = avgdigamma(xz, dvec), avgdigamma(
+            yz, dvec), avgdigamma(z, dvec), digamma(k)
+
+    return (-a - b + c + d) / log(base)
+
+
+def lnc_correction(tree, points, k, alpha):
+    e = 0
+    n_sample = points.shape[0]
+    for point in points:
+        # Find k-nearest neighbors in joint space, p=inf means max norm
+        knn = tree.query(point[None, :], k=k + 1, return_distance=False)[0]
+        knn_points = points[knn]
+        # Substract mean of k-nearest neighbor points
+        knn_points = knn_points - knn_points[0]
+        # Calculate covariance matrix of k-nearest neighbor points, obtain eigen vectors
+        covr = knn_points.T @ knn_points / k
+        _, v = la.eig(covr)
+        # Calculate PCA-bounding box using eigen vectors
+        V_rect = np.log(np.abs(knn_points @ v).max(axis=0)).sum()
+        # Calculate the volume of original box
+        log_knn_dist = np.log(np.abs(knn_points).max(axis=0)).sum()
+
+        # Perform local non-uniformity checking and update correction term
+        if V_rect < log_knn_dist + np.log(alpha):
+            e += (log_knn_dist - V_rect) / n_sample
+    return e
