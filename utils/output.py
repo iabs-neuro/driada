@@ -1,6 +1,5 @@
 from io import StringIO
 import sys
-import hashlib
 
 class Capturing(list):
     def __enter__(self):
@@ -19,9 +18,3 @@ def show(output):
     else:
         for s in output:
             print(s)
-
-def get_hash(data):
-    # Prepare the object hash
-    hash_id = hashlib.md5()
-    hash_id.update(repr(data).encode('utf-8'))
-    return hash_id.hexdigest()
