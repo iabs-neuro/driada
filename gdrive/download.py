@@ -3,6 +3,8 @@ from pydrive.drive import GoogleDrive
 from google.colab import auth
 from oauth2client.client import GoogleCredentials
 import warnings
+import wget
+import pandas as pd
 
 from ._gd_utils import *
 from ..utils.output import *
@@ -150,3 +152,19 @@ def download_gdrive_data(data_router, expname, aligned_only=False, whitelist=['T
                     print('--------------------------')
 
             return success, load_log
+
+
+def initialize_router():
+    if 'export?format=xlsx' in os.listdir('/content'):
+        os.remove('/content/export?format=xlsx')
+
+    global_data_table_url = 'https://docs.google.com/spreadsheets/d/130DDFAoAbmm0jcKLBF6xsWsQLDr2Zsj4cPuOYivXoM8/export?format=xlsx'
+    wget.download(global_data_table_url)
+
+    data_router = pd.read_excel('export?format=xlsx')
+    data_router.fillna(method='ffill', inplace=True)
+
+    data_pieces = list(data_router.columns.values)
+    data_pieces = [d for d in list(data_router.columns.values) if d not in ['Эксперимент', 'Краткое описание', 'Video',
+                                                                            'Aligned data', 'Computation results']]
+    return data_router, data_pieces
