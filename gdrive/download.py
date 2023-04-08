@@ -156,7 +156,7 @@ def download_gdrive_data(data_router, expname, aligned_only=False, whitelist=['T
 
 def initialize_router():
     if 'IABSexperimentsdata.xlsx' in os.listdir('/content'):
-        os.remove('/content/export?format=xlsx')
+        os.remove('/content/IABSexperimentsdata.xlsx')
 
     global_data_table_url = 'https://docs.google.com/spreadsheets/d/130DDFAoAbmm0jcKLBF6xsWsQLDr2Zsj4cPuOYivXoM8/export?format=xlsx'
     wget.download(global_data_table_url)
