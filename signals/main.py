@@ -152,3 +152,15 @@ class Signal():
             return self.ap_en
 
         return ApEn(self.data, 3, 1)
+
+
+def ts_wavelet_denoise(d, denoising_params):
+    new_d = np.zeros(len(d))
+    sig = Signal(d)
+    sig.get_idwt(**denoising_params)
+    try:
+        new_d = sig.idwt[:-1]
+    except:
+        new_d = sig.idwt
+
+    return new_d

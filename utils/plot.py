@@ -32,3 +32,12 @@ def create_default_figure(a=16, b=12):
     ax = make_beautiful(ax)
 
     return fig, ax
+
+
+def plot_mat(mat, a=12, b=12, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(a, b))
+
+    im = ax.imshow(mat)
+    cbar = ax.figure.colorbar(im, ax=ax)
+    return ax
