@@ -155,13 +155,13 @@ def download_gdrive_data(data_router, expname, aligned_only=False, whitelist=['T
 
 
 def initialize_router():
-    if 'export?format=xlsx' in os.listdir('/content'):
+    if 'IABSexperimentsdata.xlsx' in os.listdir('/content'):
         os.remove('/content/export?format=xlsx')
 
     global_data_table_url = 'https://docs.google.com/spreadsheets/d/130DDFAoAbmm0jcKLBF6xsWsQLDr2Zsj4cPuOYivXoM8/export?format=xlsx'
     wget.download(global_data_table_url)
 
-    data_router = pd.read_excel('export?format=xlsx')
+    data_router = pd.read_excel('IABSexperimentsdata.xlsx')
     data_router.fillna(method='ffill', inplace=True)
 
     data_pieces = list(data_router.columns.values)
