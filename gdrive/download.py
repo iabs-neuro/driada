@@ -5,7 +5,7 @@ from oauth2client.client import GoogleCredentials
 import warnings
 
 from ._gd_utils import *
-from utils.output import *
+from ..utils.output import *
 
 def retrieve_relevant_ids(folder, name_part, whitelist=[], extentions=['.csv', '.xlsx']):
     return_code = True
