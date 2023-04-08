@@ -1,8 +1,17 @@
 
-from .gdrive import download, upload
-from .information import gcmi, ksg, info_main
-from .signals import sig_main
-from .utils import data, naming, output, plot
+from .gdrive.download import *
+from .gdrive.upload import *
+
+from .information.gcmi import *
+from .information.ksg import *
+from .information.info_main import *
+
+from .signals.sig_main import *
+
+from .utils.data import *
+from .utils.naming import *
+from .utils.output import *
+from .utils.plot import *
 
 
 # TODO: probably add automatic scanning for every .py file (dangerous and not pythonic, but convenient)
