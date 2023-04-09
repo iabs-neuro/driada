@@ -2,11 +2,11 @@
 from .gdrive.download import *
 from .gdrive.upload import *
 
-from .information.gcmi import *
-from .information.ksg import *
 from .information.info_main import *
 
 from .signals.sig_main import *
+
+from .networks.net_main import *
 
 from .utils.data import *
 from .utils.naming import *
