@@ -1,4 +1,4 @@
-from _net_utils import *
+from ._net_utils import *
 import warnings
 import random
 
