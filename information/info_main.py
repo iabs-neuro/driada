@@ -119,12 +119,12 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     if not isinstance(ts2, TimeSeries):
         ts2 = TimeSeries(ts2)
 
-    if estimator == 'ksg':
-        x = ts1.scdata[::ds].reshape(-1, 1)
-        y = ts2.scdata[::ds]
-        if shift != 0:
-            y = np.roll(ts2.scdata, shift)
+    x = ts1.scdata[::ds].reshape(-1, 1)
+    y = ts2.scdata[::ds]
+    if shift != 0:
+        y = np.roll(ts2.scdata, shift)
 
+    if estimator == 'ksg':
         if not ts1.discrete and not ts2.discrete:
             mi = nonparam_mi_cc_mod(ts1.scdata, y, k=k,
                                     precomputed_tree_x=ts1.get_kdtree(),
@@ -144,9 +144,6 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
 
 
     elif estimator == 'gcmi':
-        x = ts1.scdata[::ds].reshape(-1, 1)
-        y = ts2.scdata[::ds]
-
         if not ts1.discrete and not ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
             ny2 = np.roll(ts2.copula_normal_data, shift)[::ds]
@@ -156,13 +153,13 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
             mi = mutual_info_classif(x, y, discrete_features=True, n_neighbors=k)[0]
 
         elif ts1.discrete and not ts2.discrete:
-            ny2 = ts2.copula_normal_data[::ds]
             ny1 = ts1.scdata.astype(int)[::ds]
+            ny2 = np.roll(ts2.copula_normal_data, shift)[::ds]
             mi = mi_model_gd(ny2, ny1, np.max(ny1), biascorrect=True, demeaned=True)
 
         elif not ts1.discrete and ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
-            ny2 = ts2.scdata.astype(int)[::ds]
+            ny2 = np.roll(ts2.scdata.astype(int), shift)[::ds]
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         return mi
