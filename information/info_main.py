@@ -35,7 +35,7 @@ class TimeSeries():
     def __init__(self, data, discrete=None):
         self.data = data
         if discrete is None:
-            warnings.warn('Time series type not specified and will be inferred automatically')
+            #warnings.warn('Time series type not specified and will be inferred automatically')
             self.discrete = TimeSeries.define_ts_type(data)
         else:
             self.discrete = discrete
