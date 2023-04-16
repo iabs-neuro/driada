@@ -89,7 +89,7 @@ def download_part_of_folder(
 
 
 def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
-                         via_pydrive=False, single_source=None):
+                         via_pydrive=False, data_pieces=None):
 
     with Capturing() as load_log:
         print('-------------------------------------------------------------')
@@ -109,26 +109,9 @@ def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
             links = dict(zip(row.columns, row.values[0]))
 
             os.makedirs(expname, exist_ok=True)
+            if data_pieces is None:
+                data_pieces = [d for d in list(data_router.columns.values) if d not in ['Эксперимент', 'Краткое описание', 'Video', 'Aligned data', 'Computation results']]
 
-            if single_source is not None:
-                dir = os.path.join(expname, single_source)
-                os.makedirs(dir, exist_ok=True)
-                return_code, rel, folder_log = download_part_of_folder(dir,
-                                                                       links[single_source],
-                                                                       key=expname,
-                                                                       via_pydrive=via_pydrive
-                                                                       )
-
-                load_log.extend(folder_log)
-
-                if len(rel) == 0:
-                    print(
-                        f'No relevant aligned data found for session {expname}, consider using "aligned_only = False"')
-                else:
-                    success = True
-                return success, load_log
-
-            data_pieces = [d for d in list(data_router.columns.values) if d not in ['Эксперимент', 'Краткое описание', 'Video', 'Aligned data', 'Computation results']]
             for key in data_pieces:
                 if 'http' in links[key]:
                     print(f'Loading data: {key}...')
