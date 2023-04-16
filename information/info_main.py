@@ -89,7 +89,8 @@ class TimeSeries():
             return self.entropy
 
         else:
-            raise AttributeError('Entropy for continuous variables is not yet implemented')
+            self.entropy = get_tdmi(self.scdata, min_shift=1, max_shift=2)[0]
+            #raise AttributeError('Entropy for continuous variables is not yet implemented')
 
 
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
