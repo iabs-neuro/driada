@@ -88,7 +88,9 @@ def download_part_of_folder(
         return return_code, rel, load_log
 
 
-def download_gdrive_data(data_router, expname, aligned_only=False, whitelist=['Timing.xlsx'], via_pydrive=False):
+def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
+                         via_pydrive=False, single_source=None):
+
     with Capturing() as load_log:
         print('-------------------------------------------------------------')
         print(f'Extracting data for {expname} from Google Drive')
@@ -108,12 +110,11 @@ def download_gdrive_data(data_router, expname, aligned_only=False, whitelist=['T
 
             os.makedirs(expname, exist_ok=True)
 
-            if aligned_only:
-                key = 'Aligned data'
-                dir = os.path.join(expname, key)
+            if single_source is not None:
+                dir = os.path.join(expname, single_source)
                 os.makedirs(dir, exist_ok=True)
                 return_code, rel, folder_log = download_part_of_folder(dir,
-                                                                       links[key],
+                                                                       links[single_source],
                                                                        key=expname,
                                                                        via_pydrive=via_pydrive
                                                                        )

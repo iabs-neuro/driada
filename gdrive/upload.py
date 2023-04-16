@@ -15,27 +15,35 @@ def get_datetime():
     dt_string = now.strftime("%d-%m-%Y %H:%M:%S")
     return dt_string
 
-def save_file_to_gdrive(data_router, expname, path_to_file = None, link = 'auto', force_rewriting = False):
+def save_file_to_gdrive(data_router, expname, path_to_file = None, link = None,
+                        destination = None, postfix = None, force_rewriting = False):
+
     auth.authenticate_user()
     gauth = GoogleAuth()
     gauth.credentials = GoogleCredentials.get_application_default()
     drive = GoogleDrive(gauth)
 
-    if path_to_file == None:
-        path_to_file = join(expname, 'Aligned data', expname + ' syn data.npz')
-
-    if link == 'auto':
+    if link is None:
         row = data_router[data_router['Эксперимент'] == expname]
         links = dict(zip(row.columns, row.values[0]))
-        link = links['Aligned data']
+        if destination not in links:
+            raise ValueError(f'Wrong folder name: {destination}')
+        link = links[destination]
 
     fid = id_from_link(link)
 
+    if postfix is None:
+        if destination == 'Aligned data':
+            postfix = ' syn data'
+
+    if path_to_file == None:
+        path_to_file = join(expname, destination, expname + postfix + '.npz')
+
     if force_rewriting:
-        dataname = expname + ' syn data.npz'
+        dataname = expname + postfix + '.npz'
     else:
         date_time = get_datetime()
-        dataname = expname + '_' + date_time + ' syn data.npz'
+        dataname = expname + '_' + date_time + postfix + '.npz'
 
     f = drive.CreateFile({'title': dataname, "parents": [{"kind": "drive#fileLink", "id": fid}]})
     f.SetContentFile(path_to_file)

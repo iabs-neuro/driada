@@ -209,6 +209,9 @@ def download_and_parse_google_drive_link(
 
 
 def id_from_link(link):
+    if 'http' not in link:
+        raise ValueError('Wrong link format')
+
     return link.split('/')[-1].split('?')[0]
 
 
