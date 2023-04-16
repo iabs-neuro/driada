@@ -74,9 +74,7 @@ class TimeSeries():
 
     def get_entropy(self):
         if self.entropy is None:
-            e = self._compute_entropy()
-            self.entropy = e
-
+            self._compute_entropy()
         return self.entropy
 
     def _compute_entropy(self):
@@ -86,12 +84,10 @@ class TimeSeries():
                 counts.append(len(np.where(self.data == val)[0]))
 
             self.entropy = scipy.stats.entropy(counts, base=np.e)
-            return self.entropy
 
         else:
             self.entropy = get_tdmi(self.scdata, min_shift=1, max_shift=2)[0]
-            #raise AttributeError('Entropy for continuous variables is not yet implemented')
-
+            #raise AttributeError('Entropy for continuous variables is not yet implemented'
 
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     """Computes mutual information between two 1d variables efficiently
