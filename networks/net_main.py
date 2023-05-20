@@ -399,17 +399,18 @@ class Network():
         nnndist = np.array([(nnnbs[i] - eigs[i]) for i in range(len(eigs))])
         zlist = np.array([(nnbs[i] - eigs[i]) / (nnnbs[i] - eigs[i]) for i in range(len(eigs))])
 
-        # plt.figure(figsize = (15,12))
-        # plt.scatter(zlist.real,zlist.imag)
         self.zvalues = zlist
 
-    def show(self, dtype=None, mode='adj'):
-        fig, ax = plt.subplots(figsize=(16, 16))
-
+    def show(self, dtype=None, mode='adj', ax=None):
         mat = getattr(self, mode)
         if mat is None:
-            self.diagonalize(mode=mode)
-        mat = getattr(self, mode)
+            if mode in ['lap', 'lap_out']:
+                mat = get_laplacian(self.adj)
+            elif mode == 'nlap':
+                mat = get_norm_laplacian(self.adj)
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(10, 10))
 
         if not dtype is None:
             # print(self.adj.astype(dtype).A)
@@ -517,19 +518,6 @@ class Network():
 
         self.ipr = ipr
         self.eigenvector_entropy = eig_entropy / np.log(self.n)
-
-    def calculate_von_neuman_entropy(self, corrmat_mode=0):
-        if self.directed:
-            raise Exception('not implemented')
-
-        if self.lap_spectrum is None:
-            self.diagonalize(mode='lap')
-
-        degrees = self.degrees
-        dg = sum(degrees)
-        eigs = sorted(np.real(self.lap_spectrum))[1:]
-        self.von_neuman_entropy = np.round(sum([-(l / dg) * np.log2(l / dg) for l in eigs]), 5)
-        # print('von Neuman entropy:', self.von_neuman_entropy)
 
     def calculate_tau_entropy(self, t, verbose=0):
         if not self.directed:
