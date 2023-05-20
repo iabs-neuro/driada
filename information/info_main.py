@@ -1,5 +1,7 @@
 import warnings
 
+import numpy as np
+
 from .ksg import *
 from .gcmi import *
 
@@ -167,3 +169,14 @@ def get_tdmi(data, min_shift = 1, max_shift = 100, nn = DEFAULT_NN):
     tdmi = [get_1d_mi(ts, ts, shift=shift, k=nn) for shift in range(min_shift, max_shift)]
 
     return tdmi
+
+
+def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
+
+    if ~np.all([ts.discrete for ts in tslist]) and not ts2.discrete:
+        nylist = [ts.copula_normal_data[::ds] for ts in tslist]
+        ny1 = np.vstack(nylist)
+        ny2 = np.roll(ts2.copula_normal_data, shift)[::ds]
+        mi = mi_gg(ny1, ny2, True, True)
+    else:
+        raise ValueError('Multidimensional MI only implemented for continuous data!')

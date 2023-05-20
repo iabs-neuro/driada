@@ -1,4 +1,5 @@
 from ._net_utils import *
+from ._matrix_utils import *
 from .randomization import *
 from ..utils.plot import *
 
@@ -53,7 +54,6 @@ class Network():
         self.comments = comments
         self.network_params = network_args
         self.spectrum_params = spectrum_args
-        self.connectivity_checked = check_connectivity
         self.create_nx_graph = create_nx_graph
 
         self.adj = None
@@ -76,6 +76,8 @@ class Network():
         self.preprocess_adj_and_pos(a, pos,
                                     check_connectivity)  # each network object has an adjacency matrix from its birth
         self.get_node_degrees()  # each network object has out- and in-degree sequences from its birth
+
+        self.connectivity_checked = check_connectivity
 
         self.lem_emb = None
         self.zvalues = None
@@ -184,8 +186,6 @@ class Network():
 
         if self.comments:
             print('Symmetry index:', get_symmetry_index(gc_adj))
-        # fig, ax = plt.subplots(figsize = (16,16))
-        # ax.matshow(self.adj.A)
 
     def randomize(self, rmode='adj'):
 
@@ -218,17 +218,6 @@ class Network():
 
         else:
             raise ValueError('Unknown randomization method')
-
-    def sausage_index(self, nn):
-        A = self.adj.A.astype(bool).astype(int)
-        sausage_edges = 0
-        for i in range(nn):
-            sausage_edges += sum(np.diag(A, k=i))
-
-        si = sausage_edges / (np.sum(A) / 2)
-        print('sausage edges:', sausage_edges)
-        print('other edges:', np.sum(A) / 2 - sausage_edges)
-        print('sausage index=', si)
 
     def get_node_degrees(self):
         # convert sparse matrix to 0-1 format and sum over specific axis
@@ -327,16 +316,13 @@ class Network():
             print('Preparing for diagonalization...')
 
         noise = self.spectrum_params['noise']
-        n_eigs = self.spectrum_params['n_eigs']
+        neigs = self.spectrum_params['neigs']
 
         outdegrees = self.outdegrees
         indegrees = self.indegrees
         degrees = self.degrees
-        # print(outdegrees)
-        # print(indegrees)
 
         A = self.adj.astype(float)
-        # plt.matshow(A.A)
         n = self.n
 
         if n != np.count_nonzero(outdegrees) and self.connectivity_checked:
@@ -346,7 +332,7 @@ class Network():
 
         nz = np.count_nonzero(degrees)
         if nz != n and self.connectivity_checked:
-            print('Graph has', str(n - nz), 'separate nodes!')
+            print('Graph has', str(n - nz), 'isolated nodes!')
             raise Exception('Graph is not connected!')
 
         if self.weighted:
