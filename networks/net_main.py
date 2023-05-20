@@ -335,45 +335,18 @@ class Network():
             print('Graph has', str(n - nz), 'isolated nodes!')
             raise Exception('Graph is not connected!')
 
-        if self.weighted:
-            if mode == 'lap' or mode == 'nlap':
-                if self.directed:
-                    diags = np.array(A.sum(axis=0)).ravel() + np.array(A.sum(axis=1)).ravel()
-                else:
-                    diags = np.array(A.sum(axis=0)).ravel()
-            elif mode == 'lap_out':
-                diags = np.array(A.sum(axis=0)).ravel()
-            elif mode == 'lap_in':
-                diags = np.array(A.sum(axis=1)).ravel()
+        if not self.weighted and not np.allclose(outdegrees, indegrees):
+            raise Exception('out- and in- degrees do not coincide in boolean')
 
-        else:
-            if mode == 'lap' or mode == 'nlap':
-                if not np.allclose(outdegrees, indegrees):
-                    raise Exception('out- and in- degrees do not coincide in boolean')
-                diags = degrees
-            elif mode == 'lap_out':
-                diags = outdegrees
-            elif mode == 'lap_in':
-                diags = indegrees
-
-        if mode == 'adj':
-            matrix = A
-
-        elif mode == 'lap' or mode == 'lap_out' or mode == 'lap_in':
-            D = sp.spdiags(diags, [0], n, n, format='csr')
-            matrix = D - A
-
+        if mode == 'lap' or mode == 'lap_out':
+            matrix = get_laplacian(A)
         elif mode == 'nlap':
-            diags_sqrt = 1.0 / np.sqrt(diags)
-            invdiags = 1.0 / (diags)
-            #diags_sqrt[isinf(diags_sqrt)] = 0
-            DH = sp.spdiags(diags_sqrt, [0], n, n, format='csr')
-            invD = sp.spdiags(invdiags, [0], n, n, format='csr')
-            matrix = sp.eye(n, dtype=float) - DH.dot(A.dot(DH))
-            # TM = A.dot(invD)
+            matrix = get_norm_laplacian(A)
+        elif mode == 'adj':
+            matrix = A.copy()
+        else:
+            raise Exception(f'diagonalization not implemented for type {mode}')
 
-        # get_symmetry_index(matrix.copy())
-        # self.show()
         if noise == 0:
             R = np.zeros((n, n))
         else:
