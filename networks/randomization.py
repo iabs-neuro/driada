@@ -1,4 +1,5 @@
 from ._net_utils import *
+from ._matrix_utils import *
 import warnings
 import random
 
@@ -104,14 +105,60 @@ def adj_random_rewiring_iom_preserving(a, is_weighted, r=10):
     return sp.csr_matrix(res)
 
 
-def random_rewiring_complete_graph(a):
-    if a.nnz != a.shape[0] ** 2 - a.shape[0]:
-        warnings.warn('Graph is not complete, proceding with gap filling trick')
+def random_rewiring_complete_graph(a, p=1.0):
+    # p ranges from 0 to 1 and defines the degree of reshuffling (percent of edges affected)
+    n = a.shape[0]
+    if len(np.nonzero(a)[0]) < n ** 2 - n:
+        raise Exception('Graph is not complete')
+
+    symmetric = np.allclose(a, a.T)
+
+    all_x_inds, all_y_inds = np.nonzero(a)
+    vals = a[all_x_inds, all_y_inds]
+    shuffled_positions = np.random.choice(np.arange((n ** 2 - n)),
+                                          replace=False,
+                                          size=int(p * (n ** 2 - n)))
+
+    shuffled_x_inds = all_x_inds[shuffled_positions]
+    shuffled_y_inds = all_y_inds[shuffled_positions]
+    shuffled_vals = vals[shuffled_positions]
+    np.random.shuffle(shuffled_vals)  # shuffling in-place
+
+    stable_part = a.copy()
+    if symmetric:
+        stable_part[shuffled_x_inds, shuffled_y_inds] = 0
+        stable_part[shuffled_y_inds, shuffled_x_inds] = 0
+    else:
+        stable_part[shuffled_x_inds, shuffled_y_inds] = 0
+
+    if symmetric:
+        shuffled_half = np.zeros(a.shape)
+        shuffled_half[shuffled_x_inds, shuffled_y_inds] = shuffled_vals
+        shuffled_part = (shuffled_half + shuffled_half.T) / 2.0
+    else:
+        shuffled_part = np.zeros(a.shape)
+        shuffled_part[shuffled_x_inds, shuffled_y_inds] = shuffled_vals
+
+    rewired = stable_part + shuffled_part
+
+    return rewired
+
+
+def random_rewiring_dense_graph(a):
+    if isinstance(a, np.ndarray):
+        afull = a
+        nelem = len(np.nonzero(a)[0])
+    else:
+        afull = a.A
+        nelem = a.nnz
+
+    if nelem != a.shape[0] ** 2 - a.shape[0]:
+        # warnings.warn('Graph is not complete, proceeding with gap filling trick')
         temp = 0.0001
     else:
         temp = 0
 
-    psA = a.A + np.full(a.shape, temp) - np.eye(a.shape[0]) * temp
+    psA = afull + np.full(a.shape, temp) - np.eye(a.shape[0]) * temp
     vals = psA[np.nonzero(np.triu(psA))]
     np.random.shuffle(vals)
 
@@ -120,7 +167,7 @@ def random_rewiring_complete_graph(a):
     rewired = tri + tri.T
     res = rewired - np.full(a.shape, temp) + np.eye(a.shape[0]) * temp
 
-    return sp.csr_matrix(res)
+    return res
 
 
 def get_single_double_edges_lists(g):
