@@ -1,8 +1,7 @@
-from ._matrix_utils import *
+from .matrix_utils import *
 from .randomization import *
 from .spectral import *
 
-import scipy
 from scipy import linalg as la
 from scipy.sparse.linalg import eigs
 from sklearn.neighbors import NearestNeighbors
@@ -411,24 +410,20 @@ class Network():
 
         return spectrum
 
-    def calculate_thermodynamic_entropy(self, t, verbose=0, norm=0):
+    def calculate_thermodynamic_entropy(self, tlist, verbose=0, norm=0):
         spectrum = self._get_lap_spectrum(norm=norm)
-        s = spectral_entropy(spectrum, t, verbose=verbose)
-        return s
+        res = [spectral_entropy(spectrum, t, verbose=verbose) for t in tlist]
+        return res
 
-    def calculate_free_energy(self, t, verbose=0, norm=0):
+    def calculate_free_energy(self, tlist, norm=0):
         spectrum = self._get_lap_spectrum(norm=norm)
-        z = free_energy(spectrum, t)
-        return z
+        res = [free_energy(spectrum, t) for t in tlist]
+        return res
 
-    def calculate_q_entropy(self, q, t, norm=0):
+    def calculate_q_entropy(self, q, tlist, norm=0):
         spectrum = self._get_lap_spectrum(norm=norm)
-        S = q_entropy(spectrum, t, q=q)
-
-        if np.imag(S) != 0:
-            raise Exception(f'Imaginary entropy detected: S={S}!')
-
-        return np.real(S)
+        res = [q_entropy(spectrum, t, q=q) for t in tlist]
+        return res
 
     def calculate_estrada_index(self):
         adj_spectrum = self.get_spectrum('adj')

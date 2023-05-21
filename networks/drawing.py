@@ -1,5 +1,5 @@
 from ..utils.plot import *
-from ._matrix_utils import *
+from .matrix_utils import *
 import numpy as np
 import networkx as nx
 from itertools import combinations

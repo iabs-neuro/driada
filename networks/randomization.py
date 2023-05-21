@@ -1,5 +1,5 @@
-from ._net_utils import *
-from ._matrix_utils import *
+from .net_utils import *
+from .matrix_utils import *
 import warnings
 import random
 
