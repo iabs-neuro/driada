@@ -1,6 +1,6 @@
 
-from .gdrive.download import *
-from .gdrive.upload import *
+#from .gdrive.download import *
+#from .gdrive.upload import *
 
 from .information.info_main import *
 
