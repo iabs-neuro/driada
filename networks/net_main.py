@@ -76,8 +76,8 @@ def create_adj_from_graphml(datapath, graph=None, gc_checked=0, info=0,
 class Network():
     ''''''
 
-    def __init__(self, a, pos, network_args, spectrum_args, real_world=0,
-                 coords=None, comments=0, check_connectivity=1, create_nx_graph=1):
+    def __init__(self, a, network_args, spectrum_args, pos=None, real_world=0,
+                 verbose=0, check_connectivity=1, create_nx_graph=1):
 
         self.directed = network_args['directed']
         if self.directed is None:
@@ -87,7 +87,7 @@ class Network():
         check_directed(self.directed, real_world)
 
         self.real_world = real_world
-        self.comments = comments
+        self.verbose = verbose
         self.network_params = network_args
         self.spectrum_params = spectrum_args
         self.create_nx_graph = create_nx_graph
@@ -96,8 +96,7 @@ class Network():
             setattr(self, mt, None)
             setattr(self, mt + '_eigenvectors', None)
 
-        self._preprocess_adj_and_pos(a, pos,
-                                    check_connectivity)  # each network object has an adjacency matrix from its birth
+        self._preprocess_adj_and_pos(a, check_connectivity, pos=pos)  # each network object has an adjacency matrix from its birth
         self.get_node_degrees()  # each network object has out- and in-degree sequences from its birth
 
         self.connectivity_checked = check_connectivity
@@ -107,7 +106,7 @@ class Network():
         self.ipr = None
         self.erdos_entropy = None
 
-    def _preprocess_adj_and_pos(self, a, pos, check_connectivity):
+    def _preprocess_adj_and_pos(self, a, check_connectivity, pos=None):
         '''
         This method is closely tied with Network.__init__() and is needed for graph preprocessing.
         Each network is characterized by an input adjacency matrix. This matrix should
@@ -155,17 +154,17 @@ class Network():
                 # Graph (or DiGraph) G contains all information from sparse matrix res and vice versa.
                 #############################
 
-                if self.comments:
+                if self.verbose:
                     print('Obtaining giant component...')
                 gc = take_giant_component(G)  # cleared version of a graph
                 gc_adj = create_adj_from_graphml(None, graph=gc, gc_checked=1, info=self.real_world,
                                                  directed=directed, weighted=weighted)
 
                 lost_nodes = G.number_of_nodes() - gc.number_of_nodes()
-                if lost_nodes > 0 and self.comments:
+                if lost_nodes > 0 and self.verbose:
                     print('WARNING: %d nodes lost after giant component creation!' % lost_nodes)
 
-                if self.real_world and self.comments:
+                if self.real_world and self.verbose:
                     print("Number of nodes in GC:", nx.number_of_nodes(gc))
                     print("Number of edges in GC: ", nx.number_of_edges(gc))
                     print('Density of GC: ', 100 * nx.density(gc), "%")
@@ -196,9 +195,8 @@ class Network():
                 raise Exception('not implemented yet')
 
         # add node positions if provided
-        if not pos is None:
-            final_position_list = {node: pos[node] for node in init_g.nodes() if node in gc.nodes()}
-            self.pos = final_position_list
+        if pos is not None:
+            self.pos = {node: pos[node] for node in init_g.nodes() if node in gc.nodes()}
         else:
             self.pos = None
 
@@ -207,7 +205,7 @@ class Network():
         self.adj = gc_adj
         self.n = nx.number_of_nodes(self.graph)
 
-        if self.comments:
+        if self.verbose:
             print('Symmetry index:', get_symmetry_index(gc_adj))
 
     def randomize(self, rmode='adj'):
@@ -220,7 +218,7 @@ class Network():
             new_graph = random_rewiring_IOM_preserving(g, r=10)
             a = nx.adjacency_matrix(new_graph)
             new_net = Network(a, None, self.network_params, self.spectrum_params,
-                              real_world=0, comments=0)
+                              real_world=0, verbose=0)
             return new_net
 
         elif rmode == 'adj':
@@ -229,13 +227,13 @@ class Network():
                                                           r=10)
 
             rand_net = Network(rand_adj, None, self.network_params, self.spectrum_params,
-                               real_world=0, comments=0)
+                               real_world=0, verbose=0)
             return rand_net
 
         elif rmode == 'complete':
             rand_adj = random_rewiring_complete_graph(self.adj)
             rand_net = Network(rand_adj, None, self.network_params, self.spectrum_params,
-                               real_world=0, comments=0)
+                               real_world=0, verbose=0)
             return rand_net
 
         else:
@@ -294,7 +292,7 @@ class Network():
 
     def diagonalize(self, mode='lap_out'):
         check_matrix_type(mode)
-        if self.comments:
+        if self.verbose:
             print('Preparing for diagonalization...')
 
         noise = self.spectrum_params['noise']
@@ -334,7 +332,7 @@ class Network():
         else:
             R = np.multiply(matrix.A, np.random.normal(loc=0.0, scale=noise, size=(n, n)))
 
-        if self.comments:
+        if self.verbose:
             print('Performing diagonalization...')
 
         # raw_eigs, right_eigvecs = np.linalg.eig(matrix.A + R)
@@ -356,17 +354,17 @@ class Network():
         sorted_eigenvectors = right_eigvecs[np.ix_(range(len(eigs)), np.argsort(raw_eigs))]
         setattr(self, mode + '_eigenvectors', sorted_eigenvectors)
 
-        if self.comments:
+        if self.verbose:
             print('Diagonalization finished')
 
     def calculate_z_values(self, mode='lap_out'):
         spectrum = self.get_spectrum(mode)
 
         eigs = sorted(list(set(spectrum)), key=np.abs)
-        if len(eigs) != len(spectrum) and self.comments:
+        if len(eigs) != len(spectrum) and self.verbose:
             print('WARNING:', len(spectrum) - len(eigs), 'repeated eigenvalues discarded')
 
-        if self.comments:
+        if self.verbose:
             print('Computing nearest neighbours...')
 
         X = np.array([[np.real(x), np.imag(x)] for x in eigs])
@@ -438,7 +436,7 @@ class Network():
         rvals = [1. / (np.abs(z)) ** 2 for z in zvals]
         mean_inv_r_sq = np.mean(np.array(rvals))
 
-        if self.comments:
+        if self.verbose:
             print('mean cos phi complex:', mean_cos_phi)
             print('mean 1/r^2 real:', mean_inv_r_sq)
 
