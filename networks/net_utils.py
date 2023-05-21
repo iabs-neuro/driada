@@ -1,5 +1,5 @@
 import networkx as nx
-from randomization import *
+from .randomization import *
 
 def take_giant_component(G):
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph

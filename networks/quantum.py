@@ -1,4 +1,4 @@
-from matrix_utils import *
+from .matrix_utils import *
 import scipy
 from scipy.linalg import expm
 import math
