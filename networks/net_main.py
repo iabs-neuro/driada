@@ -1,14 +1,12 @@
-from ._net_utils import *
 from ._matrix_utils import *
 from .randomization import *
+from .spectral import *
 
 import scipy
 from scipy import linalg as la
 from scipy.sparse.linalg import eigs
 from sklearn.neighbors import NearestNeighbors
-from itertools import combinations
 from scipy.stats import entropy
-from matplotlib import cm
 
 MATRIX_TYPES = ['adj', 'lap', 'nlap', 'lap_out', 'lap_in']
 
@@ -41,6 +39,39 @@ def check_weights_and_directions(a, weighted, directed):
         raise Exception('Error in network construction, check directions')
     if is_weighted != bool(weighted):
         raise Exception('Error in network construction, check weights')
+
+
+def create_adj_from_graphml(datapath, graph=None, gc_checked=0, info=0,
+                            directed=0, weighted=0, edges_to_delete=None,
+                            nodes_to_delete=None):
+    if graph is None:
+        init_g = nx.read_graphml(datapath)
+        # init_g = nx.convert_node_labels_to_integers(init_g)
+    else:
+        init_g = graph
+
+    if not (nodes_to_delete is None):
+        init_g.remove_nodes_from(nodes_to_delete)
+
+    if not (edges_to_delete is None):
+        for e in edges_to_delete:
+            # print(e)
+            print(init_g.has_edge(e[0], e[1]))
+        init_g.remove_edges_from(edges_to_delete)
+
+    if gc_checked:
+        g = init_g
+    else:
+        G = remove_isolates_and_selfloops_from_graph(init_g)
+        lost_nodes = init_g.number_of_nodes() - G.number_of_nodes()
+        lost_edges = init_g.number_of_edges() - G.number_of_edges()
+        print('%d isolated nodes and %d selfloops killed' % (lost_nodes, lost_edges))
+        g = take_giant_component(G)
+        lost_nodes = G.number_of_nodes() - g.number_of_nodes()
+        if lost_nodes > 0:
+            print('WARNING: %d nodes lost after giant component creation!' % lost_nodes)
+
+    return nx.adjacency_matrix(g)
 
 
 class Network():
@@ -262,18 +293,6 @@ class Network():
 
         return eigenvectors
 
-    def draw_spectrum(self, mode='adj', ax=None, colors=None):
-        spectrum = self.get_spectrum(mode)
-        data = np.array(sorted(list(set(spectrum)), key=np.abs))
-
-        if ax is None:
-            fig, ax = create_default_figure(12,10)
-
-        if self.directed:
-            ax.scatter(data.real, data.imag, cmap='Spectral', c=colors)
-        else:
-            ax.hist(data.real, bins=50)
-
     def diagonalize(self, mode='lap_out'):
         check_matrix_type(mode)
         if self.comments:
@@ -362,102 +381,6 @@ class Network():
 
         self.zvalues = zlist
 
-    def show(self, dtype=None, mode='adj', ax=None):
-        mat = getattr(self, mode)
-        if mat is None:
-            if mode in ['lap', 'lap_out']:
-                mat = get_laplacian(self.adj)
-            elif mode == 'nlap':
-                mat = get_norm_laplacian(self.adj)
-
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 10))
-
-        if not dtype is None:
-            # print(self.adj.astype(dtype).A)
-            ax.matshow(mat.astype(dtype).A)
-        else:
-            ax.matshow(mat.A)
-
-    def draw_eigenvectors(self, left_ind, right_ind, mode='adj'):
-        import matplotlib as mpl
-        spectrum = self.get_spectrum(mode)
-        eigenvectors = getattr(self, mode + '_eigenvectors')
-
-        vecs = np.real(eigenvectors[:, left_ind: right_ind + 1])
-        # vecs = np.abs(self.eigenvectors[:, left_ind: right_ind+1])
-        eigvals = np.real(spectrum[left_ind: right_ind + 1])
-
-        npics = vecs.shape[1]
-        pics_in_a_row = np.ceil(np.sqrt(npics))
-        pics_in_a_col = np.ceil(1.0 * npics / pics_in_a_row)
-        fig, ax = create_default_figure(16,12)
-        # ax = fig.add_subplot(111)
-        plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9,
-                            hspace=0.2, wspace=0.1)
-
-        if self.pos is None:
-            # pos = nx.layout.spring_layout(self.graph)
-            pos = nx.drawing.layout.circular_layout(self.graph)
-        else:
-            pos = self.pos
-
-        xpos = [p[0] for p in pos.values()]
-        ypos = [p[1] for p in pos.values()]
-
-        nodesize = np.sqrt(self.scaled_outdegrees) * 100 + 10
-        anchor_for_colorbar = None
-        for i in range(npics):
-            vec = vecs[:, i]
-            ax = fig.add_subplot(pics_in_a_col, pics_in_a_row, i + 1)
-            '''
-            ax.set(xlim=(min(xpos)-0.1*abs(min(xpos)), max(xpos)+0.1*abs(max(xpos))),
-                   ylim=(min(ypos)-0.1*abs(min(ypos)), max(ypos)+0.1*abs(max(ypos))))
-            '''
-            text = 'eigenvector ' + str(i + 1) + ' lambda ' + str(np.round(eigvals[i], 3))
-            ax.set_title(text)
-            options = {
-                'node_color': vec,
-                'node_size': nodesize,
-                'cmap': cm.get_cmap('Spectral')
-            }
-
-            nodes = nx.draw_networkx_nodes(self.graph, pos, **options)
-            if anchor_for_colorbar is None:
-                anchor_for_colorbar = nodes
-            # edges = nx.draw_networkx_edges(self.graph, pos, **options)
-            # pc, = mpl.collections.PatchCollection(nodes, cmap = options['cmap'])
-            # pc.set_array(edge_colors)
-            nodes.set_clim(vmin=min(vec) * 1.1, vmax=max(vec) * 1.1)
-            plt.colorbar(anchor_for_colorbar)
-
-        plt.show()
-
-    def draw_net(self, colors=None, ax=None):
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(16, 12))
-
-        if self.pos is None:
-            print('Node positions not found, auto layout was constructed')
-            pos = nx.layout.spring_layout(self.graph)
-            # pos = nx.drawing.layout.circular_layout(self.graph)
-        else:
-            pos = self.pos
-
-        xpos = [p[0] for p in pos.values()]
-        ypos = [p[1] for p in pos.values()]
-
-        nodesize = np.sqrt(self.scaled_outdegrees) * 100 + 10
-        options = {
-            'node_size': nodesize,
-            'cmap': cm.get_cmap('Spectral'),
-            'ax': ax
-        }
-
-        nodes = nx.draw_networkx_nodes(self.graph, pos, node_color=colors, **options)
-        edges = nx.draw_networkx_edges(self.graph, pos, **options)
-
-        plt.show()
 
     def calculate_ipr(self, mode='adj'):
         eigenvectors = self.get_eigenvectors(mode)
@@ -488,73 +411,30 @@ class Network():
 
         return spectrum
 
-    def calculate_tau_entropy(self, t, verbose=0, norm=0):
+    def calculate_thermodynamic_entropy(self, t, verbose=0, norm=0):
         spectrum = self._get_lap_spectrum(norm=norm)
-        eigenvalues = np.exp(-t * spectrum)
-        norm_eigenvalues = np.trim_zeros(np.real(eigenvalues / np.sum(eigenvalues)))
+        s = spectral_entropy(spectrum, t, verbose=verbose)
+        return s
 
-        if verbose:
-            print('eigenvalues:', eigenvalues)
-            print('norm eigenvalues:', norm_eigenvalues)
+    def calculate_free_energy(self, t, verbose=0, norm=0):
+        spectrum = self._get_lap_spectrum(norm=norm)
+        z = free_energy(spectrum, t)
+        return z
 
-        # justification: https://journals.aps.org/prx/abstract/10.1103/PhysRevX.6.041062
-        S = -np.sum(np.multiply(norm_eigenvalues, np.log2(norm_eigenvalues)))
-        return S
-
-    def calculate_free_entropy(self, t, verbose=0):
-        if not self.directed:
-            if self.lap_spectrum is None:
-                self.diagonalize(mode='lap')
-            eigenvalues = np.exp(-t * self.lap_spectrum)
-
-        else:
-            if self.lap_out_spectrum is None:
-                self.diagonalize(mode='lap_out')
-            eigenvalues = np.exp(-t * self.lap_out_spectrum)
-
-        if verbose:
-            print('eigenvalues:', eigenvalues)
-
-        # justification: https://www.nature.com/articles/s42005-021-00582-8
-        F = np.log2(np.real(np.sum(eigenvalues)))
-        return F
-
-    def calculate_q_entropy(self, q, t):
-        if not self.directed:
-            if self.lap_spectrum is None:
-                self.diagonalize(mode='lap')
-            eigenvalues = np.exp(-t * q * self.lap_spectrum)
-            Z = np.sum(np.exp(-t * self.lap_spectrum))
-
-        else:
-            if self.lap_out_spectrum is None:
-                self.diagonalize(mode='lap_out')
-            eigenvalues = np.exp(-t * q * self.lap_out_spectrum)
-            Z = np.sum(np.exp(-t * self.lap_out_spectrum))
-
-        if q <= 0:
-            raise Exception('q must be >0')
-
-        else:
-            if q != 1:
-                S = 1 / (1 - q) * np.log(Z ** (-q) * np.sum(eigenvalues)) / np.log(2)
-            else:
-                norm_eigenvalues = np.trim_zeros(eigenvalues / Z)
-                S = -np.real(np.sum(np.multiply(norm_eigenvalues, np.log2(norm_eigenvalues))))
+    def calculate_q_entropy(self, q, t, norm=0):
+        spectrum = self._get_lap_spectrum(norm=norm)
+        S = q_entropy(spectrum, t, q=q)
 
         if np.imag(S) != 0:
-            print(q)
-            print(S)
-            raise Exception('Imaginary entropy detected!')
+            raise Exception(f'Imaginary entropy detected: S={S}!')
 
         return np.real(S)
 
     def calculate_estrada_index(self):
 
-        if self.adj_spectrum is None:
-            self.diagonalize(mode='adj')
+        adj_spectrum = self.get_spectrum('adj')
 
-        self.estrada_index = sum([np.exp(l) for l in self.adj_spectrum])
+        self.estrada_index = sum([np.exp(e) for e in adj_spectrum])
         # print('von Neuman entropy:', self.von_neuman_entropy)
 
     def localization_signatures(self):
@@ -579,112 +459,24 @@ class Network():
         A = self.adj
         A = A.asfptype()
         print('Performing spectral decomposition...')
-        K = A.shape[0]  # number of nodes, each representing a data point
-
-        diags = A.sum(axis=1).flatten()
-        with scipy.errstate(divide='ignore'):
-            diags_sqrt = 1.0 / scipy.sqrt(diags)
-            invdiags = 1.0 / (diags)
-        diags_sqrt[scipy.isinf(diags_sqrt)] = 0
-        DH = scipy.sparse.spdiags(diags_sqrt, [0], K, K, format='csr')
-        invD = scipy.sparse.spdiags(invdiags, [0], K, K, format='csr')
-
-        nL = sp.eye(K) - DH.dot(A.dot(DH))
-        X = A.dot(invD)
+        K = A.shape[0]
+        NL = get_norm_laplacian(A)
+        DH = get_inv_sqrt_diag_matrix(A)
 
         start_v = np.ones(K)
-        eigvals, eigvecs = eigs(X, k=dim + 1, which='LR', v0=start_v, maxiter=K * 1000)
+        eigvals, eigvecs = eigs(NL, k=dim + 1, which='LR', v0=start_v, maxiter=K * 1000)
         eigvals = np.asarray([np.round(np.real(x), 6) for x in eigvals])
 
         if np.count_nonzero(eigvals == 1.0) > 1:
             raise Exception('Error while LEM embedding construction: graph is not connected!')
         else:
             vecs = eigvecs.T[1:]
-            print('max X eigs:', eigvals)
-            reseigs = [np.round(1 - e, 5) for e in eigvals]
-
             vec_norms = np.array([np.real(sum([x * x for x in v])) for v in vecs])
             vecs = vecs / vec_norms[:, np.newaxis]
-            vecs = sp.csr_matrix(vecs, dtype=float).dot(DH)
-            print('min NL eigs', reseigs)
-
-            print('Check of eigenvectors:')
-            coslist = [0] * (dim)
-            for i in range(dim):
-                vec = vecs[i]
-                cvec = vec.dot(nL)
-                coslist[i] = np.round((cvec.dot(vec.T) / sp.linalg.norm(cvec) / sp.linalg.norm(vec)).sum(), 3)
-                if coslist[i] != 1.0:
-                    print('WARNING: cos', i + 1, ' = ', (coslist[i]))
-
-            if sum(coslist) == int(dim):
-                print('Eigenvectors confirmed')
-            else:
-                raise Exception('Eigenvectors not confirmed!')
-                print(coslist)
+            # explanation: https://jlmelville.github.io/smallvis/spectral.html
+            vecs = DH.dot(sp.csr_matrix(vecs, dtype=float))
 
             self.lem_emb = vecs
 
-    def plot_lem_embedding(self, ndim, colors=None):
-
-        if self.lem_emb is None:
-            self.construct_lem_embedding(ndim)
-
-        if colors is None:
-            colors = np.zeros(self.lem_emb.shape[1])
-            colors = range(self.lem_emb.shape[1])
-
-        psize = 10
-        data = self.lem_emb.A
-        pairs = list(combinations(np.arange(ndim), 2))
-        npics = len(pairs)
-        pics_in_a_row = np.ceil(np.sqrt(npics))
-        pics_in_a_col = np.ceil(1.0 * npics / pics_in_a_row)
-
-        fig = plt.figure(figsize=(20, 20))
-        fig.suptitle('Projections')
-        for i in range(len(pairs)):
-            ax = fig.add_subplot(pics_in_a_row, pics_in_a_col, i + 1)
-            i1, i2 = pairs[i]
-            scatter = ax.scatter(data[i1, :], data[i2, :], c=colors, s=psize)
-
-            legend = ax.legend(*scatter.legend_elements(),
-                               loc="upper left", title="Classes")
-
-            ax.text(min(data[i1, :]), min(data[i2, :]), 'axes ' + str(i1 + 1) + ' vs.' + str(i2 + 1),
-                    bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 10})
-            # ax.add_artist(legend)
-
-def create_adj_from_graphml(datapath, graph=None, gc_checked=0, info=0,
-                            directed=0, weighted=0, edges_to_delete=None,
-                            nodes_to_delete=None):
-    if graph is None:
-        init_g = nx.read_graphml(datapath)
-        # init_g = nx.convert_node_labels_to_integers(init_g)
-    else:
-        init_g = graph
-
-    if not (nodes_to_delete is None):
-        init_g.remove_nodes_from(nodes_to_delete)
-
-    if not (edges_to_delete is None):
-        for e in edges_to_delete:
-            # print(e)
-            print(init_g.has_edge(e[0], e[1]))
-        init_g.remove_edges_from(edges_to_delete)
-
-    if gc_checked:
-        g = init_g
-    else:
-        G = remove_isolates_and_selfloops_from_graph(init_g)
-        lost_nodes = init_g.number_of_nodes() - G.number_of_nodes()
-        lost_edges = init_g.number_of_edges() - G.number_of_edges()
-        print('%d isolated nodes and %d selfloops killed' % (lost_nodes, lost_edges))
-        g = take_giant_component(G)
-        lost_nodes = G.number_of_nodes() - g.number_of_nodes()
-        if lost_nodes > 0:
-            print('WARNING: %d nodes lost after giant component creation!' % lost_nodes)
-
-    return nx.adjacency_matrix(g)
 
 

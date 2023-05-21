@@ -166,16 +166,25 @@ def get_laplacian(A):
     L = D - A
     return L
 
-def get_norm_laplacian(a):
+
+def get_inv_sqrt_diag_matrix(a):
     n = a.shape[0]
     A = sp.csr_matrix(a)
     out_degrees = np.array(A.sum(axis=0)).ravel()
     diags_sqrt = 1.0 / np.sqrt(out_degrees)
-    invdiags = 1.0 / (out_degrees)
 
     diags_sqrt[np.isinf(diags_sqrt)] = 0
     DH = sp.spdiags(diags_sqrt, [0], n, n, format='csr')
-    invD = sp.spdiags(invdiags, [0], n, n, format='csr')
+    return DH
+
+
+def get_norm_laplacian(a):
+    if get_symmetry_index(a) != 1:
+        raise Exception('Cannot construct normalized laplacian matrix from a non-hermitian adjacency matrix')
+
+    n = a.shape[0]
+    A = sp.csr_matrix(a)
+    DH = get_inv_sqrt_diag_matrix(A)
     matrix = sp.eye(n, dtype=float) - DH.dot(A.dot(DH))
     return matrix
 
