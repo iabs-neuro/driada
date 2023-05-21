@@ -431,11 +431,8 @@ class Network():
         return np.real(S)
 
     def calculate_estrada_index(self):
-
         adj_spectrum = self.get_spectrum('adj')
-
         self.estrada_index = sum([np.exp(e) for e in adj_spectrum])
-        # print('von Neuman entropy:', self.von_neuman_entropy)
 
     def localization_signatures(self):
         if self.zvalues is None:
