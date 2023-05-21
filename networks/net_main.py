@@ -1,6 +1,8 @@
 from .matrix_utils import *
 from .randomization import *
+from .drawing import *
 from .spectral import *
+from quantum import *
 
 from scipy import linalg as la
 from scipy.sparse.linalg import eigs
