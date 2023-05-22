@@ -2,7 +2,7 @@ from .matrix_utils import *
 from .randomization import *
 from .drawing import *
 from .spectral import *
-from quantum import *
+from .quantum import *
 
 from scipy import linalg as la
 from scipy.sparse.linalg import eigs
@@ -219,7 +219,7 @@ class Network():
 
             new_graph = random_rewiring_IOM_preserving(g, r=10)
             a = nx.adjacency_matrix(new_graph)
-            new_net = Network(a, None, self.network_params, self.spectrum_params,
+            new_net = Network(a, self.network_params, self.spectrum_params,
                               real_world=0, verbose=0)
             return new_net
 
@@ -228,13 +228,13 @@ class Network():
                                                           is_weighted=self.weighted,
                                                           r=10)
 
-            rand_net = Network(rand_adj, None, self.network_params, self.spectrum_params,
+            rand_net = Network(rand_adj, self.network_params, self.spectrum_params,
                                real_world=0, verbose=0)
             return rand_net
 
         elif rmode == 'complete':
             rand_adj = random_rewiring_complete_graph(self.adj)
-            rand_net = Network(rand_adj, None, self.network_params, self.spectrum_params,
+            rand_net = Network(rand_adj, self.network_params, self.spectrum_params,
                                real_world=0, verbose=0)
             return rand_net
 
@@ -270,7 +270,7 @@ class Network():
         elif mode == 'in':
             degrees = self.indegrees
 
-        hist, bins = np.histogram(degrees, bins=max(degrees) - min(degrees), density=1)
+        hist, bins = np.histogram(degrees, bins=max(degrees) - min(degrees), density=True)
         return hist
 
 
