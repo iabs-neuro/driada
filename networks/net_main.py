@@ -116,8 +116,11 @@ class Network():
         In other words, it is directed/undirected and weighted/unweighted depending on initial
         settings.
         '''
+
+        '''
         if not sp.issparse(a):
             raise Exception('non-sparse matrix parsed to network constructor!')
+        '''
         # three main network characteristics define 8 types of networks
         directed = self.directed
         weighted = self.weighted
@@ -143,7 +146,7 @@ class Network():
                 else:
                     raise Exception('Wrong input parsed to preprocess_adj_matrix function:', type(a))
 
-                init_g = nx.from_scipy_sparse_matrix(res, create_using=gtype)
+                init_g = nx.from_scipy_sparse_array(res, create_using=gtype)
                 G = remove_isolates_and_selfloops_from_graph(init_g)  # overkill for safety
                 lost_nodes = init_g.number_of_nodes() - G.number_of_nodes()
                 lost_edges = init_g.number_of_edges() - G.number_of_edges()
@@ -152,8 +155,8 @@ class Network():
 
                 #############################
                 # At this point isolated nodes and selfloops have been removed from graph.
-                # An isolated node is a node with zero out-, in- or both degrees, depending on algorithm.
-                # Graph (or DiGraph) G contains all information from sparse matrix res and vice versa.
+                # An isolated node is a node with zero out-, in- or both degrees, depending on the algorithm.
+                # Graph (or DiGraph) 'G' contains all information from sparse matrix 'res' and vice versa.
                 #############################
 
                 if self.verbose:
