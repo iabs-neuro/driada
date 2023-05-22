@@ -96,6 +96,7 @@ class Network():
 
         for mt in MATRIX_TYPES:
             setattr(self, mt, None)
+            setattr(self, mt + 'spectrum', None)
             setattr(self, mt + '_eigenvectors', None)
 
         self._preprocess_adj_and_pos(a, check_connectivity, pos=pos)  # each network object has an adjacency matrix from its birth
@@ -151,7 +152,7 @@ class Network():
                 lost_nodes = init_g.number_of_nodes() - G.number_of_nodes()
                 lost_edges = init_g.number_of_edges() - G.number_of_edges()
                 if lost_nodes + lost_edges != 0:
-                    print('%d isolated nodes and %d selfloops killed' % (lost_nodes, lost_edges))
+                    print('%d isolated nodes and %d selfloops removed' % (lost_nodes, lost_edges))
 
                 #############################
                 # At this point isolated nodes and selfloops have been removed from graph.
@@ -193,7 +194,7 @@ class Network():
             gc_adj = a
 
             if self.create_nx_graph:
-                gc = nx.from_scipy_sparse_matrix(a, create_using=gtype)
+                gc = nx.from_scipy_sparse_array(a, create_using=gtype)
                 init_g = gc
             else:
                 gc = None
