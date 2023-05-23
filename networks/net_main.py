@@ -79,7 +79,7 @@ class Network():
     ''''''
 
     def __init__(self, a, network_args, spectrum_args, pos=None, real_world=0,
-                 verbose=0, check_connectivity=1, create_nx_graph=1):
+                 verbose=0, check_connectivity=1, create_nx_graph=1, node_attrs=None):
 
         self.directed = network_args['directed']
         if self.directed is None:
@@ -99,7 +99,8 @@ class Network():
             setattr(self, mt + '_spectrum', None)
             setattr(self, mt + '_eigenvectors', None)
 
-        self._preprocess_adj_and_pos(a, check_connectivity, pos=pos)  # each network object has an adjacency matrix from its birth
+        self._preprocess_adj_and_pos(a, check_connectivity,
+                                     pos=pos, node_attrs=node_attrs)  # each network object has an adjacency matrix from its birth
         self.get_node_degrees()  # each network object has out- and in-degree sequences from its birth
 
         self.connectivity_checked = check_connectivity
@@ -109,7 +110,7 @@ class Network():
         self.ipr = None
         self.erdos_entropy = None
 
-    def _preprocess_adj_and_pos(self, a, check_connectivity, pos=None):
+    def _preprocess_adj_and_pos(self, a, check_connectivity, pos=None, node_attrs=None):
         '''
         This method is closely tied with Network.__init__() and is needed for graph preprocessing.
         Each network is characterized by an input adjacency matrix. This matrix should
@@ -205,6 +206,11 @@ class Network():
             self.pos = {node: pos[node] for node in init_g.nodes() if node in gc.nodes()}
         else:
             self.pos = None
+
+        if node_attrs is not None:
+            self.node_attrs = {node: node_attrs[node] for node in init_g.nodes() if node in gc.nodes()}
+        else:
+            self.node_attrs = None
 
         # self.graph = nx.from_scipy_sparse_matrix(final, create_using=nx.DiGraph())
         self.graph = gc
