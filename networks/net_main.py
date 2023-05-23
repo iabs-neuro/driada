@@ -96,7 +96,7 @@ class Network():
 
         for mt in MATRIX_TYPES:
             setattr(self, mt, None)
-            setattr(self, mt + 'spectrum', None)
+            setattr(self, mt + '_spectrum', None)
             setattr(self, mt + '_eigenvectors', None)
 
         self._preprocess_adj_and_pos(a, check_connectivity, pos=pos)  # each network object has an adjacency matrix from its birth
