@@ -3,6 +3,7 @@ from .matrix_utils import *
 import numpy as np
 import networkx as nx
 from itertools import combinations
+from matplotlib import cm
 
 def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
     if not net.directed:
@@ -125,7 +126,7 @@ def draw_net(net, colors=None, ax=None):
     nodesize = np.sqrt(net.scaled_outdeg) * 100 + 10
     options = {
         'node_size': nodesize,
-        'netap': net.get_netap('Spectral'),
+        'cmap': cm.get_cmap('Spectral'),
         'ax': ax
     }
 
