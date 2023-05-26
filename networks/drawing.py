@@ -61,84 +61,78 @@ def draw_spectrum(net, mode='adj', ax=None, colors=None):
         ax.hist(data.real, bins=50)
         
 
-    def draw_eigenvectors(net, left_ind, right_ind, mode='adj'):
-        spectrum = net.get_spectrum(mode)
-        eigenvectors = net.get_eigenvectors(mode)
+def draw_eigenvectors(net, left_ind, right_ind, mode='adj'):
+    spectrum = net.get_spectrum(mode)
+    eigenvectors = net.get_eigenvectors(mode)
 
-        vecs = np.real(eigenvectors[:, left_ind: right_ind + 1])
-        # vecs = np.abs(net.eigenvectors[:, left_ind: right_ind+1])
-        eigvals = np.real(spectrum[left_ind: right_ind + 1])
+    vecs = np.real(eigenvectors[:, left_ind: right_ind + 1])
+    # vecs = np.abs(net.eigenvectors[:, left_ind: right_ind+1])
+    eigvals = np.real(spectrum[left_ind: right_ind + 1])
 
-        npics = vecs.shape[1]
-        pics_in_a_row = np.ceil(np.sqrt(npics))
-        pics_in_a_col = np.ceil(1.0 * npics / pics_in_a_row)
-        fig, ax = create_default_figure(16,12)
-        # ax = fig.add_subplot(111)
-        plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9,
-                            hspace=0.2, wspace=0.1)
+    npics = vecs.shape[1]
+    pics_in_a_row = np.ceil(np.sqrt(npics))
+    pics_in_a_col = np.ceil(1.0 * npics / pics_in_a_row)
+    fig, ax = create_default_figure(16,12)
+    # ax = fig.add_subplot(111)
+    plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9,
+                        hspace=0.2, wspace=0.1)
 
-        if net.pos is None:
-            # pos = nx.layout.spring_layout(net.graph)
-            pos = nx.drawing.layout.circular_layout(net.graph)
-        else:
-            pos = net.pos
+    if net.pos is None:
+        # pos = nx.layout.spring_layout(net.graph)
+        pos = nx.drawing.layout.circular_layout(net.graph)
+    else:
+        pos = net.pos
 
-        xpos = [p[0] for p in pos.values()]
-        ypos = [p[1] for p in pos.values()]
-
-        nodesize = np.sqrt(net.scaled_outdegrees) * 100 + 10
-        anchor_for_colorbar = None
-        for i in range(npics):
-            vec = vecs[:, i]
-            ax = fig.add_subplot(pics_in_a_col, pics_in_a_row, i + 1)
-            '''
-            ax.set(xlim=(min(xpos)-0.1*abs(min(xpos)), max(xpos)+0.1*abs(max(xpos))),
-                   ylim=(min(ypos)-0.1*abs(min(ypos)), max(ypos)+0.1*abs(max(ypos))))
-            '''
-            text = 'eigenvector ' + str(i + 1) + ' lambda ' + str(np.round(eigvals[i], 3))
-            ax.set_title(text)
-            options = {
-                'node_color': vec,
-                'node_size': nodesize,
-                'netap': net.get_netap('Spectral')
-            }
-
-            nodes = nx.draw_networkx_nodes(net.graph, pos, **options)
-            if anchor_for_colorbar is None:
-                anchor_for_colorbar = nodes
-            # edges = nx.draw_networkx_edges(net.graph, pos, **options)
-            # pc, = mpl.collections.PatchCollection(nodes, netap = options['netap'])
-            # pc.set_array(edge_colors)
-            nodes.set_clim(vmin=min(vec) * 1.1, vmax=max(vec) * 1.1)
-            plt.colorbar(anchor_for_colorbar)
-
-        plt.show()
-
-    def draw_net(net, colors=None, ax=None):
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(16, 12))
-
-        if net.pos is None:
-            print('Node positions not found, auto layout was constructed')
-            pos = nx.layout.spring_layout(net.graph)
-            # pos = nx.drawing.layout.circular_layout(net.graph)
-        else:
-            pos = net.pos
-
-        xpos = [p[0] for p in pos.values()]
-        ypos = [p[1] for p in pos.values()]
-
-        nodesize = np.sqrt(net.scaled_outdegrees) * 100 + 10
+    nodesize = np.sqrt(net.scaled_outdegrees) * 100 + 10
+    anchor_for_colorbar = None
+    for i in range(npics):
+        vec = vecs[:, i]
+        ax = fig.add_subplot(pics_in_a_col, pics_in_a_row, i + 1)
+        '''
+        ax.set(xlim=(min(xpos)-0.1*abs(min(xpos)), max(xpos)+0.1*abs(max(xpos))),
+               ylim=(min(ypos)-0.1*abs(min(ypos)), max(ypos)+0.1*abs(max(ypos))))
+        '''
+        text = 'eigenvector ' + str(i + 1) + ' lambda ' + str(np.round(eigvals[i], 3))
+        ax.set_title(text)
         options = {
+            'node_color': vec,
             'node_size': nodesize,
-            'netap': net.get_netap('Spectral'),
-            'ax': ax
+            'netap': net.get_netap('Spectral')
         }
 
-        nodes = nx.draw_networkx_nodes(net.graph, pos, node_color=colors, **options)
-        edges = nx.draw_networkx_edges(net.graph, pos, **options)
+        nodes = nx.draw_networkx_nodes(net.graph, pos, ax=ax, **options)
+        if anchor_for_colorbar is None:
+            anchor_for_colorbar = nodes
+        # edges = nx.draw_networkx_edges(net.graph, pos, **options)
+        # pc, = mpl.collections.PatchCollection(nodes, netap = options['netap'])
+        # pc.set_array(edge_colors)
+        nodes.set_clim(vmin=min(vec) * 1.1, vmax=max(vec) * 1.1)
+        plt.colorbar(anchor_for_colorbar)
 
-        plt.show()
+    plt.show()
+
+def draw_net(net, colors=None, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(16, 12))
+
+    if net.pos is None:
+        print('Node positions not found, auto layout was constructed')
+        pos = nx.layout.spring_layout(net.graph)
+        # pos = nx.drawing.layout.circular_layout(net.graph)
+    else:
+        pos = net.pos
+
+    nodesize = np.sqrt(net.scaled_outdegrees) * 100 + 10
+    options = {
+        'node_size': nodesize,
+        'netap': net.get_netap('Spectral'),
+        'ax': ax
+    }
+
+    nodes = nx.draw_networkx_nodes(net.graph, pos, node_color=colors, ax=ax, **options)
+    edges = nx.draw_networkx_edges(net.graph, pos, ax=ax, **options)
+
+    plt.show()
         
 
 def show_mat(net, dtype=None, mode='adj', ax=None):
