@@ -78,7 +78,7 @@ def create_adj_from_graphml(datapath, graph=None, gc_checked=0, info=0,
 class Network():
     ''''''
 
-    def __init__(self, a, network_args, spectrum_args, pos=None, real_world=0,
+    def __init__(self, a, network_args, pos=None, real_world=0,
                  verbose=0, check_connectivity=1, create_nx_graph=1, node_attrs=None):
 
         self.directed = network_args['directed']
@@ -91,7 +91,6 @@ class Network():
         self.real_world = real_world
         self.verbose = verbose
         self.network_params = network_args
-        self.spectrum_params = spectrum_args
         self.create_nx_graph = create_nx_graph
 
         for mt in MATRIX_TYPES:
@@ -229,8 +228,7 @@ class Network():
 
             new_graph = random_rewiring_IOM_preserving(g, r=10)
             a = nx.adjacency_matrix(new_graph)
-            new_net = Network(a, self.network_params, self.spectrum_params,
-                              real_world=0, verbose=0)
+            new_net = Network(a, self.network_params, pos=self.pos, real_world=0, verbose=0)
             return new_net
 
         elif rmode == 'adj':
@@ -238,14 +236,12 @@ class Network():
                                                           is_weighted=self.weighted,
                                                           r=10)
 
-            rand_net = Network(rand_adj, self.network_params, self.spectrum_params,
-                               real_world=0, verbose=0)
+            rand_net = Network(rand_adj, self.network_params, pos=self.pos, real_world=0, verbose=0)
             return rand_net
 
         elif rmode == 'complete':
             rand_adj = random_rewiring_complete_graph(self.adj)
-            rand_net = Network(rand_adj, self.network_params, self.spectrum_params,
-                               real_world=0, verbose=0)
+            rand_net = Network(rand_adj, self.network_params, pos=self.pos, real_world=0, verbose=0)
             return rand_net
 
         else:
@@ -253,34 +249,34 @@ class Network():
 
     def get_node_degrees(self):
         # convert sparse matrix to 0-1 format and sum over specific axis
-        self.outdegrees = np.array(self.adj.astype(bool).astype(int).sum(axis=0)).ravel()
-        self.indegrees = np.array(self.adj.astype(bool).astype(int).sum(axis=1)).ravel()
-        self.degrees = np.array((self.adj + self.adj.T).astype(bool).astype(int).sum(axis=1)).ravel()
+        self.outdeg = np.array(self.adj.astype(bool).astype(int).sum(axis=0)).ravel()
+        self.indeg = np.array(self.adj.astype(bool).astype(int).sum(axis=1)).ravel()
+        self.deg = np.array((self.adj + self.adj.T).astype(bool).astype(int).sum(axis=1)).ravel()
 
-        min_out = min(self.outdegrees)
-        min_in = min(self.indegrees)
-        max_out = max(self.outdegrees)
-        max_in = max(self.indegrees)
+        min_out = min(self.outdeg)
+        min_in = min(self.indeg)
+        max_out = max(self.outdeg)
+        max_in = max(self.indeg)
 
         if max_out != min_out:
-            self.scaled_outdegrees = np.array([1.0 * (deg - min_out) / (max_out - min_out) for deg in self.outdegrees])
+            self.scaled_outdeg = np.array([1.0 * (deg - min_out) / (max_out - min_out) for deg in self.outdeg])
         else:
-            self.scaled_outdegrees = np.ones(len(self.outdegrees))
+            self.scaled_outdeg = np.ones(len(self.outdeg))
 
         if min_in != max_in:
-            self.scaled_indegrees = np.array([1.0 * (deg - min_in) / (max_in - min_in) for deg in self.indegrees])
+            self.scaled_indeg = np.array([1.0 * (deg - min_in) / (max_in - min_in) for deg in self.indeg])
         else:
-            self.scaled_outdegrees = np.ones(len(self.indegrees))
+            self.scaled_outdeg = np.ones(len(self.indeg))
 
     def get_degree_distr(self, mode='all'):
         if mode == 'all':
-            degrees = self.degrees
+            deg = self.deg
         elif mode == 'out':
-            degrees = self.outdegrees
+            deg = self.outdeg
         elif mode == 'in':
-            degrees = self.indegrees
+            deg = self.indeg
 
-        hist, bins = np.histogram(degrees, bins=max(degrees) - min(degrees), density=True)
+        hist, bins = np.histogram(deg, bins=max(deg) - min(deg), density=True)
         return hist
 
 
@@ -301,33 +297,43 @@ class Network():
             eigenvectors = getattr(self, mode + '_eigenvectors')
 
         return eigenvectors
+    
+    
+    def partial_diagonalize(self, spectrum_params):
+        '''
+        noise = self.spectrum_params['noise']
+        neigs = self.spectrum_params['neigs']
+        if noise == 0:
+            R = np.zeros((n, n))
+        else:
+            R = np.multiply(matrix.A, np.random.normal(loc=0.0, scale=noise, size=(n, n)))
+        '''
+        raise Exception('this method is under construction')
 
+        
     def diagonalize(self, mode='lap_out'):
         check_matrix_type(mode)
         if self.verbose:
             print('Preparing for diagonalization...')
 
-        noise = self.spectrum_params['noise']
-        neigs = self.spectrum_params['neigs']
-
-        outdegrees = self.outdegrees
-        indegrees = self.indegrees
-        degrees = self.degrees
+        outdeg = self.outdeg
+        indeg = self.indeg
+        deg = self.deg
 
         A = self.adj.astype(float)
         n = self.n
 
-        if n != np.count_nonzero(outdegrees) and self.connectivity_checked:
-            print(n - np.count_nonzero(outdegrees), 'nodes without out-edges')
-        if n != np.count_nonzero(indegrees) and self.connectivity_checked:
-            print(n - np.count_nonzero(indegrees), 'nodes without in-edges')
+        if n != np.count_nonzero(outdeg) and self.connectivity_checked:
+            print(n - np.count_nonzero(outdeg), 'nodes without out-edges')
+        if n != np.count_nonzero(indeg) and self.connectivity_checked:
+            print(n - np.count_nonzero(indeg), 'nodes without in-edges')
 
-        nz = np.count_nonzero(degrees)
+        nz = np.count_nonzero(deg)
         if nz != n and self.connectivity_checked:
             print('Graph has', str(n - nz), 'isolated nodes!')
             raise Exception('Graph is not connected!')
 
-        if not self.weighted and not np.allclose(outdegrees, indegrees):
+        if not self.weighted and not self.directed and not np.allclose(outdeg, indeg):
             raise Exception('out- and in- degrees do not coincide in boolean')
 
         if mode == 'lap' or mode == 'lap_out':
@@ -339,16 +345,11 @@ class Network():
         else:
             raise Exception(f'diagonalization not implemented for type {mode}')
 
-        if noise == 0:
-            R = np.zeros((n, n))
-        else:
-            R = np.multiply(matrix.A, np.random.normal(loc=0.0, scale=noise, size=(n, n)))
-
         if self.verbose:
             print('Performing diagonalization...')
 
         # raw_eigs, right_eigvecs = np.linalg.eig(matrix.A + R)
-        raw_eigs, right_eigvecs = la.eig(matrix + R, right=True)
+        raw_eigs, right_eigvecs = la.eig(matrix.A, right=True)
         # raw_eigs, right_eigvecs = sp.linalg.eigs(matrix, which = 'LM', k=n_eigs)
 
         raw_eigs = np.around(raw_eigs, decimals=12)
