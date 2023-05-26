@@ -243,7 +243,7 @@ class Network():
         else:
             raise ValueError('Unknown randomization method')
 
-        rand_net = Network(rand_adj, self.network_params, pos=self.pos, real_world=0, verbose=0)
+        rand_net = Network(sp.csr_matrix(rand_adj), self.network_params, pos=self.pos, real_world=0, verbose=0)
         return rand_net
 
     def get_node_degrees(self):
