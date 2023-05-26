@@ -436,9 +436,17 @@ class Network():
         res = [q_entropy(spectrum, t, q=q) for t in tlist]
         return res
 
-    def calculate_estrada_index(self):
+    def calculate_estrada_communicability(self):
         adj_spectrum = self.get_spectrum('adj')
-        self.estrada_index = sum([np.exp(e) for e in adj_spectrum])
+        self.estrada_communicability = sum([np.exp(e) for e in adj_spectrum])
+        return self.estrada_communicability
+
+    def get_estrada_bipartivity_index(self):
+        adj_spectrum = self.get_spectrum('adj')
+        esi1 = sum([np.exp(-e) for e in adj_spectrum])
+        esi2 = sum([np.exp(e) for e in adj_spectrum])
+        self.estrada_bipartivity = esi1 / esi2
+        return self.estrada_bipartivity
 
     def localization_signatures(self):
         if self.zvalues is None:
