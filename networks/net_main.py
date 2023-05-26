@@ -219,33 +219,32 @@ class Network():
         if self.verbose:
             print('Symmetry index:', get_symmetry_index(gc_adj))
 
-    def randomize(self, rmode='adj'):
-        if rmode == 'graph':
+    def randomize(self, rmode='shuffle'):
+        if rmode == 'graph_iom':
             if self.directed:
                 g = nx.DiGraph(self.graph)
             else:
                 g = nx.Graph(self.graph)
 
             new_graph = random_rewiring_IOM_preserving(g, r=10)
-            a = nx.adjacency_matrix(new_graph)
-            new_net = Network(a, self.network_params, pos=self.pos, real_world=0, verbose=0)
-            return new_net
+            rand_adj = nx.adjacency_matrix(new_graph)
 
-        elif rmode == 'adj':
+        elif rmode == 'adj_iom':
             rand_adj = adj_random_rewiring_iom_preserving(self.adj,
                                                           is_weighted=self.weighted,
                                                           r=10)
 
-            rand_net = Network(rand_adj, self.network_params, pos=self.pos, real_world=0, verbose=0)
-            return rand_net
-
         elif rmode == 'complete':
             rand_adj = random_rewiring_complete_graph(self.adj)
-            rand_net = Network(rand_adj, self.network_params, pos=self.pos, real_world=0, verbose=0)
-            return rand_net
+
+        elif rmode == 'shuffle':
+            rand_adj = random_rewiring_dense_graph(self.adj)
 
         else:
             raise ValueError('Unknown randomization method')
+
+        rand_net = Network(rand_adj, self.network_params, pos=self.pos, real_world=0, verbose=0)
+        return rand_net
 
     def get_node_degrees(self):
         # convert sparse matrix to 0-1 format and sum over specific axis
