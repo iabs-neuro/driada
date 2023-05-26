@@ -83,7 +83,7 @@ def draw_eigenvectors(net, left_ind, right_ind, mode='adj'):
     else:
         pos = net.pos
 
-    nodesize = np.sqrt(net.scaled_outdegrees) * 100 + 10
+    nodesize = np.sqrt(net.scaled_outdeg) * 100 + 10
     anchor_for_colorbar = None
     for i in range(npics):
         vec = vecs[:, i]
@@ -122,7 +122,7 @@ def draw_net(net, colors=None, ax=None):
     else:
         pos = net.pos
 
-    nodesize = np.sqrt(net.scaled_outdegrees) * 100 + 10
+    nodesize = np.sqrt(net.scaled_outdeg) * 100 + 10
     options = {
         'node_size': nodesize,
         'netap': net.get_netap('Spectral'),
