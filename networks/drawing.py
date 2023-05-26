@@ -98,7 +98,7 @@ def draw_eigenvectors(net, left_ind, right_ind, mode='adj'):
         options = {
             'node_color': vec,
             'node_size': nodesize,
-            'netap': net.get_netap('Spectral')
+            'cm': cm.get_cmap('Spectral')
         }
 
         nodes = nx.draw_networkx_nodes(net.graph, pos, ax=ax, **options)
@@ -127,7 +127,6 @@ def draw_net(net, colors=None, ax=None):
     options = {
         'node_size': nodesize,
         'cmap': cm.get_cmap('Spectral'),
-        'ax': ax
     }
 
     nodes = nx.draw_networkx_nodes(net.graph, pos, node_color=colors, ax=ax, **options)
