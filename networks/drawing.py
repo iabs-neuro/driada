@@ -49,7 +49,7 @@ def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
 
         ax.legend(handles=[degree, outdegree, indegree], fontsize=16)
         
-def draw_spectrum(net, mode='adj', ax=None, colors=None):
+def draw_spectrum(net, mode='adj', ax=None, colors=None, cmap='plasma', nbins=None):
     spectrum = net.get_spectrum(mode)
     data = np.array(sorted(list(set(spectrum)), key=np.abs))
 
@@ -57,9 +57,11 @@ def draw_spectrum(net, mode='adj', ax=None, colors=None):
         fig, ax = create_default_figure(12,10)
 
     if net.directed:
-        ax.scatter(data.real, data.imag, netap='Spectral', c=colors)
+        ax.scatter(data.real, data.imag, cmap=cmap, c=colors)
     else:
-        ax.hist(data.real, bins=50)
+        if nbins is None:
+            nbins = len(spectrum) / 10
+        ax.hist(data.real, bins=nbins)
         
 
 def get_vector_coloring(vec, cmap='plasma'):

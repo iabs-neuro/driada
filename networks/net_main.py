@@ -310,10 +310,13 @@ class Network():
         raise Exception('this method is under construction')
 
         
-    def diagonalize(self, mode='lap_out'):
+    def diagonalize(self, mode='lap_out', verbose=None):
+        if verbose is None:
+            verbose = self.verbose
+
         check_matrix_type(mode)
-        if self.verbose:
-            print('Preparing for diagonalization...')
+        if verbose:
+            print('Preparing for diagonalizing...')
 
         outdeg = self.outdeg
         indeg = self.indeg
@@ -342,10 +345,10 @@ class Network():
         elif mode == 'adj':
             matrix = A.copy()
         else:
-            raise Exception(f'diagonalization not implemented for type {mode}')
+            raise Exception(f'diagonalizing not implemented for matrix type {mode}')
 
-        if self.verbose:
-            print('Performing diagonalization...')
+        if verbose:
+            print('Performing diagonalizing...')
 
         # raw_eigs, right_eigvecs = np.linalg.eig(matrix.A + R)
         raw_eigs, right_eigvecs = la.eig(matrix.A, right=True)
@@ -360,14 +363,27 @@ class Network():
                 print('eigenvalues:', eigs)
                 raise Exception('Graph has %d components!' % n_comp)
 
-        setattr(self, mode + '_spectrum', eigs)
         setattr(self, mode, matrix)
-        # self.eigenvectors = right_eigvecs[:,1:][np.ix_(range(len(eigs)+1), np.argsort(eigs))]
+
+        if np.allclose(np.imag(eigs), np.zeros(len(eigs)), atol=1e-12):
+            eigs = np.real(eigs)
+        else:
+            if not self.directed:
+                raise ValueError('Complex eigenvalues found in non-directed network!')
+
+        setattr(self, mode + '_spectrum', eigs)
+
         sorted_eigenvectors = right_eigvecs[np.ix_(range(len(eigs)), np.argsort(raw_eigs))]
+        # self.eigenvectors = right_eigvecs[:,1:][np.ix_(range(len(eigs)+1), np.argsort(eigs))]
+        if np.allclose(np.imag(sorted_eigenvectors), np.zeros(sorted_eigenvectors.shape), atol=1e-12):
+            sorted_eigenvectors = np.real(sorted_eigenvectors)
+        else:
+            if not self.directed:
+                raise ValueError('Complex eigenvectors found in non-directed network!')
         setattr(self, mode + '_eigenvectors', sorted_eigenvectors)
 
-        if self.verbose:
-            print('Diagonalization finished')
+        if verbose:
+            print('Diagonalizing finished')
 
     def calculate_z_values(self, mode='lap_out'):
         spectrum = self.get_spectrum(mode)
