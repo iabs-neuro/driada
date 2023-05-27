@@ -354,8 +354,12 @@ class Network():
         if verbose:
             print('Performing diagonalizing...')
 
-        # raw_eigs, right_eigvecs = np.linalg.eig(matrix.A + R)
-        raw_eigs, right_eigvecs = la.eig(matrix.A, right=True)
+        matrix_is_symmetric = not ((matrix != matrix.T).nnz == 0)
+        if matrix_is_symmetric:
+            raw_eigs, right_eigvecs = la.eigh(matrix.A)
+        else:
+            raw_eigs, right_eigvecs = la.eig(matrix.A, right=True)
+
         # raw_eigs, right_eigvecs = sp.linalg.eigs(matrix, which = 'LM', k=n_eigs)
 
         raw_eigs = np.around(raw_eigs, decimals=12)
@@ -389,6 +393,7 @@ class Network():
         if verbose:
             print('Diagonalizing finished')
 
+    #TODO: add Gromov hyperbolicity
     def calculate_z_values(self, mode='lap_out'):
         spectrum = self.get_spectrum(mode)
 
