@@ -76,9 +76,11 @@ def create_adj_from_graphml(datapath, graph=None, gc_checked=0, info=0,
 
 
 class Network():
-    ''''''
+    '''
+    An object for extensive network analysis with focus on spectral graph theory
+    '''
 
-    def __init__(self, a, network_args, pos=None, real_world=0,
+    def __init__(self, a, network_args, name = '', pos=None, real_world=0,
                  verbose=0, check_connectivity=1, create_nx_graph=1, node_attrs=None):
 
         self.directed = network_args['directed']
@@ -88,6 +90,7 @@ class Network():
         self.weighted = network_args['weighted']
         check_directed(self.directed, real_world)
 
+        self.name = name
         self.real_world = real_world
         self.verbose = verbose
         self.network_params = network_args
@@ -243,7 +246,8 @@ class Network():
         else:
             raise ValueError('Unknown randomization method')
 
-        rand_net = Network(sp.csr_matrix(rand_adj), self.network_params, pos=self.pos, real_world=0, verbose=0)
+        rand_net = Network(sp.csr_matrix(rand_adj), self.network_params,
+                           name = self.name + f' {rmode} rand', pos=self.pos, real_world=0, verbose=0)
         return rand_net
 
     def get_node_degrees(self):
@@ -375,7 +379,7 @@ class Network():
 
         sorted_eigenvectors = right_eigvecs[np.ix_(range(len(eigs)), np.argsort(raw_eigs))]
         # self.eigenvectors = right_eigvecs[:,1:][np.ix_(range(len(eigs)+1), np.argsort(eigs))]
-        if np.allclose(np.imag(sorted_eigenvectors), np.zeros(sorted_eigenvectors.shape), atol=1e-12):
+        if np.allclose(np.imag(sorted_eigenvectors), np.zeros(sorted_eigenvectors.shape), atol=1e-8):
             sorted_eigenvectors = np.real(sorted_eigenvectors)
         else:
             if not self.directed:
