@@ -354,7 +354,7 @@ class Network():
         if verbose:
             print('Performing diagonalizing...')
 
-        matrix_is_symmetric = not ((matrix != matrix.T).nnz == 0)
+        matrix_is_symmetric = ((matrix != matrix.T).nnz == 0)
         if matrix_is_symmetric:
             raw_eigs, right_eigvecs = la.eigh(matrix.A)
         else:
