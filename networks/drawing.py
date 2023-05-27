@@ -4,6 +4,9 @@ import numpy as np
 import networkx as nx
 from itertools import combinations
 from matplotlib import cm
+import matplotlib as mpl
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize as color_normalize
 
 def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
     if not net.directed:
@@ -72,56 +75,58 @@ def get_vector_coloring(vec, cmap='plasma'):
 
 
 def draw_eigenvectors(net, left_ind, right_ind, mode='adj', nodesize=None,
-                      cmap='Spectral', draw_edges=True, edge_options=None):
+                       cmap='plasma', draw_edges=True, edge_options={}):
     spectrum = net.get_spectrum(mode)
     eigenvectors = net.get_eigenvectors(mode)
 
-    vecs = np.real(eigenvectors[:, left_ind: right_ind + 1])
+    vecs = eigenvectors[:, left_ind: right_ind + 1]
     # vecs = np.abs(net.eigenvectors[:, left_ind: right_ind+1])
     eigvals = np.real(spectrum[left_ind: right_ind + 1])
 
     npics = vecs.shape[1]
-    pics_in_a_row = np.ceil(np.sqrt(npics))
-    pics_in_a_col = np.ceil(1.0 * npics / pics_in_a_row)
-    fig, ax = create_default_figure(16,12)
-    # ax = fig.add_subplot(111)
+    pics_in_a_row = int(np.ceil(np.sqrt(npics)))
+    pics_in_a_col = int(np.ceil(1.0 * npics / pics_in_a_row))
+    fig, axs = plt.subplots(nrows=pics_in_a_col, ncols=pics_in_a_row, figsize=(8 * pics_in_a_row, 8 * pics_in_a_col))
+    for ax in axs.ravel():
+        ax.set_axis_off()
     plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9,
                         hspace=0.2, wspace=0.1)
 
     if net.pos is None:
-        # pos = nx.layout.spring_layout(net.graph)
-        pos = nx.drawing.layout.circular_layout(net.graph)
+        pos = nx.layout.spring_layout(net.graph)
+        # pos = nx.drawing.layout.circular_layout(net.graph)
     else:
         pos = net.pos
 
     if nodesize is None:
-        nodesize = np.sqrt(net.scaled_outdeg) * 100 + 10
+        nodesize = np.sqrt(net.scaled_outdeg) * 500 + 50
 
-    anchor_for_colorbar = None
     for i in range(npics):
         vec = vecs[:, i]
         ax = fig.add_subplot(pics_in_a_col, pics_in_a_row, i + 1)
 
         text = 'eigenvector ' + str(i + 1) + ' lambda ' + str(np.round(eigvals[i], 3))
         ax.set_title(text)
+
+        ncolors = get_vector_coloring(vec)
         options = {
-            'node_color': get_vector_coloring(vec),
+            'node_color': ncolors,
             'node_size': nodesize,
-            'cmap': cm.get_cmap(cmap)
+            'cmap': mpl.colormaps[cmap]
         }
 
         nodes = nx.draw_networkx_nodes(net.graph, pos, ax=ax, **options)
-        if anchor_for_colorbar is None:
-            anchor_for_colorbar = nodes
 
         if draw_edges:
             edges = nx.draw_networkx_edges(net.graph, pos, **edge_options)
         # pc, = mpl.collections.PatchCollection(nodes, cmap = options['cmap'])
         # pc.set_array(edge_colors)
 
-        nodes.set_clim(vmin=min(vec) * 1.1, vmax=max(vec) * 1.1)
-        plt.colorbar(anchor_for_colorbar)
+        cmappable = ScalarMappable(color_normalize(0, 1), cmap=cmap)
+        fig.colorbar(cmappable, ax=ax)
+        ax.set_axis_off()
 
+    plt.tight_layout()
     plt.show()
 
 
@@ -163,7 +168,6 @@ def show_mat(net, dtype=None, mode='adj', ax=None):
         fig, ax = plt.subplots(figsize=(10, 10))
 
     if not dtype is None:
-        # print(net.adj.astype(dtype).A)
         ax.matshow(mat.astype(dtype).A)
     else:
         ax.matshow(mat.A)
