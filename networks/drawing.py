@@ -62,7 +62,15 @@ def draw_spectrum(net, mode='adj', ax=None, colors=None):
         ax.hist(data.real, bins=50)
         
 
-def draw_eigenvectors(net, left_ind, right_ind, mode='adj'):
+def get_vector_coloring(vec, cmap='plasma'):
+    cmap = plt.get_cmap(cmap)
+    vec = np.array(vec).ravel()
+    colors = cmap((vec-min(vec))/(max(vec)-min(vec)))
+    return colors
+
+
+def draw_eigenvectors(net, left_ind, right_ind, mode='adj', nodesize=None,
+                      cmap='Spectral', draw_edges=True, edge_options=None):
     spectrum = net.get_spectrum(mode)
     eigenvectors = net.get_eigenvectors(mode)
 
@@ -84,35 +92,38 @@ def draw_eigenvectors(net, left_ind, right_ind, mode='adj'):
     else:
         pos = net.pos
 
-    nodesize = np.sqrt(net.scaled_outdeg) * 100 + 10
+    if nodesize is None:
+        nodesize = np.sqrt(net.scaled_outdeg) * 100 + 10
+
     anchor_for_colorbar = None
     for i in range(npics):
         vec = vecs[:, i]
         ax = fig.add_subplot(pics_in_a_col, pics_in_a_row, i + 1)
-        '''
-        ax.set(xlim=(min(xpos)-0.1*abs(min(xpos)), max(xpos)+0.1*abs(max(xpos))),
-               ylim=(min(ypos)-0.1*abs(min(ypos)), max(ypos)+0.1*abs(max(ypos))))
-        '''
+
         text = 'eigenvector ' + str(i + 1) + ' lambda ' + str(np.round(eigvals[i], 3))
         ax.set_title(text)
         options = {
-            'node_color': vec,
+            'node_color': get_vector_coloring(vec),
             'node_size': nodesize,
-            'cmap': cm.get_cmap('Spectral')
+            'cmap': cm.get_cmap(cmap)
         }
 
         nodes = nx.draw_networkx_nodes(net.graph, pos, ax=ax, **options)
         if anchor_for_colorbar is None:
             anchor_for_colorbar = nodes
-        # edges = nx.draw_networkx_edges(net.graph, pos, **options)
-        # pc, = mpl.collections.PatchCollection(nodes, netap = options['netap'])
+
+        if draw_edges:
+            edges = nx.draw_networkx_edges(net.graph, pos, **edge_options)
+        # pc, = mpl.collections.PatchCollection(nodes, cmap = options['cmap'])
         # pc.set_array(edge_colors)
+
         nodes.set_clim(vmin=min(vec) * 1.1, vmax=max(vec) * 1.1)
         plt.colorbar(anchor_for_colorbar)
 
     plt.show()
 
-def draw_net(net, colors=None, ax=None):
+
+def draw_net(net, colors=None, nodesize=None, ax=None):
     if ax is None:
         fig, ax = plt.subplots(figsize=(16, 12))
 
@@ -123,7 +134,9 @@ def draw_net(net, colors=None, ax=None):
     else:
         pos = net.pos
 
-    nodesize = np.sqrt(net.scaled_outdeg) * 100 + 10
+    if nodesize is None:
+        nodesize = np.sqrt(net.scaled_outdeg) * 100 + 10
+
     node_options = {
         'node_size': nodesize,
         'cmap': cm.get_cmap('Spectral'),
