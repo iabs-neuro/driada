@@ -35,8 +35,8 @@ def check_weights_and_directions(a, weighted, directed):
     # is_weighted = 1 - np.isclose((a-a.astype(bool).astype(int).sum), 0)
     #is_directed = not ((a != a.T).nnz == 0)
     #is_weighted = not ((a != a.astype(bool).astype(int)).nnz == 0)
-    is_directed = np.allclose(a.data, a.T.data)
-    is_weighted = np.allclose(a.data, a.astype(bool).astype(int).data)
+    is_directed = not np.allclose(a.data, a.T.data)
+    is_weighted = not np.allclose(a.data, a.astype(bool).astype(int).data)
 
     if is_directed != bool(directed):
         raise Exception('Error in network construction, check directions')
