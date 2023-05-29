@@ -33,8 +33,10 @@ def check_directed(directed, real_world):
 def check_weights_and_directions(a, weighted, directed):
     # is_directed = 1 - np.isclose((a-a.T).sum, 0)
     # is_weighted = 1 - np.isclose((a-a.astype(bool).astype(int).sum), 0)
-    is_directed = not ((a != a.T).nnz == 0)
-    is_weighted = not ((a != a.astype(bool).astype(int)).nnz == 0)
+    #is_directed = not ((a != a.T).nnz == 0)
+    #is_weighted = not ((a != a.astype(bool).astype(int)).nnz == 0)
+    is_directed = np.allclose(a.data, a.T.data)
+    is_weighted = np.allclose(a.data, a.astype(bool).astype(int).data)
 
     if is_directed != bool(directed):
         raise Exception('Error in network construction, check directions')
@@ -354,7 +356,7 @@ class Network():
         if verbose:
             print('Performing diagonalizing...')
 
-        matrix_is_symmetric = ((matrix != matrix.T).nnz == 0)
+        matrix_is_symmetric = np.allclose(matrix.data, matrix.T.data)
         if matrix_is_symmetric:
             raw_eigs, right_eigvecs = la.eigh(matrix.A)
         else:
