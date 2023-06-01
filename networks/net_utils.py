@@ -1,4 +1,6 @@
 import networkx as nx
+import numpy as np
+
 from .randomization import *
 
 def take_giant_component(G):
