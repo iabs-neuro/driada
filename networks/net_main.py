@@ -145,9 +145,9 @@ class Network():
 
                 if isinstance(a, np.ndarray):
                     res = remove_isolates_and_selfloops_from_adj(sp.csr_array(a), weighted, directed)
-                elif isinstance(a, sp.csr_array):
+                elif a.format == 'csr':
                     res = remove_isolates_and_selfloops_from_adj(a, weighted, directed)
-                elif isinstance(a, sp.coo_matrix):
+                elif a.format == 'coo':
                     res = remove_isolates_and_selfloops_from_adj(remove_duplicates(a), weighted, directed)
                 else:
                     raise Exception('Wrong input parsed to preprocess_adj_matrix function:', type(a))
