@@ -20,7 +20,7 @@ def turn_to_directed(mat, directed=0.0, weighted=0):
         else:
             a = A.astype(float)
 
-        return sp.csr_matrix(a)
+        return sp.csr_array(a)
 
     np.fill_diagonal(A, 0)
     rows, cols = A.nonzero()
@@ -53,7 +53,7 @@ def turn_to_directed(mat, directed=0.0, weighted=0):
                 A[upper_right[i][::-1]] = 0#A[upper_right[i]] + 0#.1*np.random.random()
     '''
 
-    #a = sp.csr_matrix(A)
+    #a = sp.csr_array(A)
     # get_symmetry_index(a)
     return A
 
@@ -98,7 +98,7 @@ def remove_isolates_and_selfloops_from_adj(a, weighted, directed, mode='lap'):
         raise Exception('Input is not sparse!')
 
     # remove selfloops:
-    a = sp.csr_matrix(a)
+    a = sp.csr_array(a)
     a.setdiag(0)
     a.eliminate_zeros()
 
@@ -130,7 +130,7 @@ def remove_isolates_and_selfloops_from_adj(a, weighted, directed, mode='lap'):
     return cleared_matrix
 
 def preprocess_adj_matrix(A, weighted, directed, info=1, mode='lap'):
-    if isinstance(A, sp.csr_matrix):
+    if isinstance(A, sp.csr_array):
         res = remove_isolates_and_selfloops_from_adj(A.A, weighted, directed, mode=mode)
     elif isinstance(A, sp.coo_matrix):
         res = remove_isolates_and_selfloops_from_adj(remove_duplicates(A).A, weighted, directed, mode=mode)
@@ -169,7 +169,7 @@ def get_laplacian(A):
 
 def get_inv_sqrt_diag_matrix(a):
     n = a.shape[0]
-    A = sp.csr_matrix(a)
+    A = sp.csr_array(a)
     out_degrees = np.array(A.sum(axis=0)).ravel()
     diags_sqrt = 1.0 / np.sqrt(out_degrees)
 
@@ -183,7 +183,7 @@ def get_norm_laplacian(a):
         raise Exception('Cannot construct normalized laplacian matrix from a non-hermitian adjacency matrix')
 
     n = a.shape[0]
-    A = sp.csr_matrix(a)
+    A = sp.csr_array(a)
     DH = get_inv_sqrt_diag_matrix(A)
     matrix = sp.eye(n, dtype=float) - DH.dot(A.dot(DH))
     return matrix

@@ -52,7 +52,7 @@ def adj_random_rewiring_iom_preserving(a, is_weighted, r=10):
             target_nodes[ind1], target_nodes[ind2] = n4, n2
 
             i += 1
-            # print(get_symmetry_index(sp.csr_matrix(A)))
+            # print(get_symmetry_index(sp.csr_array(A)))
 
     # plt.matshow(s)
     # print ('Rewiring single connections...')
@@ -96,13 +96,13 @@ def adj_random_rewiring_iom_preserving(a, is_weighted, r=10):
             i += 1
 
             target_nodes[ind1], target_nodes[ind2] = n4, n2
-            # print(get_symmetry_index(sp.csr_matrix(A)))
+            # print(get_symmetry_index(sp.csr_array(A)))
 
     res = s + ns
     if not is_weighted:
         res = res.astype(bool)
 
-    return sp.csr_matrix(res)
+    return sp.csr_array(res)
 
 
 def random_rewiring_complete_graph(a, p=1.0):

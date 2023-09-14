@@ -144,8 +144,8 @@ class Network():
                 check_weights_and_directions(a, weighted, directed)
 
                 if isinstance(a, np.ndarray):
-                    res = remove_isolates_and_selfloops_from_adj(sp.csr_matrix(a), weighted, directed)
-                elif isinstance(a, sp.csr_matrix):
+                    res = remove_isolates_and_selfloops_from_adj(sp.csr_array(a), weighted, directed)
+                elif isinstance(a, sp.csr_array):
                     res = remove_isolates_and_selfloops_from_adj(a, weighted, directed)
                 elif isinstance(a, sp.coo_matrix):
                     res = remove_isolates_and_selfloops_from_adj(remove_duplicates(a), weighted, directed)
@@ -511,7 +511,7 @@ class Network():
             vec_norms = np.array([np.real(sum([x * x for x in v])) for v in vecs])
             vecs = vecs / vec_norms[:, np.newaxis]
             # explanation: https://jlmelville.github.io/smallvis/spectral.html
-            vecs = DH.dot(sp.csr_matrix(vecs, dtype=float))
+            vecs = DH.dot(sp.csr_array(vecs, dtype=float))
 
             self.lem_emb = vecs
 
