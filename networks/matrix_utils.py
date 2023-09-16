@@ -107,11 +107,11 @@ def remove_isolates_and_selfloops_from_adj(a, weighted, directed, mode='lap'):
     while n_new != n_prev:
         # remove nodes with zero out-, in- or both degrees:
         if weighted:
-            indegrees = np.array(a.astype(bool).astype(int).sum(axis=1))[0]  # .flatten().ravel()
-            outdegrees = np.array(a.astype(bool).astype(int).sum(axis=0))[0]  # .flatten().ravel()
+            indegrees = np.array(a.astype(bool).astype(int).sum(axis=1))  # .flatten().ravel()
+            outdegrees = np.array(a.astype(bool).astype(int).sum(axis=0))  # .flatten().ravel()
         else:
-            indegrees = np.array(a.sum(axis=1))[0]  # .flatten().ravel()
-            outdegrees = np.array(a.sum(axis=0))[0]  # .flatten().ravel()
+            indegrees = np.array(a.sum(axis=1))  # .flatten().ravel()
+            outdegrees = np.array(a.sum(axis=0))  # .flatten().ravel()
 
         if not directed:
             indices = np.where(indegrees + outdegrees > 0)[0]
