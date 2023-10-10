@@ -121,7 +121,7 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     x = ts1.scdata[::ds].reshape(-1, 1)
     y = ts2.scdata[::ds]
     if shift != 0:
-        y = np.roll(ts2.scdata, shift)
+        y = np.roll(y, shift)
 
     if estimator == 'ksg':
         if not ts1.discrete and not ts2.discrete:
