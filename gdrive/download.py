@@ -131,6 +131,10 @@ def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
                         os.rmdir(dir)
                         print('No relevant data found')
                     else:
+                        loaded_names = [r[1] for r in rel]
+                        for n in loaded_names:
+                            print(n)
+
                         success = True
 
                     print('--------------------------')
