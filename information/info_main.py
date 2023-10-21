@@ -139,8 +139,6 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
         elif not ts1.discrete and ts2.discrete:
             mi = mutual_info_classif(x, y, discrete_features=True, n_neighbors=k)[0]
 
-        return mi
-
 
     elif estimator == 'gcmi':
         if not ts1.discrete and not ts2.discrete:
@@ -160,6 +158,9 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
             ny1 = ts1.copula_normal_data[::ds]
             ny2 = np.roll(ts2.scdata.astype(int), shift)[::ds]
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
+
+        if mi < 0:
+            mi = 0
 
         return mi
 
