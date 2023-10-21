@@ -99,9 +99,9 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     ts1: TimeSeries instance or numpy array
     ts2: TimeSeries instance or numpy array
     shift: int
-        ts2 will be roll-moved by this number
+        ts2 will be roll-moved by the number 'shift' after downsampling by 'ds' factor
     ds: int
-        downsampling constant (take every x point)
+        downsampling constant (take every 'ds'-th point)
     k: int
         number of neighbors for ksg estimator
     estimator: str
@@ -139,11 +139,10 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
         elif not ts1.discrete and ts2.discrete:
             mi = mutual_info_classif(x, y, discrete_features=True, n_neighbors=k)[0]
 
-
     elif estimator == 'gcmi':
         if not ts1.discrete and not ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
-            ny2 = np.roll(ts2.copula_normal_data, shift)[::ds]
+            ny2 = np.roll(ts2.copula_normal_data[::ds], shift)
             mi = mi_gg(ny1, ny2, True, True)
 
         elif ts1.discrete and ts2.discrete:
@@ -151,12 +150,12 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
 
         elif ts1.discrete and not ts2.discrete:
             ny1 = ts1.scdata.astype(int)[::ds]
-            ny2 = np.roll(ts2.copula_normal_data, shift)[::ds]
+            ny2 = np.roll(ts2.copula_normal_data[::ds], shift)
             mi = mi_model_gd(ny2, ny1, np.max(ny1), biascorrect=True, demeaned=True)
 
         elif not ts1.discrete and ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
-            ny2 = np.roll(ts2.scdata.astype(int), shift)[::ds]
+            ny2 = np.roll(ts2.scdata.astype(int)[::ds], shift)
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         if mi < 0:
