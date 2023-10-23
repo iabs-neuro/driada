@@ -48,7 +48,7 @@ class TimeSeries():
         if not self.discrete:
             self.copula_normal_data = copnorm(self.data).ravel()
 
-        self.entropy = None
+        self.entropy = dict()
         self.kdtree = None
         self.kdtree_query = None
 
@@ -74,21 +74,21 @@ class TimeSeries():
         tree = self.get_kdtree()
         return tree.query(self.scdata, k=k + 1)
 
-    def get_entropy(self):
-        if self.entropy is None:
-            self._compute_entropy()
-        return self.entropy
+    def get_entropy(self, ds):
+        if ds not in self.entropy.keys():
+            self._compute_entropy(ds=ds)
+        return self.entropy[ds]
 
-    def _compute_entropy(self):
+    def _compute_entropy(self, ds=1):
         if self.discrete:
             counts = []
-            for val in np.unique(self.data):
-                counts.append(len(np.where(self.data == val)[0]))
+            for val in np.unique(self.data[::ds]):
+                counts.append(len(np.where(self.data[::ds] == val)[0]))
 
-            self.entropy = scipy.stats.entropy(counts, base=np.e)
+            self.entropy[ds] = scipy.stats.entropy(counts, base=np.e)
 
         else:
-            self.entropy = get_tdmi(self.scdata, min_shift=1, max_shift=2)[0]
+            self.entropy[ds] = get_tdmi(self.scdata[::ds], min_shift=1, max_shift=2)[0]
             #raise AttributeError('Entropy for continuous variables is not yet implemented'
 
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
