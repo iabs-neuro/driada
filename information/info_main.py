@@ -181,4 +181,7 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     else:
         raise ValueError('Multidimensional MI only implemented for continuous data!')
 
+    if mi < 0:
+        mi = 0
+
     return mi
