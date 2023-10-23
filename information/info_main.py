@@ -74,7 +74,7 @@ class TimeSeries():
         tree = self.get_kdtree()
         return tree.query(self.scdata, k=k + 1)
 
-    def get_entropy(self, ds):
+    def get_entropy(self, ds=1):
         if ds not in self.entropy.keys():
             self._compute_entropy(ds=ds)
         return self.entropy[ds]
