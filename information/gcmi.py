@@ -138,7 +138,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
     (Samples last axis)
     y should contain integer values in the range [0 Ym-1] (inclusive).
     biascorrect : true / false option (default true) which specifies whether
-    bias correction should be applied to the esimtated MI.
+    bias correction should be applied to the estimated MI.
     demeaned : false / true option (default false) which specifies whether the
     input data already has zero mean (true if it has been copula-normalized)
     See also: mi_mixture_gd
@@ -154,7 +154,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
     if not np.issubdtype(y.dtype, np.integer):
         raise ValueError("y should be an integer array")
     '''
-    if not isinstance(Ym, int):
+    if not int(Ym) != Ym:
         raise ValueError("Ym should be an integer")
 
     Ntrl = x.shape[1]
