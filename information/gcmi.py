@@ -154,7 +154,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
     if not np.issubdtype(y.dtype, np.integer):
         raise ValueError("y should be an integer array")
     '''
-    if not int(Ym) != Ym:
+    if int(Ym) != Ym:
         raise ValueError("Ym should be an integer")
 
     Ntrl = x.shape[1]
