@@ -9,9 +9,8 @@ import pandas as pd
 from ._gd_utils import *
 from ..utils.output import *
 
-def retrieve_relevant_ids(folder, name_part, whitelist=[], extentions=['.csv', '.xlsx']):
+def retrieve_relevant_ids(folder, name_part, whitelist=[], extensions=['.csv', '.xlsx']):
     return_code = True
-
     folder_page = client.get(folder)
 
     if folder_page.status_code != 200:
@@ -29,17 +28,17 @@ def retrieve_relevant_ids(folder, name_part, whitelist=[], extentions=['.csv', '
 
     for child_id, child_name, child_type in id_name_type_iter:
         if child_type != folder_type:
-            if (name_part in child_name or child_name in whitelist) and os.path.splitext(child_name)[1] in extentions:
+            if (name_part in child_name or child_name in whitelist) and os.path.splitext(child_name)[1] in extensions:
                 relevant.append((child_id, child_name))
 
         else:
             return_code, rel_sublist = retrieve_relevant_ids(folders_url + child_id, name_part)
             if not return_code:
-                print('recursive search broke on folder {child_id}')
+                print(f'recursive search broke on folder {child_id}')
                 break
             relevant.extend(rel_sublist)
 
-    return True, relevant
+    return return_code, relevant
 
 
 def download_part_of_folder(
@@ -47,7 +46,7 @@ def download_part_of_folder(
         folder,  # share link to google drive folder
         key='',  # part of filename to search for
         whitelist=[],  # list of filenames to be downloaded regardless of their names
-        extentions=['.csv', '.xlsx', '.npz'],  # allowed file extentions
+        extensions=['.csv', '.xlsx', '.npz'],  # allowed file extensions
         via_pydrive=False  # pydrive requires authorization, but can download a big number of files
 ):
     with Capturing() as load_log:
@@ -75,7 +74,7 @@ def download_part_of_folder(
             return_code, rel = retrieve_relevant_ids(folder,
                                                      key,
                                                      whitelist=whitelist,
-                                                     extentions=extentions)
+                                                     extensions=extensions)
 
             if return_code:
                 for i, pair in enumerate(rel):
@@ -122,8 +121,7 @@ def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
                                                                            links[key],
                                                                            key=expname,
                                                                            whitelist=whitelist,
-                                                                           via_pydrive=via_pydrive
-                                                                           )
+                                                                           via_pydrive=via_pydrive)
 
                     load_log.extend(folder_log)
 
