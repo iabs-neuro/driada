@@ -5,7 +5,11 @@ from ..utils.naming import construct_session_name_iabs
 from .neuron import DEFAULT_FPS, DEFAULT_T_OFF, DEFAULT_T_RISE
 
 
-def load_exp_from_aligned_data(exp_params, data, force_continuous=[], static_features=dict()):
+def load_exp_from_aligned_data(exp_params,
+                               data,
+                               force_continuous=[],
+                               static_features=dict()):
+
     expname = construct_session_name_iabs(exp_params)
     adata = copy.deepcopy(data)
     key_mapping = {key.lower(): key for key in adata.keys()}

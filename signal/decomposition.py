@@ -19,7 +19,7 @@ def multiopt(x, thr):
 def truncate_sig(coeffs, thr):
     return np.array([multiopt(x, thr) for x in coeffs])
 
-# TODO: refactor Signal class into TimeSeries from sig_base
+# TODO: refactor Signal class into TimeSeries child class
 class Signal():
 
     def __init__(self, data):
