@@ -1,6 +1,8 @@
 import numpy as np
 from numba import njit
-from
+from scipy.stats import median_abs_deviation
+from scipy.optimize import minimize
+from ..signal.sig_base import TimeSeries
 
 DEFAULT_T_RISE = 0.25 #sec
 DEFAULT_T_OFF = 2 #sec
@@ -132,7 +134,7 @@ class Neuron():
         #TODO: fit for an arbitrary kernel form.
         #TODO: add nonlinear summation fit if needed
 
-        res = minimize(Neuron.ca_mse_error, (self.default_t_off), args=(self.ca.data, self.sp.data, self.default_t_rise))
+        res = minimize(Neuron.ca_mse_error, (np.array([self.default_t_off])), args=(self.ca.data, self.sp.data, self.default_t_rise))
         opt_t_off = res.x[0]
         noise_amplitude = res.fun
 
@@ -175,6 +177,8 @@ class Neuron():
     def _shuffle_calcium_data_chunks_based(self, **kwargs):
         if 'n' not in kwargs:
             n = 100
+        else:
+            n = kwargs['n']
 
         shuf_ca = np.zeros(self.n_frames)
         ca = self.ca.data

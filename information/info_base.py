@@ -1,14 +1,10 @@
 import warnings
 
-import numpy as np
+from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 
 from .ksg import *
 from .gcmi import *
-
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
-import scipy
-from scipy.stats import entropy, differential_entropy
+from ..signal.sig_base import TimeSeries
 
 
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
@@ -59,6 +55,8 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
         elif not ts1.discrete and ts2.discrete:
             mi = mutual_info_classif(x, y, discrete_features=True, n_neighbors=k)[0]
 
+        return mi
+
     elif estimator == 'gcmi':
         if not ts1.discrete and not ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
@@ -84,8 +82,8 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
         return mi
 
 
-def get_tdmi(data, min_shift = 1, max_shift = 100, nn = DEFAULT_NN):
-    ts = TimeSeries(data, discrete = False)
+def get_tdmi(data, min_shift=1, max_shift=100, nn=DEFAULT_NN):
+    ts = TimeSeries(data, discrete=False)
     tdmi = [get_1d_mi(ts, ts, shift=shift, k=nn) for shift in range(min_shift, max_shift)]
 
     return tdmi
