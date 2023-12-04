@@ -49,6 +49,16 @@ def load_exp_from_aligned_data(exp_params, data, force_continuous=[], static_fea
                     print(f'feature {fn} converted to integer')
 
     signature = f'Exp {expname}'
-    Exp = Experiment(signature, calcium, spikes, exp_params, static_features, filt_dyn_features)
 
-    return Exp
+    # set default static experiment features if not provided
+    default_static_features = {'t_rise_sec': DEFAULT_T_RISE,
+                               't_off_sec': DEFAULT_T_OFF,
+                               'fps': DEFAULT_FPS}
+
+    for sf in default_static_features.keys():
+        if sf not in static_features:
+            static_features.update({sf: default_static_features[sf]})
+
+    exp = Experiment(signature, calcium, spikes, exp_params, static_features, filt_dyn_features)
+
+    return exp
