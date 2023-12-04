@@ -3,7 +3,7 @@ import numba as nb
 from numba import njit
 from scipy.special import ndtri, psi, digamma
 
-from ._info_utils import py_fast_digamma
+from .info_utils import py_fast_digamma
 
 def ctransform(x):
     """Copula transformation (empirical CDF)

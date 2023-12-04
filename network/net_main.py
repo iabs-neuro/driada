@@ -25,7 +25,7 @@ def check_adjacency(a):
 def check_directed(directed, real_world):
     if real_world:
         if int(directed) not in [0, 1]:
-            raise Exception('Fractional direction is not valid for real networks')
+            raise Exception('Fractional direction is not valid for real network')
     elif directed < 0 or directed > 1:
         raise Exception('Wrong directed parameter value:', directed)
 
@@ -127,7 +127,7 @@ class Network():
         if not sp.issparse(a):
             raise Exception('non-sparse matrix parsed to network constructor!')
         '''
-        # three main network characteristics define 8 types of networks
+        # three main network characteristics define 8 types of network
         directed = self.directed
         weighted = self.weighted
         real_world = self.real_world
@@ -441,7 +441,7 @@ class Network():
                 spectrum = self.get_spectrum('lap')
         else:
             if norm:
-                raise ValueError('not implemented for directed networks')
+                raise ValueError('not implemented for directed network')
             else:
                 spectrum = self.get_spectrum('lap_out')
 

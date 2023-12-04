@@ -6,7 +6,7 @@ import numpy.linalg as la
 from numpy import log
 from sklearn.neighbors import BallTree, KDTree
 
-from ._info_utils import py_fast_digamma
+from .info_utils import py_fast_digamma
 
 DEFAULT_NN = 5
 # UTILITY FUNCTIONS
