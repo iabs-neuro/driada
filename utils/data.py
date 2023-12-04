@@ -1,5 +1,6 @@
-from sklearn.preprocessing import MinMaxScaler
 import hashlib
+from sklearn.preprocessing import MinMaxScaler
+
 
 def rescale(data):
     scaler = MinMaxScaler(feature_range=(0, 1))

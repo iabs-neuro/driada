@@ -1,3 +1,15 @@
+import numpy as np
+import warnings
+import tqdm
+from itertools import combinations
+import pickle
+
+from ..signal.sig_base import TimeSeries
+from .neuron import DEFAULT_MIN_BEHAVIOUR_TIME, Neuron
+from ..utils.data import get_hash
+from ..information.info_base import get_1d_mi
+
+
 class Experiment():
     '''
     Class for all Ca2+ experiment types
@@ -525,15 +537,15 @@ class Experiment():
         if not np.all(np.array(relevance)):
             raise ValueError('Stats relevance error')
 
-        cell_ids = np.arange(Exp.n_cells)
+        cell_ids = np.arange(self.n_cells)
 
-        cell_feat_dict = {cell_id:[] for cell_id in range(self.n_cells)}
+        cell_feat_dict = {cell_id: [] for cell_id in range(self.n_cells)}
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
                 if self.significance_table[feat_id][cell_id]['stage2']:
                     cell_feat_dict[cell_id].append(feat_id)
 
-        #filter out cells without specializations
+        # filter out cells without specializations
         final_cell_feat_dict = {cell_id: cell_feat_dict[cell_id] for cell_id in range(self.n_cells) if len(cell_feat_dict[cell_id])>=min_nspec}
 
         return final_cell_feat_dict
