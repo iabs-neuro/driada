@@ -12,7 +12,6 @@ import gdown
 
 client = requests.session()
 
-
 class GoogleDriveFile(object):
     """Represent Google Drive file objects structure.
 

@@ -78,8 +78,8 @@ def download_part_of_folder(
 
             if return_code:
                 for i, pair in enumerate(rel):
-                    id, name = rel[i]
-                    gdown.download(id=id, output=os.path.join(output, name))
+                    idx, name = rel[i]
+                    gdown.download(id=idx, output=os.path.join(output, name))
 
             else:
                 raise FileNotFoundError('Error in downloading procedure!')
@@ -114,10 +114,10 @@ def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
             for key in data_pieces:
                 if 'http' in links[key]:
                     print(f'Loading data: {key}...')
-                    dir = join(expname, key)
-                    os.makedirs(dir, exist_ok=True)
+                    ddir = join(expname, key)
+                    os.makedirs(ddir, exist_ok=True)
                     # gdown.download_folder(url = links[key], output = dir, quiet=False)
-                    return_code, rel, folder_log = download_part_of_folder(dir,
+                    return_code, rel, folder_log = download_part_of_folder(ddir,
                                                                            links[key],
                                                                            key=expname,
                                                                            whitelist=whitelist,
@@ -126,7 +126,7 @@ def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
                     load_log.extend(folder_log)
 
                     if len(rel) == 0:
-                        os.rmdir(dir)
+                        os.rmdir(ddir)
                         print('No relevant data found')
                     else:
                         loaded_names = [r[1] for r in rel]
@@ -150,7 +150,11 @@ def initialize_router():
     data_router = pd.read_excel('IABSexperimentsdata.xlsx')
     data_router.fillna(method='ffill', inplace=True)
 
-    data_pieces = list(data_router.columns.values)
-    data_pieces = [d for d in list(data_router.columns.values) if d not in ['Эксперимент', 'Краткое описание', 'Video',
-                                                                            'Aligned data', 'Computation results']]
+    #data_pieces = list(data_router.columns.values)
+    data_pieces = [d for d in list(data_router.columns.values) if d not in ['Эксперимент',
+                                                                            'Краткое описание',
+                                                                            'Video',
+                                                                            'Aligned data',
+                                                                            'Computation results']
+                   ]
     return data_router, data_pieces

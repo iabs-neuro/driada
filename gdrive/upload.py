@@ -5,7 +5,7 @@ from pydrive.drive import GoogleDrive
 from google.colab import auth
 from oauth2client.client import GoogleCredentials
 
-from ._gd_utils import *
+from .gdrive_utils import *
 from .download import retrieve_relevant_ids
 
 def get_datetime():
