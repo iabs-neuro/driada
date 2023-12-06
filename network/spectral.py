@@ -1,6 +1,8 @@
 import numpy as np
 
-def free_energy(spectrum, t):
+
+def free_entropy(spectrum, t):
+    # eq.2 in https://www.nature.com/articles/s42005-021-00582-8#Sec10
     eigenvalues = np.exp(-t * spectrum)
     F = np.log2(np.real(np.sum(eigenvalues)))
     return F

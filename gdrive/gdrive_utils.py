@@ -1,16 +1,9 @@
-
 import requests
+import regex
+import os
 from bs4 import BeautifulSoup
 from itertools import islice
 import json
-import os
-from os.path import join, normpath, splitext
-import re
-import sys
-import textwrap
-import gdown
-
-client = requests.session()
 
 class GoogleDriveFile(object):
     """Represent Google Drive file objects structure.
@@ -218,7 +211,9 @@ folders_url = "https://drive.google.com/drive/folders/"
 files_url = "https://drive.google.com/uc?id="
 folder_type = "application/vnd.google-apps.folder"
 
-string_regex = re.compile(r"'((?:[^'\\]|\\.)*)'")
+string_regex = regex.compile(r"'((?:[^'\\]|\\.)*)'")
 MAX_NUMBER_FILES = 50
+
+client = requests.session()
 
 

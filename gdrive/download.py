@@ -1,12 +1,15 @@
+from os.path import join
+
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
-from google.colab import auth
+#from google.colab import auth
 from oauth2client.client import GoogleCredentials
 import warnings
 import wget
+import gdown
 import pandas as pd
 
-from ._gd_utils import *
+from .gdrive_utils import *
 from ..utils.output import *
 
 def retrieve_relevant_ids(folder, name_part, whitelist=[], extensions=['.csv', '.xlsx']):
@@ -51,7 +54,7 @@ def download_part_of_folder(
 ):
     with Capturing() as load_log:
         if via_pydrive:
-            auth.authenticate_user()
+            #auth.authenticate_user()
             gauth = GoogleAuth()
             gauth.credentials = GoogleCredentials.get_application_default()
             drive = GoogleDrive(gauth)
@@ -141,8 +144,9 @@ def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
 
 
 def initialize_router():
-    if 'IABSexperimentsdata.xlsx' in os.listdir('/content'):
-        os.remove('/content/IABSexperimentsdata.xlsx')
+    if os.path.exists('/content'):
+        if 'IABSexperimentsdata.xlsx' in os.listdir('/content'):
+            os.remove('/content/IABSexperimentsdata.xlsx')
 
     global_data_table_url = 'https://docs.google.com/spreadsheets/d/130DDFAoAbmm0jcKLBF6xsWsQLDr2Zsj4cPuOYivXoM8/export?format=xlsx'
     wget.download(global_data_table_url)
