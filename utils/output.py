@@ -11,6 +11,7 @@ class Capturing(list):
         del self._stringio    # free up some memory
         sys.stdout = self._stdout
 
+
 def show(output):
     if len(output) == 0:
         print('log is empty')

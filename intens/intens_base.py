@@ -103,7 +103,7 @@ def scan_pairs(cells,
     else:
         f = len(feats)
 
-    t = len(cells[0].ca.data) # full time series length is the same for all cells and features
+    t = len(cells[0].ca.data)  # full time series length is the same for all cells and features
     n = len(cells)
 
     if mask is None:
@@ -125,11 +125,11 @@ def scan_pairs(cells,
         if joint_distr:
             if mask[i,0] == 1:
                 mi0 = get_multi_mi(feats, ts1, ds=ds)
-                MItable[i,0] = mi0 + np.random.random()*noise_const #add small noise for better fitting
+                MItable[i,0] = mi0 + np.random.random()*noise_const # add small noise for better fitting
 
                 for k, shift in enumerate(random_shifts[:,i]):
                     mi = get_multi_mi(feats, ts1, ds=ds, shift=shift)
-                    MItableshuf[i,0,k] = mi + np.random.random()*noise_const #add small noise for better fitting
+                    MItableshuf[i,0,k] = mi + np.random.random()*noise_const # add small noise for better fitting
 
                 pval = get_mi_distr_pvalue(MItableshuf[i,0,:], mi0, distr_type = mi_distr_type)
                 ptable[i,0] = pval
@@ -143,11 +143,11 @@ def scan_pairs(cells,
             for j, ts2 in enumerate(feats):
                 if mask[i,j] == 1:
                     mi0 = get_1d_mi(ts1, ts2, ds=ds)
-                    MItable[i,j] = mi0 + np.random.random()*noise_const #add small noise for better fitting
+                    MItable[i,j] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                     for k, shift in enumerate(random_shifts[:,i]):
                         mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
-                        MItableshuf[i,j,k] = mi + np.random.random()*noise_const #add small noise for better fitting
+                        MItableshuf[i,j,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 
                     pval = get_mi_distr_pvalue(MItableshuf[i,j,:], mi0, distr_type = mi_distr_type)
                     ptable[i,j] = pval

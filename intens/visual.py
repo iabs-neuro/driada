@@ -10,7 +10,8 @@ def show_pc_activity(exp, cell_ind, ds=None, ax=None):
     rel_mi_beh = None if pc_stats['rel_mi_beh'] is None else np.round(pc_stats['rel_mi_beh'], 4)
 
     if ds is None:
-        ds=5
+        ds = 5
+
     if ax is None:
         lenx = max(exp.x.data) - min(exp.x.data)
         leny = max(exp.y.data) - min(exp.y.data)
