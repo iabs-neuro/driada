@@ -8,6 +8,8 @@ import warnings
 from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import entropy, differential_entropy
 
+from ..utils.data import _to_numpy_array
+
 
 DEFAULT_NN = 5
 
@@ -19,6 +21,7 @@ class TimeSeries():
     def define_ts_type(ts):
         if len(ts) < 100:
             warnings.warn('Time series is too short for accurate type (discrete/continuous) determination')
+
         unique_vals = np.unique(ts)
         sc1 = len(unique_vals) / len(ts)
         hist = np.histogram(ts, bins=len(ts))[0]
@@ -37,10 +40,11 @@ class TimeSeries():
         pass
 
     def __init__(self, data, discrete=None):
-        self.data = data
+        self.data = _to_numpy_array(data)
+
         if discrete is None:
             #warnings.warn('Time series type not specified and will be inferred automatically')
-            self.discrete = TimeSeries.define_ts_type(data)
+            self.discrete = TimeSeries.define_ts_type(self.data)
         else:
             self.discrete = discrete
 
@@ -50,7 +54,7 @@ class TimeSeries():
         if not self.discrete:
             self.copula_normal_data = copnorm(self.data).ravel()
 
-        self.entropy = dict()
+        self.entropy = dict() # supports various downsampling constants
         self.kdtree = None
         self.kdtree_query = None
 

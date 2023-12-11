@@ -1,6 +1,6 @@
 import copy
 from .exp_base import Experiment
-from ..signal.sig_base import TimeSeries
+from ..information.info_base import TimeSeries
 from ..utils.naming import construct_session_name_iabs
 from .neuron import DEFAULT_FPS, DEFAULT_T_OFF, DEFAULT_T_RISE
 

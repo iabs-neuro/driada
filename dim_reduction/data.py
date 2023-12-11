@@ -3,16 +3,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
-import scipy.stats as st
 
 from sklearn.preprocessing import normalize, StandardScaler, MinMaxScaler
 
 from .dr_base import *
 from .graph import ProximityGraph
 from .embedding import Embedding
+from ..utils.data import correlation_matrix, _to_numpy_array, rescale
 
+# TODO: refactor this
 def check_data_for_errors(d):
-    sums = np.sum(np.abs(d), axis=0).A
+    sums = np.sum(np.abs(d), axis=0)
     if len(sums.nonzero()[1]) != d.shape[1]:
         bad_points = np.where(sums == 0)[1]
         print('zero points:', bad_points)
@@ -20,70 +21,54 @@ def check_data_for_errors(d):
         raise Exception('Data contains zero points!')
 
 
-def check_data_type(d):
-    possible_types = (sp.csr.csr_matrix, np.ndarray)
-    if not sp.issparse(d):
-        data = sp.csr_matrix(d)
-    else:
-        data = d
-
-    if isinstance(data, possible_types):
-        check_data_for_errors(data)
-        return data
-    else:
-        raise Exception("Wrong data type!")
-
-
-class Data(object):
+class MVData(object):
     '''
-    Main class for data storage & processing
+    Main class for multivariate data storage & processing
     '''
 
-    def __init__(self, data, labels=None, distmat=None, standartize=True, data_name=None):
+    def __init__(self,
+                 data,
+                 labels=None,
+                 distmat=None,
+                 rescale_rows=False,
+                 data_name=None,
+                 downsampling=None):
 
-        self.data = check_data_type(data)
-        self.data = self.data.todense().astype(float)
+        if downsampling is None:
+            self.ds = 1
+        else:
+            self.ds = int(downsampling)
 
-        self.std = standartize
+        self.data = _to_numpy_array(data)[:, ::self.ds]
+
+        # TODO: add support for various preprocessing methods (wvt, med_filt, etc.)
+        self.rescale_rows = rescale_rows
+        if self.rescale_rows:
+            for i, row in enumerate(self.data):
+                data[i] = rescale(row)
+
         self.data_name = data_name
-
-        self.dim = self.data.shape[0]
-        self.npoints = self.data.shape[1]
-
-        self.compression = 0
+        self.n_dim = self.data.shape[0]
+        self.n_points = self.data.shape[1]
 
         if labels is None:
-            self.labels = np.array([0] * self.npoints)
+            self.labels = np.zeros(self.n_points)
         else:
-            try:
-                labels = labels.A
-            except AttributeError:
-                self.labels = labels
+            self.labels = _to_numpy_array(labels)
 
         self.distmat = distmat
 
-    def median_filter(self, window, plot=0):
+    def median_filter(self, window):
         from scipy.signal import medfilt
         d = self.data.A
 
         new_d = medfilt(d, window)
 
-        if plot:
-            plt.figure(figsize=(12, 10))
-            plt.plot(d[8])
-            plt.plot(new_d[8], c='r')
-
         self.data = sp.csr_matrix(new_d)
 
-    def corrmat(self):
-        ncells = self.dim
-        neuro = self.data.A
-        corrmat = np.zeros((ncells, ncells))
-        for i in range(ncells):
-            for j in range(ncells):
-                corrmat[i, j] = st.pearsonr(neuro[i, :], neuro[j, :])[0]
-
-        return corrmat
+    def corr_mat(self):
+        cm = correlation_matrix(self.data.A)
+        return cm
 
     def get_embedding(self, m_params, g_params, e_params):
         method = e_params['e_method']
@@ -94,7 +79,7 @@ class Data(object):
 
         graph = None
         if method.requires_graph:
-            graph = self.get_graph(m_params, g_params)
+            graph = self.get_proximity_graph(m_params, g_params)
 
         if method.requires_distmat and self.distmat is None:
             raise Exception('No distmat provided for {} method'.format(method_name))
@@ -104,7 +89,7 @@ class Data(object):
 
         return emb
 
-    def get_graph(self, m_params, g_params):
+    def get_proximity_graph(self, m_params, g_params):
         if g_params['g_method_name'] not in GRAPH_CONSTRUCTION_METHODS:
             raise Exception('Unknown graph construction method!')
 
@@ -115,7 +100,7 @@ class Data(object):
 
     def draw_vector(self, num):
         data = self.data.A[:, num]
-        plt.matshow(data.reshape(1, self.dim))
+        plt.matshow(data.reshape(1, self.n_dim))
         plt.matshow(self.data.A[:, :1000])
 
     def draw_row(self, num):

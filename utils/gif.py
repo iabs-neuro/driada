@@ -38,4 +38,4 @@ def create_gif_from_image_series(path, signature, gifname, erase_prev=True, im_e
     for filename in tqdm.tqdm(imfiles, leave=True, position=0):
         images.append(imageio.v3.imread((join(path, filename))))
 
-    imageio.mimsave(join(path, 'GIFs', f'{gifname}.gif'), images, duration=duration)
+    imageio.mimsave(join(path, 'GIFs', f'{signature} {gifname}.gif'), images, duration=duration)

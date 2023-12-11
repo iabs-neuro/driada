@@ -9,6 +9,8 @@ def free_entropy(spectrum, t):
 
 
 def q_entropy(spectrum, t, q=1):
+    # https://journals.aps.org/prx/abstract/10.1103/PhysRevX.6.041062
+
     if q <= 0:
         raise Exception('q must be >0')
     else:
@@ -19,7 +21,6 @@ def q_entropy(spectrum, t, q=1):
         else:
             S = spectral_entropy(spectrum, t, verbose=0)
 
-    # https://journals.aps.org/prx/abstract/10.1103/PhysRevX.6.041062
     if np.imag(S) != 0:
         raise Exception(f'Imaginary entropy detected: t={t}, q={q}, S={S}!')
 

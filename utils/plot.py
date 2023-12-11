@@ -34,10 +34,12 @@ def create_default_figure(a=16, b=12):
     return fig, ax
 
 
-def plot_mat(mat, a=12, b=12, ax=None):
+def plot_mat(mat, a=12, b=12, ax=None, with_cbar=True):
     if ax is None:
         fig, ax = plt.subplots(figsize=(a, b))
 
     im = ax.imshow(mat)
-    cbar = ax.figure.colorbar(im, ax=ax)
+    if with_cbar:
+        cbar = ax.figure.colorbar(im, ax=ax)
+
     return ax
