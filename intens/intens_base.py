@@ -4,6 +4,7 @@ from scipy.stats import rankdata
 from .stats import *
 from ..information.info_base import get_1d_mi, get_multi_mi
 
+# TODO: add cbunch and fbunch logic
 def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window = 1000, ds=1):
 
     cell = exp.neurons[cell_id]
@@ -14,7 +15,7 @@ def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window = 1000, ds=1):
         ts2 = exp.dynamic_features[feat_id]
         mi0 = get_1d_mi(ts1, ts2, ds=ds)
 
-        for shift in tqdm.tqdm(np.arange(-window, window)):
+        for shift in tqdm.tqdm(np.arange(-window, window, ds)):
             lag_mi = get_1d_mi(ts1, ts2, ds=ds, shift=shift)
             shifted_mi.append(lag_mi)
 
@@ -22,7 +23,7 @@ def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window = 1000, ds=1):
         feats = [exp.dynamic_features[fid] for fid in feat_id]
         mi0 = get_multi_mi(feats, ts1, ds=ds)
 
-        for shift in tqdm.tqdm(np.arange(-window, window)):
+        for shift in tqdm.tqdm(np.arange(-window, window, ds)):
             lag_mi = get_multi_mi(feats, ts1, ds=ds, shift=shift)
             shifted_mi.append(lag_mi)
 
