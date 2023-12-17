@@ -42,7 +42,7 @@ def save_file_to_gdrive(data_router,
             postfix = ' syn data'
 
     if path_to_file == None:
-        path_to_file = join(expname, destination, expname + postfix + '.npz')
+        path_to_file = os.path.join(expname, destination, expname + postfix + '.npz')
 
     if force_rewriting:
         return_code, rel = retrieve_relevant_ids(link,
