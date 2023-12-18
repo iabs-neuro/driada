@@ -76,8 +76,8 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
             ax1.set_ylabel('density', fontsize=20)
 
         else:
-            x0, y0 = np.log10(ca + np.random.random(size=len(ca)) * 1e-8), np.log(
-                bdata + np.random.random(size=len(bdata)) * 1e-8)
+            x0, y0 = np.log10(ca + np.random.random(size=len(ca)) * 1e-8), np.log(bdata + np.random.random(size=len(bdata)) * 1e-8)
+
             jdata = np.vstack([x0, y0]).T
             # jplot = sns.jointplot(jdata, x=jdata[:,0], y=jdata[:,1], kind='hist', bins=100)
             nbins = 100

@@ -78,7 +78,7 @@ def criterion1(pair_stats, nsh1):
         return False
 
 
-def criterion2(pair_stats, nsh2, pval_thr, multicomp_correction=None, **multicomp_kwargs):
+def criterion2(pair_stats, nsh2, pval_thr):
     """
     Calculates whether the given neuron-feature pair is significant after full-scale shuffling
 
@@ -91,14 +91,8 @@ def criterion2(pair_stats, nsh2, pval_thr, multicomp_correction=None, **multicom
         number of shuffles for second stage
 
     pval_thr: float
-        pvalue threshold. if multicomp_correction=None, this is a p-value for a single pair.
-        Otherwise it is a FWER significance level.
-
-    multicomp_correction: str or None
-        type of multiple comparisons correction. Supported types are None (no correction),
-        "bonferroni" and "holm".
-
-    multicomp_kwargs: named arguments for multiple comparisons correction procedure
+        pvalue threshold for a single pair. It depends on a FWER significance level and multiple
+        hypothesis correction algorithm.
 
     Returns
     -------
@@ -106,39 +100,12 @@ def criterion2(pair_stats, nsh2, pval_thr, multicomp_correction=None, **multicom
         True if significance confirmed, False if not.
     """
 
-    if pair_stats['rval'] is not None and pair_stats['pval'] is not None: # whether pair passed stage 1 and has statistics from stage 2
-        if pair_stats['rval'] >= (1 - 5.0/nsh2): # whether true MI is among top-5 shuffles (in practice it is top-1 almost always)
-
-            if multicomp_correction is None:
-                threshold = pval_thr
-                criterion = pair_stats['pval'] < pval_thr
-
-            elif multicomp_correction == 'bonferroni':
-                if 'nhyp' in multicomp_kwargs:
-                    threshold = pval_thr / multicomp_kwargs['nhyp']
-                    criterion = pair_stats['pval'] < threshold
-                else:
-                    raise ValueError('Number of hypotheses for Bonferroni correction not provided')
-
-            elif multicomp_correction == 'holm':
-                if 'all_pvals' in multicomp_kwargs:
-                    all_pvals = sorted(multicomp_kwargs['all_pvals'])
-                    nhyp = len(all_pvals)
-                else:
-                    raise ValueError('List of p-values for Holm correction not provided')
-
-                current_pval_index = np.where(all_pvals == pair_stats['pval'])[0][0]
-                threshold = pval_thr/(nhyp-current_pval_index)
-                criterion = pair_stats['pval'] < threshold
-
-            else:
-                raise ValueError('Unknown multiple comparisons correction method')
-
-            return criterion, threshold
-
+    if pair_stats['rval'] is not None and pair_stats['pval'] is not None: #  whether pair passed stage 1 and has statistics from stage 2
+        if pair_stats['rval'] >= (1 - 5.0/nsh2): #  whether true MI is among top-5 shuffles (in practice it is top-1 almost always)
+            criterion = pair_stats['pval'] < pval_thr
+            return criterion
         else:
             return False
-
     else:
         return False
 

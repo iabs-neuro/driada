@@ -365,7 +365,7 @@ def compute_mi_significance(exp,
                     mask_from_stage1[i,j] = 1
 
         print('Stage 1 results:')
-        nhyp = np.sum(mask_from_stage1) #number of hypotheses for further statistical testing
+        nhyp = int(np.sum(mask_from_stage1)) #number of hypotheses for further statistical testing
         print(f'{nhyp/n/f*100:.2f}% ({nhyp}/{n*f} of possible pairs identified as candidates')
 
         if mode == 'stage1':
@@ -413,18 +413,20 @@ def compute_mi_significance(exp,
 
         # select significant pairs after stage 2
         print('Computing significance for all pairs in stage 2...')
-        all_pvals = []
+        all_pvals = None
         if multicomp_correction == 'holm':  # holm procedure requires all p-values
             all_pvals = get_all_nonempty_pvals(stage_2_stats, cell_ids, feat_ids)
 
+        multicorr_thr = get_multicomp_correction_thr(pval_thr,
+                                                     multicomp_correction,
+                                                     all_pvals=all_pvals,
+                                                     nhyp=nhyp)
+
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
-                pair_passes_stage2, pair_thr = criterion2(stage_2_stats[feat_id][cell_id],
-                                                          n_shuffles_stage2,
-                                                          pval_thr,
-                                                          multicomp_correction=multicomp_correction,
-                                                          all_pvals=all_pvals,
-                                                          nhyp=nhyp)
+                pair_passes_stage2 = criterion2(stage_2_stats[feat_id][cell_id],
+                                                n_shuffles_stage2,
+                                                multicorr_thr)
 
                 sig = {'shuffles2': n_shuffles_stage2,
                        'stage2': pair_passes_stage2,
@@ -437,9 +439,57 @@ def compute_mi_significance(exp,
                 if pair_passes_stage2:
                     mask_from_stage2[i,j] = 1
 
-        exp._pairwise_pval_thr = pair_thr
+        exp._pairwise_pval_thr = multicorr_thr
         print('Stage 2 results:')
-        num2 = np.sum(mask_from_stage2)
+        num2 = int(np.sum(mask_from_stage2))
         print(f'{num2/n/f*100:.2f}% ({num2}/{n*f}) of possible pairs identified as significant')
 
         return stage_2_stats
+
+
+def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
+
+    '''
+    Calculates pvalue threshold for a single hypothesis from FWER
+
+    Parameters
+    ----------
+    fwer: float
+        family-wise error rate
+
+    mode: str or None
+        type of multiple comparisons correction. Supported types are None (no correction),
+        "bonferroni" and "holm".
+
+    multicomp_kwargs: named arguments for multiple comparisons correction procedure
+    '''
+
+    if mode is None:
+        threshold = fwer
+
+    elif mode == 'bonferroni':
+        if 'nhyp' in multicomp_kwargs:
+            threshold = fwer / multicomp_kwargs['nhyp']
+        else:
+            raise ValueError('Number of hypotheses for Bonferroni correction not provided')
+
+    elif mode == 'holm':
+        if 'all_pvals' in multicomp_kwargs:
+            all_pvals = sorted(multicomp_kwargs['all_pvals'])
+            nhyp = len(all_pvals)
+
+            for i, pval in all_pvals:
+                cthr = fwer / (nhyp - i)
+                if pval > cthr:
+                    break
+
+            threshold = cthr
+
+        else:
+            raise ValueError('List of p-values for Holm correction not provided')
+
+
+    else:
+        raise ValueError('Unknown multiple comparisons correction method')
+
+    return threshold
