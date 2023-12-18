@@ -502,10 +502,8 @@ class Experiment():
 
         return out_table
 
-
     def get_significance_slice(self, cbunch=None, fbunch=None, sbunch=None):
         return self.get_stats_slice(cbunch=cbunch, fbunch=fbunch, sbunch=sbunch, significance_mode=True)
-
 
     def get_feature_entropy(self, feat_id, ds=1):
         '''
