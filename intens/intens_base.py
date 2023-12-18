@@ -366,7 +366,7 @@ def compute_mi_significance(exp,
 
         print('Stage 1 results:')
         nhyp = int(np.sum(mask_from_stage1)) #number of hypotheses for further statistical testing
-        print(f'{nhyp/n/f*100:.2f}% ({nhyp}/{n*f} of possible pairs identified as candidates')
+        print(f'{nhyp/n/f*100:.2f}% ({nhyp}/{n*f}) of possible pairs identified as candidates')
 
         if mode == 'stage1':
             return stage_1_stats
@@ -377,7 +377,7 @@ def compute_mi_significance(exp,
         combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = 0
         combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = 0
 
-        npairs_to_check2 = np.sum(combined_mask_for_stage_2)
+        npairs_to_check2 = int(np.sum(combined_mask_for_stage_2))
         print(f'Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs')
 
         shifts, rtable, ptable, mitotal = scan_pairs(cells,
@@ -418,7 +418,7 @@ def compute_mi_significance(exp,
             all_pvals = get_all_nonempty_pvals(stage_2_stats, cell_ids, feat_ids)
 
         multicorr_thr = get_multicomp_correction_thr(pval_thr,
-                                                     multicomp_correction,
+                                                     mode=multicomp_correction,
                                                      all_pvals=all_pvals,
                                                      nhyp=nhyp)
 
