@@ -100,6 +100,10 @@ class Experiment():
         self.null_stats_dict = dict(zip(self.stats_types, [None for _ in self.stats_types]))
         self.null_significance_dict = dict(zip(self.significance_types, [None for _ in self.significance_types]))
 
+        # attribute for a threshold pvalue for each pair p-value. Computed from desired FWER and
+        # multiple hypothesis correction method
+        self._pairwise_pval_thr = None
+
         #neuron-feature pair statistics
         self.stats_table = self._populate_dict(self.null_stats_dict, fbunch=None, cbunch=None)
 
@@ -381,12 +385,12 @@ class Experiment():
         '''
         # update statistics
         self.stats_table[feat_id][cell_id].update(stats)
-        if stage==1:
+        if stage == 1:
             # erase significance data completely since stats for stage 1 has been modified
             self.significance_table[feat_id][cell_id].update(self.null_significance_dict.copy())
-        elif stage==2:
+        elif stage == 2:
             # erase significance data for stage 2 since stats for stage 2 has been modified
-            self.significance_table[feat_id][cell_id].update({'stage2':None, 'shuffles2':None})
+            self.significance_table[feat_id][cell_id].update({'stage2': None, 'shuffles2': None})
 
 
     def update_neuron_feature_pair_stats(self, stats, cell_id, feat_id, force_update=False, stage=1):
@@ -455,18 +459,14 @@ class Experiment():
 
         return sig
 
-
     def get_multicell_shuffled_calcium(self, cbunch = None, method = 'roll_based', **kwargs):
-
         cell_list = self._process_cbunch(cbunch)
-
         agg_sh_data = np.zeros((len(cell_list), self.n_frames))
         for i, cell in enumerate(cell_list):
-            sh_data = cell.get_shuffled_calcium(method = method, **kwargs)
-            agg_sh_data[i,:] = sh_data.data[:]
+            sh_data = cell.get_shuffled_calcium(method=method, **kwargs)
+            agg_sh_data[i, :] = sh_data.data[:]
 
         return agg_sh_data
-
 
     def get_multicell_shuffled_spikes(self, cbunch = None, method = 'isi_based', **kwargs):
         if self.spikes is None:
@@ -526,7 +526,6 @@ class Experiment():
             MIs = [get_1d_mi(ts1, ts2, ds=ds) for (ts1,ts2) in fpairs]
             return sum(single_entropies) - sum(MIs)
 
-
     def get_significant_neurons(self, min_nspec=1, fbunch=None):
         '''
         Returns a dict with neuron ids as keys and their significantly correlated features as values
@@ -539,6 +538,7 @@ class Experiment():
 
         cell_ids = np.arange(self.n_cells)
 
+        # TODO: add significance update and pval_thr argument
         cell_feat_dict = {cell_id: [] for cell_id in range(self.n_cells)}
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):

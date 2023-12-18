@@ -38,7 +38,7 @@ def scan_pairs(cells,
                ds=1,
                mask=None,
                mi_distr_type='gamma',
-               noise_const=1e-5):
+               noise_const=1e-3):
 
     """
     Calculates MI shuffles and statistics for given cells and features
@@ -75,7 +75,7 @@ def scan_pairs(cells,
 
     noise_const: float
         Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit
-        default: 1e-5
+        default: 1e-3
 
 
     Returns
@@ -120,17 +120,17 @@ def scan_pairs(cells,
         ts1 = cell.ca
 
         min_shift = int(cell.get_t_off()*5)
-        ca_random_shifts = np.random.randint(low = min_shift//ds, high = (t-min_shift)//ds, size = nsh)
+        ca_random_shifts = np.random.randint(low=min_shift//ds, high=(t-min_shift)//ds, size=nsh)
         random_shifts[:,i] = ca_random_shifts[:]
 
         if joint_distr:
             if mask[i,0] == 1:
                 mi0 = get_multi_mi(feats, ts1, ds=ds)
-                MItable[i,0] = mi0 + np.random.random()*noise_const # add small noise for better fitting
+                MItable[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                 for k, shift in enumerate(random_shifts[:,i]):
                     mi = get_multi_mi(feats, ts1, ds=ds, shift=shift)
-                    MItableshuf[i,0,k] = mi + np.random.random()*noise_const # add small noise for better fitting
+                    MItableshuf[i,0,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 
                 pval = get_mi_distr_pvalue(MItableshuf[i,0,:], mi0, distr_type = mi_distr_type)
                 ptable[i,0] = pval
@@ -173,6 +173,7 @@ def compute_mi_significance(exp,
                             n_shuffles_stage2=10000,
                             joint_distr=False,
                             mi_distr_type='gamma',
+                            noise_ampl=1e-3,
                             ds=1,
                             use_precomputed_stats=True,
                             save_computed_stats=True,
@@ -222,6 +223,10 @@ def compute_mi_significance(exp,
     mi_distr_type: str
         Distribution type for shuffles MI distribution fit. Supported options are "gamma" and "lognormal"
         default: "gamma"
+
+    noise_ampl: float
+        Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit
+        default: 1e-3
 
     ds: int
         Downsampling constant. Every "ds" point will be taken from the data time series.
@@ -297,8 +302,8 @@ def compute_mi_significance(exp,
                         print(f'Multifeature {feat_id} is new, it will be added to stats table')
                         exp._add_multifeature_to_data_hashes(feat_id)
                         exp._add_multifeature_to_stats(feat_id)
+                        pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_id)
 
-                pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_id)
                 data_hash = exp._data_hashes[feat_id][cell_id]
 
                 if stats_not_empty(pair_stats, data_hash, stage=1):
@@ -307,15 +312,18 @@ def compute_mi_significance(exp,
                     precomputed_mask_stage2[i,j]=0
 
     if mode in ['two_stage', 'stage1']:
-        print('Starting stage 1 scanning...')
+        npairs_to_check1 = np.sum(precomputed_mask_stage1)
+        print(f'Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs')
+
         # STAGE 1 - primary scanning
         shifts, rtable, ptable, mitotal = scan_pairs(cells,
                                                      feats,
                                                      n_shuffles_stage1,
-                                                     joint_distr = joint_distr,
+                                                     joint_distr=joint_distr,
                                                      ds=ds,
                                                      mask=precomputed_mask_stage1,
-                                                     mi_distr_type=mi_distr_type)
+                                                     mi_distr_type=mi_distr_type,
+                                                     noise_const=noise_ampl)
 
         # turn computed data tables from stage 1 and precomputed data into dict of stats dicts
         stage_1_stats = get_table_of_stats(exp,
@@ -358,25 +366,28 @@ def compute_mi_significance(exp,
 
         print('Stage 1 results:')
         nhyp = np.sum(mask_from_stage1) #number of hypotheses for further statistical testing
-        print(f'{nhyp/n/f*100:.2f}% of possible pairs identified as candidates')
+        print(f'{nhyp/n/f*100:.2f}% ({nhyp}/{n*f} of possible pairs identified as candidates')
 
         if mode == 'stage1':
             return stage_1_stats
 
     if mode in ['two_stage', 'stage2']:
-        print('Starting stage 2 scanning...')
         # STAGE 2 - full-scale scanning
         combined_mask_for_stage_2 = np.ones((n,f))
-        combined_mask_for_stage_2[np.where(mask_from_stage1==0)] = 0
-        combined_mask_for_stage_2[np.where(precomputed_mask_stage2==0)] = 0
+        combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = 0
+        combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = 0
+
+        npairs_to_check2 = np.sum(combined_mask_for_stage_2)
+        print(f'Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs')
 
         shifts, rtable, ptable, mitotal = scan_pairs(cells,
                                                      feats,
                                                      n_shuffles_stage2,
-                                                     joint_distr = joint_distr,
+                                                     joint_distr=joint_distr,
                                                      ds=ds,
                                                      mask=combined_mask_for_stage_2,
-                                                     mi_distr_type=mi_distr_type)
+                                                     mi_distr_type=mi_distr_type,
+                                                     noise_const=noise_ampl)
 
         # turn data tables from stage 2 to array of stats dicts
         stage_2_stats = get_table_of_stats(exp,
@@ -402,18 +413,18 @@ def compute_mi_significance(exp,
 
         # select significant pairs after stage 2
         print('Computing significance for all pairs in stage 2...')
-        all_pvals=[]
-        if multicomp_correction == 'holm': # holm procedure requires all p-values
+        all_pvals = []
+        if multicomp_correction == 'holm':  # holm procedure requires all p-values
             all_pvals = get_all_nonempty_pvals(stage_2_stats, cell_ids, feat_ids)
 
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
-                pair_passes_stage2 = criterion2(stage_2_stats[feat_id][cell_id],
-                                                n_shuffles_stage2,
-                                                pval_thr,
-                                                multicomp_correction=multicomp_correction,
-                                                all_pvals=all_pvals,
-                                                nhyp=nhyp)
+                pair_passes_stage2, pair_thr = criterion2(stage_2_stats[feat_id][cell_id],
+                                                          n_shuffles_stage2,
+                                                          pval_thr,
+                                                          multicomp_correction=multicomp_correction,
+                                                          all_pvals=all_pvals,
+                                                          nhyp=nhyp)
 
                 sig = {'shuffles2': n_shuffles_stage2,
                        'stage2': pair_passes_stage2,
@@ -426,7 +437,9 @@ def compute_mi_significance(exp,
                 if pair_passes_stage2:
                     mask_from_stage2[i,j] = 1
 
+        exp._pairwise_pval_thr = pair_thr
         print('Stage 2 results:')
-        print(f'{np.sum(mask_from_stage2)/n/f*100:.2f}% of possible pairs identified as significant')
+        num2 = np.sum(mask_from_stage2)
+        print(f'{num2/n/f*100:.2f}% ({num2}/{n*f}) of possible pairs identified as significant')
 
         return stage_2_stats

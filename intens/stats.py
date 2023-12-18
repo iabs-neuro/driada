@@ -110,11 +110,13 @@ def criterion2(pair_stats, nsh2, pval_thr, multicomp_correction=None, **multicom
         if pair_stats['rval'] >= (1 - 5.0/nsh2): # whether true MI is among top-5 shuffles (in practice it is top-1 almost always)
 
             if multicomp_correction is None:
-                criterion = pair_stats['pval']<pval_thr
+                threshold = pval_thr
+                criterion = pair_stats['pval'] < pval_thr
 
             elif multicomp_correction == 'bonferroni':
                 if 'nhyp' in multicomp_kwargs:
-                    criterion = pair_stats['pval'] < pval_thr/multicomp_kwargs['nhyp']
+                    threshold = pval_thr / multicomp_kwargs['nhyp']
+                    criterion = pair_stats['pval'] < threshold
                 else:
                     raise ValueError('Number of hypotheses for Bonferroni correction not provided')
 
@@ -125,14 +127,14 @@ def criterion2(pair_stats, nsh2, pval_thr, multicomp_correction=None, **multicom
                 else:
                     raise ValueError('List of p-values for Holm correction not provided')
 
-                current_pval_index = np.where(all_pvals==pair_stats['pval'])[0][0]
+                current_pval_index = np.where(all_pvals == pair_stats['pval'])[0][0]
                 threshold = pval_thr/(nhyp-current_pval_index)
-                criterion = pair_stats['pval']<threshold
+                criterion = pair_stats['pval'] < threshold
 
             else:
                 raise ValueError('Unknown multiple comparisons correction method')
 
-            return criterion
+            return criterion, threshold
 
         else:
             return False
