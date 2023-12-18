@@ -312,7 +312,7 @@ def compute_mi_significance(exp,
                     precomputed_mask_stage2[i,j]=0
 
     if mode in ['two_stage', 'stage1']:
-        npairs_to_check1 = np.sum(precomputed_mask_stage1)
+        npairs_to_check1 = int(np.sum(precomputed_mask_stage1))
         print(f'Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs')
 
         # STAGE 1 - primary scanning
@@ -478,7 +478,7 @@ def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
             all_pvals = sorted(multicomp_kwargs['all_pvals'])
             nhyp = len(all_pvals)
 
-            for i, pval in all_pvals:
+            for i, pval in enumerate(all_pvals):
                 cthr = fwer / (nhyp - i)
                 if pval > cthr:
                     break
