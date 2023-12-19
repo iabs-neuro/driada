@@ -20,7 +20,6 @@ def save_file_to_gdrive(data_router,
                         path_to_file,
                         link=None,
                         destination=None,
-                        postfix='',
                         force_rewriting=False):
 
     auth.authenticate_user()
@@ -37,14 +36,10 @@ def save_file_to_gdrive(data_router,
 
     fid = id_from_link(link)
 
-    if postfix == '':
-        if destination == 'Aligned data':
-            postfix = ' syn data'
-
     dataname = os.path.basename(path_to_file)
     if force_rewriting:
         return_code, rel = retrieve_relevant_ids(link,
-                                                 expname + postfix,
+                                                 dataname,
                                                  whitelist=[],
                                                  extensions=['.npz', '.csv', 'xlsx'])
         if len(rel) != 0:
