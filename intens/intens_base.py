@@ -490,12 +490,10 @@ def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
     elif mode == 'holm':
         if 'all_pvals' in multicomp_kwargs:
             all_pvals = sorted(multicomp_kwargs['all_pvals'])
-            print(all_pvals)
             nhyp = len(all_pvals)
 
             for i, pval in enumerate(all_pvals):
                 cthr = fwer / (nhyp - i)
-                print(cthr)
                 if pval > cthr:
                     break
 

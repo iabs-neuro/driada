@@ -17,11 +17,11 @@ def get_datetime():
 
 def save_file_to_gdrive(data_router,
                         expname,
-                        path_to_file = None,
-                        link = None,
-                        destination = None,
-                        postfix = None,
-                        force_rewriting = False):
+                        path_to_file,
+                        link=None,
+                        destination=None,
+                        postfix='',
+                        force_rewriting=False):
 
     auth.authenticate_user()
     gauth = GoogleAuth()
@@ -37,18 +37,16 @@ def save_file_to_gdrive(data_router,
 
     fid = id_from_link(link)
 
-    if postfix is None:
+    if postfix == '':
         if destination == 'Aligned data':
             postfix = ' syn data'
 
-    if path_to_file == None:
-        path_to_file = os.path.join(expname, destination, expname + postfix + '.npz')
-
+    dataname = os.path.basename(path_to_file)
     if force_rewriting:
         return_code, rel = retrieve_relevant_ids(link,
                                                  expname + postfix,
                                                  whitelist=[],
-                                                 extensions=['.npz'])
+                                                 extensions=['.npz', '.csv', 'xlsx'])
         if len(rel) != 0:
             if len(rel) > 1:
                 print('More than one relevant file found, which is suspicious. Consider manual check')
@@ -58,13 +56,13 @@ def save_file_to_gdrive(data_router,
             f = drive.CreateFile({'id': dat_id})
 
         else:
-            print('Data not found in folder, nothing to rewrite')
-            dataname = expname + postfix + '.npz'
+            print(f'Data for {dataname} not found in folder, nothing to rewrite')
             f = drive.CreateFile({'title': dataname, "parents": [{"kind": "drive#fileLink", "id": fid}]})
 
     else:
         date_time = get_datetime()
-        dataname = expname + '_' + date_time + postfix + '.npz'
+        ext = os.path.splitext(path_to_file)[1]
+        dataname = dataname[:-len(ext)] + date_time + ext
         f = drive.CreateFile({'title': dataname, "parents": [{"kind": "drive#fileLink", "id": fid}]})
 
     f.SetContentFile(path_to_file)
