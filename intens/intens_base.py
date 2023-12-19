@@ -178,6 +178,8 @@ def compute_mi_significance(exp,
                             use_precomputed_stats=True,
                             save_computed_stats=True,
                             force_update=False,
+                            topk1=1,
+                            topk2=5,
                             multicomp_correction='holm',
                             pval_thr=0.01):
 
@@ -251,6 +253,14 @@ def compute_mi_significance(exp,
         Whether to force saved statistics data update in case the collision between actual data hashes and
         saved stats data hashes is found (for example, if neuronal or behavior data has been changed externally).
         default: False
+
+    topk1: int
+        true MI for stage 1 should be among topk1 MI shuffles
+        default: 1
+
+    topk2: int
+        true MI for stage 2 should be among topk2 MI shuffles
+        default: 5
 
     multicomp_correction: str or None
         type of multiple comparisons correction. Supported types are None (no correction),
@@ -355,7 +365,10 @@ def compute_mi_significance(exp,
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
 
-                pair_passes_stage1 = criterion1(stage_1_stats[feat_id][cell_id], n_shuffles_stage1)
+                pair_passes_stage1 = criterion1(stage_1_stats[feat_id][cell_id],
+                                                n_shuffles_stage1,
+                                                topk=topk1)
+
                 sig = {'shuffles1': n_shuffles_stage1, 'stage1': pair_passes_stage1}
 
                 # update Experiment saved significance data if needed
@@ -426,7 +439,8 @@ def compute_mi_significance(exp,
             for j, feat_id in enumerate(feat_ids):
                 pair_passes_stage2 = criterion2(stage_2_stats[feat_id][cell_id],
                                                 n_shuffles_stage2,
-                                                multicorr_thr)
+                                                multicorr_thr,
+                                                topk=topk2)
 
                 sig = {'shuffles2': n_shuffles_stage2,
                        'stage2': pair_passes_stage2,

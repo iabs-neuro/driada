@@ -53,7 +53,7 @@ def stats_not_empty(pair_stats, data_hash, stage=1):
     return is_valid and is_not_empty
 
 
-def criterion1(pair_stats, nsh1):
+def criterion1(pair_stats, nsh1, topk=1):
     """
     Calculates whether the given neuron-feature pair is potentially significant after preliminary shuffling
 
@@ -65,6 +65,10 @@ def criterion1(pair_stats, nsh1):
     nsh1: int
         number of shuffles for first stage
 
+    topk: int
+        true MI should be among topk MI shuffles
+        default: 1
+
     Returns
     -------
     crit_passed: bool
@@ -72,13 +76,13 @@ def criterion1(pair_stats, nsh1):
     """
 
     if pair_stats['pre_rval'] is not None:
-        #return pair_stats['pre_rval'] >= (1 - 1.0/nsh1)
-        return pair_stats['pre_rval'] == 1 # true MI should be top-1 among all shuffles
+        return pair_stats['pre_rval'] > (1 - topk/nsh1)
+        #return pair_stats['pre_rval'] == 1 # true MI should be top-1 among all shuffles
     else:
         return False
 
 
-def criterion2(pair_stats, nsh2, pval_thr):
+def criterion2(pair_stats, nsh2, pval_thr, topk=5):
     """
     Calculates whether the given neuron-feature pair is significant after full-scale shuffling
 
@@ -94,14 +98,18 @@ def criterion2(pair_stats, nsh2, pval_thr):
         pvalue threshold for a single pair. It depends on a FWER significance level and multiple
         hypothesis correction algorithm.
 
+    topk: int
+        true MI should be among topk MI shuffles
+        default: 5
+
     Returns
     -------
     crit_passed: bool
         True if significance confirmed, False if not.
     """
 
-    if pair_stats['rval'] is not None and pair_stats['pval'] is not None: #  whether pair passed stage 1 and has statistics from stage 2
-        if pair_stats['rval'] >= (1 - 5.0/nsh2): #  whether true MI is among top-5 shuffles (in practice it is top-1 almost always)
+    if pair_stats['rval'] is not None and pair_stats['pval'] is not None: # whether pair passed stage 1 and has statistics from stage 2
+        if pair_stats['rval'] > (1 - topk/nsh2): #  whether true MI is among topk shuffles (in practice it is top-1 almost always)
             criterion = pair_stats['pval'] < pval_thr
             return criterion
         else:
