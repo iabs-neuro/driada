@@ -9,6 +9,16 @@ def free_entropy(spectrum, t):
 
 
 def q_entropy(spectrum, t, q=1):
+    """
+
+    Args:
+        spectrum:
+        t:
+        q:
+
+    Returns:
+
+    """
     # https://journals.aps.org/prx/abstract/10.1103/PhysRevX.6.041062
 
     if q <= 0:

@@ -13,6 +13,11 @@ from .utils.naming import *
 from .utils.output import *
 from .utils.plot import *
 
+# TODO: include environment.yml
+# TODO: unit tests for calculations (https://goodresearch.dev/testing)
+# TODO: document everything in Google Style (https://goodresearch.dev/docs)
+# TODO: publish docs on Readthedocs (https://docs.readthedocs.io/en/stable/tutorial/index.html#importing-the-project-to-read-the-docs_
+# TODO: update ReadMe (https://goodresearch.dev/pipelines)
 
 # TODO: probably add automatic scanning for every .py file (dangerous and not pythonic, but convenient)
 '''

@@ -1,11 +1,12 @@
 import hashlib
 
-import scipy.sparse
+import scipy.sparse as ssp
 from sklearn.preprocessing import MinMaxScaler
 from scipy.signal import hilbert
 import numpy as np
 import scipy.stats as st
 from numba import njit
+
 
 def rescale(data):
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -23,8 +24,8 @@ def get_hash(data):
 def phase_synchrony(vec1, vec2):
     al1 = np.angle(hilbert(vec1), deg=False)
     al2 = np.angle(hilbert(vec2), deg=False)
-    phase_synchrony = 1-np.sin(np.abs(al1-al2)/2)
-    return phase_synchrony
+    phase_sync = 1-np.sin(np.abs(al1-al2)/2)
+    return phase_sync
 
 
 def correlation_matrix_old(a, b):
@@ -76,11 +77,11 @@ def norm_cross_corr(a, b):
     return c
 
 
-def _to_numpy_array(data):
+def to_numpy_array(data):
     if isinstance(data, np.ndarray):
         return data
 
-    if scipy.sparse.issparse(data):
+    if ssp.issparse(data):
         return data.A
 
     else:

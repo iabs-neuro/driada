@@ -1,7 +1,7 @@
 # @title Method class { form-width: "300px" }
 from pynndescent.distances import named_distances
 import sys
-from .data import Data
+from .data import MVData
 
 class DRMethod(object):
 
@@ -114,8 +114,13 @@ def e_param_filter(para):
     return {key: para[key] for key in appr_keys}
 
 
-def jump_series(d, n_jumps, all_metric_params, all_graph_params, all_embedding_params,
-                recalculate_if_error=0):
+def dr_series(d,
+              n_jumps,
+              all_metric_params,
+              all_graph_params,
+              all_embedding_params,
+              recalculate_if_error=0):
+
     print('---------------------------  JUMP 1  --------------------------------')
     print('Performing jump from dim', d.dim, 'to dim', all_embedding_params['dim'][0], ':')
     metric_params = dict(zip(all_metric_params.keys(), [val[0] for val in all_metric_params.values()]))
@@ -128,7 +133,7 @@ def jump_series(d, n_jumps, all_metric_params, all_graph_params, all_embedding_p
     e_params = e_param_filter(embedding_params)
 
     maxiter = 20
-    n_iter = maxiter * (recalculate_if_error) + 1
+    n_iter = maxiter * int(recalculate_if_error) + 1
     it = 0
     success = 0
     while it < n_iter and success == 0:
@@ -144,7 +149,7 @@ def jump_series(d, n_jumps, all_metric_params, all_graph_params, all_embedding_p
         raise Exception('First jump failed after %s attempts' % n_iter)
 
     if n_jumps > 1:
-        datalist = [d, Data(emb.coords, labels=d.labels)]
+        datalist = [d, MVData(emb.coords, labels=d.labels)]
 
     for i in range(1, n_jumps):
         print('---------------------------  JUMP ' + str(i + 1) + ' --------------------------------', )
@@ -174,6 +179,6 @@ def jump_series(d, n_jumps, all_metric_params, all_graph_params, all_embedding_p
         if it == n_iter:
             raise Exception('Jump ', str(i + 1), ' failed after %s attempts' % n_iter)
 
-        datalist.append(Data(emb.coords, labels=d.labels))
+        datalist.append(MVData(emb.coords, labels=d.labels))
 
     return emb

@@ -27,26 +27,26 @@ def check_directed(directed, real_world):
         if int(directed) not in [0, 1]:
             raise Exception('Fractional direction is not valid for real network')
     elif directed < 0 or directed > 1:
-        raise Exception('Wrong directed parameter value:', directed)
+        raise Exception('Wrong "directed" parameter value:', directed)
 
 
 def check_weights_and_directions(a, weighted, directed):
-    # is_directed = 1 - np.isclose((a-a.T).sum, 0)
-    # is_weighted = 1 - np.isclose((a-a.astype(bool).astype(int).sum), 0)
-    #is_directed = not ((a != a.T).nnz == 0)
-    #is_weighted = not ((a != a.astype(bool).astype(int)).nnz == 0)
     is_directed = not np.allclose(a.data, a.T.data)
     is_weighted = not np.allclose(a.data, a.astype(bool).astype(int).data)
 
     if is_directed != bool(directed):
-        raise Exception('Error in network construction, check directions')
+        raise Exception(f'Error in network construction: "directed" set to {directed},'
+                        ' but the adjacency matrix is asymmetric')
+
     if is_weighted != bool(weighted):
-        raise Exception('Error in network construction, check weights')
+        raise Exception(f'Error in network construction: "weighted" set to {weighted},'
+                        ' but the adjacency matrix is weighted')
 
 
 def create_adj_from_graphml(datapath, graph=None, gc_checked=0, info=0,
                             directed=0, weighted=0, edges_to_delete=None,
                             nodes_to_delete=None):
+
     if graph is None:
         init_g = nx.read_graphml(datapath)
         # init_g = nx.convert_node_labels_to_integers(init_g)
@@ -77,17 +77,25 @@ def create_adj_from_graphml(datapath, graph=None, gc_checked=0, info=0,
     return nx.adjacency_matrix(g)
 
 
-class Network():
+class Network:
     '''
     An object for extensive network analysis with focus on spectral graph theory
     '''
 
-    def __init__(self, a, network_args, name = '', pos=None, real_world=0,
-                 verbose=0, check_connectivity=1, create_nx_graph=1, node_attrs=None):
+    def __init__(self,
+                 a,
+                 network_args,
+                 name='',
+                 pos=None,
+                 real_world=False,
+                 verbose=False,
+                 check_connectivity=True,
+                 create_nx_graph=True,
+                 node_attrs=None):
 
         self.directed = network_args['directed']
         if self.directed is None:
-            self.directed = not ((a != a.T).nnz == 0)
+            self.directed = not np.allclose(a.data, a.T.data)
 
         self.weighted = network_args['weighted']
         check_directed(self.directed, real_world)
@@ -102,17 +110,20 @@ class Network():
             setattr(self, mt, None)
             setattr(self, mt + '_spectrum', None)
             setattr(self, mt + '_eigenvectors', None)
+            setattr(self, mt + '_ipr', None)
 
-        self._preprocess_adj_and_pos(a, check_connectivity,
-                                     pos=pos, node_attrs=node_attrs)  # each network object has an adjacency matrix from its birth
-        self.get_node_degrees()  # each network object has out- and in-degree sequences from its birth
-
+        # each network object has an adjacency matrix from its initialization
+        self._preprocess_adj_and_pos(a,
+                                     check_connectivity,
+                                     pos=pos,
+                                     node_attrs=node_attrs)
         self.connectivity_checked = check_connectivity
 
+        # each network object has out- and in-degree sequences from its initialization
+        self.get_node_degrees()
+
+        # TODO: remove lem_emb
         self.lem_emb = None
-        self.zvalues = None
-        self.ipr = None
-        self.erdos_entropy = None
 
     def _preprocess_adj_and_pos(self, a, check_connectivity, pos=None, node_attrs=None):
         '''
@@ -127,7 +138,7 @@ class Network():
         if not sp.issparse(a):
             raise Exception('non-sparse matrix parsed to network constructor!')
         '''
-        # three main network characteristics define 8 types of network
+        # three main network characteristics define 8 types of networks
         directed = self.directed
         weighted = self.weighted
         real_world = self.real_world
@@ -225,6 +236,7 @@ class Network():
             print('Symmetry index:', get_symmetry_index(gc_adj))
 
     def randomize(self, rmode='shuffle'):
+        # TODO: update routines
         if rmode == 'graph_iom':
             if self.directed:
                 g = nx.DiGraph(self.graph)
@@ -248,8 +260,13 @@ class Network():
         else:
             raise ValueError('Unknown randomization method')
 
-        rand_net = Network(sp.csr_matrix(rand_adj), self.network_params,
-                           name = self.name + f' {rmode} rand', pos=self.pos, real_world=0, verbose=0)
+        rand_net = Network(sp.csr_matrix(rand_adj),
+                           self.network_params,
+                           name=self.name + f' {rmode} rand',
+                           pos=self.pos,
+                           real_world=0,
+                           verbose=0)
+
         return rand_net
 
     def get_node_degrees(self):
@@ -280,10 +297,11 @@ class Network():
             deg = self.outdeg
         elif mode == 'in':
             deg = self.indeg
+        else:
+            raise ValueError('Wrong mode for degree distribution.')
 
         hist, bins = np.histogram(deg, bins=max(deg) - min(deg), density=True)
         return hist
-
 
     def get_spectrum(self, mode):
         check_matrix_type(mode)
@@ -302,7 +320,24 @@ class Network():
             eigenvectors = getattr(self, mode + '_eigenvectors')
 
         return eigenvectors
-    
+
+    def get_ipr(self, mode):
+        check_matrix_type(mode)
+        ipr = getattr(self, mode + '_ipr')
+        if ipr is None:
+            self.calculate_ipr(mode=mode)
+            ipr = getattr(self, mode + '_ipr')
+
+        return ipr
+
+    def get_z_values(self, mode):
+        check_matrix_type(mode)
+        zvals = getattr(self, mode + '_zvalues')
+        if zvals is None:
+            self.calculate_z_values(mode=mode)
+            zvals = getattr(self, mode + '_zvalues')
+
+        return zvals
     
     def partial_diagonalize(self, spectrum_params):
         '''
@@ -331,9 +366,9 @@ class Network():
         A = self.adj.astype(float)
         n = self.n
 
-        if n != np.count_nonzero(outdeg) and self.connectivity_checked:
+        if n != np.count_nonzero(outdeg) and self.connectivity_checked and verbose:
             print(n - np.count_nonzero(outdeg), 'nodes without out-edges')
-        if n != np.count_nonzero(indeg) and self.connectivity_checked:
+        if n != np.count_nonzero(indeg) and self.connectivity_checked and verbose:
             print(n - np.count_nonzero(indeg), 'nodes without in-edges')
 
         nz = np.count_nonzero(deg)
@@ -362,28 +397,26 @@ class Network():
         else:
             raw_eigs, right_eigvecs = la.eig(matrix.A, right=True)
 
-        # raw_eigs, right_eigvecs = sp.linalg.eigs(matrix, which = 'LM', k=n_eigs)
-
         raw_eigs = np.around(raw_eigs, decimals=12)
-        # print('raw eigs:', raw_eigs)
-        eigs = np.sort(raw_eigs)
+        sorted_eigs = np.sort(raw_eigs)
+
         if 'lap' in mode:
             n_comp = len(raw_eigs[np.abs(raw_eigs) == 0])
             if n_comp != 1 and not self.weighted and self.connectivity_checked:
-                print('eigenvalues:', eigs)
+                print('eigenvalues:', sorted_eigs)
                 raise Exception('Graph has %d components!' % n_comp)
 
         setattr(self, mode, matrix)
 
-        if np.allclose(np.imag(eigs), np.zeros(len(eigs)), atol=1e-12):
-            eigs = np.real(eigs)
+        if np.allclose(np.imag(sorted_eigs), np.zeros(len(sorted_eigs)), atol=1e-12):
+            sorted_eigs = np.real(sorted_eigs)
         else:
             if not self.directed:
                 raise ValueError('Complex eigenvalues found in non-directed network!')
 
-        setattr(self, mode + '_spectrum', eigs)
+        setattr(self, mode + '_spectrum', sorted_eigs)
 
-        sorted_eigenvectors = right_eigvecs[np.ix_(range(len(eigs)), np.argsort(raw_eigs))]
+        sorted_eigenvectors = right_eigvecs[np.ix_(range(len(sorted_eigs)), np.argsort(raw_eigs))]
         # self.eigenvectors = right_eigvecs[:,1:][np.ix_(range(len(eigs)+1), np.argsort(eigs))]
         if np.allclose(np.imag(sorted_eigenvectors), np.zeros(sorted_eigenvectors.shape), atol=1e-8):
             sorted_eigenvectors = np.real(sorted_eigenvectors)
@@ -395,28 +428,30 @@ class Network():
         if verbose:
             print('Diagonalizing finished')
 
+
     #TODO: add Gromov hyperbolicity
     def calculate_z_values(self, mode='lap_out'):
         spectrum = self.get_spectrum(mode)
-
-        eigs = sorted(list(set(spectrum)), key=np.abs)
-        if len(eigs) != len(spectrum) and self.verbose:
-            print('WARNING:', len(spectrum) - len(eigs), 'repeated eigenvalues discarded')
+        seigs = sorted(list(set(spectrum)), key=np.abs)
+        if len(seigs) != len(spectrum) and self.verbose:
+            print('WARNING:', len(spectrum) - len(seigs), 'repeated eigenvalues discarded')
 
         if self.verbose:
             print('Computing nearest neighbours...')
 
-        X = np.array([[np.real(x), np.imag(x)] for x in eigs])
+        X = np.array([[np.real(x), np.imag(x)] for x in seigs])
         nbrs = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(X)
         distances, indices = nbrs.kneighbors(X)
-        nnbs = [eigs[x] for x in indices[:, 1]]
-        nnnbs = [eigs[x] for x in indices[:, 2]]
+        nnbs = [seigs[x] for x in indices[:, 1]]
+        nnnbs = [seigs[x] for x in indices[:, 2]]
+        '''
         nndist = np.array([(nnbs[i] - eigs[i]) for i in range(len(eigs))])
         nnndist = np.array([(nnnbs[i] - eigs[i]) for i in range(len(eigs))])
-        zlist = np.array([(nnbs[i] - eigs[i]) / (nnnbs[i] - eigs[i]) for i in range(len(eigs))])
+        '''
+        zlist = np.array([(nnbs[i] - seigs[i]) / (nnnbs[i] - seigs[i]) for i in range(len(seigs))])
+        zdict = dict(zip(seigs, zlist))
 
-        self.zvalues = zlist
-
+        setattr(self, mode + '_zvalues', zdict)
 
     def calculate_ipr(self, mode='adj'):
         eigenvectors = self.get_eigenvectors(mode)
@@ -429,9 +464,8 @@ class Network():
             # entropy[i] = -np.log(ipr[i]) # erdos entropy (deprecated)
             eig_entropy[i] = entropy(np.array([np.abs(v) ** 2 for v in eigenvectors[:, i]]))
 
-        self.ipr = ipr
-        self.eigenvector_entropy = eig_entropy / np.log(self.n)
-
+        setattr(self, mode + '_ipr', ipr)
+        #self.eigenvector_entropy = eig_entropy / np.log(self.n)
 
     def _get_lap_spectrum(self, norm=False):
         if not self.directed:
@@ -441,23 +475,23 @@ class Network():
                 spectrum = self.get_spectrum('lap')
         else:
             if norm:
-                raise ValueError('not implemented for directed network')
+                raise NotImplementedError('not implemented for directed network')
             else:
                 spectrum = self.get_spectrum('lap_out')
 
         return spectrum
 
-    def calculate_thermodynamic_entropy(self, tlist, verbose=0, norm=0):
+    def calculate_thermodynamic_entropy(self, tlist, verbose=False, norm=False):
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [spectral_entropy(spectrum, t, verbose=verbose) for t in tlist]
         return res
 
-    def calculate_free_energy(self, tlist, norm=0):
+    def calculate_free_entropy(self, tlist, norm=False):
         spectrum = self._get_lap_spectrum(norm=norm)
-        res = [free_energy(spectrum, t) for t in tlist]
+        res = [free_entropy(spectrum, t) for t in tlist]
         return res
 
-    def calculate_q_entropy(self, q, tlist, norm=0):
+    def calculate_q_entropy(self, q, tlist, norm=False):
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [q_entropy(spectrum, t, q=q) for t in tlist]
         return res
@@ -474,7 +508,7 @@ class Network():
         self.estrada_bipartivity = esi1 / esi2
         return self.estrada_bipartivity
 
-    def localization_signatures(self):
+    def localization_signatures(self, mode='lap'):
         if self.zvalues is None:
             self.calculate_z_values()
 

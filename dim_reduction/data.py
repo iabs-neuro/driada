@@ -9,7 +9,8 @@ from sklearn.preprocessing import normalize, StandardScaler, MinMaxScaler
 from .dr_base import *
 from .graph import ProximityGraph
 from .embedding import Embedding
-from ..utils.data import correlation_matrix, _to_numpy_array, rescale
+from ..utils.data import correlation_matrix, to_numpy_array, rescale
+
 
 # TODO: refactor this
 def check_data_for_errors(d):
@@ -39,7 +40,7 @@ class MVData(object):
         else:
             self.ds = int(downsampling)
 
-        self.data = _to_numpy_array(data)[:, ::self.ds]
+        self.data = to_numpy_array(data)[:, ::self.ds]
 
         # TODO: add support for various preprocessing methods (wvt, med_filt, etc.)
         self.rescale_rows = rescale_rows
@@ -54,7 +55,7 @@ class MVData(object):
         if labels is None:
             self.labels = np.zeros(self.n_points)
         else:
-            self.labels = _to_numpy_array(labels)
+            self.labels = to_numpy_array(labels)
 
         self.distmat = distmat
 

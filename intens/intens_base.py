@@ -378,7 +378,7 @@ def compute_mi_significance(exp,
                     mask_from_stage1[i,j] = 1
 
         print('Stage 1 results:')
-        nhyp = int(np.sum(mask_from_stage1)) #number of hypotheses for further statistical testing
+        nhyp = int(np.sum(mask_from_stage1)) # number of hypotheses for further statistical testing
         print(f'{nhyp/n/f*100:.2f}% ({nhyp}/{n*f}) of possible pairs identified as candidates')
 
         if mode == 'stage1':
