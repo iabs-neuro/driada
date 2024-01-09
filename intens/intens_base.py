@@ -81,11 +81,11 @@ def scan_pairs(cells,
     Returns
     -------
     random_shifts: np.array of shape (nsh, len(cells))
-        signal shifts used for MI distribution computation
+        signals shifts used for MI distribution computation
 
     ranks: np.array of shape (len(cells), len(feats)) or (len(cells), 1) if joint_distr=True
         normalized rank of true MI with respect to shuffled MI.
-        ranks[i,j] = 1.0 means true MI between signal of Neuron i and feature j is higher than MI for all shuffles
+        ranks[i,j] = 1.0 means true MI between signals of Neuron i and feature j is higher than MI for all shuffles
 
     ptable: np.array of shape (len(cells), len(feats)) or (len(cells), 1) if joint_distr=True
         p-values of true MI in respect to shuffled MI distribution

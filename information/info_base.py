@@ -8,7 +8,7 @@ import warnings
 from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import entropy, differential_entropy
 
-from ..utils.data import _to_numpy_array
+from ..utils.data import to_numpy_array
 
 
 DEFAULT_NN = 5

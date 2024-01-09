@@ -4,9 +4,9 @@
 
 from .information.info_base import *
 
-from .signal.sig_base import *
+from .signals.sig_base import *
 
-from .network.net_main import *
+from .network.net_base import *
 
 from .utils.data import *
 from .utils.naming import *

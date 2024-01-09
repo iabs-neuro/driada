@@ -57,7 +57,7 @@ class Signal(TimeSeries):
 
     def get(self, fn, args=None):
         if not hasattr(self, fn):
-            raise Exception('Wrong signal property!')
+            raise Exception('Wrong signals property!')
 
         d = getattr(self, fn)
         if d is None:
@@ -86,7 +86,7 @@ class Signal(TimeSeries):
     def get_cwt(self, max_width=16):
         sig = self.data
         wavelet = signal.ricker
-        # wavelet = signal.morlet
+        # wavelet = signals.morlet
         widths = np.arange(1, max_width)
         cwt_mat = signal.cwt(sig, wavelet, widths)
         self.cwt = cwt_mat

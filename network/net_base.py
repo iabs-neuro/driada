@@ -1,4 +1,4 @@
-from .matrix_utils import *
+#from .matrix_utils import *
 from .randomization import *
 from .drawing import *
 from .spectral import *
@@ -10,11 +10,20 @@ from sklearn.neighbors import NearestNeighbors
 from scipy.stats import entropy
 
 MATRIX_TYPES = ['adj', 'lap', 'nlap', 'lap_out', 'lap_in']
+UNDIR_MATRIX_TYPES = ['adj', 'lap', 'nlap']
+DIR_MATRIX_TYPES = ['adj', 'lap_out', 'lap_in']
 
-
-def check_matrix_type(mode):
+def check_matrix_type(mode, is_directed):
     if mode not in MATRIX_TYPES:
         raise ValueError(f'Matrix type {mode} is not in allowed matrix types: {MATRIX_TYPES}')
+
+    if is_directed and mode not in DIR_MATRIX_TYPES:
+        raise ValueError(f'Matrix type {mode} is not allowed for directed networks.'
+                         f'Supported options are: {DIR_MATRIX_TYPES}')
+
+    if not is_directed and mode not in UNDIR_MATRIX_TYPES:
+        raise ValueError(f'Matrix type {mode} is not allowed for undirected networks.'
+                         f'Supported options are: {UNDIR_MATRIX_TYPES}')
 
 
 def check_adjacency(a):
@@ -25,7 +34,7 @@ def check_adjacency(a):
 def check_directed(directed, real_world):
     if real_world:
         if int(directed) not in [0, 1]:
-            raise Exception('Fractional direction is not valid for real network')
+            raise Exception('Fractional direction is not valid for a real network')
     elif directed < 0 or directed > 1:
         raise Exception('Wrong "directed" parameter value:', directed)
 
@@ -106,10 +115,12 @@ class Network:
         self.network_params = network_args
         self.create_nx_graph = create_nx_graph
 
-        for mt in MATRIX_TYPES:
+        valid_mtypes = DIR_MATRIX_TYPES if self.directed else UNDIR_MATRIX_TYPES
+        for mt in valid_mtypes:
             setattr(self, mt, None)
             setattr(self, mt + '_spectrum', None)
             setattr(self, mt + '_eigenvectors', None)
+            setattr(self, mt + '_zvalues', None)
             setattr(self, mt + '_ipr', None)
 
         # each network object has an adjacency matrix from its initialization
@@ -232,8 +243,6 @@ class Network:
         self.adj = gc_adj
         self.n = nx.number_of_nodes(self.graph)
 
-        if self.verbose:
-            print('Symmetry index:', get_symmetry_index(gc_adj))
 
     def randomize(self, rmode='shuffle'):
         # TODO: update routines
@@ -264,8 +273,8 @@ class Network:
                            self.network_params,
                            name=self.name + f' {rmode} rand',
                            pos=self.pos,
-                           real_world=0,
-                           verbose=0)
+                           real_world=False,
+                           verbose=False)
 
         return rand_net
 
@@ -304,7 +313,7 @@ class Network:
         return hist
 
     def get_spectrum(self, mode):
-        check_matrix_type(mode)
+        check_matrix_type(mode, self.directed)
         spectrum = getattr(self, mode + '_spectrum')
         if spectrum is None:
             self.diagonalize(mode=mode)
@@ -313,7 +322,7 @@ class Network:
         return spectrum
 
     def get_eigenvectors(self, mode):
-        check_matrix_type(mode)
+        check_matrix_type(mode, self.directed)
         eigenvectors = getattr(self, mode + '_eigenvectors')
         if eigenvectors is None:
             self.diagonalize(mode=mode)
@@ -322,7 +331,7 @@ class Network:
         return eigenvectors
 
     def get_ipr(self, mode):
-        check_matrix_type(mode)
+        check_matrix_type(mode, self.directed)
         ipr = getattr(self, mode + '_ipr')
         if ipr is None:
             self.calculate_ipr(mode=mode)
@@ -331,7 +340,7 @@ class Network:
         return ipr
 
     def get_z_values(self, mode):
-        check_matrix_type(mode)
+        check_matrix_type(mode, self.directed)
         zvals = getattr(self, mode + '_zvalues')
         if zvals is None:
             self.calculate_z_values(mode=mode)
@@ -355,7 +364,7 @@ class Network:
         if verbose is None:
             verbose = self.verbose
 
-        check_matrix_type(mode)
+        check_matrix_type(mode, self.directed)
         if verbose:
             print('Preparing for diagonalizing...')
 
@@ -475,7 +484,7 @@ class Network:
                 spectrum = self.get_spectrum('lap')
         else:
             if norm:
-                raise NotImplementedError('not implemented for directed network')
+                raise NotImplementedError('Normalized Laplacian not implemented for directed networks')
             else:
                 spectrum = self.get_spectrum('lap_out')
 
@@ -509,10 +518,8 @@ class Network:
         return self.estrada_bipartivity
 
     def localization_signatures(self, mode='lap'):
-        if self.zvalues is None:
-            self.calculate_z_values()
+        zvals = self.get_z_values(mode)
 
-        zvals = self.zvalues
         mean_cos_phi = np.mean(np.array([np.cos(np.angle(x)) for x in zvals]))
         rvals = [1. / (np.abs(z)) ** 2 for z in zvals]
         mean_inv_r_sq = np.mean(np.array(rvals))

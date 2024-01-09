@@ -4,7 +4,7 @@ import tqdm
 from itertools import combinations
 import pickle
 
-from ..signal.sig_base import TimeSeries
+from ..signals.sig_base import TimeSeries
 from .neuron import DEFAULT_MIN_BEHAVIOUR_TIME, Neuron
 from ..utils.data import get_hash
 from ..information.info_base import get_1d_mi

@@ -8,6 +8,7 @@ import matplotlib as mpl
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize as color_normalize
 
+
 def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
     if not net.directed:
         mode = 'all'

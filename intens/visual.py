@@ -72,7 +72,7 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
             _ = sns.kdeplot(vals1, ax=axs[1], c='r', label=f'{featname}=1', linewidth=3, bw_adjust=0.5)
             # _ = axs[1].hist(vals1, bins = 25, color = 'r', log = True, density = True, alpha = 0.7, label=f'{featname}=0')
             ax1.legend(loc='upper right')
-            ax1.set_xlabel('log(signal)', fontsize=20)
+            ax1.set_xlabel('log(signals)', fontsize=20)
             ax1.set_ylabel('density', fontsize=20)
 
         else:
@@ -88,7 +88,7 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
             # plot a density
             ax1.set_title('Density')
             ax1.pcolormesh(xi, yi, zi.reshape(xi.shape), shading='auto', cmap='coolwarm')
-            ax1.set_xlabel('log(signal)', fontsize=20)
+            ax1.set_xlabel('log(signals)', fontsize=20)
             ax1.set_ylabel(f'log({featname})', fontsize=20)
 
     ax0.set_xlabel('timeframes', fontsize=20)

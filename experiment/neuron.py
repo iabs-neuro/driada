@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 from scipy.stats import median_abs_deviation
 from scipy.optimize import minimize
-from ..signal.sig_base import TimeSeries
+from ..signals.sig_base import TimeSeries
 
 DEFAULT_T_RISE = 0.25 #sec
 DEFAULT_T_OFF = 2 #sec
