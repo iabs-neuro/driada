@@ -1,4 +1,4 @@
-from .net_utils import *
+from .graph_utils import *
 from .matrix_utils import *
 import warnings
 import random

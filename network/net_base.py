@@ -1,3 +1,7 @@
+#import networkx as nx
+#import numpy as np
+import networkx as nx
+
 #from .matrix_utils import *
 from .randomization import *
 from .drawing import *
@@ -12,6 +16,7 @@ from scipy.stats import entropy
 MATRIX_TYPES = ['adj', 'lap', 'nlap', 'lap_out', 'lap_in']
 UNDIR_MATRIX_TYPES = ['adj', 'lap', 'nlap']
 DIR_MATRIX_TYPES = ['adj', 'lap_out', 'lap_in']
+SUPPORTED_GRAPH_TYPES = [nx.Graph, nx.DiGraph]
 
 def check_matrix_type(mode, is_directed):
     if mode not in MATRIX_TYPES:
@@ -43,78 +48,81 @@ def check_weights_and_directions(a, weighted, directed):
     is_directed = not np.allclose(a.data, a.T.data)
     is_weighted = not np.allclose(a.data, a.astype(bool).astype(int).data)
 
+    symm_text = 'asymmetric' if is_directed else 'symmetric'
     if is_directed != bool(directed):
         raise Exception(f'Error in network construction: "directed" set to {directed},'
-                        ' but the adjacency matrix is asymmetric')
+                        f' but the adjacency matrix is {symm_text}')
 
+    w_text = 'weighted' if is_weighted else 'not weighted'
     if is_weighted != bool(weighted):
         raise Exception(f'Error in network construction: "weighted" set to {weighted},'
-                        ' but the adjacency matrix is weighted')
+                        f' but the adjacency matrix {w_text}')
 
 
-def create_adj_from_graphml(datapath, graph=None, gc_checked=0, info=0,
-                            directed=0, weighted=0, edges_to_delete=None,
-                            nodes_to_delete=None):
+def select_construction_pipeline(a, graph):
+    # TODO: add partial directions
+    if a is None:
+        if graph is None:
+            raise ValueError('Either "adj" or "graph" argument must be non-empty')
+        else:
+            if not np.any([isinstance(graph, gtype) for gtype in SUPPORTED_GRAPH_TYPES]):
+                raise TypeError(f'graph should have one of supported graph types: {SUPPORTED_GRAPH_TYPES}')
+            else:
+                pipeline = 'graph'
 
-    if graph is None:
-        init_g = nx.read_graphml(datapath)
-        # init_g = nx.convert_node_labels_to_integers(init_g)
     else:
-        init_g = graph
+        if graph is None:
+            pipeline = 'adj'
+        else:
+            raise ValueError('Either "adj" or "graph" should be given, not both')
 
-    if not (nodes_to_delete is None):
-        init_g.remove_nodes_from(nodes_to_delete)
-
-    if not (edges_to_delete is None):
-        for e in edges_to_delete:
-            # print(e)
-            print(init_g.has_edge(e[0], e[1]))
-        init_g.remove_edges_from(edges_to_delete)
-
-    if gc_checked:
-        g = init_g
-    else:
-        G = remove_isolates_and_selfloops_from_graph(init_g)
-        lost_nodes = init_g.number_of_nodes() - G.number_of_nodes()
-        lost_edges = init_g.number_of_edges() - G.number_of_edges()
-        print('%d isolated nodes and %d selfloops killed' % (lost_nodes, lost_edges))
-        g = take_giant_component(G)
-        lost_nodes = G.number_of_nodes() - g.number_of_nodes()
-        if lost_nodes > 0:
-            print('WARNING: %d nodes lost after giant component creation!' % lost_nodes)
-
-    return nx.adjacency_matrix(g)
+    return pipeline
 
 
 class Network:
-    '''
-    An object for extensive network analysis with focus on spectral graph theory
-    '''
+    """
+    An object for network analysis with the focus on spectral graph theory
+    """
 
     def __init__(self,
-                 a,
-                 network_args,
+                 adj=None,
+                 graph=None,
+                 preprocessing='giant_cc',
                  name='',
                  pos=None,
-                 real_world=False,
                  verbose=False,
-                 check_connectivity=True,
                  create_nx_graph=True,
-                 node_attrs=None):
-
-        self.directed = network_args['directed']
-        if self.directed is None:
-            self.directed = not np.allclose(a.data, a.T.data)
-
-        self.weighted = network_args['weighted']
-        check_directed(self.directed, real_world)
+                 node_attrs=None,
+                 **network_args):
 
         self.name = name
-        self.real_world = real_world
         self.verbose = verbose
         self.network_params = network_args
         self.create_nx_graph = create_nx_graph
 
+        self.init_method = select_construction_pipeline(adj, graph)
+
+        self.directed = network_args.get('directed')
+        if self.directed is None:
+            if self.init_method == 'adj':
+                self.directed = not np.allclose(adj.data, adj.T.data)
+            elif self.init_method == 'graph':
+                self.directed = nx.is_directed(graph)
+
+        self.weighted = network_args.get('weighted')
+        if self.weighted is None:
+            if self.init_method == 'adj':
+                self.weighted = not np.allclose(adj.data, adj.astype(bool).astype(int).data)
+            elif self.init_method == 'graph':
+                self.weighted = nx.is_weighted(graph)
+
+        self.real_world = network_args.get('real_world')
+        if self.real_world is None:
+            self.real_world = True
+
+        check_directed(self.directed, self.real_world)
+
+        # set empty attributes for different matrix and data types
         valid_mtypes = DIR_MATRIX_TYPES if self.directed else UNDIR_MATRIX_TYPES
         for mt in valid_mtypes:
             setattr(self, mt, None)
@@ -123,12 +131,21 @@ class Network:
             setattr(self, mt + '_zvalues', None)
             setattr(self, mt + '_ipr', None)
 
-        # each network object has an adjacency matrix from its initialization
-        self._preprocess_adj_and_pos(a,
-                                     check_connectivity,
-                                     pos=pos,
-                                     node_attrs=node_attrs)
-        self.connectivity_checked = check_connectivity
+        # initialize adjacency matrix and (probably) associated graph
+        if self.init_method == 'adj':
+            # initialize Network object from sparse matrix
+            self._preprocess_adj_and_data(a=adj,
+                                          pos=pos,
+                                          node_attrs=node_attrs,
+                                          preprocessing=preprocessing,
+                                          create_graph=create_nx_graph)
+
+        if self.init_method == 'graph':
+            # initialize Network object from NetworkX graph or digraph
+            self._preprocess_graph_and_data(graph=graph,
+                                            pos=pos,
+                                            node_attrs=node_attrs,
+                                            preprocessing=preprocessing)
 
         # each network object has out- and in-degree sequences from its initialization
         self.get_node_degrees()
@@ -136,113 +153,119 @@ class Network:
         # TODO: remove lem_emb
         self.lem_emb = None
 
-    def _preprocess_adj_and_pos(self, a, check_connectivity, pos=None, node_attrs=None):
-        '''
-        This method is closely tied with Network.__init__() and is needed for graph preprocessing.
-        Each network is characterized by an input adjacency matrix. This matrix should
-        have been already created respecting requirements in self.network_params.
-        In other words, it is directed/undirected and weighted/unweighted depending on initial
-        settings.
-        '''
+    def _preprocess_graph_and_data(self,
+                                   graph=None,
+                                   preprocessing=None,
+                                   pos=None,
+                                   node_attrs=None):
 
-        '''
-        if not sp.issparse(a):
-            raise Exception('non-sparse matrix parsed to network constructor!')
-        '''
-        # three main network characteristics define 8 types of networks
-        directed = self.directed
-        weighted = self.weighted
-        real_world = self.real_world
+        if preprocessing is None:
+            if self.verbose:
+                print('No preprocessing specified, this may lead to unexpected errors in graph connectivity!')
+            fgraph = remove_selfloops_from_graph(graph)
 
-        if directed:
-            gtype = nx.DiGraph
-        else:
-            gtype = nx.Graph
+        elif preprocessing == 'remove_isolates':
+            fgraph = remove_isolates_and_selfloops_from_graph(graph)
 
-        if check_connectivity:
-            consensus = 0
-            while not consensus:
-                # check that adjacency matrix fits our requirements
-                check_weights_and_directions(a, weighted, directed)
+        elif preprocessing == 'giant_cc':
+            g_ = remove_selfloops_from_graph(graph)
+            fgraph = get_giant_cc_from_graph(g_)
+            self.n_cc = 1
 
-                if isinstance(a, np.ndarray):
-                    res = remove_isolates_and_selfloops_from_adj(sp.csr_array(a), weighted, directed)
-                elif a.format == 'csr':
-                    res = remove_isolates_and_selfloops_from_adj(a, weighted, directed)
-                elif a.format == 'coo':
-                    res = remove_isolates_and_selfloops_from_adj(remove_duplicates(a), weighted, directed)
-                else:
-                    raise Exception('Wrong input parsed to preprocess_adj_matrix function:', type(a))
-
-                init_g = nx.from_scipy_sparse_array(res, create_using=gtype)
-                G = remove_isolates_and_selfloops_from_graph(init_g)  # overkill for safety
-                lost_nodes = init_g.number_of_nodes() - G.number_of_nodes()
-                lost_edges = init_g.number_of_edges() - G.number_of_edges()
-                if lost_nodes + lost_edges != 0:
-                    print('%d isolated nodes and %d selfloops removed' % (lost_nodes, lost_edges))
-
-                #############################
-                # At this point isolated nodes and selfloops have been removed from graph.
-                # An isolated node is a node with zero out-, in- or both degrees, depending on the algorithm.
-                # Graph (or DiGraph) 'G' contains all information from sparse matrix 'res' and vice versa.
-                #############################
-
-                if self.verbose:
-                    print('Obtaining giant component...')
-                gc = take_giant_component(G)  # cleared version of a graph
-                gc_adj = create_adj_from_graphml(None, graph=gc, gc_checked=1, info=self.real_world,
-                                                 directed=directed, weighted=weighted)
-
-                lost_nodes = G.number_of_nodes() - gc.number_of_nodes()
-                if lost_nodes > 0 and self.verbose:
-                    print('WARNING: %d nodes lost after giant component creation!' % lost_nodes)
-
-                if self.real_world and self.verbose:
-                    print("Number of nodes in GC:", nx.number_of_nodes(gc))
-                    print("Number of edges in GC: ", nx.number_of_edges(gc))
-                    print('Density of GC: ', 100 * nx.density(gc), "%")
-
-                #############################
-                # Finally, we have the GC of the graph with or without zero out (in) degree nodes,
-                # depending on the main matrix construction algorithm.
-                # Graph (or DiGraph) gc contains all information from sparse matrix gc_adj and vice versa.
-                #############################
-
-                if a.shape == gc_adj.shape:
-                    if (a != gc_adj).nnz == 0:
-                        consensus = 1
-                    else:
-                        a = gc_adj
-                else:
-                    a = gc_adj
-                # we need to repeat the procedure until it converges
+        elif preprocessing == 'giant_scc':
+            g_ = remove_selfloops_from_graph(graph)
+            fgraph = get_giant_scc_from_graph(g_)
+            self.n_cc = 1
+            self.n_scc = 1
 
         else:
-            gc_adj = a
+            raise ValueError('Wrong preprocessing type!')
 
-            if self.create_nx_graph:
-                gc = nx.from_scipy_sparse_array(a, create_using=gtype)
-                init_g = gc
-            else:
-                gc = None
-                raise Exception('not implemented yet')
+        lost_nodes = graph.number_of_nodes() - fgraph.number_of_nodes()
+        lost_edges = graph.number_of_edges() - fgraph.number_of_edges()
+        if lost_nodes + lost_edges != 0 and self.verbose:
+            print(f'{lost_nodes} nodes and {lost_edges} edges removed ')
 
         # add node positions if provided
         if pos is not None:
-            self.pos = {node: pos[node] for node in init_g.nodes() if node in gc.nodes()}
+            self.pos = {node: pos[node] for node in graph.nodes() if node in fgraph.nodes()}
         else:
             self.pos = None
 
         if node_attrs is not None:
-            self.node_attrs = {node: node_attrs[node] for node in init_g.nodes() if node in gc.nodes()}
+            self.node_attrs = {node: node_attrs[node] for node in graph.nodes() if node in fgraph.nodes()}
         else:
             self.node_attrs = None
 
-        # self.graph = nx.from_scipy_sparse_matrix(final, create_using=nx.DiGraph())
-        self.graph = gc
-        self.adj = gc_adj
+        self.graph = fgraph
+        self.adj = nx.adjacency_matrix(fgraph)
         self.n = nx.number_of_nodes(self.graph)
 
+    def _preprocess_adj_and_data(self,
+                                 a=None,
+                                 preprocessing=None,
+                                 pos=None,
+                                 node_attrs=None,
+                                 create_graph=True):
+
+        # if NetworkX graph should be created, we revert to graph-based initialization for simplicity
+        if create_graph:
+            gtype = nx.DiGraph if self.directed else nx.Graph
+            graph = nx.from_scipy_sparse_array(a, create_using=gtype)
+            self._preprocess_graph_and_data(graph=graph,
+                                            pos=pos,
+                                            node_attrs=node_attrs,
+                                            preprocessing=preprocessing)
+
+            return
+
+        if preprocessing is None:
+            if self.verbose:
+                print('No preprocessing specified, this may lead to unexpected errors in graph connectivity!')
+            fadj = remove_selfloops_from_adj(a)
+            nodes_range = range(fadj.shape[0])
+            node_mapping = dict(zip(nodes_range, nodes_range))  # no nodes have been deleted
+
+        elif preprocessing == 'remove_isolates':
+            a_ = remove_selfloops_from_adj(a)
+            fadj, node_mapping = remove_isolates_from_adj(a_)
+
+        elif preprocessing == 'giant_cc':
+            a_ = remove_selfloops_from_adj(a)
+            fadj, node_mapping = get_giant_cc_from_adj(a_)
+            self.n_cc = 1
+
+        elif preprocessing == 'giant_scc':
+            a_ = remove_selfloops_from_adj(a)
+            fadj, node_mapping = get_giant_scc_from_adj(a_)
+            self.n_cc = 1
+            self.n_scc = 1
+
+        else:
+            raise ValueError('Wrong preprocessing type!')
+
+        lost_nodes = a.shape[0] - fadj.shape[0]
+        lost_edges = a.nnz - fadj.nnz
+        if not self.directed:
+            lost_edges = lost_edges//2
+
+        if lost_nodes + lost_edges != 0 and self.verbose:
+            print(f'{lost_nodes} nodes and {lost_edges} edges removed')
+
+        # add node positions if provided
+        if pos is not None:
+            self.pos = {node: pos[node] for node in range(a.shape[0]) if node in node_mapping}
+        else:
+            self.pos = None
+
+        if node_attrs is not None:
+            self.node_attrs = {node: node_attrs[node] for node in range(a.shape[0]) if node in node_mapping}
+        else:
+            self.node_attrs = None
+
+        self.graph = None
+        self.adj = fadj
+        self.n = self.adj.shape[0]
 
     def randomize(self, rmode='shuffle'):
         # TODO: update routines
@@ -359,8 +382,7 @@ class Network:
         '''
         raise Exception('this method is under construction')
 
-        
-    def diagonalize(self, mode='lap_out', verbose=None):
+    def diagonalize(self, mode='lap', verbose=None):
         if verbose is None:
             verbose = self.verbose
 
@@ -375,13 +397,13 @@ class Network:
         A = self.adj.astype(float)
         n = self.n
 
-        if n != np.count_nonzero(outdeg) and self.connectivity_checked and verbose:
+        if n != np.count_nonzero(outdeg) and verbose:
             print(n - np.count_nonzero(outdeg), 'nodes without out-edges')
-        if n != np.count_nonzero(indeg) and self.connectivity_checked and verbose:
+        if n != np.count_nonzero(indeg) and verbose:
             print(n - np.count_nonzero(indeg), 'nodes without in-edges')
 
         nz = np.count_nonzero(deg)
-        if nz != n and self.connectivity_checked:
+        if nz != n and self.n_cc == 1:
             print('Graph has', str(n - nz), 'isolated nodes!')
             raise Exception('Graph is not connected!')
 
@@ -411,7 +433,7 @@ class Network:
 
         if 'lap' in mode:
             n_comp = len(raw_eigs[np.abs(raw_eigs) == 0])
-            if n_comp != 1 and not self.weighted and self.connectivity_checked:
+            if n_comp != 1 and not self.weighted and self.n_cc == 1:
                 print('eigenvalues:', sorted_eigs)
                 raise Exception('Graph has %d components!' % n_comp)
 

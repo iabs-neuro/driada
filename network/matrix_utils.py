@@ -2,13 +2,130 @@ import numpy as np
 import copy
 import scipy.sparse as sp
 
+
+def _plain_bfs(adj, source):
+    '''
+    adapted from networkx.algorithms.components.connected._plain_bfs
+
+    Args:
+        adj:
+        source:
+
+    Returns:
+
+    '''
+
+    n = adj.shape[0]
+    seen = {source}
+    nextlevel = [source]
+    while nextlevel:
+        thislevel = nextlevel
+        nextlevel = []
+        for v in thislevel:
+            for w in get_neighbors_from_adj(adj, v):
+                if w not in seen:
+                    seen.add(w)
+                    nextlevel.append(w)
+            if len(seen) == n:
+                return seen
+    return seen
+
+
+def get_neighbors_from_adj(a, node):
+    inds = a[[node], :].nonzero()[1]
+    return inds
+
+
+def get_ccs_from_adj(adj):
+    seen = set()
+    for v in range(adj.shape[0]):
+        if v not in seen:
+            c = _plain_bfs(adj, v)
+            seen.update(c)
+            yield c
+
+
+def get_sccs_from_adj(adj):
+    '''
+        adapted from networkx.algorithms.components.strongly_connected.strongly_connected_components
+    Args:
+        adj:
+
+    Returns:
+
+    '''
+
+    all_nodes = range(adj.shape[0])
+    preorder = {}
+    lowlink = {}
+    scc_found = set()
+    scc_queue = []
+    i = 0  # Preorder counter
+    neighbors = {v: iter(get_neighbors_from_adj(adj, v)) for v in all_nodes}
+    for source in all_nodes:
+        if source not in scc_found:
+            queue = [source]
+            while queue:
+                v = queue[-1]
+                if v not in preorder:
+                    i = i + 1
+                    preorder[v] = i
+                done = True
+                for w in neighbors[v]:
+                    if w not in preorder:
+                        queue.append(w)
+                        done = False
+                        break
+                if done:
+                    lowlink[v] = preorder[v]
+                    for w in get_neighbors_from_adj(adj, v):
+                        if w not in scc_found:
+                            if preorder[w] > preorder[v]:
+                                lowlink[v] = min([lowlink[v], lowlink[w]])
+                            else:
+                                lowlink[v] = min([lowlink[v], preorder[w]])
+                    queue.pop()
+                    if lowlink[v] == preorder[v]:
+                        scc = {v}
+                        while scc_queue and preorder[scc_queue[-1]] > preorder[v]:
+                            k = scc_queue.pop()
+                            scc.add(k)
+                        scc_found.update(scc)
+                        yield scc
+                    else:
+                        scc_queue.append(v)
+
+
+def get_giant_cc_from_adj(adj):
+    connected_components = sorted(get_ccs_from_adj(adj), key=len, reverse=True)
+    gcc = np.array(list(connected_components[0]))
+    gcc_adj = adj[gcc, :].tocsc()[:, gcc].tocsr()
+
+    # mapping of new nodes to old ones
+    node_mapping = dict(zip(range(len(gcc)), gcc))
+
+    return gcc_adj, node_mapping
+
+
+def get_giant_scc_from_adj(adj):
+    connected_components = sorted(get_sccs_from_adj(adj), key=len, reverse=True)
+    gscc = np.array(list(connected_components[0]))
+    gscc_adj = adj[gscc, :].tocsc()[:, gscc].tocsr()
+
+    # mapping of new nodes to old ones
+    node_mapping = dict(zip(range(len(gscc)), gscc))
+
+    return gscc_adj, node_mapping
+
+
 def assign_random_weights(A):
     X = np.random.random(size=(A.shape[0], A.shape[0]))
     W = np.multiply(X, A)
     return (W + W.T) / 2
 
 
-def turn_to_directed(mat, directed=0.0, weighted=0):
+# TODO: refactor to sparse format
+def turn_to_partially_directed(mat, directed=0.0, weighted=0):
     if not isinstance(mat, np.ndarray):
         raise Exception('Wrong input parsed to turn_to_directed function!')
 
@@ -83,7 +200,7 @@ def non_symmetric_component(A, is_weighted):
 
 
 def remove_duplicates(coo):
-    # this function removes duplicate entries from a final coo matrix
+    # this function removes duplicate entries from a coo-format adjacency matrix
     # duplicates are discarded as the data is always the same:
     # coo[i,j] = val1, coo[i,j] = val2 ==> val1 = val2
 
@@ -92,58 +209,40 @@ def remove_duplicates(coo):
     return dok.tocoo()
 
 
-def remove_isolates_and_selfloops_from_adj(a, weighted, directed, mode='lap'):
-    # check for sparsity violation
-    if not sp.issparse(a):
-        raise Exception('Input is not sparse!')
-
-    # remove selfloops:
-    a = sp.csr_array(a)
-    a.setdiag(0)
-    a.eliminate_zeros()
-
-    n_prev = a.shape[0]
-    n_new = 0
-    while n_new != n_prev:
-        # remove nodes with zero out-, in- or both degrees:
-        if weighted:
-            indegrees = np.array(a.astype(bool).astype(int).sum(axis=1))  # .flatten().ravel()
-            outdegrees = np.array(a.astype(bool).astype(int).sum(axis=0))  # .flatten().ravel()
-        else:
-            indegrees = np.array(a.sum(axis=1))  # .flatten().ravel()
-            outdegrees = np.array(a.sum(axis=0))  # .flatten().ravel()
-
-        if not directed:
-            indices = np.where(indegrees + outdegrees > 0)[0]
-        elif mode == 'lap_out':
-            indices = np.where(outdegrees > 0)[0]
-        elif mode == 'lap_in':
-            indices = np.where(indegrees > 0)[0]
-
-        cleared_matrix = a[indices, :].tocsc()[:, indices].tocsr()
-
-        # print('shape:', cleared_matrix.shape)
-        n_prev = n_new
-        n_new = cleared_matrix.shape[0]
-        a = cleared_matrix
-
-    return cleared_matrix
-
-def preprocess_adj_matrix(A, weighted, directed, info=1, mode='lap'):
-    if isinstance(A, sp.csr_array):
-        res = remove_isolates_and_selfloops_from_adj(A.A, weighted, directed, mode=mode)
-    elif isinstance(A, sp.coo_matrix):
-        res = remove_isolates_and_selfloops_from_adj(remove_duplicates(A).A, weighted, directed, mode=mode)
+def adj_input_to_csr_sparse_matrix(a):
+    if isinstance(a, np.ndarray):
+        adj = sp.csr_array(a)
+    elif a.format in ['csr', 'csc']:
+        adj = a
+    elif a.format == 'coo':
+        adj = remove_duplicates(a)
     else:
-        print(A.dtype)
-        raise Exception('Wrong input parsed to preprocess_adj_matrix function!')
+        raise Exception('Wrong input parsed to preprocess_adj_matrix function:', type(a))
 
-    if info:
-        print("Final number of nodes:", res.shape[0])
-        print("Final number of edges: ", int(np.sum(res)))
-        print('Density: ', np.round(200.0 * np.sum(res) / (res.shape[0]) ** 2, 3), "%")
-        print('Symmetry index:', get_symmetry_index(A))
-    return res
+    return sp.csr_array(adj)
+
+
+def remove_selfloops_from_adj(a):
+    a = adj_input_to_csr_sparse_matrix(a)
+    anew = a.copy()
+    anew.setdiag(0)
+    anew.eliminate_zeros()
+    return anew
+
+
+def remove_isolates_from_adj(a):
+    a = adj_input_to_csr_sparse_matrix(a)
+
+    in_degrees = np.array(a.astype(bool).astype(int).sum(axis=1))  # .flatten().ravel()
+    out_degrees = np.array(a.astype(bool).astype(int).sum(axis=0))  # .flatten().ravel()
+
+    indices = np.where(in_degrees + out_degrees > 0)[0]
+    cleared_matrix = a[indices, :].tocsc()[:, indices].tocsr()
+
+    # mapping of new nodes to old ones
+    node_mapping = dict(zip(range(len(indices)), indices))
+
+    return cleared_matrix, node_mapping
 
 
 def sausage_index(A, nn):

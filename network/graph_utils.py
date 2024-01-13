@@ -1,34 +1,50 @@
 import networkx as nx
 import numpy as np
+from copy import deepcopy
 
 from .randomization import *
 
-def take_giant_component(G):
+def get_giant_cc_from_graph(G):
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
-    # IMPORTANT: for an undirected graph, its largest connected component is returned.
-    # for a directed graph, its largest strongly connected component is returned.
-
-    if nx.is_directed(G):
-        strongly_connected_components = sorted(nx.strongly_connected_components(G),
-                                               key=len, reverse=True)
-
-        gcc = strongly_connected_components[0]
-
-    else:
-        connected_components = sorted(nx.connected_components(G), key=len, reverse=True)
-        # print([len(c) for c in connected_components])
-        gcc = connected_components[0]
+    connected_components = sorted(nx.connected_components(G), key=len, reverse=True)
+    # print([len(c) for c in connected_components])
+    gcc = connected_components[0]
 
     return nx.subgraph(G, gcc)
 
 
-def remove_isolates_and_selfloops_from_graph(g):
+def get_giant_scc_from_graph(G):
+    # for a directed graph, its largest strongly connected component is returned.
+    if nx.is_directed(G):
+        strongly_connected_components = sorted(nx.strongly_connected_components(G),
+                                               key=len,
+                                               reverse=True)
+
+        gcc = strongly_connected_components[0]
+
+    else:
+        raise ValueError('Strongly connected components are meaningless for undirected graphs')
+
+    return nx.subgraph(G, gcc)
+
+
+def remove_selfloops_from_graph(graph):
+    g = deepcopy(graph) # NetworkX graphs are highly nested, deepcopy is safer
+    # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
+    g.remove_edges_from(list(nx.selfloop_edges(g)))
+    return g
+
+
+def remove_isolates_and_selfloops_from_graph(graph):
+    g = deepcopy(graph) # NetworkX graphs are highly nested, deepcopy is safer
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
     g.remove_nodes_from(list(nx.isolates(g)))
     g.remove_edges_from(list(nx.selfloop_edges(g)))
     return g
 
-def remove_isolates(g):
+
+def remove_isolates_from_graph(graph):
+    g = deepcopy(graph)  # NetworkX graphs are highly nested, deepcopy is safer
     g.remove_nodes_from(list(nx.isolates(g)))
     return g
 
