@@ -339,6 +339,7 @@ class Experiment():
         if not isinstance(feat_id, str):
             ordered_fnames = tuple(sorted(list(feat_id)))
             if ordered_fnames not in self.stats_table:
+                print(f'Multifeature {feat_id} is new, it will be added to stats table')
                 self.stats_table[ordered_fnames] = {cell_id: self.null_stats_dict.copy() for cell_id in range(self.n_cells)}
                 self.significance_table[ordered_fnames] = {cell_id: self.null_significance_dict.copy() for cell_id in range(self.n_cells)}
 

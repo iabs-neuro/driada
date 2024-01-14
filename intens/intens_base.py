@@ -1,11 +1,13 @@
 import tqdm
-from scipy.stats import rankdata
 
 from .stats import *
 from ..information.info_base import get_1d_mi, get_multi_mi
 
+MIN_SHIFT = 5  # MIN_SHIFT*t_off is the minimal random signal shift for a given cell
+
+
 # TODO: add cbunch and fbunch logic
-def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window = 1000, ds=1):
+def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
 
     cell = exp.neurons[cell_id]
     ts1 = cell.ca
@@ -37,7 +39,6 @@ def scan_pairs(cells,
                joint_distr=False,
                ds=1,
                mask=None,
-               mi_distr_type='gamma',
                noise_const=1e-3):
 
     """
@@ -69,10 +70,6 @@ def scan_pairs(cells,
           0 in mask values means calculation will be skipped.
           1 in mask values means calculation will proceed.
 
-    mi_distr_type: str
-        Distribution type for shuffled MI distribution fit. Supported options are "gamma" and "lognormal"
-        default: "gamma"
-
     noise_const: float
         Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit
         default: 1e-3
@@ -92,11 +89,11 @@ def scan_pairs(cells,
         In other words, it is the probability of getting the value of MI in range [true_MI, +inf) under the null hypothesis
         that true MI comes from the shuffled MI distribution
 
-    MItotal: np.array of shape (len(cells), len(feats), nsh+1) or (len(cells), 1, nsh+1) if joint_distr=True
+    mi_total: np.array of shape (len(cells), len(feats), nsh+1) or (len(cells), 1, nsh+1) if joint_distr=True
         Aggregated array of true and shuffled MI values.
-        True MI matrix can be obtained by MItotal[:,:,0]
+        True MI matrix can be obtained by mi_total[:,:,0]
         Shuffled MI tensor of shape (len(cells), len(feats), nsh) or (len(cells), 1, nsh) if joint_distr=True
-        can be obtained by MItotal[:,:,1:]
+        can be obtained by mi_total[:,:,1:]
     """
 
     if joint_distr:
@@ -112,14 +109,13 @@ def scan_pairs(cells,
 
     MItable = np.zeros((n, f))
     MItableshuf = np.zeros((n, f, nsh))
-    ptable = np.ones((n, f))
     random_shifts = np.zeros((nsh, n), dtype=int)
 
     for i in tqdm.tqdm(np.arange(n)):
         cell = cells[i]
         ts1 = cell.ca
 
-        min_shift = int(cell.get_t_off()*5)
+        min_shift = int(cell.get_t_off()*MIN_SHIFT)
         ca_random_shifts = np.random.randint(low=min_shift//ds, high=(t-min_shift)//ds, size=nsh)
         random_shifts[:,i] = ca_random_shifts[:]
 
@@ -132,13 +128,9 @@ def scan_pairs(cells,
                     mi = get_multi_mi(feats, ts1, ds=ds, shift=shift)
                     MItableshuf[i,0,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 
-                pval = get_mi_distr_pvalue(MItableshuf[i,0,:], mi0, distr_type = mi_distr_type)
-                ptable[i,0] = pval
-
             else:
                 MItable[i,0] = None
                 MItableshuf[i,0,:] = np.array([None for _ in range(nsh)])
-                ptable[i,0] = None
 
         else:
             for j, ts2 in enumerate(feats):
@@ -150,19 +142,13 @@ def scan_pairs(cells,
                         mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
                         MItableshuf[i,j,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 
-                    pval = get_mi_distr_pvalue(MItableshuf[i,j,:], mi0, distr_type = mi_distr_type)
-                    ptable[i,j] = pval
-
                 else:
                     MItable[i,j] = None
                     MItableshuf[i,j,:] = np.array([None for _ in range(nsh)])
-                    ptable[i,j] = None
 
-    MItotal = np.dstack((MItable, MItableshuf))
-    ranked_total_mi = rankdata(MItotal, axis=2, nan_policy='omit')
-    ranks = (ranked_total_mi[:,:,0]/(nsh+1))  # how many shuffles have MI lower than true mi
+    mi_total = np.dstack((MItable, MItableshuf))
 
-    return random_shifts, ranks, ptable, MItotal
+    return random_shifts, mi_total
 
 
 def compute_mi_significance(exp,
@@ -317,34 +303,33 @@ def compute_mi_significance(exp,
                 data_hash = exp._data_hashes[feat_id][cell_id]
 
                 if stats_not_empty(pair_stats, data_hash, stage=1):
-                    precomputed_mask_stage1[i,j]=0
+                    precomputed_mask_stage1[i,j] = 0
                 if stats_not_empty(pair_stats, data_hash, stage=2):
-                    precomputed_mask_stage2[i,j]=0
+                    precomputed_mask_stage2[i,j] = 0
 
     if mode in ['two_stage', 'stage1']:
         npairs_to_check1 = int(np.sum(precomputed_mask_stage1))
         print(f'Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs')
 
         # STAGE 1 - primary scanning
-        shifts, rtable, ptable, mitotal = scan_pairs(cells,
-                                                     feats,
-                                                     n_shuffles_stage1,
-                                                     joint_distr=joint_distr,
-                                                     ds=ds,
-                                                     mask=precomputed_mask_stage1,
-                                                     mi_distr_type=mi_distr_type,
-                                                     noise_const=noise_ampl)
+        random_shifts1, mi_total1 = scan_pairs(cells,
+                                               feats,
+                                               n_shuffles_stage1,
+                                               joint_distr=joint_distr,
+                                               ds=ds,
+                                               mask=precomputed_mask_stage1,
+                                               noise_const=noise_ampl)
 
         # turn computed data tables from stage 1 and precomputed data into dict of stats dicts
-        stage_1_stats = get_table_of_stats(exp,
-                                           cell_ids,
-                                           feat_ids,
-                                           rtable,
-                                           ptable,
-                                           mitotal,
-                                           ds=ds,
-                                           precomputed_mask=precomputed_mask_stage1,
-                                           stage=1)
+        stage_1_stats = get_updated_table_of_stats(exp,
+                                                   cell_ids,
+                                                   feat_ids,
+                                                   mi_total1,
+                                                   ds=ds,
+                                                   mi_distr_type=mi_distr_type,
+                                                   nsh=n_shuffles_stage1,
+                                                   precomputed_mask=precomputed_mask_stage1,
+                                                   stage=1)
 
         # update Experiment saved statistics if needed
         if save_computed_stats:
@@ -375,7 +360,7 @@ def compute_mi_significance(exp,
                 if save_computed_stats:
                     exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
                 if pair_passes_stage1:
-                    mask_from_stage1[i,j] = 1
+                    mask_from_stage1[i, j] = 1
 
         print('Stage 1 results:')
         nhyp = int(np.sum(mask_from_stage1)) # number of hypotheses for further statistical testing
@@ -386,32 +371,31 @@ def compute_mi_significance(exp,
 
     if mode in ['two_stage', 'stage2']:
         # STAGE 2 - full-scale scanning
-        combined_mask_for_stage_2 = np.ones((n,f))
+        combined_mask_for_stage_2 = np.ones((n, f))
         combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = 0
         combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = 0
 
         npairs_to_check2 = int(np.sum(combined_mask_for_stage_2))
         print(f'Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs')
 
-        shifts, rtable, ptable, mitotal = scan_pairs(cells,
-                                                     feats,
-                                                     n_shuffles_stage2,
-                                                     joint_distr=joint_distr,
-                                                     ds=ds,
-                                                     mask=combined_mask_for_stage_2,
-                                                     mi_distr_type=mi_distr_type,
-                                                     noise_const=noise_ampl)
+        random_shifts2, mi_total2 = scan_pairs(cells,
+                                               feats,
+                                               n_shuffles_stage2,
+                                               joint_distr=joint_distr,
+                                               ds=ds,
+                                               mask=combined_mask_for_stage_2,
+                                               noise_const=noise_ampl)
 
         # turn data tables from stage 2 to array of stats dicts
-        stage_2_stats = get_table_of_stats(exp,
-                                           cell_ids,
-                                           feat_ids,
-                                           rtable,
-                                           ptable,
-                                           mitotal,
-                                           ds=ds,
-                                           precomputed_mask=combined_mask_for_stage_2,
-                                           stage=2)
+        stage_2_stats = get_updated_table_of_stats(exp,
+                                                   cell_ids,
+                                                   feat_ids,
+                                                   mi_total2,
+                                                   ds=ds,
+                                                   mi_distr_type=mi_distr_type,
+                                                   nsh=n_shuffles_stage2,
+                                                   precomputed_mask=combined_mask_for_stage_2,
+                                                   stage=2)
 
         # update Experiment saved statistics if needed
         if save_computed_stats:

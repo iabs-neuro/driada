@@ -1,10 +1,9 @@
 import numpy as np
-from scipy.stats import gamma, lognorm
+from scipy.stats import gamma, lognorm, rankdata
 
 
 def chebyshev_ineq(data, val):
     z = (val - np.mean(data))/np.std(data)
-    #print(z)
     return 1./z**2
 
 
@@ -20,7 +19,7 @@ def get_gamma_p(data, val):
     return rv.sf(val)
 
 
-def get_mi_distr_pvalue(data, val, distr_type = 'gamma'):
+def get_mi_distr_pvalue(data, val, distr_type='gamma'):
     if distr_type == 'lognormal':
         distr = lognorm
     elif distr_type == 'gamma':
@@ -41,9 +40,9 @@ def get_mask(ptable, rtable, pval_thr, rank_thr):
 
 
 def stats_not_empty(pair_stats, data_hash, stage=1):
-    if stage==1:
+    if stage == 1:
         stats_to_check = ['pre_rval', 'pre_pval']
-    elif stage==2:
+    elif stage == 2:
         stats_to_check = ['rval', 'pval', 'mi']
     else:
         raise ValueError(f'Stage should be 1 or 2, but {stage} was passed')
@@ -130,16 +129,33 @@ def get_all_nonempty_pvals(all_stats, cell_ids, feat_ids):
     return all_pvals
 
 
-def get_table_of_stats(exp,
-                       cell_ids,
-                       feat_ids,
-                       rtable,
-                       ptable,
-                       mitable,
-                       precomputed_mask=None,
-                       ds=1,
-                       stage=1):
+def get_updated_table_of_stats(exp,
+                               cell_ids,
+                               feat_ids,
+                               mitable,
+                               precomputed_mask=None,
+                               mi_distr_type='gamma',
+                               ds=1,
+                               nsh=0,
+                               stage=1):
+    '''
 
+    Args:
+        exp:
+        cell_ids:
+        feat_ids:
+        mitable:
+        precomputed_mask:
+        mi_distr_type: str
+            Distribution type for shuffled MI distribution fit. Supported options are "gamma" and "lognormal"
+            default: "gamma"
+        ds:
+        nsh:
+        stage:
+
+    Returns:
+
+    '''
     # 0 in mask values means that stats for this pair will be taken from Experiment instance.
     # 1 in mask values means that stats for this pair will be calculated from new results.
     if precomputed_mask is None:
@@ -147,28 +163,33 @@ def get_table_of_stats(exp,
 
     all_stats = exp._populate_dict(dict(), fbunch=feat_ids, cbunch=cell_ids)
 
+    ranked_total_mi = rankdata(mitable, axis=2, nan_policy='omit')
+    ranks = (ranked_total_mi[:, :, 0] / (nsh + 1))  # how many shuffles have MI lower than true mi
+
     for j, feat_id in enumerate(feat_ids):
         if not isinstance(feat_id, str):
-            print(f'Multifeature {feat_id} is new, it will be added to stats table')
             exp._add_multifeature_to_data_hashes(feat_id)
             exp._add_multifeature_to_stats(feat_id)
 
         for i, cell_id in enumerate(cell_ids):
             if precomputed_mask[i,j]:
                 new_stats = exp.null_stats_dict.copy()
+                mi = mitable[i,j,0]
+                random_mi_samples = mitable[i,j,1:]
+                pval = get_mi_distr_pvalue(random_mi_samples, mi, distr_type=mi_distr_type)
                 data_hash = exp._data_hashes[feat_id][cell_id]
                 new_stats['data_hash'] = data_hash
 
-                if stage==1:
-                    new_stats['pre_rval'] = rtable[i,j]
-                    new_stats['pre_pval'] = ptable[i,j]
+                if stage == 1:
+                    new_stats['pre_rval'] = ranks[i,j]
+                    new_stats['pre_pval'] = pval
 
-                elif stage==2:
+                elif stage == 2:
                     new_stats['pre_rval'] = exp.stats_table[feat_id][cell_id]['pre_rval']
                     new_stats['pre_pval'] = exp.stats_table[feat_id][cell_id]['pre_pval']
 
-                    new_stats['rval'] = rtable[i,j]
-                    new_stats['pval'] = ptable[i,j]
+                    new_stats['rval'] = ranks[i,j]
+                    new_stats['pval'] = pval
                     new_stats['mi'] = mitable[i,j,0]
 
                     feat_entropy = exp.get_feature_entropy(feat_id, ds=ds)
