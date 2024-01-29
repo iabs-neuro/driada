@@ -16,7 +16,6 @@ DEFAULT_NN = 5
 # TODO: add @property decorators to properly set getter-setter functionality
 
 class TimeSeries():
-
     @staticmethod
     def define_ts_type(ts):
         if len(ts) < 100:
@@ -29,6 +28,7 @@ class TimeSeries():
         maxent = entropy(np.ones(len(ts)))
         sc2 = ent / maxent
 
+        # TODO: refactor thresholds
         if sc1 > 0.70 and sc2 > 0.70:
             return False  # both scores are high - the variable is most probably continuous
         elif sc1 < 0.25 and sc2 < 0.25:
@@ -40,7 +40,7 @@ class TimeSeries():
         pass
 
     def __init__(self, data, discrete=None):
-        self.data = _to_numpy_array(data)
+        self.data = to_numpy_array(data)
 
         if discrete is None:
             #warnings.warn('Time series type not specified and will be inferred automatically')
@@ -54,7 +54,7 @@ class TimeSeries():
         if not self.discrete:
             self.copula_normal_data = copnorm(self.data).ravel()
 
-        self.entropy = dict() # supports various downsampling constants
+        self.entropy = dict()  # supports various downsampling constants
         self.kdtree = None
         self.kdtree_query = None
 

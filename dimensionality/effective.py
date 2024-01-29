@@ -2,8 +2,9 @@ from .utils import *
 from scipy.stats import entropy
 from ..utils.data import correlation_matrix
 
-DATA_SHAPE_THR = 0.01 # if n/t in multivariate time series data is more than DATA_SHAPE_THR,
+DATA_SHAPE_THR = 0.01  # if n/t in multivariate time series data is more than DATA_SHAPE_THR,
                       # cov/corr spectrum may be significantly distorted, correction is recommended
+
 
 def _eff_dim(corr_eigs, q=2):
     if q < 0:

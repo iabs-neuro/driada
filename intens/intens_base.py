@@ -3,8 +3,6 @@ import tqdm
 from .stats import *
 from ..information.info_base import get_1d_mi, get_multi_mi
 
-MIN_SHIFT = 5  # MIN_SHIFT*t_off is the minimal random signal shift for a given cell
-
 
 # TODO: add cbunch and fbunch logic
 def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
@@ -32,27 +30,25 @@ def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
     return mi0, shifted_mi
 
 
-# TODO: factor out full MI table processing from the function below into a separate routine
-def scan_pairs(cells,
-               feats,
+def scan_pairs(ts_bunch1,
+               ts_bunch2,
                nsh,
                joint_distr=False,
                ds=1,
                mask=None,
-               noise_const=1e-3):
+               noise_const=1e-3,
+               min_shifts=None):
 
     """
-    Calculates MI shuffles and statistics for given cells and features
+    Calculates MI shuffles for 2 given sets of TimeSeries
     This function is generally assumed to be used internally,
     but can be also called manually to "look inside" high-level computation routines
 
     Parameters
     ----------
-    cells: list of Neuron objects
-        neurons to scan
+    ts_bunch1: list of TimeSeries objects
 
-    feats: list of TimeSeries objects
-        features to scan
+    ts_bunch2: list of TimeSeries objects
 
     nsh: int
         number of shuffles
@@ -65,7 +61,7 @@ def scan_pairs(cells,
         Downsampling constant. Every "ds" point will be taken from the data time series.
         default: 1
 
-    mask: np.array of shape (len(cells), len(feats)) or (len(cells), 1) if joint_distr=True
+    mask: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
           precomputed mask for skipping some of possible pairs.
           0 in mask values means calculation will be skipped.
           1 in mask values means calculation will proceed.
@@ -80,108 +76,89 @@ def scan_pairs(cells,
     random_shifts: np.array of shape (nsh, len(cells))
         signals shifts used for MI distribution computation
 
-    ranks: np.array of shape (len(cells), len(feats)) or (len(cells), 1) if joint_distr=True
-        normalized rank of true MI with respect to shuffled MI.
-        ranks[i,j] = 1.0 means true MI between signals of Neuron i and feature j is higher than MI for all shuffles
-
-    ptable: np.array of shape (len(cells), len(feats)) or (len(cells), 1) if joint_distr=True
-        p-values of true MI in respect to shuffled MI distribution
-        In other words, it is the probability of getting the value of MI in range [true_MI, +inf) under the null hypothesis
-        that true MI comes from the shuffled MI distribution
-
-    mi_total: np.array of shape (len(cells), len(feats), nsh+1) or (len(cells), 1, nsh+1) if joint_distr=True
+    mi_total: np.array of shape (len(ts_bunch1), len(ts_bunch2)), nsh+1) or (len(ts_bunch1), 1, nsh+1) if joint_distr=True
         Aggregated array of true and shuffled MI values.
         True MI matrix can be obtained by mi_total[:,:,0]
-        Shuffled MI tensor of shape (len(cells), len(feats), nsh) or (len(cells), 1, nsh) if joint_distr=True
+        Shuffled MI tensor of shape (len(ts_bunch1), len(ts_bunch2)), nsh) or (len(ts_bunch1), 1, nsh) if joint_distr=True
         can be obtained by mi_total[:,:,1:]
     """
 
-    if joint_distr:
-        f = 1
-    else:
-        f = len(feats)
-
-    t = len(cells[0].ca.data)  # full time series length is the same for all cells and features
-    n = len(cells)
+    n1 = len(ts_bunch1)
+    n2 = 1 if joint_distr else len(ts_bunch2)
+    t = len(ts_bunch1[0].data)  # full length is the same for all time series
 
     if mask is None:
-        mask = np.ones((n, f))
+        mask = np.ones((n1, n2))
 
-    MItable = np.zeros((n, f))
-    MItableshuf = np.zeros((n, f, nsh))
-    random_shifts = np.zeros((nsh, n), dtype=int)
+    mi_table = np.zeros((n1, n2))
+    mi_table_shuffles = np.zeros((n1, n2, nsh))
+    random_shifts = np.zeros((nsh, n1), dtype=int)
 
-    for i in tqdm.tqdm(np.arange(n)):
-        cell = cells[i]
-        ts1 = cell.ca
-
-        min_shift = int(cell.get_t_off()*MIN_SHIFT)
+    for i, ts1 in tqdm.tqdm(ts_bunch1):
+        min_shift = min_shifts[i]
         ca_random_shifts = np.random.randint(low=min_shift//ds, high=(t-min_shift)//ds, size=nsh)
         random_shifts[:,i] = ca_random_shifts[:]
 
         if joint_distr:
             if mask[i,0] == 1:
-                mi0 = get_multi_mi(feats, ts1, ds=ds)
-                MItable[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
+                mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds)
+                mi_table[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                 for k, shift in enumerate(random_shifts[:,i]):
-                    mi = get_multi_mi(feats, ts1, ds=ds, shift=shift)
-                    MItableshuf[i,0,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
+                    mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift)
+                    mi_table_shuffles[i,0,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 
             else:
-                MItable[i,0] = None
-                MItableshuf[i,0,:] = np.array([None for _ in range(nsh)])
+                mi_table[i,0] = None
+                mi_table_shuffles[i,0,:] = np.array([None for _ in range(nsh)])
 
         else:
-            for j, ts2 in enumerate(feats):
+            for j, ts2 in enumerate(ts_bunch2):
                 if mask[i,j] == 1:
                     mi0 = get_1d_mi(ts1, ts2, ds=ds)
-                    MItable[i,j] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
+                    mi_table[i,j] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                     for k, shift in enumerate(random_shifts[:,i]):
                         mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
-                        MItableshuf[i,j,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
+                        mi_table_shuffles[i,j,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 
                 else:
-                    MItable[i,j] = None
-                    MItableshuf[i,j,:] = np.array([None for _ in range(nsh)])
+                    mi_table[i,j] = None
+                    mi_table_shuffles[i,j,:] = np.array([None for _ in range(nsh)])
 
-    mi_total = np.dstack((MItable, MItableshuf))
+    mi_total = np.dstack((mi_table, mi_table_shuffles))
 
     return random_shifts, mi_total
 
 
-def compute_mi_significance(exp,
-                            cell_bunch=None,
-                            feat_bunch=None,
+def compute_mi_significance(ts_bunch1,
+                            ts_bunch2,
+                            names1=None,
+                            names2=None,
                             mode='two_stage',
+                            min_shifts=None,
+                            precomputed_mask_stage1=None,
+                            precomputed_mask_stage2=None,
                             n_shuffles_stage1=100,
                             n_shuffles_stage2=10000,
                             joint_distr=False,
                             mi_distr_type='gamma',
                             noise_ampl=1e-3,
                             ds=1,
-                            use_precomputed_stats=True,
-                            save_computed_stats=True,
-                            force_update=False,
                             topk1=1,
                             topk2=5,
                             multicomp_correction='holm',
-                            pval_thr=0.01):
+                            pval_thr=0.01,
+                            verbose=True):
 
     """
     Calculates significant neuron-feature pairs
 
     Parameters
     ----------
-    exp: Experiment instance
-        Experiment object to read and write data from
+    ts_bunch1: list of TimeSeries objects
 
-    cell_bunch: int, iterable or None
-        Neuron indices. By default (cell_bunch=None), all neurons will be taken
-
-    feat_bunch: str, iterable or None
-        Feature names. By default (feat_bunch=None), all single features will be taken
+    ts_bunch2: list of TimeSeries objects
 
     mode: str
         Computation mode. 3 modes are available:
@@ -222,24 +199,6 @@ def compute_mi_significance(exp,
         Experiment instance has an internal check for this effect.
         default: 1
 
-    use_precomputed_stats: bool
-        Whether to use stats saved in Experiment instance. Stats are accumulated separately for stage1 and stage2.
-        Notes on stats data rewriting (if save_computed_stats=True):
-        If you want to recalculate stage1 results only, use "use_precomputed_stats=False" and "mode='stage1'".
-        Stage 2 stats will be erased since they will become irrelevant.
-        If you want to recalculate stage2 results only, use "use_precomputed_stats=True" and "mode='stage2'" or "mode='two-stage'"
-        If you want to recalculate everything, use "use_precomputed_stats=False" and "mode='two-stage'"
-        default: True
-
-    save_computed_stats: bool
-        Whether to save computed stats to Experiment instance
-        default: True
-
-    force_update: bool
-        Whether to force saved statistics data update in case the collision between actual data hashes and
-        saved stats data hashes is found (for example, if neuronal or behavior data has been changed externally).
-        default: False
-
     topk1: int
         true MI for stage 1 should be among topk1 MI shuffles
         default: 1
@@ -260,189 +219,133 @@ def compute_mi_significance(exp,
     Returns
     -------
     stats: dict of dict of dicts
-        Outer dict: dynamic features, inner dict: cells, inner inner dict: stats.
+        Outer dict: dynamic features, inner dict: cells, last dict: stats.
         Can be easily converted to pandas DataFrame by pd.DataFrame(stats)
     """
 
-    exp.check_ds(ds)
+    n1 = len(ts_bunch1)
+    n2 = 1 if joint_distr else len(ts_bunch2)
 
-    cell_ids = exp._process_cbunch(cell_bunch)
-    feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=False)
-    cells = [exp.neurons[cell_id] for cell_id in cell_ids]
-    feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids]
+    if precomputed_mask_stage1 is None:
+        precomputed_mask_stage1 = np.ones((n1, n2))
+    if precomputed_mask_stage2 is None:
+        precomputed_mask_stage2 = np.ones((n1, n2))
 
-    if joint_distr:
-        feat_ids = [tuple(sorted(feat_ids))]
-
-    n, t, f = len(cells), exp.n_frames, len(feat_ids)
-
-    precomputed_mask_stage1 = np.ones((n,f))
-    precomputed_mask_stage2 = np.ones((n,f))
-    mask_from_stage1 = np.zeros((n,f))
-    mask_from_stage2 = np.zeros((n,f))
-    nhyp = n*f
-
-    if use_precomputed_stats:
-        print('Retrieving saved stats data...')
-        # 0 in mask values means precomputed results are found, calculation will be skipped.
-        # 1 in mask values means precomputed results are not found or incomplete, calculation will proceed.
-
-        for i, cell_id in enumerate(cell_ids):
-            for j, feat_id in enumerate(feat_ids):
-                try:
-                    pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_id)
-                except ValueError:
-                    if isinstance(feat_id, str):
-                        raise ValueError(f'Unknown single feature in feat_bunch: {feat_id}. Check initial data')
-                    else:
-                        print(f'Multifeature {feat_id} is new, it will be added to stats table')
-                        exp._add_multifeature_to_data_hashes(feat_id)
-                        exp._add_multifeature_to_stats(feat_id)
-                        pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_id)
-
-                data_hash = exp._data_hashes[feat_id][cell_id]
-
-                if stats_not_empty(pair_stats, data_hash, stage=1):
-                    precomputed_mask_stage1[i,j] = 0
-                if stats_not_empty(pair_stats, data_hash, stage=2):
-                    precomputed_mask_stage2[i,j] = 0
+    mask_from_stage1 = np.zeros((n1, n2))
+    mask_from_stage2 = np.zeros((n1, n2))
+    nhyp = n1*n2
 
     if mode in ['two_stage', 'stage1']:
         npairs_to_check1 = int(np.sum(precomputed_mask_stage1))
         print(f'Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs')
 
         # STAGE 1 - primary scanning
-        random_shifts1, mi_total1 = scan_pairs(cells,
-                                               feats,
+        random_shifts1, mi_total1 = scan_pairs(ts_bunch1,
+                                               ts_bunch2,
                                                n_shuffles_stage1,
                                                joint_distr=joint_distr,
                                                ds=ds,
                                                mask=precomputed_mask_stage1,
-                                               noise_const=noise_ampl)
+                                               noise_const=noise_ampl,
+                                               min_shifts=min_shifts)
 
         # turn computed data tables from stage 1 and precomputed data into dict of stats dicts
-        stage_1_stats = get_updated_table_of_stats(exp,
-                                                   cell_ids,
-                                                   feat_ids,
-                                                   mi_total1,
-                                                   ds=ds,
-                                                   mi_distr_type=mi_distr_type,
-                                                   nsh=n_shuffles_stage1,
-                                                   precomputed_mask=precomputed_mask_stage1,
-                                                   stage=1)
-
-        # update Experiment saved statistics if needed
-        if save_computed_stats:
-            for i, cell_id in enumerate(cell_ids):
-                for j, feat_id in enumerate(feat_ids):
-                    if precomputed_mask_stage1[i,j]:
-                        exp.update_neuron_feature_pair_stats(stage_1_stats[feat_id][cell_id],
-                                                             cell_id,
-                                                             feat_id,
-                                                             force_update=force_update,
-                                                             stage=1)
+        stage_1_stats = get_table_of_stats(mi_total1,
+                                           mi_distr_type=mi_distr_type,
+                                           nsh=n_shuffles_stage1,
+                                           precomputed_mask=precomputed_mask_stage1,
+                                           stage=1)
 
         # select potentially significant pairs for stage 2
         # 0 in mask values means the pair MI is definitely insignificant, stage 2 calculation will be skipped.
         # 1 in mask values means the pair MI is potentially significant, stage 2 calculation will proceed.
 
         print('Computing significance for all pairs in stage 1...')
-        for i, cell_id in enumerate(cell_ids):
-            for j, feat_id in enumerate(feat_ids):
+        for i in range(len(ts_bunch1)):
+            for j in range(len(ts_bunch2)):
 
-                pair_passes_stage1 = criterion1(stage_1_stats[feat_id][cell_id],
+                pair_passes_stage1 = criterion1(stage_1_stats[i][j],
                                                 n_shuffles_stage1,
                                                 topk=topk1)
 
-                sig = {'shuffles1': n_shuffles_stage1, 'stage1': pair_passes_stage1}
-
-                # update Experiment saved significance data if needed
-                if save_computed_stats:
-                    exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
                 if pair_passes_stage1:
                     mask_from_stage1[i, j] = 1
 
         print('Stage 1 results:')
-        nhyp = int(np.sum(mask_from_stage1)) # number of hypotheses for further statistical testing
-        print(f'{nhyp/n/f*100:.2f}% ({nhyp}/{n*f}) of possible pairs identified as candidates')
+        nhyp = int(np.sum(mask_from_stage1))  # number of hypotheses for further statistical testing
+        print(f'{nhyp/n1/n2*100:.2f}% ({nhyp}/{n1*n2}) of possible pairs identified as candidates')
 
         if mode == 'stage1':
             return stage_1_stats
 
     if mode in ['two_stage', 'stage2']:
         # STAGE 2 - full-scale scanning
-        combined_mask_for_stage_2 = np.ones((n, f))
-        combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = 0
-        combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = 0
+        combined_mask_for_stage_2 = np.ones((n1, n2))
+        combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = 0  # exclude non-significant pairs from stage1
+        combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = 0  # exclude precomputed stage 2 pairs
 
         npairs_to_check2 = int(np.sum(combined_mask_for_stage_2))
         print(f'Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs')
 
-        random_shifts2, mi_total2 = scan_pairs(cells,
-                                               feats,
+        random_shifts2, mi_total2 = scan_pairs(ts_bunch1,
+                                               ts_bunch2,
                                                n_shuffles_stage2,
                                                joint_distr=joint_distr,
                                                ds=ds,
                                                mask=combined_mask_for_stage_2,
-                                               noise_const=noise_ampl)
+                                               noise_const=noise_ampl,
+                                               min_shifts=min_shifts)
 
         # turn data tables from stage 2 to array of stats dicts
-        stage_2_stats = get_updated_table_of_stats(exp,
-                                                   cell_ids,
-                                                   feat_ids,
-                                                   mi_total2,
-                                                   ds=ds,
-                                                   mi_distr_type=mi_distr_type,
-                                                   nsh=n_shuffles_stage2,
-                                                   precomputed_mask=combined_mask_for_stage_2,
-                                                   stage=2)
-
-        # update Experiment saved statistics if needed
-        if save_computed_stats:
-            for i, cell_id in enumerate(cell_ids):
-                for j, feat_id in enumerate(feat_ids):
-                    if combined_mask_for_stage_2[i,j]:
-                        exp.update_neuron_feature_pair_stats(stage_2_stats[feat_id][cell_id],
-                                                             cell_id,
-                                                             feat_id,
-                                                             force_update=force_update,
-                                                             stage=2)
+        stage_2_stats = get_table_of_stats(mi_total2,
+                                           mi_distr_type=mi_distr_type,
+                                           nsh=n_shuffles_stage2,
+                                           precomputed_mask=combined_mask_for_stage_2,
+                                           stage=2)
 
         # select significant pairs after stage 2
         print('Computing significance for all pairs in stage 2...')
         all_pvals = None
         if multicomp_correction == 'holm':  # holm procedure requires all p-values
-            all_pvals = get_all_nonempty_pvals(stage_2_stats, cell_ids, feat_ids)
+            all_pvals = get_all_nonempty_pvals(stage_2_stats, range(len(ts_bunch1)), range(len(ts_bunch2)))
 
         multicorr_thr = get_multicomp_correction_thr(pval_thr,
                                                      mode=multicomp_correction,
                                                      all_pvals=all_pvals,
                                                      nhyp=nhyp)
 
-        for i, cell_id in enumerate(cell_ids):
-            for j, feat_id in enumerate(feat_ids):
-                pair_passes_stage2 = criterion2(stage_2_stats[feat_id][cell_id],
+        for i in range(len(ts_bunch1)):
+            for j, in range(len(ts_bunch2)):
+                pair_passes_stage2 = criterion2(stage_2_stats[i][j],
                                                 n_shuffles_stage2,
                                                 multicorr_thr,
                                                 topk=topk2)
 
-                sig = {'shuffles2': n_shuffles_stage2,
-                       'stage2': pair_passes_stage2,
-                       'final_p_thr': pval_thr,
-                       'multicomp_corr': multicomp_correction}
-
-                # update Experiment saved significance data if needed
-                if save_computed_stats:
-                    exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
                 if pair_passes_stage2:
                     mask_from_stage2[i,j] = 1
 
-        exp._pairwise_pval_thr = multicorr_thr
         print('Stage 2 results:')
         num2 = int(np.sum(mask_from_stage2))
-        print(f'{num2/n/f*100:.2f}% ({num2}/{n*f}) of possible pairs identified as significant')
+        print(f'{num2/n1/n2*100:.2f}% ({num2}/{n1*n2}) of possible pairs identified as significant')
 
-        return stage_2_stats
+        merged_stats = merge_stage_stats(stage_1_stats, stage_2_stats)
+
+        #  renaming for convenience
+        if not (names1 is None and names2 is None):
+            if names1 is None:
+                names1 = range(n1)
+            if names2 is None:
+                names2 = range(n2)
+
+            final_stats = populate_nested_dict(dict(), names1, names2)
+            for i in range(n1):
+                for j in range(n2):
+                    final_stats[names1[i]][names2[j]].update(merged_stats[i][j])
+
+            return final_stats
+
+        else:
+            return merged_stats
 
 
 def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):

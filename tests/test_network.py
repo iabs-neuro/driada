@@ -28,6 +28,7 @@ def create_default_net():
     net = Network(adj=adj)
     return net
 
+
 def test_init_from_adj():
     adj = create_default_adj()
     net = Network(adj=adj, create_nx_graph=False)

@@ -50,7 +50,7 @@ def download_part_of_folder(
         key='',  # part of filename to search for
         whitelist=[],  # list of filenames to be downloaded regardless of their names
         extensions=['.csv', '.xlsx', '.npz'],  # allowed file extensions
-        via_pydrive=False  # pydrive requires authorization, but can download a big number of files
+        via_pydrive=False  # pydrive requires authorization, but can download a big number of files,
 ):
     with Capturing() as load_log:
         if via_pydrive:

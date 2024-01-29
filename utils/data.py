@@ -8,6 +8,14 @@ import scipy.stats as st
 from numba import njit
 
 
+def populate_nested_dict(content, outer, inner):
+    nested_dict = {o: {} for o in outer}
+    for o in outer:
+        nested_dict[o] = {i: content.copy() for i in inner}
+
+    return nested_dict
+
+
 def rescale(data):
     scaler = MinMaxScaler(feature_range=(0, 1))
     res = scaler.fit_transform(data.reshape(-1, 1)).ravel()
