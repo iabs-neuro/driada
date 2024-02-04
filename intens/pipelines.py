@@ -1,5 +1,5 @@
 from .stats import *
-from .intens_base import scan_pairs, compute_mi_significance, get_multicomp_correction_thr
+from .intens_base import compute_mi_stats
 
 MIN_CA_SHIFT = 5  # MIN_SHIFT*t_off is the minimal random signal shift for a given cell
 
@@ -135,9 +135,6 @@ def compute_cell_feat_mi_significance(exp,
 
     precomputed_mask_stage1 = np.ones((n,f))
     precomputed_mask_stage2 = np.ones((n,f))
-    mask_from_stage1 = np.zeros((n,f))
-    mask_from_stage2 = np.zeros((n,f))
-    nhyp = n*f
 
     if use_precomputed_stats:
         print('Retrieving saved stats data...')
@@ -171,27 +168,27 @@ def compute_cell_feat_mi_significance(exp,
     else:
         raise ValueError('Wrong mode!')
 
-    computed_stats = compute_mi_significance(ca_signals,
-                                             feats,
-                                             mode=mode,
-                                             names1=cell_ids,
-                                             names2=feat_ids,
-                                             min_shifts=min_shifts,
-                                             precomputed_mask_stage1=precomputed_mask_stage1,
-                                             precomputed_mask_stage2=precomputed_mask_stage2,
-                                             n_shuffles_stage1=n_shuffles_stage1,
-                                             n_shuffles_stage2=n_shuffles_stage2,
-                                             joint_distr=joint_distr,
-                                             mi_distr_type=mi_distr_type,
-                                             noise_ampl=noise_ampl,
-                                             ds=ds,
-                                             topk1=topk1,
-                                             topk2=topk2,
-                                             multicomp_correction=multicomp_correction,
-                                             pval_thr=pval_thr,
-                                             verbose=verbose)
+    computed_stats, computed_significance = compute_mi_stats(ca_signals,
+                                                             feats,
+                                                             mode=mode,
+                                                             names1=cell_ids,
+                                                             names2=feat_ids,
+                                                             min_shifts=min_shifts,
+                                                             precomputed_mask_stage1=precomputed_mask_stage1,
+                                                             precomputed_mask_stage2=precomputed_mask_stage2,
+                                                             n_shuffles_stage1=n_shuffles_stage1,
+                                                             n_shuffles_stage2=n_shuffles_stage2,
+                                                             joint_distr=joint_distr,
+                                                             mi_distr_type=mi_distr_type,
+                                                             noise_ampl=noise_ampl,
+                                                             ds=ds,
+                                                             topk1=topk1,
+                                                             topk2=topk2,
+                                                             multicomp_correction=multicomp_correction,
+                                                             pval_thr=pval_thr,
+                                                             verbose=verbose)
 
-    # add hash data and update Experiment saved statistics if needed
+    # add hash data and update Experiment saved statistics and significance if needed
     for i, cell_id in enumerate(cell_ids):
         for j, feat_id in enumerate(feat_ids):
             computed_stats[feat_id][cell_id]['data_hash'] = exp._data_hashes[feat_id][cell_id]
@@ -205,7 +202,6 @@ def compute_cell_feat_mi_significance(exp,
 
             if save_computed_stats:
                 stage2_only = True if mode == 'stage2' else False
-
                 if combined_precomputed_mask[i,j]:
                     exp.update_neuron_feature_pair_stats(computed_stats[feat_id][cell_id],
                                                          cell_id,
@@ -213,120 +209,7 @@ def compute_cell_feat_mi_significance(exp,
                                                          force_update=force_update,
                                                          stage2_only=stage2_only)
 
-        # select potentially significant pairs for stage 2
-        # 0 in mask values means the pair MI is definitely insignificant, stage 2 calculation will be skipped.
-        # 1 in mask values means the pair MI is potentially significant, stage 2 calculation will proceed.
-
-        print('Computing significance for all pairs in stage 1...')
-        for i, cell_id in enumerate(cell_ids):
-            for j, feat_id in enumerate(feat_ids):
-
-                pair_passes_stage1 = criterion1(stage_1_stats[feat_id][cell_id],
-                                                n_shuffles_stage1,
-                                                topk=topk1)
-
-                sig = {'shuffles1': n_shuffles_stage1, 'stage1': pair_passes_stage1}
-
-                # update Experiment saved significance data if needed
-                if save_computed_stats:
+                    sig = computed_significance[feat_id][cell_id]
                     exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
-                if pair_passes_stage1:
-                    mask_from_stage1[i, j] = 1
 
-        if mode == 'stage1':
-            return stage_1_stats
-
-    if mode in ['two_stage', 'stage2']:
-        # STAGE 2 - full-scale scanning
-        combined_mask_for_stage_2 = np.ones((n, f))
-        combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = 0
-        combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = 0
-
-        npairs_to_check2 = int(np.sum(combined_mask_for_stage_2))
-        print(f'Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs')
-
-        random_shifts2, mi_total2 = scan_pairs(ca_signals,
-                                               feats,
-                                               n_shuffles_stage2,
-                                               joint_distr=joint_distr,
-                                               ds=ds,
-                                               mask=combined_mask_for_stage_2,
-                                               noise_const=noise_ampl,
-                                               min_shifts=min_shifts)
-
-        # turn data tables from stage 2 to array of stats dicts
-        stage_2_stats = get_updated_table_of_stats(exp,
-                                                   cell_ids,
-                                                   feat_ids,
-                                                   mi_total2,
-                                                   ds=ds,
-                                                   mi_distr_type=mi_distr_type,
-                                                   nsh=n_shuffles_stage2,
-                                                   precomputed_mask=combined_mask_for_stage_2,
-                                                   stage=2)
-
-        # update Experiment saved statistics if needed
-        if save_computed_stats:
-            for i, cell_id in enumerate(cell_ids):
-                for j, feat_id in enumerate(feat_ids):
-                    if combined_mask_for_stage_2[i,j]:
-                        exp.update_neuron_feature_pair_stats(stage_2_stats[feat_id][cell_id],
-                                                             cell_id,
-                                                             feat_id,
-                                                             force_update=force_update,
-                                                             stage=2)
-
-        # select significant pairs after stage 2
-        print('Computing significance for all pairs in stage 2...')
-        all_pvals = None
-        if multicomp_correction == 'holm':  # holm procedure requires all p-values
-            all_pvals = get_all_nonempty_pvals(stage_2_stats, cell_ids, feat_ids)
-
-        multicorr_thr = get_multicomp_correction_thr(pval_thr,
-                                                     mode=multicomp_correction,
-                                                     all_pvals=all_pvals,
-                                                     nhyp=nhyp)
-
-        for i, cell_id in enumerate(cell_ids):
-            for j, feat_id in enumerate(feat_ids):
-                pair_passes_stage2 = criterion2(stage_2_stats[feat_id][cell_id],
-                                                n_shuffles_stage2,
-                                                multicorr_thr,
-                                                topk=topk2)
-
-                sig = {'shuffles2': n_shuffles_stage2,
-                       'stage2': pair_passes_stage2,
-                       'final_p_thr': pval_thr,
-                       'multicomp_corr': multicomp_correction}
-
-                # update Experiment saved significance data if needed
-                if save_computed_stats:
-                    exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
-                if pair_passes_stage2:
-                    mask_from_stage2[i,j] = 1
-
-        exp._pairwise_pval_thr = multicorr_thr
-        print('Stage 2 results:')
-        num2 = int(np.sum(mask_from_stage2))
-        print(f'{num2/n/f*100:.2f}% ({num2}/{n*f}) of possible pairs identified as significant')
-
-        return stage_2_stats
-
-
-compute_mi_significance(ts_bunch1,
-                        ts_bunch2,
-                        mode='two_stage',
-                        min_shifts=None,
-                        precomputed_mask_stage1=None,
-                        precomputed_mask_stage2=None,
-                        n_shuffles_stage1=100,
-                        n_shuffles_stage2=10000,
-                        joint_distr=False,
-                        mi_distr_type='gamma',
-                        noise_ampl=1e-3,
-                        ds=1,
-                        topk1=1,
-                        topk2=5,
-                        multicomp_correction='holm',
-                        pval_thr=0.01,
-                        verbose=True)
+    return computed_stats, computed_significance

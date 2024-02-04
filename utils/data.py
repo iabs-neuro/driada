@@ -16,6 +16,54 @@ def populate_nested_dict(content, outer, inner):
     return nested_dict
 
 
+def add_names_to_nested_dict(datadict, names1, names2):
+    # renaming for convenience
+    n1 = len(datadict.keys())
+    n2 = len(datadict[list(datadict.keys())[0]])
+
+    if not (names1 is None and names2 is None):
+        if names1 is None:
+            names1 = range(n1)
+        if names2 is None:
+            names2 = range(n2)
+
+        renamed_dict = populate_nested_dict(dict(), names1, names2)
+        for i in range(n1):
+            for j in range(n2):
+                renamed_dict[names1[i]][names2[j]].update(datadict[i][j])
+        return renamed_dict
+
+    else:
+        return datadict
+
+
+def retrieve_relevant_from_nested_dict(nested_dict,
+                                       target_key,
+                                       target_value,
+                                       operation='=',
+                                       allow_missing_keys=False):
+    relevant_pairs = []
+    for key1 in nested_dict.keys():
+        for key2 in nested_dict[key1].keys():
+            data = nested_dict[key1][key2]
+            if target_key not in data and not allow_missing_keys:
+                raise ValueError(f'Target key {target_key} not found in data dict')
+
+            if operation == '=':
+                criterion = data.get(target_key) == target_value
+            elif operation == '>':
+                criterion = data.get(target_key) > target_value if data.get(target_key) is not None else False
+            elif operation == '<':
+                criterion = data.get(target_key) < target_value if data.get(target_key) is not None else False
+            else:
+                raise ValueError(f'Operation should be one of "=", ">", "<", but {operation} was passed')
+
+            if criterion:
+                relevant_pairs.append((key1, key2))
+
+    return relevant_pairs
+
+
 def rescale(data):
     scaler = MinMaxScaler(feature_range=(0, 1))
     res = scaler.fit_transform(data.reshape(-1, 1)).ravel()

@@ -90,11 +90,14 @@ def scan_pairs(ts_bunch1,
     if mask is None:
         mask = np.ones((n1, n2))
 
+    if min_shifts is None:
+        min_shifts = np.zeros(n1)
+
     mi_table = np.zeros((n1, n2))
     mi_table_shuffles = np.zeros((n1, n2, nsh))
     random_shifts = np.zeros((nsh, n1), dtype=int)
 
-    for i, ts1 in tqdm.tqdm(ts_bunch1):
+    for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1)):
         min_shift = min_shifts[i]
         ca_random_shifts = np.random.randint(low=min_shift//ds, high=(t-min_shift)//ds, size=nsh)
         random_shifts[:,i] = ca_random_shifts[:]
@@ -131,28 +134,28 @@ def scan_pairs(ts_bunch1,
     return random_shifts, mi_total
 
 
-def compute_mi_significance(ts_bunch1,
-                            ts_bunch2,
-                            names1=None,
-                            names2=None,
-                            mode='two_stage',
-                            min_shifts=None,
-                            precomputed_mask_stage1=None,
-                            precomputed_mask_stage2=None,
-                            n_shuffles_stage1=100,
-                            n_shuffles_stage2=10000,
-                            joint_distr=False,
-                            mi_distr_type='gamma',
-                            noise_ampl=1e-3,
-                            ds=1,
-                            topk1=1,
-                            topk2=5,
-                            multicomp_correction='holm',
-                            pval_thr=0.01,
-                            verbose=True):
+def compute_mi_stats(ts_bunch1,
+                     ts_bunch2,
+                     names1=None,
+                     names2=None,
+                     mode='two_stage',
+                     min_shifts=None,
+                     precomputed_mask_stage1=None,
+                     precomputed_mask_stage2=None,
+                     n_shuffles_stage1=100,
+                     n_shuffles_stage2=10000,
+                     joint_distr=False,
+                     mi_distr_type='gamma',
+                     noise_ampl=1e-3,
+                     ds=1,
+                     topk1=1,
+                     topk2=5,
+                     multicomp_correction='holm',
+                     pval_thr=0.01,
+                     verbose=True):
 
     """
-    Calculates significant neuron-feature pairs
+    Calculates MI statistics for TimeSeries pairs
 
     Parameters
     ----------
@@ -216,12 +219,25 @@ def compute_mi_significance(ts_bunch1,
         pvalue threshold. if multicomp_correction=None, this is a p-value for a single pair.
         Otherwise it is a FWER significance level.
 
+    verbose: bool
+        whether to print intermediate information
+
     Returns
     -------
     stats: dict of dict of dicts
-        Outer dict: dynamic features, inner dict: cells, last dict: stats.
+        Outer dict keys: indices of tsbunch1 or names1, if given
+        Inner dict keys: indices or tsbunch2 or names2, if given
+        Last dict: dictionary of stats variables.
         Can be easily converted to pandas DataFrame by pd.DataFrame(stats)
+
+    significance: dict of dict of dicts
+        Outer dict keys: indices of tsbunch1 or names1, if given
+        Inner dict keys: indices or tsbunch2 or names2, if given
+        Last dict: dictionary of significance-related variables.
+        Can be easily converted to pandas DataFrame by pd.DataFrame(significance)
     """
+
+    # TODO: add automatic min_shifts from autocorrelation time
 
     n1 = len(ts_bunch1)
     n2 = 1 if joint_distr else len(ts_bunch2)
@@ -237,7 +253,8 @@ def compute_mi_significance(ts_bunch1,
 
     if mode in ['two_stage', 'stage1']:
         npairs_to_check1 = int(np.sum(precomputed_mask_stage1))
-        print(f'Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs')
+        if verbose:
+            print(f'Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs')
 
         # STAGE 1 - primary scanning
         random_shifts1, mi_total1 = scan_pairs(ts_bunch1,
@@ -260,32 +277,42 @@ def compute_mi_significance(ts_bunch1,
         # 0 in mask values means the pair MI is definitely insignificant, stage 2 calculation will be skipped.
         # 1 in mask values means the pair MI is potentially significant, stage 2 calculation will proceed.
 
-        print('Computing significance for all pairs in stage 1...')
-        for i in range(len(ts_bunch1)):
-            for j in range(len(ts_bunch2)):
+        if verbose:
+            print('Computing significance for all pairs in stage 1...')
 
+        stage_1_significance = populate_nested_dict(dict(), range(n1), range(n2))
+        for i in range(n1):
+            for j in range(n2):
                 pair_passes_stage1 = criterion1(stage_1_stats[i][j],
                                                 n_shuffles_stage1,
                                                 topk=topk1)
-
                 if pair_passes_stage1:
                     mask_from_stage1[i, j] = 1
 
-        print('Stage 1 results:')
+                sig1 = {'shuffles1': n_shuffles_stage1,
+                        'stage1': pair_passes_stage1}
+                stage_1_significance[i][j].update(sig1)
+
         nhyp = int(np.sum(mask_from_stage1))  # number of hypotheses for further statistical testing
-        print(f'{nhyp/n1/n2*100:.2f}% ({nhyp}/{n1*n2}) of possible pairs identified as candidates')
+        if verbose:
+            print('Stage 1 results:')
+            print(f'{nhyp/n1/n2*100:.2f}% ({nhyp}/{n1*n2}) of possible pairs identified as candidates')
 
-        if mode == 'stage1':
-            return stage_1_stats
+    if mode == 'stage1':
+        final_stats = add_names_to_nested_dict(stage_1_stats, names1, names2)
+        final_significance = add_names_to_nested_dict(stage_1_significance, names1, names2)
 
-    if mode in ['two_stage', 'stage2']:
+        return final_stats, final_significance
+
+    else:
         # STAGE 2 - full-scale scanning
         combined_mask_for_stage_2 = np.ones((n1, n2))
         combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = 0  # exclude non-significant pairs from stage1
         combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = 0  # exclude precomputed stage 2 pairs
 
         npairs_to_check2 = int(np.sum(combined_mask_for_stage_2))
-        print(f'Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs')
+        if verbose:
+            print(f'Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs')
 
         random_shifts2, mi_total2 = scan_pairs(ts_bunch1,
                                                ts_bunch2,
@@ -304,48 +331,45 @@ def compute_mi_significance(ts_bunch1,
                                            stage=2)
 
         # select significant pairs after stage 2
-        print('Computing significance for all pairs in stage 2...')
+        if verbose:
+            print('Computing significance for all pairs in stage 2...')
         all_pvals = None
         if multicomp_correction == 'holm':  # holm procedure requires all p-values
-            all_pvals = get_all_nonempty_pvals(stage_2_stats, range(len(ts_bunch1)), range(len(ts_bunch2)))
+            all_pvals = get_all_nonempty_pvals(stage_2_stats, range(n1), range(n2))
 
         multicorr_thr = get_multicomp_correction_thr(pval_thr,
                                                      mode=multicomp_correction,
                                                      all_pvals=all_pvals,
                                                      nhyp=nhyp)
 
-        for i in range(len(ts_bunch1)):
-            for j, in range(len(ts_bunch2)):
+        stage_2_significance = populate_nested_dict(dict(), range(n1), range(n2))
+        for i in range(n1):
+            for j in range(n2):
                 pair_passes_stage2 = criterion2(stage_2_stats[i][j],
                                                 n_shuffles_stage2,
                                                 multicorr_thr,
                                                 topk=topk2)
-
                 if pair_passes_stage2:
                     mask_from_stage2[i,j] = 1
 
-        print('Stage 2 results:')
+                sig2 = {'shuffles2': n_shuffles_stage2,
+                        'stage2': pair_passes_stage2,
+                        'final_p_thr': pval_thr,
+                        'multicomp_corr': multicomp_correction,
+                        'pairwise_pval_thr': multicorr_thr}
+
+                stage_2_significance[i][j] = sig2
+
         num2 = int(np.sum(mask_from_stage2))
-        print(f'{num2/n1/n2*100:.2f}% ({num2}/{n1*n2}) of possible pairs identified as significant')
+        if verbose:
+            print('Stage 2 results:')
+            print(f'{num2/n1/n2*100:.2f}% ({num2}/{n1*n2}) of possible pairs identified as significant')
 
         merged_stats = merge_stage_stats(stage_1_stats, stage_2_stats)
-
-        #  renaming for convenience
-        if not (names1 is None and names2 is None):
-            if names1 is None:
-                names1 = range(n1)
-            if names2 is None:
-                names2 = range(n2)
-
-            final_stats = populate_nested_dict(dict(), names1, names2)
-            for i in range(n1):
-                for j in range(n2):
-                    final_stats[names1[i]][names2[j]].update(merged_stats[i][j])
-
-            return final_stats
-
-        else:
-            return merged_stats
+        merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
+        final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
+        final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
+        return final_stats, final_significance
 
 
 def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):

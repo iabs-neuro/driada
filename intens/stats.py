@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.stats import gamma, lognorm, rankdata
-from ..utils.data import populate_nested_dict
+from ..utils.data import populate_nested_dict, add_names_to_nested_dict
 from ..experiment.exp_base import DEFAULT_STATS
 
 def chebyshev_ineq(data, val):
@@ -77,7 +77,7 @@ def criterion1(pair_stats, nsh1, topk=1):
     """
 
     if pair_stats['pre_rval'] is not None:
-        return pair_stats['pre_rval'] > (1 - topk/nsh1)
+        return pair_stats['pre_rval'] > (1 - 1.*topk/(nsh1+1))
         #return pair_stats['pre_rval'] == 1 # true MI should be top-1 among all shuffles
     else:
         return False
@@ -108,9 +108,10 @@ def criterion2(pair_stats, nsh2, pval_thr, topk=5):
     crit_passed: bool
         True if significance confirmed, False if not.
     """
-
-    if pair_stats['rval'] is not None and pair_stats['pval'] is not None: # whether pair passed stage 1 and has statistics from stage 2
-        if pair_stats['rval'] > (1 - topk/nsh2): #  whether true MI is among topk shuffles (in practice it is top-1 almost always)
+    # whether pair passed stage 1 and has statistics from stage 2
+    if pair_stats.get('rval') is not None and pair_stats.get('pval') is not None:
+        # whether true MI is among topk shuffles (in practice it is top-1 almost always)
+        if pair_stats['rval'] > (1 - 1.*topk/(nsh2+1)):
             criterion = pair_stats['pval'] < pval_thr
             return criterion
         else:
@@ -123,7 +124,7 @@ def get_all_nonempty_pvals(all_stats, ids1, ids2):
     all_pvals = []
     for i, id1 in enumerate(ids1):
         for j, id2 in enumerate(ids2):
-            pval = all_stats[id1][id2]['pval']
+            pval = all_stats[id1][id2].get('pval')
             if not(pval is None):
                 all_pvals.append(pval)
 
@@ -228,7 +229,7 @@ def get_table_of_stats(mitable,
     if precomputed_mask is None:
         precomputed_mask = np.ones(mitable.shape)
 
-    a, b = mitable.shape
+    a, b, sh = mitable.shape
     stage_stats = populate_nested_dict(dict(), range(a), range(b))
 
     ranked_total_mi = rankdata(mitable, axis=2, nan_policy='omit')
@@ -257,10 +258,19 @@ def get_table_of_stats(mitable,
 
 
 def merge_stage_stats(stage1_stats, stage2_stats):
-    final_stats = stage2_stats.copy()
+    merged_stats = stage2_stats.copy()
     for i in stage2_stats:
         for j in stage2_stats[i]:
-            final_stats[i][j]['pre_rval'] = stage1_stats[i][j]['pre_rval']
-            final_stats[i][j]['pre_pval'] = stage1_stats[i][j]['pre_pval']
+            merged_stats[i][j]['pre_rval'] = stage1_stats[i][j]['pre_rval']
+            merged_stats[i][j]['pre_pval'] = stage1_stats[i][j]['pre_pval']
 
-    return final_stats
+    return merged_stats
+
+
+def merge_stage_significance(stage_1_significance, stage_2_significance):
+    merged_significance = stage_2_significance.copy()
+    for i in stage_2_significance:
+        for j in stage_2_significance[i]:
+            merged_significance[i][j].update(stage_1_significance[i][j])
+
+    return merged_significance
