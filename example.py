@@ -16,4 +16,4 @@ data_router, data_pieces = initialize_router()
 download_gdrive_data(data_router,
                      expname,
                      data_pieces=['Aligned data', 'Computation results'],
-                     via_pydrive=False)
+                     via_pydrive=True)

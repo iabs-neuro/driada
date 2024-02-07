@@ -287,3 +287,27 @@ def get_norm_laplacian(a):
     matrix = sp.eye(n, dtype=float) - DH.dot(A.dot(DH))
     return matrix
 
+
+def get_inv_diag_matrix(a):
+    n = a.shape[0]
+    A = sp.csr_array(a)
+    out_degrees = np.array(A.sum(axis=0)).ravel()
+    invdiags = 1.0 / out_degrees
+
+    invdiags[np.isinf(invdiags)] = 0
+    Dinv = sp.spdiags(invdiags, [0], n, n, format='csr')
+    return Dinv
+
+
+def get_rw_laplacian(a):
+    n = a.shape[0]
+    T = get_trans_matrix(a)
+    matrix = sp.eye(n, dtype=float) - T
+    return matrix
+
+
+def get_trans_matrix(a):
+    A = sp.csr_array(a)
+    Dinv = get_inv_diag_matrix(a)
+    T = Dinv.dot(A)
+    return T

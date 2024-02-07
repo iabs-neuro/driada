@@ -97,7 +97,7 @@ def correlation_matrix_old(a, b):
 
         return corrmat
 
-@njit()
+
 def correlation_matrix(A):
     '''
     # fast implementation.
@@ -106,11 +106,10 @@ def correlation_matrix(A):
     returns: numpy array of shape (nvars, nvars)
     '''
 
-    am = A - np.mean(A, axis=0, keepdims=True)
-    return am.T @ am / np.sum(am**2, axis=0, keepdims=True).T
+    am = A - np.mean(A, axis=1, keepdims=True)
+    return am @ am.T / np.sum(am**2, axis=1, keepdims=True).T
 
 
-@njit()
 def cross_correlation_matrix(A, B):
     '''
     # fast implementation.
@@ -139,7 +138,6 @@ def to_numpy_array(data):
 
     if ssp.issparse(data):
         return data.A
-
     else:
         return np.array(data)
 

@@ -22,6 +22,8 @@ from .graph import ProximityGraph
 from .neural import *
 from .mvu import *
 
+from ..network.matrix_utils import get_inv_sqrt_diag_matrix
+
 def norm_cross_corr(a, b):
     a = (a - np.mean(a)) / (np.std(a) * len(a))
     b = (b - np.mean(b)) / (np.std(b))
@@ -37,13 +39,12 @@ def remove_outliers(data, thr_percentile):
     return good_points, data[good_points]
 
 
-class Embedding():
+class Embedding:
     '''
     Low-dimensional representation of data
     '''
 
     def __init__(self, init_data, init_distmat, labels, params, g=None):
-
         if g is not None:
             if isinstance(g, ProximityGraph):
                 self.graph = g
@@ -85,8 +86,8 @@ class Embedding():
     def create_pca_embedding_(self):
         print('Calculating PCA embedding...')
         pca = PCA(n_components=self.dim)
-        self.coords = sp.csr_matrix(pca.fit_transform(self.init_data.A.T).T)
-
+        self.coords = pca.fit_transform(self.init_data.T).T
+        self.reducer_ = pca
         # print(pca.explained_variance_ratio_)
 
     def create_isomap_embedding_(self):
@@ -95,91 +96,52 @@ class Embedding():
                      metric='precomputed')
         # self.coords = sp.csr_matrix(map.fit_transform(self.graph.data.A.T).T)
         spmatrix = shortest_path(A.A, method='D', directed=False)
-        self.coords = sp.csr_matrix(map.fit_transform(spmatrix).T)
+        self.coords = map.fit_transform(spmatrix).T
+        self.reducer_ = map
+
 
     def create_mvu_embedding_(self):
-        A = self.graph.adj
         mvu = MaximumVarianceUnfolding(equation="berkley", solver=cp.SCS, solver_tol=1e-2,
                                        eig_tol=1.0e-10, solver_iters=2500,
                                        warm_start=False, seed=None)
 
-        self.coords = sp.csr_matrix(mvu.fit_transform(self.graph.data.A.T, self.dim,
-                                                      self.graph.all_params['nn'], dropout_rate=0))
+        self.coords = mvu.fit_transform(self.graph.data.A.T, self.dim,
+                                                      self.graph.all_params['nn'], dropout_rate=0)
+        self.reducer_ = mvu
 
     def create_lle_embedding_(self):
-        A = self.graph.adj
         lle = LocallyLinearEmbedding(n_components=self.dim, n_neighbors=self.graph.all_params['nn'])
-        self.coords = sp.csr_matrix(lle.fit_transform(self.graph.data.A.T).T)
+        self.coords = lle.fit_transform(self.graph.data.A.T).T
+        self.reducer_ = lle
 
     def create_hlle_embedding_(self):
-        A = self.graph.adj
         hlle = LocallyLinearEmbedding(n_components=self.dim,
                                       n_neighbors=self.graph.all_params['nn'],
                                       method='hessian')
-        self.coords = sp.csr_matrix(hlle.fit_transform(self.graph.data.A.T).T)
+        self.coords = hlle.fit_transform(self.graph.data.A.T).T
+        self.reducer_ = hlle
 
     def create_le_embedding_(self):
         A = self.graph.adj
         dim = self.dim
 
-        print('Performing spectral decomposition...')
-        K = A.shape[0]  # number of nodes, each representing a data point
-        A = A.asfptype()
-        '''
-        fig, ax = plt.subplots(figsize = (16,16))
-        ax.matshow(A.A)
-        '''
+        DH = get_inv_sqrt_diag_matrix(A)
+        P = self.graph.get_matrix('trans')
 
-        diags = A.sum(axis=1).flatten()
-        with scipy.errstate(divide='ignore'):
-            diags_sqrt = 1.0 / scipy.sqrt(diags)
-            invdiags = 1.0 / (diags)
-        diags_sqrt[scipy.isinf(diags_sqrt)] = 0
-        DH = scipy.sparse.spdiags(diags_sqrt, [0], K, K, format='csr')
-        invD = scipy.sparse.spdiags(invdiags, [0], K, K, format='csr')
-
-        nL = sp.eye(K) - DH.dot(A.dot(DH))
-        print('normalized Laplacian constructed!')
-        X = A.dot(invD)
-        '''
-        noise = 0.01
-        R = np.multiply(X.A, np.random.normal(loc = 0.0, scale = noise, size = (K,K)))
-        X = X + R
-        '''
-
-        start_v = np.ones(K)
-        eigvals, eigvecs = eigs(X, k=dim + 1, which='LR', v0=start_v, maxiter=K * 1000)
+        start_v = np.ones(self.K)
+        # LR mode is much more stable, this is why we use P matrix largest eigenvalues
+        eigvals, eigvecs = eigs(P, k=dim + 1, which='LR', v0=start_v, maxiter=self.K * 1000)
         # eigvals, vecs = eigs(nL, k = dim2 + 1, which = 'SM')
 
         eigvals = np.asarray([np.round(np.real(x), 6) for x in eigvals])
 
         if np.count_nonzero(eigvals == 1.0) > 1:
-            raise Exception('Graph is not connected!')
+            raise Exception('Graph is not connected, LE will result in errors!')
         else:
             vecs = eigvecs.T[1:]
-            print('max X eigs:', eigvals)
-            reseigs = [np.round(1 - e, 5) for e in eigvals]
-
             vec_norms = np.array([np.real(sum([x * x for x in v])) for v in vecs])
             vecs = vecs / vec_norms[:, np.newaxis]
-            vecs = sp.csr_matrix(vecs, dtype=float).dot(DH)
-            print('min NL eigs', reseigs)
-
-            print('Check of eigenvectors:')
-            coslist = [0] * (dim)
-            for i in range(dim):
-                vec = vecs[i]
-                cvec = vec.dot(nL)
-                coslist[i] = np.round((cvec.dot(vec.T) / sp.linalg.norm(cvec) / sp.linalg.norm(vec)).sum(), 3)
-                if coslist[i] != 1.0:
-                    print('WARNING: cos', i + 1, ' = ', (coslist[i]))
-
-            if sum(coslist) == int(dim):
-                print('Eigenvectors confirmed')
-            else:
-                raise Exception('Eigenvectors not confirmed!')
-                print(coslist)
-
+            vecs = vecs.dot(DH)
             self.coords = vecs
 
     def create_auto_le_embedding_(self):
@@ -193,30 +155,30 @@ class Embedding():
         self.coords = sp.csr_matrix(vecs)
 
     def create_dmaps_embedding_(self):
-
         raise Exception('not so easy to implement properly (https://sci-hub.se/10.1016/j.acha.2015.01.001)')
 
     def create_auto_dmaps_embedding_(self):
         dim = self.dim
         nn = self.graph.nn
-        a = self.dm_alpha
 
         mydmap = dm.DiffusionMap.from_sklearn(n_evecs=dim, k=nn, epsilon='bgh', alpha=self.dm_alpha)
         dmap = mydmap.fit_transform(self.init_data.A.T)
 
         self.coords = sp.csr_matrix(dmap.T)
+        self.reducer_ = dmap
 
     def create_tsne_embedding_(self):
         model = TSNE(n_components=self.dim, verbose=1)
-        self.coords = sp.csr_matrix(model.fit_transform(self.init_data.A.T).T)
-        print(self.coords.shape)
+        self.coords = model.fit_transform(self.init_data.A.T).T
+        self.reducer_ = model
 
     def create_umap_embedding_(self):
         min_dist = self.min_dist
         reducer = umap.UMAP(n_neighbors=self.graph.nn, n_components=self.dim,
                             min_dist=min_dist)
 
-        self.coords = sp.csr_matrix(reducer.fit_transform(self.graph.data.A.T).T)
+        self.coords = reducer.fit_transform(self.graph.data.A.T).T
+        self.reducer_ = reducer
 
     def create_ae_embedding_(self, continue_learning=0, epochs=50):
 

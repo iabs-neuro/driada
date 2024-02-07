@@ -1,8 +1,4 @@
-#import networkx as nx
-#import numpy as np
-import networkx as nx
-
-#from .matrix_utils import *
+# from .matrix_utils import *
 from .randomization import *
 from .drawing import *
 from .spectral import *
@@ -13,10 +9,11 @@ from scipy.sparse.linalg import eigs
 from sklearn.neighbors import NearestNeighbors
 from scipy.stats import entropy
 
-MATRIX_TYPES = ['adj', 'lap', 'nlap', 'lap_out', 'lap_in']
-UNDIR_MATRIX_TYPES = ['adj', 'lap', 'nlap']
+UNDIR_MATRIX_TYPES = ['adj', 'trans', 'lap', 'nlap', 'rwlap']
 DIR_MATRIX_TYPES = ['adj', 'lap_out', 'lap_in']
+MATRIX_TYPES = UNDIR_MATRIX_TYPES + DIR_MATRIX_TYPES
 SUPPORTED_GRAPH_TYPES = [nx.Graph, nx.DiGraph]
+
 
 def check_matrix_type(mode, is_directed):
     if mode not in MATRIX_TYPES:
@@ -247,7 +244,7 @@ class Network:
         lost_nodes = a.shape[0] - fadj.shape[0]
         lost_edges = a.nnz - fadj.nnz
         if not self.directed:
-            lost_edges = lost_edges//2
+            lost_edges = lost_edges // 2
 
         if lost_nodes + lost_edges != 0 and self.verbose:
             print(f'{lost_nodes} nodes and {lost_edges} edges removed')
@@ -265,7 +262,12 @@ class Network:
 
         self.graph = None
         self.adj = fadj
+        self._init_to_final_node_mapping = node_mapping
         self.n = self.adj.shape[0]
+
+    def is_connected(self):
+        ccs = get_ccs_from_adj(self.adj)
+        return len(ccs) == 1
 
     def randomize(self, rmode='shuffle'):
         # TODO: update routines
@@ -335,6 +337,28 @@ class Network:
         hist, bins = np.histogram(deg, bins=max(deg) - min(deg), density=True)
         return hist
 
+    def get_matrix(self, mode):
+        check_matrix_type(mode, self.directed)
+        matrix = getattr(self, mode)
+        if matrix is None:
+            if mode == 'lap' or mode == 'lap_out':
+                matrix = get_laplacian(self.adj)
+            elif mode == 'nlap':
+                matrix = get_norm_laplacian(self.adj)
+            elif mode == 'rwlap':
+                matrix = get_rw_laplacian(self.adj)
+            elif mode == 'trans':
+                matrix = get_trans_matrix(self.adj)
+            elif mode == 'adj':
+                matrix = self.adj
+            else:
+                raise Exception(f'Wrong matrix type: {mode}')
+
+            setattr(self, mode, matrix)
+
+        matrix = getattr(self, mode)
+        return matrix
+
     def get_spectrum(self, mode):
         check_matrix_type(mode, self.directed)
         spectrum = getattr(self, mode + '_spectrum')
@@ -370,7 +394,7 @@ class Network:
             zvals = getattr(self, mode + '_zvalues')
 
         return zvals
-    
+
     def partial_diagonalize(self, spectrum_params):
         '''
         noise = self.spectrum_params['noise']
@@ -410,17 +434,10 @@ class Network:
         if not self.weighted and not self.directed and not np.allclose(outdeg, indeg):
             raise Exception('out- and in- degrees do not coincide in boolean')
 
-        if mode == 'lap' or mode == 'lap_out':
-            matrix = get_laplacian(A)
-        elif mode == 'nlap':
-            matrix = get_norm_laplacian(A)
-        elif mode == 'adj':
-            matrix = A.copy()
-        else:
-            raise Exception(f'diagonalizing not implemented for matrix type {mode}')
+        matrix = self.get_matrix(mode)
 
         if verbose:
-            print('Performing diagonalizing...')
+            print('Performing diagonalization...')
 
         matrix_is_symmetric = np.allclose(matrix.data, matrix.T.data)
         if matrix_is_symmetric:
@@ -448,20 +465,20 @@ class Network:
         setattr(self, mode + '_spectrum', sorted_eigs)
 
         sorted_eigenvectors = right_eigvecs[np.ix_(range(len(sorted_eigs)), np.argsort(raw_eigs))]
-        # self.eigenvectors = right_eigvecs[:,1:][np.ix_(range(len(eigs)+1), np.argsort(eigs))]
         if np.allclose(np.imag(sorted_eigenvectors), np.zeros(sorted_eigenvectors.shape), atol=1e-8):
             sorted_eigenvectors = np.real(sorted_eigenvectors)
         else:
             if not self.directed:
                 raise ValueError('Complex eigenvectors found in non-directed network!')
+
         setattr(self, mode + '_eigenvectors', sorted_eigenvectors)
 
         if verbose:
             print('Diagonalizing finished')
 
+    # TODO: add Gromov hyperbolicity
 
-    #TODO: add Gromov hyperbolicity
-    def calculate_z_values(self, mode='lap_out'):
+    def calculate_z_values(self, mode='lap'):
         spectrum = self.get_spectrum(mode)
         seigs = sorted(list(set(spectrum)), key=np.abs)
         if len(seigs) != len(spectrum) and self.verbose:
@@ -496,12 +513,12 @@ class Network:
             eig_entropy[i] = entropy(np.array([np.abs(v) ** 2 for v in eigenvectors[:, i]]))
 
         setattr(self, mode + '_ipr', ipr)
-        #self.eigenvector_entropy = eig_entropy / np.log(self.n)
+        # self.eigenvector_entropy = eig_entropy / np.log(self.n)
 
     def _get_lap_spectrum(self, norm=False):
         if not self.directed:
             if norm:
-                spectrum = self.get_spectrum('nlap')
+                spectrum = self.get_spectrum('nlap') # could be rwlap as well
             else:
                 spectrum = self.get_spectrum('lap')
         else:
@@ -577,6 +594,3 @@ class Network:
             vecs = DH.dot(sp.csr_array(vecs, dtype=float))
 
             self.lem_emb = vecs
-
-
-

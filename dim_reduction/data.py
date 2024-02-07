@@ -5,12 +5,10 @@ import matplotlib.pyplot as plt
 import scipy.sparse as sp
 
 from sklearn.preprocessing import normalize, StandardScaler, MinMaxScaler
-
 from .dr_base import *
-from .graph import ProximityGraph
-from .embedding import Embedding
 from ..utils.data import correlation_matrix, to_numpy_array, rescale
-
+from .embedding import Embedding
+from .graph import ProximityGraph
 
 # TODO: refactor this
 def check_data_for_errors(d):
@@ -68,10 +66,13 @@ class MVData(object):
         self.data = sp.csr_matrix(new_d)
 
     def corr_mat(self):
-        cm = correlation_matrix(self.data.A)
+        cm = correlation_matrix(self.data)
         return cm
 
-    def get_embedding(self, m_params, g_params, e_params):
+    def get_distmat(self, method='euclidean'):
+        raise NotImplementedError('To be implemented soon')
+
+    def get_embedding(self, e_params, g_params=None, m_params=None):
         method = e_params['e_method']
         method_name = e_params['e_method_name']
 
@@ -80,10 +81,18 @@ class MVData(object):
 
         graph = None
         if method.requires_graph:
+            if g_params is None:
+                raise ValueError(f'Method {method_name} requires proximity graph, but'
+                                 f'graph params were not provided')
+            if m_params is None:
+                raise ValueError(f'Method {method_name} requires proximity graph, but'
+                                 f'metric params were not provided')
+
             graph = self.get_proximity_graph(m_params, g_params)
 
         if method.requires_distmat and self.distmat is None:
-            raise Exception('No distmat provided for {} method'.format(method_name))
+            raise Exception(f'No distmat provided for {method_name} method.'
+                            f' Try constructing it first with get_distmat() method')
 
         emb = Embedding(self.data, self.distmat, self.labels, e_params, g=graph)
         emb.build()
@@ -94,19 +103,16 @@ class MVData(object):
         if g_params['g_method_name'] not in GRAPH_CONSTRUCTION_METHODS:
             raise Exception('Unknown graph construction method!')
 
-        graph = ProximityGraph(self.data, m_params, g_params, distmat=self.distmat)
-        graph.build()
+        graph = ProximityGraph(self.data, m_params, g_params)
         # print('Graph succesfully constructed')
         return graph
 
     def draw_vector(self, num):
-        data = self.data.A[:, num]
+        data = self.data[:, num]
         plt.matshow(data.reshape(1, self.n_dim))
-        plt.matshow(self.data.A[:, :1000])
+        plt.matshow(self.data)
 
     def draw_row(self, num):
-        data = self.data.A[num, :]
+        data = self.data[num, :]
         plt.figure(figsize=(12, 10))
         plt.plot(data)
-        # plt.matshow(data.reshape(1,self.npoints))
-        # plt.matshow(self.data.A[:, :1000])

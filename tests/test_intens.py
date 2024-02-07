@@ -8,6 +8,7 @@ import pytest
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def create_correlated_ts(n=100, T=10000):
     np.random.seed(42)
     C = np.zeros((n,n))
