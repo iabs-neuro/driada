@@ -15,6 +15,8 @@ def construct_session_name(data_source, exp_params):
             name = f'STFP{animal_id}_{session}'
         elif track == 'AP':
             name = f'AP_{animal_id}_{session}'
+        elif track == 'NOF':
+            name = f'NOF_{animal_id}_{session}'
         else:
             raise ValueError(f'Unknown track: {track}!')
 

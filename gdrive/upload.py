@@ -70,10 +70,10 @@ def desktop_auth(secret_path):
     return gauth
 
 
-# TODO: test colab usage
 def google_colab_auth():
     from google.colab import auth
     from oauth2client.client import GoogleCredentials
     auth.authenticate_user()
     gauth = GoogleAuth()
     gauth.credentials = GoogleCredentials.get_application_default()
+    return gauth
