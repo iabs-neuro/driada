@@ -10,7 +10,7 @@ from ..utils.data import get_hash, populate_nested_dict
 from ..information.info_base import get_1d_mi
 
 STATS_VARS = ['data_hash', 'pre_pval', 'pre_rval', 'pval', 'rval', 'mi', 'rel_mi_beh', 'rel_mi_ca']
-SIGNIFICANCE_VARS = ['stage1', 'shuffles1', 'stage2', 'shuffles2', 'final_p_thr', 'multicomp_corr']
+SIGNIFICANCE_VARS = ['stage1', 'shuffles1', 'stage2', 'shuffles2', 'final_p_thr', 'multicomp_corr', 'pairwise_pval_thr']
 DEFAULT_STATS = dict(zip(STATS_VARS, [None for _ in STATS_VARS]))
 DEFAULT_SIGNIFICANCE = dict(zip(SIGNIFICANCE_VARS, [None for _ in SIGNIFICANCE_VARS]))
 
@@ -119,7 +119,7 @@ class Experiment():
         self.stats_table = self._populate_cell_feat_dict(DEFAULT_STATS, fbunch=None, cbunch=None)
 
         #neuron-feature pair significance-related data
-        self.significance_table = self._populate_cell_feat_dict(SIGNIFICANCE_VARS, fbunch=None, cbunch=None)
+        self.significance_table = self._populate_cell_feat_dict(DEFAULT_SIGNIFICANCE, fbunch=None, cbunch=None)
 
         print('Building data hashes...')
         self._build_data_hashes()

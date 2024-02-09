@@ -90,8 +90,12 @@ def download_part_of_folder(
         return return_code, rel, load_log
 
 
-def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
-                         via_pydrive=False, data_pieces=None):
+def download_gdrive_data(data_router,
+                         expname,
+                         whitelist=['Timing.xlsx'],
+                         via_pydrive=False,
+                         data_pieces=None,
+                         tdir='DRIADA data'):
 
     with Capturing() as load_log:
         print('-------------------------------------------------------------')
@@ -110,14 +114,14 @@ def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
             row = data_router[data_router['Эксперимент'] == expname]
             links = dict(zip(row.columns, row.values[0]))
 
-            os.makedirs(expname, exist_ok=True)
+            os.makedirs(join(tdir, expname), exist_ok=True)
             if data_pieces is None:
                 data_pieces = [d for d in list(data_router.columns.values) if d not in ['Эксперимент', 'Краткое описание', 'Video', 'Aligned data', 'Computation results']]
 
             for key in data_pieces:
                 if 'http' in links[key]:
                     print(f'Loading data: {key}...')
-                    ddir = join(expname, key)
+                    ddir = join(tdir, expname, key)
                     os.makedirs(ddir, exist_ok=True)
                     # gdown.download_folder(url = links[key], output = dir, quiet=False)
                     return_code, rel, folder_log = download_part_of_folder(ddir,
@@ -143,15 +147,15 @@ def download_gdrive_data(data_router, expname, whitelist=['Timing.xlsx'],
             return success, load_log
 
 
-def initialize_router():
-    if os.path.exists('/content'):
-        if 'IABSexperimentsdata.xlsx' in os.listdir('/content'):
-            os.remove('/content/IABSexperimentsdata.xlsx')
+def initialize_iabs_router(root='content'):
+    os.makedirs(root, exist_ok=True)
+    if 'IABSexperimentsdata.xlsx' in os.listdir(root):
+        os.remove(join(root, 'IABSexperimentsdata.xlsx'))
 
     global_data_table_url = 'https://docs.google.com/spreadsheets/d/130DDFAoAbmm0jcKLBF6xsWsQLDr2Zsj4cPuOYivXoM8/export?format=xlsx'
-    wget.download(global_data_table_url)
+    wget.download(global_data_table_url, out=root)
 
-    data_router = pd.read_excel('IABSexperimentsdata.xlsx')
+    data_router = pd.read_excel(join(root, 'IABSexperimentsdata.xlsx'))
     data_router.fillna(method='ffill', inplace=True)
 
     #data_pieces = list(data_router.columns.values)

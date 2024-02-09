@@ -5,9 +5,9 @@ from scipy.optimize import minimize
 from ..signals.sig_base import TimeSeries
 
 DEFAULT_T_RISE = 0.25 #sec
-DEFAULT_T_OFF = 2 #sec
+DEFAULT_T_OFF = 2.0 #sec
 
-DEFAULT_FPS = 20 #frames per sec
+DEFAULT_FPS = 20.0 #frames per sec
 DEFAULT_MIN_BEHAVIOUR_TIME = 0.25 #sec
 
 #TODO: add numba decorators where possible

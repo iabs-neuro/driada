@@ -12,7 +12,7 @@ class Capturing(list):
         sys.stdout = self._stdout
 
 
-def show(output):
+def show_output(output):
     if len(output) == 0:
         print('log is empty')
     else:

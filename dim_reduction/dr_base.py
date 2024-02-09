@@ -1,4 +1,3 @@
-# @title Method class { form-width: "300px" }
 from pynndescent.distances import named_distances
 import sys
 

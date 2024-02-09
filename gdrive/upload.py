@@ -1,9 +1,8 @@
+import os.path
 from datetime import datetime
 import pytz
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
-from google.colab import auth
-from oauth2client.client import GoogleCredentials
 
 from .gdrive_utils import *
 from .download import retrieve_relevant_ids
@@ -15,16 +14,15 @@ def get_datetime():
     dt_string = now.strftime("%d-%m-%Y %H:%M:%S")
     return dt_string
 
+
 def save_file_to_gdrive(data_router,
                         expname,
                         path_to_file,
                         link=None,
                         destination=None,
-                        force_rewriting=False):
+                        force_rewriting=False,
+                        gauth=None):
 
-    auth.authenticate_user()
-    gauth = GoogleAuth()
-    gauth.credentials = GoogleCredentials.get_application_default()
     drive = GoogleDrive(gauth)
 
     if link is None:
@@ -62,3 +60,20 @@ def save_file_to_gdrive(data_router,
 
     f.SetContentFile(path_to_file)
     f.Upload()
+
+
+def desktop_auth(secret_path):
+    gauth = GoogleAuth()
+    GoogleAuth.DEFAULT_SETTINGS['client_config_file'] = secret_path
+    # Create local webserver and auto handles authentication.
+    gauth.LocalWebserverAuth()
+    return gauth
+
+
+# TODO: test colab usage
+def google_colab_auth():
+    from google.colab import auth
+    from oauth2client.client import GoogleCredentials
+    auth.authenticate_user()
+    gauth = GoogleAuth()
+    gauth.credentials = GoogleCredentials.get_application_default()

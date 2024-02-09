@@ -4,7 +4,6 @@ from ..intens.intens_base import compute_mi_stats
 from ..intens.stats import *
 from ..information.info_base import TimeSeries
 from ..utils.data import retrieve_relevant_from_nested_dict
-import pytest
 import numpy as np
 import matplotlib.pyplot as plt
 

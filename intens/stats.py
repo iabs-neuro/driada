@@ -76,7 +76,7 @@ def criterion1(pair_stats, nsh1, topk=1):
         True if significance confirmed, False if not.
     """
 
-    if pair_stats['pre_rval'] is not None:
+    if pair_stats.get('pre_rval') is not None:
         return pair_stats['pre_rval'] > (1 - 1.*topk/(nsh1+1))
         #return pair_stats['pre_rval'] == 1 # true MI should be top-1 among all shuffles
     else:

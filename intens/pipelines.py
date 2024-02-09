@@ -32,10 +32,10 @@ def compute_cell_feat_mi_significance(exp,
         Experiment object to read and write data from
 
     cell_bunch: int, iterable or None
-        Neuron indices. By default (cell_bunch=None), all neurons will be taken
+        Neuron indices. By default, (cell_bunch=None), all neurons will be taken
 
     feat_bunch: str, iterable or None
-        Feature names. By default (feat_bunch=None), all single features will be taken
+        Feature names. By default, (feat_bunch=None), all single features will be taken
 
     mode: str
         Computation mode. 3 modes are available:
@@ -161,7 +161,7 @@ def compute_cell_feat_mi_significance(exp,
                     precomputed_mask_stage2[i,j] = 0
 
     combined_precomputed_mask = np.ones((n, f))
-    if mode in ['stage2', 'two-stage']:
+    if mode in ['stage2', 'two_stage']:
         combined_precomputed_mask[np.where((precomputed_mask_stage1 == 0) & (precomputed_mask_stage2 == 0))] = 0
     elif mode == 'stage1':
         combined_precomputed_mask[np.where(precomputed_mask_stage1 == 0)] = 0
@@ -191,25 +191,25 @@ def compute_cell_feat_mi_significance(exp,
     # add hash data and update Experiment saved statistics and significance if needed
     for i, cell_id in enumerate(cell_ids):
         for j, feat_id in enumerate(feat_ids):
-            computed_stats[feat_id][cell_id]['data_hash'] = exp._data_hashes[feat_id][cell_id]
+            computed_stats[cell_id][feat_id]['data_hash'] = exp._data_hashes[feat_id][cell_id]
 
-            mi_val = computed_stats[feat_id][cell_id]['mi']
+            mi_val = computed_stats[cell_id][feat_id].get('mi')
             if mi_val is not None:
                 feat_entropy = exp.get_feature_entropy(feat_id, ds=ds)
                 ca_entropy = exp.neurons[int(cell_id)].ca.get_entropy(ds=ds)
-                computed_stats[feat_id][cell_id]['rel_mi_beh'] = mi_val / feat_entropy
-                computed_stats[feat_id][cell_id]['rel_mi_ca'] = mi_val / ca_entropy
+                computed_stats[cell_id][feat_id]['rel_mi_beh'] = mi_val / feat_entropy
+                computed_stats[cell_id][feat_id]['rel_mi_ca'] = mi_val / ca_entropy
 
             if save_computed_stats:
                 stage2_only = True if mode == 'stage2' else False
                 if combined_precomputed_mask[i,j]:
-                    exp.update_neuron_feature_pair_stats(computed_stats[feat_id][cell_id],
+                    exp.update_neuron_feature_pair_stats(computed_stats[cell_id][feat_id],
                                                          cell_id,
                                                          feat_id,
                                                          force_update=force_update,
                                                          stage2_only=stage2_only)
 
-                    sig = computed_significance[feat_id][cell_id]
+                    sig = computed_significance[cell_id][feat_id]
                     exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
 
     return computed_stats, computed_significance

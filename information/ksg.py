@@ -1,5 +1,4 @@
-# Written by Greg Ver Steeg
-# Go to http://www.isi.edu/~gregv/npeet.html
+# Credit to Greg Ver Steeg (http://www.isi.edu/~gregv/npeet.html)
 
 import numpy as np
 import numpy.linalg as la
