@@ -82,7 +82,7 @@ class Experiment():
         self.spikes = np.zeros(spikes.shape)
 
         print('Building neurons...')
-        for i in tqdm.tqdm(np.arange(self.n_cells)):
+        for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True):
             if recon_spikes:
                 cell = Neuron(str(i),
                               calcium[i,:],

@@ -35,11 +35,15 @@ def load_exp_from_aligned_data(data_source,
         spikes = adata.pop(key_mapping['spikes'])
 
     dyn_features = adata.copy()
+
+    def is_garbage(vals):
+        return len(set(vals)) == 1 or np.sum(np.isnan(vals)).astype(int) == len(vals)
+
     if len(force_continuous) != 0:
         feat_is_continuous = {f: f in force_continuous for f in dyn_features.keys()}
-        filt_dyn_features = {f: TimeSeries(vals, discrete=not feat_is_continuous[f]) for f, vals in dyn_features.items() if len(set(vals))!=1}
+        filt_dyn_features = {f: TimeSeries(vals, discrete=not feat_is_continuous[f]) for f, vals in dyn_features.items() if not is_garbage(vals)}
     else:
-        filt_dyn_features = {f: TimeSeries(vals) for f, vals in dyn_features.items() if len(set(vals)) != 1}
+        filt_dyn_features = {f: TimeSeries(vals) for f, vals in dyn_features.items() if not is_garbage(vals)}
 
     if verbose:
         print('behaviour variables:')
@@ -49,8 +53,9 @@ def load_exp_from_aligned_data(data_source,
 
     # check for constant features
     constfeats = set(dyn_features.keys() - set(filt_dyn_features.keys()))
+
     if len(constfeats) != 0 and verbose:
-        print(f'features {constfeats} dropped as constant')
+        print(f'features {constfeats} dropped as constant or empty')
 
     auto_continuous = [fn for fn, ts in filt_dyn_features.items() if not ts.discrete]
     if verbose:
@@ -89,10 +94,12 @@ def load_experiment(data_source,
                     exp_params,
                     force_rebuild=False,
                     force_reload=False,
+                    via_pydrive=True,
+                    gauth=None,
                     root='DRIADA data',
                     force_continuous=[],
                     static_features=None,
-                    verbose=True):
+                    verbose=True,):
 
     os.makedirs(root, exist_ok=True)
     if not os.path.isdir(root):
@@ -117,8 +124,9 @@ def load_experiment(data_source,
                 success, load_log = download_gdrive_data(data_router,
                                                          expname,
                                                          data_pieces=['Aligned data'],
-                                                         via_pydrive=False,
-                                                         tdir=root)
+                                                         via_pydrive=via_pydrive,
+                                                         tdir=root,
+                                                         gauth=gauth)
 
                 if not success:
                     print('===========   BEGINNING OF LOADING LOG:   ============')

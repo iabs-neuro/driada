@@ -97,7 +97,7 @@ def scan_pairs(ts_bunch1,
     mi_table_shuffles = np.zeros((n1, n2, nsh))
     random_shifts = np.zeros((nsh, n1), dtype=int)
 
-    for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1)):
+    for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1), position=0, leave=True):
         min_shift = min_shifts[i]
         ca_random_shifts = np.random.randint(low=min_shift//ds, high=(t-min_shift)//ds, size=nsh)
         random_shifts[:,i] = ca_random_shifts[:]

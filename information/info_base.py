@@ -165,7 +165,12 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
 
         elif not ts1.discrete and ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
+            #print(len(ny1))
+            #print(ds, shift)
+            #print(ts2.scdata)
+            #print(np.sum(np.isnan(ts2.scdata)).astype(int))
             ny2 = np.roll(ts2.scdata.astype(int)[::ds], shift)
+            #print(len(ny2))
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         if mi < 0:

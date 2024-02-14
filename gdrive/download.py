@@ -1,9 +1,6 @@
 from os.path import join
 
-from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
-#from google.colab import auth
-from oauth2client.client import GoogleCredentials
 import warnings
 import wget
 import gdown
@@ -50,13 +47,14 @@ def download_part_of_folder(
         key='',  # part of filename to search for
         whitelist=[],  # list of filenames to be downloaded regardless of their names
         extensions=['.csv', '.xlsx', '.npz'],  # allowed file extensions
-        via_pydrive=False  # pydrive requires authorization, but can download a big number of files,
-):
+        via_pydrive=False,  # pydrive requires authorization, but can download a big number of files,
+        gauth=None,
+        root='/content'):
+
     with Capturing() as load_log:
         if via_pydrive:
-            #auth.authenticate_user()
-            gauth = GoogleAuth()
-            gauth.credentials = GoogleCredentials.get_application_default()
+            if gauth is None:
+                raise ValueError('To use pydrive, you need to authenticate using one of the functions in driada.gdrive.auth')
             drive = GoogleDrive(gauth)
 
             rel = []
@@ -68,9 +66,10 @@ def download_part_of_folder(
                     f.GetContentFile(f['title'])
                     rel.append((f['id'], f['title']))
 
-            relfiles = [f for f in os.listdir('/content') if os.path.isfile(join('/content', f)) and key in f]
+            # move downloaded files to corresponding folders
+            relfiles = [f for f in os.listdir(root) if os.path.isfile(join(root, f)) and key in f]
             for f in relfiles:
-                os.rename(join('/content', f), os.path.join('/content', output, f))
+                os.rename(join(root, f), os.path.join(root, output, f))
             return_code = True
 
         else:
@@ -95,7 +94,8 @@ def download_gdrive_data(data_router,
                          whitelist=['Timing.xlsx'],
                          via_pydrive=False,
                          data_pieces=None,
-                         tdir='DRIADA data'):
+                         tdir='DRIADA data',
+                         gauth=None):
 
     with Capturing() as load_log:
         print('-------------------------------------------------------------')
@@ -128,7 +128,9 @@ def download_gdrive_data(data_router,
                                                                            links[key],
                                                                            key=expname,
                                                                            whitelist=whitelist,
-                                                                           via_pydrive=via_pydrive)
+                                                                           via_pydrive=via_pydrive,
+                                                                           gauth=gauth,
+                                                                           root=tdir)
 
                     load_log.extend(folder_log)
 
