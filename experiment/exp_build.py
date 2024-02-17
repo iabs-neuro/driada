@@ -23,7 +23,7 @@ def load_exp_from_aligned_data(data_source,
     key_mapping = {key.lower(): key for key in adata.keys()}
 
     if verbose:
-        print(f'Building expereriment {expname}...')
+        print(f'Building experiment {expname}...')
 
     if 'calcium' in key_mapping:
         calcium = adata.pop(key_mapping['calcium'])
@@ -99,7 +99,7 @@ def load_experiment(data_source,
                     root='DRIADA data',
                     force_continuous=[],
                     static_features=None,
-                    verbose=True,):
+                    verbose=True):
 
     os.makedirs(root, exist_ok=True)
     if not os.path.isdir(root):
@@ -109,7 +109,7 @@ def load_experiment(data_source,
     exppath = os.path.join(root, expname, f'Exp {expname}.pickle')
     if os.path.exists(exppath) and not force_rebuild and not force_reload:
         Exp = load_exp_from_pickle(exppath, verbose=verbose)
-        return Exp
+        return Exp, None
 
     else:
         if data_source == 'IABS':
@@ -134,6 +134,9 @@ def load_experiment(data_source,
                     print('===========   END OF LOADING LOG:   ============')
                     raise FileNotFoundError(f'Cannot download {expname}, see loading log above')
 
+            else:
+                load_log = None
+
             aligned_data = dict(np.load(syn_data_name))
             Exp = load_exp_from_aligned_data(data_source,
                                              exp_params,
@@ -143,7 +146,7 @@ def load_experiment(data_source,
                                              verbose=verbose)
 
             save_exp_to_pickle(Exp, exppath, verbose=verbose)
-            return Exp
+            return Exp, load_log
 
         else:
             raise ValueError('External data sources not supported yet')

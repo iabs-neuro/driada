@@ -5,6 +5,7 @@ import warnings
 import wget
 import gdown
 import pandas as pd
+import shutil
 
 from .gdrive_utils import *
 from ..utils.output import *
@@ -54,7 +55,8 @@ def download_part_of_folder(
     with Capturing() as load_log:
         if via_pydrive:
             if gauth is None:
-                raise ValueError('To use pydrive, you need to authenticate using one of the functions in driada.gdrive.auth')
+                raise ValueError('To use pydrive, you need to authenticate using one of the functions'
+                                 ' in driada.gdrive.auth')
             drive = GoogleDrive(gauth)
 
             rel = []
@@ -63,13 +65,9 @@ def download_part_of_folder(
             for f in file_list:
                 if key in f['title']:
                     # print('title: %s, id: %s' % (f['title'],f['id']))
-                    f.GetContentFile(f['title'])
+                    f.GetContentFile(join(root, output, f['title']))
                     rel.append((f['id'], f['title']))
 
-            # move downloaded files to corresponding folders
-            relfiles = [f for f in os.listdir(root) if os.path.isfile(join(root, f)) and key in f]
-            for f in relfiles:
-                os.rename(join(root, f), os.path.join(root, output, f))
             return_code = True
 
         else:
@@ -150,17 +148,19 @@ def download_gdrive_data(data_router,
 
 
 def initialize_iabs_router(root='content'):
+    router_name = 'IABS data router.xlsx'
+    router_path = join(root, router_name)
     os.makedirs(root, exist_ok=True)
-    if 'IABSexperimentsdata.xlsx' in os.listdir(root):
-        os.remove(join(root, 'IABSexperimentsdata.xlsx'))
+    if router_name in os.listdir(root):
+        os.remove(router_path)
 
     global_data_table_url = 'https://docs.google.com/spreadsheets/d/130DDFAoAbmm0jcKLBF6xsWsQLDr2Zsj4cPuOYivXoM8/export?format=xlsx'
-    wget.download(global_data_table_url, out=root)
+    wget.download(global_data_table_url, out=router_path)
 
-    data_router = pd.read_excel(join(root, 'IABSexperimentsdata.xlsx'))
-    data_router.fillna(method='ffill', inplace=True)
+    data_router = pd.read_excel(router_path)
+    #data_router.fillna(method='ffill', inplace=True)
+    data_router = data_router.replace("", None).ffill()
 
-    #data_pieces = list(data_router.columns.values)
     data_pieces = [d for d in list(data_router.columns.values) if d not in ['Эксперимент',
                                                                             'Краткое описание',
                                                                             'Video',
