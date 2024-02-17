@@ -49,8 +49,7 @@ def download_part_of_folder(
         whitelist=[],  # list of filenames to be downloaded regardless of their names
         extensions=['.csv', '.xlsx', '.npz'],  # allowed file extensions
         via_pydrive=False,  # pydrive requires authorization, but can download a big number of files,
-        gauth=None,
-        root='/content'):
+        gauth=None):
 
     with Capturing() as load_log:
         if via_pydrive:
@@ -65,7 +64,7 @@ def download_part_of_folder(
             for f in file_list:
                 if key in f['title']:
                     # print('title: %s, id: %s' % (f['title'],f['id']))
-                    f.GetContentFile(join(root, output, f['title']))
+                    f.GetContentFile(join(output, f['title']))
                     rel.append((f['id'], f['title']))
 
             return_code = True
@@ -127,8 +126,7 @@ def download_gdrive_data(data_router,
                                                                            key=expname,
                                                                            whitelist=whitelist,
                                                                            via_pydrive=via_pydrive,
-                                                                           gauth=gauth,
-                                                                           root=tdir)
+                                                                           gauth=gauth)
 
                     load_log.extend(folder_log)
 
@@ -147,7 +145,7 @@ def download_gdrive_data(data_router,
             return success, load_log
 
 
-def initialize_iabs_router(root='content'):
+def initialize_iabs_router(root='\\content'):
     router_name = 'IABS data router.xlsx'
     router_path = join(root, router_name)
     os.makedirs(root, exist_ok=True)
