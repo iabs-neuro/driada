@@ -100,10 +100,16 @@ def scan_pairs(ts_bunch1,
 
     # fill random shifts according to the allowed shuffles masks of both time series
     for i, ts1 in enumerate(ts_bunch1):
-        for j, ts2 in enumerate(ts_bunch2):
-            combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
+        if joint_distr:
+            # TODO: add combination of ts shuffle masks for all ts from tsbunch2
+            combined_shuffle_mask = ts1.shuffle_mask
             indices_to_select = np.arange(t)[combined_shuffle_mask]
-            random_shifts[i,j,:] = np.random.choice(indices_to_select, size=nsh)//ds
+            random_shifts[i, 0, :] = np.random.choice(indices_to_select, size=nsh) // ds
+        else:
+            for j, ts2 in enumerate(ts_bunch2):
+                combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
+                indices_to_select = np.arange(t)[combined_shuffle_mask]
+                random_shifts[i, j, :] = np.random.choice(indices_to_select, size=nsh)//ds
 
     for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1), position=0, leave=True):
         #min_shift = min_shifts[i]
