@@ -23,7 +23,7 @@ def construct_session_name(data_source, exp_params, allow_unknown=True):
             if not allow_unknown:
                 raise ValueError(f'Unknown track: {track}!')
             else:
-                f'{track}_{animal_id}_{session}'
+                name = f'{track}_{animal_id}_{session}'
 
         return name
 
