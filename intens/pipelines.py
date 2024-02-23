@@ -1,8 +1,6 @@
 from .stats import *
 from .intens_base import compute_mi_stats
 
-MIN_CA_SHIFT = 5  # MIN_SHIFT*t_off is the minimal random signal shift for a given cell
-
 
 def compute_cell_feat_mi_significance(exp,
                                       cell_bunch=None,
@@ -125,7 +123,7 @@ def compute_cell_feat_mi_significance(exp,
     cells = [exp.neurons[cell_id] for cell_id in cell_ids]
 
     ca_signals = [cell.ca for cell in cells]
-    min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
+    #min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
     feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids]
 
     if joint_distr:
@@ -168,25 +166,24 @@ def compute_cell_feat_mi_significance(exp,
     else:
         raise ValueError('Wrong mode!')
 
-    computed_stats, computed_significance = compute_mi_stats(ca_signals,
-                                                             feats,
-                                                             mode=mode,
-                                                             names1=cell_ids,
-                                                             names2=feat_ids,
-                                                             min_shifts=min_shifts,
-                                                             precomputed_mask_stage1=precomputed_mask_stage1,
-                                                             precomputed_mask_stage2=precomputed_mask_stage2,
-                                                             n_shuffles_stage1=n_shuffles_stage1,
-                                                             n_shuffles_stage2=n_shuffles_stage2,
-                                                             joint_distr=joint_distr,
-                                                             mi_distr_type=mi_distr_type,
-                                                             noise_ampl=noise_ampl,
-                                                             ds=ds,
-                                                             topk1=topk1,
-                                                             topk2=topk2,
-                                                             multicomp_correction=multicomp_correction,
-                                                             pval_thr=pval_thr,
-                                                             verbose=verbose)
+    computed_stats, computed_significance, info = compute_mi_stats(ca_signals,
+                                                                   feats,
+                                                                   mode=mode,
+                                                                   names1=cell_ids,
+                                                                   names2=feat_ids,
+                                                                   precomputed_mask_stage1=precomputed_mask_stage1,
+                                                                   precomputed_mask_stage2=precomputed_mask_stage2,
+                                                                   n_shuffles_stage1=n_shuffles_stage1,
+                                                                   n_shuffles_stage2=n_shuffles_stage2,
+                                                                   joint_distr=joint_distr,
+                                                                   mi_distr_type=mi_distr_type,
+                                                                   noise_ampl=noise_ampl,
+                                                                   ds=ds,
+                                                                   topk1=topk1,
+                                                                   topk2=topk2,
+                                                                   multicomp_correction=multicomp_correction,
+                                                                   pval_thr=pval_thr,
+                                                                   verbose=verbose)
 
     # add hash data and update Experiment saved statistics and significance if needed
     for i, cell_id in enumerate(cell_ids):
@@ -212,4 +209,4 @@ def compute_cell_feat_mi_significance(exp,
                     sig = computed_significance[cell_id][feat_id]
                     exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
 
-    return computed_stats, computed_significance
+    return computed_stats, computed_significance, info

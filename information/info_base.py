@@ -39,7 +39,7 @@ class TimeSeries():
     def _check_input(self):
         pass
 
-    def __init__(self, data, discrete=None):
+    def __init__(self, data, discrete=None, shuffle_mask=None):
         self.data = to_numpy_array(data)
 
         if discrete is None:
@@ -57,6 +57,12 @@ class TimeSeries():
         self.entropy = dict()  # supports various downsampling constants
         self.kdtree = None
         self.kdtree_query = None
+
+        if shuffle_mask is None:
+            # which shuffles are valid
+            self.shuffle_mask = np.ones(len(self.data)).astype(bool)
+        else:
+            self.shuffle_mask = shuffle_mask.astype(bool)
 
     def get_kdtree(self):
         if self.kdtree is None:

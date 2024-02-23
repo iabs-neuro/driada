@@ -10,6 +10,8 @@ DEFAULT_T_OFF = 2.0 #sec
 DEFAULT_FPS = 20.0 #frames per sec
 DEFAULT_MIN_BEHAVIOUR_TIME = 0.25 #sec
 
+MIN_CA_SHIFT = 5  # MIN_SHIFT*t_off is the minimal random signal shift for a given cell
+
 #TODO: add numba decorators where possible
 class Neuron():
     """
@@ -50,9 +52,9 @@ class Neuron():
     @staticmethod
     def calcium_preprocessing(ca):
         ca[np.where(ca < 0)[0]] = 0
+        #ca = ca + np.abs(min(ca))
         ca += np.random.random(size=len(ca))*1e-8
         return ca
-
 
     def __init__(self, cell_id, ca, sp, default_t_rise=DEFAULT_T_RISE, default_t_off=DEFAULT_T_OFF, fps=DEFAULT_FPS):
 
@@ -64,11 +66,11 @@ class Neuron():
             fps = DEFAULT_FPS
 
         self.cell_id = cell_id
-        self.ca = TimeSeries(Neuron.calcium_preprocessing(ca), discrete = False)
+        self.ca = TimeSeries(Neuron.calcium_preprocessing(ca), discrete=False)
         if sp is None:
             self.sp = None
         else:
-            self.sp = TimeSeries(sp, discrete = False)
+            self.sp = TimeSeries(sp, discrete=False)
         self.n_frames = len(ca.data)
 
         self.sp_count = np.sum(self.sp.data.astype(bool).astype(int))
@@ -80,12 +82,16 @@ class Neuron():
         self.default_t_off = default_t_off*fps
         self.default_t_rise = default_t_rise*fps
 
-        self.get_t_off()
+        t_off = self.get_t_off()
 
+        # add shuffle mask according to computed characteristic calcium decay time
+        self.ca.shuffle_mask = np.ones(self.n_frames).astype(bool)
+        min_shift = int(t_off * MIN_CA_SHIFT)
+        self.ca.shuffle_mask[:min_shift] = False
+        self.ca.shuffle_mask[self.n_frames - min_shift:] = False
 
-    def reconstruct_spikes(**kwargs):
+    def reconstruct_spikes(self, **kwargs):
         raise AttributeError('Spike reconstruction not implemented')
-
 
     def get_mad(self):
         if self.mad is None:
@@ -94,7 +100,6 @@ class Neuron():
             except ValueError:
                 self.mad = median_abs_deviation(self.ca.data)
         return self.mad
-
 
     def get_snr(self):
         if self.snr is None:
@@ -114,13 +119,11 @@ class Neuron():
 
         return sn, mad
 
-
     def get_t_off(self):
         if self.t_off is None:
             self.t_off, self.noise_ampl = self._fit_t_off()
 
         return self.t_off
-
 
     def get_noise_ampl(self):
         if self.noise_ampl is None:

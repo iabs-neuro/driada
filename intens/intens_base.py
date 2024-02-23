@@ -1,3 +1,4 @@
+import numpy as np
 import tqdm
 
 from .stats import *
@@ -37,7 +38,7 @@ def scan_pairs(ts_bunch1,
                ds=1,
                mask=None,
                noise_const=1e-3,
-               min_shifts=None):
+               seed=None):
 
     """
     Calculates MI shuffles for 2 given sets of TimeSeries
@@ -83,6 +84,9 @@ def scan_pairs(ts_bunch1,
         can be obtained by mi_total[:,:,1:]
     """
 
+    if seed is not None:
+        np.random.seed = seed
+
     n1 = len(ts_bunch1)
     n2 = 1 if joint_distr else len(ts_bunch2)
     t = len(ts_bunch1[0].data)  # full length is the same for all time series
@@ -90,30 +94,34 @@ def scan_pairs(ts_bunch1,
     if mask is None:
         mask = np.ones((n1, n2))
 
-    if min_shifts is None:
-        min_shifts = np.zeros(n1)
-
     mi_table = np.zeros((n1, n2))
     mi_table_shuffles = np.zeros((n1, n2, nsh))
-    random_shifts = np.zeros((nsh, n1), dtype=int)
+    random_shifts = np.zeros((n1, n2, nsh), dtype=int)
+
+    # fill random shifts according to the allowed shuffles masks of both time series
+    for i, ts1 in enumerate(ts_bunch1):
+        for j, ts2 in enumerate(ts_bunch2):
+            combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
+            indices_to_select = np.arange(t)[combined_shuffle_mask]
+            random_shifts[i,j,:] = np.random.choice(indices_to_select, size=nsh)//ds
 
     for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1), position=0, leave=True):
-        min_shift = min_shifts[i]
-        ca_random_shifts = np.random.randint(low=min_shift//ds, high=(t-min_shift)//ds, size=nsh)
-        random_shifts[:,i] = ca_random_shifts[:]
+        #min_shift = min_shifts[i]
+        #ca_random_shifts = np.random.randint(low=min_shift//ds, high=(t-min_shift)//ds, size=nsh)
+        #random_shifts[:,i] = ca_random_shifts[:]
 
         if joint_distr:
             if mask[i,0] == 1:
                 mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds)
                 mi_table[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
-                for k, shift in enumerate(random_shifts[:,i]):
+                for k, shift in enumerate(random_shifts[i,0,:]):
                     mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift)
                     mi_table_shuffles[i,0,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 
             else:
                 mi_table[i,0] = None
-                mi_table_shuffles[i,0,:] = np.array([None for _ in range(nsh)])
+                mi_table_shuffles[i,0,:] = np.full(shape=nsh, fill_value=None)
 
         else:
             for j, ts2 in enumerate(ts_bunch2):
@@ -121,7 +129,7 @@ def scan_pairs(ts_bunch1,
                     mi0 = get_1d_mi(ts1, ts2, ds=ds)
                     mi_table[i,j] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
-                    for k, shift in enumerate(random_shifts[:,i]):
+                    for k, shift in enumerate(random_shifts[i,j,:]):
                         mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
                         mi_table_shuffles[i,j,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 
@@ -139,7 +147,6 @@ def compute_mi_stats(ts_bunch1,
                      names1=None,
                      names2=None,
                      mode='two_stage',
-                     min_shifts=None,
                      precomputed_mask_stage1=None,
                      precomputed_mask_stage2=None,
                      n_shuffles_stage1=100,
@@ -152,7 +159,8 @@ def compute_mi_stats(ts_bunch1,
                      topk2=5,
                      multicomp_correction='holm',
                      pval_thr=0.01,
-                     verbose=True):
+                     verbose=True,
+                     seed=None):
 
     """
     Calculates MI statistics for TimeSeries pairs
@@ -222,6 +230,9 @@ def compute_mi_stats(ts_bunch1,
     verbose: bool
         whether to print intermediate information
 
+    seed: int
+        random seed for reproducibility
+
     Returns
     -------
     stats: dict of dict of dicts
@@ -238,6 +249,8 @@ def compute_mi_stats(ts_bunch1,
     """
 
     # TODO: add automatic min_shifts from autocorrelation time
+
+    accumulated_info = dict()
 
     n1 = len(ts_bunch1)
     n2 = 1 if joint_distr else len(ts_bunch2)
@@ -264,8 +277,10 @@ def compute_mi_stats(ts_bunch1,
                                                ds=ds,
                                                mask=precomputed_mask_stage1,
                                                noise_const=noise_ampl,
-                                               min_shifts=min_shifts)
+                                               seed=seed)
 
+        accumulated_info.update({'random_shifts1': random_shifts1,
+                                'mi_total1': mi_total1})
         # turn computed data tables from stage 1 and precomputed data into dict of stats dicts
         stage_1_stats = get_table_of_stats(mi_total1,
                                            mi_distr_type=mi_distr_type,
@@ -302,7 +317,7 @@ def compute_mi_stats(ts_bunch1,
         final_stats = add_names_to_nested_dict(stage_1_stats, names1, names2)
         final_significance = add_names_to_nested_dict(stage_1_significance, names1, names2)
 
-        return final_stats, final_significance
+        return final_stats, final_significance, accumulated_info
 
     else:
         # STAGE 2 - full-scale scanning
@@ -321,8 +336,10 @@ def compute_mi_stats(ts_bunch1,
                                                ds=ds,
                                                mask=combined_mask_for_stage_2,
                                                noise_const=noise_ampl,
-                                               min_shifts=min_shifts)
+                                               seed=seed)
 
+        accumulated_info.update({'random_shifts2': random_shifts2,
+                                 'mi_total2': mi_total2})
         # turn data tables from stage 2 to array of stats dicts
         stage_2_stats = get_table_of_stats(mi_total2,
                                            mi_distr_type=mi_distr_type,
@@ -369,7 +386,7 @@ def compute_mi_stats(ts_bunch1,
         merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
         final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
         final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
-        return final_stats, final_significance
+        return final_stats, final_significance, accumulated_info
 
 
 def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):

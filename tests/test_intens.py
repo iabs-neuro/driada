@@ -47,15 +47,17 @@ def create_correlated_ts(n=100, T=10000):
 
 def test_stage1():
     tslist1, tslist2 = create_correlated_ts()
-    min_shifts = np.full(len(tslist1), fill_value=50)
-    computed_stats, computed_significance = compute_mi_stats(tslist1,
+    for ts in tslist1:
+        ts.shuffle_mask[:50] = 0
+    for ts in tslist2:
+        ts.shuffle_mask[:50] = 0
+    computed_stats, computed_significance, info = compute_mi_stats(tslist1,
                                                              tslist2,
                                                              mode='stage1',
                                                              n_shuffles_stage1=100,
                                                              joint_distr=False,
                                                              mi_distr_type='gamma',
                                                              noise_ampl=1e-3,
-                                                             min_shifts=min_shifts,
                                                              ds=1,
                                                              topk1=1,
                                                              verbose=True)
@@ -67,22 +69,24 @@ def test_stage1():
 
 def test_two_stage():
     tslist1, tslist2 = create_correlated_ts()
-    min_shifts = np.full(len(tslist1), fill_value=50)
-    computed_stats, computed_significance = compute_mi_stats(tslist1,
-                                                             tslist2,
-                                                             mode='two_stage',
-                                                             n_shuffles_stage1=100,
-                                                             n_shuffles_stage2=1000,
-                                                             joint_distr=False,
-                                                             mi_distr_type='gamma',
-                                                             noise_ampl=1e-3,
-                                                             min_shifts=min_shifts,
-                                                             ds=1,
-                                                             topk1=1,
-                                                             topk2=5,
-                                                             multicomp_correction='holm',
-                                                             pval_thr=0.01,
-                                                             verbose=True)
+    for ts in tslist1:
+        ts.shuffle_mask[:50] = 0
+    for ts in tslist2:
+        ts.shuffle_mask[:50] = 0
+    computed_stats, computed_significance, info = compute_mi_stats(tslist1,
+                                                                     tslist2,
+                                                                     mode='two_stage',
+                                                                     n_shuffles_stage1=100,
+                                                                     n_shuffles_stage2=1000,
+                                                                     joint_distr=False,
+                                                                     mi_distr_type='gamma',
+                                                                     noise_ampl=1e-3,
+                                                                     ds=1,
+                                                                     topk1=1,
+                                                                     topk2=5,
+                                                                     multicomp_correction='holm',
+                                                                     pval_thr=0.01,
+                                                                     verbose=True)
 
     rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance,
                                                        'stage2',
