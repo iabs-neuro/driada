@@ -1,4 +1,4 @@
-def construct_session_name(data_source, exp_params):
+def construct_session_name(data_source, exp_params, allow_unknown=True):
     if data_source == 'IABS':
         track = exp_params['track']
         animal_id, session = exp_params['animal_id'], exp_params['session']
@@ -20,7 +20,10 @@ def construct_session_name(data_source, exp_params):
         elif track == 'Trace':
             name = f'Trace_{animal_id}_{session}'
         else:
-            raise ValueError(f'Unknown track: {track}!')
+            if not allow_unknown:
+                raise ValueError(f'Unknown track: {track}!')
+            else:
+                f'{track}_{animal_id}_{session}'
 
         return name
 
