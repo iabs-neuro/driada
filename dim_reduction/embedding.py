@@ -1,6 +1,7 @@
 
 from scipy.sparse.linalg import eigs
 import scipy
+import numpy as np
 from itertools import combinations
 import umap.umap_ as umap
 import scipy.sparse as sp
@@ -20,7 +21,7 @@ import warnings
 from .dr_base import *
 from .graph import ProximityGraph
 from .neural import *
-from .mvu import *
+#from .mvu import *
 
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix
 
@@ -76,10 +77,9 @@ class Embedding:
         fn = getattr(self, 'create_' + self.e_method_name + '_embedding_')
 
         if self.e_method.requires_graph:
-            if self.check_graph_connectivity:
-                print('Checking graph for integrity...')
-                if not self.graph.is_connected():
-                    raise Exception('Graph is not connected!')
+            # TODO: move connectivity check to graph
+            if not self.graph.is_connected():
+                raise Exception('Graph is not connected!')
 
         fn()
 
@@ -92,7 +92,7 @@ class Embedding:
 
     def create_isomap_embedding_(self):
         A = self.graph.adj
-        map = Isomap(n_components=self.dim, n_neighbors=self.graph.all_params['nn'],
+        map = Isomap(n_components=self.dim, n_neighbors=self.graph.nn,
                      metric='precomputed')
         # self.coords = sp.csr_matrix(map.fit_transform(self.graph.data.A.T).T)
         spmatrix = shortest_path(A.A, method='D', directed=False)
@@ -105,32 +105,33 @@ class Embedding:
                                        eig_tol=1.0e-10, solver_iters=2500,
                                        warm_start=False, seed=None)
 
-        self.coords = mvu.fit_transform(self.graph.data.A.T, self.dim,
-                                                      self.graph.all_params['nn'], dropout_rate=0)
+        self.coords = mvu.fit_transform(self.graph.data.T, self.dim,
+                                                      self.graph.nn, dropout_rate=0)
         self.reducer_ = mvu
 
     def create_lle_embedding_(self):
-        lle = LocallyLinearEmbedding(n_components=self.dim, n_neighbors=self.graph.all_params['nn'])
-        self.coords = lle.fit_transform(self.graph.data.A.T).T
+        lle = LocallyLinearEmbedding(n_components=self.dim, n_neighbors=self.graph.nn)
+        self.coords = lle.fit_transform(self.graph.data.T).T
         self.reducer_ = lle
 
     def create_hlle_embedding_(self):
         hlle = LocallyLinearEmbedding(n_components=self.dim,
-                                      n_neighbors=self.graph.all_params['nn'],
+                                      n_neighbors=self.graph.nn,
                                       method='hessian')
-        self.coords = hlle.fit_transform(self.graph.data.A.T).T
+        self.coords = hlle.fit_transform(self.graph.data.T).T
         self.reducer_ = hlle
 
     def create_le_embedding_(self):
         A = self.graph.adj
         dim = self.dim
+        n = self.graph.n
 
         DH = get_inv_sqrt_diag_matrix(A)
         P = self.graph.get_matrix('trans')
 
-        start_v = np.ones(self.K)
+        start_v = np.ones(n)
         # LR mode is much more stable, this is why we use P matrix largest eigenvalues
-        eigvals, eigvecs = eigs(P, k=dim + 1, which='LR', v0=start_v, maxiter=self.K * 1000)
+        eigvals, eigvecs = eigs(P, k=dim + 1, which='LR', v0=start_v, maxiter=n * 1000)
         # eigvals, vecs = eigs(nL, k = dim2 + 1, which = 'SM')
 
         eigvals = np.asarray([np.round(np.real(x), 6) for x in eigvals])
@@ -149,10 +150,10 @@ class Embedding:
         dim = self.dim
 
         A = A.asfptype()
-        vecs = spectral_embedding(A, n_components=dim, eigen_solver=None,
+        vecs = spectral_embedding(A.A, n_components=dim, eigen_solver=None,
                                   random_state=None, eigen_tol=0.0, norm_laplacian=True, drop_first=True).T
 
-        self.coords = sp.csr_matrix(vecs)
+        self.coords = vecs
 
     def create_dmaps_embedding_(self):
         raise Exception('not so easy to implement properly (https://sci-hub.se/10.1016/j.acha.2015.01.001)')
@@ -160,16 +161,25 @@ class Embedding:
     def create_auto_dmaps_embedding_(self):
         dim = self.dim
         nn = self.graph.nn
+        metric = self.graph.metric
+        metric_args = self.graph.metric_args
+        alpha = self.dm_alpha if hasattr(self, 'dm_alpha') else 1
 
-        mydmap = dm.DiffusionMap.from_sklearn(n_evecs=dim, k=nn, epsilon='bgh', alpha=self.dm_alpha)
-        dmap = mydmap.fit_transform(self.init_data.A.T)
+        mydmap = dm.DiffusionMap.from_sklearn(n_evecs=dim,
+                                              k=nn,
+                                              epsilon='bgh',
+                                              metric=metric,
+                                              metric_params=metric_args,
+                                              alpha=alpha)
 
-        self.coords = sp.csr_matrix(dmap.T)
+        dmap = mydmap.fit_transform(self.init_data.T)
+
+        self.coords = dmap.T
         self.reducer_ = dmap
 
     def create_tsne_embedding_(self):
         model = TSNE(n_components=self.dim, verbose=1)
-        self.coords = model.fit_transform(self.init_data.A.T).T
+        self.coords = model.fit_transform(self.init_data.T).T
         self.reducer_ = model
 
     def create_umap_embedding_(self):
@@ -177,7 +187,7 @@ class Embedding:
         reducer = umap.UMAP(n_neighbors=self.graph.nn, n_components=self.dim,
                             min_dist=min_dist)
 
-        self.coords = reducer.fit_transform(self.graph.data.A.T).T
+        self.coords = reducer.fit_transform(self.graph.data.T).T
         self.reducer_ = reducer
 
     def create_ae_embedding_(self, continue_learning=0, epochs=50):

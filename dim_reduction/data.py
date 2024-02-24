@@ -82,10 +82,10 @@ class MVData(object):
         graph = None
         if method.requires_graph:
             if g_params is None:
-                raise ValueError(f'Method {method_name} requires proximity graph, but'
+                raise ValueError(f'Method {method_name} requires proximity graph, but '
                                  f'graph params were not provided')
-            if m_params is None:
-                raise ValueError(f'Method {method_name} requires proximity graph, but'
+            if g_params['weighted'] and m_params is None:
+                raise ValueError(f'Method {method_name} requires weights for proximity graph, but '
                                  f'metric params were not provided')
 
             graph = self.get_proximity_graph(m_params, g_params)

@@ -37,11 +37,12 @@ class ProximityGraph(Network):
         self.data = d
 
         self.construct_adjacency()
-        super().__init__(adj=self.adj,
-                         preprocessing='giant_cc',
-                         create_nx_graph=create_nx_graph,
-                         directed=False,
-                         weighted=self.all_params['weighted'])
+        # TODO: add graph_preprocessing to changeable graph params
+        super(ProximityGraph, self).__init__(adj=self.adj,
+                                             preprocessing='giant_cc',
+                                             create_nx_graph=create_nx_graph,
+                                             directed=False,
+                                             weighted=all_params['weighted'])
 
         node_mapping = self._init_to_final_node_mapping
         lost_nodes = set(range(self.n)) - set(list(node_mapping.keys()))
@@ -58,9 +59,9 @@ class ProximityGraph(Network):
 
         self._checkpoint()
 
-        #arr = np.array(range(self.K)).reshape(-1, 1)
+        #arr = np.array(range(self.n)).reshape(-1, 1)
         #self.timediff = cdist(arr, arr, 'cityblock')
-        #self.norm_timediff = self.timediff / (self.K / 3)
+        #self.norm_timediff = self.timediff / (self.n / 3)
 
     def distances_to_affinities(self):
         if self.neigh_distmat is None:
@@ -95,7 +96,7 @@ class ProximityGraph(Network):
 
     def create_umap_graph_(self):
         RAND = np.random.RandomState(42)
-        adj, _, _, dists = fuzzy_simplicial_set(self.data.A.T, self.nn, metric=self.metric,
+        adj, _, _, dists = fuzzy_simplicial_set(self.data.T, self.nn, metric=self.metric,
                                                 metric_kwds=self.metric_args,
                                                 random_state=RAND,
                                                 return_dists=True)
@@ -109,7 +110,8 @@ class ProximityGraph(Network):
         else:
             curr_metric = globals()[self.metric]
 
-        index = pynndescent.NNDescent(self.data.A.T,
+        N = self.data.shape[1]
+        index = pynndescent.NNDescent(self.data.T,
                                       metric=curr_metric,
                                       metric_kwds=self.metric_args,
                                       n_neighbors=self.nn + 1,
@@ -120,13 +122,13 @@ class ProximityGraph(Network):
 
         neigh_cols = neighs[:, 1:].flatten()
         dist_vals = dists[:, 1:].flatten()
-        neigh_rows = np.repeat(np.arange(self.K), self.nn)
+        neigh_rows = np.repeat(np.arange(N), self.nn)
 
         all_neigh_cols = np.concatenate((neigh_cols, neigh_rows))
         all_neigh_rows = np.concatenate((neigh_rows, neigh_cols))
         all_dist_vals = np.concatenate((dist_vals, dist_vals))
 
-        self.bin_adj = sp.csr_matrix((np.array([True for _ in range(2 * self.K * self.nn)]),
+        self.bin_adj = sp.csr_matrix((np.array([True for _ in range(2 * N * self.nn)]),
                                       (all_neigh_rows, all_neigh_cols)))
 
         self.neigh_distmat = sp.csr_matrix((all_dist_vals, (all_neigh_rows, all_neigh_cols)))
@@ -236,7 +238,7 @@ class ProximityGraph(Network):
     def scaling(self):
         mat = self.adj.astype(bool).A.astype(int)
         diagsums = []
-        for i in range(self.K - 1):
-            diagsums.append(np.trace(mat, offset=i, dtype=None, out=None) / (self.K - i))
+        for i in range(self.n - 1):
+            diagsums.append(np.trace(mat, offset=i, dtype=None, out=None) / (self.n - i))
 
         return diagsums

@@ -102,9 +102,6 @@ def e_param_filter(para):
 
     appr_keys = ['e_method', 'e_method_name', 'dim']
 
-    if para['e_method'].requires_graph:
-        appr_keys.append('check_graph_connectivity')
-
     if para['e_method_name'] == 'umap':
         appr_keys.append('min_dist')
 

@@ -266,7 +266,7 @@ class Network:
         self.n = self.adj.shape[0]
 
     def is_connected(self):
-        ccs = get_ccs_from_adj(self.adj)
+        ccs = list(get_ccs_from_adj(self.adj))
         return len(ccs) == 1
 
     def randomize(self, rmode='shuffle'):

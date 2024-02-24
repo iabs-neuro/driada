@@ -34,6 +34,27 @@ def test_corrmat():
     assert np.allclose(np.diag(cm), np.ones(n_gaussian))
 
 
+def test_proximity_graph():
+    data = create_swiss_roll_data()
+
+    metric_params = {
+        'metric_name': 'l2',
+        'sigma': 1,
+        'p': 2
+    }
+
+    graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 10,
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+
+    D = MVData(data)
+    G = D.get_proximity_graph(metric_params, graph_params)
+
+
 def test_pca():
     data = create_swiss_roll_data()
     D = MVData(data)
@@ -45,4 +66,161 @@ def test_pca():
 
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params)
+    print(emb.coords.shape)
+
+
+def test_le():
+    data = create_swiss_roll_data()
+    D = MVData(data)
+
+    metric_params = {
+        'metric_name': 'l2',
+        'sigma': 1,
+        'p': 2
+    }
+
+    graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 10,
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+
+    embedding_params = {
+        'e_method_name': 'le',
+        'dim': 2
+    }
+
+    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    print(emb.coords.shape)
+
+
+def test_auto_le():
+    data = create_swiss_roll_data()
+    D = MVData(data)
+
+    metric_params = {
+        'metric_name': 'l2',
+        'sigma': 1,
+        'p': 2
+    }
+
+    graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 10,
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+
+    embedding_params = {
+        'e_method_name': 'auto_le',
+        'dim': 2
+    }
+
+    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    print(emb.coords.shape)
+
+
+def test_umap():
+    data = create_swiss_roll_data()
+    D = MVData(data)
+
+    metric_params = {
+        'metric_name': 'l2',
+        'sigma': 1,
+        'p': 2
+    }
+
+    graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 10,
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+
+    embedding_params = {
+        'e_method_name': 'umap',
+        'dim': 2,
+        'min_dist': 0.1
+    }
+
+    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    print(emb.coords.shape)
+
+
+def test_isomap():
+    data = create_swiss_roll_data()
+    D = MVData(data)
+
+    metric_params = {
+        'metric_name': 'l2',
+        'sigma': 1,
+        'p': 2
+    }
+
+    graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 10,
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+
+    embedding_params = {
+        'e_method_name': 'isomap',
+        'dim': 2,
+        'min_dist': 0.1
+    }
+
+    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    print(emb.coords.shape)
+
+
+def test_tsne():
+    data = create_swiss_roll_data()
+    D = MVData(data)
+
+    embedding_params = {
+        'e_method_name': 'tsne',
+        'dim': 2,
+    }
+
+    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    emb = D.get_embedding(embedding_params)
+    print(emb.coords.shape)
+
+
+def test_auto_dmaps():
+    data = create_swiss_roll_data()
+    D = MVData(data)
+
+    metric_params = {
+        'metric_name': 'l2',
+        'sigma': 1,
+        'p': 2
+    }
+
+    graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 10,
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+
+    embedding_params = {
+        'e_method_name': 'auto_dmaps',
+        'dim': 2,
+        'dm_alpha': 1
+    }
+
+    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
     print(emb.coords.shape)
