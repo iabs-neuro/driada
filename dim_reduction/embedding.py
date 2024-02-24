@@ -139,10 +139,10 @@ class Embedding:
         if np.count_nonzero(eigvals == 1.0) > 1:
             raise Exception('Graph is not connected, LE will result in errors!')
         else:
-            vecs = eigvecs.T[1:]
+            vecs = np.real(eigvecs.T[1:])
             vec_norms = np.array([np.real(sum([x * x for x in v])) for v in vecs])
             vecs = vecs / vec_norms[:, np.newaxis]
-            vecs = vecs.dot(DH)
+            vecs = vecs.dot(DH.toarray())
             self.coords = vecs
 
     def create_auto_le_embedding_(self):

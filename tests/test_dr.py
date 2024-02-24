@@ -66,7 +66,8 @@ def test_pca():
 
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params)
-    print(emb.coords.shape)
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0,0]) in [np.float64, np.float32]
 
 
 def test_le():
@@ -94,7 +95,8 @@ def test_le():
 
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
-    print(emb.coords.shape)
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
 def test_auto_le():
@@ -122,7 +124,8 @@ def test_auto_le():
 
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
-    print(emb.coords.shape)
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
 def test_umap():
@@ -151,7 +154,8 @@ def test_umap():
 
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
-    print(emb.coords.shape)
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
 def test_isomap():
@@ -180,7 +184,8 @@ def test_isomap():
 
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
-    print(emb.coords.shape)
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
 def test_tsne():
@@ -194,7 +199,8 @@ def test_tsne():
 
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params)
-    print(emb.coords.shape)
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
 def test_auto_dmaps():
@@ -223,4 +229,5 @@ def test_auto_dmaps():
 
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
-    print(emb.coords.shape)
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0, 0]) in [np.float64, np.float32]
