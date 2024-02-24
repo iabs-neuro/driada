@@ -44,7 +44,7 @@ class MVData(object):
         self.rescale_rows = rescale_rows
         if self.rescale_rows:
             for i, row in enumerate(self.data):
-                data[i] = rescale(row)
+                self.data[i] = rescale(row)
 
         self.data_name = data_name
         self.n_dim = self.data.shape[0]
