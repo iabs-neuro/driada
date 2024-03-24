@@ -426,6 +426,7 @@ def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
             all_pvals = sorted(multicomp_kwargs['all_pvals'])
             nhyp = len(all_pvals)
 
+            cthr=1
             for i, pval in enumerate(all_pvals):
                 cthr = fwer / (nhyp - i)
                 if pval > cthr:

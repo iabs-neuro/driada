@@ -188,6 +188,7 @@ def compute_cell_feat_mi_significance(exp,
     # add hash data and update Experiment saved statistics and significance if needed
     for i, cell_id in enumerate(cell_ids):
         for j, feat_id in enumerate(feat_ids):
+            # TODO: add check for non-existing feature if use_precomputed_stats==False
             computed_stats[cell_id][feat_id]['data_hash'] = exp._data_hashes[feat_id][cell_id]
 
             mi_val = computed_stats[cell_id][feat_id].get('mi')
