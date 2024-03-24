@@ -204,7 +204,10 @@ def id_from_link(link):
     if 'http' not in link:
         raise ValueError('Wrong link format')
 
-    return link.split('id=')[-1].split('&')[0]
+    if 'id=' in link:
+        return link.split('id=')[-1].split('&')[0]
+    else:
+        return link.split('folders/')[-1].split('?')[0]
 
 
 folders_url = "https://drive.google.com/drive/folders/"
