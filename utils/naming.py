@@ -19,6 +19,8 @@ def construct_session_name(data_source, exp_params, allow_unknown=True):
             name = f'NOF_{animal_id}_{session}'
         elif track == 'Trace':
             name = f'Trace_{animal_id}_{session}'
+        elif track == 'CC':
+            name = f'CC_{animal_id}_{session}'
         else:
             if not allow_unknown:
                 raise ValueError(f'Unknown track: {track}!')
