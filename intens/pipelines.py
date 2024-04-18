@@ -71,7 +71,7 @@ def compute_cell_feat_mi_significance(exp,
     ds: int
         Downsampling constant. Every "ds" point will be taken from the data time series.
         Reduces the computational load, but needs caution since with large "ds" some important information may be lost.
-        Experiment instance has an internal check for this effect.
+        Experiment class performs an internal check for this effect.
         default: 1
 
     use_precomputed_stats: bool

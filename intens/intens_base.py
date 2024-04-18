@@ -16,7 +16,7 @@ def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
         ts2 = exp.dynamic_features[feat_id]
         mi0 = get_1d_mi(ts1, ts2, ds=ds)
 
-        for shift in tqdm.tqdm(np.arange(-window, window, ds)):
+        for shift in tqdm.tqdm(np.arange(-window, window, ds)//ds):
             lag_mi = get_1d_mi(ts1, ts2, ds=ds, shift=shift)
             shifted_mi.append(lag_mi)
 
@@ -71,6 +71,8 @@ def scan_pairs(ts_bunch1,
         Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit
         default: 1e-3
 
+    seed: int
+        Random seed for reproducibility
 
     Returns
     -------
@@ -112,10 +114,6 @@ def scan_pairs(ts_bunch1,
                 random_shifts[i, j, :] = np.random.choice(indices_to_select, size=nsh)//ds
 
     for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1), position=0, leave=True):
-        #min_shift = min_shifts[i]
-        #ca_random_shifts = np.random.randint(low=min_shift//ds, high=(t-min_shift)//ds, size=nsh)
-        #random_shifts[:,i] = ca_random_shifts[:]
-
         if joint_distr:
             if mask[i,0] == 1:
                 mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds)
@@ -177,6 +175,12 @@ def compute_mi_stats(ts_bunch1,
 
     ts_bunch2: list of TimeSeries objects
 
+    names1: list of str
+        names than will be given to time series from tsbunch1 in final results
+
+    names2: list of str
+        names than will be given to time series from tsbunch2 in final results
+
     mode: str
         Computation mode. 3 modes are available:
         'stage1': perform preliminary scanning with "n_shuffles_stage1" shuffles only.
@@ -188,6 +192,16 @@ def compute_mi_stats(ts_bunch1,
         'two_stage': prune non-significant pairs during stage 1 and perform thorough testing for the rest during stage 2.
                      Recommended mode.
         default: 'two-stage'
+
+    precomputed_mask_stage1: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
+          precomputed mask for skipping some of possible pairs in stage 1.
+          0 in mask values means calculation will be skipped.
+          1 in mask values means calculation will proceed.
+
+    precomputed_mask_stage2: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
+          precomputed mask for skipping some of possible pairs in stage 2.
+          0 in mask values means calculation will be skipped.
+          1 in mask values means calculation will proceed.
 
     n_shuffles_stage1: int
         number of shuffles for first stage
@@ -212,8 +226,6 @@ def compute_mi_stats(ts_bunch1,
 
     ds: int
         Downsampling constant. Every "ds" point will be taken from the data time series.
-        Reduces the computational load, but needs caution since with large "ds" some important information may be lost.
-        Experiment instance has an internal check for this effect.
         default: 1
 
     topk1: int
@@ -252,6 +264,9 @@ def compute_mi_stats(ts_bunch1,
         Inner dict keys: indices or tsbunch2 or names2, if given
         Last dict: dictionary of significance-related variables.
         Can be easily converted to pandas DataFrame by pd.DataFrame(significance)
+
+    accumulated_info: dict
+        Data collected during computation.
     """
 
     # TODO: add automatic min_shifts from autocorrelation time
@@ -346,6 +361,7 @@ def compute_mi_stats(ts_bunch1,
 
         accumulated_info.update({'random_shifts2': random_shifts2,
                                  'mi_total2': mi_total2})
+
         # turn data tables from stage 2 to array of stats dicts
         stage_2_stats = get_table_of_stats(mi_total2,
                                            mi_distr_type=mi_distr_type,
@@ -388,11 +404,15 @@ def compute_mi_stats(ts_bunch1,
             print('Stage 2 results:')
             print(f'{num2/n1/n2*100:.2f}% ({num2}/{n1*n2}) of possible pairs identified as significant')
 
-        merged_stats = merge_stage_stats(stage_1_stats, stage_2_stats)
-        merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
-        final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
-        final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
-        return final_stats, final_significance, accumulated_info
+        if mode == 'two_stage':
+            merged_stats = merge_stage_stats(stage_1_stats, stage_2_stats)
+            merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
+            final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
+            final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
+            return final_stats, final_significance, accumulated_info
+
+        else:
+            return stage_2_stats, stage_2_significance, accumulated_info
 
 
 def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
@@ -425,15 +445,12 @@ def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
         if 'all_pvals' in multicomp_kwargs:
             all_pvals = sorted(multicomp_kwargs['all_pvals'])
             nhyp = len(all_pvals)
-
-            cthr=1
             for i, pval in enumerate(all_pvals):
                 cthr = fwer / (nhyp - i)
                 if pval > cthr:
                     break
 
             threshold = cthr
-
         else:
             raise ValueError('List of p-values for Holm correction not provided')
 

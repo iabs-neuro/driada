@@ -42,12 +42,10 @@ class Neuron():
         conv = np.convolve(sp, spform)
         return conv
 
-
     @staticmethod
     def ca_mse_error(t_off, ca, spk, t_rise):
         re_ca = Neuron.get_restored_calcium(spk, t_rise, t_off)
         return np.sqrt(np.sum(np.abs(ca - re_ca[:len(ca)])**2)/len(ca))
-
 
     @staticmethod
     def calcium_preprocessing(ca):
