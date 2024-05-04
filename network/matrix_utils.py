@@ -223,11 +223,14 @@ def adj_input_to_csr_sparse_matrix(a):
 
 
 def remove_selfloops_from_adj(a):
-    a = adj_input_to_csr_sparse_matrix(a)
-    anew = a.copy()
-    anew.setdiag(0)
-    anew.eliminate_zeros()
-    return anew
+    if a.trace() != 0:
+        a = adj_input_to_csr_sparse_matrix(a)
+        anew = a.copy()
+        anew.setdiag(0)
+        anew.eliminate_zeros()
+        return anew
+    else:
+        return a
 
 
 def remove_isolates_from_adj(a):
