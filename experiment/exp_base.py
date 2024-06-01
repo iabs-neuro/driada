@@ -475,7 +475,8 @@ class Experiment():
         '''
         cell_list = self._process_cbunch(cbunch)
         agg_sh_data = np.zeros((len(cell_list), self.n_frames))
-        for i, cell in enumerate(cell_list):
+        for i in cell_list:
+            cell = self.neurons[i]
             sh_data = cell.get_shuffled_calcium(method=method, **kwargs, no_ts=no_ts)
             if no_ts:
                 agg_sh_data[i, :] = sh_data[:]
