@@ -103,8 +103,8 @@ class Experiment():
         print('Building neurons...')
         for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True):
             cell = Neuron(str(i),
-                          self.calcium[i,:],
-                          self.spikes[i,:],
+                          calcium[i, :],
+                          self.spikes[i, :],
                           default_t_rise=static_features.get('t_rise_sec'),
                           default_t_off=static_features.get('t_off_sec'),
                           fps=static_features.get('fps'))
@@ -112,7 +112,6 @@ class Experiment():
                 #cell.reconstruct_spikes(**kwargs)
 
             self.calcium[i, :] = cell.ca.data
-            self.spikes[i, :] = cell.sp.data
             self.neurons.append(cell)
 
         self.dynamic_features = dynamic_features
