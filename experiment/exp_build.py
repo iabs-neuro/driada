@@ -16,7 +16,8 @@ def load_exp_from_aligned_data(data_source,
                                data,
                                force_continuous=[],
                                static_features=None,
-                               verbose=True):
+                               verbose=True,
+                               reconstruct_spikes='wavelet'):
 
     expname = construct_session_name(data_source, exp_params)
     adata = copy.deepcopy(data)
@@ -84,7 +85,13 @@ def load_exp_from_aligned_data(data_source,
         if sf not in static_features:
             static_features.update({sf: default_static_features[sf]})
 
-    exp = Experiment(signature, calcium, spikes, exp_params, static_features, filt_dyn_features)
+    exp = Experiment(signature,
+                     calcium,
+                     spikes,
+                     exp_params,
+                     static_features,
+                     filt_dyn_features,
+                     reconstruct_spikes=reconstruct_spikes)
 
     return exp
 

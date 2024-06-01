@@ -38,7 +38,7 @@ class Neuron():
 
     @staticmethod
     def get_restored_calcium(sp, t_rise, t_off):
-        x = np.linspace(0, 1000, num = 1000)
+        x = np.linspace(0, 1000, num=1000)
         spform = Neuron.spike_form(x, t_rise=t_rise, t_off=t_off)
         conv = np.convolve(sp, spform)
         return conv
