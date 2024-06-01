@@ -103,8 +103,8 @@ class Experiment():
         print('Building neurons...')
         for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True):
             cell = Neuron(str(i),
-                          calcium[i,:],
-                          spikes[i,:] if reconstruct_spikes is not None else None,
+                          self.calcium[i,:],
+                          self.spikes[i,:],
                           default_t_rise=static_features.get('t_rise_sec'),
                           default_t_off=static_features.get('t_off_sec'),
                           fps=static_features.get('fps'))
