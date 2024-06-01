@@ -1,4 +1,5 @@
 from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
+from sklearn.metrics.cluster import mutual_info_score
 
 from .ksg import *
 from .gcmi import *
@@ -144,14 +145,14 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
                                     precomputed_tree_y=ts2.get_kdtree())
 
         elif ts1.discrete and ts2.discrete:
-            mi = mutual_info_classif(x, y, discrete_features=True, n_neighbors=k)[0]
+            mi = mutual_info_classif(ts1.data, ts2.data, discrete_features=True, n_neighbors=k)[0]
 
         # TODO: refactor using ksg functions
         elif ts1.discrete and not ts2.discrete:
-            mi = mutual_info_regression(x, y, discrete_features=False, n_neighbors=k)[0]
+            mi = mutual_info_regression(ts1.data, y, discrete_features=False, n_neighbors=k)[0]
 
         elif not ts1.discrete and ts2.discrete:
-            mi = mutual_info_classif(x, y, discrete_features=True, n_neighbors=k)[0]
+            mi = mutual_info_classif(x, ts2.data, discrete_features=True, n_neighbors=k)[0]
 
         return mi
 
@@ -162,10 +163,26 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
             mi = mi_gg(ny1, ny2, True, True)
 
         elif ts1.discrete and ts2.discrete:
-            mi = mutual_info_classif(x, y, discrete_features=True, n_neighbors=k)[0]
+            ny1 = ts1.data.astype(int)[::ds]#.reshape(-1, 1)
+            ny2 = np.roll(ts2.data.astype(int)[::ds], shift)
+
+            # TODO: improve performance by passing contingency matrix
+            '''
+            # if features are binary:
+            if len(set(ny1)) == 2 and len(set(ny2)) == 2:
+                ny1_bool = ny1.astype(bool)
+                contingency = np.zeros((2,2))
+                contingency[0,0] =
+            else:
+                contingency = None
+            '''
+            contingency = None
+            mi = mutual_info_score(ny1, ny2, contingency=contingency)
+            #mi = mutual_info_classif(ny1, ny2, discrete_features=True, n_neighbors=k)[0]
+            #mutual_info_score(
 
         elif ts1.discrete and not ts2.discrete:
-            ny1 = ts1.scdata.astype(int)[::ds]
+            ny1 = ts1.data.astype(int)[::ds]
             ny2 = np.roll(ts2.copula_normal_data[::ds], shift)
             mi = mi_model_gd(ny2, ny1, np.max(ny1), biascorrect=True, demeaned=True)
 
@@ -175,7 +192,7 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
             #print(ds, shift)
             #print(ts2.scdata)
             #print(np.sum(np.isnan(ts2.scdata)).astype(int))
-            ny2 = np.roll(ts2.scdata.astype(int)[::ds], shift)
+            ny2 = np.roll(ts2.data.astype(int)[::ds], shift)
             #print(len(ny2))
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 

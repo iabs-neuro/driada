@@ -3,6 +3,7 @@ from numba import njit
 from scipy.stats import median_abs_deviation
 from scipy.optimize import minimize
 from ..signals.sig_base import TimeSeries
+from .wavelet_event_detection import *
 
 DEFAULT_T_RISE = 0.25 #sec
 DEFAULT_T_OFF = 2.0 #sec
@@ -44,6 +45,7 @@ class Neuron():
 
     @staticmethod
     def ca_mse_error(t_off, ca, spk, t_rise):
+        # TODO: fix for new spike format
         re_ca = Neuron.get_restored_calcium(spk, t_rise, t_off)
         return np.sqrt(np.sum(np.abs(ca - re_ca[:len(ca)])**2)/len(ca))
 
@@ -68,7 +70,7 @@ class Neuron():
         if sp is None:
             self.sp = None
         else:
-            self.sp = TimeSeries(sp, discrete=False)
+            self.sp = TimeSeries(sp.astype(int), discrete=True)
         self.n_frames = len(ca.data)
 
         self.sp_count = np.sum(self.sp.data.astype(bool).astype(int))
@@ -104,12 +106,11 @@ class Neuron():
             self.snr, self.mad = self._calc_snr()
         return self.snr
 
-
     def _calc_snr(self):
         spk_inds = np.nonzero(self.sp.data)[0]
         mad = median_abs_deviation(self.ca.data)
         if len(spk_inds) > 0:
-            sn = np.mean(self.sp.data[spk_inds])/mad
+            sn = np.mean(self.ca.data[spk_inds])/mad
             if np.isnan(sn):
                 raise ValueError('Error in snr calculation')
         else:
@@ -145,14 +146,16 @@ class Neuron():
         return min(opt_t_off, self.default_t_off*5), noise_amplitude
 
 
-    def get_shuffled_calcium(self, method = 'roll_based', **kwargs):
+    def get_shuffled_calcium(self, method = 'roll_based', no_ts=True, **kwargs):
         try:
             fn = getattr(self, f'_shuffle_calcium_data_{method}')
         except AttributeError():
             raise UserWarning('Unknown calcium data shuffling method')
 
         sh_ca = fn(**kwargs)
-        sh_ca = TimeSeries(Neuron.calcium_preprocessing(sh_ca), discrete = False)
+        sh_ca = Neuron.calcium_preprocessing(sh_ca)
+        if not no_ts:
+            sh_ca = TimeSeries(Neuron.calcium_preprocessing(sh_ca), discrete=False)
 
         return sh_ca
 
@@ -204,7 +207,7 @@ class Neuron():
         return shuf_ca
 
 
-    def get_shuffled_spikes(self, method = 'isi_based', **kwargs):
+    def get_shuffled_spikes(self, method = 'isi_based', no_ts=True, **kwargs):
         if self.sp is None:
             raise AttributeError('Unable to shuffle spikes without spikes data')
 
@@ -214,7 +217,10 @@ class Neuron():
             raise UserWarning('Unknown calcium data shuffling method')
 
         sh_data = fn(**kwargs)
-        return TimeSeries(sh_data, discrete = False)
+        if not no_ts:
+            return TimeSeries(sh_data, discrete=True)
+        else:
+            return sh_data
 
 
     def _shuffle_spikes_data_isi_based(self):

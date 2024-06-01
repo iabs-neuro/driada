@@ -6,6 +6,7 @@ import pickle
 
 from ..signals.sig_base import TimeSeries
 from .neuron import DEFAULT_MIN_BEHAVIOUR_TIME, Neuron
+from .wavelet_event_detection import WVT_EVENT_DETECTION_PARAMS, extract_wvt_events, events_to_ts_array
 from ..utils.data import get_hash, populate_nested_dict
 from ..information.info_base import get_1d_mi
 
@@ -45,7 +46,8 @@ class Experiment():
 
     def __init__(self, signature, calcium, spikes,
                  exp_identificators, static_features, dynamic_features,
-                 recon_spikes=False, bad_frames_mask=None, **kwargs):
+                 reconstruct_spikes='wavelet', spike_kwargs=None,
+                 bad_frames_mask=None, **kwargs):
 
         check_dynamic_features(dynamic_features)
         self.exp_identificators = exp_identificators
@@ -57,17 +59,31 @@ class Experiment():
         if calcium is None:
             raise AttributeError('No calcium data provided')
 
-        if spikes is None and not recon_spikes:
-            warnings.warn('No spike data provided, spikes reconstruction from Ca2+ data disabled')
-            spikes = np.zeros(calcium.shape)
-
-        if recon_spikes:
+        if reconstruct_spikes is None:
+            if spikes is None:
+                warnings.warn('No spike data provided, spikes reconstruction from Ca2+ data disabled')
+        else:
             if spikes is not None:
-                warnings.warn('Spikes data will be overridden by reconstructed spikes from Ca2+ data')
+                warnings.warn(f'Spike data will be overridden by reconstructed spikes from Ca2+ data with method={reconstruct_spikes}')
+
+            if reconstruct_spikes == 'wavelet':
+                print('Reconstructing events with wavelet method...')
+                wvt_kwargs = WVT_EVENT_DETECTION_PARAMS.copy()
+                wvt_kwargs['fps'] = static_features.get('fps')
+                if spike_kwargs is not None:
+                    for k, v in spike_kwargs.items():
+                        wvt_kwargs[k] = v
+                st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(calcium, wvt_kwargs)
+                spikes = events_to_ts_array(calcium.shape[1], st_ev_inds, end_ev_inds)
+
+            else:
+                raise ValueError(f'"{reconstruct_spikes} method for event reconstruction is not available"')
 
         self.filtered_flag = False
         if bad_frames_mask is not None:
-            calcium, spikes, dynamic_features = self._trim_data(calcium, spikes, dynamic_features,
+            calcium, spikes, dynamic_features = self._trim_data(calcium,
+                                                                spikes,
+                                                                dynamic_features,
                                                                 bad_frames_mask)
         else:
             for feat_id in dynamic_features.copy():
@@ -83,22 +99,14 @@ class Experiment():
 
         print('Building neurons...')
         for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True):
-            if recon_spikes:
-                cell = Neuron(str(i),
-                              calcium[i,:],
-                              None,
-                              default_t_rise=static_features.get('t_rise_sec'),
-                              default_t_off=static_features.get('t_off_sec'),
-                              fps=static_features.get('fps'))
+            cell = Neuron(str(i),
+                          calcium[i,:],
+                          spikes[i,:] if reconstruct_spikes is not None else None,
+                          default_t_rise=static_features.get('t_rise_sec'),
+                          default_t_off=static_features.get('t_off_sec'),
+                          fps=static_features.get('fps'))
 
-                cell.reconstruct_spikes(**kwargs)
-            else:
-                cell = Neuron(str(i),
-                              calcium[i,:],
-                              spikes[i,:],
-                              default_t_rise=static_features.get('t_rise_sec'),
-                              default_t_off=static_features.get('t_off_sec'),
-                              fps=static_features.get('fps'))
+                #cell.reconstruct_spikes(**kwargs)
 
             self.calcium[i,:] = cell.ca.data
             self.spikes[i,:] = cell.sp.data
@@ -122,7 +130,10 @@ class Experiment():
         self.significance_table = self._populate_cell_feat_dict(DEFAULT_SIGNIFICANCE, fbunch=None, cbunch=None)
 
         print('Building data hashes...')
-        self._build_data_hashes()
+        self._build_data_hashes(mode='calcium')
+        if reconstruct_spikes is not None or spikes is not None:
+            self._build_data_hashes(mode='spikes')
+
         print('Final checkpoint...')
         self._checkpoint()
         #self._load_precomputed_data(**kwargs)
@@ -140,14 +151,19 @@ class Experiment():
                   f'Current minimal behaviour time interval is set to {DEFAULT_MIN_BEHAVIOUR_TIME} sec, '
                   f'downsampling {ds} will create time gaps of {time_step*ds} sec')
 
-
-    def _build_pair_hash(self, cell_id, feat_id):
+    def _build_pair_hash(self, cell_id, feat_id, mode='calcium'):
         '''
-        Builds a unique hash-based representation of calcium-feature pair data.
+        Builds a unique hash-based representation of activity-feature pair data.
         feat_id should be a string or an iterable of strings (in case of joint MI calculation).
         '''
-        ca = self.neurons[cell_id].ca.data
-        ca_hash = get_hash(ca)
+        if mode == 'calcium':
+            act = self.neurons[cell_id].ca.data
+        elif mode == 'spikes':
+            act = self.neurons[cell_id].sp.data
+        else:
+            raise ValueError('"mode" can be either "calcium" or "spikes"')
+
+        act_hash = get_hash(act)
 
         if (not isinstance(feat_id, str)) and len(feat_id) == 1:
             feat_id = feat_id[0]
@@ -155,11 +171,11 @@ class Experiment():
         if isinstance(feat_id, str):
             dyn_data = self.dynamic_features[feat_id].data
             dyn_data_hash = get_hash(dyn_data)
-            pair_hash = (ca_hash, dyn_data_hash)
+            pair_hash = (act_hash, dyn_data_hash)
 
         else:
             ordered_fnames = tuple(sorted(list(feat_id)))
-            list_of_hashes = [ca_hash]
+            list_of_hashes = [act_hash]
             for fname in ordered_fnames:
                 dyn_data = self.dynamic_features[fname].data
                 dyn_data_hash = get_hash(dyn_data)
@@ -169,16 +185,17 @@ class Experiment():
 
         return pair_hash
 
-    def _build_data_hashes(self):
+    def _build_data_hashes(self, mode='calcium'):
         '''
         Builds a unique hash-based representation of calcium-feature pair data for all cell-feature pairs..
         '''
-        self._data_hashes = {dfeat: dict(zip(range(self.n_cells), [None for _ in range(self.n_cells)])) for dfeat in self.dynamic_features.keys()}
+        default_data_hashes = {dfeat: dict(zip(range(self.n_cells), [None for _ in range(self.n_cells)])) for dfeat in self.dynamic_features.keys()}
+        self._data_hashes = {'calcium': default_data_hashes, 'spikes': default_data_hashes}
         for feat_id in self.dynamic_features:
             for cell_id in range(self.n_cells):
-                self._data_hashes[feat_id][cell_id] = self._build_pair_hash(cell_id, feat_id)
+                self._data_hashes[mode][feat_id][cell_id] = self._build_pair_hash(cell_id, feat_id, mode=mode)
 
-    def _trim_data(self, calcium, spikes, dynamic_features, bad_frames_mask, force_filter = False):
+    def _trim_data(self, calcium, spikes, dynamic_features, bad_frames_mask, force_filter=False):
 
         if not force_filter and self.filtered_flag:
             raise AttributeError('Data is already filtered, if you want to force filtering it again, set "force_filter = True"')
@@ -293,9 +310,9 @@ class Experiment():
             return default_list
 
         else:
-           return [st for st in sbunch if st in default_list]
+            return [st for st in sbunch if st in default_list]
 
-    def _add_multifeature_to_data_hashes(self, feat_id):
+    def _add_multifeature_to_data_hashes(self, feat_id, mode='calcium'):
         '''
         Add previously unseen multifeature (e.g. ['x','y']) to table with data hashes.
         This function ignores multifeatures that already exist in the table.
@@ -305,10 +322,10 @@ class Experiment():
 
         if not isinstance(feat_id, str):
             ordered_fnames = tuple(sorted(list(feat_id)))
-            if ordered_fnames not in self._data_hashes:
+            if ordered_fnames not in self._data_hashes[mode]:
                 all_hashes = [self._build_pair_hash(cell_id, ordered_fnames) for cell_id in range(self.n_cells)]
                 new_dict = {ordered_fnames: dict(zip(range(self.n_cells), all_hashes))}
-                self._data_hashes.update(new_dict)
+                self._data_hashes[mode].update(new_dict)
 
         else:
             raise ValueError('This method is for multifeature update only')
@@ -331,7 +348,7 @@ class Experiment():
         else:
             raise ValueError('This method is for multifeature update only')
 
-    def _check_stats_relevance(self, cell_id, feat_id):
+    def _check_stats_relevance(self, cell_id, feat_id, mode='calcium'):
         '''
         A guardian function that prevents access to non-existing and irrelevant data.
 
@@ -351,7 +368,7 @@ class Experiment():
                              'check the input data, since all single features are processed automatically.'
                              'If this is a multifeature (e.g. ["x", "y"]), compute MI significance to create stats')
 
-        pair_hash = self._data_hashes[feat_id][cell_id]
+        pair_hash = self._data_hashes[mode][feat_id][cell_id]
         existing_hash = self.stats_table[feat_id][cell_id]['data_hash']
 
         # if (stats does not exist yet) or (stats exists and data is the same):
@@ -397,14 +414,14 @@ class Experiment():
             else:
                 self._update_stats_and_significance(stats, cell_id, feat_id, stage2_only=stage2_only)
 
-    def update_neuron_feature_pair_significance(self, sig, cell_id, feat_id):
+    def update_neuron_feature_pair_significance(self, sig, cell_id, feat_id, mode='calcium'):
         '''
         Updates calcium-feature pair significance data.
         feat_id should be a string or an iterable of strings (in case of joint MI calculation).
         This function allows multifeatures.
         '''
         if not isinstance(feat_id, str):
-            self._add_multifeature_to_data_hashes(feat_id)
+            self._add_multifeature_to_data_hashes(feat_id, mode=mode)
             self._add_multifeature_to_stats(feat_id)
 
         if self._check_stats_relevance(cell_id, feat_id):
@@ -441,25 +458,54 @@ class Experiment():
 
         return sig
 
-    def get_multicell_shuffled_calcium(self, cbunch = None, method = 'roll_based', **kwargs):
+    def get_multicell_shuffled_calcium(self, cbunch=None, method='roll_based', no_ts=True, **kwargs):
+        '''
+
+        Args:
+            cbunch:
+            method:
+            **kwargs:
+            no_ts: if True, intermediate TimeSeries objects are nor created, which speeds up shuffling
+
+        Returns:
+
+        '''
         cell_list = self._process_cbunch(cbunch)
         agg_sh_data = np.zeros((len(cell_list), self.n_frames))
         for i, cell in enumerate(cell_list):
-            sh_data = cell.get_shuffled_calcium(method=method, **kwargs)
-            agg_sh_data[i, :] = sh_data.data[:]
+            sh_data = cell.get_shuffled_calcium(method=method, **kwargs, no_ts=no_ts)
+            if no_ts:
+                agg_sh_data[i, :] = sh_data[:]
+            else:
+                agg_sh_data[i, :] = sh_data.data[:]
 
         return agg_sh_data
 
-    def get_multicell_shuffled_spikes(self, cbunch = None, method = 'isi_based', **kwargs):
+    def get_multicell_shuffled_spikes(self, cbunch = None, method = 'isi_based', no_ts=True, **kwargs):
+        '''
+
+        Args:
+            cbunch:
+            method:
+            **kwargs:
+            no_ts: if True, intermediate TimeSeries objects are nor created, which speeds up shuffling
+
+        Returns:
+
+        '''
         if self.spikes is None:
             raise AttributeError('Unable to shuffle spikes without spikes data')
 
         cell_list = self._process_cbunch(cbunch)
 
         agg_sh_data = np.zeros((len(cell_list), self.n_frames))
-        for i, cell in enumerate(cell_list):
+        for i in cell_list:
+            cell = self.neurons[i]
             sh_data = cell.get_shuffled_spikes(method=method, **kwargs)
-            agg_sh_data[i,:] = sh_data.data[:]
+            if no_ts:
+                agg_sh_data[i, :] = sh_data[:]
+            else:
+                agg_sh_data[i, :] = sh_data.data[:]
 
         return agg_sh_data
 

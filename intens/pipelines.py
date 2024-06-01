@@ -5,6 +5,7 @@ from .intens_base import compute_mi_stats
 def compute_cell_feat_mi_significance(exp,
                                       cell_bunch=None,
                                       feat_bunch=None,
+                                      data_type='calcium',
                                       mode='two_stage',
                                       n_shuffles_stage1=100,
                                       n_shuffles_stage2=10000,
@@ -34,6 +35,9 @@ def compute_cell_feat_mi_significance(exp,
 
     feat_bunch: str, iterable or None
         Feature names. By default, (feat_bunch=None), all single features will be taken
+
+    data_type: str
+        Data used for INTENS computations. Can be 'calcium' or 'spikes'
 
     mode: str
         Computation mode. 3 modes are available:
@@ -122,7 +126,12 @@ def compute_cell_feat_mi_significance(exp,
     feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=False)
     cells = [exp.neurons[cell_id] for cell_id in cell_ids]
 
-    ca_signals = [cell.ca for cell in cells]
+    if data_type == 'calcium':
+        signals = [cell.ca for cell in cells]
+    elif data_type == 'spikes':
+        signals = [cell.sp for cell in cells]
+    else:
+        raise ValueError('"data_type" can be either "calcium" or "spikes"')
     #min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
     feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids]
 
@@ -142,16 +151,17 @@ def compute_cell_feat_mi_significance(exp,
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
                 try:
+                    # TODO: add data_type everywhere in stats
                     pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_id)
                 except ValueError:
                     if isinstance(feat_id, str):
                         raise ValueError(f'Unknown single feature in feat_bunch: {feat_id}. Check initial data')
                     else:
-                        exp._add_multifeature_to_data_hashes(feat_id)
+                        exp._add_multifeature_to_data_hashes(feat_id, mode=data_type)
                         exp._add_multifeature_to_stats(feat_id)
                         pair_stats = DEFAULT_STATS.copy()
 
-                current_data_hash = exp._data_hashes[feat_id][cell_id]
+                current_data_hash = exp._data_hashes[data_type][feat_id][cell_id]
 
                 if stats_not_empty(pair_stats, current_data_hash, stage=1):
                     precomputed_mask_stage1[i,j] = 0
@@ -166,7 +176,7 @@ def compute_cell_feat_mi_significance(exp,
     else:
         raise ValueError('Wrong mode!')
 
-    computed_stats, computed_significance, info = compute_mi_stats(ca_signals,
+    computed_stats, computed_significance, info = compute_mi_stats(signals,
                                                                    feats,
                                                                    mode=mode,
                                                                    names1=cell_ids,
@@ -189,7 +199,7 @@ def compute_cell_feat_mi_significance(exp,
     for i, cell_id in enumerate(cell_ids):
         for j, feat_id in enumerate(feat_ids):
             # TODO: add check for non-existing feature if use_precomputed_stats==False
-            computed_stats[cell_id][feat_id]['data_hash'] = exp._data_hashes[feat_id][cell_id]
+            computed_stats[cell_id][feat_id]['data_hash'] = exp._data_hashes[data_type][feat_id][cell_id]
 
             mi_val = computed_stats[cell_id][feat_id].get('mi')
             if mi_val is not None:
