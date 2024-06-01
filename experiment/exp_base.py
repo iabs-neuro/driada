@@ -95,7 +95,7 @@ class Experiment():
 
         self.neurons = []
         self.calcium = np.zeros(calcium.shape)
-        self.spikes = np.zeros(spikes.shape)
+        self.spikes = spikes
 
         print('Building neurons...')
         for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True):
@@ -109,7 +109,6 @@ class Experiment():
                 #cell.reconstruct_spikes(**kwargs)
 
             self.calcium[i,:] = cell.ca.data
-            self.spikes[i,:] = cell.sp.data
             self.neurons.append(cell)
 
         self.dynamic_features = dynamic_features
