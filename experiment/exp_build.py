@@ -106,6 +106,7 @@ def load_experiment(data_source,
                     root='DRIADA data',
                     force_continuous=[],
                     static_features=None,
+                    reconstruct_spikes='wavelet',
                     verbose=True):
 
     os.makedirs(root, exist_ok=True)
@@ -150,7 +151,8 @@ def load_experiment(data_source,
                                              aligned_data,
                                              force_continuous=force_continuous,
                                              static_features=static_features,
-                                             verbose=verbose)
+                                             verbose=verbose,
+                                             reconstruct_spikes=reconstruct_spikes)
 
             save_exp_to_pickle(Exp, exppath, verbose=verbose)
             return Exp, load_log
