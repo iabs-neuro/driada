@@ -235,6 +235,7 @@ class Embedding:
 
                 # compute reconstructions
                 noisy_batch_features = f_dropout(torch.ones(batch_features.shape)) * batch_features
+                noisy_batch_features = noisy_batch_features.to(device)
                 outputs = model(noisy_batch_features.float())
 
                 # compute training reconstruction loss
@@ -257,17 +258,14 @@ class Embedding:
                 print("epoch : {}/{}, recon loss = {:.8f}".format(epoch + 1, epochs, loss))
 
         self.nnmodel = model
-        self.coords = sp.csr_matrix(model.get_code_embedding(train_dataset))
+        self.coords = model.get_code_embedding(train_dataset)
 
     # -------------------------------------
 
-    def create_vae_embedding_(self, continue_learning=0, epochs=50):
+    def create_vae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
+                              enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, kld_weight=1):
 
         # ---------------------------------------------------------------------------
-        batch_size = 32
-        learning_rate = 1e-3
-
-        seed = 42
         torch.manual_seed(seed)
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
@@ -282,19 +280,23 @@ class Embedding:
         if not continue_learning:
             # create a model from `VAE` autoencoder class
             # load it to the specified device, either gpu or cpu
-            model = VAE(orig_dim=len(self.graph.data.A), inter_dim=128, code_dim=self.dim).to(device)
+            model = VAE(orig_dim=len(self.graph.data.A), inter_dim=128, code_dim=self.dim,
+                        enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs)
+            model = model.to(device)
         else:
             model = self.nnmodel
 
         # create an optimizer object
         # Adam optimizer with learning rate lr
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer = optim.Adam(model.parameters(), lr=lr)
 
         # BCE error loss
         # criterion = nn.BCELoss(reduction='sum')
         criterion = nn.MSELoss()
 
         # ---------------------------------------------------------------------------
+        f_dropout = nn.Dropout(feature_dropout)
+
         for epoch in range(epochs):
             loss = 0
             loss1 = 0
@@ -305,14 +307,15 @@ class Embedding:
                 optimizer.zero_grad()
 
                 # compute reconstructions
-                data = batch_features.float()
+                data = f_dropout(torch.ones(batch_features.shape)) * batch_features
+                data = data.to(device)
                 reconstruction, mu, logvar = model(data)
 
                 # compute training reconstruction loss
                 mse_loss = criterion(reconstruction, data)
                 kld_loss = -0.5 * torch.sum(
                     1 + logvar - mu.pow(2) - logvar.exp())  # * train_dataset.__len__()/batch_size
-                train_loss = mse_loss  # + 0*kld_loss
+                train_loss = mse_loss + kld_weight*kld_loss
 
                 # compute accumulated gradients
                 train_loss.backward()
