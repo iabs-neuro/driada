@@ -73,7 +73,7 @@ class Embedding:
         if self.e_method.nn_based:
             self.nnmodel = None
 
-    def build(self):
+    def build(self, kwargs=None):
         fn = getattr(self, 'create_' + self.e_method_name + '_embedding_')
 
         if self.e_method.requires_graph:
@@ -81,7 +81,7 @@ class Embedding:
             if not self.graph.is_connected():
                 raise Exception('Graph is not connected!')
 
-        fn()
+        fn(**kwargs)
 
     def create_pca_embedding_(self):
         print('Calculating PCA embedding...')
@@ -190,21 +190,17 @@ class Embedding:
         self.coords = reducer.fit_transform(self.graph.data.T).T
         self.reducer_ = reducer
 
-    def create_ae_embedding_(self, continue_learning=0, epochs=50):
+    def create_ae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
+                             enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2):
 
         # ---------------------------------------------------------------------------
-        batch_size = 32
-        learning_rate = 1e-3
 
-        seed = 42
         torch.manual_seed(seed)
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
         train_dataset = NeuroDataset(self.init_data)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-
-        dropout = nn.Dropout(0.2)
 
         # ---------------------------------------------------------------------------
         #  use gpu if available
@@ -213,18 +209,22 @@ class Embedding:
         if not continue_learning:
             # create a model from `AE` autoencoder class
             # load it to the specified device, either gpu or cpu
-            model = AE(orig_dim=self.init_data.shape[0], inter_dim=100, code_dim=self.dim).to(device)
+            model = AE(orig_dim=self.init_data.shape[0], inter_dim=100, code_dim=self.dim,
+                       enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs)
+
+            model = model.to(device)
         else:
             model = self.nnmodel
 
         # create an optimizer object
         # Adam optimizer with learning rate 1e-3
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer = optim.Adam(model.parameters(), lr=lr)
 
         # mean-squared error loss
         criterion = nn.MSELoss()
 
         # ---------------------------------------------------------------------------
+        f_dropout = nn.Dropout(feature_dropout)
 
         for epoch in range(epochs):
             loss = 0
@@ -234,7 +234,7 @@ class Embedding:
                 optimizer.zero_grad()
 
                 # compute reconstructions
-                noisy_batch_features = dropout(torch.ones(batch_features.shape)) * batch_features
+                noisy_batch_features = f_dropout(torch.ones(batch_features.shape)) * batch_features
                 outputs = model(noisy_batch_features.float())
 
                 # compute training reconstruction loss

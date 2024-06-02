@@ -72,7 +72,7 @@ class MVData(object):
     def get_distmat(self, method='euclidean'):
         raise NotImplementedError('To be implemented soon')
 
-    def get_embedding(self, e_params, g_params=None, m_params=None):
+    def get_embedding(self, e_params, g_params=None, m_params=None, kwargs=None):
         method = e_params['e_method']
         method_name = e_params['e_method_name']
 
@@ -95,7 +95,7 @@ class MVData(object):
                             f' Try constructing it first with get_distmat() method')
 
         emb = Embedding(self.data, self.distmat, self.labels, e_params, g=graph)
-        emb.build()
+        emb.build(kwargs=kwargs)
 
         return emb
 

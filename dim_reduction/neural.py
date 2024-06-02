@@ -6,8 +6,6 @@ import torch.optim as optim
 # import torchvision
 from torch.utils.data import Dataset, DataLoader
 
-dropout = nn.Dropout(0.0)
-
 
 class Encoder(nn.Module):
 
@@ -19,10 +17,17 @@ class Encoder(nn.Module):
         self.encoder_output_layer = nn.Linear(
             in_features=inter_dim, out_features=code_dim
         )
+        if kwargs.get('dropout') is not None:
+            if 0 <= kwargs['dropout'] < 1:
+                self.dropout = nn.Dropout(kwargs['dropout'])
+            else:
+                raise ValueError('Dropout rate should be in the range 0<=dropout<1')
+        else:
+            self.dropout = nn.Dropout(0.0)
 
     def forward(self, features):
         activation = self.encoder_hidden_layer(features)
-        activation = dropout(torch.ones(activation.shape)) * activation
+        activation = self.dropout(torch.ones(activation.shape)) * activation
         activation = F.leaky_relu(activation)
         # activation = torch.relu(activation)
         code = self.encoder_output_layer(activation)
@@ -42,11 +47,18 @@ class Decoder(nn.Module):
         self.decoder_output_layer = nn.Linear(
             in_features=inter_dim, out_features=orig_dim
         )
+        if kwargs.get('dropout') is not None:
+            if 0 <= kwargs['dropout'] < 1:
+                self.dropout = nn.Dropout(kwargs['dropout'])
+            else:
+                raise ValueError('Dropout rate should be in the range 0<=dropout<1')
+        else:
+            self.dropout = nn.Dropout(0.0)
 
     def forward(self, code):
         activation = self.decoder_hidden_layer(code)
         # activation = torch.relu(activation)
-        activation = dropout(torch.ones(activation.shape)) * activation
+        activation = self.dropout(torch.ones(activation.shape)) * activation
         activation = F.leaky_relu(activation)
         activation = self.decoder_output_layer(activation)
         reconstructed = torch.sigmoid(activation)
@@ -57,10 +69,10 @@ class Decoder(nn.Module):
 
 class AE(nn.Module):
 
-    def __init__(self, orig_dim, inter_dim, code_dim):
+    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs=None, dec_kwargs=None):
         super().__init__()
-        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim)
-        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim)
+        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=enc_kwargs)
+        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=dec_kwargs)
 
     def forward(self, features):
         code = self.encoder.forward(features)
@@ -68,19 +80,19 @@ class AE(nn.Module):
         return reconstructed
 
     def get_code_embedding(self, dataset):
-        Encoder = self.encoder
-        input = torch.tensor(dataset.data).float()
-        embedding = Encoder.forward(input)
+        encoder = self.encoder
+        input_ = torch.tensor(dataset.data).float()
+        embedding = encoder.forward(input_)
         return embedding.detach().numpy().T
 
 
 class VAE(nn.Module):
 
-    def __init__(self, orig_dim, inter_dim, code_dim):
+    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs=None, dec_kwargs=None):
         super(VAE, self).__init__()
 
-        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=2 * code_dim)
-        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim)
+        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=2 * code_dim, kwargs=enc_kwargs)
+        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=dec_kwargs)
         self.orig_dim = orig_dim
         self.inter_dim = inter_dim
         self.code_dim = code_dim
@@ -121,7 +133,7 @@ class VAE(nn.Module):
         return reconstructed, mu, log_var
 
     def get_code_embedding(self, dataset):
-        Encoder = self.encoder
+        #encoder = self.encoder
         input = torch.tensor(dataset.data).float()
         embedding, mu, log_var = self.get_code(input)
 
@@ -133,7 +145,7 @@ class NeuroDataset(Dataset):
 
     def __init__(self, data, transform=None):
 
-        self.data = data.A.T
+        self.data = data.T
         self.transform = transform
 
     def __len__(self):
