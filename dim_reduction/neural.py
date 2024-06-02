@@ -1,4 +1,3 @@
-# @title AE & VAE class { form-width: "300px" }
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -25,9 +24,14 @@ class Encoder(nn.Module):
         else:
             self.dropout = nn.Dropout(0.0)
 
+        if 'device' not in kwargs:
+            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self._device = kwargs['device']
+
     def forward(self, features):
         activation = self.encoder_hidden_layer(features)
-        activation = self.dropout(torch.ones(activation.shape)) * activation
+        activation = self.dropout(torch.ones(activation.shape).to(self._device)) * activation
         activation = F.leaky_relu(activation)
         # activation = torch.relu(activation)
         code = self.encoder_output_layer(activation)
@@ -39,7 +43,7 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, code_dim, inter_dim, orig_dim, **kwargs):
+    def __init__(self, code_dim, inter_dim, orig_dim, **kwargs, device=None):
         super().__init__()
         self.decoder_hidden_layer = nn.Linear(
             in_features=code_dim, out_features=inter_dim
@@ -55,10 +59,15 @@ class Decoder(nn.Module):
         else:
             self.dropout = nn.Dropout(0.0)
 
+        if device is None:
+            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self._device = device
+
     def forward(self, code):
         activation = self.decoder_hidden_layer(code)
         # activation = torch.relu(activation)
-        activation = self.dropout(torch.ones(activation.shape)) * activation
+        activation = self.dropout(torch.ones(activation.shape).to(self._device)) * activation
         activation = F.leaky_relu(activation)
         activation = self.decoder_output_layer(activation)
         reconstructed = torch.sigmoid(activation)
@@ -69,10 +78,16 @@ class Decoder(nn.Module):
 
 class AE(nn.Module):
 
-    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs=None, dec_kwargs=None):
+    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs=None, dec_kwargs=None, device=None):
         super().__init__()
-        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=enc_kwargs)
-        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=dec_kwargs)
+        if device is None:
+            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self._device = device
+        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim,
+                               kwargs=enc_kwargs, device=self._device)
+        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim,
+                               kwargs=dec_kwargs, device=self._device)
 
     def forward(self, features):
         code = self.encoder.forward(features)

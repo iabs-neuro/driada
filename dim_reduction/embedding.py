@@ -210,7 +210,7 @@ class Embedding:
             # create a model from `AE` autoencoder class
             # load it to the specified device, either gpu or cpu
             model = AE(orig_dim=self.init_data.shape[0], inter_dim=100, code_dim=self.dim,
-                       enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs)
+                       enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs, device=device)
 
             model = model.to(device)
         else:
