@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 
 class Encoder(nn.Module):
 
-    def __init__(self, orig_dim, inter_dim, code_dim, **kwargs):
+    def __init__(self, orig_dim, inter_dim, code_dim, device=None, **kwargs):
         super().__init__()
         self.encoder_hidden_layer = nn.Linear(
             in_features=orig_dim, out_features=inter_dim
@@ -24,10 +24,10 @@ class Encoder(nn.Module):
         else:
             self.dropout = nn.Dropout(0.0)
 
-        if 'device' not in kwargs:
+        if device is None:
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
-            self._device = kwargs['device']
+            self._device = device
 
     def forward(self, features):
         activation = self.encoder_hidden_layer(features)
@@ -43,7 +43,7 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, code_dim, inter_dim, orig_dim, **kwargs, device=None):
+    def __init__(self, code_dim, inter_dim, orig_dim, device=None, **kwargs):
         super().__init__()
         self.decoder_hidden_layer = nn.Linear(
             in_features=code_dim, out_features=inter_dim
