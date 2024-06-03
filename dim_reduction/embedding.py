@@ -258,8 +258,8 @@ class Embedding:
                 print("epoch : {}/{}, recon loss = {:.8f}".format(epoch + 1, epochs, loss))
 
         self.nnmodel = model
-        _input = torch.tensor(train_dataset.data).float().to(device)
-        self.coords = model.get_code_embedding(_input)
+        input_ = torch.tensor(train_dataset.data).float().to(device)
+        self.coords = model.get_code_embedding(input_)
 
     # -------------------------------------
 
@@ -342,8 +342,8 @@ class Embedding:
                 # print("epoch : {}/{}, kld loss = {:.8f}".format(epoch + 1, epochs, loss2))
 
         self.nnmodel = model
-        _input = torch.tensor(train_dataset.data).float().to(device)
-        self.coords = model.get_code_embedding(_input)
+        input_ = torch.tensor(train_dataset.data).float().to(device)
+        self.coords = model.get_code_embedding(input_)
 
         # -------------------------------------
 

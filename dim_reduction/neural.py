@@ -94,11 +94,10 @@ class AE(nn.Module):
         reconstructed = self.decoder.forward(code)
         return reconstructed
 
-    def get_code_embedding(self, dataset):
+    def get_code_embedding(self, input_):
         encoder = self.encoder
-        input_ = torch.tensor(dataset.data).float()
         embedding = encoder.forward(input_)
-        return embedding.detach().numpy().T
+        return embedding.detach().cpu().numpy().T
 
 
 class VAE(nn.Module):
@@ -147,9 +146,9 @@ class VAE(nn.Module):
         reconstructed = self.decoder.forward(code)
         return reconstructed, mu, log_var
 
-    def get_code_embedding(self, _input):
+    def get_code_embedding(self, input_):
         #encoder = self.encoder
-        embedding, mu, log_var = self.get_code(_input)
+        embedding, mu, log_var = self.get_code(input_)
         return embedding.detach().cpu().numpy().T
 
 
