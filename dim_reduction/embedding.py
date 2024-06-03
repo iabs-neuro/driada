@@ -276,7 +276,7 @@ class Embedding:
                 print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
 
         self.nnmodel = model
-        input_ = torch.tensor(self.init_data).float().to(device)
+        input_ = torch.tensor(self.init_data.T).float().to(device)
         self.coords = model.get_code_embedding(input_)
 
     # -------------------------------------
@@ -289,8 +289,11 @@ class Embedding:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
-        train_dataset = NeuroDataset(self.graph.d)
+        # TODO: add train_test_split
+        train_dataset = NeuroDataset(self.init_data[:, :int(0.8*self.init_data.shape[1])])
+        test_dataset = NeuroDataset(self.init_data[:, int(0.8 * self.init_data.shape[1]):])
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
         # ---------------------------------------------------------------------------
         #  use gpu if available
@@ -354,13 +357,28 @@ class Embedding:
             loss2 = loss2 / len(train_loader)
 
             # display the epoch training loss
+            # display the epoch training loss
             if (epoch + 1) % 10 == 0:
-                print("epoch : {}/{}, recon loss = {:.8f}".format(epoch + 1, epochs, loss))
-                # print("epoch : {}/{}, mse loss = {:.8f}".format(epoch + 1, epochs, loss1))
-                # print("epoch : {}/{}, kld loss = {:.8f}".format(epoch + 1, epochs, loss2))
+                # compute loss on test part
+                tloss = 0
+                for batch_features, _ in test_loader:
+                    data = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
+                    data = data.to(device)
+                    reconstruction, mu, logvar = model(data)
+
+                    # compute training reconstruction loss
+                    mse_loss = criterion(reconstruction, data)
+                    kld_loss = -0.5 * torch.sum(
+                        1 + logvar - mu.pow(2) - logvar.exp())  # * train_dataset.__len__()/batch_size
+                    test_loss = mse_loss + kld_weight * kld_loss
+                    tloss += test_loss.item()
+
+                # compute the epoch training loss
+                tloss = tloss / len(test_loader)
+                print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
 
         self.nnmodel = model
-        input_ = torch.tensor(train_dataset.data).float().to(device)
+        input_ = torch.tensor(self.init_data.T).float().to(device)
         self.coords = model.get_code_embedding(input_)
 
         # -------------------------------------
