@@ -258,10 +258,9 @@ class Embedding:
 
             # display the epoch training loss
             if (epoch + 1) % 10 == 0:
-                print("epoch : {}/{}, train loss = {:.8f}".format(epoch + 1, epochs, loss))
 
                 # compute loss on test part
-                loss = 0
+                tloss = 0
                 for batch_features, _ in test_loader:
                     batch_features = batch_features.to(device)
                     # compute reconstructions
@@ -270,14 +269,14 @@ class Embedding:
 
                     # compute training reconstruction loss
                     test_loss = criterion(outputs, batch_features.float())
-                    loss += test_loss.item()
+                    tloss += test_loss.item()
 
                 # compute the epoch training loss
-                loss = loss / len(test_loader)
-                print("epoch : {}/{}, test loss = {:.8f}".format(epoch + 1, epochs, loss))
+                tloss = tloss / len(test_loader)
+                print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
 
         self.nnmodel = model
-        input_ = torch.tensor(train_dataset.data).float().to(device)
+        input_ = torch.tensor(self.init_data).float().to(device)
         self.coords = model.get_code_embedding(input_)
 
     # -------------------------------------
