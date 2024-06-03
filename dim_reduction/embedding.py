@@ -191,7 +191,7 @@ class Embedding:
         self.reducer_ = reducer
 
     def create_ae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
-                             enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2):
+                             enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, train_size=0.8):
 
         # ---------------------------------------------------------------------------
 
@@ -199,8 +199,11 @@ class Embedding:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
-        train_dataset = NeuroDataset(self.init_data)
+        # TODO: add train_test_split
+        train_dataset = NeuroDataset(self.init_data[:, :int(0.8*self.init_data.shape[1])])
+        test_dataset = NeuroDataset(self.init_data[:, int(0.8 * self.init_data.shape[1]):])
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
         # ---------------------------------------------------------------------------
         #  use gpu if available
@@ -255,7 +258,23 @@ class Embedding:
 
             # display the epoch training loss
             if (epoch + 1) % 10 == 0:
-                print("epoch : {}/{}, recon loss = {:.8f}".format(epoch + 1, epochs, loss))
+                print("epoch : {}/{}, train loss = {:.8f}".format(epoch + 1, epochs, loss))
+
+                # compute loss on test part
+                loss = 0
+                for batch_features, _ in test_loader:
+                    batch_features = batch_features.to(device)
+                    # compute reconstructions
+                    noisy_batch_features = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
+                    outputs = model(noisy_batch_features.float())
+
+                    # compute training reconstruction loss
+                    test_loss = criterion(outputs, batch_features.float())
+                    loss += test_loss.item()
+
+                # compute the epoch training loss
+                loss = loss / len(test_loader)
+                print("epoch : {}/{}, test loss = {:.8f}".format(epoch + 1, epochs, loss))
 
         self.nnmodel = model
         input_ = torch.tensor(train_dataset.data).float().to(device)
