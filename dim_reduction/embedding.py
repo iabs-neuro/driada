@@ -229,13 +229,13 @@ class Embedding:
         for epoch in range(epochs):
             loss = 0
             for batch_features, _ in train_loader:
+                batch_features = batch_features.to(device)
                 # reset the gradients back to zero
                 # PyTorch accumulates gradients on subsequent backward passes
                 optimizer.zero_grad()
 
                 # compute reconstructions
-                noisy_batch_features = f_dropout(torch.ones(batch_features.shape)) * batch_features
-                noisy_batch_features = noisy_batch_features.to(device)
+                noisy_batch_features = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
                 outputs = model(noisy_batch_features.float())
 
                 # compute training reconstruction loss
@@ -291,7 +291,7 @@ class Embedding:
         optimizer = optim.Adam(model.parameters(), lr=lr)
 
         # BCE error loss
-        # criterion = nn.BCELoss(reduction='sum')
+        #criterion = nn.BCELoss(reduction='sum')
         criterion = nn.MSELoss()
 
         # ---------------------------------------------------------------------------
@@ -302,12 +302,13 @@ class Embedding:
             loss1 = 0
             loss2 = 0
             for batch_features, _ in train_loader:
+                batch_features = batch_features.to(device)
                 # reset the gradients back to zero
                 # PyTorch accumulates gradients on subsequent backward passes
                 optimizer.zero_grad()
 
                 # compute reconstructions
-                data = f_dropout(torch.ones(batch_features.shape)) * batch_features
+                data = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
                 data = data.to(device)
                 reconstruction, mu, logvar = model(data)
 
