@@ -147,12 +147,10 @@ class VAE(nn.Module):
         reconstructed = self.decoder.forward(code)
         return reconstructed, mu, log_var
 
-    def get_code_embedding(self, dataset):
+    def get_code_embedding(self, _input):
         #encoder = self.encoder
-        input = torch.tensor(dataset.data).float()
-        embedding, mu, log_var = self.get_code(input)
-
-        return embedding.detach().numpy().T
+        embedding, mu, log_var = self.get_code(_input)
+        return embedding.detach().cpu().numpy().T
 
 
 class NeuroDataset(Dataset):
