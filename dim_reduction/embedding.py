@@ -74,6 +74,8 @@ class Embedding:
             self.nnmodel = None
 
     def build(self, kwargs=None):
+        if kwargs is None:
+            kwargs = dict()
         fn = getattr(self, 'create_' + self.e_method_name + '_embedding_')
 
         if self.e_method.requires_graph:
@@ -83,8 +85,10 @@ class Embedding:
 
         fn(**kwargs)
 
-    def create_pca_embedding_(self):
-        print('Calculating PCA embedding...')
+    def create_pca_embedding_(self, verbose=True):
+        if verbose:
+            print('Calculating PCA embedding...')
+
         pca = PCA(n_components=self.dim)
         self.coords = pca.fit_transform(self.init_data.T).T
         self.reducer_ = pca
@@ -191,7 +195,8 @@ class Embedding:
         self.reducer_ = reducer
 
     def create_ae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
-                             enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, train_size=0.8):
+                             enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, train_size=0.8,
+                             inter_dim=100, verbose=True):
 
         # ---------------------------------------------------------------------------
 
@@ -200,8 +205,8 @@ class Embedding:
         torch.backends.cudnn.deterministic = True
 
         # TODO: add train_test_split
-        train_dataset = NeuroDataset(self.init_data[:, :int(0.8*self.init_data.shape[1])])
-        test_dataset = NeuroDataset(self.init_data[:, int(0.8 * self.init_data.shape[1]):])
+        train_dataset = NeuroDataset(self.init_data[:, :int(train_size * self.init_data.shape[1])])
+        test_dataset = NeuroDataset(self.init_data[:, int(train_size * self.init_data.shape[1]):])
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -212,7 +217,7 @@ class Embedding:
         if not continue_learning:
             # create a model from `AE` autoencoder class
             # load it to the specified device, either gpu or cpu
-            model = AE(orig_dim=self.init_data.shape[0], inter_dim=100, code_dim=self.dim,
+            model = AE(orig_dim=self.init_data.shape[0], inter_dim=inter_dim, code_dim=self.dim,
                        enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs, device=device)
 
             model = model.to(device)
@@ -273,7 +278,8 @@ class Embedding:
 
                 # compute the epoch training loss
                 tloss = tloss / len(test_loader)
-                print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
+                if verbose:
+                    print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
 
         self.nnmodel = model
         input_ = torch.tensor(self.init_data.T).float().to(device)
@@ -282,7 +288,8 @@ class Embedding:
     # -------------------------------------
 
     def create_vae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
-                              enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, kld_weight=1):
+                              enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, kld_weight=1,
+                              train_size=0.8, inter_dim=128, verbose=True):
 
         # ---------------------------------------------------------------------------
         torch.manual_seed(seed)
@@ -290,8 +297,9 @@ class Embedding:
         torch.backends.cudnn.deterministic = True
 
         # TODO: add train_test_split
-        train_dataset = NeuroDataset(self.init_data[:, :int(0.8*self.init_data.shape[1])])
-        test_dataset = NeuroDataset(self.init_data[:, int(0.8 * self.init_data.shape[1]):])
+        # TODO: move out data loading for autoencoders
+        train_dataset = NeuroDataset(self.init_data[:, :int(train_size * self.init_data.shape[1])])
+        test_dataset = NeuroDataset(self.init_data[:, int(train_size * self.init_data.shape[1]):])
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -302,7 +310,7 @@ class Embedding:
         if not continue_learning:
             # create a model from `VAE` autoencoder class
             # load it to the specified device, either gpu or cpu
-            model = VAE(orig_dim=len(self.graph.data.A), inter_dim=128, code_dim=self.dim,
+            model = VAE(orig_dim=len(self.init_data), inter_dim=inter_dim, code_dim=self.dim,
                         enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs)
             model = model.to(device)
         else:
@@ -375,7 +383,8 @@ class Embedding:
 
                 # compute the epoch training loss
                 tloss = tloss / len(test_loader)
-                print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
+                if verbose:
+                    print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
 
         self.nnmodel = model
         input_ = torch.tensor(self.init_data.T).float().to(device)
@@ -383,10 +392,10 @@ class Embedding:
 
         # -------------------------------------
 
-    def continue_learning(self, add_epochs):
+    def continue_learning(self, add_epochs, kwargs={}):
         if self.all_params['e_method_name'] not in ['ae', 'vae']:
             raise Exception('This is not a DL-based method!')
 
         fn = getattr(self, 'create_' + self.all_params['e_method_name'] + '_embedding_')
-        fn(continue_learning=1, epochs=add_epochs)
+        fn(continue_learning=1, epochs=add_epochs, kwargs=kwargs)
 

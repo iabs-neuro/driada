@@ -119,7 +119,7 @@ def scan_pairs(ts_bunch1,
                 mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds)
                 mi_table[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
-                for k, shift in enumerate(random_shifts[i,0,:]):
+                for k, shift in enumerate(random_shifts[i, 0, :]):
                     mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift)
                     mi_table_shuffles[i,0,k] = mi + np.random.random()*noise_const  # add small noise for better fitting
 

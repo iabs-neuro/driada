@@ -44,10 +44,13 @@ class Experiment():
 
     '''
 
-    def __init__(self, signature, calcium, spikes,
-                 exp_identificators, static_features, dynamic_features,
-                 reconstruct_spikes='wavelet', spike_kwargs=None,
-                 bad_frames_mask=None, **kwargs):
+    def __init__(self, signature, calcium, spikes, exp_identificators,
+                 static_features, dynamic_features, **kwargs):
+
+        fit_individual_t_off = kwargs.get('fit_individual_t_off', False)
+        reconstruct_spikes = kwargs.get('reconstruct_spikes', 'wavelet')
+        bad_frames_mask = kwargs.get('bad_frames_mask', None)
+        spike_kwargs = kwargs.get('spike_kwargs', None)
 
         check_dynamic_features(dynamic_features)
         self.exp_identificators = exp_identificators
@@ -107,7 +110,8 @@ class Experiment():
                           self.spikes[i, :],
                           default_t_rise=static_features.get('t_rise_sec'),
                           default_t_off=static_features.get('t_off_sec'),
-                          fps=static_features.get('fps'))
+                          fps=static_features.get('fps'),
+                          fit_individual_t_off=fit_individual_t_off)
 
                 #cell.reconstruct_spikes(**kwargs)
 

@@ -56,7 +56,9 @@ class Neuron():
         ca += np.random.random(size=len(ca))*1e-8
         return ca
 
-    def __init__(self, cell_id, ca, sp, default_t_rise=DEFAULT_T_RISE, default_t_off=DEFAULT_T_OFF, fps=DEFAULT_FPS):
+    def __init__(self, cell_id, ca, sp,
+                 default_t_rise=DEFAULT_T_RISE, default_t_off=DEFAULT_T_OFF, fps=DEFAULT_FPS,
+                 fit_individual_t_off=False):
 
         if default_t_rise is None:
             default_t_rise = DEFAULT_T_RISE
@@ -82,7 +84,10 @@ class Neuron():
         self.default_t_off = default_t_off*fps
         self.default_t_rise = default_t_rise*fps
 
-        t_off = self.get_t_off()
+        if fit_individual_t_off:
+            t_off = self.get_t_off()
+        else:
+            t_off = self.default_t_off
 
         # add shuffle mask according to computed characteristic calcium decay time
         self.ca.shuffle_mask = np.ones(self.n_frames).astype(bool)
