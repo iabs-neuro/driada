@@ -18,7 +18,7 @@ def calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=Tru
                 lag_mi = get_1d_mi(ts1, ts2, ds=ds, shift=int(shift))
                 shifted_mi.append(lag_mi)
 
-            best_shift = np.argmax(shifted_mi)
+            best_shift = shifts[np.argmax(shifted_mi)]
             optimal_delays[i, j] = int(best_shift*ds)
 
     return optimal_delays
@@ -144,7 +144,8 @@ def scan_pairs(ts_bunch1,
     for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1), position=0, leave=True):
         if joint_distr:
             if mask[i,0] == 1:
-                mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=optimal_delays[i,0]) # default MI without shuffling
+                # default MI without shuffling, minus due to different order
+                mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0])
                 mi_table[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                 for k, shift in enumerate(random_shifts[i, 0, :]):

@@ -123,6 +123,7 @@ def compute_cell_feat_mi_significance(exp,
     shift_window: int
         Window for optimal shift search (seconds). Optimal shift (in frames) will lie in the range
         -shift_window*fps <= opt_shift <= shift_window*fps
+        Has no effect if find_optimal_delays = False
 
     Returns
     -------
