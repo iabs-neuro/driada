@@ -145,7 +145,7 @@ def scan_pairs(ts_bunch1,
         if joint_distr:
             if mask[i,0] == 1:
                 # default MI without shuffling, minus due to different order
-                mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0])
+                mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0]//ds)
                 mi_table[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                 for k, shift in enumerate(random_shifts[i, 0, :]):
@@ -159,7 +159,7 @@ def scan_pairs(ts_bunch1,
         else:
             for j, ts2 in enumerate(ts_bunch2):
                 if mask[i,j] == 1:
-                    mi0 = get_1d_mi(ts1, ts2, ds=ds, shift=optimal_delays[i,j]) # default MI without shuffling
+                    mi0 = get_1d_mi(ts1, ts2, ds=ds, shift=optimal_delays[i,j]//ds) # default MI without shuffling
                     mi_table[i,j] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                     for k, shift in enumerate(random_shifts[i,j,:]):
