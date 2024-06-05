@@ -21,7 +21,7 @@ def compute_cell_feat_mi_significance(exp,
                                       multicomp_correction='holm',
                                       pval_thr=0.01,
                                       find_optimal_delays=True,
-                                      shift_window = 5,
+                                      shift_window=5,
                                       verbose=True):
 
     """

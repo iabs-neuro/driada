@@ -9,7 +9,7 @@ def calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=Tru
     if verbose:
         print('Calculating optimal delays:')
 
-    optimal_delays = np.zeros((len(ts_bunch1), len(ts_bunch2)))
+    optimal_delays = np.zeros((len(ts_bunch1), len(ts_bunch2)), dtype=int)
     shifts = np.arange(-shift_window, shift_window, ds) // ds
     for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1)):
         for j, ts2 in enumerate(ts_bunch2):
@@ -129,7 +129,7 @@ def scan_pairs(ts_bunch1,
             # TODO: add combination of ts shuffle masks for all ts from tsbunch2
             combined_shuffle_mask = ts1.shuffle_mask
             # move shuffle mask according to optimal shift
-            combined_shuffle_mask = np.roll(combined_shuffle_mask, optimal_delays[i,0])
+            combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, 0]))
             indices_to_select = np.arange(t)[combined_shuffle_mask]
             random_shifts[i, 0, :] = np.random.choice(indices_to_select, size=nsh) // ds
 
@@ -137,7 +137,7 @@ def scan_pairs(ts_bunch1,
             for j, ts2 in enumerate(ts_bunch2):
                 combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
                 # move shuffle mask according to optimal shift
-                combined_shuffle_mask = np.roll(combined_shuffle_mask, optimal_delays[i,j])
+                combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, j]))
                 indices_to_select = np.arange(t)[combined_shuffle_mask]
                 random_shifts[i, j, :] = np.random.choice(indices_to_select, size=nsh)//ds
 
