@@ -211,6 +211,7 @@ def get_tdmi(data, min_shift=1, max_shift=100, nn=DEFAULT_NN):
 
 def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
 
+    #TODO: make shift the same as in get_1d_mi
     if ~np.all([ts.discrete for ts in tslist]) and not ts2.discrete:
         nylist = [ts.copula_normal_data[::ds] for ts in tslist]
         ny1 = np.vstack(nylist)

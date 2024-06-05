@@ -5,6 +5,25 @@ from .stats import *
 from ..information.info_base import get_1d_mi, get_multi_mi
 
 
+def calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=True):
+    if verbose:
+        print('Calculating optimal delays:')
+
+    optimal_delays = np.zeros((len(ts_bunch1), len(ts_bunch2)))
+    shifts = np.arange(-shift_window, shift_window, ds) // ds
+    for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1)):
+        for j, ts2 in enumerate(ts_bunch2):
+            shifted_mi = []
+            for shift in shifts:
+                lag_mi = get_1d_mi(ts1, ts2, ds=ds, shift=int(shift))
+                shifted_mi.append(lag_mi)
+
+            best_shift = np.argmax(shifted_mi)
+            optimal_delays[i, j] = int(best_shift*ds)
+
+    return optimal_delays
+
+
 # TODO: add cbunch and fbunch logic
 def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
 
@@ -34,6 +53,7 @@ def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
 def scan_pairs(ts_bunch1,
                ts_bunch2,
                nsh,
+               optimal_delays,
                joint_distr=False,
                ds=1,
                mask=None,
@@ -71,6 +91,9 @@ def scan_pairs(ts_bunch1,
         Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit
         default: 1e-3
 
+    optimal_delays: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
+        best shifts from original time series alignment in terms of MI.
+
     seed: int
         Random seed for reproducibility
 
@@ -105,18 +128,23 @@ def scan_pairs(ts_bunch1,
         if joint_distr:
             # TODO: add combination of ts shuffle masks for all ts from tsbunch2
             combined_shuffle_mask = ts1.shuffle_mask
+            # move shuffle mask according to optimal shift
+            combined_shuffle_mask = np.roll(combined_shuffle_mask, optimal_delays[i,0])
             indices_to_select = np.arange(t)[combined_shuffle_mask]
             random_shifts[i, 0, :] = np.random.choice(indices_to_select, size=nsh) // ds
+
         else:
             for j, ts2 in enumerate(ts_bunch2):
                 combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
+                # move shuffle mask according to optimal shift
+                combined_shuffle_mask = np.roll(combined_shuffle_mask, optimal_delays[i,j])
                 indices_to_select = np.arange(t)[combined_shuffle_mask]
                 random_shifts[i, j, :] = np.random.choice(indices_to_select, size=nsh)//ds
 
     for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1), position=0, leave=True):
         if joint_distr:
             if mask[i,0] == 1:
-                mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds)
+                mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=optimal_delays[i,0]) # default MI without shuffling
                 mi_table[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                 for k, shift in enumerate(random_shifts[i, 0, :]):
@@ -130,7 +158,7 @@ def scan_pairs(ts_bunch1,
         else:
             for j, ts2 in enumerate(ts_bunch2):
                 if mask[i,j] == 1:
-                    mi0 = get_1d_mi(ts1, ts2, ds=ds)
+                    mi0 = get_1d_mi(ts1, ts2, ds=ds, shift=optimal_delays[i,j]) # default MI without shuffling
                     mi_table[i,j] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
 
                     for k, shift in enumerate(random_shifts[i,j,:]):
@@ -163,6 +191,8 @@ def compute_mi_stats(ts_bunch1,
                      topk2=5,
                      multicomp_correction='holm',
                      pval_thr=0.01,
+                     find_optimal_delays=False,
+                     shift_window=100,
                      verbose=True,
                      seed=None):
 
@@ -245,6 +275,15 @@ def compute_mi_stats(ts_bunch1,
         pvalue threshold. if multicomp_correction=None, this is a p-value for a single pair.
         Otherwise it is a FWER significance level.
 
+    find_optimal_delays: bool
+        Allows slight shifting (not more than +- shift_window) of time series,
+        selects a shift with the highest MI as default.
+        default: True
+
+    shift_window: int
+        Window for optimal shift search (frames). Optimal shift will lie in the range
+        -shift_window <= opt_shift <= shift_window
+
     verbose: bool
         whether to print intermediate information
 
@@ -281,6 +320,11 @@ def compute_mi_stats(ts_bunch1,
     if precomputed_mask_stage2 is None:
         precomputed_mask_stage2 = np.ones((n1, n2))
 
+    optimal_delays = np.zeros((n1, n2))
+    if find_optimal_delays:
+        optimal_delays = calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=verbose)
+    accumulated_info['optimal_delays'] = optimal_delays
+
     mask_from_stage1 = np.zeros((n1, n2))
     mask_from_stage2 = np.zeros((n1, n2))
     nhyp = n1*n2
@@ -294,6 +338,7 @@ def compute_mi_stats(ts_bunch1,
         random_shifts1, mi_total1 = scan_pairs(ts_bunch1,
                                                ts_bunch2,
                                                n_shuffles_stage1,
+                                               optimal_delays,
                                                joint_distr=joint_distr,
                                                ds=ds,
                                                mask=precomputed_mask_stage1,
@@ -353,6 +398,7 @@ def compute_mi_stats(ts_bunch1,
         random_shifts2, mi_total2 = scan_pairs(ts_bunch1,
                                                ts_bunch2,
                                                n_shuffles_stage2,
+                                               optimal_delays,
                                                joint_distr=joint_distr,
                                                ds=ds,
                                                mask=combined_mask_for_stage_2,

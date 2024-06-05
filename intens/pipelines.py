@@ -20,6 +20,8 @@ def compute_cell_feat_mi_significance(exp,
                                       topk2=5,
                                       multicomp_correction='holm',
                                       pval_thr=0.01,
+                                      find_optimal_delays=True,
+                                      shift_window = 5,
                                       verbose=True):
 
     """
@@ -113,6 +115,15 @@ def compute_cell_feat_mi_significance(exp,
         pvalue threshold. if multicomp_correction=None, this is a p-value for a single pair.
         Otherwise it is a FWER significance level.
 
+    find_optimal_delays: bool
+        Allows slight shifting (not more than +- shift_window) of time series,
+        selects a shift with the highest MI as default.
+        default: True
+
+    shift_window: int
+        Window for optimal shift search (seconds). Optimal shift (in frames) will lie in the range
+        -shift_window*fps <= opt_shift <= shift_window*fps
+
     Returns
     -------
     stats: dict of dict of dicts
@@ -193,6 +204,8 @@ def compute_cell_feat_mi_significance(exp,
                                                                    topk2=topk2,
                                                                    multicomp_correction=multicomp_correction,
                                                                    pval_thr=pval_thr,
+                                                                   find_optimal_delays=find_optimal_delays,
+                                                                   shift_window=shift_window*exp.fps,
                                                                    verbose=verbose)
 
     # add hash data and update Experiment saved statistics and significance if needed
