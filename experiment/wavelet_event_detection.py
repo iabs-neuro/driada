@@ -252,5 +252,6 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds):
             start = int(st_ev_inds[i][j])
             end = int(end_ev_inds[i][j])
             spikes[i, end: start] = 1
+            #spikes[i, end: end+50] = 1
 
     return spikes

@@ -12,7 +12,7 @@ def construct_session_name(data_source, exp_params, allow_unknown=True):
         elif track == 'FcOY':
             name = f'FcOY_{animal_id}_{session}'
         elif track == 'STFP':
-            name = f'STFP{animal_id}_{session}'
+            name = f'STFP_{animal_id}_{session}'
         elif track == 'AP':
             name = f'AP_{animal_id}_{session}'
         elif track == 'NOF':

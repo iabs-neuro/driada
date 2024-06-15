@@ -3,6 +3,7 @@ from sklearn.metrics.cluster import mutual_info_score
 
 from .ksg import *
 from .gcmi import *
+from .info_utils import binary_mi_score
 
 import numpy as np
 import warnings
@@ -52,7 +53,16 @@ class TimeSeries():
         scaler = MinMaxScaler()
         self.scdata = scaler.fit_transform(self.data.reshape(-1, 1)).reshape(1, -1)[0]
         self.copula_normal_data = None
-        if not self.discrete:
+
+        if self.discrete:
+            self.int_data = self.data.astype(int)
+            if len(set(self.data.astype(int))) == 2:
+                self.is_binary = True
+                self.bool_data = self.int_data.astype(bool)
+            else:
+                self.is_binary = False
+
+        else:
             self.copula_normal_data = copnorm(self.data).ravel()
 
         self.entropy = dict()  # supports various downsampling constants
@@ -133,12 +143,12 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     if not isinstance(ts2, TimeSeries):
         ts2 = TimeSeries(ts2)
 
-    x = ts1.scdata[::ds].reshape(-1, 1)
-    y = ts2.scdata[::ds]
-    if shift != 0:
-        y = np.roll(y, shift)
-
     if estimator == 'ksg':
+        x = ts1.scdata[::ds].reshape(-1, 1)
+        y = ts2.scdata[::ds]
+        if shift != 0:
+            y = np.roll(y, shift)
+
         if not ts1.discrete and not ts2.discrete:
             mi = nonparam_mi_cc_mod(ts1.scdata, y, k=k,
                                     precomputed_tree_x=ts1.get_kdtree(),
@@ -163,37 +173,32 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
             mi = mi_gg(ny1, ny2, True, True)
 
         elif ts1.discrete and ts2.discrete:
-            ny1 = ts1.data.astype(int)[::ds]#.reshape(-1, 1)
-            ny2 = np.roll(ts2.data.astype(int)[::ds], shift)
-
-            # TODO: improve performance by passing contingency matrix
-            '''
             # if features are binary:
-            if len(set(ny1)) == 2 and len(set(ny2)) == 2:
-                ny1_bool = ny1.astype(bool)
-                contingency = np.zeros((2,2))
-                contingency[0,0] =
+            if ts1.is_binary and ts2.is_binary:
+                ny1 = ts1.bool_data[::ds]
+                ny2 = np.roll(ts2.bool_data[::ds], shift)
+
+                contingency = np.zeros((2, 2))
+                contingency[0, 0] = (ny1 & ny2).sum()
+                contingency[0, 1] = (~ny1 & ny2).sum()
+                contingency[0, 1] = (ny1 & ~ny2).sum()
+                contingency[1, 1] = (~ny1 & ~ny2).sum()
+
+                mi = binary_mi_score(contingency)
+
             else:
-                contingency = None
-            '''
-            contingency = None
-            mi = mutual_info_score(ny1, ny2, contingency=contingency)
-            #mi = mutual_info_classif(ny1, ny2, discrete_features=True, n_neighbors=k)[0]
-            #mutual_info_score(
+                ny1 = ts1.int_data[::ds]  # .reshape(-1, 1)
+                ny2 = np.roll(ts2.int_data[::ds], shift)
+                mi = mutual_info_score(ny1, ny2)
 
         elif ts1.discrete and not ts2.discrete:
-            ny1 = ts1.data.astype(int)[::ds]
+            ny1 = ts1.int_data[::ds]
             ny2 = np.roll(ts2.copula_normal_data[::ds], shift)
             mi = mi_model_gd(ny2, ny1, np.max(ny1), biascorrect=True, demeaned=True)
 
         elif not ts1.discrete and ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
-            #print(len(ny1))
-            #print(ds, shift)
-            #print(ts2.scdata)
-            #print(np.sum(np.isnan(ts2.scdata)).astype(int))
-            ny2 = np.roll(ts2.data.astype(int)[::ds], shift)
-            #print(len(ny2))
+            ny2 = np.roll(ts2.int_data[::ds], shift)
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         if mi < 0:

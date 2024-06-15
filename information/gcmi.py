@@ -5,6 +5,8 @@ from scipy.special import ndtri, psi, digamma
 
 from .info_utils import py_fast_digamma
 
+#TODO: credits to original GCMI
+
 def ctransform(x):
     """Copula transformation (empirical CDF)
     cx = ctransform(x) returns the empirical CDF value along the first
