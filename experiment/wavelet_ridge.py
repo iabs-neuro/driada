@@ -83,3 +83,25 @@ class Ridge(object):
             self.end = self.indices[-1]
             self.duration = np.abs(self.end-self.start)
             self.terminated = True
+
+
+class RidgeInfoContainer(object):
+    def __init__(self, indices, ampls, scales, wvt_times):
+        self.indices = np.array(indices)
+        self.ampls = np.array(ampls)
+        self.scales = np.array(scales)
+        self.wvt_times = np.array(wvt_times)
+
+        self.birth_scale = scales[0]
+        self.end_scale = scales[-1]
+        self.length = len(self.scales)
+        self.max_scale = self.scales[np.argmax(self.ampls)]
+        self.max_ampl = max(self.ampls)
+        self.start = self.indices[0]
+        self.end = self.indices[-1]
+        self.duration = np.abs(self.end - self.start)
+
+
+def ridges_to_containers(ridges):
+    rcs = [RidgeInfoContainer(ridge.indices, ridge.ampls, ridge.scales, ridge.wvt_times) for ridge in ridges]
+    return rcs

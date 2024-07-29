@@ -213,6 +213,8 @@ class Embedding:
         # ---------------------------------------------------------------------------
         #  use gpu if available
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if verbose:
+            print('device:', device)
 
         if not continue_learning:
             # create a model from `AE` autoencoder class
@@ -225,7 +227,6 @@ class Embedding:
             model = self.nnmodel
 
         # create an optimizer object
-        # Adam optimizer with learning rate 1e-3
         optimizer = optim.Adam(model.parameters(), lr=lr)
 
         # mean-squared error loss
@@ -233,6 +234,10 @@ class Embedding:
 
         # ---------------------------------------------------------------------------
         f_dropout = nn.Dropout(feature_dropout)
+
+        best_test_epoch = -1
+        best_test_loss = 1e10
+        best_test_model = None
 
         for epoch in range(epochs):
             loss = 0
@@ -262,7 +267,7 @@ class Embedding:
             loss = loss / len(train_loader)
 
             # display the epoch training loss
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % 1 == 0:
 
                 # compute loss on test part
                 tloss = 0
@@ -272,18 +277,27 @@ class Embedding:
                     noisy_batch_features = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
                     outputs = model(noisy_batch_features.float())
 
-                    # compute training reconstruction loss
+                    # compute test reconstruction loss
                     test_loss = criterion(outputs, batch_features.float())
                     tloss += test_loss.item()
 
-                # compute the epoch training loss
+                # compute the epoch test loss
                 tloss = tloss / len(test_loader)
+                if tloss < best_test_loss:
+                    best_test_loss = tloss
+                    best_test_epoch = epoch + 1
+                    best_test_model = model
                 if verbose:
                     print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
 
-        self.nnmodel = model
+        if verbose:
+            if best_test_epoch != epochs + 1:
+                print(f'best model: epoch {best_test_epoch}')
+
+        self.nnmodel = best_test_model
         input_ = torch.tensor(self.init_data.T).float().to(device)
         self.coords = model.get_code_embedding(input_)
+        self.nn_loss = tloss
 
     # -------------------------------------
 
@@ -291,6 +305,7 @@ class Embedding:
                               enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, kld_weight=1,
                               train_size=0.8, inter_dim=128, verbose=True):
 
+    # TODO: add best model mechanism as above
         # ---------------------------------------------------------------------------
         torch.manual_seed(seed)
         torch.backends.cudnn.benchmark = False

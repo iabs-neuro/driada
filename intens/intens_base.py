@@ -350,6 +350,7 @@ def compute_mi_stats(ts_bunch1,
                                 'mi_total1': mi_total1})
         # turn computed data tables from stage 1 and precomputed data into dict of stats dicts
         stage_1_stats = get_table_of_stats(mi_total1,
+                                           optimal_delays,
                                            mi_distr_type=mi_distr_type,
                                            nsh=n_shuffles_stage1,
                                            precomputed_mask=precomputed_mask_stage1,
@@ -411,6 +412,7 @@ def compute_mi_stats(ts_bunch1,
 
         # turn data tables from stage 2 to array of stats dicts
         stage_2_stats = get_table_of_stats(mi_total2,
+                                           optimal_delays,
                                            mi_distr_type=mi_distr_type,
                                            nsh=n_shuffles_stage2,
                                            precomputed_mask=combined_mask_for_stage_2,

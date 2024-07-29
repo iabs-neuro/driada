@@ -6,11 +6,11 @@ import pickle
 
 from ..signals.sig_base import TimeSeries
 from .neuron import DEFAULT_MIN_BEHAVIOUR_TIME, Neuron
-from .wavelet_event_detection import WVT_EVENT_DETECTION_PARAMS, extract_wvt_events, events_to_ts_array
+from .wavelet_event_detection import WVT_EVENT_DETECTION_PARAMS, extract_wvt_events, events_to_ts_array, ridges_to_containers
 from ..utils.data import get_hash, populate_nested_dict
 from ..information.info_base import get_1d_mi
 
-STATS_VARS = ['data_hash', 'pre_pval', 'pre_rval', 'pval', 'rval', 'mi', 'rel_mi_beh', 'rel_mi_ca']
+STATS_VARS = ['data_hash', 'opt_delay', 'pre_pval', 'pre_rval', 'pval', 'rval', 'mi', 'rel_mi_beh', 'rel_mi_ca']
 SIGNIFICANCE_VARS = ['stage1', 'shuffles1', 'stage2', 'shuffles2', 'final_p_thr', 'multicomp_corr', 'pairwise_pval_thr']
 DEFAULT_STATS = dict(zip(STATS_VARS, [None for _ in STATS_VARS]))
 DEFAULT_SIGNIFICANCE = dict(zip(SIGNIFICANCE_VARS, [None for _ in SIGNIFICANCE_VARS]))
@@ -77,7 +77,8 @@ class Experiment():
                     for k, v in spike_kwargs.items():
                         wvt_kwargs[k] = v
                 st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(calcium, wvt_kwargs)
-                spikes = events_to_ts_array(calcium.shape[1], st_ev_inds, end_ev_inds)
+                self._all_wvt_ridges = [ridges_to_containers(ridges) for ridges in all_ridges]
+                spikes = events_to_ts_array(calcium.shape[1], st_ev_inds, end_ev_inds, wvt_kwargs['fps'])
 
             else:
                 raise ValueError(f'"{reconstruct_spikes} method for event reconstruction is not available"')
@@ -516,7 +517,7 @@ class Experiment():
 
         return agg_sh_data
 
-    def get_stats_slice(self, cbunch=None, fbunch=None, sbunch=None, significance_mode=False):
+    def get_stats_slice(self, table_to_scan=None, cbunch=None, fbunch=None, sbunch=None, significance_mode=False):
         '''
         returns slice of accumulated statistics data (or significance data if "significance_mode=True")
         '''
@@ -524,10 +525,13 @@ class Experiment():
         feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True)
         slist = self._process_sbunch(sbunch, significance_mode=significance_mode)
 
-        if significance_mode:
-            full_table = self.significance_table
+        if table_to_scan is None:
+            if significance_mode:
+                full_table = self.significance_table
+            else:
+                full_table = self.stats_table
         else:
-            full_table = self.stats_table
+            full_table = table_to_scan
 
         out_table = self._populate_cell_feat_dict(dict(), fbunch=fbunch, cbunch=cbunch)
         for feat_id in feat_ids:

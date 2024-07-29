@@ -209,6 +209,7 @@ def compute_cell_feat_mi_significance(exp,
                                                                    shift_window=shift_window*exp.fps,
                                                                    verbose=verbose)
 
+    exp.optimal_nf_delays = info['optimal_delays']
     # add hash data and update Experiment saved statistics and significance if needed
     for i, cell_id in enumerate(cell_ids):
         for j, feat_id in enumerate(feat_ids):

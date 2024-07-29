@@ -55,7 +55,7 @@ class TimeSeries():
         self.copula_normal_data = None
 
         if self.discrete:
-            self.int_data = self.data.astype(int)
+            self.int_data = np.round(self.data).astype(int)
             if len(set(self.data.astype(int))) == 2:
                 self.is_binary = True
                 self.bool_data = self.int_data.astype(bool)
@@ -198,7 +198,15 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
 
         elif not ts1.discrete and ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
+            #TODO: fix zd error
             ny2 = np.roll(ts2.int_data[::ds], shift)
+            #ny2 = np.roll(ts2.data[::ds], shift)
+            '''
+            print(ny2)
+            print(sum(ny2))
+            print(ny1)
+            '''
+
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         if mi < 0:

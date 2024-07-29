@@ -17,7 +17,7 @@ WVT_EVENT_DETECTION_PARAMS = {
                   'sigma': 8,      # smoothing parameter for peak detection, frames
                   'beta': 2,       # Generalized Morse Wavelet parameter, FIXED
                   'gamma': 3,      # Generalized Morse Wavelet parameter, FIXED
-                  'eps':10,         # spacing between consecutive events, frames
+                  'eps': 10,         # spacing between consecutive events, frames
                   'manual_scales': np.logspace(2.5,5.5,50, base=2),
 
                   # ridge filtering params
@@ -26,6 +26,9 @@ WVT_EVENT_DETECTION_PARAMS = {
                   'max_ampl_thr': 0.05,    # max ridge intensity thr, higher = less events. < 5 = noise, > 20 = huge events
                   'max_dur_thr': 200,      # max event duration thr, higher = more events (but probably strange ones)
 }
+MIN_EVENT_DUR = 0.5 # sec
+MAX_EVENT_DUR = 2.5 # sec
+
 
 def wvt_viz(x, Wx):
     fig, axs = plt.subplots(2, 1, figsize=(12,12))
@@ -244,14 +247,25 @@ def extract_wvt_events(traces, wvt_kwargs):
     return st_ev_inds, end_ev_inds, all_ridges
 
 
-def events_to_ts_array(length, st_ev_inds, end_ev_inds):
+def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     ncells = len(end_ev_inds)
     spikes = np.zeros((ncells, length))
+
+    mindur = int(MIN_EVENT_DUR * fps)
+    maxdur = int(MAX_EVENT_DUR * fps)
+
     for i in range(ncells):
         for j in range(len(st_ev_inds[i])):
             start = int(st_ev_inds[i][j])
             end = int(end_ev_inds[i][j])
-            spikes[i, end: start] = 1
-            #spikes[i, end: end+50] = 1
+            start_, end_ = min(start, end), max(start, end)
+            dur = end_ - start_
+            if mindur <= dur <= maxdur:
+                spikes[i, start_: end_] = 1
+            elif dur > maxdur:
+                spikes[i, start_: start_ + maxdur] = 1
+            else:
+                middle = (start_ + end_)//2
+                spikes[i, int(middle - mindur//2): int(middle + mindur//2)] = 1
 
     return spikes
