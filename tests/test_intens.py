@@ -1,7 +1,7 @@
 import pandas as pd
 
-from ..intens.intens_base import compute_mi_stats
-from ..intens.stats import *
+from ..intense.intens_base import compute_mi_stats
+from ..intense.stats import *
 from ..information.info_base import TimeSeries
 from ..utils.data import retrieve_relevant_from_nested_dict
 import numpy as np

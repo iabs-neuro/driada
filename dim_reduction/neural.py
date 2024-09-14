@@ -18,7 +18,7 @@ class Encoder(nn.Module):
         )
         if kwargs.get('dropout') is not None:
             if 0 <= kwargs['dropout'] < 1:
-                self.dropout = nn.Dropout(kwargs['dropout'])
+                self.dropout = nn.Dropout(p=kwargs['dropout'])
             else:
                 raise ValueError('Dropout rate should be in the range 0<=dropout<1')
         else:
@@ -53,7 +53,7 @@ class Decoder(nn.Module):
         )
         if kwargs.get('dropout') is not None:
             if 0 <= kwargs['dropout'] < 1:
-                self.dropout = nn.Dropout(kwargs['dropout'])
+                self.dropout = nn.Dropout(p=kwargs['dropout'])
             else:
                 raise ValueError('Dropout rate should be in the range 0<=dropout<1')
         else:
