@@ -66,9 +66,11 @@ def plot_neuron_feature_density(exp, data_type, cell_id, featname, ind1=0, ind2=
             ax.set_title(f'wsd={wsd}')
 
         if data_type == 'spikes':
+            raise Exception('Not implemented yet')
 
+    #TODO: finish this function
     else:
-        x0, y0 = np.log10(ca + np.random.random(size=len(ca)) * 1e-8), np.log(
+        x0, y0 = np.log10(sig + np.random.random(size=len(sig)) * 1e-8), np.log(
             bdata + np.random.random(size=len(bdata)) * 1e-8)
 
         jdata = np.vstack([x0, y0]).T

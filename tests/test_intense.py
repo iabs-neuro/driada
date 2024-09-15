@@ -1,6 +1,6 @@
 import pandas as pd
 
-from ..intense.intens_base import compute_mi_stats
+from ..intense.intense_base import compute_mi_stats
 from ..intense.stats import *
 from ..information.info_base import TimeSeries
 from ..utils.data import retrieve_relevant_from_nested_dict

@@ -1,5 +1,5 @@
 from .stats import *
-from .intens_base import compute_mi_stats
+from .intense_base import compute_mi_stats
 
 
 def compute_cell_feat_mi_significance(exp,
