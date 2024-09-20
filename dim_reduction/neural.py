@@ -8,17 +8,20 @@ from torch.utils.data import Dataset, DataLoader
 
 class Encoder(nn.Module):
 
-    def __init__(self, orig_dim, inter_dim, code_dim, device=None, **kwargs):
+    def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
         super().__init__()
+        dropout = kwargs.get('dropout', None)
+
         self.encoder_hidden_layer = nn.Linear(
             in_features=orig_dim, out_features=inter_dim
         )
         self.encoder_output_layer = nn.Linear(
             in_features=inter_dim, out_features=code_dim
         )
-        if kwargs.get('dropout') is not None:
-            if 0 <= kwargs['dropout'] < 1:
-                self.dropout = nn.Dropout(p=kwargs['dropout'])
+
+        if dropout is not None:
+            if 0 <= dropout < 1:
+                self.dropout = nn.Dropout(p=dropout)
             else:
                 raise ValueError('Dropout rate should be in the range 0<=dropout<1')
         else:
@@ -43,17 +46,20 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, code_dim, inter_dim, orig_dim, device=None, **kwargs):
+    def __init__(self, code_dim, inter_dim, orig_dim, kwargs, device=None):
         super().__init__()
+        dropout = kwargs.get('dropout', None)
+
         self.decoder_hidden_layer = nn.Linear(
             in_features=code_dim, out_features=inter_dim
         )
         self.decoder_output_layer = nn.Linear(
             in_features=inter_dim, out_features=orig_dim
         )
-        if kwargs.get('dropout') is not None:
-            if 0 <= kwargs['dropout'] < 1:
-                self.dropout = nn.Dropout(p=kwargs['dropout'])
+
+        if dropout is not None:
+            if 0 <= dropout < 1:
+                self.dropout = nn.Dropout(p=dropout)
             else:
                 raise ValueError('Dropout rate should be in the range 0<=dropout<1')
         else:
@@ -172,5 +178,5 @@ class NeuroDataset(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
-        return self.data[idx], 0
+        return self.data[idx], -42, idx
         # return sample

@@ -196,7 +196,8 @@ class Embedding:
 
     def create_ae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
                              enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, train_size=0.8,
-                             inter_dim=100, verbose=True):
+                             inter_dim=100, verbose=True, corr_hyperweight=0, mi_hyperweight=0,
+                             minimize_mi_data=None, log_every=1, device=None):
 
         # ---------------------------------------------------------------------------
 
@@ -211,10 +212,11 @@ class Embedding:
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
         # ---------------------------------------------------------------------------
-        #  use gpu if available
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if verbose:
-            print('device:', device)
+        if device is None:
+            #  use gpu if available
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            if verbose:
+                print('device:', device)
 
         if not continue_learning:
             # create a model from `AE` autoencoder class
@@ -232,6 +234,35 @@ class Embedding:
         # mean-squared error loss
         criterion = nn.MSELoss()
 
+        def correlation_loss(data):
+            #print('corr')
+            corr = torch.corrcoef(data)
+            #print(corr)
+            nv = corr.shape[0]
+            closs = torch.abs((torch.sum(torch.abs(corr)) - 1*nv)/(nv**2 - nv))  # average pairwise correlation amplitude
+            #print(closs)
+            return closs
+
+        def data_orthogonality_loss(data, ortdata):
+
+            # punishes big amplitude correlation coefficients between all variables from data and ortdata.
+            # ortdata is supposed fixed
+            # temporal workaround instead of MINE MI estimation
+
+            # print('ortho')
+            #print(ortdata)
+            n1, n2 = data.shape[0], ortdata.shape[1]
+            fulldata = torch.cat((data, ortdata), dim=0)
+            corr = torch.corrcoef(fulldata)
+            #print(corr)
+            #print(corr[n1:, :n1])
+            nvar = n1*n2
+            closs = torch.abs(
+                (torch.sum(torch.abs(corr))) / nvar)  # average pairwise correlation amplitude
+            #print(closs)
+            #print()
+            return closs
+
         # ---------------------------------------------------------------------------
         f_dropout = nn.Dropout(feature_dropout)
 
@@ -241,7 +272,7 @@ class Embedding:
 
         for epoch in range(epochs):
             loss = 0
-            for batch_features, _ in train_loader:
+            for batch_features, _, indices in train_loader:
                 batch_features = batch_features.to(device)
                 # reset the gradients back to zero
                 # PyTorch accumulates gradients on subsequent backward passes
@@ -250,9 +281,52 @@ class Embedding:
                 # compute reconstructions
                 noisy_batch_features = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
                 outputs = model(noisy_batch_features.float())
+                code = model.encoder(noisy_batch_features.float()).T
 
+                '''
+                # ==================== MINE experiment ========================
+
+                from torch_mist.estimators import mine
+                from torch_mist.utils.train import train_mi_estimator
+                from torch_mist.utils import evaluate_mi
+
+                minimize_mi_data = torch.tensor(minimize_mi_data[:, _]).float().to(device)
+                print(minimize_mi_data.shape, code.shape)
+
+                estimator = mine(
+                    x_dim=minimize_mi_data.shape[0],
+                    y_dim=code.shape[0],
+                    hidden_dims=[64, 32],
+                )
+
+
+                # Train it on the given samples
+                train_log = train_mi_estimator(
+                    estimator=estimator,
+                    train_data=(minimize_mi_data.T, code.T),
+                    batch_size=batch_size,
+                    max_iterations=1000,
+                    device=device,
+                    fast_train=True,
+                    max_epochs=10
+                )
+
+                # Evaluate the estimator on the entirety of the data
+                estimated_mi = evaluate_mi(
+                    estimator=estimator,
+                    data=(minimize_mi_data.T.to(device), code.T.to(device)),
+                    batch_size=batch_size
+                )
+
+                print(f"Mutual information estimated value: {estimated_mi} nats")
+                # ==================== MINE experiment ========================
+                '''
+
+                ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
                 # compute training reconstruction loss
-                train_loss = criterion(outputs, batch_features.float())
+                train_loss = criterion(outputs, batch_features.float()) + \
+                                       corr_hyperweight * correlation_loss(code) + \
+                                       mi_hyperweight * data_orthogonality_loss(code, ortdata)
 
                 # compute accumulated gradients
                 train_loss.backward()
@@ -267,18 +341,21 @@ class Embedding:
             loss = loss / len(train_loader)
 
             # display the epoch training loss
-            if (epoch + 1) % 1 == 0:
+            if (epoch + 1) % log_every == 0:
 
                 # compute loss on test part
                 tloss = 0
-                for batch_features, _ in test_loader:
+                for batch_features, _, indices in test_loader:
                     batch_features = batch_features.to(device)
                     # compute reconstructions
                     noisy_batch_features = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
                     outputs = model(noisy_batch_features.float())
-
+                    code = model.encoder(noisy_batch_features.float()).T
+                    ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
                     # compute test reconstruction loss
-                    test_loss = criterion(outputs, batch_features.float())
+                    test_loss = criterion(outputs, batch_features.float()) + \
+                                       corr_hyperweight * correlation_loss(code) + \
+                                       mi_hyperweight * data_orthogonality_loss(code, ortdata)
                     tloss += test_loss.item()
 
                 # compute the epoch test loss
