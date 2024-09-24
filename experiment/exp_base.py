@@ -237,12 +237,12 @@ class Experiment():
 
         for dfeat in ['calcium', 'spikes']:
             if self.n_frames not in getattr(self, dfeat).shape:
-                raise ValueError(f'"{dfeat}" feature has inappropriate shape: {getattr(self, dfeat).shape}'
+                raise ValueError(f'"{dfeat}" feature has inappropriate shape: {getattr(self, dfeat).data.shape}'
                 f'inconsistent with data length {self.n_frames}')
 
         for dfeat in self.dynamic_features.keys():
             if self.n_frames not in getattr(self, dfeat).data.shape:
-                raise ValueError(f'"{dfeat}" feature has inappropriate shape: {getattr(self, dfeat).shape}'
+                raise ValueError(f'"{dfeat}" feature has inappropriate shape: {getattr(self, dfeat).data.shape}'
                  f'inconsistent with data length {self.n_frames}')
 
     def _populate_cell_feat_dict(self, content, fbunch=None, cbunch=None):

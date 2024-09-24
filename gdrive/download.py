@@ -49,7 +49,8 @@ def download_part_of_folder(
         whitelist=[],  # list of filenames to be downloaded regardless of their names
         extensions=['.csv', '.xlsx', '.npz'],  # allowed file extensions
         via_pydrive=False,  # pydrive requires authorization, but can download a big number of files,
-        gauth=None):
+        gauth=None,
+        maxfiles=None):
 
     with Capturing() as load_log:
         if via_pydrive:
@@ -61,9 +62,13 @@ def download_part_of_folder(
             rel = []
             fid = id_from_link(folder)
             file_list = drive.ListFile({'q': f"'{fid}' in parents and trashed=false"}).GetList()
+            if maxfiles is not None:
+                file_list = file_list[:maxfiles]
+
             for f in file_list:
                 if key in f['title']:
                     # print('title: %s, id: %s' % (f['title'],f['id']))
+                    os.makedirs(output, exist_ok=True)
                     f.GetContentFile(join(output, f['title']))
                     rel.append((f['id'], f['title']))
 

@@ -15,6 +15,7 @@ def load_exp_from_aligned_data(data_source,
                                exp_params,
                                data,
                                force_continuous=[],
+                               bad_frames=[],
                                static_features=None,
                                verbose=True,
                                reconstruct_spikes='wavelet'):
@@ -91,7 +92,10 @@ def load_exp_from_aligned_data(data_source,
                      exp_params,
                      static_features,
                      filt_dyn_features,
-                     reconstruct_spikes=reconstruct_spikes)
+                     reconstruct_spikes=reconstruct_spikes,
+                     bad_frames_mask=np.array([True if _ in bad_frames else False for _ in range(calcium.shape[1])])
+                     )
+
 
     return exp
 
@@ -105,6 +109,7 @@ def load_experiment(data_source,
                     gauth=None,
                     root='DRIADA data',
                     force_continuous=[],
+                    bad_frames=[],
                     static_features=None,
                     reconstruct_spikes='wavelet',
                     verbose=True):
@@ -152,6 +157,7 @@ def load_experiment(data_source,
                                              force_continuous=force_continuous,
                                              static_features=static_features,
                                              verbose=verbose,
+                                             bad_frames=bad_frames,
                                              reconstruct_spikes=reconstruct_spikes)
 
             save_exp_to_pickle(Exp, exppath, verbose=verbose)
