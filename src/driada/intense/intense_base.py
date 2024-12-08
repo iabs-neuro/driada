@@ -381,7 +381,7 @@ def compute_mi_stats(ts_bunch1,
             print('Stage 1 results:')
             print(f'{nhyp/n1/n2*100:.2f}% ({nhyp}/{n1*n2}) of possible pairs identified as candidates')
 
-    if mode == 'stage1':
+    if mode == 'stage1' or nhyp == 0:
         final_stats = add_names_to_nested_dict(stage_1_stats, names1, names2)
         final_significance = add_names_to_nested_dict(stage_1_significance, names1, names2)
 

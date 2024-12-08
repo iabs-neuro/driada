@@ -3,7 +3,7 @@ import numba as nb
 from numba import njit
 from scipy.special import ndtri, psi, digamma
 
-from .info_utils import py_fast_digamma
+from .info_utils import py_fast_digamma_arr
 
 #TODO: credits to original GCMI
 
@@ -60,7 +60,7 @@ def ent_g(x, biascorrect=True):
 
     ln2 = np.log(2)
     if biascorrect:
-        psiterms = py_fast_digamma((Ntrl - np.arange(1, Nvarx + 1).astype(float)) / 2.0) / 2.0
+        psiterms = py_fast_digamma_arr((Ntrl - np.arange(1, Nvarx + 1).astype(float)) / 2.0) / 2.0
         dterm = (ln2 - np.log(Ntrl - 1.0)) / 2.0
         HX = HX - Nvarx * dterm - psiterms.sum()
 
@@ -118,7 +118,7 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
 
     ln2 = np.log(2)
     if biascorrect:
-        psiterms = py_fast_digamma((Ntrl - np.arange(1, Nvarxy + 1)) / 2.0) / 2.0
+        psiterms = py_fast_digamma_arr((Ntrl - np.arange(1, Nvarxy + 1)) / 2.0) / 2.0
         dterm = (ln2 - np.log(Ntrl - 1.0)) / 2.0
         HX = HX - Nvarx * dterm - psiterms[:Nvarx].sum()
         HY = HY - Nvary * dterm - psiterms[:Nvary].sum()
@@ -194,7 +194,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
     if biascorrect:
         vars = np.arange(1, Nvarx + 1)
 
-        psiterms = py_fast_digamma((Ntrl - vars) / 2.0) / 2.0
+        psiterms = py_fast_digamma_arr((Ntrl - vars) / 2.0) / 2.0
         dterm = (ln2 - np.log(float(Ntrl - 1))) / 2.0
         Hunc = Hunc - Nvarx * dterm - psiterms.sum()
 
@@ -202,7 +202,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
         psiterms = np.zeros(Ym)
         for vi in vars:
             idx = Ntrl_y - vi
-            psiterms = psiterms + py_fast_digamma(idx / 2.0)
+            psiterms = psiterms + py_fast_digamma_arr(idx / 2.0)
         Hcond = Hcond - Nvarx * dterm - (psiterms / 2.0)
 
     # MI in bits

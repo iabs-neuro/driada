@@ -1,6 +1,5 @@
-from ..experiment.neuron import *
 import numpy as np
-
+from src.driada.experiment.neuron import *
 
 def test_init():
     pseudo_ca = np.random.random(size=10000)

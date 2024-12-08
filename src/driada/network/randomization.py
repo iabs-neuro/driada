@@ -7,7 +7,7 @@ def adj_random_rewiring_iom_preserving(a, is_weighted, r=10):
     # print ('Rewiring double connections...')
 
     s = symmetric_component(a, is_weighted)
-    rs = turn_to_directed(s, directed=1.0, weighted=is_weighted)
+    rs = turn_to_partially_directed(s, directed=1.0, weighted=is_weighted)
     rows, cols = rs.A.nonzero()
     edgeset = set(zip(rows, cols))
     upper = [l for l in edgeset]  # if l[0]<l[1]]

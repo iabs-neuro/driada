@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "driada"
+version = "0.0.3.2"
+authors = [
+  { name="Nikita Pospelov", email="pospelov.na14@physics.msu.ru" },
+]
+description = "Population and element-level analysis of neuronal computations"
+readme = "README.md"
+license = {text = "MIT License"}
+requires-python = ">=3.8"
+
+dependencies = [
+    "pywavelets",
+    "openpyxl",
+    "chardet",
+    "imageio",
+    "gitpython",
+    "umap-learn",
+    "numpy>=1.24.3",
+    "scikit-learn>=1.3.0",
+    "pandas>=2.1.4",
+    "matplotlib>=3.7.0",
+    "networkx>=3.1",
+    "pytest>=7.4.0",
+    "scipy>=1.11.4",
+    "tqdm>=4.66.1",
+    "numba>=0.59.0",
+    "pydrive2>=1.19.0",
+    "pytz>=2023.3.post1",
+    "wget>=3.2",
+    "gdown>=5.1.0",
+    "requests>=2.31.0",
+    "regex>=2023.10.3",
+    "beautifulsoup4>=4.12.3",
+    "seaborn>=0.12.2",
+    #"setuptools~=68.2.2",
+    "ssqueezepy>=0.6.5",
+    "cvxpy>=1.4.2",
+    "pynndescent>=0.5.10",
+    "pydiffmap>=0.2.0.1"
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+gpu = ["torch",
+       "torchvision",
+       "torchaudio",
+       "torch-mist"]
+
+
+
+[project.urls]
+Homepage = "https://github.com/iabs-neuro/driada"
+Issues = "https://github.com/iabs-neuro/driada/issues"

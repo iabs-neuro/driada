@@ -52,6 +52,7 @@ class TimeSeries():
 
         scaler = MinMaxScaler()
         self.scdata = scaler.fit_transform(self.data.reshape(-1, 1)).reshape(1, -1)[0]
+        self.data_scale = scaler.scale_
         self.copula_normal_data = None
 
         if self.discrete:
@@ -83,7 +84,7 @@ class TimeSeries():
         return self.kdtree
 
     def _compute_kdtree(self):
-        d = self.scdata.reshape(self.scdata.shape[0], -1)
+        d = self.data.reshape(self.data.shape[0], -1)
         return build_tree(d)
 
     def get_kdtree_query(self, k=DEFAULT_NN):
@@ -95,7 +96,7 @@ class TimeSeries():
 
     def _compute_kdtree_query(self, k=DEFAULT_NN):
         tree = self.get_kdtree()
-        return tree.query(self.scdata, k=k + 1)
+        return tree.query(self.data, k=k + 1)
 
     def get_entropy(self, ds=1):
         if ds not in self.entropy.keys():
@@ -111,8 +112,8 @@ class TimeSeries():
             self.entropy[ds] = entropy(counts, base=np.e)
 
         else:
-            # TODO: refactor entropy calculation
-            self.entropy[ds] = get_tdmi(self.scdata[::ds], min_shift=1, max_shift=2)[0]
+            self.entropy[ds] = nonparam_entropy_c(self.data) / np.log(2)
+            #self.entropy[ds] = get_tdmi(self.scdata[::ds], min_shift=1, max_shift=2)[0]
             #raise AttributeError('Entropy for continuous variables is not yet implemented'
 
 
@@ -130,7 +131,7 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     k: int
         number of neighbors for ksg estimator
     estimator: str
-        Estimation method. Should be 'ksg' (accurate but slow) and 'gcmi' (ultra-fast, but estimates the lower bound on MI).
+        Estimation method. Should be 'ksg' (accurate but slow) and 'gcmi' (fast, but estimates the lower bound on MI).
         In most cases 'gcmi' should be preferred.
 
     Returns
@@ -144,13 +145,13 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
         ts2 = TimeSeries(ts2)
 
     if estimator == 'ksg':
-        x = ts1.scdata[::ds].reshape(-1, 1)
-        y = ts2.scdata[::ds]
+        x = ts1.data[::ds].reshape(-1, 1)
+        y = ts2.data[::ds]
         if shift != 0:
             y = np.roll(y, shift)
 
         if not ts1.discrete and not ts2.discrete:
-            mi = nonparam_mi_cc_mod(ts1.scdata, y, k=k,
+            mi = nonparam_mi_cc_mod(ts1.data, y, k=k,
                                     precomputed_tree_x=ts1.get_kdtree(),
                                     precomputed_tree_y=ts2.get_kdtree())
 

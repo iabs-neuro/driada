@@ -16,7 +16,7 @@ def get_lognormal_p(data, val):
 
 def get_gamma_p(data, val):
     params = gamma.fit(data, floc=0)
-    rv = lognorm(*params)
+    rv = gamma(*params)
     return rv.sf(val)
 
 

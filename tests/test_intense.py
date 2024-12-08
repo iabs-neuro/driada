@@ -1,11 +1,7 @@
-import pandas as pd
-
-from ..intense.intense_base import compute_mi_stats
-from ..intense.stats import *
-from ..information.info_base import TimeSeries
-from ..utils.data import retrieve_relevant_from_nested_dict
+from src.driada.intense.intense_base import compute_mi_stats
+from src.driada.information.info_base import TimeSeries
+from src.driada.utils.data import retrieve_relevant_from_nested_dict
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def create_correlated_ts(n=100, T=10000):

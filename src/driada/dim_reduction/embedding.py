@@ -1,27 +1,19 @@
 
 from scipy.sparse.linalg import eigs
-import scipy
-import numpy as np
-from itertools import combinations
 import umap.umap_ as umap
-import scipy.sparse as sp
 from pydiffmap import diffusion_map as dm
 from scipy.sparse.csgraph import shortest_path
 
 from sklearn.decomposition import PCA
 from sklearn.manifold import spectral_embedding, Isomap, LocallyLinearEmbedding, TSNE
-from sklearn.cluster import KMeans, SpectralClustering
 # from sklearn.cluster.spectral import discretize
-from sklearn.metrics import confusion_matrix, balanced_accuracy_score, homogeneity_score, completeness_score, \
-    v_measure_score
 
-import warnings
 # warnings.filterwarnings("ignore")
 
 from .dr_base import *
 from .graph import ProximityGraph
 from .neural import *
-#from .mvu import *
+from .mvu import *
 
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix
 
@@ -195,9 +187,13 @@ class Embedding:
         self.reducer_ = reducer
 
     def create_ae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
-                             enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, train_size=0.8,
-                             inter_dim=100, verbose=True, corr_hyperweight=0, mi_hyperweight=0,
-                             minimize_mi_data=None, log_every=1, device=None):
+                             enc_kwargs=None, dec_kwargs=None,
+                             feature_dropout=0.2, train_size=0.8, inter_dim=100,
+                             verbose=True,
+                             add_corr_loss=False, corr_hyperweight=0,
+                             add_mi_loss=False, mi_hyperweight=0, minimize_mi_data=None,
+                             log_every=1,
+                             device=None):
 
         # ---------------------------------------------------------------------------
 
@@ -321,12 +317,15 @@ class Embedding:
                 print(f"Mutual information estimated value: {estimated_mi} nats")
                 # ==================== MINE experiment ========================
                 '''
-
-                ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
                 # compute training reconstruction loss
-                train_loss = criterion(outputs, batch_features.float()) + \
-                                       corr_hyperweight * correlation_loss(code) + \
-                                       mi_hyperweight * data_orthogonality_loss(code, ortdata)
+                train_loss = criterion(outputs, batch_features.float())
+
+                if add_mi_loss:
+                    ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
+                    train_loss += mi_hyperweight * data_orthogonality_loss(code, ortdata)
+
+                if add_corr_loss:
+                    train_loss += corr_hyperweight * correlation_loss(code)
 
                 # compute accumulated gradients
                 train_loss.backward()

@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 import numpy.random as npr
 
 from scipy.optimize import curve_fit
-from scipy.special import gamma
-from scipy.sparse.linalg import eigs
 
 from sklearn.neighbors import kneighbors_graph
 from sklearn.utils.validation import check_symmetric

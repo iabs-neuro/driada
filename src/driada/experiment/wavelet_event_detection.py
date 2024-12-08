@@ -52,11 +52,6 @@ def get_cwt_ridges(sig, wavelet=None, fps=20, scmin=150, scmax=250, all_wvt_time
 
     # determine peak positions for all scales
     peaks = np.zeros((len(scale_inds), len(sig)))
-    '''
-    all_max_inds = argrelmax(wvtdata[scale_inds,:], axis=1, order=10)
-    peaks = np.zeros((len(scale_inds), len(sig)))
-    peaks[all_max_inds] = wvtdata[all_max_inds]
-    '''
 
     all_ridges = []
     for i, si in enumerate(scale_inds[:]):
@@ -109,7 +104,7 @@ def get_cwt_ridges(sig, wavelet=None, fps=20, scmin=150, scmax=250, all_wvt_time
     return all_ridges
 
 
-@njit()
+#@njit()
 def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
     # determine peak positions for all scales
 

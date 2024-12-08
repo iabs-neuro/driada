@@ -1,6 +1,6 @@
-import numpy as np
 from sklearn.datasets import make_swiss_roll
-from ..dim_reduction.data import *
+import numpy as np
+from src.driada.dim_reduction.data import *
 
 n_gaussian = 10
 n_swiss_roll = 1000

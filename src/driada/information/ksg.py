@@ -10,9 +10,10 @@ from .info_utils import py_fast_digamma
 DEFAULT_NN = 5
 # UTILITY FUNCTIONS
 
-def add_noise(x, intens=1e-10):
+
+def add_noise(x, ampl=1e-10):
     # small noise to break degeneracy, see doc.
-    return x + intens * np.random.random_sample(x.shape)
+    return x + ampl * np.random.random_sample(x.shape)
 
 
 def query_neighbors(tree, x, k):

@@ -1,10 +1,8 @@
-# @title Data class { form-width: "200px" }
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
 
-from sklearn.preprocessing import normalize, StandardScaler, MinMaxScaler
 from .dr_base import *
 from ..utils.data import correlation_matrix, to_numpy_array, rescale
 from .embedding import Embedding
