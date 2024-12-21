@@ -6,11 +6,18 @@ import wget
 import gdown
 import pandas as pd
 import shutil
+from pathlib import Path
 
 from .gdrive_utils import *
 from ..utils.output import *
 
-def retrieve_relevant_ids(folder, name_part, whitelist=[], extensions=['.csv', '.xlsx']):
+
+def retrieve_relevant_ids(folder,
+                          name_part,
+                          prohibited_name_part='',
+                          whitelist=[],
+                          extensions=['.csv', '.xlsx']):
+
     return_code = True
     folder_page = client.get(folder)
 
@@ -29,11 +36,21 @@ def retrieve_relevant_ids(folder, name_part, whitelist=[], extensions=['.csv', '
 
     for child_id, child_name, child_type in id_name_type_iter:
         if child_type != folder_type:
-            if (name_part in child_name or child_name in whitelist) and os.path.splitext(child_name)[1] in extensions:
+            if child_name in whitelist:
                 relevant.append((child_id, child_name))
+            elif name_part in child_name:
+                if len(extensions) != 0 and Path(child_name).suffix in extensions or len(extensions) == 0:
+                    if (prohibited_name_part is not None) and (prohibited_name_part not in child_name) or prohibited_name_part is None:
+                        relevant.append((child_id, child_name))
+            else:
+                pass
 
         else:
-            return_code, rel_sublist = retrieve_relevant_ids(folders_url + child_id, name_part)
+            return_code, rel_sublist = retrieve_relevant_ids(folders_url + child_id,
+                                                             name_part,
+                                                             prohibited_name_part=prohibited_name_part,
+                                                             whitelist=whitelist,
+                                                             extensions=extensions)
             if not return_code:
                 print(f'recursive search broke on folder {child_id}')
                 break
@@ -46,11 +63,14 @@ def download_part_of_folder(
         output,  # path for downloaded data
         folder,  # share link to google drive folder
         key='',  # part of filename to search for
+        antikey='', # part of name to suppress
         whitelist=[],  # list of filenames to be downloaded regardless of their names
         extensions=['.csv', '.xlsx', '.npz'],  # allowed file extensions
         via_pydrive=False,  # pydrive requires authorization, but can download a big number of files,
         gauth=None,
         maxfiles=None):
+
+    os.makedirs(output, exist_ok=True)
 
     with Capturing() as load_log:
         if via_pydrive:
@@ -68,7 +88,6 @@ def download_part_of_folder(
             for f in file_list:
                 if key in f['title']:
                     # print('title: %s, id: %s' % (f['title'],f['id']))
-                    os.makedirs(output, exist_ok=True)
                     f.GetContentFile(join(output, f['title']))
                     rel.append((f['id'], f['title']))
 
@@ -77,6 +96,7 @@ def download_part_of_folder(
         else:
             return_code, rel = retrieve_relevant_ids(folder,
                                                      key,
+                                                     prohibited_name_part=antikey,
                                                      whitelist=whitelist,
                                                      extensions=extensions)
 
