@@ -231,3 +231,67 @@ def test_auto_dmaps():
     emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
+
+
+def test_ae_simple():
+    data = create_swiss_roll_data()
+    D = MVData(data)
+
+    embedding_params = {
+        'e_method_name': 'ae',  # autoencoder
+        'check_graph_connectivity': 0,
+        'min_dist': 0.9,
+        'dm_alpha': 0.0,
+        'dim': 2
+    }
+
+    nn_params = {'continue_learning': 0,
+                 'epochs': 200,
+                 'lr': 5 * 1e-3,
+                 'seed': 42,
+                 'batch_size': 512,
+                 'enc_kwargs': None,
+                 'dec_kwargs': None,
+                 'feature_dropout': 0.5,
+                 'enc_kwargs': {'dropout': 0.2},
+                 'dec_kwargs': {'dropout': 0.2}}
+
+    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    emb = D.get_embedding(embedding_params,
+                          kwargs=nn_params)
+
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0, 0]) in [np.float64, np.float32]
+
+
+def test_ae_corr():
+    data = create_swiss_roll_data()
+    D = MVData(data)
+
+    embedding_params = {
+        'e_method_name': 'ae',  # autoencoder
+        'check_graph_connectivity': 0,
+        'min_dist': 0.9,
+        'dm_alpha': 0.0,
+        'dim': 2
+    }
+
+    nn_params = {'continue_learning': 0,
+                 'epochs': 200,
+                 'lr': 5 * 1e-3,
+                 'seed': 42,
+                 'batch_size': 512,
+                 'enc_kwargs': None,
+                 'dec_kwargs': None,
+                 'feature_dropout': 0.5,
+                 'add_corr_loss': True,
+                 'corr_hyperweight': 1,
+                 'enc_kwargs': {'dropout': 0.2},
+                 'dec_kwargs': {'dropout': 0.2}}
+
+    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    emb = D.get_embedding(embedding_params,
+                          kwargs=nn_params)
+
+    assert emb.coords.shape == (2, n_swiss_roll)
+    assert type(emb.coords[0, 0]) in [np.float64, np.float32]

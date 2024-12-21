@@ -349,12 +349,18 @@ class Embedding:
                     # compute reconstructions
                     noisy_batch_features = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
                     outputs = model(noisy_batch_features.float())
-                    code = model.encoder(noisy_batch_features.float()).T
-                    ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
+
                     # compute test reconstruction loss
-                    test_loss = criterion(outputs, batch_features.float()) + \
-                                       corr_hyperweight * correlation_loss(code) + \
-                                       mi_hyperweight * data_orthogonality_loss(code, ortdata)
+                    test_loss = criterion(outputs, batch_features.float())
+
+                    if add_mi_loss:
+                        ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
+                        train_loss += mi_hyperweight * data_orthogonality_loss(code, ortdata)
+
+                    if add_corr_loss:
+                        code = model.encoder(noisy_batch_features.float()).T
+                        train_loss += corr_hyperweight * correlation_loss(code)
+
                     tloss += test_loss.item()
 
                 # compute the epoch test loss
