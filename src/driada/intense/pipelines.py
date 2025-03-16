@@ -1,5 +1,5 @@
 from .stats import *
-from .intense_base import compute_mi_stats
+from .intense_base import compute_mi_stats, IntenseResults
 
 
 def compute_cell_feat_mi_significance(exp,
@@ -22,7 +22,10 @@ def compute_cell_feat_mi_significance(exp,
                                       pval_thr=0.01,
                                       find_optimal_delays=True,
                                       shift_window=5,
-                                      verbose=True):
+                                      verbose=True,
+                                      enable_parallelization=True,
+                                      n_jobs=-1,
+                                      seed=42):
 
     """
     Calculates significant neuron-feature pairs
@@ -39,7 +42,7 @@ def compute_cell_feat_mi_significance(exp,
         Feature names. By default, (feat_bunch=None), all single features will be taken
 
     data_type: str
-        Data used for INTENS computations. Can be 'calcium' or 'spikes'
+        Data type used for INTENSE computations. Can be 'calcium' or 'spikes'
 
     mode: str
         Computation mode. 3 modes are available:
@@ -107,7 +110,7 @@ def compute_cell_feat_mi_significance(exp,
         default: 5
 
     multicomp_correction: str or None
-        type of multiple comparisons correction. Supported types are None (no correction),
+        type of multiple comparison correction. Supported types are None (no correction),
         "bonferroni" and "holm".
         default: 'holm'
 
@@ -135,7 +138,7 @@ def compute_cell_feat_mi_significance(exp,
     exp.check_ds(ds)
 
     cell_ids = exp._process_cbunch(cell_bunch)
-    feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=False)
+    feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=True)
     cells = [exp.neurons[cell_id] for cell_id in cell_ids]
 
     if data_type == 'calcium':
@@ -144,9 +147,9 @@ def compute_cell_feat_mi_significance(exp,
         signals = [cell.sp for cell in cells]
     else:
         raise ValueError('"data_type" can be either "calcium" or "spikes"')
+
     #min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
     feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids]
-
     if joint_distr:
         feat_ids = [tuple(sorted(feat_ids))]
 
@@ -207,7 +210,10 @@ def compute_cell_feat_mi_significance(exp,
                                                                    pval_thr=pval_thr,
                                                                    find_optimal_delays=find_optimal_delays,
                                                                    shift_window=shift_window*exp.fps,
-                                                                   verbose=verbose)
+                                                                   verbose=verbose,
+                                                                   enable_parallelization=enable_parallelization,
+                                                                   n_jobs=n_jobs,
+                                                                   seed=seed)
 
     exp.optimal_nf_delays = info['optimal_delays']
     # add hash data and update Experiment saved statistics and significance if needed
@@ -235,4 +241,31 @@ def compute_cell_feat_mi_significance(exp,
                     sig = computed_significance[cell_id][feat_id]
                     exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
 
-    return computed_stats, computed_significance, info
+    # save all results to a single object
+    intense_params = {
+        'neurons': {i: cell_ids[i] for i in range(len(cell_ids))},
+        'feat_bunch': {i: feat_ids[i] for i in range(len(feat_ids))},
+        'data_type': data_type,
+        'mode': mode,
+        'n_shuffles_stage1': n_shuffles_stage1,
+        'n_shuffles_stage2': n_shuffles_stage2,
+        'joint_distr': joint_distr,
+        'mi_distr_type': mi_distr_type,
+        'noise_ampl': noise_ampl,
+        'ds': ds,
+        'topk1': topk1,
+        'topk2': topk2,
+        'multicomp_correction': multicomp_correction,
+        'pval_thr': pval_thr,
+        'find_optimal_delays': find_optimal_delays,
+        'shift_window': shift_window
+    }
+
+    intense_res = IntenseResults()
+    #intense_res.update('stats', computed_stats)
+    #intense_res.update('significance', computed_significance)
+    intense_res.update('info', info)
+    intense_res.update('intense_params', intense_params)
+    #TODO: change to IntenseResults
+    return computed_stats, computed_significance, info, intense_res
+

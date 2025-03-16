@@ -1,4 +1,4 @@
-# Credit to Greg Ver Steeg (http://www.isi.edu/~gregv/npeet.html)
+# TODO: Credit to Greg Ver Steeg (http://www.isi.edu/~gregv/npeet.html)
 
 import numpy as np
 import numpy.linalg as la
@@ -10,6 +10,7 @@ from .info_utils import py_fast_digamma
 DEFAULT_NN = 5
 # UTILITY FUNCTIONS
 
+#TODO: add automatic alpha selection for LNC correction from https://github.com/BiuBiuBiLL/NPEET_LNC
 
 def add_noise(x, ampl=1e-10):
     # small noise to break degeneracy, see doc.

@@ -28,9 +28,13 @@ def get_mi_distr_pvalue(data, val, distr_type='gamma'):
     else:
         raise ValueError(f'wrong MI distribution: {distr_type}')
 
-    params = distr.fit(data, floc=0)
-    rv = distr(*params)
-    return rv.sf(val)
+    try:
+        params = distr.fit(data, floc=0)
+        rv = distr(*params)
+        return rv.sf(val)
+
+    except: # some rare error in function fitting
+        return 1.0
 
 
 def get_mask(ptable, rtable, pval_thr, rank_thr):
@@ -106,7 +110,7 @@ def criterion2(pair_stats, nsh2, pval_thr, topk=5):
     Returns
     -------
     crit_passed: bool
-        True if significance confirmed, False if not.
+        True if significance is confirmed, False if not.
     """
     # whether pair passed stage 1 and has statistics from stage 2
     if pair_stats.get('rval') is not None and pair_stats.get('pval') is not None:
@@ -125,7 +129,7 @@ def get_all_nonempty_pvals(all_stats, ids1, ids2):
     for i, id1 in enumerate(ids1):
         for j, id2 in enumerate(ids2):
             pval = all_stats[id1][id2].get('pval')
-            if not(pval is None):
+            if pval is not None:
                 all_pvals.append(pval)
 
     return all_pvals
@@ -152,7 +156,7 @@ def get_table_of_stats(mitable,
     for i in range(a):
         for j in range(b):
             if precomputed_mask[i, j]:
-                new_stats = DEFAULT_STATS.copy()
+                new_stats = {}#DEFAULT_STATS.copy()
                 mi = mitable[i, j, 0]
                 random_mi_samples = mitable[i, j, 1:]
                 pval = get_mi_distr_pvalue(random_mi_samples, mi, distr_type=mi_distr_type)

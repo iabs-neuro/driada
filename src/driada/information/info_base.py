@@ -17,6 +17,7 @@ DEFAULT_NN = 5
 
 # TODO: add @property decorators to properly set getter-setter functionality
 
+
 class TimeSeries():
     @staticmethod
     def define_ts_type(ts):
@@ -38,6 +39,7 @@ class TimeSeries():
         else:
             raise ValueError(f'Unable to determine time series type automatically: score 1 = {sc1}, score 2 = {sc2}')
 
+    # TODO: complete this function
     def _check_input(self):
         pass
 
@@ -105,6 +107,7 @@ class TimeSeries():
 
     def _compute_entropy(self, ds=1):
         if self.discrete:
+            # TODO: rewrite this using int_data and via ent_d from driada.information.entropy
             counts = []
             for val in np.unique(self.data[::ds]):
                 counts.append(len(np.where(self.data[::ds] == val)[0]))
@@ -117,7 +120,8 @@ class TimeSeries():
             #raise AttributeError('Entropy for continuous variables is not yet implemented'
 
 
-def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
+#TODO: add check for equal TimeSeries
+def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
     """Computes mutual information between two 1d variables efficiently
 
     Parameters
@@ -144,7 +148,13 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     if not isinstance(ts2, TimeSeries):
         ts2 = TimeSeries(ts2)
 
+    if check_for_coincidence:
+        if np.allclose(ts1.data, ts2.data) and shift == 0: #and not (ts1.discrete and ts2.discrete):
+            raise ValueError('MI computation of a TimeSeries with itself is not allowed')
+            #raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
+
     if estimator == 'ksg':
+        #TODO: add shifts everywhere in this branch
         x = ts1.data[::ds].reshape(-1, 1)
         y = ts2.data[::ds]
         if shift != 0:
@@ -156,14 +166,23 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
                                     precomputed_tree_y=ts2.get_kdtree())
 
         elif ts1.discrete and ts2.discrete:
-            mi = mutual_info_classif(ts1.data, ts2.data, discrete_features=True, n_neighbors=k)[0]
+            mi = mutual_info_classif(ts1.int_data[::ds].reshape(-1, 1),
+                                     ts2.int_data[::ds],
+                                     discrete_features=True,
+                                     n_neighbors=k)[0]
 
         # TODO: refactor using ksg functions
         elif ts1.discrete and not ts2.discrete:
-            mi = mutual_info_regression(ts1.data, y, discrete_features=False, n_neighbors=k)[0]
+            mi = mutual_info_regression(ts1.int_data[::ds],
+                                        y[::ds],
+                                        discrete_features=False,
+                                        n_neighbors=k)[0]
 
         elif not ts1.discrete and ts2.discrete:
-            mi = mutual_info_classif(x, ts2.data, discrete_features=True, n_neighbors=k)[0]
+            mi = mutual_info_classif(x[::ds],
+                                     ts2.int_data[::ds],
+                                     discrete_features=True,
+                                     n_neighbors=k)[0]
 
         return mi
 

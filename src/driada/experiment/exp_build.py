@@ -100,7 +100,6 @@ def load_exp_from_aligned_data(data_source,
     return exp
 
 
-# TODO: add support for g-cloud auth from desktop (for pydrive) https://cloud.google.com/docs/authentication/application-default-credentials
 def load_experiment(data_source,
                     exp_params,
                     force_rebuild=False,
@@ -108,31 +107,47 @@ def load_experiment(data_source,
                     via_pydrive=True,
                     gauth=None,
                     root='DRIADA data',
+                    exp_path=None,
+                    data_path=None,
                     force_continuous=[],
                     bad_frames=[],
                     static_features=None,
                     reconstruct_spikes='wavelet',
+                    save_to_pickle=False,
                     verbose=True):
 
     os.makedirs(root, exist_ok=True)
     if not os.path.isdir(root):
         raise ValueError('Root must be a folder!')
 
-    expname = construct_session_name(data_source, exp_params)
-    exppath = os.path.join(root, expname, f'Exp {expname}.pickle')
-    if os.path.exists(exppath) and not force_rebuild and not force_reload:
-        Exp = load_exp_from_pickle(exppath, verbose=verbose)
+    if exp_path is None:
+        expname = construct_session_name(data_source, exp_params)
+        exp_path = os.path.join(root, expname, f'Exp {expname}.pickle')
+
+    if os.path.exists(exp_path) and not force_rebuild and not force_reload:
+        Exp = load_exp_from_pickle(exp_path, verbose=verbose)
         return Exp, None
 
     else:
         if data_source == 'IABS':
-            syn_data_name = os.path.join(root,
+            if data_path is None:
+                data_path = os.path.join(root,
                                          expname,
                                          'Aligned data',
                                          f'{expname} syn data.npz')
+                if verbose:
+                    print(f'Path to data: {data_path}')
 
-            data_exists = os.path.exists(syn_data_name)
+            data_exists = os.path.exists(data_path)
+            if verbose:
+                if data_exists:
+                    print('Aligned data for experiment construction found successfully')
+                else:
+                    print('Failed to locate aligned data for experiment construction')
+
             if force_reload or not data_exists:
+                if verbose:
+                    print('Loading data from cloud storage...')
                 data_router, data_pieces = initialize_iabs_router(root=root)
                 success, load_log = download_gdrive_data(data_router,
                                                          expname,
@@ -142,15 +157,15 @@ def load_experiment(data_source,
                                                          gauth=gauth)
 
                 if not success:
-                    print('===========   BEGINNING OF LOADING LOG:   ============')
+                    print('===========   BEGINNING OF LOADING LOG   ============')
                     show_output(load_log)
-                    print('===========   END OF LOADING LOG:   ============')
+                    print('===========   END OF LOADING LOG   ============')
                     raise FileNotFoundError(f'Cannot download {expname}, see loading log above')
 
             else:
                 load_log = None
 
-            aligned_data = dict(np.load(syn_data_name))
+            aligned_data = dict(np.load(data_path))
             Exp = load_exp_from_aligned_data(data_source,
                                              exp_params,
                                              aligned_data,
@@ -160,11 +175,12 @@ def load_experiment(data_source,
                                              bad_frames=bad_frames,
                                              reconstruct_spikes=reconstruct_spikes)
 
-            save_exp_to_pickle(Exp, exppath, verbose=verbose)
+            if save_to_pickle:
+                save_exp_to_pickle(Exp, exp_path, verbose=verbose)
             return Exp, load_log
 
         else:
-            raise ValueError('External data sources not supported yet')
+            raise ValueError('External data sources are not yet supported')
 
 
 def save_exp_to_pickle(exp, path, verbose=True):

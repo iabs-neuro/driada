@@ -48,15 +48,15 @@ def test_stage1():
     for ts in tslist2:
         ts.shuffle_mask[:50] = 0
     computed_stats, computed_significance, info = compute_mi_stats(tslist1,
-                                                             tslist2,
-                                                             mode='stage1',
-                                                             n_shuffles_stage1=100,
-                                                             joint_distr=False,
-                                                             mi_distr_type='gamma',
-                                                             noise_ampl=1e-3,
-                                                             ds=1,
-                                                             topk1=1,
-                                                             verbose=True)
+                                                                 tslist2,
+                                                                 mode='stage1',
+                                                                 n_shuffles_stage1=100,
+                                                                 joint_distr=False,
+                                                                 mi_distr_type='gamma',
+                                                                 noise_ampl=1e-3,
+                                                                 ds=1,
+                                                                 topk1=1,
+                                                                 verbose=True)
 
     rel_stats_pairs = retrieve_relevant_from_nested_dict(computed_stats, 'pre_rval', 1)
     rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance, 'stage1', True)

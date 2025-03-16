@@ -63,7 +63,7 @@ def download_part_of_folder(
         output,  # path for downloaded data
         folder,  # share link to google drive folder
         key='',  # part of filename to search for
-        antikey='', # part of name to suppress
+        antikey=None, # part of name to suppress
         whitelist=[],  # list of filenames to be downloaded regardless of their names
         extensions=['.csv', '.xlsx', '.npz'],  # allowed file extensions
         via_pydrive=False,  # pydrive requires authorization, but can download a big number of files,
@@ -157,12 +157,12 @@ def download_gdrive_data(data_router,
 
                     if len(rel) == 0:
                         os.rmdir(ddir)
-                        print('No relevant data found')
+                        print('No relevant data found at: ', links[key])
+
                     else:
                         loaded_names = [r[1] for r in rel]
                         for n in loaded_names:
                             print(n)
-
                         success = True
 
                     print('--------------------------')

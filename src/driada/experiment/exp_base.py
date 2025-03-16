@@ -147,13 +147,12 @@ class Experiment():
 
         print(f'Experiment "{self.signature}" constructed successfully with {self.n_cells} neurons and {len(self.dynamic_features)} features')
 
-
     def check_ds(self, ds):
         if not hasattr(self, 'fps'):
             raise ValueError(f'fps not set for {self.signature}')
 
         time_step = 1.0/self.fps
-        if time_step*ds>DEFAULT_MIN_BEHAVIOUR_TIME:
+        if time_step*ds > DEFAULT_MIN_BEHAVIOUR_TIME:
             print('Downsampling constant is too high: some behaviour acts may be skipped. '
                   f'Current minimal behaviour time interval is set to {DEFAULT_MIN_BEHAVIOUR_TIME} sec, '
                   f'downsampling {ds} will create time gaps of {time_step*ds} sec')
