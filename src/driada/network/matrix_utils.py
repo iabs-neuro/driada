@@ -187,12 +187,12 @@ def get_symmetry_index(a):
 
 
 def symmetric_component(A, is_weighted):
-    a = A.astype(bool).A
+    a = A.astype(bool).todense()
     symm_mask = np.bitwise_and(a, a.T)
     if not is_weighted:
         return symm_mask
 
-    return np.multiply(symm_mask, A.A)
+    return np.multiply(symm_mask, A.todense())
 
 
 def non_symmetric_component(A, is_weighted):

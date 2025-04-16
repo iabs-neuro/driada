@@ -90,3 +90,10 @@ def test_take_giant_scc():
                    verbose=True)
 
     assert np.allclose(net2.adj.data, nx.adjacency_matrix(gcc).data)
+
+
+def test_diagonalize():
+    adj = create_default_adj()
+    net = Network(adj=adj, create_nx_graph=False)
+    for mode in ['adj', 'trans', 'lap', 'nlap', 'rwlap']:
+        net.diagonalize(mode=mode)

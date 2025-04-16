@@ -8,7 +8,7 @@ def adj_random_rewiring_iom_preserving(a, is_weighted, r=10):
 
     s = symmetric_component(a, is_weighted)
     rs = turn_to_partially_directed(s, directed=1.0, weighted=is_weighted)
-    rows, cols = rs.A.nonzero()
+    rows, cols = rs.todense().nonzero()
     edgeset = set(zip(rows, cols))
     upper = [l for l in edgeset]  # if l[0]<l[1]]
     source_nodes = [e[0] for e in upper]
@@ -149,7 +149,7 @@ def random_rewiring_dense_graph(a):
         afull = a
         nelem = len(np.nonzero(a)[0])
     else:
-        afull = a.A
+        afull = a.todense()
         nelem = a.nnz
 
     if nelem != a.shape[0] ** 2 - a.shape[0]:

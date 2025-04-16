@@ -14,7 +14,7 @@ def check_data_for_errors(d):
     if len(sums.nonzero()[1]) != d.shape[1]:
         bad_points = np.where(sums == 0)[1]
         print('zero points:', bad_points)
-        print(d.A[:, bad_points[0]])
+        print(d.todense()[:, bad_points[0]])
         raise Exception('Data contains zero points!')
 
 
@@ -57,7 +57,7 @@ class MVData(object):
 
     def median_filter(self, window):
         from scipy.signal import medfilt
-        d = self.data.A
+        d = self.data.todense()
 
         new_d = medfilt(d, window)
 

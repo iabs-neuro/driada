@@ -73,7 +73,7 @@ def avgdigamma(points, dvec, lf=30, tree=None):
 def nonparam_entropy_c(x, k=DEFAULT_NN, base=np.e):
     """ The classic K-L k-nearest neighbor continuous entropy estimator.
     """
-    assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
+    #assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
     # xs_columns = np.expand_dims(xs, axis=0).T
     x = np.asarray(x)
     if len(x.shape) == 1:

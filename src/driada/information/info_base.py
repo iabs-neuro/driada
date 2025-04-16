@@ -120,6 +120,116 @@ class TimeSeries():
             #raise AttributeError('Entropy for continuous variables is not yet implemented'
 
 
+class MultiTimeSeries:
+
+    def __init__(self, tslist):
+        self._check_input(tslist)
+
+        self.data = np.vstack([ts.data for ts in tslist])
+        self.scdata = np.vstack([ts.scdata for ts in tslist])
+        self.copula_normal_data = np.vstack([ts.copula_normal_data for ts in tslist])
+
+        shuffle_masks = np.vstack([ts.shuffle_mask for ts in tslist])
+        self.shuffle_mask = ~np.all(~shuffle_masks, axis=0) # if any of individual masks is False, then False
+
+        self.entropy = dict()  # supports various downsampling constants
+
+    def _check_input(self, tslist):
+        is_ts = np.array([isinstance(ts, TimeSeries) for ts in tslist])
+        if not np.all(is_ts):
+            raise ValueError('Input to MultiTimeSeries must be iterable of TimeSeries')
+
+        is_continuous = np.array([not ts.discrete for ts in tslist])
+        if not np.all(is_continuous):
+            raise ValueError('Currently all components of MultiTimeSeries must be continuous')
+        else:
+            self.discrete = False
+
+    def get_entropy(self, ds=1):
+        if ds not in self.entropy.keys():
+            self._compute_entropy(ds=ds)
+        return self.entropy[ds]
+
+    def _compute_entropy(self, ds=1):
+        # TODO: rewrite this using int_data and via ent_d from driada.information.entropy
+        #self.entropy[ds] = nonparam_entropy_c(self.data) / np.log(2)
+        if self.discrete:
+            raise ValueError('not implemented yet')
+        else:
+            self.entropy[ds] = ent_g(self.data)
+
+
+def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
+    """Computes mutual information between two (possibly multidimensional) variables efficiently
+
+    Parameters
+    ----------
+    ts1: TimeSeries/MultiTimeSeries instance or numpy array
+    ts2: TimeSeries/MultiTimeSeries instance or numpy array
+    shift: int
+        ts2 will be roll-moved by the number 'shift' after downsampling by 'ds' factor
+    ds: int
+        downsampling constant (take every 'ds'-th point)
+    k: int
+        number of neighbors for ksg estimator
+    estimator: str
+        Estimation method. Should be 'ksg' (accurate but slow) and 'gcmi' (fast, but estimates the lower bound on MI).
+        In most cases 'gcmi' should be preferred.
+
+    Returns
+    -------
+    mi: mutual information (or its lower bound in case of 'gcmi' estimator) between ts1 and (possibly) shifted ts2
+
+    """
+
+    def _check_input(ts):
+        if not isinstance(ts, TimeSeries) and not isinstance(ts, MultiTimeSeries):
+            if np.ndim(ts) == 1:
+                ts = TimeSeries(ts)
+            else:
+                raise Exception('Multidimensional inputs must be provided as MultiTimeSeries')
+        return ts
+
+
+    def multi_single_mi(mts, ts, ds=1, k=5, estimator='gcmi'):
+        if estimator == 'ksg':
+            raise NotImplementedError('KSG estimator is not supported for dim>1 yet')
+
+        if ts.discrete:
+            ny1 = np.roll(mts.copula_normal_data[:, ::ds], shift)
+            ny2 = ts.int_data[::ds]
+            mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
+
+        else:
+            ny1 = mts.copula_normal_data[:, ::ds]
+            ny2 = np.roll(ts.copula_normal_data[::ds], shift)
+            mi = mi_gg(ny1, ny2, True, True)
+
+        return mi
+
+
+    ts1 = _check_input(x)
+    ts2 = _check_input(y)
+
+    if isinstance(ts1, TimeSeries) and isinstance(ts2, TimeSeries):
+        mi = get_1d_mi(x, y, shift=shift, ds=ds, k=k, estimator=estimator,
+                       check_for_coincidence=check_for_coincidence)
+
+    if isinstance(ts1, MultiTimeSeries) and isinstance(ts2, TimeSeries):
+        mi = multi_single_mi(ts1, ts2, ds=ds, k=k, estimator=estimator)
+
+    if isinstance(ts2, MultiTimeSeries) and isinstance(ts1, TimeSeries):
+        mi = multi_single_mi(ts2, ts1, ds=ds, k=k, estimator=estimator)
+
+    if isinstance(ts2, MultiTimeSeries) and isinstance(ts1, MultiTimeSeries):
+        raise NotImplementedError('MI computation between two MultiTimeSeries is not supported yet')
+
+    if mi < 0:
+        mi = 0
+
+    return mi
+
+
 #TODO: add check for equal TimeSeries
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
     """Computes mutual information between two 1d variables efficiently

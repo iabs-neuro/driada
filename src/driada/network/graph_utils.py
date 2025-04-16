@@ -58,7 +58,7 @@ def small_world_index(G, nrand=10, null_model='erdos-renyi'):
     i = 0
     while i < nrand:
         if null_model == 'maslov-sneppen':
-            #ar = adj_random_rewiring_iom_preserving(sp.csr_array(data), is_weighted=True).A
+            #ar = adj_random_rewiring_iom_preserving(sp.csr_array(data), is_weighted=True).todense()
             raise Exception('not implemented yet')
 
         elif null_model == 'erdos-renyi':

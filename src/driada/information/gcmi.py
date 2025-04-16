@@ -31,13 +31,13 @@ def copnorm(x):
     return cx
 
 
-@njit()
+@njit
 def demean(x):
     # Get the number of rows
     num_rows = x.shape[0]
 
     # Create an output array with the same shape as input
-    demeaned_x = np.empty_like(x)
+    demeaned_x= np.empty_like(x)
 
     # Demean each row
     for i in range(num_rows):
@@ -45,10 +45,9 @@ def demean(x):
         demeaned_x[i] = x[i] - row_mean
 
     return demeaned_x
-    #return x - np.full(len(x), x.mean())
 
 
-@njit()
+#@njit()
 def ent_g(x, biascorrect=True):
     """Entropy of a Gaussian variable in bits
     H = ent_g(x) returns the entropy of a (possibly
@@ -398,5 +397,5 @@ def gccmi_ccd(x,y,z,Zm):
 
     # conditional mutual information
     CMI = np.sum(Pz*Icond)
-    I = mi_gg(np.hstack(cx),np.hstack(cy),True,False)
-    return (CMI,I)
+    #I = mi_gg(np.hstack(cx),np.hstack(cy),True,False)
+    return CMI

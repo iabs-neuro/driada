@@ -91,7 +91,7 @@ class Embedding:
         map = Isomap(n_components=self.dim, n_neighbors=self.graph.nn,
                      metric='precomputed')
         # self.coords = sp.csr_matrix(map.fit_transform(self.graph.data.A.T).T)
-        spmatrix = shortest_path(A.A, method='D', directed=False)
+        spmatrix = shortest_path(A.todense(), method='D', directed=False)
         self.coords = map.fit_transform(spmatrix).T
         self.reducer_ = map
 
@@ -146,7 +146,7 @@ class Embedding:
         dim = self.dim
 
         A = A.asfptype()
-        vecs = spectral_embedding(A.A, n_components=dim, eigen_solver=None,
+        vecs = spectral_embedding(A.todense(), n_components=dim, eigen_solver=None,
                                   random_state=None, eigen_tol=0.0, norm_laplacian=True, drop_first=True).T
 
         self.coords = vecs

@@ -402,7 +402,7 @@ class Network:
         if noise == 0:
             R = np.zeros((n, n))
         else:
-            R = np.multiply(matrix.A, np.random.normal(loc=0.0, scale=noise, size=(n, n)))
+            R = np.multiply(matrix.todense(), np.random.normal(loc=0.0, scale=noise, size=(n, n)))
         '''
         raise Exception('this method is under construction')
 
@@ -441,9 +441,9 @@ class Network:
 
         matrix_is_symmetric = np.allclose(matrix.data, matrix.T.data)
         if matrix_is_symmetric:
-            raw_eigs, right_eigvecs = la.eigh(matrix.A)
+            raw_eigs, right_eigvecs = la.eigh(matrix.todense())
         else:
-            raw_eigs, right_eigvecs = la.eig(matrix.A, right=True)
+            raw_eigs, right_eigvecs = la.eig(matrix.todense(), right=True)
 
         raw_eigs = np.around(raw_eigs, decimals=12)
         sorted_eigs = np.sort(raw_eigs)

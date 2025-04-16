@@ -126,15 +126,10 @@ class Experiment():
         for sfeat_name in static_features:
             setattr(self, sfeat_name, static_features[sfeat_name])
 
-        # attribute for a threshold pvalue for each pair p-value. Computed from desired FWER and
-        # multiple hypothesis correction method
-        self._pairwise_pval_thr = None
-
-        #neuron-feature pair statistics
-        self.stats_table = self._populate_cell_feat_dict(DEFAULT_STATS, fbunch=None, cbunch=None)
-
-        #neuron-feature pair significance-related data
-        self.significance_table = self._populate_cell_feat_dict(DEFAULT_SIGNIFICANCE, fbunch=None, cbunch=None)
+        # for selectivity data from INTENSE
+        self.stats_tables = {}
+        self.significance_tables = {}
+        self.selectivity_tables_initialized = False
 
         print('Building data hashes...')
         self._build_data_hashes(mode='calcium')
@@ -156,6 +151,18 @@ class Experiment():
             print('Downsampling constant is too high: some behaviour acts may be skipped. '
                   f'Current minimal behaviour time interval is set to {DEFAULT_MIN_BEHAVIOUR_TIME} sec, '
                   f'downsampling {ds} will create time gaps of {time_step*ds} sec')
+
+    def _set_selectivity_tables(self, mode, fbunch=None, cbunch=None):
+        # neuron-feature pair statistics
+        stats_table = self._populate_cell_feat_dict(DEFAULT_STATS, fbunch=fbunch, cbunch=cbunch)
+
+        # neuron-feature pair significance-related data
+        significance_table = self._populate_cell_feat_dict(DEFAULT_SIGNIFICANCE,
+                                                                fbunch=fbunch,
+                                                                cbunch=cbunch)
+        self.stats_tables[mode] = stats_table
+        self.significance_tables[mode] = significance_table
+        self.selectivity_tables_initialized = True
 
     def _build_pair_hash(self, cell_id, feat_id, mode='calcium'):
         '''
@@ -267,7 +274,7 @@ class Experiment():
 
         return cell_ids
 
-    def _process_fbunch(self, fbunch, allow_multifeatures=False):
+    def _process_fbunch(self, fbunch, allow_multifeatures=False, mode='calcium'):
         '''
         Helper function. Turns feature names (str, iterable or None) into a list of feature names
         '''
@@ -278,9 +285,9 @@ class Experiment():
             if allow_multifeatures:
                 try:
                     # stats table contains up-to-date set of features, including multifeatures
-                    feat_ids = list(self.stats_table.keys())
-                except:
-                    # if stats is not available, take full set of single features
+                    feat_ids = list(self.stats_tables[mode].keys())
+                except KeyError:
+                    # if stats is not available, take pre-defined full set of features
                     feat_ids = list(self.dynamic_features.keys())
             else:
                 feat_ids = list(self.dynamic_features.keys())
@@ -291,7 +298,8 @@ class Experiment():
             # check for multifeatures
             for fname in fbunch:
                 if isinstance(fname, str):
-                    feat_ids.append(fname)
+                    if hasattr(self, fname):
+                        feat_ids.append(fname)
                 else:
                     if allow_multifeatures:
                         feat_ids.append(tuple(sorted(list(fname))))
@@ -336,7 +344,7 @@ class Experiment():
         else:
             raise ValueError('This method is for multifeature update only')
 
-    def _add_multifeature_to_stats(self, feat_id):
+    def _add_multifeature_to_stats(self, feat_id, mode='calcium'):
         '''
         Add previously unseen multifeature (e.g. ['x','y']) to statistics and significance tables.
         This function ignores multifeatures that already exist in the table.
@@ -346,10 +354,13 @@ class Experiment():
 
         if not isinstance(feat_id, str):
             ordered_fnames = tuple(sorted(list(feat_id)))
-            if ordered_fnames not in self.stats_table:
+            if ordered_fnames not in self.stats_tables[mode]:
                 print(f'Multifeature {feat_id} is new, it will be added to stats table')
-                self.stats_table[ordered_fnames] = {cell_id: DEFAULT_STATS.copy() for cell_id in range(self.n_cells)}
-                self.significance_table[ordered_fnames] = {cell_id: DEFAULT_SIGNIFICANCE.copy() for cell_id in range(self.n_cells)}
+                self.stats_tables[mode][ordered_fnames] = {cell_id: DEFAULT_STATS.copy()
+                                                                for cell_id in range(self.n_cells)}
+
+                self.significance_tables[mode][ordered_fnames] = {cell_id: DEFAULT_SIGNIFICANCE.copy()
+                                                                       for cell_id in range(self.n_cells)}
 
         else:
             raise ValueError('This method is for multifeature update only')
@@ -369,13 +380,13 @@ class Experiment():
         if not isinstance(feat_id, str):
             feat_id = tuple(sorted(list(feat_id)))
 
-        if feat_id not in self.stats_table:
+        if feat_id not in self.stats_tables[mode]:
             raise ValueError(f'Feature {feat_id} is not present in stats. \n If this is a single feature, '
                              'check the input data, since all single features are processed automatically.'
                              'If this is a multifeature (e.g. ["x", "y"]), compute MI significance to create stats')
 
         pair_hash = self._data_hashes[mode][feat_id][cell_id]
-        existing_hash = self.stats_table[feat_id][cell_id]['data_hash']
+        existing_hash = self.stats_tables[mode][feat_id][cell_id]['data_hash']
 
         # if (stats does not exist yet) or (stats exists and data is the same):
         if (existing_hash is None) or (pair_hash == existing_hash):
@@ -387,20 +398,20 @@ class Experiment():
 
             return False
 
-    def _update_stats_and_significance(self, stats, cell_id, feat_id, stage2_only):
+    def _update_stats_and_significance(self, stats, mode, cell_id, feat_id, stage2_only):
         '''
         Updates stats table and linked significance table to erase irrelevant data properly
         '''
         # update statistics
-        self.stats_table[feat_id][cell_id].update(stats)
+        self.stats_tables[mode][feat_id][cell_id].update(stats)
         if not stage2_only:
             # erase significance data completely since stats for stage 1 has been modified
-            self.significance_table[feat_id][cell_id].update(DEFAULT_SIGNIFICANCE.copy())
+            self.significance_tables[mode][feat_id][cell_id].update(DEFAULT_SIGNIFICANCE.copy())
         else:
             # erase significance data for stage 2 since stats for stage 2 has been modified
-            self.significance_table[feat_id][cell_id].update({'stage2': None, 'shuffles2': None})
+            self.significance_tables[mode][feat_id][cell_id].update({'stage2': None, 'shuffles2': None})
 
-    def update_neuron_feature_pair_stats(self, stats, cell_id, feat_id, force_update=False, stage2_only=False):
+    def update_neuron_feature_pair_stats(self, stats, cell_id, feat_id, mode='calcium', force_update=False, stage2_only=False):
         '''
         Updates calcium-feature pair statistics.
         feat_id should be a string or an iterable of strings (in case of joint MI calculation).
@@ -408,17 +419,17 @@ class Experiment():
         '''
 
         if not isinstance(feat_id, str):
-            self._add_multifeature_to_data_hashes(feat_id)
-            self._add_multifeature_to_stats(feat_id)
+            self._add_multifeature_to_data_hashes(feat_id, mode=mode)
+            self._add_multifeature_to_stats(feat_id, mode=mode)
 
-        if self._check_stats_relevance(cell_id, feat_id):
-            self._update_stats_and_significance(stats, cell_id, feat_id, stage2_only=stage2_only)
+        if self._check_stats_relevance(cell_id, feat_id, mode=mode):
+            self._update_stats_and_significance(stats, mode, cell_id, feat_id, stage2_only=stage2_only)
 
         else:
             if not force_update:
                 print(f'To forcefully update the stats, set "force_update=True"')
             else:
-                self._update_stats_and_significance(stats, cell_id, feat_id, stage2_only=stage2_only)
+                self._update_stats_and_significance(stats, mode, cell_id, feat_id, stage2_only=stage2_only)
 
     def update_neuron_feature_pair_significance(self, sig, cell_id, feat_id, mode='calcium'):
         '''
@@ -428,37 +439,37 @@ class Experiment():
         '''
         if not isinstance(feat_id, str):
             self._add_multifeature_to_data_hashes(feat_id, mode=mode)
-            self._add_multifeature_to_stats(feat_id)
+            self._add_multifeature_to_stats(feat_id, mode=mode)
 
-        if self._check_stats_relevance(cell_id, feat_id):
-            self.significance_table[feat_id][cell_id].update(sig)
+        if self._check_stats_relevance(cell_id, feat_id, mode=mode):
+            self.significance_tables[mode][feat_id][cell_id].update(sig)
 
         else:
             raise ValueError('Can not update significance table until the collision between actual data hashes and '
                              'saved stats data hashes is resolved. Use update_neuron_feature_pair_stats' 
                              'with "force_update=True" to forcefully rewrite statistics')
 
-    def get_neuron_feature_pair_stats(self, cell_id, feat_id):
+    def get_neuron_feature_pair_stats(self, cell_id, feat_id, mode='calcium'):
         '''
         Returns calcium-feature pair statistics.
         This function allows multifeatures.
         '''
         stats = None
         if self._check_stats_relevance(cell_id, feat_id):
-            stats = self.stats_table[feat_id][cell_id]
+            stats = self.stats_tables[mode][feat_id][cell_id]
         else:
             print(f'Consider recalculating stats')
 
         return stats
 
-    def get_neuron_feature_pair_significance(self, cell_id, feat_id):
+    def get_neuron_feature_pair_significance(self, cell_id, feat_id, mode='calcium'):
         '''
         Returns calcium-feature pair significance data.
         This function allows multifeatures.
         '''
         sig = None
         if self._check_stats_relevance(cell_id, feat_id):
-            sig = self.significance_table[feat_id][cell_id]
+            sig = self.significance_tables[mode][feat_id][cell_id]
         else:
             print(f'Consider recalculating stats')
 
@@ -488,7 +499,7 @@ class Experiment():
 
         return agg_sh_data
 
-    def get_multicell_shuffled_spikes(self, cbunch = None, method = 'isi_based', no_ts=True, **kwargs):
+    def get_multicell_shuffled_spikes(self, cbunch=None, method='isi_based', no_ts=True, **kwargs):
         '''
 
         Args:
@@ -516,19 +527,25 @@ class Experiment():
 
         return agg_sh_data
 
-    def get_stats_slice(self, table_to_scan=None, cbunch=None, fbunch=None, sbunch=None, significance_mode=False):
+    def get_stats_slice(self,
+                        table_to_scan=None,
+                        cbunch=None,
+                        fbunch=None,
+                        sbunch=None,
+                        significance_mode=False,
+                        mode='calcium'):
         '''
         returns slice of accumulated statistics data (or significance data if "significance_mode=True")
         '''
         cell_ids = self._process_cbunch(cbunch)
-        feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True)
+        feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True, mode=mode)
         slist = self._process_sbunch(sbunch, significance_mode=significance_mode)
 
         if table_to_scan is None:
             if significance_mode:
-                full_table = self.significance_table
+                full_table = self.significance_tables[mode]
             else:
-                full_table = self.stats_table
+                full_table = self.stats_tables[mode]
         else:
             full_table = table_to_scan
 
@@ -539,8 +556,12 @@ class Experiment():
 
         return out_table
 
-    def get_significance_slice(self, cbunch=None, fbunch=None, sbunch=None):
-        return self.get_stats_slice(cbunch=cbunch, fbunch=fbunch, sbunch=sbunch, significance_mode=True)
+    def get_significance_slice(self, cbunch=None, fbunch=None, sbunch=None, mode='calcium'):
+        return self.get_stats_slice(cbunch=cbunch,
+                                    fbunch=fbunch,
+                                    sbunch=sbunch,
+                                    significance_mode=True,
+                                    mode=mode)
 
     def get_feature_entropy(self, feat_id, ds=1):
         '''
@@ -561,13 +582,14 @@ class Experiment():
             MIs = [get_1d_mi(ts1, ts2, ds=ds) for (ts1,ts2) in fpairs]
             return sum(single_entropies) - sum(MIs)
 
-    def get_significant_neurons(self, min_nspec=1, fbunch=None):
+    def get_significant_neurons(self, min_nspec=1, fbunch=None, mode='calcium'):
         '''
         Returns a dict with neuron ids as keys and their significantly correlated features as values
         Only neurons with "min_nspec" or more significantly correlated features will be returned
         '''
-        feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True)
-        relevance = [self._check_stats_relevance(cell_id, feat_id) for cell_id in range(self.n_cells) for feat_id in feat_ids]
+        feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True, mode=mode)
+        relevance = [self._check_stats_relevance(cell_id, feat_id, mode=mode)
+                     for cell_id in range(self.n_cells) for feat_id in feat_ids]
         if not np.all(np.array(relevance)):
             raise ValueError('Stats relevance error')
 
@@ -577,7 +599,7 @@ class Experiment():
         cell_feat_dict = {cell_id: [] for cell_id in range(self.n_cells)}
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
-                if self.significance_table[feat_id][cell_id]['stage2']:
+                if self.significance_tables[mode][feat_id][cell_id]['stage2']:
                     cell_feat_dict[cell_id].append(feat_id)
 
         # filter out cells without specializations

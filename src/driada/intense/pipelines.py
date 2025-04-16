@@ -1,5 +1,6 @@
 from .stats import *
 from .intense_base import compute_mi_stats, IntenseResults
+from ..information.info_base import TimeSeries, MultiTimeSeries
 
 
 def compute_cell_feat_mi_significance(exp,
@@ -10,6 +11,7 @@ def compute_cell_feat_mi_significance(exp,
                                       n_shuffles_stage1=100,
                                       n_shuffles_stage2=10000,
                                       joint_distr=False,
+                                      allow_mixed_dimensions=False,
                                       mi_distr_type='gamma',
                                       noise_ampl=1e-3,
                                       ds=1,
@@ -21,6 +23,7 @@ def compute_cell_feat_mi_significance(exp,
                                       multicomp_correction='holm',
                                       pval_thr=0.01,
                                       find_optimal_delays=True,
+                                      skip_delays=[],
                                       shift_window=5,
                                       verbose=True,
                                       enable_parallelization=True,
@@ -65,9 +68,13 @@ def compute_cell_feat_mi_significance(exp,
         default: 10000
 
     joint_distr: bool
-        if joint_distr=True, ALL features in feat_bunch will be treated as components of a single multifeature
+        if True, ALL features in feat_bunch will be treated as components of a single multifeature
         For example, 'x' and 'y' features will be put together into ('x','y') multifeature.
         default: False
+
+    allow_mixed_dimensions: bool
+        if True, both TimeSeries and MultiTimeSeries can be provided as signals.
+        This parameter overrides "joint_distr"
 
     mi_distr_type: str
         Distribution type for shuffles MI distribution fit. Supported options are "gamma" and "lognormal"
@@ -123,6 +130,10 @@ def compute_cell_feat_mi_significance(exp,
         selects a shift with the highest MI as default.
         default: True
 
+    skip_delays: list
+        List of features for which delays are not applied (set to 0).
+        Has no effect if find_optimal_delays = False
+
     shift_window: int
         Window for optimal shift search (seconds). Optimal shift (in frames) will lie in the range
         -shift_window*fps <= opt_shift <= shift_window*fps
@@ -138,7 +149,7 @@ def compute_cell_feat_mi_significance(exp,
     exp.check_ds(ds)
 
     cell_ids = exp._process_cbunch(cell_bunch)
-    feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=True)
+    feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=True, mode=data_type)
     cells = [exp.neurons[cell_id] for cell_id in cell_ids]
 
     if data_type == 'calcium':
@@ -149,14 +160,30 @@ def compute_cell_feat_mi_significance(exp,
         raise ValueError('"data_type" can be either "calcium" or "spikes"')
 
     #min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
-    feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids]
-    if joint_distr:
-        feat_ids = [tuple(sorted(feat_ids))]
+    if not allow_mixed_dimensions:
+        feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids if hasattr(exp, feat_id)]
+        if joint_distr:
+            feat_ids = [tuple(sorted(feat_ids))]
+    else:
+        feats = []
+        for feat_id in feat_ids:
+            if isinstance(feat_id, str):
+                ts = exp.dynamic_features[feat_id]
+                feats.append(ts)
+            elif isinstance(feat_id, tuple):
+                parts = [exp.dynamic_features[f] for f in feat_id]
+                mts = MultiTimeSeries(parts)
+                feats.append(mts)
+            else:
+                raise ValueError('Unknown feature id type')
 
-    n, t, f = len(cells), exp.n_frames, len(feat_ids)
+    n, t, f = len(cells), exp.n_frames, len(feats)
 
     precomputed_mask_stage1 = np.ones((n,f))
     precomputed_mask_stage2 = np.ones((n,f))
+
+    if not exp.selectivity_tables_initialized:
+        exp._set_selectivity_tables(data_type, cbunch=cell_ids, fbunch=feat_ids)
 
     if use_precomputed_stats:
         print('Retrieving saved stats data...')
@@ -166,14 +193,13 @@ def compute_cell_feat_mi_significance(exp,
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
                 try:
-                    # TODO: add data_type everywhere in stats
-                    pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_id)
-                except ValueError:
+                    pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_id, mode=data_type)
+                except (ValueError, KeyError):
                     if isinstance(feat_id, str):
                         raise ValueError(f'Unknown single feature in feat_bunch: {feat_id}. Check initial data')
                     else:
                         exp._add_multifeature_to_data_hashes(feat_id, mode=data_type)
-                        exp._add_multifeature_to_stats(feat_id)
+                        exp._add_multifeature_to_stats(feat_id, mode=data_type)
                         pair_stats = DEFAULT_STATS.copy()
 
                 current_data_hash = exp._data_hashes[data_type][feat_id][cell_id]
@@ -201,6 +227,7 @@ def compute_cell_feat_mi_significance(exp,
                                                                    n_shuffles_stage1=n_shuffles_stage1,
                                                                    n_shuffles_stage2=n_shuffles_stage2,
                                                                    joint_distr=joint_distr,
+                                                                   allow_mixed_dimensions=allow_mixed_dimensions,
                                                                    mi_distr_type=mi_distr_type,
                                                                    noise_ampl=noise_ampl,
                                                                    ds=ds,
@@ -209,6 +236,7 @@ def compute_cell_feat_mi_significance(exp,
                                                                    multicomp_correction=multicomp_correction,
                                                                    pval_thr=pval_thr,
                                                                    find_optimal_delays=find_optimal_delays,
+                                                                   skip_delays=[feat_ids.index(f) for f in skip_delays],
                                                                    shift_window=shift_window*exp.fps,
                                                                    verbose=verbose,
                                                                    enable_parallelization=enable_parallelization,
@@ -235,11 +263,12 @@ def compute_cell_feat_mi_significance(exp,
                     exp.update_neuron_feature_pair_stats(computed_stats[cell_id][feat_id],
                                                          cell_id,
                                                          feat_id,
+                                                         mode=data_type,
                                                          force_update=force_update,
                                                          stage2_only=stage2_only)
 
                     sig = computed_significance[cell_id][feat_id]
-                    exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id)
+                    exp.update_neuron_feature_pair_significance(sig, cell_id, feat_id, mode=data_type)
 
     # save all results to a single object
     intense_params = {

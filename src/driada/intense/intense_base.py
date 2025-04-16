@@ -4,7 +4,7 @@ from joblib import Parallel, delayed
 import multiprocessing
 
 from .stats import *
-from ..information.info_base import get_1d_mi, get_multi_mi
+from ..information.info_base import TimeSeries, get_1d_mi, get_multi_mi, get_mi
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables
 
 
@@ -19,7 +19,7 @@ def calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=Tru
         for j, ts2 in enumerate(ts_bunch2):
             shifted_mi = []
             for shift in shifts:
-                lag_mi = get_1d_mi(ts1, ts2, ds=ds, shift=int(shift))
+                lag_mi = get_mi(ts1, ts2, ds=ds, shift=int(shift))
                 shifted_mi.append(lag_mi)
 
             best_shift = shifts[np.argmax(shifted_mi)]
@@ -204,11 +204,11 @@ def scan_pairs(ts_bunch1,
         else:
             for j, ts2 in enumerate(ts_bunch2):
                 if mask[i,j] == 1:
-                    mi0 = get_1d_mi(ts1,
-                                    ts2,
-                                    ds=ds,
-                                    shift=optimal_delays[i,j]//ds,
-                                    check_for_coincidence=True)  # default MI without shuffling
+                    mi0 = get_mi(ts1,
+                                ts2,
+                                ds=ds,
+                                shift=optimal_delays[i,j]//ds,
+                                check_for_coincidence=True)  # default MI without shuffling
 
                     np.random.seed(seed)
                     mi_table[i,j] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
@@ -219,7 +219,8 @@ def scan_pairs(ts_bunch1,
 
                     for k, shift in enumerate(random_shifts[i,j,:]):
                         np.random.seed(seed)
-                        mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
+                        #mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
+                        mi = get_mi(ts1, ts2, shift=shift, ds=ds)
                         mi_table_shuffles[i,j,k] = mi + random_noise[k]
 
                 else:
@@ -343,6 +344,7 @@ def compute_mi_stats(ts_bunch1,
                      n_shuffles_stage1=100,
                      n_shuffles_stage2=10000,
                      joint_distr=False,
+                     allow_mixed_dimensions=False,
                      mi_distr_type='gamma',
                      noise_ampl=1e-3,
                      ds=1,
@@ -351,6 +353,7 @@ def compute_mi_stats(ts_bunch1,
                      multicomp_correction='holm',
                      pval_thr=0.01,
                      find_optimal_delays=False,
+                     skip_delays=[],
                      shift_window=100,
                      verbose=True,
                      seed=None,
@@ -358,7 +361,7 @@ def compute_mi_stats(ts_bunch1,
                      n_jobs=-1):
 
     """
-    Calculates MI statistics for TimeSeries pairs
+    Calculates MI statistics for TimeSeries or MultiTimeSeries pairs
 
     Parameters
     ----------
@@ -407,6 +410,11 @@ def compute_mi_stats(ts_bunch1,
         For example, 'x' and 'y' features will be put together into ('x','y') multifeature.
         default: False
 
+    allow_mixed_dimensions: bool
+        if True, both TimeSeries and MultiTimeSeries can be provided as signals.
+        This parameter overrides "joint_distr"
+        default: False
+
     mi_distr_type: str
         Distribution type for shuffles MI distribution fit. Supported options are "gamma" and "lognormal"
         default: "gamma"
@@ -441,6 +449,10 @@ def compute_mi_stats(ts_bunch1,
         selects a shift with the highest MI as default.
         default: True
 
+    skip_delays: list
+        List of indices from ts_bunch2 for which delays are not applied (set to 0).
+        Has no effect if find_optimal_delays = False
+
     shift_window: int
         Window for optimal shift search (frames). Optimal shift will lie in the range
         -shift_window <= opt_shift <= shift_window
@@ -474,7 +486,15 @@ def compute_mi_stats(ts_bunch1,
     accumulated_info = dict()
 
     n1 = len(ts_bunch1)
-    n2 = 1 if joint_distr else len(ts_bunch2)
+    n2 = len(ts_bunch2)
+    if not allow_mixed_dimensions:
+        n2 = 1 if joint_distr else len(ts_bunch2)
+
+        tsbunch1_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch1])
+        tsbunch2_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch2])
+        if not (tsbunch1_is_1d and tsbunch2_is_1d):
+            raise ValueError('Multiple time series types found, but allow_mixed_dimensions=False.'
+                             'Consider setting it to True')
 
     if precomputed_mask_stage1 is None:
         precomputed_mask_stage1 = np.ones((n1, n2))
@@ -483,21 +503,26 @@ def compute_mi_stats(ts_bunch1,
 
     # TODO: add keyword argument for behavior on duplicate TS ('ignore/raise error') and an internal check for them here
 
-    optimal_delays = np.zeros((n1, n2))
+    optimal_delays = np.zeros((n1, n2), dtype=int)
+    ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if _ not in skip_delays]
+    ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if _ not in skip_delays])
+
     if find_optimal_delays:
         if enable_parallelization:
-            optimal_delays = calculate_optimal_delays_parallel(ts_bunch1,
-                                                               ts_bunch2,
-                                                               shift_window,
-                                                               ds,
-                                                               verbose=verbose,
-                                                               n_jobs=n_jobs)
+            optimal_delays_res = calculate_optimal_delays_parallel(ts_bunch1,
+                                                                   ts_with_delays,
+                                                                   shift_window,
+                                                                   ds,
+                                                                   verbose=verbose,
+                                                                   n_jobs=n_jobs)
         else:
-            optimal_delays = calculate_optimal_delays(ts_bunch1,
-                                                      ts_bunch2,
-                                                      shift_window,
-                                                      ds,
-                                                      verbose=verbose)
+            optimal_delays_res = calculate_optimal_delays(ts_bunch1,
+                                                          ts_with_delays,
+                                                          shift_window,
+                                                          ds,
+                                                          verbose=verbose)
+
+        optimal_delays[:, ts_with_delays_inds] = optimal_delays_res
 
     accumulated_info['optimal_delays'] = optimal_delays
 
