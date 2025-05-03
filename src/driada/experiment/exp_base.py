@@ -27,6 +27,7 @@ def check_dynamic_features(dynamic_features):
 
         dfeat_lengths[feat_id] = len_ts
 
+    #TODO: add fix for 0 features
     if len(set(dfeat_lengths.values())) != 1:
         print(dfeat_lengths)
         raise ValueError('Dynamic features have different lengths!')

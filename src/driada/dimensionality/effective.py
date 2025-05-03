@@ -26,7 +26,7 @@ def _eff_dim(corr_eigs, q=2):
     else:
         return 1.0/(1.0 - q)*np.log(np.sum([p**q for p in norm_corr_eigs]))
 
-
+# TODO: add warning suppression
 def eff_dim(data, enable_correction, q=2, **correction_kwargs):
     n, t = data.shape
     if 1.0*n/t > DATA_SHAPE_THR and not enable_correction:
