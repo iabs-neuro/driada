@@ -149,7 +149,12 @@ def scan_pairs(ts_bunch1,
 
     n1 = len(ts_bunch1)
     n2 = 1 if joint_distr else len(ts_bunch2)
-    t = len(ts_bunch1[0].data)  # full length is the same for all time series
+    lengths1 = [len(ts.data) if isinstance(ts, TimeSeries) else ts.data.shape[1] for ts in ts_bunch1]
+    lengths2 = [len(ts.data) if isinstance(ts, TimeSeries) else ts.data.shape[1] for ts in ts_bunch2]
+    if len(set(lengths1)) == 1 and len(set(lengths2)) == 1 and set(lengths1) == set(lengths2):
+        t = lengths1[0]  # full length is the same for all time series
+    else:
+        raise ValueError('Lenghts of TimeSeries do not match!')
 
     if mask is None:
         mask = np.ones((n1, n2))

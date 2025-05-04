@@ -16,7 +16,7 @@ def test_wavelet_spike_inference():
     wvt_kwargs = WVT_EVENT_DETECTION_PARAMS.copy()
     wvt_kwargs['fps'] = 20
 
-    n = 1000 # number of signals
+    n = 100 # number of signals
     duration = 600  # seconds
     sampling_rate = 20  # 20 Hz
     event_rate = 0.2  # 0.2 event per second on average

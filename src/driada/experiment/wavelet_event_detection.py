@@ -104,6 +104,7 @@ def get_cwt_ridges(sig, wavelet=None, fps=20, scmin=150, scmax=250, all_wvt_time
     return all_ridges
 
 
+# TODO: add support for numba >0.59.0 or "numba_acceleration" flag
 @njit()
 def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
     # determine peak positions for all scales

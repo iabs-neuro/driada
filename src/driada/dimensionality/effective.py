@@ -1,5 +1,6 @@
 from .utils import *
 from scipy.stats import entropy
+import warnings
 from ..utils.data import correlation_matrix
 
 DATA_SHAPE_THR = 0.01  # if n/t in multivariate time series data is more than DATA_SHAPE_THR,
@@ -26,11 +27,11 @@ def _eff_dim(corr_eigs, q=2):
     else:
         return 1.0/(1.0 - q)*np.log(np.sum([p**q for p in norm_corr_eigs]))
 
-# TODO: add warning suppression
+
 def eff_dim(data, enable_correction, q=2, **correction_kwargs):
     n, t = data.shape
     if 1.0*n/t > DATA_SHAPE_THR and not enable_correction:
-        raise UserWarning(f'fN/T is {1.0*n/t}, which is bigger than {DATA_SHAPE_THR}. Spectrum correction is recommended')
+        warnings.warn(f'fN/T is {1.0*n/t}, which is bigger than {DATA_SHAPE_THR}. Spectrum correction is recommended')
 
     cmat = correlation_matrix(data)
     if enable_correction:

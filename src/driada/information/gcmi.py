@@ -97,8 +97,8 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
-    if x.ndim > 2 or y.ndim > 2:
-        raise ValueError("x and y must be at most 2d")
+    if x.ndim > 3 or y.ndim > 3:
+        raise ValueError("x and y must be at most 3d")
     Ntrl = x.shape[1]
     Nvarx = x.shape[0]
     Nvary = y.shape[0]

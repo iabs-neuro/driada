@@ -190,7 +190,6 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
                 raise Exception('Multidimensional inputs must be provided as MultiTimeSeries')
         return ts
 
-
     def multi_single_mi(mts, ts, ds=1, k=5, estimator='gcmi'):
         if estimator == 'ksg':
             raise NotImplementedError('KSG estimator is not supported for dim>1 yet')
@@ -207,6 +206,26 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
 
         return mi
 
+    def multi_multi_mi(mts1, mts2, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
+        if estimator == 'ksg':
+            raise NotImplementedError('KSG estimator is not supported for dim>1 yet')
+
+        if check_for_coincidence:
+            if np.allclose(ts1.data, ts2.data) and shift == 0:  # and not (ts1.discrete and ts2.discrete):
+                warnings.warn('MI computation of a MultiTimeSeries with itself is meaningless, 0 will be returned forcefully')
+                # raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
+                return 0
+
+        if mts1.discrete or mts2.discrete:
+            raise NotImplementedError('MI computation between MultiTimeSeries\
+             is currently supported for continuous data only')
+
+        else:
+            ny1 = mts1.copula_normal_data[:, ::ds]
+            ny2 = np.roll(mts2.copula_normal_data[:, ::ds], shift, axis=1)
+            mi = mi_gg(ny1, ny2, True, True)
+
+        return mi
 
     ts1 = _check_input(x)
     ts2 = _check_input(y)
@@ -221,8 +240,10 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
     if isinstance(ts2, MultiTimeSeries) and isinstance(ts1, TimeSeries):
         mi = multi_single_mi(ts2, ts1, ds=ds, k=k, estimator=estimator)
 
-    if isinstance(ts2, MultiTimeSeries) and isinstance(ts1, MultiTimeSeries):
-        raise NotImplementedError('MI computation between two MultiTimeSeries is not supported yet')
+    if isinstance(ts1, MultiTimeSeries) and isinstance(ts2, MultiTimeSeries):
+        mi = multi_multi_mi(ts1, ts2, ds=ds, k=k, estimator=estimator,
+                            check_for_coincidence=check_for_coincidence)
+        #raise NotImplementedError('MI computation between two MultiTimeSeries is not supported yet')
 
     if mi < 0:
         mi = 0
@@ -230,7 +251,6 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
     return mi
 
 
-#TODO: add check for equal TimeSeries
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
     """Computes mutual information between two 1d variables efficiently
 
@@ -260,8 +280,9 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
 
     if check_for_coincidence:
         if np.allclose(ts1.data, ts2.data) and shift == 0: #and not (ts1.discrete and ts2.discrete):
-            raise ValueError('MI computation of a TimeSeries with itself is not allowed')
-            #raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
+            warnings.warn('MI computation of a TimeSeries with itself is meaningless, 0 will be returned forcefully')
+            return 0
+            # raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
 
     if estimator == 'ksg':
         #TODO: add shifts everywhere in this branch

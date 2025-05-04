@@ -118,3 +118,40 @@ def test_mixed_dimensions():
 
     # index 50 is a multi-ts
     assert set(rel_sig_pairs) == set([(1, 49), (2, 48), (5, 45), (1, 50), (2 ,50)]) # retrieve correlated signals
+
+
+def test_mirror():
+    # test INTENSE of a TimeSeries and MultiTimeSeries set with itself
+    tslist1, tslist2 = create_correlated_ts()
+    mts1 = MultiTimeSeries(tslist2[-2:]) # add last two TS into a single 2-d MTS
+    mts2 = MultiTimeSeries(tslist2[:2])  # add first two TS into a single 2-d MTS
+
+    # we expect the correlation between mts1 (index 50) and ts with indices 48, 49
+    # we expect the correlation between mts2 (index 51) and ts with indices 0, 1
+    mod_tslist2 = tslist2 + [mts1, mts2]
+
+    computed_stats, computed_significance, info = compute_mi_stats(mod_tslist2,
+                                                                    mod_tslist2,
+                                                                     mode='two_stage',
+                                                                     n_shuffles_stage1=100,
+                                                                     n_shuffles_stage2=1000,
+                                                                     joint_distr=False,
+                                                                     allow_mixed_dimensions=True,
+                                                                     mi_distr_type='gamma',
+                                                                     noise_ampl=1e-3,
+                                                                     ds=1,
+                                                                     topk1=1,
+                                                                     topk2=5,
+                                                                     multicomp_correction='holm',
+                                                                     pval_thr=0.01,
+                                                                     enable_parallelization=1,
+                                                                     seed=1,
+                                                                     verbose=True)
+
+    rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance,
+                                                       'stage2',
+                                                       True,
+                                                       allow_missing_keys=True)
+
+    print(set(rel_sig_pairs))
+    assert set(rel_sig_pairs) == set([(50, 49), (48, 50), (51, 1), (50, 48), (0, 51), (49, 50), (1, 51), (51, 0)]) # retrieve correlated signals
