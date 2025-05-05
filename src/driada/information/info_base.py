@@ -1,5 +1,6 @@
 from sklearn.feature_selection import mutual_info_classif, mutual_info_regression
 from sklearn.metrics.cluster import mutual_info_score
+import scipy
 
 from .ksg import *
 from .gcmi import *
@@ -159,15 +160,104 @@ class MultiTimeSeries:
             self.entropy[ds] = ent_g(self.data)
 
 
+def get_stats_function(sname):
+    try:
+        return getattr(scipy.stats, sname)
+    except AttributeError:
+        raise ValueError(f"Metric '{sname}' not found in scipy.stats")
+
+
+def calc_signal_ratio(binary_ts, continuous_ts):
+    # Calculate average of continuous_ts when binary_ts is 1 or 0
+    avg_on = np.mean(continuous_ts[binary_ts == 1])
+    avg_off = np.mean(continuous_ts[binary_ts == 0])
+
+    # Calculate ratio (handle division by zero)
+    if avg_off == 0:
+        return np.inf if avg_on != 0 else np.nan
+
+    return avg_on / avg_off
+
+
+def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
+    """Computes similarity between two (possibly multidimensional) variables efficiently
+
+            Parameters
+            ----------
+            x: TimeSeries/MultiTimeSeries instance or numpy array
+
+            y: TimeSeries/MultiTimeSeries instance or numpy array
+
+            metric: similarity metric between time series
+
+            shift: int
+                y will be roll-moved by the number 'shift' after downsampling by 'ds' factor
+
+            ds: int
+                downsampling constant (take every 'ds'-th point)
+
+            Returns
+            -------
+            me: similarity metric between x and (possibly) shifted y
+
+            """
+    def _check_input(ts):
+        if not isinstance(ts, TimeSeries) and not isinstance(ts, MultiTimeSeries):
+            if np.ndim(ts) == 1:
+                ts = TimeSeries(ts)
+            else:
+                raise Exception('Multidimensional inputs must be provided as MultiTimeSeries')
+        return ts
+
+    ts1 = _check_input(x)
+    ts2 = _check_input(y)
+
+    if metric == 'mi':
+        me = get_mi(ts1, ts2, shift=shift, ds=ds, k=k, estimator=estimator,
+                                check_for_coincidence=check_for_coincidence)
+
+    else:
+        if isinstance(ts1, TimeSeries) and isinstance(ts2, TimeSeries):
+            if not ts1.discrete and not ts2.discrete:
+                metric_func = get_stats_function(metric)
+                me = metric_func(ts1.data[::ds], np.roll(ts2.data[::ds], shift))[0]
+
+            if ts1.discrete and not ts2.discrete:
+                if metric == 'av':
+                    if ts1.is_binary:
+                        me = calc_signal_ratio(ts1.data[::ds], np.roll(ts2.data[::ds], shift))
+                    else:
+                        raise ValueError(f'Discrete ts must be binary for metric={metric}')
+                else:
+                    raise ValueError("Only 'av' and 'mi' metrics are supported for binary-continuous similarity")
+
+            if ts2.discrete and not ts1.discrete:
+                if metric == 'av':
+                    if ts2.is_binary:
+                        me = calc_signal_ratio(ts2.data[::ds], np.roll(ts1.data[::ds], shift))
+                    else:
+                        raise ValueError(f'Discrete ts must be binary for metric={metric}')
+                else:
+                    raise ValueError("Only 'av' and 'mi' metrics are supported for binary-continuous similarity")
+
+            if ts2.discrete and ts1.discrete:
+                raise ValueError(f'Metric={metric} is not supported for two discrete ts')
+
+        else:
+            raise Exception("Metrics except 'mi' are not supported for multi-dimensional data")
+
+    return me
+
+
 def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
     """Computes mutual information between two (possibly multidimensional) variables efficiently
 
     Parameters
     ----------
-    ts1: TimeSeries/MultiTimeSeries instance or numpy array
-    ts2: TimeSeries/MultiTimeSeries instance or numpy array
+    x: TimeSeries/MultiTimeSeries instance or numpy array
+    y: TimeSeries/MultiTimeSeries instance or numpy array
     shift: int
-        ts2 will be roll-moved by the number 'shift' after downsampling by 'ds' factor
+        y will be roll-moved by the number 'shift' after downsampling by 'ds' factor
     ds: int
         downsampling constant (take every 'ds'-th point)
     k: int
@@ -178,7 +268,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
 
     Returns
     -------
-    mi: mutual information (or its lower bound in case of 'gcmi' estimator) between ts1 and (possibly) shifted ts2
+    mi: mutual information (or its lower bound in case of 'gcmi' estimator) between x and (possibly) shifted y
 
     """
 

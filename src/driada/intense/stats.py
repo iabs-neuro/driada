@@ -1,7 +1,9 @@
 import numpy as np
-from scipy.stats import gamma, lognorm, rankdata
+import scipy
+from scipy.stats import *
 from ..utils.data import populate_nested_dict, add_names_to_nested_dict
 from ..experiment.exp_base import DEFAULT_STATS
+
 
 def chebyshev_ineq(data, val):
     z = (val - np.mean(data))/np.std(data)
@@ -20,21 +22,26 @@ def get_gamma_p(data, val):
     return rv.sf(val)
 
 
-def get_mi_distr_pvalue(data, val, distr_type='gamma'):
-    if distr_type == 'lognormal':
-        distr = lognorm
-    elif distr_type == 'gamma':
-        distr = gamma
-    else:
-        raise ValueError(f'wrong MI distribution: {distr_type}')
-
+def get_distribution_function(dist_name):
     try:
-        params = distr.fit(data, floc=0)
-        rv = distr(*params)
-        return rv.sf(val)
+        return getattr(scipy.stats, dist_name)
+    except AttributeError:
+        raise ValueError(f"Distribution '{dist_name}' not found in scipy.stats")
 
-    except: # some rare error in function fitting
-        return 1.0
+
+def get_mi_distr_pvalue(data, val, distr_type='gamma'):
+    distr = get_distribution_function(distr_type)
+    #try:
+    if distr_type in ['gamma', 'lognorm']:
+        params = distr.fit(data, floc=0)
+    else:
+        params = distr.fit(data)
+
+    rv = distr(*params)
+    return rv.sf(val)
+
+    #except: # some rare error in function fitting
+    #return 1.0
 
 
 def get_mask(ptable, rtable, pval_thr, rank_thr):
@@ -48,7 +55,7 @@ def stats_not_empty(pair_stats, current_data_hash, stage=1):
     if stage == 1:
         stats_to_check = ['pre_rval', 'pre_pval']
     elif stage == 2:
-        stats_to_check = ['rval', 'pval', 'mi']
+        stats_to_check = ['rval', 'pval', 'me']
     else:
         raise ValueError(f'Stage should be 1 or 2, but {stage} was passed')
 
@@ -135,31 +142,31 @@ def get_all_nonempty_pvals(all_stats, ids1, ids2):
     return all_pvals
 
 
-def get_table_of_stats(mitable,
+def get_table_of_stats(metable,
                        optimal_delays,
                        precomputed_mask=None,
-                       mi_distr_type='gamma',
+                       metric_distr_type='gamma',
                        nsh=0,
                        stage=1):
 
     # 0 in mask values means that stats for this pair will not be calculated
     # 1 in mask values means that stats for this pair will be calculated from new results.
     if precomputed_mask is None:
-        precomputed_mask = np.ones(mitable.shape)
+        precomputed_mask = np.ones(metable.shape)
 
-    a, b, sh = mitable.shape
+    a, b, sh = metable.shape
     stage_stats = populate_nested_dict(dict(), range(a), range(b))
 
-    ranked_total_mi = rankdata(mitable, axis=2, nan_policy='omit')
+    ranked_total_mi = rankdata(metable, axis=2, nan_policy='omit')
     ranks = (ranked_total_mi[:, :, 0] / (nsh + 1))  # how many shuffles have MI lower than true mi
 
     for i in range(a):
         for j in range(b):
             if precomputed_mask[i, j]:
                 new_stats = {}#DEFAULT_STATS.copy()
-                mi = mitable[i, j, 0]
-                random_mi_samples = mitable[i, j, 1:]
-                pval = get_mi_distr_pvalue(random_mi_samples, mi, distr_type=mi_distr_type)
+                me = metable[i, j, 0]
+                random_mi_samples = metable[i, j, 1:]
+                pval = get_mi_distr_pvalue(random_mi_samples, me, distr_type=metric_distr_type)
                 opt_delay = optimal_delays[i, j]
 
                 if stage == 1:
@@ -170,7 +177,7 @@ def get_table_of_stats(mitable,
                 elif stage == 2:
                     new_stats['rval'] = ranks[i,j]
                     new_stats['pval'] = pval
-                    new_stats['mi'] = mitable[i,j,0]
+                    new_stats['me'] = metable[i,j,0]
                     new_stats['opt_delay'] = opt_delay
 
                 stage_stats[i][j].update(new_stats)

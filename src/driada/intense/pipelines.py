@@ -1,34 +1,35 @@
 from .stats import *
-from .intense_base import compute_mi_stats, IntenseResults
+from .intense_base import compute_me_stats, IntenseResults
 from ..information.info_base import TimeSeries, MultiTimeSeries
 
 
-def compute_cell_feat_mi_significance(exp,
-                                      cell_bunch=None,
-                                      feat_bunch=None,
-                                      data_type='calcium',
-                                      mode='two_stage',
-                                      n_shuffles_stage1=100,
-                                      n_shuffles_stage2=10000,
-                                      joint_distr=False,
-                                      allow_mixed_dimensions=False,
-                                      mi_distr_type='gamma',
-                                      noise_ampl=1e-3,
-                                      ds=1,
-                                      use_precomputed_stats=True,
-                                      save_computed_stats=True,
-                                      force_update=False,
-                                      topk1=1,
-                                      topk2=5,
-                                      multicomp_correction='holm',
-                                      pval_thr=0.01,
-                                      find_optimal_delays=True,
-                                      skip_delays=[],
-                                      shift_window=5,
-                                      verbose=True,
-                                      enable_parallelization=True,
-                                      n_jobs=-1,
-                                      seed=42):
+def compute_cell_feat_significance(exp,
+                                  cell_bunch=None,
+                                  feat_bunch=None,
+                                  data_type='calcium',
+                                  metric='mi',
+                                  mode='two_stage',
+                                  n_shuffles_stage1=100,
+                                  n_shuffles_stage2=10000,
+                                  joint_distr=False,
+                                  allow_mixed_dimensions=False,
+                                  metric_distr_type='gamma',
+                                  noise_ampl=1e-3,
+                                  ds=1,
+                                  use_precomputed_stats=True,
+                                  save_computed_stats=True,
+                                  force_update=False,
+                                  topk1=1,
+                                  topk2=5,
+                                  multicomp_correction='holm',
+                                  pval_thr=0.01,
+                                  find_optimal_delays=True,
+                                  skip_delays=[],
+                                  shift_window=5,
+                                  verbose=True,
+                                  enable_parallelization=True,
+                                  n_jobs=-1,
+                                  seed=42):
 
     """
     Calculates significant neuron-feature pairs
@@ -46,6 +47,9 @@ def compute_cell_feat_mi_significance(exp,
 
     data_type: str
         Data type used for INTENSE computations. Can be 'calcium' or 'spikes'
+
+    metric: similarity metric between TimeSeries
+        default: 'mi'
 
     mode: str
         Computation mode. 3 modes are available:
@@ -76,8 +80,8 @@ def compute_cell_feat_mi_significance(exp,
         if True, both TimeSeries and MultiTimeSeries can be provided as signals.
         This parameter overrides "joint_distr"
 
-    mi_distr_type: str
-        Distribution type for shuffles MI distribution fit. Supported options are "gamma" and "lognormal"
+    metric_distr_type: str
+        Distribution type for shuffled metric distribution fit. Supported options are distributions from scipy.stats
         default: "gamma"
 
     noise_ampl: float
@@ -217,18 +221,19 @@ def compute_cell_feat_mi_significance(exp,
     else:
         raise ValueError('Wrong mode!')
 
-    computed_stats, computed_significance, info = compute_mi_stats(signals,
+    computed_stats, computed_significance, info = compute_me_stats(signals,
                                                                    feats,
                                                                    mode=mode,
                                                                    names1=cell_ids,
                                                                    names2=feat_ids,
+                                                                   metric=metric,
                                                                    precomputed_mask_stage1=precomputed_mask_stage1,
                                                                    precomputed_mask_stage2=precomputed_mask_stage2,
                                                                    n_shuffles_stage1=n_shuffles_stage1,
                                                                    n_shuffles_stage2=n_shuffles_stage2,
                                                                    joint_distr=joint_distr,
                                                                    allow_mixed_dimensions=allow_mixed_dimensions,
-                                                                   mi_distr_type=mi_distr_type,
+                                                                   metric_distr_type=metric_distr_type,
                                                                    noise_ampl=noise_ampl,
                                                                    ds=ds,
                                                                    topk1=topk1,
@@ -276,10 +281,11 @@ def compute_cell_feat_mi_significance(exp,
         'feat_bunch': {i: feat_ids[i] for i in range(len(feat_ids))},
         'data_type': data_type,
         'mode': mode,
+        'metric': metric,
         'n_shuffles_stage1': n_shuffles_stage1,
         'n_shuffles_stage2': n_shuffles_stage2,
         'joint_distr': joint_distr,
-        'mi_distr_type': mi_distr_type,
+        'metric_distr_type': metric_distr_type,
         'noise_ampl': noise_ampl,
         'ds': ds,
         'topk1': topk1,

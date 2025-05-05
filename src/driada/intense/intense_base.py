@@ -4,7 +4,7 @@ from joblib import Parallel, delayed
 import multiprocessing
 
 from .stats import *
-from ..information.info_base import TimeSeries, get_1d_mi, get_multi_mi, get_mi
+from ..information.info_base import TimeSeries, get_1d_mi, get_multi_mi, get_mi, get_sim
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables
 
 
@@ -17,12 +17,12 @@ def calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=Tru
 
     for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1), total=len(ts_bunch1), disable=not enable_progressbar):
         for j, ts2 in enumerate(ts_bunch2):
-            shifted_mi = []
+            shifted_me = []
             for shift in shifts:
                 lag_mi = get_mi(ts1, ts2, ds=ds, shift=int(shift))
-                shifted_mi.append(lag_mi)
+                shifted_me.append(lag_mi)
 
-            best_shift = shifts[np.argmax(shifted_mi)]
+            best_shift = shifts[np.argmax(shifted_me)]
             optimal_delays[i, j] = int(best_shift*ds)
 
     return optimal_delays
@@ -57,7 +57,7 @@ def calculate_optimal_delays_parallel(ts_bunch1, ts_bunch2, shift_window, ds, ve
 
 
 # TODO: add cbunch and fbunch logic
-def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
+def get_calcium_feature_me_profile(exp, cell_id, feat_id, window=1000, ds=1):
 
     cell = exp.neurons[cell_id]
     ts1 = cell.ca
@@ -65,7 +65,7 @@ def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
 
     if isinstance(feat_id, str):
         ts2 = exp.dynamic_features[feat_id]
-        mi0 = get_1d_mi(ts1, ts2, ds=ds)
+        me0 = get_1d_mi(ts1, ts2, ds=ds)
 
         for shift in tqdm.tqdm(np.arange(-window, window, ds)//ds):
             lag_mi = get_1d_mi(ts1, ts2, ds=ds, shift=shift)
@@ -73,17 +73,18 @@ def get_calcium_feature_mi_profile(exp, cell_id, feat_id, window=1000, ds=1):
 
     else:
         feats = [exp.dynamic_features[fid] for fid in feat_id]
-        mi0 = get_multi_mi(feats, ts1, ds=ds)
+        me0 = get_multi_mi(feats, ts1, ds=ds)
 
         for shift in tqdm.tqdm(np.arange(-window, window, ds)):
             lag_mi = get_multi_mi(feats, ts1, ds=ds, shift=shift)
             shifted_mi.append(lag_mi)
 
-    return mi0, shifted_mi
+    return me0, shifted_mi
 
 
 def scan_pairs(ts_bunch1,
                ts_bunch2,
+               metric,
                nsh,
                optimal_delays,
                joint_distr=False,
@@ -103,7 +104,9 @@ def scan_pairs(ts_bunch1,
     ts_bunch1: list of TimeSeries objects
 
     ts_bunch2: list of TimeSeries objects
-
+    
+    metric: similarity metric between TimeSeries
+    
     nsh: int
         number of shuffles
 
@@ -135,11 +138,11 @@ def scan_pairs(ts_bunch1,
     random_shifts: np.array of shape (len(ts_bunch1), len(ts_bunch2), nsh)
         signals shifts used for MI distribution computation
 
-    mi_total: np.array of shape (len(ts_bunch1), len(ts_bunch2)), nsh+1) or (len(ts_bunch1), 1, nsh+1) if joint_distr==True
+    me_total: np.array of shape (len(ts_bunch1), len(ts_bunch2)), nsh+1) or (len(ts_bunch1), 1, nsh+1) if joint_distr==True
         Aggregated array of true and shuffled MI values.
-        True MI matrix can be obtained by mi_total[:,:,0]
+        True MI matrix can be obtained by me_total[:,:,0]
         Shuffled MI tensor of shape (len(ts_bunch1), len(ts_bunch2)), nsh) or (len(ts_bunch1), 1, nsh) if joint_distr==True
-        can be obtained by mi_total[:,:,1:]
+        can be obtained by me_total[:,:,1:]
     """
 
     if seed is None:
@@ -159,8 +162,8 @@ def scan_pairs(ts_bunch1,
     if mask is None:
         mask = np.ones((n1, n2))
 
-    mi_table = np.zeros((n1, n2))
-    mi_table_shuffles = np.zeros((n1, n2, nsh))
+    me_table = np.zeros((n1, n2))
+    me_table_shuffles = np.zeros((n1, n2, nsh))
     random_shifts = np.zeros((n1, n2, nsh), dtype=int)
 
     # fill random shifts according to the allowed shuffles masks of both time series
@@ -183,6 +186,7 @@ def scan_pairs(ts_bunch1,
                 indices_to_select = np.arange(t)[combined_shuffle_mask]
                 random_shifts[i, j, :] = np.random.choice(indices_to_select, size=nsh)//ds
 
+    # calculate similarity metric arrays
     for i, ts1 in tqdm.tqdm(enumerate(ts_bunch1),
                             total=len(ts_bunch1),
                             position=0,
@@ -190,33 +194,38 @@ def scan_pairs(ts_bunch1,
                             disable=not enable_progressbar):
 
         np.random.seed(seed)
+
+        # TODO: deprecate this branch, it is unnecessary with MultiTimeSeries
         if joint_distr:
+            if metric != 'mi':
+                raise ValueError("joint_distr mode works with metric = 'mi' only")
             if mask[i,0] == 1:
-                # default MI without shuffling, minus due to different order
-                mi0 = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0]//ds)
-                mi_table[i,0] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
+                # default metric without shuffling, minus due to different order
+                me0 = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0]//ds)
+                me_table[i,0] = me0 + np.random.random()*noise_const  # add small noise for better fitting
 
                 np.random.seed(seed)
                 random_noise = np.random.random(size=len(random_shifts[i, 0, :])) * noise_const  # add small noise for better fitting
                 for k, shift in enumerate(random_shifts[i, 0, :]):
                     mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift)
-                    mi_table_shuffles[i,0,k] = mi + random_noise[k]
+                    me_table_shuffles[i,0,k] = mi + random_noise[k]
 
             else:
-                mi_table[i,0] = None
-                mi_table_shuffles[i,0,:] = np.full(shape=nsh, fill_value=None)
+                me_table[i,0] = None
+                me_table_shuffles[i,0,:] = np.full(shape=nsh, fill_value=None)
 
         else:
             for j, ts2 in enumerate(ts_bunch2):
                 if mask[i,j] == 1:
-                    mi0 = get_mi(ts1,
-                                ts2,
-                                ds=ds,
-                                shift=optimal_delays[i,j]//ds,
-                                check_for_coincidence=True)  # default MI without shuffling
+                    me0 = get_sim(ts1,
+                                  ts2,
+                                  metric,
+                                  ds=ds,
+                                  shift=optimal_delays[i, j]//ds,
+                                  check_for_coincidence=True)  # default metric without shuffling
 
                     np.random.seed(seed)
-                    mi_table[i,j] = mi0 + np.random.random()*noise_const  # add small noise for better fitting
+                    me_table[i,j] = me0 + np.random.random()*noise_const  # add small noise for better fitting
 
                     np.random.seed(seed)
                     random_noise = np.random.random(
@@ -225,20 +234,26 @@ def scan_pairs(ts_bunch1,
                     for k, shift in enumerate(random_shifts[i,j,:]):
                         np.random.seed(seed)
                         #mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
-                        mi = get_mi(ts1, ts2, shift=shift, ds=ds)
-                        mi_table_shuffles[i,j,k] = mi + random_noise[k]
+                        me = get_sim(ts1,
+                                     ts2,
+                                     metric,
+                                     ds=ds,
+                                     shift=shift)
+
+                        me_table_shuffles[i,j,k] = me + random_noise[k]
 
                 else:
-                    mi_table[i,j] = None
-                    mi_table_shuffles[i,j,:] = np.array([None for _ in range(nsh)])
+                    me_table[i,j] = None
+                    me_table_shuffles[i,j,:] = np.array([None for _ in range(nsh)])
 
-    mi_total = np.dstack((mi_table, mi_table_shuffles))
+    me_total = np.dstack((me_table, me_table_shuffles))
 
-    return random_shifts, mi_total
+    return random_shifts, me_total
 
 
 def scan_pairs_parallel(ts_bunch1,
                         ts_bunch2,
+                        metric,
                         nsh,
                         optimal_delays,
                         joint_distr=False,
@@ -250,7 +265,7 @@ def scan_pairs_parallel(ts_bunch1,
 
     n1 = len(ts_bunch1)
     n2 = 1 if joint_distr else len(ts_bunch2)
-    mi_total = np.zeros((n1, n2, nsh+1))
+    me_total = np.zeros((n1, n2, nsh+1))
     random_shifts = np.zeros((n1, n2, nsh), dtype=int)
 
     if n_jobs == -1:
@@ -264,6 +279,7 @@ def scan_pairs_parallel(ts_bunch1,
     parallel_result = Parallel(n_jobs=n_jobs, verbose=True)(
         delayed(scan_pairs)(small_ts_bunch,
                             ts_bunch2,
+                            metric,
                             nsh,
                             split_optimal_delays[_],
                             joint_distr=joint_distr,
@@ -277,13 +293,14 @@ def scan_pairs_parallel(ts_bunch1,
     for i in range(n_jobs):
         inds_of_interest = split_ts_bunch1_inds[i]
         random_shifts[inds_of_interest, :, :] = parallel_result[i][0][:, :, :]
-        mi_total[inds_of_interest, :, :] = parallel_result[i][1][:, :, :]
+        me_total[inds_of_interest, :, :] = parallel_result[i][1][:, :, :]
 
-    return random_shifts, mi_total
+    return random_shifts, me_total
 
 
 def scan_pairs_router(ts_bunch1,
                       ts_bunch2,
+                      metric,
                       nsh,
                       optimal_delays,
                       joint_distr=False,
@@ -295,8 +312,9 @@ def scan_pairs_router(ts_bunch1,
                       n_jobs=-1):
 
     if enable_parallelization:
-        random_shifts, mi_total = scan_pairs_parallel(ts_bunch1,
+        random_shifts, me_total = scan_pairs_parallel(ts_bunch1,
                                                       ts_bunch2,
+                                                      metric,
                                                       nsh,
                                                       optimal_delays,
                                                       joint_distr=joint_distr,
@@ -307,8 +325,9 @@ def scan_pairs_router(ts_bunch1,
                                                       n_jobs=n_jobs)
 
     else:
-        random_shifts, mi_total = scan_pairs(ts_bunch1,
+        random_shifts, me_total = scan_pairs(ts_bunch1,
                                              ts_bunch2,
+                                             metric,
                                              nsh,
                                              optimal_delays,
                                              joint_distr=joint_distr,
@@ -317,7 +336,7 @@ def scan_pairs_router(ts_bunch1,
                                              seed=seed,
                                              noise_const=noise_const)
 
-    return random_shifts, mi_total
+    return random_shifts, me_total
 
 
 class IntenseResults(object):
@@ -339,18 +358,19 @@ class IntenseResults(object):
         write_dict_to_hdf5(dict_repr, fname)
 
 
-def compute_mi_stats(ts_bunch1,
+def compute_me_stats(ts_bunch1,
                      ts_bunch2,
                      names1=None,
                      names2=None,
                      mode='two_stage',
+                     metric='mi',
                      precomputed_mask_stage1=None,
                      precomputed_mask_stage2=None,
                      n_shuffles_stage1=100,
                      n_shuffles_stage2=10000,
                      joint_distr=False,
                      allow_mixed_dimensions=False,
-                     mi_distr_type='gamma',
+                     metric_distr_type='gamma',
                      noise_ampl=1e-3,
                      ds=1,
                      topk1=1,
@@ -366,7 +386,7 @@ def compute_mi_stats(ts_bunch1,
                      n_jobs=-1):
 
     """
-    Calculates MI statistics for TimeSeries or MultiTimeSeries pairs
+    Calculates similarity metric statistics for TimeSeries or MultiTimeSeries pairs
 
     Parameters
     ----------
@@ -391,7 +411,10 @@ def compute_mi_stats(ts_bunch1,
         'two_stage': prune non-significant pairs during stage 1 and perform thorough testing for the rest during stage 2.
                      Recommended mode.
         default: 'two-stage'
-
+    
+    metric: similarity metric between TimeSeries
+        default: 'mi'
+        
     precomputed_mask_stage1: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
           precomputed mask for skipping some of possible pairs in stage 1.
           0 in mask values means calculation will be skipped.
@@ -420,12 +443,12 @@ def compute_mi_stats(ts_bunch1,
         This parameter overrides "joint_distr"
         default: False
 
-    mi_distr_type: str
-        Distribution type for shuffles MI distribution fit. Supported options are "gamma" and "lognormal"
+    metric_distr_type: str
+        Distribution type for shuffled metric distribution fit. Supported options are distributions from scipy.stats
         default: "gamma"
 
     noise_ampl: float
-        Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit
+        Small noise amplitude, which is added to metrics to improve numerical fit
         default: 1e-3
 
     ds: int
@@ -517,6 +540,7 @@ def compute_mi_stats(ts_bunch1,
             optimal_delays_res = calculate_optimal_delays_parallel(ts_bunch1,
                                                                    ts_with_delays,
                                                                    shift_window,
+                                                                   metric,
                                                                    ds,
                                                                    verbose=verbose,
                                                                    n_jobs=n_jobs)
@@ -524,6 +548,7 @@ def compute_mi_stats(ts_bunch1,
             optimal_delays_res = calculate_optimal_delays(ts_bunch1,
                                                           ts_with_delays,
                                                           shift_window,
+                                                          metric,
                                                           ds,
                                                           verbose=verbose)
 
@@ -541,8 +566,9 @@ def compute_mi_stats(ts_bunch1,
             print(f'Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs')
 
         # STAGE 1 - primary scanning
-        random_shifts1, mi_total1 = scan_pairs_router(ts_bunch1,
+        random_shifts1, me_total1 = scan_pairs_router(ts_bunch1,
                                                       ts_bunch2,
+                                                      metric,
                                                       n_shuffles_stage1,
                                                       optimal_delays,
                                                       joint_distr=joint_distr,
@@ -554,9 +580,9 @@ def compute_mi_stats(ts_bunch1,
                                                       n_jobs=n_jobs)
 
         # turn computed data tables from stage 1 and precomputed data into dict of stats dicts
-        stage_1_stats = get_table_of_stats(mi_total1,
+        stage_1_stats = get_table_of_stats(me_total1,
                                            optimal_delays,
-                                           mi_distr_type=mi_distr_type,
+                                           metric_distr_type=metric_distr_type,
                                            nsh=n_shuffles_stage1,
                                            precomputed_mask=precomputed_mask_stage1,
                                            stage=1)
@@ -595,7 +621,7 @@ def compute_mi_stats(ts_bunch1,
                 'stage_1_significance': stage_1_significance_per_quantity,
                 'stage_1_stats': stage_1_stats_per_quantity,
                 'random_shifts1': random_shifts1,
-                'mi_total1': mi_total1
+                'me_total1': me_total1
             }
         )
 
@@ -620,8 +646,9 @@ def compute_mi_stats(ts_bunch1,
         if verbose:
             print(f'Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs')
 
-        random_shifts2, mi_total2 = scan_pairs_router(ts_bunch1,
+        random_shifts2, me_total2 = scan_pairs_router(ts_bunch1,
                                                       ts_bunch2,
+                                                      metric,
                                                       n_shuffles_stage2,
                                                       optimal_delays,
                                                       joint_distr=joint_distr,
@@ -633,9 +660,9 @@ def compute_mi_stats(ts_bunch1,
                                                       n_jobs=n_jobs)
 
         # turn data tables from stage 2 to array of stats dicts
-        stage_2_stats = get_table_of_stats(mi_total2,
+        stage_2_stats = get_table_of_stats(me_total2,
                                            optimal_delays,
-                                           mi_distr_type=mi_distr_type,
+                                           metric_distr_type=metric_distr_type,
                                            nsh=n_shuffles_stage2,
                                            precomputed_mask=combined_mask_for_stage_2,
                                            stage=2)
@@ -680,7 +707,7 @@ def compute_mi_stats(ts_bunch1,
                 'stage_2_significance': stage_2_significance_per_quantity,
                 'stage_2_stats': stage_2_stats_per_quantity,
                 'random_shifts2': random_shifts2,
-                'mi_total2': mi_total2,
+                'me_total2': me_total2,
                 'corrected_pval_thr': multicorr_thr,
                 'group_pval_thr': pval_thr,
             }
