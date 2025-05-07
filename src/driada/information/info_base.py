@@ -5,6 +5,7 @@ import scipy
 from .ksg import *
 from .gcmi import *
 from .info_utils import binary_mi_score
+from ..utils.data import correlation_matrix
 
 import numpy as np
 import warnings
@@ -219,8 +220,13 @@ def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator='gcmi', check_for_coinci
     else:
         if isinstance(ts1, TimeSeries) and isinstance(ts2, TimeSeries):
             if not ts1.discrete and not ts2.discrete:
-                metric_func = get_stats_function(metric)
-                me = metric_func(ts1.data[::ds], np.roll(ts2.data[::ds], shift))[0]
+                if metric == 'fast_pearsonr':
+                    x = ts1.data[::ds]
+                    y = np.roll(ts2.data[::ds], shift)
+                    me = correlation_matrix(np.vstack([x, y]))[0, 1]
+                else:
+                    metric_func = get_stats_function(metric)
+                    me = metric_func(ts1.data[::ds], np.roll(ts2.data[::ds], shift))[0]
 
             if ts1.discrete and not ts2.discrete:
                 if metric == 'av':
