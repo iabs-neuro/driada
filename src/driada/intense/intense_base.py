@@ -8,7 +8,8 @@ from ..information.info_base import TimeSeries, get_1d_mi, get_multi_mi, get_mi,
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables
 
 
-def calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=True, enable_progressbar=True):
+def calculate_optimal_delays(ts_bunch1, ts_bunch2, metric,
+                             shift_window, ds, verbose=True, enable_progressbar=True):
     if verbose:
         print('Calculating optimal delays:')
 
@@ -19,8 +20,8 @@ def calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=Tru
         for j, ts2 in enumerate(ts_bunch2):
             shifted_me = []
             for shift in shifts:
-                lag_mi = get_mi(ts1, ts2, ds=ds, shift=int(shift))
-                shifted_me.append(lag_mi)
+                lag_me = get_sim(ts1, ts2, metric, ds=ds, shift=int(shift))
+                shifted_me.append(lag_me)
 
             best_shift = shifts[np.argmax(shifted_me)]
             optimal_delays[i, j] = int(best_shift*ds)
@@ -28,7 +29,8 @@ def calculate_optimal_delays(ts_bunch1, ts_bunch2, shift_window, ds, verbose=Tru
     return optimal_delays
 
 
-def calculate_optimal_delays_parallel(ts_bunch1, ts_bunch2, shift_window, ds, verbose=True, n_jobs=-1):
+def calculate_optimal_delays_parallel(ts_bunch1, ts_bunch2, metric,
+                                      shift_window, ds, verbose=True, n_jobs=-1):
     if verbose:
         print('Calculating optimal delays in parallel mode:')
 
@@ -43,6 +45,7 @@ def calculate_optimal_delays_parallel(ts_bunch1, ts_bunch2, shift_window, ds, ve
     parallel_delays = Parallel(n_jobs=n_jobs, verbose=True)(
         delayed(calculate_optimal_delays)(small_ts_bunch,
                                           ts_bunch2,
+                                          metric,
                                           shift_window,
                                           ds,
                                           verbose=False,
@@ -529,7 +532,7 @@ def compute_me_stats(ts_bunch1,
     if precomputed_mask_stage2 is None:
         precomputed_mask_stage2 = np.ones((n1, n2))
 
-    # TODO: add keyword argument for behavior on duplicate TS ('ignore/raise error') and an internal check for them here
+    # TODO: add a keyword argument for behavior on duplicate TS ('ignore/raise error')
 
     optimal_delays = np.zeros((n1, n2), dtype=int)
     ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if _ not in skip_delays]
@@ -539,16 +542,16 @@ def compute_me_stats(ts_bunch1,
         if enable_parallelization:
             optimal_delays_res = calculate_optimal_delays_parallel(ts_bunch1,
                                                                    ts_with_delays,
-                                                                   shift_window,
                                                                    metric,
+                                                                   shift_window,
                                                                    ds,
                                                                    verbose=verbose,
                                                                    n_jobs=n_jobs)
         else:
             optimal_delays_res = calculate_optimal_delays(ts_bunch1,
                                                           ts_with_delays,
-                                                          shift_window,
                                                           metric,
+                                                          shift_window,
                                                           ds,
                                                           verbose=verbose)
 

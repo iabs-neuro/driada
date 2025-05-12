@@ -255,12 +255,12 @@ def compute_cell_feat_significance(exp,
             # TODO: add check for non-existing feature if use_precomputed_stats==False
             computed_stats[cell_id][feat_id]['data_hash'] = exp._data_hashes[data_type][feat_id][cell_id]
 
-            mi_val = computed_stats[cell_id][feat_id].get('mi')
-            if mi_val is not None:
+            me_val = computed_stats[cell_id][feat_id].get('me')
+            if me_val is not None and metric == 'mi':
                 feat_entropy = exp.get_feature_entropy(feat_id, ds=ds)
                 ca_entropy = exp.neurons[int(cell_id)].ca.get_entropy(ds=ds)
-                computed_stats[cell_id][feat_id]['rel_mi_beh'] = mi_val / feat_entropy
-                computed_stats[cell_id][feat_id]['rel_mi_ca'] = mi_val / ca_entropy
+                computed_stats[cell_id][feat_id]['rel_me_beh'] = me_val / feat_entropy
+                computed_stats[cell_id][feat_id]['rel_me_ca'] = me_val / ca_entropy
 
             if save_computed_stats:
                 stage2_only = True if mode == 'stage2' else False
