@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(conda run:*)",
+      "Bash(conda:*)",
+      "Bash(pytest:*)"
+    ],
+    "deny": []
+  }
+}

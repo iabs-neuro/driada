@@ -312,7 +312,7 @@ def get_table_of_stats(metable,
     # 0 in mask values means that stats for this pair will not be calculated
     # 1 in mask values means that stats for this pair will be calculated from new results.
     if precomputed_mask is None:
-        precomputed_mask = np.ones(metable.shape)
+        precomputed_mask = np.ones(metable.shape[:2])
 
     a, b, sh = metable.shape
     stage_stats = populate_nested_dict(dict(), range(a), range(b))

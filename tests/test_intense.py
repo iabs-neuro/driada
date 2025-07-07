@@ -1,6 +1,7 @@
 from src.driada.intense.intense_base import compute_me_stats
 from src.driada.information.info_base import TimeSeries, MultiTimeSeries
 from src.driada.utils.data import retrieve_relevant_from_nested_dict
+# Experiment imports are handled by synthetic module
 import numpy as np
 
 
@@ -265,3 +266,881 @@ def test_two_stage_avsignal():
     print(rel_sig_pairs)
     # retrieve correlated signals, false positives are likely
     #assert set([(1, k-1), (2, k-2), (5, k-5)]).issubset(set(rel_sig_pairs))
+
+
+# Additional unit tests for better coverage
+import pytest
+import scipy.stats
+from src.driada.experiment.synthetic import generate_synthetic_exp
+from src.driada.intense.intense_base import (
+    validate_time_series_bunches,
+    validate_metric,
+    validate_common_parameters,
+    get_multicomp_correction_thr,
+    IntenseResults,
+    calculate_optimal_delays,
+    scan_pairs,
+    scan_pairs_router,
+)
+from src.driada.intense.stats import (
+    chebyshev_ineq,
+    get_lognormal_p,
+    get_gamma_p,
+    get_distribution_function,
+    get_mi_distr_pvalue,
+    get_mask,
+    stats_not_empty,
+    criterion1,
+    criterion2,
+    get_all_nonempty_pvals,
+    get_table_of_stats,
+    merge_stage_stats,
+    merge_stage_significance,
+)
+
+
+def test_calculate_optimal_delays():
+    """Test optimal delay calculation with ground truth."""
+    # Create correlated time series with known delay
+    length = 1000
+    delay_frames = 10  # Known delay
+    
+    # Create base signal
+    base_signal = np.random.randn(length + 50)
+    
+    # Create delayed version
+    signal1 = base_signal[:length]
+    signal2 = base_signal[delay_frames:length + delay_frames]
+    
+    # Add some noise to make it more realistic
+    signal1 += 0.5 * np.random.randn(length)
+    signal2 += 0.5 * np.random.randn(length)
+    
+    ts1 = [TimeSeries(signal1)]
+    ts2 = [TimeSeries(signal2)]
+    
+    delays = calculate_optimal_delays(ts1, ts2, metric='mi', 
+                                    shift_window=50, ds=1, verbose=False)
+    
+    assert delays.shape == (1, 1)
+    assert np.abs(delays[0, 0]) <= 50  # Within shift window
+    # The detected delay should be close to the true delay
+    assert np.abs(delays[0, 0] - delay_frames) <= 2  # Allow small error
+
+
+def test_validate_time_series_bunches_empty():
+    """Test validation with empty lists."""
+    with pytest.raises(ValueError, match="ts_bunch1 cannot be empty"):
+        validate_time_series_bunches([], [TimeSeries(np.random.randn(100))])
+        
+    with pytest.raises(ValueError, match="ts_bunch2 cannot be empty"):
+        validate_time_series_bunches([TimeSeries(np.random.randn(100))], [])
+
+
+def test_validate_metric():
+    """Test metric validation."""
+    # Built-in metrics
+    assert validate_metric('mi') == 'mi'
+    
+    # Special metrics
+    assert validate_metric('av') == 'special'
+    assert validate_metric('fast_pearsonr') == 'special'
+    
+    # Common correlation metrics
+    assert validate_metric('spearman') == 'correlation' 
+    assert validate_metric('pearson') == 'correlation'
+    assert validate_metric('kendall') == 'correlation'
+    
+    # Full scipy names
+    assert validate_metric('spearmanr') == 'scipy'
+    assert validate_metric('pearsonr') == 'scipy'
+    assert validate_metric('kendalltau') == 'scipy'
+    
+    # Invalid metric should raise ValueError
+    with pytest.raises(ValueError, match="Unsupported metric"):
+        validate_metric('invalid_metric')
+
+
+def test_validate_common_parameters():
+    """Test common parameter validation."""
+    # Valid parameters
+    validate_common_parameters(shift_window=100, ds=2, nsh=1000, noise_const=0.001)
+    
+    # Invalid parameters
+    with pytest.raises(ValueError, match="shift_window must be positive"):
+        validate_common_parameters(shift_window=-1)
+        
+    with pytest.raises(ValueError, match="ds must be positive"):
+        validate_common_parameters(ds=0)
+
+
+def test_multicomp_correction():
+    """Test multiple comparison correction methods."""
+    pvals = [0.001, 0.01, 0.05, 0.1, 0.5]
+    
+    # No correction
+    thr = get_multicomp_correction_thr(0.05, mode=None)
+    assert thr == 0.05
+    
+    # Bonferroni
+    thr = get_multicomp_correction_thr(0.05, mode='bonferroni', nhyp=len(pvals))
+    assert thr == 0.05 / len(pvals)
+    
+    # Holm - the critical threshold is determined by the sorted p-values
+    thr = get_multicomp_correction_thr(0.05, mode='holm', all_pvals=pvals)
+    # For these p-values, Holm will find the critical threshold
+    # The algorithm stops at the first p-value that exceeds its adjusted threshold
+    assert isinstance(thr, float)
+    assert 0 < thr <= 0.05
+    
+    # FDR
+    thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)
+    assert isinstance(thr, float)
+    assert 0 <= thr <= 0.05
+
+
+def test_intense_results():
+    """Test IntenseResults class."""
+    results = IntenseResults()
+    
+    # Test update
+    test_data = {'test': 'data'}
+    results.update('info', test_data)
+    assert results.info == test_data
+    
+    # Test update_multiple
+    test_data_combined = {
+        'stats': {'cell1': {'feat1': {'pval': 0.01}}},
+        'significance': {'cell1': {'feat1': True}}
+    }
+    
+    results.update_multiple(test_data_combined)
+    
+    assert 'cell1' in results.stats
+    assert results.stats['cell1']['feat1']['pval'] == 0.01
+    assert results.significance['cell1']['feat1'] == True
+
+
+def test_stats_functions():
+    """Test statistical functions."""
+    # Chebyshev inequality
+    data = np.random.randn(1000)
+    mean = np.mean(data)
+    std = np.std(data)
+    val = mean + 2 * std
+    p_bound = chebyshev_ineq(data, val)
+    assert abs(p_bound - 0.25) < 1e-10
+    
+    # Test log-normal p-value
+    data = np.random.lognormal(0, 1, 1000)
+    val = np.percentile(data, 95)
+    p_val = get_lognormal_p(data, val)
+    assert 0 <= p_val <= 1
+    
+    # Test gamma p-value
+    data = np.random.gamma(2, 2, 1000)
+    val = np.percentile(data, 95)
+    p_val = get_gamma_p(data, val)
+    assert 0 <= p_val <= 1
+    
+    # Distribution functions
+    assert get_distribution_function('gamma') == scipy.stats.gamma
+    with pytest.raises(ValueError):
+        get_distribution_function('invalid_dist')
+    
+    # Test MI distribution p-value with different distributions
+    data = np.random.gamma(2, 2, 1000)
+    val = np.percentile(data, 95)
+    p_val = get_mi_distr_pvalue(data, val, 'gamma')
+    assert 0 <= p_val <= 1
+    
+    # Mask creation
+    ptable = np.array([[0.001, 0.05], [0.1, 0.5]])
+    rtable = np.array([[0.99, 0.95], [0.9, 0.8]])
+    mask = get_mask(ptable, rtable, pval_thr=0.05, rank_thr=0.95)
+    # Only the first element passes both criteria (p<=0.05 AND r>=0.95)
+    expected = np.array([[1, 1], [0, 0]])  # Second element: p=0.05 and r=0.95 both pass
+    np.testing.assert_array_equal(mask, expected)
+    
+    # Test stats_not_empty
+    stats1 = {
+        'data_hash': 'hash123',
+        'pre_rval': 0.99,
+        'pre_pval': 0.001
+    }
+    assert stats_not_empty(stats1, 'hash123', stage=1)
+    assert not stats_not_empty(stats1, 'different_hash', stage=1)
+    
+    # Test criteria functions
+    stats_pass = {'pre_rval': 0.995}  # Must be > 1 - 1/(100+1) = 0.99009
+    assert criterion1(stats_pass, nsh1=100, topk=1)
+    
+    stats_pass2 = {'rval': 0.996, 'pval': 0.001}  # Must be > 1 - 5/(1000+1) = 0.995005
+    assert criterion2(stats_pass2, nsh2=1000, pval_thr=0.01, topk=5)
+    
+    # Test get_all_nonempty_pvals
+    stats = {
+        'cell1': {
+            'feat1': {'pval': 0.01},
+            'feat2': {'pval': 0.05}
+        },
+        'cell2': {
+            'feat1': {'pval': None},
+            'feat2': {'pval': 0.02}
+        }
+    }
+    pvals = get_all_nonempty_pvals(stats, ['cell1', 'cell2'], ['feat1', 'feat2'])
+    assert len(pvals) == 3
+    assert 0.01 in pvals
+
+
+def test_get_table_of_stats():
+    """Test conversion of metric table to statistics."""
+    from scipy.stats import rankdata
+    # Create synthetic metric table (3 pairs, 2x2 matrix, 100 shuffles)
+    n1, n2, nsh = 2, 2, 100
+    metable = np.zeros((n1, n2, nsh + 1))
+    
+    # Set true values higher than shuffles
+    metable[:, :, 0] = 0.5  # True MI values
+    metable[:, :, 1:] = np.random.gamma(2, 0.05, size=(n1, n2, nsh))  # Shuffle values
+    
+    optimal_delays = np.zeros((n1, n2))
+    
+    # Test stage 1 stats
+    stage1_stats = get_table_of_stats(
+        metable, optimal_delays, 
+        metric_distr_type='gamma', nsh=nsh, stage=1
+    )
+    
+    assert len(stage1_stats) == n1
+    assert len(stage1_stats[0]) == n2
+    assert 'pre_rval' in stage1_stats[0][0]
+    assert 'pre_pval' in stage1_stats[0][0]
+    assert stage1_stats[0][0]['pre_rval'] > 0.9  # True value should rank high
+    
+    # Test stage 2 stats
+    stage2_stats = get_table_of_stats(
+        metable, optimal_delays,
+        metric_distr_type='gamma', nsh=nsh, stage=2
+    )
+    
+    assert 'rval' in stage2_stats[0][0]
+    assert 'pval' in stage2_stats[0][0]
+    assert 'me' in stage2_stats[0][0]
+    assert stage2_stats[0][0]['me'] == 0.5
+
+
+def test_merge_stage_stats():
+    """Test merging statistics from two stages."""
+    stage1_stats = {
+        0: {0: {'pre_rval': 0.99, 'pre_pval': 0.001}},
+        1: {0: {'pre_rval': 0.95, 'pre_pval': 0.05}}
+    }
+    
+    stage2_stats = {
+        0: {0: {'rval': 0.995, 'pval': 0.0001, 'me': 0.8}},
+        1: {0: {'rval': 0.96, 'pval': 0.04, 'me': 0.3}}
+    }
+    
+    merged = merge_stage_stats(stage1_stats, stage2_stats)
+    
+    # Check merging preserves all values
+    assert merged[0][0]['pre_rval'] == 0.99
+    assert merged[0][0]['pre_pval'] == 0.001
+    assert merged[0][0]['rval'] == 0.995
+    assert merged[0][0]['pval'] == 0.0001
+    assert merged[0][0]['me'] == 0.8
+
+
+def test_merge_stage_significance():
+    """Test merging significance results from two stages."""
+    stage1_sig = {
+        0: {0: {'stage1': True}},
+        1: {0: {'stage1': False}}
+    }
+    
+    stage2_sig = {
+        0: {0: {'stage2': True}},
+        1: {0: {'stage2': False}}
+    }
+    
+    merged = merge_stage_significance(stage1_sig, stage2_sig)
+    
+    assert merged[0][0]['stage1'] == True
+    assert merged[0][0]['stage2'] == True
+    assert merged[1][0]['stage1'] == False
+    assert merged[1][0]['stage2'] == False
+
+
+def test_scan_pairs():
+    """Test pairwise scanning of time series."""
+    # Create test data
+    n = 3
+    length = 100
+    ts_bunch1 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    ts_bunch2 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    
+    # Create optimal delays array (required parameter)
+    optimal_delays = np.zeros((n, n), dtype=int)
+    
+    # Basic scan with required parameters
+    random_shifts, result = scan_pairs(
+        ts_bunch1, ts_bunch2,
+        metric='mi',
+        nsh=10,
+        optimal_delays=optimal_delays,
+        joint_distr=False,
+        ds=1,
+        noise_const=1e-3,
+        allow_mixed_dimensions=False,
+        enable_progressbar=False
+    )
+    
+    assert result.shape == (n, n, 11)  # n x n x (1 true + 10 shuffles)
+    assert np.all(result >= 0)  # MI values are non-negative
+
+
+def test_scan_pairs_router():
+    """Test router function for parallel/sequential execution."""
+    # Create small test data
+    n = 2
+    length = 50
+    ts_bunch1 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    ts_bunch2 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    
+    # Create optimal delays array
+    optimal_delays = np.zeros((n, n), dtype=int)
+    
+    # Test sequential execution
+    random_shifts_seq, result_seq = scan_pairs_router(
+        ts_bunch1, ts_bunch2,
+        metric='mi',
+        nsh=5,
+        optimal_delays=optimal_delays,
+        joint_distr=False,
+        allow_mixed_dimensions=False,
+        ds=1,
+        noise_const=1e-3,
+        enable_parallelization=False
+    )
+    
+    assert result_seq.shape == (n, n, 6)  # n x n x (1 true + 5 shuffles)
+    assert np.all(result_seq >= 0)  # MI values are non-negative
+
+
+def test_intenseresults_save_load(tmp_path):
+    """Test IntenseResults save and load functionality."""
+    from src.driada.utils.data import read_hdf5_to_dict
+    
+    results = IntenseResults()
+    
+    # Add test data
+    test_stats = {
+        'cell1': {'feat1': {'pval': 0.01, 'rval': 0.99}},
+        'cell2': {'feat1': {'pval': 0.05, 'rval': 0.95}}
+    }
+    test_sig = {
+        'cell1': {'feat1': True},
+        'cell2': {'feat1': False}
+    }
+    test_info = {'method': 'mi', 'nshuffles': 1000}
+    
+    results.update('stats', test_stats)
+    results.update('significance', test_sig)
+    results.update('info', test_info)
+    
+    # Save to file using the correct method
+    save_path = tmp_path / "test_results.h5"
+    results.save_to_hdf5(str(save_path))
+    
+    # Load from file using utils function
+    loaded_data = read_hdf5_to_dict(str(save_path))
+    
+    # Verify loaded data matches original
+    assert loaded_data['stats'] == test_stats
+    assert loaded_data['significance'] == test_sig
+    assert loaded_data['info'] == test_info
+
+
+def test_validate_common_parameters_edge_cases():
+    """Test edge cases for parameter validation."""
+    # Test with minimal valid parameters
+    validate_common_parameters(shift_window=1, ds=1, nsh=1, noise_const=1e-10)
+    
+    # Test invalid noise constant
+    with pytest.raises(ValueError, match="noise_const must be non-negative"):
+        validate_common_parameters(noise_const=-0.001)
+    
+    # Test invalid number of shuffles  
+    with pytest.raises(ValueError, match="nsh must be positive"):
+        validate_common_parameters(nsh=-1)
+
+
+def test_validate_metric_scipy_functions():
+    """Test metric validation for scipy functions."""
+    # Test that chi2_contingency is recognized as scipy function
+    assert validate_metric('chi2_contingency') == 'scipy'
+    
+    # Test disabling scipy - pearsonr should fail when scipy is disabled
+    # but it's also a full scipy name, so let's use a different one
+    with pytest.raises(ValueError, match="Unsupported metric"):
+        validate_metric('chi2_contingency', allow_scipy=False)
+
+
+def test_get_mi_distr_pvalue_edge_cases():
+    """Test edge cases for MI distribution p-value calculation."""
+    # Test with extreme values
+    data = np.random.gamma(2, 0.1, 1000)
+    
+    # Very high value - should give small p-value
+    p_high = get_mi_distr_pvalue(data, np.max(data) * 2, 'gamma')
+    assert p_high < 0.01
+    
+    # Very low value - should give large p-value
+    p_low = get_mi_distr_pvalue(data, 0, 'gamma')
+    assert p_low > 0.9
+    
+    # Test with normal distribution
+    norm_data = np.random.normal(0, 1, 1000)
+    p_norm = get_mi_distr_pvalue(norm_data, 2, 'norm')
+    assert 0 <= p_norm <= 1
+
+
+def test_validate_time_series_bunches_mixed_dimensions():
+    """Test validation with mixed dimensions."""
+    ts1 = TimeSeries(np.random.randn(100))
+    mts1 = MultiTimeSeries([ts1, ts1])
+    
+    # Should fail without allow_mixed_dimensions
+    with pytest.raises(ValueError, match="MultiTimeSeries found"):
+        validate_time_series_bunches([ts1], [mts1], allow_mixed_dimensions=False)
+    
+    # Should pass with allow_mixed_dimensions
+    validate_time_series_bunches([ts1], [mts1], allow_mixed_dimensions=True)
+
+
+def test_get_multicomp_correction_fdr():
+    """Test FDR correction specifically."""
+    # Test case where some discoveries should be made
+    pvals = [0.001, 0.002, 0.003, 0.02, 0.8]
+    thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)
+    
+    # Should allow some discoveries
+    assert thr > 0
+    assert thr >= 0.003  # At least 3 discoveries expected
+
+
+# Integration tests for pipelines
+from src.driada.intense.pipelines import compute_cell_feat_significance
+
+
+def test_compute_cell_feat_significance_integration():
+    """Integration test for compute_cell_feat_significance."""
+    # Create synthetic experiment with minimal setup
+    exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=5, seed=42, fps=20)
+    
+    # Get the first available feature from the experiment
+    available_features = list(exp.dynamic_features.keys())
+    if not available_features:
+        pytest.skip("No dynamic features available in synthetic experiment")
+    
+    test_feature = available_features[0]
+    
+    # Run the pipeline with minimal parameters for speed
+    stats, significance, info, results = compute_cell_feat_significance(
+        exp,
+        cell_bunch=[0, 1],  # Just 2 cells
+        feat_bunch=[test_feature],  # Just 1 feature
+        metric='mi',
+        mode='stage1',  # Just stage 1 for speed
+        n_shuffles_stage1=10,  # Minimal shuffles
+        verbose=False,
+        enable_parallelization=False,
+        use_precomputed_stats=False,
+        save_computed_stats=False,
+        find_optimal_delays=False
+    )
+    
+    # Verify output structure
+    assert isinstance(stats, dict)
+    assert isinstance(significance, dict)
+    assert isinstance(info, dict)
+    assert isinstance(results, IntenseResults)
+    
+    # Check that stats were computed for requested cells/features
+    # In INTENSE, cell names are typically string indices
+    assert '0' in stats or 0 in stats
+    assert '1' in stats or 1 in stats
+    
+    # Get the actual key format used
+    cell_key_0 = '0' if '0' in stats else 0
+    cell_key_1 = '1' if '1' in stats else 1
+    
+    assert test_feature in stats[cell_key_0]
+    assert test_feature in stats[cell_key_1]
+    
+    # Check stats contain expected fields
+    assert 'pre_rval' in stats[cell_key_0][test_feature]
+    assert 'pre_pval' in stats[cell_key_0][test_feature]
+
+
+def test_stats_not_empty_stage2():
+    """Test stats_not_empty for stage 2."""
+    stats2 = {
+        'data_hash': 'hash456',
+        'rval': 0.99,
+        'pval': 0.001,
+        'me': 0.5
+    }
+    assert stats_not_empty(stats2, 'hash456', stage=2)
+    
+    # Missing required field
+    stats2_incomplete = {
+        'data_hash': 'hash456',
+        'rval': 0.99,
+        'pval': None,
+        'me': 0.5
+    }
+    assert not stats_not_empty(stats2_incomplete, 'hash456', stage=2)
+
+
+def test_criterion1_edge_cases():
+    """Test criterion1 with edge cases."""
+    # Test with None pre_rval
+    stats_none = {'pre_rval': None}
+    assert not criterion1(stats_none, nsh1=100)
+    
+    # Test with borderline values
+    # For topk=1: need pre_rval > 1 - 1/(100+1) = 0.99009
+    # For topk=2: need pre_rval > 1 - 2/(100+1) = 0.9802
+    stats_border = {'pre_rval': 0.995}
+    assert criterion1(stats_border, nsh1=100, topk=1)
+    assert criterion1(stats_border, nsh1=100, topk=2)
+
+
+def test_criterion2_edge_cases():
+    """Test criterion2 with edge cases."""
+    # Test with missing fields
+    stats_missing = {'rval': None, 'pval': 0.001}
+    assert not criterion2(stats_missing, nsh2=1000, pval_thr=0.01)
+    
+    # Test with low rank
+    stats_low_rank = {'rval': 0.9, 'pval': 0.0001}
+    assert not criterion2(stats_low_rank, nsh2=1000, pval_thr=0.01, topk=5)
+
+
+def create_minimal_experiment_for_visual(T=500, num_neurons=3):
+    """Create minimal experiment for visual testing only."""
+    # Use synthetic module to create a proper experiment
+    exp = generate_synthetic_exp(n_dfeats=3, n_cfeats=3, nneurons=num_neurons, seed=42, fps=20)
+    
+    # The visual functions expect exp.x, exp.y to be features with .data attribute
+    # Create simple spatial trajectory
+    T_actual = exp.n_frames
+    x_data = np.cumsum(np.random.randn(T_actual) * 0.1)
+    y_data = np.cumsum(np.random.randn(T_actual) * 0.1)
+    speed_data = np.abs(np.random.randn(T_actual)) * 0.5
+    
+    # Create mock objects with data and scdata attributes for visual functions
+    from types import SimpleNamespace
+    exp.x = SimpleNamespace(data=x_data, scdata=x_data)
+    exp.y = SimpleNamespace(data=y_data, scdata=y_data)
+    exp.speed = SimpleNamespace(data=speed_data, scdata=speed_data, is_binary=False, discrete=False)
+    
+    # Add signature attribute if missing
+    if not hasattr(exp, 'signature'):
+        exp.signature = 'TestExp'
+    
+    # Ensure neurons have sp and ca attributes with data and scdata
+    for neuron in exp.neurons:
+        if not hasattr(neuron, 'sp'):
+            sp_data = np.zeros(T_actual)
+            spike_times = np.random.choice(T_actual, size=int(T_actual*0.01), replace=False)
+            sp_data[spike_times] = 1
+            neuron.sp = SimpleNamespace(data=sp_data)
+        # Ensure ca has scdata attribute
+        if hasattr(neuron, 'ca'):
+            if not hasattr(neuron.ca, 'scdata'):
+                neuron.ca.scdata = neuron.ca.data
+    
+    return exp
+
+
+# Tests for visual module
+from src.driada.intense.visual import (
+    plot_pc_activity,
+    plot_neuron_feature_density,
+    plot_neuron_feature_pair,
+)
+import matplotlib.pyplot as plt
+
+
+def test_plot_pc_activity():
+    """Test place cell activity plotting."""
+    # Create minimal experiment for visual testing
+    exp = create_minimal_experiment_for_visual(T=500, num_neurons=5)
+    
+    # Add stats table for the plot
+    exp.stats_table = {('x', 'y'): []}
+    for i in range(5):
+        exp.stats_table[('x', 'y')].append({
+            'pval': 0.01 * (i+1),
+            'rel_mi_beh': 0.5 / (i+1)
+        })
+    
+    # Should run without error
+    ax = plot_pc_activity(exp, 0, ds=5)
+    assert ax is not None
+    plt.close('all')
+
+
+def test_plot_neuron_feature_density():
+    """Test neuron feature density plotting."""
+    # Create minimal experiment for visual testing
+    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    
+    # Should run without error
+    ax = plot_neuron_feature_density(exp, 'calcium', 0, 'speed', ind1=0, ind2=100)
+    assert ax is not None
+    plt.close('all')
+
+
+def test_plot_neuron_feature_pair():
+    """Test neuron feature pair plotting."""
+    # Create minimal experiment for visual testing
+    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    
+    # Should run without error
+    fig = plot_neuron_feature_pair(exp, 0, 'speed', ind1=0, ind2=100)
+    assert fig is not None
+    plt.close('all')
+
+
+# Additional tests to improve coverage
+
+def test_validate_time_series_bunches_non_timeseries():
+    """Test validation with non-TimeSeries objects."""
+    # Test with non-TimeSeries objects when allow_mixed_dimensions=False
+    with pytest.raises(ValueError, match="ts_bunch1 must contain TimeSeries objects"):
+        validate_time_series_bunches([1, 2, 3], [TimeSeries(np.random.randn(100))], allow_mixed_dimensions=False)
+    
+    with pytest.raises(ValueError, match="ts_bunch2 must contain TimeSeries objects"):
+        validate_time_series_bunches([TimeSeries(np.random.randn(100))], [1, 2, 3], allow_mixed_dimensions=False)
+
+
+def test_validate_time_series_bunches_length_mismatch():
+    """Test validation with mismatched lengths."""
+    ts1 = TimeSeries(np.random.randn(100))
+    ts2 = TimeSeries(np.random.randn(200))
+    
+    with pytest.raises(ValueError, match="All time series in ts_bunch1 must have same length"):
+        validate_time_series_bunches([ts1, ts2], [ts1], allow_mixed_dimensions=False)
+    
+    with pytest.raises(ValueError, match="All time series in ts_bunch2 must have same length"):
+        validate_time_series_bunches([ts1], [ts1, ts2], allow_mixed_dimensions=False)
+
+
+def test_validate_metric_unknown():
+    """Test validation of unknown metrics."""
+    # Test unknown metric when scipy is not allowed
+    with pytest.raises(ValueError, match="Unsupported metric: unknown_metric"):
+        validate_metric('unknown_metric', allow_scipy=False)
+
+
+def test_get_calcium_feature_me_profile():
+    """Test get_calcium_feature_me_profile function."""
+    from src.driada.intense.intense_base import get_calcium_feature_me_profile
+    
+    # Create minimal experiment
+    exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=3, seed=42, fps=20)
+    
+    # Get available feature
+    feat_id = list(exp.dynamic_features.keys())[0]
+    
+    # Test profile generation
+    me0, shifted_me = get_calcium_feature_me_profile(
+        exp, cell_id=0, feat_id=feat_id, window=10, ds=1, metric='mi'
+    )
+    
+    assert isinstance(me0, (float, np.float64))
+    assert isinstance(shifted_me, list)
+    assert len(shifted_me) == 20  # window=10 means -10 to +10 (excluding 0)
+
+
+def test_scan_pairs_parallel_integration():
+    """Test parallel scanning functionality."""
+    from src.driada.intense.intense_base import scan_pairs_parallel
+    
+    # Create test data
+    n = 2
+    length = 100
+    ts_bunch1 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    ts_bunch2 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    optimal_delays = np.zeros((n, n), dtype=int)
+    
+    # Test parallel execution
+    random_shifts, result = scan_pairs_parallel(
+        ts_bunch1, ts_bunch2,
+        metric='mi',
+        nsh=5,
+        optimal_delays=optimal_delays,
+        joint_distr=False,
+        allow_mixed_dimensions=False,
+        ds=1,
+        mask=None,  # Add missing mask parameter
+        noise_const=1e-3,
+        seed=42,
+        n_jobs=2
+    )
+    
+    assert random_shifts.shape == (n, n, 5)
+    assert result.shape == (n, n, 6)  # 1 true + 5 shuffles
+    assert np.all(result >= 0)
+
+
+def test_stats_not_empty_stage_invalid():
+    """Test stats_not_empty with invalid stage."""
+    stats = {'data_hash': 'hash', 'pre_rval': 0.99}
+    
+    with pytest.raises(ValueError, match="Stage should be 1 or 2"):
+        stats_not_empty(stats, 'hash', stage=3)
+
+
+def test_scan_pairs_joint_distr():
+    """Test scan_pairs with joint distribution mode."""
+    # Create test data
+    n = 2
+    length = 100
+    ts_bunch1 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    ts_bunch2 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    optimal_delays = np.zeros((n, 1), dtype=int)  # joint_distr uses single column
+    
+    # Test with joint distribution
+    random_shifts, result = scan_pairs(
+        ts_bunch1, ts_bunch2,
+        metric='mi',
+        nsh=5,
+        optimal_delays=optimal_delays,
+        joint_distr=True,
+        ds=1,
+        noise_const=1e-3,
+        allow_mixed_dimensions=False,
+        enable_progressbar=False
+    )
+    
+    assert result.shape == (n, 1, 6)  # n x 1 x (1 true + 5 shuffles)
+    assert np.all(result >= 0)
+
+
+def test_scan_pairs_with_mask():
+    """Test scan_pairs with custom mask."""
+    # Create test data
+    n = 3
+    length = 100
+    ts_bunch1 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    ts_bunch2 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    optimal_delays = np.zeros((n, n), dtype=int)
+    
+    # Create mask that skips some pairs
+    mask = np.ones((n, n))
+    mask[0, 0] = 0  # Skip first pair
+    mask[1, 1] = 0  # Skip diagonal
+    
+    # Test with mask
+    random_shifts, result = scan_pairs(
+        ts_bunch1, ts_bunch2,
+        metric='mi',
+        nsh=5,
+        optimal_delays=optimal_delays,
+        joint_distr=False,
+        ds=1,
+        mask=mask,
+        noise_const=1e-3,
+        allow_mixed_dimensions=False,
+        enable_progressbar=False
+    )
+    
+    # Check that masked values are None or NaN
+    assert result[0, 0, 0] is None or np.isnan(result[0, 0, 0])
+    assert result[1, 1, 0] is None or np.isnan(result[1, 1, 0])
+    # Check that non-masked values are computed
+    assert result[0, 1, 0] is not None and not np.isnan(result[0, 1, 0]) and result[0, 1, 0] >= 0
+
+
+def test_get_multicomp_correction_edge_cases():
+    """Test multiple comparison correction edge cases."""
+    # Test with no p-values for FDR
+    pvals = []
+    thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)
+    assert thr == 0  # No discoveries possible
+    
+    # Test with all high p-values for FDR
+    pvals = [0.9, 0.95, 0.99]
+    thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)
+    assert thr == 0  # No discoveries expected
+
+
+def test_plot_neuron_feature_density_discrete():
+    """Test plotting for discrete features."""
+    # Create minimal experiment for visual testing
+    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    
+    # Create a binary feature
+    from types import SimpleNamespace
+    binary_data = np.random.choice([0, 1], size=exp.n_frames)
+    exp.binary_feat = SimpleNamespace(
+        data=binary_data, 
+        scdata=binary_data, 
+        is_binary=True,
+        discrete=True
+    )
+    
+    # Should run without error for spikes (currently raises NotImplementedError)
+    with pytest.raises(NotImplementedError, match="Binary feature density plot for spike data"):
+        plot_neuron_feature_density(exp, 'spikes', 0, 'binary_feat', ind1=0, ind2=100)
+    
+    plt.close('all')
+
+
+def test_plot_neuron_feature_pair_no_density():
+    """Test neuron feature pair plotting without density subplot."""
+    # Create minimal experiment for visual testing  
+    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    
+    # Should run without error
+    fig = plot_neuron_feature_pair(exp, 0, 'speed', ind1=0, ind2=100, add_density_plot=False)
+    assert fig is not None
+    plt.close('all')
+
+
+def test_compute_me_stats_stage2_only():
+    """Test compute_me_stats with stage2 mode."""
+    # Create test data
+    n = 2
+    length = 100
+    ts_bunch1 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    ts_bunch2 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    
+    # Run stage2 only
+    stats, significance, info = compute_me_stats(
+        ts_bunch1, ts_bunch2,
+        mode='stage2',
+        n_shuffles_stage1=10,
+        n_shuffles_stage2=20,
+        metric='mi',
+        verbose=False,
+        enable_parallelization=False
+    )
+    
+    # Check results
+    assert isinstance(stats, dict)
+    assert isinstance(significance, dict)
+    assert 'optimal_delays' in info
+    
+    # Stage 2 should have full stats
+    assert 'rval' in stats[0][0]
+    assert 'pval' in stats[0][0]
+    assert 'me' in stats[0][0]
+    # Should also have stage1 marked as True
+    assert significance[0][0]['stage1'] == True

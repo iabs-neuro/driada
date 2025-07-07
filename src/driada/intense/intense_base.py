@@ -27,9 +27,9 @@ def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=Fa
     ValueError
         If validation fails.
     """
-    if not ts_bunch1:
+    if len(ts_bunch1) == 0:
         raise ValueError("ts_bunch1 cannot be empty")
-    if not ts_bunch2:
+    if len(ts_bunch2) == 0:
         raise ValueError("ts_bunch2 cannot be empty")
     
     # Check time series types
@@ -75,7 +75,7 @@ def validate_metric(metric, allow_scipy=True):
     Returns
     -------
     metric_type : str
-        Type of metric: 'mi', 'correlation', or 'scipy'.
+        Type of metric: 'mi', 'correlation', 'special', or 'scipy'.
         
     Raises
     ------
@@ -86,21 +86,33 @@ def validate_metric(metric, allow_scipy=True):
     if metric == 'mi':
         return 'mi'
     
-    # Common correlation metrics
+    # Special metrics
+    if metric in ['av', 'fast_pearsonr']:
+        return 'special'
+    
+    # Common correlation metrics (shorthand names)
     correlation_metrics = ['spearman', 'pearson', 'kendall']
     if metric in correlation_metrics:
         return 'correlation'
     
-    # Check if it's a scipy function
-    if allow_scipy and hasattr(scipy.stats, metric):
-        func = getattr(scipy.stats, metric)
-        # Simple check if it looks like a correlation function
-        if hasattr(func, 'correlation'):
-            return 'scipy'
+    # Full scipy names
+    scipy_correlation_metrics = ['spearmanr', 'pearsonr', 'kendalltau']
+    if metric in scipy_correlation_metrics:
+        return 'scipy'
     
-    # If we get here, metric might still be valid for get_sim
-    # but we don't recognize it explicitly
-    return 'unknown'
+    # Check if it's a scipy function
+    if allow_scipy:
+        try:
+            import scipy.stats
+            if hasattr(scipy.stats, metric):
+                return 'scipy'
+        except ImportError:
+            pass
+    
+    # If we get here, metric is not supported
+    raise ValueError(f"Unsupported metric: {metric}. Supported metrics include: "
+                    f"'mi', 'av', 'fast_pearsonr', 'spearman', 'pearson', 'kendall', "
+                    f"'spearmanr', 'pearsonr', 'kendalltau', and other scipy.stats functions.")
 
 
 def validate_common_parameters(shift_window=None, ds=None, nsh=None, noise_const=None):
@@ -393,6 +405,7 @@ def scan_pairs(ts_bunch1,
                mask=None,
                noise_const=1e-3,
                seed=None,
+               allow_mixed_dimensions=False,
                enable_progressbar=True):
 
     """
@@ -447,7 +460,7 @@ def scan_pairs(ts_bunch1,
     """
 
     # Validate inputs
-    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=allow_mixed_dimensions)
     validate_metric(metric)
     validate_common_parameters(ds=ds, nsh=nsh, noise_const=noise_const)
     
@@ -570,6 +583,7 @@ def scan_pairs_parallel(ts_bunch1,
                         nsh,
                         optimal_delays,
                         joint_distr=False,
+                        allow_mixed_dimensions=False,
                         ds=1,
                         mask=None,
                         noise_const=1e-3,
@@ -622,7 +636,7 @@ def scan_pairs_parallel(ts_bunch1,
     """
 
     # Validate inputs
-    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=allow_mixed_dimensions)
     validate_metric(metric)
     validate_common_parameters(ds=ds, nsh=nsh, noise_const=noise_const)
     
@@ -639,6 +653,12 @@ def scan_pairs_parallel(ts_bunch1,
     if n_jobs == -1:
         n_jobs = min(multiprocessing.cpu_count(), n1)
 
+    # Initialize mask if None
+    if mask is None:
+        n1 = len(ts_bunch1)
+        n2 = 1 if joint_distr else len(ts_bunch2)
+        mask = np.ones((n1, n2))
+    
     split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs)
     split_ts_bunch1 = [np.array(ts_bunch1)[idxs] for idxs in split_ts_bunch1_inds]
     split_optimal_delays = [optimal_delays[idxs] for idxs in split_ts_bunch1_inds]
@@ -651,6 +671,7 @@ def scan_pairs_parallel(ts_bunch1,
                             nsh,
                             split_optimal_delays[_],
                             joint_distr=joint_distr,
+                            allow_mixed_dimensions=allow_mixed_dimensions,
                             ds=ds,
                             mask=split_mask[_],
                             noise_const=noise_const,
@@ -672,6 +693,7 @@ def scan_pairs_router(ts_bunch1,
                       nsh,
                       optimal_delays,
                       joint_distr=False,
+                      allow_mixed_dimensions=False,
                       ds=1,
                       mask=None,
                       noise_const=1e-3,
@@ -733,6 +755,7 @@ def scan_pairs_router(ts_bunch1,
                                                       nsh,
                                                       optimal_delays,
                                                       joint_distr=joint_distr,
+                                                      allow_mixed_dimensions=allow_mixed_dimensions,
                                                       ds=ds,
                                                       mask=mask,
                                                       noise_const=noise_const,
@@ -746,6 +769,7 @@ def scan_pairs_router(ts_bunch1,
                                              nsh,
                                              optimal_delays,
                                              joint_distr=joint_distr,
+                                             allow_mixed_dimensions=allow_mixed_dimensions,
                                              ds=ds,
                                              mask=mask,
                                              seed=seed,
@@ -1023,7 +1047,13 @@ def compute_me_stats(ts_bunch1,
 
     accumulated_info['optimal_delays'] = optimal_delays
 
-    mask_from_stage1 = np.zeros((n1, n2))
+    # Initialize masks based on mode
+    if mode == 'stage2':
+        # For stage2-only mode, assume all pairs pass stage 1
+        mask_from_stage1 = np.ones((n1, n2))
+    else:
+        mask_from_stage1 = np.zeros((n1, n2))
+    
     mask_from_stage2 = np.zeros((n1, n2))
     nhyp = n1*n2
 
@@ -1039,6 +1069,7 @@ def compute_me_stats(ts_bunch1,
                                                       n_shuffles_stage1,
                                                       optimal_delays,
                                                       joint_distr=joint_distr,
+                                                      allow_mixed_dimensions=allow_mixed_dimensions,
                                                       ds=ds,
                                                       mask=precomputed_mask_stage1,
                                                       noise_const=noise_ampl,
@@ -1103,7 +1134,18 @@ def compute_me_stats(ts_bunch1,
 
         return final_stats, final_significance, accumulated_info
 
-    else:
+    elif mode == 'stage2':
+        # For stage2-only mode, create empty stage 1 structures
+        stage_1_stats = populate_nested_dict(dict(), range(n1), range(n2))
+        stage_1_significance = populate_nested_dict(dict(), range(n1), range(n2))
+        # Set all pairs as passing stage 1 with placeholder values
+        for i in range(n1):
+            for j in range(n2):
+                stage_1_stats[i][j] = {'pre_rval': None, 'pre_pval': None}
+                stage_1_significance[i][j]['stage1'] = True
+
+    # Now proceed with stage 2
+    if mode in ['two_stage', 'stage2']:
         # STAGE 2 - full-scale scanning
         combined_mask_for_stage_2 = np.ones((n1, n2))
         combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = 0  # exclude non-significant pairs from stage1
@@ -1119,6 +1161,7 @@ def compute_me_stats(ts_bunch1,
                                                       n_shuffles_stage2,
                                                       optimal_delays,
                                                       joint_distr=joint_distr,
+                                                      allow_mixed_dimensions=allow_mixed_dimensions,
                                                       ds=ds,
                                                       mask=combined_mask_for_stage_2,
                                                       noise_const=noise_ampl,
@@ -1185,15 +1228,12 @@ def compute_me_stats(ts_bunch1,
             print('Stage 2 results:')
             print(f'{num2/n1/n2*100:.2f}% ({num2}/{n1*n2}) of possible pairs identified as significant')
 
-        if mode == 'two_stage':
-            merged_stats = merge_stage_stats(stage_1_stats, stage_2_stats)
-            merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
-            final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
-            final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
-            return final_stats, final_significance, accumulated_info
-
-        else:
-            return stage_2_stats, stage_2_significance, accumulated_info
+        # Always merge stats for consistency
+        merged_stats = merge_stage_stats(stage_1_stats, stage_2_stats)
+        merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
+        final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
+        final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
+        return final_stats, final_significance, accumulated_info
 
 
 def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
@@ -1255,12 +1295,12 @@ def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
         if 'all_pvals' in multicomp_kwargs:
             all_pvals = sorted(multicomp_kwargs['all_pvals'])
             nhyp = len(all_pvals)
+            threshold = 0  # Default if no discoveries
             for i, pval in enumerate(all_pvals):
                 cthr = fwer / (nhyp - i)
                 if pval > cthr:
                     break
-
-            threshold = cthr
+                threshold = cthr
         else:
             raise ValueError('List of p-values for Holm correction not provided')
 

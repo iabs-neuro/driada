@@ -181,7 +181,7 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
             ax0, ax1 = axs
             ax1 = make_beautiful(ax1)
         else:
-            fig, ax0 = plt.subplots(figsize=(10, 6), width_ratios=[0.6, 0.4])
+            fig, ax0 = plt.subplots(figsize=(10, 6))
             ax1 = None
 
     ax0 = make_beautiful(ax0)
@@ -193,7 +193,7 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
         ax0.plot(np.arange(ind1, ind2)[::ds], rbdata, c='r', linewidth=2, alpha=0.5)
 
     if add_density_plot:
-        plot_neuron_feature_density(exp, cell_id, featname, ind1=ind1, ind2=ind2, ds=ds, ax=ax1)
+        plot_neuron_feature_density(exp, 'calcium', cell_id, featname, ind1=ind1, ind2=ind2, ds=ds, ax=ax1)
 
     ax0.set_xlabel('timeframes', fontsize=20)
     ax0.set_ylabel('Signal/behavior', fontsize=20)
