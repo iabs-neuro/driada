@@ -8,6 +8,25 @@ import seaborn as sns
 
 
 def plot_pc_activity(exp, cell_ind, ds=None, ax=None):
+    """
+    Plot place cell activity overlaid on spatial trajectory.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object with spatial data and neurons.
+    cell_ind : int
+        Index of the neuron to plot.
+    ds : int, optional
+        Downsampling factor. Default: 5.
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot on. If None, creates new figure.
+        
+    Returns
+    -------
+    ax : matplotlib.axes.Axes
+        Axes with the plot.
+    """
     pc_stats = exp.stats_table[('x', 'y')][cell_ind]
     pval = None if pc_stats['pval'] is None else np.round(pc_stats['pval'], 7)
     rel_mi_beh = None if pc_stats['rel_mi_beh'] is None else np.round(pc_stats['rel_mi_beh'], 4)
@@ -36,6 +55,35 @@ def plot_pc_activity(exp, cell_ind, ds=None, ax=None):
 
 
 def plot_neuron_feature_density(exp, data_type, cell_id, featname, ind1=0, ind2=100000, ds=1, shift=None, ax=None):
+    """
+    Plot density distribution of neural activity conditioned on feature values.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object containing neurons and features.
+    data_type : str
+        Type of neural data: 'calcium' or 'spikes'.
+    cell_id : int
+        Index of the neuron.
+    featname : str
+        Name of the behavioral feature.
+    ind1 : int, optional
+        Start frame index. Default: 0.
+    ind2 : int, optional
+        End frame index. Default: 100000.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+    shift : int, optional
+        Temporal shift (not implemented). Default: None.
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot on. If None, creates new figure.
+        
+    Returns
+    -------
+    ax : matplotlib.axes.Axes
+        Axes with the plot.
+    """
     ind2 = min(exp.n_frames, ind2)
 
     if data_type == 'calcium':
@@ -66,9 +114,8 @@ def plot_neuron_feature_density(exp, data_type, cell_id, featname, ind1=0, ind2=
             ax.set_title(f'wsd={wsd}')
 
         if data_type == 'spikes':
-            raise Exception('Not implemented yet')
+            raise NotImplementedError('Binary feature density plot for spike data not yet implemented')
 
-    #TODO: finish this function
     else:
         x0, y0 = np.log10(sig + np.random.random(size=len(sig)) * 1e-8), np.log(
             bdata + np.random.random(size=len(bdata)) * 1e-8)
@@ -91,6 +138,35 @@ def plot_neuron_feature_density(exp, data_type, cell_id, featname, ind1=0, ind2=
 
 def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
                              add_density_plot=True, ax=None, title=None):
+    """
+    Plot neural activity time series alongside behavioral feature.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object containing neurons and features.
+    cell_id : int
+        Index of the neuron.
+    featname : str
+        Name of the behavioral feature.
+    ind1 : int, optional
+        Start frame index. Default: 0.
+    ind2 : int, optional
+        End frame index. Default: 100000.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+    add_density_plot : bool, optional
+        Whether to add density subplot. Default: True.
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot on (ignored if add_density_plot=True).
+    title : str, optional
+        Custom title for the plot.
+        
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure containing the plot(s).
+    """
 
     ind2 = min(exp.n_frames, ind2)
     ca = exp.neurons[cell_id].ca.scdata[ind1:ind2][::ds]

@@ -301,6 +301,6 @@ def compute_cell_feat_significance(exp,
     #intense_res.update('significance', computed_significance)
     intense_res.update('info', info)
     intense_res.update('intense_params', intense_params)
-    #TODO: change to IntenseResults
+    # Return multiple values for backward compatibility
     return computed_stats, computed_significance, info, intense_res
 

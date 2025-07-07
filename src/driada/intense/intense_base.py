@@ -2,14 +2,197 @@ import numpy as np
 import tqdm
 from joblib import Parallel, delayed
 import multiprocessing
+import scipy.stats
 
 from .stats import *
-from ..information.info_base import TimeSeries, get_1d_mi, get_multi_mi, get_mi, get_sim
+from ..information.info_base import TimeSeries, MultiTimeSeries, get_1d_mi, get_multi_mi, get_mi, get_sim
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables
+
+
+def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False):
+    """
+    Validate time series bunches for INTENSE computations.
+    
+    Parameters
+    ----------
+    ts_bunch1 : list
+        First set of time series.
+    ts_bunch2 : list
+        Second set of time series.
+    allow_mixed_dimensions : bool, optional
+        Whether to allow mixed TimeSeries and MultiTimeSeries. Default: False.
+        
+    Raises
+    ------
+    ValueError
+        If validation fails.
+    """
+    if not ts_bunch1:
+        raise ValueError("ts_bunch1 cannot be empty")
+    if not ts_bunch2:
+        raise ValueError("ts_bunch2 cannot be empty")
+    
+    # Check time series types
+    if not allow_mixed_dimensions:
+        ts1_types = [type(ts) for ts in ts_bunch1]
+        ts2_types = [type(ts) for ts in ts_bunch2]
+        
+        if not all(t == TimeSeries for t in ts1_types):
+            if any(t == MultiTimeSeries for t in ts1_types):
+                raise ValueError("MultiTimeSeries found in ts_bunch1 but allow_mixed_dimensions=False")
+            else:
+                raise ValueError("ts_bunch1 must contain TimeSeries objects")
+                
+        if not all(t == TimeSeries for t in ts2_types):
+            if any(t == MultiTimeSeries for t in ts2_types):
+                raise ValueError("MultiTimeSeries found in ts_bunch2 but allow_mixed_dimensions=False")
+            else:
+                raise ValueError("ts_bunch2 must contain TimeSeries objects")
+    
+    # Check lengths match
+    lengths1 = [len(ts.data) if isinstance(ts, TimeSeries) else ts.data.shape[1] for ts in ts_bunch1]
+    lengths2 = [len(ts.data) if isinstance(ts, TimeSeries) else ts.data.shape[1] for ts in ts_bunch2]
+    
+    if len(set(lengths1)) > 1:
+        raise ValueError(f"All time series in ts_bunch1 must have same length, got {set(lengths1)}")
+    if len(set(lengths2)) > 1:
+        raise ValueError(f"All time series in ts_bunch2 must have same length, got {set(lengths2)}")
+    if lengths1[0] != lengths2[0]:
+        raise ValueError(f"Time series lengths don't match: {lengths1[0]} vs {lengths2[0]}")
+
+
+def validate_metric(metric, allow_scipy=True):
+    """
+    Validate metric name and check if it's supported.
+    
+    Parameters
+    ----------
+    metric : str
+        Metric name to validate.
+    allow_scipy : bool, optional
+        Whether to allow scipy correlation metrics. Default: True.
+        
+    Returns
+    -------
+    metric_type : str
+        Type of metric: 'mi', 'correlation', or 'scipy'.
+        
+    Raises
+    ------
+    ValueError
+        If metric is not supported.
+    """
+    # Built-in metrics
+    if metric == 'mi':
+        return 'mi'
+    
+    # Common correlation metrics
+    correlation_metrics = ['spearman', 'pearson', 'kendall']
+    if metric in correlation_metrics:
+        return 'correlation'
+    
+    # Check if it's a scipy function
+    if allow_scipy and hasattr(scipy.stats, metric):
+        func = getattr(scipy.stats, metric)
+        # Simple check if it looks like a correlation function
+        if hasattr(func, 'correlation'):
+            return 'scipy'
+    
+    # If we get here, metric might still be valid for get_sim
+    # but we don't recognize it explicitly
+    return 'unknown'
+
+
+def validate_common_parameters(shift_window=None, ds=None, nsh=None, noise_const=None):
+    """
+    Validate common INTENSE parameters.
+    
+    Parameters
+    ----------
+    shift_window : int, optional
+        Maximum shift window in frames.
+    ds : int, optional
+        Downsampling factor.
+    nsh : int, optional
+        Number of shuffles.
+    noise_const : float, optional
+        Noise constant for numerical stability.
+        
+    Raises
+    ------
+    ValueError
+        If any parameter is invalid.
+    """
+    if shift_window is not None and shift_window <= 0:
+        raise ValueError(f"shift_window must be positive, got {shift_window}")
+    
+    if ds is not None and ds <= 0:
+        raise ValueError(f"ds must be positive, got {ds}")
+        
+    if nsh is not None and nsh <= 0:
+        raise ValueError(f"nsh must be positive, got {nsh}")
+        
+    if noise_const is not None and noise_const < 0:
+        raise ValueError(f"noise_const must be non-negative, got {noise_const}")
 
 
 def calculate_optimal_delays(ts_bunch1, ts_bunch2, metric,
                              shift_window, ds, verbose=True, enable_progressbar=True):
+    """
+    Calculate optimal temporal delays between pairs of time series.
+    
+    Finds the delay that maximizes the similarity metric between each pair of time series
+    from ts_bunch1 and ts_bunch2. This accounts for temporal offsets in neural responses
+    relative to behavioral variables.
+    
+    Parameters
+    ----------
+    ts_bunch1 : list of TimeSeries
+        First set of time series (typically neural signals).
+    ts_bunch2 : list of TimeSeries
+        Second set of time series (typically behavioral variables).
+    metric : str
+        Similarity metric to maximize. Options include:
+        - 'mi': Mutual information
+        - 'spearman': Spearman correlation
+        - Other metrics supported by get_sim function
+    shift_window : int
+        Maximum shift to test in each direction (frames).
+        Will test shifts from -shift_window to +shift_window.
+    ds : int
+        Downsampling factor. Every ds-th point is used from the time series.
+        Default: 1 (no downsampling).
+    verbose : bool, optional
+        Whether to print progress information. Default: True.
+    enable_progressbar : bool, optional
+        Whether to show progress bar. Default: True.
+    
+    Returns
+    -------
+    optimal_delays : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2))
+        Optimal delay (in frames) for each pair. Positive values indicate
+        that ts2 leads ts1, negative values indicate ts1 leads ts2.
+        
+    Notes
+    -----
+    - Computational complexity: O(n1 * n2 * shifts) where n1, n2 are lengths
+      of ts_bunch1 and ts_bunch2, and shifts = 2 * shift_window / ds
+    - The optimal delay is found by exhaustive search over all possible shifts
+    - Memory efficient: only stores final optimal delays, not all tested values
+    
+    Examples
+    --------
+    >>> neurons = [neuron1.ca, neuron2.ca]  # calcium signals
+    >>> behaviors = [speed_ts, direction_ts]  # behavioral variables
+    >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi', 
+    ...                                   shift_window=100, ds=1)
+    >>> print(f"Neuron 1 optimal delay with speed: {delays[0, 0]} frames")
+    """
+    # Validate inputs
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
+    validate_metric(metric)
+    validate_common_parameters(shift_window=shift_window, ds=ds)
+    
     if verbose:
         print('Calculating optimal delays:')
 
@@ -31,6 +214,63 @@ def calculate_optimal_delays(ts_bunch1, ts_bunch2, metric,
 
 def calculate_optimal_delays_parallel(ts_bunch1, ts_bunch2, metric,
                                       shift_window, ds, verbose=True, n_jobs=-1):
+    """
+    Calculate optimal temporal delays between pairs of time series using parallel processing.
+    
+    Parallel version of calculate_optimal_delays that distributes computation across
+    multiple CPU cores for improved performance with large datasets.
+    
+    Parameters
+    ----------
+    ts_bunch1 : list of TimeSeries
+        First set of time series (typically neural signals).
+    ts_bunch2 : list of TimeSeries
+        Second set of time series (typically behavioral variables).
+    metric : str
+        Similarity metric to maximize. Options include:
+        - 'mi': Mutual information
+        - 'spearman': Spearman correlation
+        - Other metrics supported by get_sim function
+    shift_window : int
+        Maximum shift to test in each direction (frames).
+        Will test shifts from -shift_window to +shift_window.
+    ds : int
+        Downsampling factor. Every ds-th point is used from the time series.
+    verbose : bool, optional
+        Whether to print progress information. Default: True.
+    n_jobs : int, optional
+        Number of parallel jobs to run. Default: -1 (use all available cores).
+        
+    Returns
+    -------
+    optimal_delays : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2))
+        Optimal delay (in frames) for each pair. Positive values indicate
+        that ts2 leads ts1, negative values indicate ts1 leads ts2.
+        
+    Notes
+    -----
+    - Parallelization is done by splitting ts_bunch1 across workers
+    - Each worker processes a subset of ts_bunch1 against all of ts_bunch2
+    - Memory usage scales with number of workers
+    - Speedup is typically sublinear due to overhead and memory bandwidth
+    
+    See Also
+    --------
+    calculate_optimal_delays : Sequential version of this function
+    
+    Examples
+    --------
+    >>> neurons = [neuron.ca for neuron in exp.neurons[:100]]
+    >>> behaviors = [exp.speed, exp.direction]
+    >>> # Use 8 cores for faster computation
+    >>> delays = calculate_optimal_delays_parallel(neurons, behaviors, 'mi',
+    ...                                            shift_window=100, ds=1, n_jobs=8)
+    """
+    # Validate inputs
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
+    validate_metric(metric)
+    validate_common_parameters(shift_window=shift_window, ds=ds)
+    
     if verbose:
         print('Calculating optimal delays in parallel mode:')
 
@@ -60,29 +300,87 @@ def calculate_optimal_delays_parallel(ts_bunch1, ts_bunch2, metric,
 
 
 # TODO: add cbunch and fbunch logic
-def get_calcium_feature_me_profile(exp, cell_id, feat_id, window=1000, ds=1):
-
+def get_calcium_feature_me_profile(exp, cell_id, feat_id, window=1000, ds=1, metric='mi'):
+    """
+    Compute metric profile between a neuron's calcium signal and behavioral features.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object containing neurons and behavioral features.
+    cell_id : int
+        Index of the neuron in exp.neurons.
+    feat_id : str or tuple of str
+        Feature name(s) to analyze. If tuple, computes joint metrics
+        with multiple features (only supported for metric='mi').
+    window : int, optional
+        Maximum shift to test in each direction (frames). Default: 1000.
+    ds : int, optional
+        Downsampling factor. Default: 1 (no downsampling).
+    metric : str, optional
+        Similarity metric to compute. Default: 'mi'.
+        - 'mi': Mutual information
+        - 'spearman': Spearman correlation
+        - Other metrics supported by get_sim function
+        
+    Returns
+    -------
+    me0 : float
+        Metric value at zero delay.
+    shifted_me : list of float
+        Metric values at each tested shift, ordered from
+        -window to +window frames.
+        
+    Notes
+    -----
+    - Total number of shifts tested: 2 * window / ds
+    - Multi-feature analysis (tuple feat_id) only supported for metric='mi'
+    - Progress bar shows computation progress
+    
+    Examples
+    --------
+    >>> # Mutual information with single feature
+    >>> mi_zero, mi_profile = get_calcium_feature_me_profile(exp, 0, 'speed')
+    >>> 
+    >>> # Spearman correlation with single feature
+    >>> corr_zero, corr_profile = get_calcium_feature_me_profile(exp, 0, 'speed', metric='spearman')
+    >>> 
+    >>> # Multi-feature joint mutual information
+    >>> mi_zero, mi_profile = get_calcium_feature_me_profile(exp, 0, ('x', 'y'))
+    """
+    # Validate inputs
+    validate_common_parameters(ds=ds)
+    validate_metric(metric)
+    
+    if window <= 0:
+        raise ValueError(f"window must be positive, got {window}")
+    
+    if not (0 <= cell_id < len(exp.neurons)):
+        raise ValueError(f"cell_id {cell_id} out of range [0, {len(exp.neurons)-1}]")
+    
     cell = exp.neurons[cell_id]
     ts1 = cell.ca
-    shifted_mi = []
+    shifted_me = []
 
     if isinstance(feat_id, str):
         ts2 = exp.dynamic_features[feat_id]
-        me0 = get_1d_mi(ts1, ts2, ds=ds)
+        me0 = get_sim(ts1, ts2, metric, ds=ds)
 
         for shift in tqdm.tqdm(np.arange(-window, window, ds)//ds):
-            lag_mi = get_1d_mi(ts1, ts2, ds=ds, shift=shift)
-            shifted_mi.append(lag_mi)
+            lag_me = get_sim(ts1, ts2, metric, ds=ds, shift=shift)
+            shifted_me.append(lag_me)
 
     else:
+        if metric != 'mi':
+            raise ValueError(f"Multi-feature analysis only supported for metric='mi', got '{metric}'")
         feats = [exp.dynamic_features[fid] for fid in feat_id]
         me0 = get_multi_mi(feats, ts1, ds=ds)
 
-        for shift in tqdm.tqdm(np.arange(-window, window, ds)):
-            lag_mi = get_multi_mi(feats, ts1, ds=ds, shift=shift)
-            shifted_mi.append(lag_mi)
+        for shift in tqdm.tqdm(np.arange(-window, window, ds)//ds):
+            lag_me = get_multi_mi(feats, ts1, ds=ds, shift=shift)
+            shifted_me.append(lag_me)
 
-    return me0, shifted_mi
+    return me0, shifted_me
 
 
 def scan_pairs(ts_bunch1,
@@ -148,13 +446,23 @@ def scan_pairs(ts_bunch1,
         can be obtained by me_total[:,:,1:]
     """
 
+    # Validate inputs
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
+    validate_metric(metric)
+    validate_common_parameters(ds=ds, nsh=nsh, noise_const=noise_const)
+    
+    # Validate optimal_delays shape
+    n1 = len(ts_bunch1)
+    n2 = 1 if joint_distr else len(ts_bunch2)
+    
+    if optimal_delays.shape != (n1, n2):
+        raise ValueError(f"optimal_delays shape {optimal_delays.shape} doesn't match expected ({n1}, {n2})")
+    
     if seed is None:
         seed = 0
 
     np.random.seed(seed)
 
-    n1 = len(ts_bunch1)
-    n2 = 1 if joint_distr else len(ts_bunch2)
     lengths1 = [len(ts.data) if isinstance(ts, TimeSeries) else ts.data.shape[1] for ts in ts_bunch1]
     lengths2 = [len(ts.data) if isinstance(ts, TimeSeries) else ts.data.shape[1] for ts in ts_bunch2]
     if len(set(lengths1)) == 1 and len(set(lengths2)) == 1 and set(lengths1) == set(lengths2):
@@ -173,8 +481,10 @@ def scan_pairs(ts_bunch1,
     for i, ts1 in enumerate(ts_bunch1):
         if joint_distr:
             np.random.seed(seed)
-            # TODO: add combination of ts shuffle masks for all ts from tsbunch2
-            combined_shuffle_mask = ts1.shuffle_mask
+            # Combine shuffle masks from ts1 and all ts in tsbunch2
+            combined_shuffle_mask = ts1.shuffle_mask.copy()
+            for ts2 in ts_bunch2:
+                combined_shuffle_mask = combined_shuffle_mask & ts2.shuffle_mask
             # move shuffle mask according to optimal shift
             combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, 0]))
             indices_to_select = np.arange(t)[combined_shuffle_mask]
@@ -265,9 +575,64 @@ def scan_pairs_parallel(ts_bunch1,
                         noise_const=1e-3,
                         seed=None,
                         n_jobs=-1):
+    """
+    Calculate metric values and shuffles for time series pairs using parallel processing.
+    
+    Parameters
+    ----------
+    ts_bunch1 : list of TimeSeries
+        First set of time series.
+    ts_bunch2 : list of TimeSeries
+        Second set of time series.
+    metric : str
+        Similarity metric to compute:
+        - 'mi': Mutual information
+        - 'spearman': Spearman correlation
+        - Other metrics supported by get_sim function
+    nsh : int
+        Number of shuffles to perform.
+    optimal_delays : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2))
+        Pre-computed optimal delays for each pair.
+    joint_distr : bool, optional
+        If True, treats all ts_bunch2 as components of a single multifeature.
+        Default: False.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+    mask : np.ndarray, optional
+        Binary mask of shape (len(ts_bunch1), len(ts_bunch2)).
+        0 = skip computation, 1 = compute. Default: all ones.
+    noise_const : float, optional
+        Small noise added to improve numerical stability. Default: 1e-3.
+    seed : int, optional
+        Random seed for reproducibility. Default: None.
+    n_jobs : int, optional
+        Number of parallel jobs. Default: -1 (use all cores).
+        
+    Returns
+    -------
+    random_shifts : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2), nsh)
+        Random shifts used for shuffling.
+    me_total : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2), nsh+1)
+        Metric values. [:,:,0] contains true values, [:,:,1:] contains shuffles.
+        
+    See Also
+    --------
+    scan_pairs : Sequential version of this function
+    scan_pairs_router : Wrapper that chooses between parallel and sequential
+    """
 
+    # Validate inputs
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
+    validate_metric(metric)
+    validate_common_parameters(ds=ds, nsh=nsh, noise_const=noise_const)
+    
     n1 = len(ts_bunch1)
     n2 = 1 if joint_distr else len(ts_bunch2)
+    
+    # Validate optimal_delays shape
+    if optimal_delays.shape != (n1, n2):
+        raise ValueError(f"optimal_delays shape {optimal_delays.shape} doesn't match expected ({n1}, {n2})")
+    
     me_total = np.zeros((n1, n2, nsh+1))
     random_shifts = np.zeros((n1, n2, nsh), dtype=int)
 
@@ -313,6 +678,53 @@ def scan_pairs_router(ts_bunch1,
                       seed=None,
                       enable_parallelization=True,
                       n_jobs=-1):
+    """
+    Route metric computation to parallel or sequential implementation.
+    
+    Parameters
+    ----------
+    ts_bunch1 : list of TimeSeries
+        First set of time series.
+    ts_bunch2 : list of TimeSeries
+        Second set of time series.
+    metric : str
+        Similarity metric to compute:
+        - 'mi': Mutual information
+        - 'spearman': Spearman correlation
+        - Other metrics supported by get_sim function
+    nsh : int
+        Number of shuffles to perform.
+    optimal_delays : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2))
+        Pre-computed optimal delays for each pair.
+    joint_distr : bool, optional
+        If True, treats all ts_bunch2 as components of a single multifeature.
+        Default: False.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+    mask : np.ndarray, optional
+        Binary mask of shape (len(ts_bunch1), len(ts_bunch2)).
+        0 = skip computation, 1 = compute. Default: all ones.
+    noise_const : float, optional
+        Small noise added to improve numerical stability. Default: 1e-3.
+    seed : int, optional
+        Random seed for reproducibility. Default: None.
+    enable_parallelization : bool, optional
+        Whether to use parallel processing. Default: True.
+    n_jobs : int, optional
+        Number of parallel jobs if parallelization enabled. Default: -1 (use all cores).
+        
+    Returns
+    -------
+    random_shifts : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2), nsh)
+        Random shifts used for shuffling.
+    me_total : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2), nsh+1)
+        Metric values. [:,:,0] contains true values, [:,:,1:] contains shuffles.
+        
+    See Also
+    --------
+    scan_pairs : Sequential implementation
+    scan_pairs_parallel : Parallel implementation
+    """
 
     if enable_parallelization:
         random_shifts, me_total = scan_pairs_parallel(ts_bunch1,
@@ -343,20 +755,50 @@ def scan_pairs_router(ts_bunch1,
 
 
 class IntenseResults(object):
-    '''
-    A simple wrapper for convenient storage of INTENSE results
-    '''
+    """
+    Container for INTENSE computation results.
+    
+    Attributes
+    ----------
+    info : dict
+        Metadata about the computation (optimal delays, thresholds, etc.).
+    intense_params : dict
+        Parameters used for the INTENSE computation.
+    stats : dict
+        Statistical results (p-values, metric values, etc.).
+    significance : dict
+        Significance test results for each neuron-feature pair.
+        
+    Methods
+    -------
+    update(property_name, data)
+        Add or update a property with data.
+    update_multiple(datadict)
+        Update multiple properties from a dictionary.
+    save_to_hdf5(fname)
+        Save all results to an HDF5 file.
+        
+    Examples
+    --------
+    >>> results = IntenseResults()
+    >>> results.update('stats', computed_stats)
+    >>> results.update('info', {'optimal_delays': delays})
+    >>> results.save_to_hdf5('intense_results.h5')
+    """
     def __init__(self):
         pass
 
     def update(self, property_name, data):
+        """Add or update a property with data."""
         setattr(self, property_name, data)
 
     def update_multiple(self, datadict):
-        for dname, data in datadict.items:
+        """Update multiple properties from a dictionary."""
+        for dname, data in datadict.items():
             setattr(self, dname, data)
 
     def save_to_hdf5(self, fname):
+        """Save all results to an HDF5 file."""
         dict_repr = self.__dict__
         write_dict_to_hdf5(dict_repr, fname)
 
@@ -468,12 +910,13 @@ def compute_me_stats(ts_bunch1,
 
     multicomp_correction: str or None
         type of multiple comparisons correction. Supported types are None (no correction),
-        "bonferroni" and "holm".
+        "bonferroni", "holm", and "fdr_bh".
         default: 'holm'
 
     pval_thr: float
         pvalue threshold. if multicomp_correction=None, this is a p-value for a single pair.
-        Otherwise it is a FWER significance level.
+        For FWER methods (bonferroni, holm), this is the family-wise error rate.
+        For FDR methods (fdr_bh), this is the false discovery rate.
 
     find_optimal_delays: bool
         Allows slight shifting (not more than +- shift_window) of time series,
@@ -513,7 +956,28 @@ def compute_me_stats(ts_bunch1,
     """
 
     # TODO: add automatic min_shifts from autocorrelation time
-
+    
+    # Validate inputs
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=allow_mixed_dimensions)
+    validate_metric(metric)
+    validate_common_parameters(shift_window=shift_window, ds=ds, noise_const=noise_ampl)
+    
+    # Validate mode
+    if mode not in ['stage1', 'stage2', 'two_stage']:
+        raise ValueError(f"mode must be 'stage1', 'stage2', or 'two_stage', got '{mode}'")
+    
+    # Validate multicomp_correction
+    if multicomp_correction not in [None, 'bonferroni', 'holm', 'fdr_bh']:
+        raise ValueError(f"Unknown multiple comparison correction method: '{multicomp_correction}'")
+    
+    # Validate pval_thr
+    if not 0 < pval_thr < 1:
+        raise ValueError(f"pval_thr must be between 0 and 1, got {pval_thr}")
+    
+    # Validate stage-specific parameters
+    validate_common_parameters(nsh=n_shuffles_stage1)
+    validate_common_parameters(nsh=n_shuffles_stage2)
+    
     accumulated_info = dict()
 
     n1 = len(ts_bunch1)
@@ -679,7 +1143,7 @@ def compute_me_stats(ts_bunch1,
         if verbose:
             print('Computing significance for all pairs in stage 2...')
         all_pvals = None
-        if multicomp_correction == 'holm':  # holm procedure requires all p-values
+        if multicomp_correction in ['holm', 'fdr_bh']:  # these procedures require all p-values
             all_pvals = get_all_nonempty_pvals(stage_2_stats, range(n1), range(n2))
 
         multicorr_thr = get_multicomp_correction_thr(pval_thr,
@@ -733,22 +1197,51 @@ def compute_me_stats(ts_bunch1,
 
 
 def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
-
-    '''
-    Calculates pvalue threshold for a single hypothesis from FWER
-
+    """
+    Calculate p-value threshold for multiple hypothesis correction.
+    
     Parameters
     ----------
-    fwer: float
-        family-wise error rate
-
-    mode: str or None
-        type of multiple comparisons correction. Supported types are None (no correction),
-        "bonferroni" and "holm".
-
-    multicomp_kwargs: named arguments for multiple comparisons correction procedure
-    '''
-
+    fwer : float
+        Family-wise error rate or false discovery rate (e.g., 0.05).
+    mode : str or None, optional
+        Multiple comparison correction method. Default: 'holm'.
+        - None: No correction, threshold = fwer
+        - 'bonferroni': Bonferroni correction (FWER control)
+        - 'holm': Holm-Bonferroni correction (FWER control, more powerful)
+        - 'fdr_bh': Benjamini-Hochberg FDR correction
+    **multicomp_kwargs : dict
+        Additional arguments for correction method:
+        - For 'bonferroni': nhyp (int) - number of hypotheses
+        - For 'holm': all_pvals (list) - all p-values to be tested
+        - For 'fdr_bh': all_pvals (list) - all p-values to be tested
+        
+    Returns
+    -------
+    threshold : float
+        Adjusted p-value threshold for individual hypothesis testing.
+        
+    Raises
+    ------
+    ValueError
+        If required arguments are missing or unknown method specified.
+        
+    Notes
+    -----
+    - FWER methods (bonferroni, holm) control probability of ANY false positive
+    - FDR methods control expected proportion of false positives among rejections
+    - Holm is uniformly more powerful than Bonferroni
+    - FDR typically allows more discoveries but with controlled false positive rate
+    
+    Examples
+    --------
+    >>> # Holm correction (default)
+    >>> pvals = [0.001, 0.01, 0.02, 0.03, 0.04]
+    >>> thr = get_multicomp_correction_thr(0.05, mode='holm', all_pvals=pvals)
+    >>> 
+    >>> # FDR correction
+    >>> thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)
+    """
     if mode is None:
         threshold = fwer
 
@@ -770,6 +1263,20 @@ def get_multicomp_correction_thr(fwer, mode='holm', **multicomp_kwargs):
             threshold = cthr
         else:
             raise ValueError('List of p-values for Holm correction not provided')
+
+    elif mode == 'fdr_bh':
+        if 'all_pvals' in multicomp_kwargs:
+            all_pvals = sorted(multicomp_kwargs['all_pvals'])
+            nhyp = len(all_pvals)
+            threshold = 0.0
+            
+            # Benjamini-Hochberg procedure
+            for i in range(nhyp - 1, -1, -1):
+                if all_pvals[i] <= fwer * (i + 1) / nhyp:
+                    threshold = all_pvals[i]
+                    break
+        else:
+            raise ValueError('List of p-values for FDR correction not provided')
 
     else:
         raise ValueError('Unknown multiple comparisons correction method')
