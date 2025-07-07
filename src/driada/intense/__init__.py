@@ -44,6 +44,17 @@ from .visual import (
     plot_pc_activity,
     plot_neuron_feature_density,
     plot_neuron_feature_pair,
+    plot_disentanglement_heatmap,
+    plot_disentanglement_summary,
+)
+
+# Disentanglement analysis functions
+from .disentanglement import (
+    disentangle_pair,
+    disentangle_all_selectivities,
+    create_multifeature_map,
+    get_disentanglement_summary,
+    DEFAULT_MULTIFEATURE_MAP,
 )
 
 __all__ = [
@@ -77,4 +88,12 @@ __all__ = [
     "plot_pc_activity",
     "plot_neuron_feature_density",
     "plot_neuron_feature_pair",
+    "plot_disentanglement_heatmap",
+    "plot_disentanglement_summary",
+    # Disentanglement
+    "disentangle_pair",
+    "disentangle_all_selectivities",
+    "create_multifeature_map",
+    "get_disentanglement_summary",
+    "DEFAULT_MULTIFEATURE_MAP",
 ]

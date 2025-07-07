@@ -205,3 +205,229 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
     plt.tight_layout()
 
     return fig
+
+
+def plot_disentanglement_heatmap(disent_matrix, count_matrix, feat_names, 
+                                 title=None, figsize=(12, 10), dpi=100,
+                                 cmap=None, vmin=0, vmax=100,
+                                 cbar_label='Disentanglement score (%)',
+                                 fontsize=14, title_fontsize=18,
+                                 show_grid=True, grid_alpha=0.3):
+    """Plot disentanglement analysis results as a heatmap.
+    
+    Creates a heatmap showing the relative disentanglement scores between
+    feature pairs. Each cell (i,j) shows the percentage of neurons where
+    feature i was primary when paired with feature j.
+    
+    Parameters
+    ----------
+    disent_matrix : ndarray
+        Disentanglement matrix from disentangle_all_selectivities.
+    count_matrix : ndarray
+        Count matrix from disentangle_all_selectivities.
+    feat_names : list of str
+        Feature names corresponding to matrix indices.
+    title : str, optional
+        Plot title. Default: 'Disentanglement Analysis'.
+    figsize : tuple, optional
+        Figure size (width, height). Default: (12, 10).
+    dpi : int, optional
+        Figure DPI. Default: 100.
+    cmap : str or Colormap, optional
+        Colormap to use. Default: custom red-white-green gradient.
+    vmin : float, optional
+        Minimum value for colormap. Default: 0.
+    vmax : float, optional
+        Maximum value for colormap. Default: 100.
+    cbar_label : str, optional
+        Colorbar label. Default: 'Disentanglement score (%)'.
+    fontsize : int, optional
+        Font size for tick labels. Default: 14.
+    title_fontsize : int, optional
+        Font size for title. Default: 18.
+    show_grid : bool, optional
+        Whether to show grid lines. Default: True.
+    grid_alpha : float, optional
+        Grid transparency. Default: 0.3.
+        
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure containing the heatmap.
+    ax : matplotlib.axes.Axes
+        Axes containing the heatmap.
+        
+    Notes
+    -----
+    The heatmap uses a diverging colormap where:
+    - Red indicates low disentanglement (feature is redundant)
+    - White indicates balanced contribution (~50%)
+    - Green indicates high disentanglement (feature is primary)
+    
+    Cells are masked (shown in white) where no data is available.
+    """
+    import seaborn as sns
+    from matplotlib.colors import LinearSegmentedColormap
+    import pandas as pd
+    
+    # Calculate relative disentanglement matrix (as percentage)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        rel_disent_matrix = np.divide(disent_matrix, count_matrix) * 100
+        rel_disent_matrix[count_matrix == 0] = np.nan
+    
+    # Create default colormap if not provided
+    if cmap is None:
+        # Red -> White -> Green gradient
+        colors = [(1, 0, 0), (1, 1, 1), (0, 1, 0)]
+        n_bins = 100
+        cmap = LinearSegmentedColormap.from_list("disentanglement_cmap", colors, N=n_bins)
+    
+    # Create DataFrame for seaborn
+    df_heatmap = pd.DataFrame(rel_disent_matrix, columns=feat_names, index=feat_names)
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    
+    # Create heatmap
+    sns.heatmap(df_heatmap,
+                ax=ax,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                cbar_kws={'label': cbar_label},
+                mask=np.isnan(rel_disent_matrix),
+                square=True,
+                linewidths=0.5,
+                linecolor='gray')
+    
+    # Add grid if requested
+    if show_grid:
+        ax.grid(True, linestyle='-', alpha=grid_alpha, color='black')
+    
+    # Set title
+    if title is None:
+        title = 'Disentanglement Analysis'
+    ax.set_title(title, fontsize=title_fontsize, pad=20)
+    
+    # Configure tick labels
+    ax.set_xticks(np.arange(len(feat_names)) + 0.5)
+    ax.set_xticklabels(feat_names, fontsize=fontsize, rotation=45, ha='right')
+    ax.set_yticks(np.arange(len(feat_names)) + 0.5)
+    ax.set_yticklabels(feat_names, fontsize=fontsize, rotation=0)
+    
+    # Set axis labels
+    ax.set_xlabel('Feature (as secondary)', fontsize=fontsize + 2)
+    ax.set_ylabel('Feature (as primary)', fontsize=fontsize + 2)
+    
+    plt.tight_layout()
+    
+    return fig, ax
+
+
+def plot_disentanglement_summary(disent_matrix, count_matrix, feat_names,
+                                experiments=None, title_prefix='',
+                                figsize=(14, 10), dpi=100):
+    """Plot comprehensive disentanglement analysis with multiple views.
+    
+    Creates a figure with multiple subplots showing:
+    1. Disentanglement heatmap
+    2. Feature dominance scores
+    3. Pairwise interaction counts
+    
+    Parameters
+    ----------
+    disent_matrix : ndarray or list of ndarray
+        Disentanglement matrix(es). If list, matrices are summed.
+    count_matrix : ndarray or list of ndarray
+        Count matrix(es). If list, matrices are summed.
+    feat_names : list of str
+        Feature names corresponding to matrix indices.
+    experiments : list of str, optional
+        Experiment names if multiple matrices provided.
+    title_prefix : str, optional
+        Prefix for the main title.
+    figsize : tuple, optional
+        Figure size. Default: (14, 10).
+    dpi : int, optional
+        Figure DPI. Default: 100.
+        
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure containing all subplots.
+    """
+    # Handle multiple experiments
+    if isinstance(disent_matrix, list):
+        total_disent = np.sum(disent_matrix, axis=0)
+        total_count = np.sum(count_matrix, axis=0)
+        n_exp = len(disent_matrix)
+    else:
+        total_disent = disent_matrix
+        total_count = count_matrix
+        n_exp = 1
+    
+    # Create figure with subplots
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    gs = fig.add_gridspec(2, 2, height_ratios=[3, 1], width_ratios=[3, 1])
+    
+    # Main heatmap
+    ax_main = fig.add_subplot(gs[0, 0])
+    
+    # Calculate relative disentanglement matrix
+    with np.errstate(divide='ignore', invalid='ignore'):
+        rel_disent_matrix = np.divide(total_disent, total_count) * 100
+        rel_disent_matrix[total_count == 0] = np.nan
+    
+    # Create colormap
+    from matplotlib.colors import LinearSegmentedColormap
+    import seaborn as sns
+    import pandas as pd
+    colors = [(1, 0, 0), (1, 1, 1), (0, 1, 0)]
+    cmap = LinearSegmentedColormap.from_list("disentanglement_cmap", colors, N=100)
+    
+    # Create DataFrame and plot
+    df_heatmap = pd.DataFrame(rel_disent_matrix, columns=feat_names, index=feat_names)
+    sns.heatmap(df_heatmap, ax=ax_main, cmap=cmap, vmin=0, vmax=100,
+                cbar_kws={'label': 'Disentanglement score (%)'},
+                mask=np.isnan(rel_disent_matrix), square=True,
+                linewidths=0.5, linecolor='gray')
+    ax_main.set_title('Disentanglement Heatmap')
+    
+    # Feature dominance scores (how often each feature is primary)
+    ax_dom = fig.add_subplot(gs[0, 1])
+    dominance_scores = np.nansum(total_disent / total_count, axis=1)
+    y_pos = np.arange(len(feat_names))
+    ax_dom.barh(y_pos, dominance_scores, color='green', alpha=0.7)
+    ax_dom.set_yticks(y_pos)
+    ax_dom.set_yticklabels(feat_names)
+    ax_dom.set_xlabel('Dominance Score')
+    ax_dom.set_title('Feature Dominance')
+    ax_dom.grid(True, alpha=0.3)
+    
+    # Interaction counts
+    ax_counts = fig.add_subplot(gs[1, :])
+    pair_counts = []
+    pair_labels = []
+    for i in range(len(feat_names)):
+        for j in range(i + 1, len(feat_names)):
+            if total_count[i, j] > 0:
+                pair_counts.append(total_count[i, j])
+                pair_labels.append(f'{feat_names[i]}-{feat_names[j]}')
+    
+    x_pos = np.arange(len(pair_counts))
+    ax_counts.bar(x_pos, pair_counts, color='blue', alpha=0.7)
+    ax_counts.set_xticks(x_pos)
+    ax_counts.set_xticklabels(pair_labels, rotation=45, ha='right')
+    ax_counts.set_ylabel('Number of neurons')
+    ax_counts.set_title('Pairwise interaction counts')
+    ax_counts.grid(True, axis='y', alpha=0.3)
+    
+    # Main title
+    if n_exp > 1:
+        title = f'{title_prefix}Disentanglement Analysis ({n_exp} experiments)'
+    else:
+        title = f'{title_prefix}Disentanglement Analysis'
+    fig.suptitle(title, fontsize=16, y=0.98)
+    
+    plt.tight_layout()
+    return fig

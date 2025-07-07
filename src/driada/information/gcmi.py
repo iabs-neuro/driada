@@ -33,11 +33,23 @@ def copnorm(x):
 
 @njit
 def demean(x):
+    """Demean each row of a 2D array.
+    
+    Parameters
+    ----------
+    x : ndarray
+        2D array where each row is demeaned independently.
+        
+    Returns
+    -------
+    ndarray
+        Array with same shape as input with zero mean rows.
+    """
     # Get the number of rows
     num_rows = x.shape[0]
 
     # Create an output array with the same shape as input
-    demeaned_x= np.empty_like(x)
+    demeaned_x = np.empty_like(x)
 
     # Demean each row
     for i in range(num_rows):
@@ -81,7 +93,7 @@ def ent_g(x, biascorrect=True):
 
 
 @njit()
-def mi_gg(x, y, biascorrect=True, demeaned=False):
+def mi_gg(x, y, biascorrect=True, demeaned=False, max_dim=3):
     """Mutual information (MI) between two Gaussian variables in bits
 
     I = mi_gg(x,y) returns the MI between two (possibly multidimensional)
@@ -93,12 +105,14 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
     bias correction should be applied to the estimated MI.
     demeaned : false / true option (default false) which specifies whether th
     input data already has zero mean (true if it has been copula-normalized)
+    max_dim : int (default 3) which specifies the maximum allowed dimensionality
+    to prevent undersampling issues.
     """
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
-    if x.ndim > 3 or y.ndim > 3:
-        raise ValueError("x and y must be at most 3d")
+    if x.ndim > max_dim or y.ndim > max_dim:
+        raise ValueError(f"x and y must be at most {max_dim}d to prevent undersampling issues")
     Ntrl = x.shape[1]
     Nvarx = x.shape[0]
     Nvary = y.shape[0]
@@ -323,7 +337,7 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
 
     ln2 = np.log(2)
     if biascorrect:
-        psiterms = psi((Ntrl - np.arange(1,Nvarxyz+1)).astype(np.float)/2.0) / 2.0
+        psiterms = psi((Ntrl - np.arange(1,Nvarxyz+1)).astype(float)/2.0) / 2.0
         dterm = (ln2 - np.log(Ntrl-1.0)) / 2.0
         HZ = HZ - Nvarz*dterm - psiterms[:Nvarz].sum()
         HXZ = HXZ - Nvarxz*dterm - psiterms[:Nvarxz].sum()

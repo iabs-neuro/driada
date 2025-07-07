@@ -6,6 +6,7 @@ from .ksg import *
 from .gcmi import *
 from .info_utils import binary_mi_score
 from ..utils.data import correlation_matrix
+from .entropy import entropy_d, joint_entropy_dd, joint_entropy_cd, joint_entropy_cdd
 
 import numpy as np
 import warnings
@@ -347,13 +348,13 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
     return mi
 
 
-def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
+def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=True):
     """Computes mutual information between two 1d variables efficiently
 
     Parameters
     ----------
-    ts1: TimeSeries instance or numpy array
-    ts2: TimeSeries instance or numpy array
+    ts1: TimeSeries/MultiTimeSeries instance or numpy array
+    ts2: TimeSeries/MultiTimeSeries instance or numpy array
     shift: int
         ts2 will be roll-moved by the number 'shift' after downsampling by 'ds' factor
     ds: int
@@ -363,22 +364,30 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
     estimator: str
         Estimation method. Should be 'ksg' (accurate but slow) and 'gcmi' (fast, but estimates the lower bound on MI).
         In most cases 'gcmi' should be preferred.
+    check_for_coincidence : bool, optional
+        If True, raises error when computing MI of a signal with itself at zero shift. Default: True.
 
     Returns
     -------
     mi: mutual information (or its lower bound in case of 'gcmi' estimator) between ts1 and (possibly) shifted ts2
 
     """
-    if not isinstance(ts1, TimeSeries):
-        ts1 = TimeSeries(ts1)
-    if not isinstance(ts2, TimeSeries):
-        ts2 = TimeSeries(ts2)
 
-    if check_for_coincidence:
+    def _check_input(ts):
+        if not isinstance(ts, TimeSeries) and not isinstance(ts, MultiTimeSeries):
+            if np.ndim(ts) == 1:
+                ts = TimeSeries(ts)
+            else:
+                raise Exception('Multidimensional inputs must be provided as MultiTimeSeries')
+        return ts
+
+    ts1 = _check_input(ts1)
+    ts2 = _check_input(ts2)
+
+    if check_for_coincidence and ts1.data.shape == ts2.data.shape:
         if np.allclose(ts1.data, ts2.data) and shift == 0: #and not (ts1.discrete and ts2.discrete):
-            warnings.warn('MI computation of a TimeSeries with itself is meaningless, 0 will be returned forcefully')
-            return 0
-            # raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
+            raise ValueError('MI computation of a TimeSeries or MultiTimeSeries with itself is not allowed')
+            #raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
 
     if estimator == 'ksg':
         #TODO: add shifts everywhere in this branch
@@ -484,3 +493,192 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
         mi = 0
 
     return mi
+
+
+def aggregate_multiple_ts(*ts_args, noise=1e-6):
+    """Aggregate multiple continuous TimeSeries into a single MultiTimeSeries.
+    
+    Adds small noise to break degeneracy and creates a MultiTimeSeries from
+    the input TimeSeries objects.
+    
+    Parameters
+    ----------
+    *ts_args : TimeSeries
+        Variable number of TimeSeries objects to aggregate.
+    noise : float, optional
+        Amount of noise to add to break degeneracy. Default: 1e-6.
+        
+    Returns
+    -------
+    MultiTimeSeries
+        Aggregated multi-dimensional time series.
+        
+    Raises
+    ------
+    ValueError
+        If any input TimeSeries is discrete.
+        
+    Examples
+    --------
+    >>> ts1 = TimeSeries(np.random.randn(100), discrete=False)
+    >>> ts2 = TimeSeries(np.random.randn(100), discrete=False)
+    >>> mts = aggregate_multiple_ts(ts1, ts2)
+    """
+    # add small noise to break degeneracy
+    mod_tslist = []
+    for ts in ts_args:
+        if ts.discrete:
+            raise ValueError('this is not applicable to discrete TimeSeries')
+        mod_ts = TimeSeries(ts.data + np.random.random(size=len(ts.data)) * noise, discrete=False)
+        mod_tslist.append(mod_ts)
+
+    mts = MultiTimeSeries(mod_tslist)  # add last two TS into a single 2-d MTS
+    return mts
+
+
+def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
+    """Calculate conditional mutual information I(X;Y|Z).
+    
+    Computes the conditional mutual information between ts1 (X) and ts2 (Y)
+    given ts3 (Z) for various combinations of continuous and discrete variables.
+    
+    Parameters
+    ----------
+    ts1 : TimeSeries
+        First variable (X). Must be continuous.
+    ts2 : TimeSeries
+        Second variable (Y). Can be continuous or discrete.
+    ts3 : TimeSeries
+        Conditioning variable (Z). Can be continuous or discrete.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+    k : int, optional
+        Number of neighbors for entropy estimation. Default: 5.
+        
+    Returns
+    -------
+    float
+        Conditional mutual information I(X;Y|Z) in bits.
+        
+    Raises
+    ------
+    ValueError
+        If ts1 is discrete (only continuous X is currently supported).
+        
+    Notes
+    -----
+    Supports four cases:
+    - CCC: All continuous - uses Gaussian copula
+    - CCD: X,Y continuous, Z discrete - uses Gaussian copula per Z value
+    - CDC: X,Z continuous, Y discrete - uses chain rule identity
+    - CDD: X continuous, Y,Z discrete - uses entropy decomposition
+    
+    For the CDD case, GCMI estimator has limitations due to uncontrollable 
+    biases (copula transform does not conserve entropy). See 
+    https://doi.org/10.1002/hbm.23471 for details.
+    """
+    if ts1.discrete:
+        raise ValueError('conditional MI(X,Y|Z) is currently implemented for continuous X only')
+
+    #print(ts1.discrete, ts2.discrete, ts3.discrete)
+    if not ts2.discrete and not ts3.discrete:
+        # CCC: All continuous
+        g1 = ts1.copula_normal_data[::ds]
+        g2 = ts2.copula_normal_data[::ds]
+        g3 = ts3.copula_normal_data[::ds]
+        cmi = cmi_ggg(g1, g2, g3, biascorrect=True, demeaned=True)
+
+    elif not ts2.discrete and ts3.discrete:
+        # CCD: X,Y continuous, Z discrete
+        unique_discrete_vals = np.unique(ts3.int_data[::ds])
+        cmi = gccmi_ccd(ts1.data[::ds],
+                        ts2.data[::ds],
+                        ts3.int_data[::ds],
+                        len(unique_discrete_vals))
+
+    elif ts2.discrete and not ts3.discrete:
+        # CDC: X,Z continuous, Y discrete
+        # Here we use the identity I(X;Y|Z) = I(X;Y) - (I(X;Z) - I(X;Z|Y))
+        unique_discrete_vals = np.unique(ts2.int_data[::ds])
+        I_xz_given_y = gccmi_ccd(ts1.data[::ds],
+                                 ts3.data[::ds],
+                                 ts2.int_data[::ds],
+                                 len(unique_discrete_vals))
+
+        I_xy = get_mi(ts1, ts2, ds=ds)
+        I_xz = get_mi(ts1, ts3, ds=ds)
+        cmi = I_xy - (I_xz - I_xz_given_y)
+
+    else:
+        # CDD: X continuous, Y,Z discrete
+        # Here we use the identity I(X;Y|Z) = H(X,Z) + H(Y,Z) - H(X,Y,Z) - H(Z)
+        '''
+        # TODO: check this
+        # Note that GCMI estimator is poorly applicable here because of the uncontrollable biases:
+        # GCMI correctly estimates the lower bound on MI, but copula transform does not conserve the entropy
+        # See  https://doi.org/10.1002/hbm.23471 for further details
+        # Therefore, joint entropy estimation relies on ksg estimator instead
+        '''
+        # Note: Original code used copula_normal_data, but our entropy functions expect raw data
+        # Using data instead of copula_normal_data for consistency with entropy functions
+        H_xz = joint_entropy_cd(ts3.int_data[::ds], ts1.data[::ds], k=k)
+        H_yz = joint_entropy_dd(ts2.int_data[::ds], ts3.int_data[::ds])
+        H_xyz = joint_entropy_cdd(ts2.int_data[::ds], ts3.int_data[::ds], ts1.data[::ds], k=k)
+        H_z = entropy_d(ts3.int_data[::ds])
+        #print('entropies:', H_xz, H_yz, H_xyz, H_z)
+        cmi = H_xz + H_yz - H_xyz - H_z
+
+    return cmi
+
+
+def interaction_information(ts1, ts2, ts3, ds=1, k=5):
+    """Calculate three-way interaction information II(X;Y;Z).
+    
+    The interaction information quantifies the amount of information
+    that is shared among all three variables. It can be positive (synergy)
+    or negative (redundancy).
+    
+    Parameters
+    ----------
+    ts1 : TimeSeries
+        First variable (X). Must be continuous.
+    ts2 : TimeSeries
+        Second variable (Y). Can be continuous or discrete.
+    ts3 : TimeSeries
+        Third variable (Z). Can be continuous or discrete.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+    k : int, optional
+        Number of neighbors for entropy estimation. Default: 5.
+        
+    Returns
+    -------
+    float
+        Interaction information II(X;Y;Z) in bits.
+        - II < 0: Redundancy (Y and Z provide overlapping information about X)
+        - II > 0: Synergy (Y and Z together provide more information than separately)
+        
+    Notes
+    -----
+    The interaction information is computed as:
+    II(X;Y;Z) = I(X;Y) - I(X;Y|Z) = I(X;Z) - I(X;Z|Y)
+    
+    This implementation assumes X is the target variable (e.g., neural activity)
+    and Y, Z are predictor variables (e.g., behavioral features).
+    """
+    # Compute pairwise mutual information
+    mi_xy = get_mi(ts1, ts2, ds=ds)
+    mi_xz = get_mi(ts1, ts3, ds=ds)
+    
+    # Compute conditional mutual information
+    cmi_xy_given_z = conditional_mi(ts1, ts2, ts3, ds=ds, k=k)
+    cmi_xz_given_y = conditional_mi(ts1, ts3, ts2, ds=ds, k=k)
+    
+    # Compute interaction information (should be the same from both formulas)
+    ii_1 = mi_xy - cmi_xy_given_z
+    ii_2 = mi_xz - cmi_xz_given_y
+    
+    # Average for numerical stability
+    ii = (ii_1 + ii_2) / 2.0
+    
+    return ii
