@@ -226,6 +226,10 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
                             avg_islands=10, avg_duration=5, noise_std=0.1, verbose=True):
     gt = np.zeros((nfeats, nneurons))
     length = int(duration * sampling_rate)
+    
+    # Handle edge case of 0 neurons
+    if nneurons == 0:
+        return np.array([]), np.array([]).reshape(0, length), gt
 
     print('Generating features...')
     all_feats = []
@@ -246,13 +250,22 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
         seed += 1  # save reproducibility, but break degeneracy
 
     print('Generating signals...')
-    fois = np.random.choice(np.arange(nfeats), size=nneurons)
-    gt[fois, np.arange(nneurons)] = 1  # add info about ground truth feature-signal connections
+    if nfeats > 0:
+        fois = np.random.choice(np.arange(nfeats), size=nneurons)
+        gt[fois, np.arange(nneurons)] = 1  # add info about ground truth feature-signal connections
+    else:
+        # If no features, neurons won't be selective to any feature
+        fois = np.full(nneurons, -1)  # Use -1 to indicate no feature selection
     all_signals = []
 
     for j in tqdm.tqdm(np.arange(nneurons)):
         foi = fois[j]
-        if ftype == 'c':
+        
+        # Handle case where there are no features
+        if foi == -1 or nfeats == 0:
+            # Generate random baseline activity
+            binary_series = generate_binary_time_series(length, avg_islands // 2, avg_duration * sampling_rate // 2)
+        elif ftype == 'c':
             csignal = all_feats[foi]
             loc, lower_border, upper_border = select_signal_roi(csignal, seed=seed)
             # Generate binary series from a continuous one
@@ -668,8 +681,16 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
 def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=20):
     # Split neurons between those responding to discrete and continuous features
     # For odd numbers, give the extra neuron to the first group
-    n_neurons_discrete = (nneurons + 1) // 2
-    n_neurons_continuous = nneurons // 2
+    # But if one type has 0 features, allocate all neurons to the other type
+    if n_dfeats == 0:
+        n_neurons_discrete = 0
+        n_neurons_continuous = nneurons
+    elif n_cfeats == 0:
+        n_neurons_discrete = nneurons
+        n_neurons_continuous = 0
+    else:
+        n_neurons_discrete = (nneurons + 1) // 2
+        n_neurons_continuous = nneurons // 2
     
     dfeats, calcium1, gt = generate_synthetic_data(n_dfeats,
                                                    n_neurons_discrete,
@@ -683,7 +704,7 @@ def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=2
                                                    noise_std=0.1,
                                                    sampling_rate=fps)
 
-    cfeats, calcium2, gt2 = generate_synthetic_data(n_dfeats,
+    cfeats, calcium2, gt2 = generate_synthetic_data(n_cfeats,  # Fixed: was n_dfeats
                                                     n_neurons_continuous,
                                                     duration=1200,
                                                     hurst=0.3,
@@ -698,8 +719,16 @@ def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=2
     discr_ts = {f'd_feat_{i}': TimeSeries(dfeats[i, :], discrete=True) for i in range(len(dfeats))}
     cont_ts = {f'c_feat_{i}': TimeSeries(cfeats[i, :], discrete=False) for i in range(len(cfeats))}
 
+    # Combine calcium signals, handling empty arrays
+    if n_neurons_discrete == 0:
+        all_calcium = calcium2
+    elif n_neurons_continuous == 0:
+        all_calcium = calcium1
+    else:
+        all_calcium = np.vstack([calcium1, calcium2])
+    
     exp = Experiment('Synthetic',
-                     np.vstack([calcium1, calcium2]),
+                     all_calcium,
                      None,
                      {},
                      {'fps': fps},

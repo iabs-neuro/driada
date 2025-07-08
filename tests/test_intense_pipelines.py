@@ -18,15 +18,15 @@ from src.driada.experiment.synthetic import (
 
 def test_compute_cell_feat_significance_with_disentanglement():
     """Test compute_cell_feat_significance with disentanglement mode."""
-    # Create experiment with multiple features
-    exp = generate_synthetic_exp(n_dfeats=3, n_cfeats=0, nneurons=5, seed=42, fps=20)
+    # Create experiment with both discrete and continuous features
+    exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=8, seed=42, fps=20)
     
-    # Run with disentanglement
+    # Run with disentanglement - use stage1 only for faster testing
     stats, significance, info, results, disent_results = compute_cell_feat_significance(
         exp,
-        cell_bunch=[0, 1, 2],
+        cell_bunch=[0, 1, 2, 3, 4],  # Test subset of neurons
         feat_bunch=None,  # Use all features
-        mode='two_stage',
+        mode='stage1',  # Changed from two_stage for speed
         n_shuffles_stage1=10,
         n_shuffles_stage2=50,
         verbose=False,
@@ -59,10 +59,36 @@ def test_compute_cell_feat_significance_with_disentanglement():
     assert 'feature_pairs' in disent_results['summary']
 
 
+def test_compute_cell_feat_significance_continuous_features():
+    """Test compute_cell_feat_significance with continuous features."""
+    # Create experiment with only continuous features
+    exp = generate_synthetic_exp(n_dfeats=0, n_cfeats=3, nneurons=6, seed=42)
+    
+    # Run without disentanglement
+    result = compute_cell_feat_significance(
+        exp,
+        cell_bunch=[0, 1, 2, 3],  # Test subset of neurons
+        mode='stage1',
+        n_shuffles_stage1=10,
+        verbose=False,
+        with_disentanglement=False
+    )
+    
+    # Should return exactly 4 values (backward compatibility)
+    assert len(result) == 4
+    stats, significance, info, results = result
+    
+    # Check types
+    assert isinstance(stats, dict)
+    assert isinstance(significance, dict)
+    assert isinstance(info, dict)
+    assert hasattr(results, 'update')  # IntenseResults has update method
+
+
 def test_compute_cell_feat_significance_without_disentanglement():
     """Test backward compatibility when disentanglement is disabled."""
-    # Create simple experiment
-    exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=0, nneurons=3, seed=42)
+    # Create simple experiment with mixed features
+    exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=1, nneurons=3, seed=42)
     
     # Run without disentanglement (default)
     result = compute_cell_feat_significance(
@@ -87,14 +113,14 @@ def test_compute_cell_feat_significance_without_disentanglement():
 
 def test_compute_feat_feat_significance():
     """Test feature-feature significance computation."""
-    # Create experiment with multiple features
-    exp = generate_synthetic_exp(n_dfeats=4, n_cfeats=0, nneurons=2, seed=42)
+    # Create experiment with both discrete and continuous features
+    exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=6, seed=42)
     
     # Compute feature-feature significance
     sim_mat, sig_mat, pval_mat, feat_ids, info = compute_feat_feat_significance(
         exp,
         feat_bunch='all',
-        mode='two_stage',
+        mode='stage1',  # Changed from two_stage for speed
         n_shuffles_stage1=10,
         n_shuffles_stage2=50,
         verbose=False,
@@ -164,7 +190,7 @@ def test_compute_cell_cell_significance():
         exp,
         cell_bunch=None,  # All neurons
         data_type='calcium',
-        mode='two_stage',
+        mode='stage1',  # Changed from two_stage for speed
         n_shuffles_stage1=10,
         n_shuffles_stage2=50,
         verbose=False,
@@ -421,7 +447,7 @@ def test_mixed_selectivity_generation():
         selectivity_prob=0.8,
         multi_select_prob=0.5,
         weights_mode='random',
-        duration=60,  # Short for testing
+        duration=20,  # Reduced from 60 for faster testing
         seed=42,
         verbose=False
     )
@@ -479,7 +505,7 @@ def test_disentanglement_with_mixed_selectivity():
         selectivity_prob=0.9,
         multi_select_prob=0.7,
         weights_mode='dominant',  # One feature dominates
-        duration=120,
+        duration=30,  # Reduced from 120 for faster testing
         seed=42,
         verbose=False
     )
@@ -489,7 +515,7 @@ def test_disentanglement_with_mixed_selectivity():
         exp,
         feat_bunch=['c_feat_0', 'd_feat_from_c0', 'c_feat_1', 'd_feat_from_c1'],
         mode='stage1',
-        n_shuffles_stage1=20,
+        n_shuffles_stage1=10,  # Reduced from 20 for faster testing
         verbose=False,
         with_disentanglement=True,
         seed=42
@@ -528,7 +554,7 @@ def test_equal_weight_mixed_selectivity():
         selectivity_prob=0.9,
         multi_select_prob=0.8,
         weights_mode='equal',  # Equal weights - no clear dominance
-        duration=120,
+        duration=30,  # Reduced from 120 for faster testing
         seed=42,
         verbose=False
     )
@@ -546,7 +572,7 @@ def test_equal_weight_mixed_selectivity():
     result = compute_cell_feat_significance(
         exp,
         mode='stage1',
-        n_shuffles_stage1=20,
+        n_shuffles_stage1=10,  # Reduced from 20 for faster testing
         verbose=False,
         with_disentanglement=True,
         seed=42

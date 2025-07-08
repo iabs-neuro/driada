@@ -367,7 +367,7 @@ def test_validate_common_parameters():
     validate_common_parameters(shift_window=100, ds=2, nsh=1000, noise_const=0.001)
     
     # Invalid parameters
-    with pytest.raises(ValueError, match="shift_window must be positive"):
+    with pytest.raises(ValueError, match="shift_window must be non-negative"):
         validate_common_parameters(shift_window=-1)
         
     with pytest.raises(ValueError, match="ds must be positive"):
