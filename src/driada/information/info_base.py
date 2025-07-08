@@ -437,7 +437,7 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
                 contingency = np.zeros((2, 2))
                 contingency[0, 0] = (ny1 & ny2).sum()
                 contingency[0, 1] = (~ny1 & ny2).sum()
-                contingency[0, 1] = (ny1 & ~ny2).sum()
+                contingency[1, 0] = (ny1 & ~ny2).sum()
                 contingency[1, 1] = (~ny1 & ~ny2).sum()
 
                 mi = binary_mi_score(contingency)

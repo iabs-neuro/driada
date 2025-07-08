@@ -135,8 +135,8 @@ def validate_common_parameters(shift_window=None, ds=None, nsh=None, noise_const
     ValueError
         If any parameter is invalid.
     """
-    if shift_window is not None and shift_window <= 0:
-        raise ValueError(f"shift_window must be positive, got {shift_window}")
+    if shift_window is not None and shift_window < 0:
+        raise ValueError(f"shift_window must be non-negative, got {shift_window}")
     
     if ds is not None and ds <= 0:
         raise ValueError(f"ds must be positive, got {ds}")

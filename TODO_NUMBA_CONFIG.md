@@ -96,3 +96,9 @@ result = mi_gg(x, y, use_numba=False)
 - Run test suite with DRIADA_DISABLE_NUMBA=true
 - Ensure all tests pass in both modes
 - Performance benchmarks for impact assessment
+- Test newly added functions:
+  - [ ] Test entropy functions with/without Numba
+  - [ ] Test GCMI functions with/without Numba
+  - [ ] Verify identical results in both modes
+  - [ ] Compare performance differences
+  - [ ] Test edge cases that might behave differently

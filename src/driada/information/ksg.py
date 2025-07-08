@@ -96,8 +96,8 @@ def nonparam_cond_entropy_cc(x, y, k=DEFAULT_NN, base=np.e):
     return entropy_union_xy - entropy_y
 
 
-def nonparam_mi_cc_mod(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
-                       lf=5, precomputed_tree_x=None, precomputed_tree_y=None):
+def nonparam_mi_cc(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
+                   lf=5, precomputed_tree_x=None, precomputed_tree_y=None):
     """
     Mutual information of x and y (conditioned on z if z is not None)
     """

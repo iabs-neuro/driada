@@ -20,7 +20,11 @@ from .intense_base import (
 )
 
 # Pipeline functions
-from .pipelines import compute_cell_feat_significance
+from .pipelines import (
+    compute_cell_feat_significance,
+    compute_feat_feat_significance,
+    compute_cell_cell_significance,
+)
 
 # Statistical functions
 from .stats import (
@@ -70,6 +74,8 @@ __all__ = [
     "IntenseResults",
     # Pipeline
     "compute_cell_feat_significance",
+    "compute_feat_feat_significance",
+    "compute_cell_cell_significance",
     # Statistics
     "chebyshev_ineq",
     "get_lognormal_p",

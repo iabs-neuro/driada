@@ -120,12 +120,14 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
         return 0.5  # Both contribute synergistically
 
 
-def disentangle_all_selectivities(exp, feat_names, ds=1, multifeature_map=None):
+def disentangle_all_selectivities(exp, feat_names, ds=1, multifeature_map=None, 
+                                 feat_feat_significance=None, cell_bunch=None):
     """Analyze mixed selectivity across all significant neuron-feature pairs.
     
     For each neuron that responds to multiple features, determines which
     features provide primary vs redundant information using disentanglement
-    analysis.
+    analysis. Only analyzes feature pairs that show significant correlation
+    in the behavioral data.
     
     Parameters
     ----------
@@ -144,6 +146,14 @@ def disentangle_all_selectivities(exp, feat_names, ds=1, multifeature_map=None):
             ('speed', 'head_direction'): 'locomotion',
             ('lick', 'reward'): 'consummatory'
         }
+    feat_feat_significance : ndarray, optional
+        Binary significance matrix from compute_feat_feat_significance.
+        If provided, only feature pairs marked as significant (value=1)
+        will be analyzed for disentanglement. Non-significant pairs are
+        assumed to represent true mixed selectivity.
+    cell_bunch : list or None, optional
+        List of cell IDs to analyze. If None, analyzes all cells.
+        Default: None.
         
     Returns
     -------
@@ -157,8 +167,9 @@ def disentangle_all_selectivities(exp, feat_names, ds=1, multifeature_map=None):
     Notes
     -----
     The analysis is performed only on neurons with significant selectivity
-    to at least 2 features. Results are aggregated across the population
-    to identify systematic patterns in mixed selectivity.
+    to at least 2 features. If feat_feat_significance is provided, only
+    behaviorally correlated feature pairs are analyzed for redundancy.
+    Non-significant pairs indicate true mixed selectivity.
     """
     # Use default multifeature mapping if none provided
     if multifeature_map is None:
@@ -185,7 +196,7 @@ def disentangle_all_selectivities(exp, feat_names, ds=1, multifeature_map=None):
             multifeature_ts[agg_name] = MultiTimeSeries(component_ts)
     
     # Get neurons with significant selectivity to multiple features
-    sneur = exp.get_significant_neurons(min_nspec=2)
+    sneur = exp.get_significant_neurons(min_nspec=2, cbunch=cell_bunch)
     
     for neuron, sels in sneur.items():
         neur_ts = exp.neurons[neuron].ca
@@ -215,13 +226,27 @@ def disentangle_all_selectivities(exp, feat_names, ds=1, multifeature_map=None):
                         else:
                             raise ValueError(f"Feature '{fname}' not found in experiment")
                 
-                # Perform disentanglement analysis
+                # Get feature indices
+                ind1 = finds[0]
+                ind2 = finds[1]
+                
+                # Check if this feature pair has significant behavioral correlation
+                if feat_feat_significance is not None:
+                    if feat_feat_significance[ind1, ind2] == 0:
+                        # Features are not significantly correlated
+                        # Skip disentanglement - this is true mixed selectivity
+                        count_matrix[ind1, ind2] += 1
+                        count_matrix[ind2, ind1] += 1
+                        # Add 0.5 to each to indicate independent contributions
+                        disent_matrix[ind1, ind2] += 0.5
+                        disent_matrix[ind2, ind1] += 0.5
+                        continue
+                
+                # Perform disentanglement analysis only for significant pairs
                 disres = disentangle_pair(neur_ts, feat_ts[0], feat_ts[1], 
                                         ds=ds, verbose=False)
                 
                 # Update matrices
-                ind1 = finds[0]
-                ind2 = finds[1]
                 count_matrix[ind1, ind2] += 1
                 count_matrix[ind2, ind1] += 1
                 
@@ -277,7 +302,8 @@ def create_multifeature_map(exp, mapping_dict):
     return validated_map
 
 
-def get_disentanglement_summary(disent_matrix, count_matrix, feat_names):
+def get_disentanglement_summary(disent_matrix, count_matrix, feat_names, 
+                               feat_feat_significance=None):
     """Generate a summary of disentanglement results.
     
     Parameters
@@ -288,6 +314,9 @@ def get_disentanglement_summary(disent_matrix, count_matrix, feat_names):
         Count matrix from disentangle_all_selectivities.
     feat_names : list of str
         Feature names corresponding to matrix indices.
+    feat_feat_significance : ndarray, optional
+        Binary significance matrix indicating which feature pairs
+        were analyzed for disentanglement.
         
     Returns
     -------
@@ -296,6 +325,7 @@ def get_disentanglement_summary(disent_matrix, count_matrix, feat_names):
         - Primary feature percentages for each pair
         - Total counts for each pair
         - Overall redundancy vs independence rates
+        - Breakdown by significant vs non-significant feature pairs
     """
     summary = {
         'feature_pairs': {},
@@ -337,5 +367,23 @@ def get_disentanglement_summary(disent_matrix, count_matrix, feat_names):
             'redundancy_rate': total_redundant / total_pairs * 100,
             'independence_rate': total_independent / total_pairs * 100
         }
+        
+        # Add breakdown by behavioral significance if provided
+        if feat_feat_significance is not None:
+            sig_pairs = 0
+            nonsig_pairs = 0
+            for i in range(n_features):
+                for j in range(i + 1, n_features):
+                    if count_matrix[i, j] > 0:
+                        if feat_feat_significance[i, j] == 1:
+                            sig_pairs += count_matrix[i, j]
+                        else:
+                            nonsig_pairs += count_matrix[i, j]
+            
+            summary['overall_stats']['significant_behavior_pairs'] = int(sig_pairs)
+            summary['overall_stats']['nonsignificant_behavior_pairs'] = int(nonsig_pairs)
+            summary['overall_stats']['true_mixed_selectivity_rate'] = (
+                nonsig_pairs / total_pairs * 100 if total_pairs > 0 else 0
+            )
     
     return summary

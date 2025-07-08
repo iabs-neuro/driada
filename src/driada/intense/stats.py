@@ -364,8 +364,12 @@ def merge_stage_stats(stage1_stats, stage2_stats):
     merged_stats = stage2_stats.copy()
     for i in stage2_stats:
         for j in stage2_stats[i]:
-            merged_stats[i][j]['pre_rval'] = stage1_stats[i][j]['pre_rval']
-            merged_stats[i][j]['pre_pval'] = stage1_stats[i][j]['pre_pval']
+            # Only merge if the entry exists in stage1_stats
+            if i in stage1_stats and j in stage1_stats[i] and stage1_stats[i][j]:
+                if 'pre_rval' in stage1_stats[i][j]:
+                    merged_stats[i][j]['pre_rval'] = stage1_stats[i][j]['pre_rval']
+                if 'pre_pval' in stage1_stats[i][j]:
+                    merged_stats[i][j]['pre_pval'] = stage1_stats[i][j]['pre_pval']
 
     return merged_stats
 

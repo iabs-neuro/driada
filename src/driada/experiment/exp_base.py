@@ -5,6 +5,7 @@ from itertools import combinations
 import pickle
 
 from ..signals.sig_base import TimeSeries
+from ..information.info_base import MultiTimeSeries
 from .neuron import DEFAULT_MIN_BEHAVIOUR_TIME, Neuron
 from .wavelet_event_detection import WVT_EVENT_DETECTION_PARAMS, extract_wvt_events, events_to_ts_array, ridges_to_containers
 from ..utils.data import get_hash, populate_nested_dict
@@ -22,6 +23,8 @@ def check_dynamic_features(dynamic_features):
         current_ts = dynamic_features[feat_id]
         if isinstance(current_ts, TimeSeries):
             len_ts = len(current_ts.data)
+        elif hasattr(current_ts, 'data'):  # MultiTimeSeries or similar
+            len_ts = current_ts.data.shape[1]  # MultiTimeSeries data is (n_features, n_timepoints)
         else:
             len_ts = len(current_ts)
 
@@ -92,8 +95,23 @@ class Experiment():
                                                                 bad_frames_mask)
         else:
             for feat_id in dynamic_features.copy():
-                if not isinstance(dynamic_features[feat_id], TimeSeries):
-                    dynamic_features[feat_id] = TimeSeries(dynamic_features[feat_id])
+                feat_data = dynamic_features[feat_id]
+                # Skip if already a TimeSeries or MultiTimeSeries
+                if not isinstance(feat_data, (TimeSeries, MultiTimeSeries)):
+                    # Convert numpy arrays based on dimensionality
+                    if isinstance(feat_data, np.ndarray):
+                        if feat_data.ndim == 1:
+                            # 1D array -> TimeSeries
+                            dynamic_features[feat_id] = TimeSeries(feat_data)
+                        elif feat_data.ndim == 2:
+                            # 2D array -> MultiTimeSeries (each row is a component)
+                            ts_list = [TimeSeries(feat_data[i, :], discrete=False) for i in range(feat_data.shape[0])]
+                            dynamic_features[feat_id] = MultiTimeSeries(ts_list)
+                        else:
+                            raise ValueError(f"Feature {feat_id} has unsupported dimensionality: {feat_data.ndim}D")
+                    else:
+                        # Assume it's 1D data if not numpy array
+                        dynamic_features[feat_id] = TimeSeries(feat_data)
 
         self.n_cells = calcium.shape[0]
         self.n_frames = calcium.shape[1]
@@ -583,28 +601,47 @@ class Experiment():
             MIs = [get_1d_mi(ts1, ts2, ds=ds) for (ts1,ts2) in fpairs]
             return sum(single_entropies) - sum(MIs)
 
-    def get_significant_neurons(self, min_nspec=1, fbunch=None, mode='calcium'):
+    def get_significant_neurons(self, min_nspec=1, cbunch=None, fbunch=None, mode='calcium'):
         '''
         Returns a dict with neuron ids as keys and their significantly correlated features as values
         Only neurons with "min_nspec" or more significantly correlated features will be returned
+        
+        Parameters
+        ----------
+        min_nspec : int
+            Minimum number of significantly correlated features required
+        cbunch : int, list or None
+            Cell indices to analyze. By default (None), all neurons will be checked
+        fbunch : str, list or None
+            Feature names to check. By default (None), all features will be checked
+        mode : str
+            Data type: 'calcium' or 'spikes'
+            
+        Returns
+        -------
+        dict
+            Dictionary with neuron IDs as keys and lists of significant features as values
         '''
+        cell_ids = self._process_cbunch(cbunch)
         feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True, mode=mode)
+        
+        # Check relevance only for requested cells and features
         relevance = [self._check_stats_relevance(cell_id, feat_id, mode=mode)
-                     for cell_id in range(self.n_cells) for feat_id in feat_ids]
+                     for cell_id in cell_ids for feat_id in feat_ids]
         if not np.all(np.array(relevance)):
             raise ValueError('Stats relevance error')
 
-        cell_ids = np.arange(self.n_cells)
-
         # TODO: add significance update and pval_thr argument
-        cell_feat_dict = {cell_id: [] for cell_id in range(self.n_cells)}
-        for i, cell_id in enumerate(cell_ids):
-            for j, feat_id in enumerate(feat_ids):
+        cell_feat_dict = {cell_id: [] for cell_id in cell_ids}
+        for cell_id in cell_ids:
+            for feat_id in feat_ids:
                 if self.significance_tables[mode][feat_id][cell_id]['stage2']:
                     cell_feat_dict[cell_id].append(feat_id)
 
-        # filter out cells without specializations
-        final_cell_feat_dict = {cell_id: cell_feat_dict[cell_id] for cell_id in range(self.n_cells) if len(cell_feat_dict[cell_id])>=min_nspec}
+        # filter out cells without enough specializations
+        final_cell_feat_dict = {cell_id: cell_feat_dict[cell_id] 
+                               for cell_id in cell_ids 
+                               if len(cell_feat_dict[cell_id]) >= min_nspec}
 
         return final_cell_feat_dict
 
