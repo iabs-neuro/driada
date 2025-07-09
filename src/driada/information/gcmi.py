@@ -6,6 +6,16 @@ from scipy.special import ndtri, psi, digamma
 
 from .info_utils import py_fast_digamma_arr
 
+# Import JIT versions if available
+try:
+    from .gcmi_jit_utils import (
+        ctransform_jit, ctransform_2d_jit, copnorm_jit, copnorm_2d_jit,
+        mi_gg_jit, cmi_ggg_jit, gcmi_cc_jit
+    )
+    _JIT_AVAILABLE = True
+except ImportError:
+    _JIT_AVAILABLE = False
+
 #TODO: credits to original GCMI: https://github.com/robince/gcmi
 
 def ctransform(x):
@@ -13,8 +23,19 @@ def ctransform(x):
     cx = ctransform(x) returns the empirical CDF value along the first
     axis of x. Data is ranked and scaled within [0 1] (open interval).
     """
-
-    xi = np.argsort(np.atleast_2d(x))
+    x = np.atleast_2d(x)
+    
+    # Use JIT version for suitable inputs
+    if _JIT_AVAILABLE and x.flags.c_contiguous and x.dtype in (np.float32, np.float64):
+        if x.shape[0] == 1:
+            # 1D case
+            return ctransform_jit(x.ravel()).reshape(1, -1)
+        else:
+            # 2D case
+            return ctransform_2d_jit(x)
+    
+    # Fallback to original implementation
+    xi = np.argsort(x)
     xr = np.argsort(xi)
     cx = (xr + 1).astype(float) / (xr.shape[-1] + 1)
     return cx
@@ -26,6 +47,18 @@ def copnorm(x):
     cx = copnorm(x) returns standard normal samples with the same empirical
     CDF value as the input. Operates along the last axis.
     """
+    x = np.atleast_2d(x)
+    
+    # Use JIT version for suitable inputs
+    if _JIT_AVAILABLE and x.flags.c_contiguous and x.dtype in (np.float32, np.float64):
+        if x.shape[0] == 1:
+            # 1D case
+            return copnorm_jit(x.ravel()).reshape(1, -1)
+        else:
+            # 2D case
+            return copnorm_2d_jit(x)
+    
+    # Fallback to original implementation
     # cx = sp.stats.norm.ppf(ctransform(x))
     cx = ndtri(ctransform(x))
     return cx
@@ -255,6 +288,12 @@ def gcmi_cc(x, y):
 
     if y.shape[1] != Ntrl:
         raise ValueError("number of trials do not match")
+    
+    # Use JIT version if available and suitable
+    if (_JIT_AVAILABLE and 
+        x.flags.c_contiguous and y.flags.c_contiguous and
+        x.dtype in (np.float32, np.float64) and y.dtype in (np.float32, np.float64)):
+        return gcmi_cc_jit(x, y)
 
     '''
     # check for repeated values
@@ -295,6 +334,15 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
     z = np.atleast_2d(z)
+    
+    # Use JIT version if available and suitable
+    if (_JIT_AVAILABLE and 
+        x.flags.c_contiguous and y.flags.c_contiguous and z.flags.c_contiguous and
+        x.dtype in (np.float32, np.float64) and 
+        y.dtype in (np.float32, np.float64) and 
+        z.dtype in (np.float32, np.float64)):
+        return cmi_ggg_jit(x, y, z, biascorrect, demeaned)
+    
     if x.ndim > 2 or y.ndim > 2 or z.ndim > 2:
         raise ValueError("x, y and z must be at most 2d")
     Ntrl = x.shape[1]

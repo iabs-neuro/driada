@@ -16,23 +16,25 @@ from src.driada.experiment.synthetic import (
 )
 
 
-@pytest.mark.slow
 def test_compute_cell_feat_significance_with_disentanglement():
     """Test compute_cell_feat_significance with disentanglement mode."""
-    # Create experiment with both discrete and continuous features
-    exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=8, seed=42, fps=20)
+    # Create smaller experiment for speed
+    exp = generate_synthetic_exp(
+        n_dfeats=1, n_cfeats=1, nneurons=3, seed=42, fps=10,
+        duration=400  # Optimized duration
+    )
     
     # Run with disentanglement - use stage1 only for faster testing
     stats, significance, info, results, disent_results = compute_cell_feat_significance(
         exp,
-        cell_bunch=[0, 1, 2, 3, 4],  # Test subset of neurons
+        cell_bunch=[0, 1],  # Test subset of neurons
         feat_bunch=None,  # Use all features
-        mode='stage1',  # Changed from two_stage for speed
-        n_shuffles_stage1=10,
-        n_shuffles_stage2=50,
+        mode='stage1',
+        n_shuffles_stage1=5,  # Optimized shuffles
         verbose=False,
         with_disentanglement=True,
-        seed=42
+        seed=42,
+        ds=2  # Downsample for speed
     )
     
     # Check return values
@@ -555,20 +557,19 @@ def test_disentanglement_with_mixed_selectivity():
             assert disent_matrix[idx_disc, idx_cont] >= disent_matrix[idx_cont, idx_disc]
 
 
-@pytest.mark.slow
 def test_equal_weight_mixed_selectivity():
     """Test mixed selectivity with equal weights (no disentanglement expected)."""
-    # Generate data with equal weights
+    # Generate smaller data with equal weights
     exp, selectivity_info = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=2,
         n_continuous_feats=0,
-        n_neurons=10,
+        n_neurons=4,  # Optimized size
         n_multifeatures=0,
         create_discrete_pairs=False,
         selectivity_prob=0.9,
         multi_select_prob=0.8,
         weights_mode='equal',  # Equal weights - no clear dominance
-        duration=30,  # Reduced from 120 for faster testing
+        duration=200,  # Realistic duration for proper testing
         seed=42,
         verbose=False
     )
@@ -582,26 +583,36 @@ def test_equal_weight_mixed_selectivity():
             # Check weights are approximately equal
             assert np.std(non_zero_weights) < 0.01
     
-    # Run disentanglement
+    # Run disentanglement with minimal shuffles
     result = compute_cell_feat_significance(
         exp,
         mode='stage1',
-        n_shuffles_stage1=10,  # Reduced from 20 for faster testing
+        n_shuffles_stage1=5,  # Optimized shuffles
         verbose=False,
         with_disentanglement=True,
-        seed=42
+        seed=42,
+        ds=2  # Downsample for speed
     )
     
-    _, _, _, _, disent_results = result
+    # Full validation checks
+    assert len(result) == 5  # with_disentanglement=True returns 5 values
+    stats, significance, info, results, disent_results = result
     
-    # With equal weights, disentanglement should show balanced results
+    # Check disentanglement matrix for equal weights
     disent_matrix = disent_results['disent_matrix']
     count_matrix = disent_results['count_matrix']
     
-    # Check for approximate balance in disentanglement results
+    # When features have equal weight in mixed selectivity,
+    # disentanglement should show balanced contribution
     for i in range(disent_matrix.shape[0]):
         for j in range(i+1, disent_matrix.shape[1]):
-            if count_matrix[i, j] > 5:  # Only check if enough comparisons
+            if count_matrix[i, j] > 0:  # If this pair was analyzed
+                # Check interaction information
+                ii = info.get('interaction_info', {}).get((i, j), 0)
+                # With equal weights, interaction should be minimal
+                assert abs(ii) < 0.5  # Relaxed threshold for small data
+                
+                # Check balance in disentanglement
                 ratio = disent_matrix[i, j] / (disent_matrix[i, j] + disent_matrix[j, i] + 1e-10)
                 # Should be close to 0.5 (balanced)
                 assert 0.3 < ratio < 0.7

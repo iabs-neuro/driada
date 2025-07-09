@@ -3,14 +3,18 @@ Fast versions of INTENSE tests for quick validation.
 
 These tests use reduced parameters while maintaining statistical validity.
 Run with: pytest tests/test_intense_fast.py
+
+CRITICAL: This suite includes essential tests that verify mathematical correctness
+even with reduced data sizes. Do not skip these in CI/CD.
 """
 
 import pytest
 import numpy as np
-from src.driada.intense.intense_base import compute_me_stats
+from src.driada.intense.intense_base import compute_me_stats, calculate_optimal_delays
 from src.driada.information.info_base import TimeSeries
 from src.driada.utils.data import retrieve_relevant_from_nested_dict
 from src.driada.experiment.synthetic import generate_synthetic_exp
+from src.driada.information.gcmi import mi_gg, ent_g
 
 
 def create_correlated_ts_fast(n=20, T=2000):

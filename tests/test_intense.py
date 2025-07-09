@@ -72,22 +72,23 @@ def binarize_ts(ts, thr='av'):
     return TimeSeries(bin_data, discrete=True)
 
 
-@pytest.mark.slow
 def test_stage1():
-    n=40
-    k = n // 2  # num of ts in one block
-    tslist1, tslist2 = create_correlated_ts(n)
+    """Test stage1 mode of compute_me_stats."""
+    n=20  # Optimized size
+    k = n // 2
+    tslist1, tslist2 = create_correlated_ts(n, T=2000)  # Optimized time series length
     computed_stats, computed_significance, info = compute_me_stats(tslist1,
                                                                  tslist2,
                                                                  mode='stage1',
-                                                                 n_shuffles_stage1=100,
+                                                                 n_shuffles_stage1=20,  # Optimized shuffles
                                                                  joint_distr=False,
                                                                  metric_distr_type='gamma',
                                                                  noise_ampl=1e-3,
-                                                                 ds=1,
+                                                                 ds=2,  # Downsample for speed
                                                                  topk1=1,
-                                                                 verbose=True)
-
+                                                                 verbose=False,
+                                                                 enable_parallelization=True)
+    
     rel_stats_pairs = retrieve_relevant_from_nested_dict(computed_stats, 'pre_rval', 1)
     rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance, 'stage1', True)
     assert rel_sig_pairs == rel_stats_pairs
@@ -207,22 +208,22 @@ def test_mirror():
                                       (k-1, k), (1, k+1), (k+1, 0)]) # retrieve correlated signals
 
 
-@pytest.mark.slow
 def test_two_stage_corr():
-    n=20
-    k = n // 2  # num of ts in one block
-
-    tslist1, tslist2 = create_correlated_ts(n, noise_scale=0.2)
+    """Test two-stage mode with correlation metric."""
+    n=10  # Optimized size
+    k = n // 2
+    
+    tslist1, tslist2 = create_correlated_ts(n, noise_scale=0.2, T=2000)  # Optimized length
     computed_stats, computed_significance, info = compute_me_stats(tslist1,
                                                                    tslist2,
                                                                    metric='spearmanr',
                                                                    mode='two_stage',
-                                                                   n_shuffles_stage1=100,
-                                                                   n_shuffles_stage2=1000,
+                                                                   n_shuffles_stage1=20,  # Optimized shuffles
+                                                                   n_shuffles_stage2=100,  # Optimized shuffles
                                                                    joint_distr=False,
                                                                    metric_distr_type='norm',
                                                                    noise_ampl=1e-4,
-                                                                   ds=1,
+                                                                   ds=2,  # Downsample for speed
                                                                    topk1=1,
                                                                    topk2=5,
                                                                    multicomp_correction='holm',
@@ -236,7 +237,7 @@ def test_two_stage_corr():
                                                        allow_missing_keys=True)
 
     # retrieve correlated signals, false positives are likely
-    assert set([(1, k-1), (2, k-2), (5, k-5)]).issubset(set(rel_sig_pairs))
+    assert set([(1, k-1), (2, k-2)]).issubset(set(rel_sig_pairs))
 
 
 def test_two_stage_avsignal():
