@@ -71,6 +71,7 @@ def binarize_ts(ts, thr='av'):
     return TimeSeries(bin_data, discrete=True)
 
 
+@pytest.mark.slow
 def test_stage1():
     n=40
     k = n // 2  # num of ts in one block
@@ -109,7 +110,7 @@ def test_two_stage():
                                                                      topk2=5,
                                                                      multicomp_correction='holm',
                                                                      pval_thr=0.01,
-                                                                     verbose=True)
+                                                                     verbose=False)
 
     rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance,
                                                        'stage2',
@@ -151,7 +152,7 @@ def test_mixed_dimensions():
                                                                      topk2=5,
                                                                      multicomp_correction='holm',
                                                                      pval_thr=0.01,
-                                                                     verbose=True)
+                                                                     verbose=False)
 
     rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance,
                                                        'stage2',
@@ -191,9 +192,9 @@ def test_mirror():
                                                                      topk2=5,
                                                                      multicomp_correction='holm',
                                                                      pval_thr=0.01,
-                                                                     enable_parallelization=0,
+                                                                     enable_parallelization=True,
                                                                      seed=1,
-                                                                     verbose=True)
+                                                                     verbose=False)
 
     rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance,
                                                        'stage2',
@@ -205,6 +206,7 @@ def test_mirror():
                                       (k-1, k), (1, k+1), (k+1, 0)]) # retrieve correlated signals
 
 
+@pytest.mark.slow
 def test_two_stage_corr():
     n=20
     k = n // 2  # num of ts in one block
@@ -224,8 +226,8 @@ def test_two_stage_corr():
                                                                    topk2=5,
                                                                    multicomp_correction='holm',
                                                                    pval_thr=0.01,
-                                                                   verbose=True,
-                                                                   enable_parallelization=False)
+                                                                   verbose=False,
+                                                                   enable_parallelization=True)
 
     rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance,
                                                        'stage2',
@@ -255,8 +257,8 @@ def test_two_stage_avsignal():
                                                                    topk2=5,
                                                                    multicomp_correction='holm',
                                                                    pval_thr=0.1,
-                                                                   verbose=True,
-                                                                   enable_parallelization=False)
+                                                                   verbose=False,
+                                                                   enable_parallelization=True)
 
     rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance,
                                                        'stage2',
@@ -622,7 +624,7 @@ def test_scan_pairs_router():
         allow_mixed_dimensions=False,
         ds=1,
         noise_const=1e-3,
-        enable_parallelization=False
+        enable_parallelization=True
     )
     
     assert result_seq.shape == (n, n, 6)  # n x n x (1 true + 5 shuffles)
@@ -756,7 +758,7 @@ def test_compute_cell_feat_significance_integration():
         mode='stage1',  # Just stage 1 for speed
         n_shuffles_stage1=10,  # Minimal shuffles
         verbose=False,
-        enable_parallelization=False,
+        enable_parallelization=True,
         use_precomputed_stats=False,
         save_computed_stats=False,
         find_optimal_delays=False
@@ -1130,7 +1132,7 @@ def test_compute_me_stats_stage2_only():
         n_shuffles_stage2=20,
         metric='mi',
         verbose=False,
-        enable_parallelization=False
+        enable_parallelization=True
     )
     
     # Check results

@@ -59,7 +59,7 @@ def demean(x):
     return demeaned_x
 
 
-#@njit()
+@njit()
 def ent_g(x, biascorrect=True):
     """Entropy of a Gaussian variable in bits
     H = ent_g(x) returns the entropy of a (possibly

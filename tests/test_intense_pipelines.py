@@ -16,6 +16,7 @@ from src.driada.experiment.synthetic import (
 )
 
 
+@pytest.mark.slow
 def test_compute_cell_feat_significance_with_disentanglement():
     """Test compute_cell_feat_significance with disentanglement mode."""
     # Create experiment with both discrete and continuous features
@@ -186,12 +187,13 @@ def test_compute_cell_cell_significance():
     exp.neurons[3].ca.data = exp.neurons[2].ca.data + np.random.randn(len(exp.neurons[2].ca.data)) * 0.1
     
     # Compute cell-cell significance
+    # Use more shuffles for this test to ensure correlation detection
     sim_mat, sig_mat, pval_mat, cell_ids, info = compute_cell_cell_significance(
         exp,
         cell_bunch=None,  # All neurons
         data_type='calcium',
         mode='stage1',  # Changed from two_stage for speed
-        n_shuffles_stage1=10,
+        n_shuffles_stage1=50,  # Increased from 10 for reliability
         n_shuffles_stage2=50,
         verbose=False,
         seed=42
@@ -553,6 +555,7 @@ def test_disentanglement_with_mixed_selectivity():
             assert disent_matrix[idx_disc, idx_cont] >= disent_matrix[idx_cont, idx_disc]
 
 
+@pytest.mark.slow
 def test_equal_weight_mixed_selectivity():
     """Test mixed selectivity with equal weights (no disentanglement expected)."""
     # Generate data with equal weights
