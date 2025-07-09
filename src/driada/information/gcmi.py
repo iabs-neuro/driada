@@ -165,6 +165,11 @@ def mi_gg(x, y, biascorrect=True, demeaned=False, max_dim=3):
     Cx = Cxy[:Nvarx, :Nvarx]
     Cy = Cxy[Nvarx:, Nvarx:]
 
+    # Add small regularization to prevent numerical issues with identical data
+    Cxy += np.eye(Cxy.shape[0]) * 1e-12
+    Cx += np.eye(Cx.shape[0]) * 1e-12
+    Cy += np.eye(Cy.shape[0]) * 1e-12
+
     chCxy = np.linalg.cholesky(Cxy)
     chCx = np.linalg.cholesky(Cx)
     chCy = np.linalg.cholesky(Cy)
@@ -370,6 +375,12 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     Cxz[:Nvarx,Nvarx:] = Cxyz[:Nvarx,Nvarxy:]
     Cxz[Nvarx:,:Nvarx] = Cxyz[Nvarxy:,:Nvarx]
     Cxz[Nvarx:,Nvarx:] = Cxyz[Nvarxy:,Nvarxy:]
+
+    # Add small regularization to prevent numerical issues with identical data
+    Cz += np.eye(Cz.shape[0]) * 1e-12
+    Cxz += np.eye(Cxz.shape[0]) * 1e-12
+    Cyz += np.eye(Cyz.shape[0]) * 1e-12
+    Cxyz += np.eye(Cxyz.shape[0]) * 1e-12
 
     chCz = np.linalg.cholesky(Cz)
     chCxz = np.linalg.cholesky(Cxz)

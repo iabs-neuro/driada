@@ -185,6 +185,8 @@ def test_compute_cell_cell_significance():
     exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=0, nneurons=5, seed=42, fps=20)
     
     # Make some neurons correlated by copying signals
+    # Set random seed for reproducible correlations
+    np.random.seed(42)
     exp.neurons[1].ca.data = exp.neurons[0].ca.data + np.random.randn(len(exp.neurons[0].ca.data)) * 0.1
     exp.neurons[3].ca.data = exp.neurons[2].ca.data + np.random.randn(len(exp.neurons[2].ca.data)) * 0.1
     

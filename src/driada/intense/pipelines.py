@@ -517,6 +517,18 @@ def compute_feat_feat_significance(exp,
     feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=True, mode='calcium')
     n_features = len(feat_ids)
     
+    # Handle empty feature list case
+    if n_features == 0:
+        if verbose:
+            print("No features to analyze - returning empty results")
+        return (
+            np.array([]).reshape(0, 0),  # similarity_matrix
+            np.array([]).reshape(0, 0),  # significance_matrix
+            np.array([]).reshape(0, 0),  # p_value_matrix
+            [],  # feature_names
+            {}   # info
+        )
+    
     if verbose:
         print(f"Computing behavioral similarity matrix for {n_features} features...")
         print(f"Features: {feat_ids}")

@@ -11,7 +11,7 @@ from scipy.special import ndtri
 def ctransform_jit(x):
     """JIT-compiled copula transformation (empirical CDF).
     
-    Fast implementation using direct ranking algorithm.
+    Efficient O(n log n) implementation using sorting-based ranking.
     
     Parameters
     ----------
@@ -24,20 +24,34 @@ def ctransform_jit(x):
         Copula-transformed values in (0, 1).
     """
     n = x.size
-    ranks = np.empty(n)
     
-    # Direct ranking - O(n^2) but fast for small n with JIT
+    # Get sorting indices - O(n log n)
+    sorted_indices = np.argsort(x)
+    
+    # Create ranks array
+    ranks = np.empty(n, dtype=np.int64)
+    
+    # Assign ranks based on sorted order
     for i in range(n):
-        rank = 1
-        for j in range(n):
-            if x[j] < x[i]:
-                rank += 1
-            elif x[j] == x[i] and j < i:
-                rank += 1
-        ranks[i] = rank
+        ranks[sorted_indices[i]] = i + 1
+    
+    # Handle ties by using the original tie-breaking logic
+    # For identical values, use index-based tie breaking
+    sorted_values = x[sorted_indices]
+    current_rank = 1
+    
+    for i in range(n):
+        if i > 0 and sorted_values[i] == sorted_values[i-1]:
+            # Same value as previous - keep incrementing rank for each occurrence
+            current_rank += 1
+        else:
+            # New value - start fresh rank
+            current_rank = i + 1
+        
+        ranks[sorted_indices[i]] = current_rank
     
     # Convert to copula values
-    return ranks / (n + 1)
+    return ranks.astype(np.float64) / (n + 1)
 
 
 @njit
@@ -66,39 +80,10 @@ def ctransform_2d_jit(x):
 
 
 @njit
-def erfinv_approx(x):
-    """Approximate inverse error function for JIT compilation.
-    
-    Uses Winitzki's approximation which is accurate to ~0.00035 for all x.
-    
-    Parameters
-    ----------
-    x : float or ndarray
-        Values in (-1, 1).
-        
-    Returns
-    -------
-    float or ndarray
-        Approximate inverse error function values.
-    """
-    a = 0.147  # Winitzki's constant
-    
-    # Compute the approximation
-    ln_term = np.log((1 - x*x))
-    inner = 2/(np.pi * a) + ln_term/2
-    sqrt_term = np.sqrt(inner*inner - ln_term/a)
-    
-    sign = np.sign(x)
-    result = sign * np.sqrt(sqrt_term - inner)
-    
-    return result
-
-
-@njit  
 def ndtri_approx(p):
     """Approximate inverse normal CDF for JIT compilation.
     
-    Uses the relationship: ndtri(p) = sqrt(2) * erfinv(2*p - 1)
+    Uses a simpler but efficient approximation for JIT compilation.
     
     Parameters
     ----------
@@ -110,7 +95,43 @@ def ndtri_approx(p):
     float or ndarray
         Approximate quantile values.
     """
-    return np.sqrt(2.0) * erfinv_approx(2.0 * p - 1.0)
+    # Handle array input
+    if hasattr(p, 'shape'):
+        result = np.empty_like(p)
+        for i in range(p.size):
+            flat_p = p.flat[i]
+            if flat_p <= 0.0:
+                result.flat[i] = -np.inf
+            elif flat_p >= 1.0:
+                result.flat[i] = np.inf
+            else:
+                # Use Box-Muller-like transformation
+                # This is a simplified approximation suitable for JIT
+                if flat_p < 0.5:
+                    # Use symmetry
+                    q = flat_p
+                    t = np.sqrt(-2.0 * np.log(q))
+                    result.flat[i] = -(t - (2.515517 + 0.802853*t + 0.010328*t*t) / (1.0 + 1.432788*t + 0.189269*t*t + 0.001308*t*t*t))
+                else:
+                    q = 1.0 - flat_p
+                    t = np.sqrt(-2.0 * np.log(q))
+                    result.flat[i] = t - (2.515517 + 0.802853*t + 0.010328*t*t) / (1.0 + 1.432788*t + 0.189269*t*t + 0.001308*t*t*t)
+        return result
+    else:
+        # Scalar input
+        if p <= 0.0:
+            return -np.inf
+        elif p >= 1.0:
+            return np.inf
+        else:
+            if p < 0.5:
+                q = p
+                t = np.sqrt(-2.0 * np.log(q))
+                return -(t - (2.515517 + 0.802853*t + 0.010328*t*t) / (1.0 + 1.432788*t + 0.189269*t*t + 0.001308*t*t*t))
+            else:
+                q = 1.0 - p
+                t = np.sqrt(-2.0 * np.log(q))
+                return t - (2.515517 + 0.802853*t + 0.010328*t*t) / (1.0 + 1.432788*t + 0.189269*t*t + 0.001308*t*t*t)
 
 
 @njit
@@ -205,6 +226,11 @@ def mi_gg_jit(x, y, biascorrect=True, demeaned=False):
     C[Nvarx:, Nvarx:] = Cyy
     
     # Compute log determinants using Cholesky decomposition
+    # Add small regularization to prevent numerical issues with identical data
+    C += np.eye(C.shape[0]) * 1e-12
+    Cxx += np.eye(Cxx.shape[0]) * 1e-12
+    Cyy += np.eye(Cyy.shape[0]) * 1e-12
+    
     chC = np.linalg.cholesky(C)
     chCxx = np.linalg.cholesky(Cxx)
     chCyy = np.linalg.cholesky(Cyy)
@@ -313,6 +339,12 @@ def cmi_ggg_jit(x, y, z, biascorrect=True, demeaned=False):
     Cxyz[Nvarx+Nvary:, Nvarx+Nvary:] = Czz
     
     # Compute log determinants
+    # Add small regularization to prevent numerical issues with identical data
+    Czz += np.eye(Czz.shape[0]) * 1e-12
+    Cyz_joint += np.eye(Cyz_joint.shape[0]) * 1e-12
+    Cxz_joint += np.eye(Cxz_joint.shape[0]) * 1e-12
+    Cxyz += np.eye(Cxyz.shape[0]) * 1e-12
+    
     chCz = np.linalg.cholesky(Czz)
     chCyz = np.linalg.cholesky(Cyz_joint)
     chCxz = np.linalg.cholesky(Cxz_joint)

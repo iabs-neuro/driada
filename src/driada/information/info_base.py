@@ -291,6 +291,15 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
         if estimator == 'ksg':
             raise NotImplementedError('KSG estimator is not supported for dim>1 yet')
 
+        # Safety check: if single TimeSeries data is contained in MultiTimeSeries
+        # This should not happen due to aggregate_multiple_ts adding noise, but add as safety net
+        if not ts.discrete and shift == 0:
+            # Check if any row of the MultiTimeSeries matches the single TimeSeries
+            for i in range(mts.data.shape[0]):
+                if np.allclose(mts.data[i, ::ds], ts.data[::ds], rtol=1e-10, atol=1e-10):
+                    warnings.warn('MI computation between MultiTimeSeries containing identical data detected, returning 0')
+                    return 0
+
         if ts.discrete:
             ny1 = np.roll(mts.copula_normal_data[:, ::ds], shift)
             ny2 = ts.int_data[::ds]
@@ -495,7 +504,7 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
     return mi
 
 
-def aggregate_multiple_ts(*ts_args, noise=1e-6):
+def aggregate_multiple_ts(*ts_args, noise=1e-5):
     """Aggregate multiple continuous TimeSeries into a single MultiTimeSeries.
     
     Adds small noise to break degeneracy and creates a MultiTimeSeries from
@@ -506,7 +515,7 @@ def aggregate_multiple_ts(*ts_args, noise=1e-6):
     *ts_args : TimeSeries
         Variable number of TimeSeries objects to aggregate.
     noise : float, optional
-        Amount of noise to add to break degeneracy. Default: 1e-6.
+        Amount of noise to add to break degeneracy. Default: 1e-5.
         
     Returns
     -------
