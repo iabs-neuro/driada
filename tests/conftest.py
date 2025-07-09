@@ -34,6 +34,7 @@ def test_params(test_mode):
             "experiment_duration": 10,
             "enable_parallelization": True,
             "verbose": False,
+            "ds": 2,  # Add downsampling for faster computation
         }
     else:
         # Normal mode - thorough testing
@@ -46,4 +47,5 @@ def test_params(test_mode):
             "experiment_duration": 60,
             "enable_parallelization": True,
             "verbose": False,
+            "ds": 1,  # No downsampling in thorough mode
         }

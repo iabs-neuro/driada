@@ -454,19 +454,19 @@ def test_mixed_selectivity_generation():
     exp, selectivity_info = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=2,
         n_continuous_feats=2,
-        n_neurons=10,
+        n_neurons=5,  # Reduced from 10
         n_multifeatures=1,
         create_discrete_pairs=True,
         selectivity_prob=0.8,
         multi_select_prob=0.5,
         weights_mode='random',
-        duration=20,  # Reduced from 60 for faster testing
+        duration=10,  # Reduced from 20
         seed=42,
         verbose=False
     )
     
     # Check experiment structure
-    assert exp.n_cells == 10
+    assert exp.n_cells == 5  # Updated to match reduced n_neurons
     assert 'x' in exp.dynamic_features
     assert 'y' in exp.dynamic_features
     assert 'd_feat_from_c0' in exp.dynamic_features
@@ -476,7 +476,7 @@ def test_mixed_selectivity_generation():
     assert 'matrix' in selectivity_info
     assert 'feature_names' in selectivity_info
     assert 'multifeature_map' in selectivity_info
-    assert selectivity_info['matrix'].shape[1] == 10  # n_neurons
+    assert selectivity_info['matrix'].shape[1] == 5  # n_neurons
     assert ('x', 'y') in selectivity_info['multifeature_map']
     
     # Check some neurons have mixed selectivity

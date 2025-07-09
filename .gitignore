@@ -5,6 +5,11 @@ _intense_backlog.md
 TODO_NUMBA_CONFIG.md
 TODO_DISENTANGLEMENT_TESTS.md
 
+# Markdown files (except README)
+*.md
+!README*.md
+!readme*.md
+
 # Python
 __pycache__/
 *.py[cod]

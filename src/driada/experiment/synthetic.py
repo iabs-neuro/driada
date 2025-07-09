@@ -678,7 +678,7 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
     return exp, selectivity_info
 
 
-def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=20, with_spikes=False):
+def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=20, with_spikes=False, duration=1200):
     """
     Generate a synthetic experiment with neurons selective to discrete and continuous features.
     
@@ -696,6 +696,8 @@ def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=2
         Frames per second. Default: 20.
     with_spikes : bool, optional
         If True, reconstruct spikes from calcium using wavelet method. Default: False.
+    duration : int, optional
+        Duration of the experiment in seconds. Default: 1200.
         
     Returns
     -------
@@ -717,7 +719,7 @@ def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=2
     
     dfeats, calcium1, gt = generate_synthetic_data(n_dfeats,
                                                    n_neurons_discrete,
-                                                   duration=1200,
+                                                   duration=duration,
                                                    hurst=0.3,
                                                    ftype='d',
                                                    seed=seed,
@@ -729,7 +731,7 @@ def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=2
 
     cfeats, calcium2, gt2 = generate_synthetic_data(n_cfeats,  # Fixed: was n_dfeats
                                                     n_neurons_continuous,
-                                                    duration=1200,
+                                                    duration=duration,
                                                     hurst=0.3,
                                                     ftype='c',
                                                     seed=seed,

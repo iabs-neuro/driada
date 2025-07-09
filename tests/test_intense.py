@@ -3,6 +3,7 @@ from src.driada.information.info_base import TimeSeries, MultiTimeSeries
 from src.driada.utils.data import retrieve_relevant_from_nested_dict
 # Experiment imports are handled by synthetic module
 import numpy as np
+import pytest
 
 
 def create_correlated_ts(n=100,
