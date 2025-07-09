@@ -193,16 +193,21 @@ def compute_cell_feat_significance(exp,
 
     #min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
     if not allow_mixed_dimensions:
-        feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids if hasattr(exp, feat_id)]
+        feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids if feat_id in exp.dynamic_features]
         if joint_distr:
             feat_ids = [tuple(sorted(feat_ids))]
     else:
         feats = []
         for feat_id in feat_ids:
             if isinstance(feat_id, str):
+                if feat_id not in exp.dynamic_features:
+                    raise ValueError(f"Feature '{feat_id}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}")
                 ts = exp.dynamic_features[feat_id]
                 feats.append(ts)
             elif isinstance(feat_id, tuple):
+                for f in feat_id:
+                    if f not in exp.dynamic_features:
+                        raise ValueError(f"Feature '{f}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}")
                 parts = [exp.dynamic_features[f] for f in feat_id]
                 mts = MultiTimeSeries(parts)
                 feats.append(mts)
@@ -517,9 +522,16 @@ def compute_feat_feat_significance(exp,
         print(f"Features: {feat_ids}")
     
     # Get TimeSeries/MultiTimeSeries objects for all features
+    from ..information.info_base import aggregate_multiple_ts
+    
     feature_ts = []
     for feat_id in feat_ids:
-        ts = exp.dynamic_features[feat_id]
+        if isinstance(feat_id, tuple):
+            # Create MultiTimeSeries for tuples using aggregate_multiple_ts
+            ts_list = [exp.dynamic_features[f] for f in feat_id]
+            ts = aggregate_multiple_ts(*ts_list)
+        else:
+            ts = exp.dynamic_features[feat_id]
         feature_ts.append(ts)
     
     # Create masks that exclude diagonal (self-comparisons) AND lower triangle
@@ -729,6 +741,15 @@ def compute_cell_cell_significance(exp,
         signals = [cell.ca for cell in cells]
     elif data_type == 'spikes':
         signals = [cell.sp for cell in cells]
+        # Check if spike data exists and is non-degenerate
+        if any(sig is None for sig in signals):
+            raise ValueError("Some neurons have no spike data. Use reconstruct_spikes or provide spike data.")
+        # Check if all spike data is identical (e.g., all zeros)
+        if len(signals) > 1:
+            first_data = signals[0].data
+            if all(np.array_equal(sig.data, first_data) for sig in signals[1:]):
+                import warnings
+                warnings.warn("All neurons have identical spike data. This may lead to degenerate results.")
     else:
         raise ValueError('"data_type" can be either "calcium" or "spikes"')
     

@@ -140,7 +140,9 @@ class Experiment():
 
         self.dynamic_features = dynamic_features
         for feat_id in dynamic_features:
-            setattr(self, feat_id, dynamic_features[feat_id])
+            if isinstance(feat_id, str):
+                setattr(self, feat_id, dynamic_features[feat_id])
+            # Skip tuples (multifeatures) as they can't be attribute names
 
         for sfeat_name in static_features:
             setattr(self, sfeat_name, static_features[sfeat_name])
@@ -266,9 +268,16 @@ class Experiment():
                 f'inconsistent with data length {self.n_frames}')
 
         for dfeat in self.dynamic_features.keys():
-            if self.n_frames not in getattr(self, dfeat).data.shape:
-                raise ValueError(f'"{dfeat}" feature has inappropriate shape: {getattr(self, dfeat).data.shape}'
-                 f'inconsistent with data length {self.n_frames}')
+            if isinstance(dfeat, str):
+                if self.n_frames not in getattr(self, dfeat).data.shape:
+                    raise ValueError(f'"{dfeat}" feature has inappropriate shape: {getattr(self, dfeat).data.shape}'
+                     f'inconsistent with data length {self.n_frames}')
+            else:
+                # For tuple features (multifeatures), check the underlying data
+                feat_data = self.dynamic_features[dfeat]
+                if hasattr(feat_data, 'data') and self.n_frames not in feat_data.data.shape:
+                    raise ValueError(f'"{dfeat}" feature has inappropriate shape: {feat_data.data.shape}'
+                     f'inconsistent with data length {self.n_frames}')
 
     def _populate_cell_feat_dict(self, content, fbunch=None, cbunch=None):
         '''
@@ -317,7 +326,7 @@ class Experiment():
             # check for multifeatures
             for fname in fbunch:
                 if isinstance(fname, str):
-                    if hasattr(self, fname):
+                    if fname in self.dynamic_features:
                         feat_ids.append(fname)
                 else:
                     if allow_multifeatures:

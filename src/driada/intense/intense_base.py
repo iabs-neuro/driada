@@ -1004,6 +1004,9 @@ def compute_me_stats(ts_bunch1,
     
     accumulated_info = dict()
 
+    # Check if we're comparing the same bunch with itself
+    same_data_bunch = ts_bunch1 is ts_bunch2
+    
     n1 = len(ts_bunch1)
     n2 = len(ts_bunch2)
     if not allow_mixed_dimensions:
@@ -1019,6 +1022,12 @@ def compute_me_stats(ts_bunch1,
         precomputed_mask_stage1 = np.ones((n1, n2))
     if precomputed_mask_stage2 is None:
         precomputed_mask_stage2 = np.ones((n1, n2))
+    
+    # If comparing the same bunch with itself, mask out the diagonal
+    # to avoid computing MI of a TimeSeries with itself at zero shift
+    if same_data_bunch:
+        np.fill_diagonal(precomputed_mask_stage1, 0)
+        np.fill_diagonal(precomputed_mask_stage2, 0)
 
     # TODO: add a keyword argument for behavior on duplicate TS ('ignore/raise error')
 

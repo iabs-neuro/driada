@@ -333,6 +333,7 @@ def get_table_of_stats(metable,
                     new_stats['pre_rval'] = ranks[i, j]
                     new_stats['pre_pval'] = pval
                     new_stats['opt_delay'] = opt_delay
+                    new_stats['me'] = metable[i, j, 0]  # Add MI value for stage 1 too
 
                 elif stage == 2:
                     new_stats['rval'] = ranks[i,j]

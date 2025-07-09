@@ -227,8 +227,8 @@ def test_compute_cell_cell_significance():
 
 def test_compute_cell_cell_significance_spike_data():
     """Test neuron-neuron correlation with spike data."""
-    # Create experiment
-    exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=0, nneurons=3, seed=42)
+    # Create experiment with spike reconstruction
+    exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=0, nneurons=3, seed=42, with_spikes=True)
     
     # Test with spike data
     sim_mat, sig_mat, pval_mat, cell_ids, info = compute_cell_cell_significance(
@@ -289,6 +289,11 @@ def test_disentanglement_integration():
         for k in feat_keys:
             if k not in ['x', 'y']:
                 del exp.dynamic_features[k]
+        
+        # Force re-initialization of selectivity tables with new feature names
+        exp.selectivity_tables_initialized = False
+        # Rebuild data hashes for renamed features
+        exp._build_data_hashes(mode='calcium')
     
     # Run with disentanglement using default multifeature map
     result = compute_cell_feat_significance(
@@ -297,6 +302,7 @@ def test_disentanglement_integration():
         mode='stage1',
         n_shuffles_stage1=10,
         verbose=False,
+        use_precomputed_stats=False,  # Disable precomputed stats since we renamed features
         with_disentanglement=True,
         multifeature_map=None  # Should use DEFAULT_MULTIFEATURE_MAP
     )
@@ -327,8 +333,8 @@ def test_compute_cell_cell_significance_errors():
 
 def test_compute_feat_feat_significance_multifeatures():
     """Test feature-feature significance with MultiTimeSeries."""
-    # Create experiment with multiple features
-    exp = generate_synthetic_exp(n_dfeats=4, n_cfeats=0, nneurons=2, seed=42)
+    # Create experiment with continuous features for multifeature support
+    exp = generate_synthetic_exp(n_dfeats=0, n_cfeats=4, nneurons=2, seed=42)
     
     # Add x and y features to test multifeature (place field)
     feat_keys = list(exp.dynamic_features.keys())
@@ -370,6 +376,10 @@ def test_with_disentanglement_custom_multifeature_map():
         for k in feat_keys:
             if k not in ['speed', 'head_direction', 'x', 'y']:
                 del exp.dynamic_features[k]
+        
+        # Force re-initialization with new feature names
+        exp.selectivity_tables_initialized = False
+        exp._build_data_hashes(mode='calcium')
     
     # Custom multifeature map
     custom_map = {
@@ -384,6 +394,7 @@ def test_with_disentanglement_custom_multifeature_map():
         mode='stage1',
         n_shuffles_stage1=10,
         verbose=False,
+        use_precomputed_stats=False,  # Disable since we renamed features
         with_disentanglement=True,
         multifeature_map=custom_map
     )

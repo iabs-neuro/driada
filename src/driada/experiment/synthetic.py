@@ -678,7 +678,30 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
     return exp, selectivity_info
 
 
-def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=20):
+def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=20, with_spikes=False):
+    """
+    Generate a synthetic experiment with neurons selective to discrete and continuous features.
+    
+    Parameters
+    ----------
+    n_dfeats : int, optional
+        Number of discrete features. Default: 20.
+    n_cfeats : int, optional
+        Number of continuous features. Default: 20.
+    nneurons : int, optional
+        Total number of neurons. Default: 500.
+    seed : int, optional
+        Random seed for reproducibility. Default: 0.
+    fps : float, optional
+        Frames per second. Default: 20.
+    with_spikes : bool, optional
+        If True, reconstruct spikes from calcium using wavelet method. Default: False.
+        
+    Returns
+    -------
+    exp : Experiment
+        Synthetic experiment object with calcium signals and optionally spike data.
+    """
     # Split neurons between those responding to discrete and continuous features
     # For odd numbers, give the extra neuron to the first group
     # But if one type has 0 features, allocate all neurons to the other type
@@ -727,12 +750,24 @@ def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=2
     else:
         all_calcium = np.vstack([calcium1, calcium2])
     
-    exp = Experiment('Synthetic',
-                     all_calcium,
-                     None,
-                     {},
-                     {'fps': fps},
-                     {**discr_ts, **cont_ts},
-                     reconstruct_spikes=None)
+    # Create experiment
+    if with_spikes:
+        # Create experiment with spike reconstruction
+        exp = Experiment('Synthetic',
+                         all_calcium,
+                         None,
+                         {},
+                         {'fps': fps},
+                         {**discr_ts, **cont_ts},
+                         reconstruct_spikes='wavelet')
+    else:
+        # Create experiment without spikes
+        exp = Experiment('Synthetic',
+                         all_calcium,
+                         None,
+                         {},
+                         {'fps': fps},
+                         {**discr_ts, **cont_ts},
+                         reconstruct_spikes=None)
 
     return exp
