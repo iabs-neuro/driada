@@ -43,7 +43,7 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
         Disentanglement result:
         - 0: ts2 is the primary variable (ts3 is redundant)
         - 1: ts3 is the primary variable (ts2 is redundant)
-        - 0.5: Both variables contribute independently
+        - 0.5: Both variables contribute - undistinguishable
         
     Notes
     -----
@@ -97,11 +97,11 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
         criterion2 = mi13 < np.abs(I_av) and not cmi123 < np.abs(I_av)
         
         if criterion1 and not criterion2:
-            return 0  # ts2 is redundant, ts3 is primary
+            return 1  # ts2 is redundant, ts3 is primary
         elif criterion2 and not criterion1:
-            return 1  # ts3 is redundant, ts2 is primary
+            return 0  # ts3 is redundant, ts2 is primary
         else:
-            return 0.5  # Both contribute independently
+            return 0.5  # Both contribute - undistinguishable
     
     else:  # Positive interaction information (synergy)
         # Special cases for synergistic relationships
@@ -117,7 +117,7 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
         if mi12 > 0 and mi13/mi12 > 2.0 and cmi132 > cmi123:
             return 1  # ts3 is strongly dominant
         
-        return 0.5  # Both contribute synergistically
+        return 0.5  # Both contribute - undistinguishable
 
 
 def disentangle_all_selectivities(exp, feat_names, ds=1, multifeature_map=None, 
@@ -237,7 +237,7 @@ def disentangle_all_selectivities(exp, feat_names, ds=1, multifeature_map=None,
                         # Skip disentanglement - this is true mixed selectivity
                         count_matrix[ind1, ind2] += 1
                         count_matrix[ind2, ind1] += 1
-                        # Add 0.5 to each to indicate independent contributions
+                        # Add 0.5 to each to indicate undistinguishable contributions
                         disent_matrix[ind1, ind2] += 0.5
                         disent_matrix[ind2, ind1] += 0.5
                         continue
@@ -334,7 +334,7 @@ def get_disentanglement_summary(disent_matrix, count_matrix, feat_names,
     
     n_features = len(feat_names)
     total_redundant = 0
-    total_independent = 0
+    total_undistinguishable = 0
     total_pairs = 0
     
     for i in range(n_features):
@@ -344,28 +344,28 @@ def get_disentanglement_summary(disent_matrix, count_matrix, feat_names,
                 n_i_primary = disent_matrix[i, j]
                 n_j_primary = disent_matrix[j, i]
                 
-                # Account for 0.5 contributions (independent)
-                n_independent = (n_i_primary + n_j_primary - n_total) * 2
-                n_redundant = n_total - n_independent
+                # Account for 0.5 contributions (undistinguishable)
+                n_undistinguishable = (n_i_primary + n_j_primary - n_total) * 2
+                n_redundant = n_total - n_undistinguishable
                 
                 pair_key = f"{feat_names[i]}_vs_{feat_names[j]}"
                 summary['feature_pairs'][pair_key] = {
                     'total_neurons': int(n_total),
                     f'{feat_names[i]}_primary': n_i_primary / n_total * 100,
                     f'{feat_names[j]}_primary': n_j_primary / n_total * 100,
-                    'independent_pct': n_independent / n_total * 100,
+                    'undistinguishable_pct': n_undistinguishable / n_total * 100,
                     'redundant_pct': n_redundant / n_total * 100
                 }
                 
                 total_redundant += n_redundant
-                total_independent += n_independent
+                total_undistinguishable += n_undistinguishable
                 total_pairs += n_total
     
     if total_pairs > 0:
         summary['overall_stats'] = {
             'total_neuron_pairs': int(total_pairs),
             'redundancy_rate': total_redundant / total_pairs * 100,
-            'independence_rate': total_independent / total_pairs * 100
+            'undistinguishable_rate': total_undistinguishable / total_pairs * 100
         }
         
         # Add breakdown by behavioral significance if provided

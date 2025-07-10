@@ -38,8 +38,8 @@ def create_synergistic_timeseries(n_points=1000):
             TimeSeries(ts3_data, discrete=False))
 
 
-def create_independent_timeseries(n_points=1000):
-    """Create time series with independent contributions."""
+def create_undistinguishable_timeseries(n_points=1000):
+    """Create time series with undistinguishable contributions."""
     np.random.seed(42)
     ts2_data = np.random.randn(n_points)
     ts3_data = np.random.randn(n_points)
@@ -78,12 +78,12 @@ def test_disentangle_pair_synergistic():
     assert 0 <= result <= 1
 
 
-def test_disentangle_pair_independent():
-    """Test disentangle_pair with independent features."""
-    ts1, ts2, ts3 = create_independent_timeseries()
+def test_disentangle_pair_undistinguishable():
+    """Test disentangle_pair with undistinguishable features."""
+    ts1, ts2, ts3 = create_undistinguishable_timeseries()
     result = disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1)
     
-    # Independent contributions should return 0.5
+    # Undistinguishable contributions should return 0.5
     assert result == 0.5
 
 
@@ -390,14 +390,14 @@ def test_get_disentanglement_summary_basic():
     assert 'total_neurons' in pair
     assert 'feat1_primary' in pair
     assert 'feat2_primary' in pair
-    assert 'independent_pct' in pair
+    assert 'undistinguishable_pct' in pair
     assert 'redundant_pct' in pair
     
     # Check overall stats
     stats = summary['overall_stats']
     assert 'total_neuron_pairs' in stats
     assert 'redundancy_rate' in stats
-    assert 'independence_rate' in stats
+    assert 'undistinguishable_rate' in stats
 
 
 def test_get_disentanglement_summary_with_significance():
@@ -472,9 +472,9 @@ def test_get_disentanglement_summary_redundant():
     assert pair['feat2_primary'] == 1.5 / 5 * 100  # 30%
     
     # With the current formula:
-    # n_independent = (3.5 + 1.5 - 5) * 2 = 0
+    # n_undistinguishable = (3.5 + 1.5 - 5) * 2 = 0
     # n_redundant = 5 - 0 = 5
-    assert pair['independent_pct'] == 0.0
+    assert pair['undistinguishable_pct'] == 0.0
     assert pair['redundant_pct'] == 100.0
 
 

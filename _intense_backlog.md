@@ -42,17 +42,35 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
 
 ### High Priority
 - [ ] Increase test coverage to >90% (currently at 69% as of 2025-01-10)
-  - [ ] **PRIORITY 1: Add tests for disentanglement.py (currently 19% coverage)**
-    - [ ] Test main disentanglement functions and algorithms
-    - [ ] Add edge case handling tests
-    - [ ] Test multifeature disentanglement scenarios
-  - [ ] **PRIORITY 2: Improve visual.py coverage (currently 47%)**
+  - [x] **PRIORITY 1: Add tests for disentanglement.py (currently 19% coverage)** ✅ PARTIALLY COMPLETED (2025-01-10)
+    - [x] Test main disentanglement functions and algorithms
+    - [x] Add edge case handling tests
+    - [x] Test multifeature disentanglement scenarios
+    - **Implementation Checkpoints:**
+      - ✅ Created comprehensive test file test_disentanglement.py
+      - ✅ Added 27 tests covering all major functions
+      - ✅ 25/27 tests passing (92.6% pass rate)
+      - ✅ Coverage improved from 19% to estimated >80%
+    - **Remaining Issues (HIGH PRIORITY):**
+      - [ ] **Fix test_disentangle_pair_dominant_feature** - incorrect dominance detection
+        - Expected ts2 to be dominant (result=0) but getting ts3 (result=1)
+        - Need to investigate disentangle_pair logic for synergistic cases
+      - [ ] **Fix test_disentangle_pair_discrete** - numba JIT compilation error
+        - Error: "Use of unsupported NumPy function 'numpy.diagonal'"
+        - Occurs in ent_g function when called with discrete TimeSeries
+        - Need to fix JIT compatibility or handle discrete case differently
+      - [ ] **Fix formula in get_disentanglement_summary** for independent contributions
+        - Current formula always gives 0 for independent neurons
+        - Need to revise calculation: n_independent = (n_i_primary + n_j_primary - n_total) * 2
+  - [ ] **PRIORITY 2: Fix failing existing tests**
+    - [ ] **Fix test_compute_cell_cell_significance** (from test_intense_pipelines.py)
+      - Investigate correlation detection sensitivity
+      - Currently fails to detect expected correlations between neurons
+      - May need to adjust test parameters or fix detection algorithm
+  - [ ] **PRIORITY 3: Improve visual.py coverage (currently 47%)**
     - [ ] Add tests for plot generation functions
     - [ ] Test with various data types and edge cases
     - [ ] Mock matplotlib for testing without display
-  - [ ] **Fix failing test: test_compute_cell_cell_significance**
-    - [ ] Investigate correlation detection sensitivity
-    - [ ] Adjust test parameters or fix detection algorithm
 - [ ] Add unit tests for individual statistical functions
 - [ ] Test edge cases (empty data, single point, etc.)
 - [ ] Add integration tests for full pipeline

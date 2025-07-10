@@ -113,11 +113,15 @@ def ent_g(x, biascorrect=True):
     chC = np.linalg.cholesky(C)
 
     # entropy in nats
-    HX = np.sum(np.log(np.diagonal(chC))) + 0.5 * Nvarx * (np.log(2 * np.pi) + 1.0)
+    # Extract diagonal manually for Numba compatibility
+    diag_sum = 0.0
+    for i in range(chC.shape[0]):
+        diag_sum += np.log(chC[i, i])
+    HX = diag_sum + 0.5 * Nvarx * (np.log(2 * np.pi) + 1.0)
 
     ln2 = np.log(2)
     if biascorrect:
-        psiterms = py_fast_digamma_arr((Ntrl - np.arange(1, Nvarx + 1).astype(float)) / 2.0) / 2.0
+        psiterms = py_fast_digamma_arr((Ntrl - np.arange(1, Nvarx + 1, dtype=np.float64)) / 2.0) / 2.0
         dterm = (ln2 - np.log(Ntrl - 1.0)) / 2.0
         HX = HX - Nvarx * dterm - psiterms.sum()
 
