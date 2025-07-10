@@ -187,8 +187,13 @@ def test_compute_cell_cell_significance():
     # Make some neurons correlated by copying signals
     # Set random seed for reproducible correlations
     np.random.seed(42)
-    exp.neurons[1].ca.data = exp.neurons[0].ca.data + np.random.randn(len(exp.neurons[0].ca.data)) * 0.1
-    exp.neurons[3].ca.data = exp.neurons[2].ca.data + np.random.randn(len(exp.neurons[2].ca.data)) * 0.1
+    # Create new correlated data
+    correlated_data_1 = exp.neurons[0].ca.data + np.random.randn(len(exp.neurons[0].ca.data)) * 0.1
+    correlated_data_3 = exp.neurons[2].ca.data + np.random.randn(len(exp.neurons[2].ca.data)) * 0.1
+    
+    # Recreate TimeSeries objects to update cached copula transforms
+    exp.neurons[1].ca = TimeSeries(correlated_data_1, discrete=False)
+    exp.neurons[3].ca = TimeSeries(correlated_data_3, discrete=False)
     
     # Compute cell-cell significance
     # Use more shuffles for this test to ensure correlation detection
