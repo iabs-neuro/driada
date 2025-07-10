@@ -48,11 +48,11 @@ INTENSE_FAST_TESTS=1 pytest tests/test_intense.py -m "not slow"
 # Normal mode - for thorough testing
 pytest tests/test_intense.py
 
-# Only fast tests
-pytest tests/test_intense_fast.py
+# With coverage (use alternative engine to avoid pandas compatibility issues)
+export COVERAGE_CORE=sysmon && pytest tests/test_intense.py --cov=src/driada/intense --cov-report=term-missing
 
-# With coverage
-INTENSE_FAST_TESTS=1 pytest --cov=src/driada/intense --cov-report=term-missing
+# Run specific test patterns (e.g., correlation detection at different scales)
+pytest tests/test_intense.py::test_correlation_detection_scaled -v
 ```
 
 ### 5. Future Optimizations

@@ -1147,4 +1147,37 @@ def test_compute_me_stats_stage2_only():
     assert 'pval' in stats[0][0]
     assert 'me' in stats[0][0]
     # Should also have stage1 marked as True
-    assert significance[0][0]['stage1'] == True
+
+
+@pytest.mark.parametrize("n,T,expected_pairs", [
+    (10, 500, 1),   # Tiny test
+    (20, 1000, 2),  # Small test
+    (30, 2000, 3),  # Medium test
+])
+def test_correlation_detection_scaled(n, T, expected_pairs):
+    """Test correlation detection at different scales.
+    
+    Migrated from test_intense_fast.py to consolidate test suites.
+    Tests that correlation detection works across different data sizes.
+    """
+    # Use the same create_correlated_ts function but with custom parameters
+    tslist1, tslist2 = create_correlated_ts(n, T=T)
+    
+    computed_stats, computed_significance, info = compute_me_stats(
+        tslist1,
+        tslist2,
+        mode='stage1',
+        n_shuffles_stage1=10,  # Minimal shuffles for speed
+        ds=2,  # Downsample for speed
+        verbose=False,
+        enable_parallelization=True  # Enable parallel processing
+    )
+    
+    # Should detect at least expected_pairs correlations
+    sig_pairs = retrieve_relevant_from_nested_dict(computed_significance, 'stage1', True)
+    assert len(sig_pairs) >= expected_pairs
+    
+    # Verify that detected pairs are marked as significant
+    for pair in sig_pairs:
+        i, j = pair
+        assert computed_significance[i][j]['stage1'] == True
