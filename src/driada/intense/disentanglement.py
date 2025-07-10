@@ -111,10 +111,10 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
         if mi12 == 0 and cmi132 > cmi123:
             return 1  # ts3 is primary
         
-        if mi12/mi13 > 2.0 and cmi123 > cmi132:
+        if mi13 > 0 and mi12/mi13 > 2.0 and cmi123 > cmi132:
             return 0  # ts2 is strongly dominant
         
-        if mi13/mi12 > 2.0 and cmi132 > cmi123:
+        if mi12 > 0 and mi13/mi12 > 2.0 and cmi132 > cmi123:
             return 1  # ts3 is strongly dominant
         
         return 0.5  # Both contribute synergistically
