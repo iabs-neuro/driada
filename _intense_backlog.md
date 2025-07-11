@@ -182,17 +182,46 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - Maintains exact function signature for backward compatibility
   - Leverages existing infrastructure for reliability and consistency
   - Production-grade implementation with proper documentation
-- [ ] **NEW HIGH PRIORITY: Fix interaction information sign issues**
-  - [ ] Fix `test_interaction_information_redundancy_continuous` - expects negative II for redundancy
-  - [ ] Fix `test_interaction_information_synergy_xor` - expects positive II for XOR synergy
-  - [ ] Fix `test_interaction_information_chain_structure` - expects negative II for chain
-  - [ ] Fix `test_interaction_information_andgate` - expects positive II for AND gate synergy
-  - [ ] Fix `test_interaction_information_unique_information` - expects near-zero II
-  - [ ] Fix `test_interaction_information_perfect_synergy` - expects positive II for perfect XOR
-  - [ ] Root cause: Interaction information implementation may have sign reversal
-  - [ ] Verify theoretical formula: II(X;Y;Z) = I(X;Y) - I(X;Y|Z)
-  - [ ] All 6 tests currently marked with @pytest.mark.xfail
-  - [ ] Critical for disentanglement analysis which depends on correct II signs
+- [x] **NEW HIGH PRIORITY: Fix interaction information sign issues** ✅ COMPLETED (2025-01-11)
+  - [x] Fix `test_interaction_information_redundancy_continuous` - expects negative II for redundancy
+  - [x] Fix `test_interaction_information_synergy_xor` - expects positive II for XOR synergy
+  - [x] Fix `test_interaction_information_chain_structure` - expects negative II for chain
+  - [x] Fix `test_interaction_information_andgate` - expects positive II for AND gate synergy
+  - [x] Fix `test_interaction_information_unique_information` - expects near-zero II
+  - [x] Fix `test_interaction_information_perfect_synergy` - expects positive II for perfect XOR
+  - [x] Root cause: Implementation used McGill convention instead of Williams & Beer convention
+  - [x] Changed formula from II(X;Y;Z) = I(X;Y) - I(X;Y|Z) to II(X;Y;Z) = I(X;Y|Z) - I(X;Y)
+  - [x] All 6 tests now pass without @pytest.mark.xfail
+  - [x] Critical for disentanglement analysis which depends on correct II signs
+  
+  **Implementation Checkpoints:**
+  - ✅ Identified sign convention mismatch between implementation and documentation
+  - ✅ Changed interaction_information() to use Williams & Beer convention
+  - ✅ Updated disentangle_pair() in disentanglement.py to match
+  - ✅ Removed all xfail markers from interaction information tests
+  - ✅ Fixed test_interaction_information_unique_information expectations
+  - ✅ All 10 interaction information tests now pass
+  - ✅ Verified disentanglement module still works correctly (27/27 tests pass)
+  
+  **Technical Notes:**
+  - Williams & Beer convention: II < 0 = redundancy, II > 0 = synergy
+  - McGill convention (old): II > 0 = redundancy, II < 0 = synergy
+  - Formula: II = I(X;Y|Z) - I(X;Y) = I(X;Z|Y) - I(X;Z)
+  - Averaged two equivalent formulas for numerical stability
+- [ ] **NEW: Implement Partial Information Decomposition (PID) module**
+  - [ ] Create new module `driada.information.pid` for Partial Information Decomposition
+  - [ ] Implement Williams & Beer (2010) PID framework
+  - [ ] Decompose mutual information into:
+    - [ ] Unique information from each variable
+    - [ ] Redundant (shared) information
+    - [ ] Synergistic information
+  - [ ] Support for 2-variable decomposition (standard case)
+  - [ ] Extension to 3+ variables if feasible
+  - [ ] Handle both discrete and continuous variables
+  - [ ] Add comprehensive tests with known PID examples
+  - [ ] Create visualization functions for PID results
+  - [ ] Document theoretical background and usage
+  - [ ] Note: This is different from interaction information (II) which only gives net redundancy/synergy
 - [ ] **NEW: Test visualization functions**
   - [ ] Test `plot_disentanglement_heatmap` with various inputs
   - [ ] Test `plot_disentanglement_summary` with single/multiple experiments
@@ -327,6 +356,26 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
 - [ ] Improve code organization and module structure
 
 ## 11. Documentation Gaps (from README analysis)
+
+### High Priority
+- [x] **Update README_INTENSE.md interaction information documentation** ✅ COMPLETED (2025-01-11)
+  - [x] Clarify that we use Williams & Beer convention (not McGill)
+  - [x] Ensure formula shows: II(A;X;Y) = I(A;X|Y) - I(A;X) = I(A;Y|X) - I(A;Y)
+  - [x] Confirm sign convention: II < 0 = redundancy, II > 0 = synergy
+  - [x] Add note distinguishing II from future PID implementation
+  - [x] Update any examples that might show incorrect signs
+  - [x] Ensure consistency with implementation in info_base.py
+  
+  **Implementation Checkpoints:**
+  - ✅ Updated interaction information formula in README_INTENSE.md (line 179)
+  - ✅ Changed from McGill convention to Williams & Beer (2010) convention
+  - ✅ Added clarification note about II vs future PID module
+  - ✅ Formula now matches implementation in info_base.py (line 711)
+  - ✅ Sign convention documentation remains correct
+  - ✅ No examples in README needed updating (only formula was incorrect)
+  
+  **Files Modified:**
+  - README_INTENSE.md (lines 176-185)
 
 ### High Priority
 - [ ] Add implementation details for shuffle mask handling

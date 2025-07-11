@@ -1,19 +1,67 @@
+"""
+DRIADA - Dimensionality Reduction for Integrated Activity Data
 
-#from .gdrive.download import *
-#from .gdrive.upload import *
+A library for single neuron and population-level analysis of inner workings 
+of intelligent systems, from brain neural recordings in vivo to RNNs.
+"""
 
-# TODO: include environment.yml
-# TODO: unit tests for calculations (https://goodresearch.dev/testing)
-# TODO: document everything in Google Style (https://goodresearch.dev/docs)
-# TODO: publish docs on Readthedocs (https://docs.readthedocs.io/en/stable/tutorial/index.html#importing-the-project-to-read-the-docs_
-# TODO: update ReadMe (https://goodresearch.dev/pipelines)
+__version__ = "0.1.0"
 
-# TODO: probably add automatic scanning for every .py file (dangerous and not pythonic, but convenient)
-'''
-import glob
-from os.path import dirname, basename, isfile, join
-modules = glob.glob(join(dirname(__file__), "*", "*.py"), recursive=True)
-__all__ = [basename(f)[:-3] for f in modules if isfile(f) and not basename(f).startswith('_')]
-'''
+# Core modules
+from . import intense
+from . import information
+from . import experiment
+from . import utils
 
-# TODO: make Readme structured as a numbered list, like in mango
+# Key classes
+from .experiment import Experiment
+from .information import TimeSeries, MultiTimeSeries
+
+# Main INTENSE pipeline functions
+from .intense import (
+    compute_cell_feat_significance,
+    compute_feat_feat_significance,
+    compute_cell_cell_significance,
+)
+
+# Common information theory functions
+from .information import (
+    get_mi,
+    conditional_mi,
+    interaction_information,
+)
+
+# Experiment utilities
+from .experiment import (
+    load_experiment,
+    save_exp_to_pickle,
+    load_exp_from_pickle,
+    generate_synthetic_exp,
+)
+
+__all__ = [
+    # Version
+    "__version__",
+    # Modules
+    "intense",
+    "information", 
+    "experiment",
+    "utils",
+    # Core classes
+    "Experiment",
+    "TimeSeries",
+    "MultiTimeSeries",
+    # INTENSE pipelines
+    "compute_cell_feat_significance",
+    "compute_feat_feat_significance", 
+    "compute_cell_cell_significance",
+    # Information theory
+    "get_mi",
+    "conditional_mi",
+    "interaction_information",
+    # Experiment utilities
+    "load_experiment",
+    "save_exp_to_pickle",
+    "load_exp_from_pickle",
+    "generate_synthetic_exp",
+]
