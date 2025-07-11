@@ -395,7 +395,8 @@ def plot_disentanglement_summary(disent_matrix, count_matrix, feat_names,
     
     # Feature dominance scores (how often each feature is primary)
     ax_dom = fig.add_subplot(gs[0, 1])
-    dominance_scores = np.nansum(total_disent / total_count, axis=1)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        dominance_scores = np.nansum(total_disent / total_count, axis=1)
     y_pos = np.arange(len(feat_names))
     ax_dom.barh(y_pos, dominance_scores, color='green', alpha=0.7)
     ax_dom.set_yticks(y_pos)
