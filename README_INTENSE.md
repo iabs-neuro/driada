@@ -173,14 +173,16 @@ This quantifies information about A in X that is not present in Y.
 
 #### Interaction Information
 
-The three-way interaction (synergy/redundancy) is measured by:
+The three-way interaction (synergy/redundancy) is measured using the Williams & Beer (2010) convention:
 
 ```
-II(A;X;Y) = I(A;X) - I(A;X|Y) = I(A;Y) - I(A;Y|X)
+II(A;X;Y) = I(A;X|Y) - I(A;X) = I(A;Y|X) - I(A;Y)
 ```
 
 - II < 0: Redundancy (X and Y provide overlapping information about A)
 - II > 0: Synergy (X and Y together provide more information than separately)
+
+Note: Interaction information (II) provides the net redundancy or synergy but does not decompose mutual information into unique, redundant, and synergistic components. A future Partial Information Decomposition (PID) module will provide this full decomposition.
 
 #### Variable Type Handling
 
