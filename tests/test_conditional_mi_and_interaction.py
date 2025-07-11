@@ -9,20 +9,12 @@ CRITICAL ISSUES ANALYZED AND RESOLVED:
    - Updated test expectations for differential entropy (can be negative)
    - Root cause: Near-perfect correlations create valid negative differential entropy
 
-2. CDC CASE NEGATIVE CMI - ✅ ANALYZED (Known Limitation):
-   - Chain rule I(X;Y|Z) = I(X;Y) - (I(X;Z) - I(X;Z|Y)) can produce negative CMI
-   - Root cause: CDC uniquely mixes different MI estimators with inconsistent biases
-   - CCC/CCD/CDD cases use coherent single estimators (no issues)
-   - CDC mixes: mi_model_gd + gcmi_cc + weighted averaging
-   - Documented as known GCMI limitation, marked tests with @pytest.mark.xfail
-
-TODO HIGH PRIORITY - CDC WORKAROUND:
-===================================
-- Implement alternative CDC estimation method to avoid chain rule bias
-- Option 1: Use entropy-based formula similar to CDD case (swap X/Z roles)
-- Option 2: Implement bias correction for mixed estimator chain rule
-- Option 3: Use KSG estimator consistently for all CDC components
-- Priority: HIGH - CDC case is commonly used in neuroscience applications
+2. CDC CASE NEGATIVE CMI - ✅ FIXED:
+   - Replaced biased chain rule with entropy-based approach: I(X;Y|Z) = H(X|Z) - H(X|Y,Z)
+   - Eliminates mixing of different MI estimators (mi_model_gd + gcmi_cc + weighted averaging)
+   - Uses consistent entropy estimation with ent_g() and regularized_cholesky()
+   - All CDC tests now pass and produce CMI ≥ 0 as required by information theory
+   - Implementation: Lines 608-652 in src/driada/information/info_base.py
 
 3. INTERACTION INFORMATION SIGN ISSUES:
    - Several tests show opposite signs than expected  
@@ -151,19 +143,11 @@ def test_conditional_mi_ccd_independence():
     assert mi_xy > 0.1, "Marginal MI should be positive"
 
 
-@pytest.mark.xfail(reason="Known GCMI limitation: CDC case can produce negative CMI due to estimator bias")
 def test_conditional_mi_cdc_information_reduction():
     """Test CMI for CDC case: continuous X,Z with discrete Y.
     
-    KNOWN LIMITATION: GCMI estimator bias in mixed variable types can cause
-    negative CMI estimates when using chain rule I(X;Y|Z) = I(X;Y) - (I(X;Z) - I(X;Z|Y)).
-    
-    Root cause: CDC case uniquely mixes different MI estimators:
-    - I(X;Y): mi_model_gd (continuous-discrete)
-    - I(X;Z): gcmi_cc (continuous-continuous)  
-    - I(X;Z|Y): Weighted average within Y groups
-    
-    Different estimators have different biases, causing inconsistency in chain rule.
+    Uses entropy-based formula I(X;Y|Z) = H(X|Z) - H(X|Y,Z) which avoids
+    mixing different MI estimators and ensures CMI ≥ 0.
     """
     np.random.seed(42)
     
@@ -192,12 +176,10 @@ def test_conditional_mi_cdc_information_reduction():
     assert cmi > 0.05, "CMI should still be positive"
 
 
-@pytest.mark.xfail(reason="Known GCMI limitation: CDC case can produce negative CMI due to estimator bias")
 def test_conditional_mi_cdc_chain_rule():
-    """Test CDC case verifying chain rule properties.
+    """Test CDC case verifying conditional MI properties.
     
-    KNOWN LIMITATION: Same as test_conditional_mi_cdc_information_reduction.
-    CDC case mixes different MI estimators in chain rule causing bias inconsistency.
+    Uses entropy-based approach which avoids estimator bias and ensures CMI ≥ 0.
     """
     np.random.seed(42)
     

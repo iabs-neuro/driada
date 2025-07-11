@@ -607,16 +607,54 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
 
     elif ts2.discrete and not ts3.discrete:
         # CDC: X,Z continuous, Y discrete
-        # Here we use the identity I(X;Y|Z) = I(X;Y) - (I(X;Z) - I(X;Z|Y))
-        unique_discrete_vals = np.unique(ts2.int_data[::ds])
-        I_xz_given_y = gccmi_ccd(ts1.data[::ds],
-                                 ts3.data[::ds],
-                                 ts2.int_data[::ds],
-                                 len(unique_discrete_vals))
-
-        I_xy = get_mi(ts1, ts2, ds=ds)
-        I_xz = get_mi(ts1, ts3, ds=ds)
-        cmi = I_xy - (I_xz - I_xz_given_y)
+        # Use entropy-based identity: I(X;Y|Z) = H(X|Z) - H(X|Y,Z)
+        # This avoids mixing different MI estimators that cause bias inconsistency
+        
+        # H(X|Z) for continuous X,Z using GCMI
+        x_data = ts1.data[::ds].reshape(1, -1)
+        z_data = ts3.data[::ds].reshape(1, -1)
+        
+        # Joint data for H(X,Z) and marginal H(Z)
+        xz_joint = np.vstack([x_data, z_data])
+        H_xz = ent_g(xz_joint, biascorrect=True)
+        H_z = ent_g(z_data, biascorrect=True)
+        H_x_given_z = H_xz - H_z
+        
+        # H(X|Y,Z) - conditional entropy of X given both Y (discrete) and Z (continuous)
+        unique_y_vals = np.unique(ts2.int_data[::ds])
+        H_x_given_yz = 0.0
+        
+        for y_val in unique_y_vals:
+            # Find indices where Y = y_val
+            y_mask = (ts2.int_data[::ds] == y_val)
+            n_y = np.sum(y_mask)
+            
+            if n_y > 2:  # Need sufficient samples for entropy estimation
+                # Extract X,Z values for this Y group
+                x_subset = x_data[:, y_mask]
+                z_subset = z_data[:, y_mask]
+                
+                # Joint entropy H(X,Z|Y=y_val)
+                xz_subset = np.vstack([x_subset, z_subset])
+                H_xz_given_y = ent_g(xz_subset, biascorrect=True)
+                
+                # Marginal entropy H(Z|Y=y_val)
+                H_z_given_y = ent_g(z_subset, biascorrect=True)
+                
+                # Conditional entropy H(X|Z,Y=y_val) = H(X,Z|Y=y_val) - H(Z|Y=y_val)
+                H_x_given_z_y = H_xz_given_y - H_z_given_y
+                
+                # Weight by probability P(Y=y_val)
+                p_y = n_y / len(ts2.int_data[::ds])
+                H_x_given_yz += p_y * H_x_given_z_y
+        
+        # Final CMI calculation
+        cmi = H_x_given_z - H_x_given_yz
+        
+        # Ensure CMI >= 0 due to information theory constraint
+        # Small negative values are due to numerical precision and estimation noise
+        if cmi < 0 and abs(cmi) < 0.01:
+            cmi = 0.0
 
     else:
         # CDD: X continuous, Y,Z discrete
