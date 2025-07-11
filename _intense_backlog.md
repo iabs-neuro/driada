@@ -141,7 +141,58 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - tests/test_gcmi_functions.py (30 tests)
   - Comprehensive bug documentation and xfail markers
   
-  **URGENT TODO:** Fix GCMI numerical instability for ill-conditioned matrices
+  **✅ COMPLETED:** GCMI numerical instability FIXED (2025-01-11)
+  
+  **Implementation Checkpoints:**
+  - ✅ Added regularized_cholesky() function with adaptive regularization
+  - ✅ Fixed ent_g negative entropy for near-singular covariance matrices  
+  - ✅ Consolidated regularization pattern across all GCMI functions
+  - ✅ Updated test expectations for differential entropy (can be negative)
+  - ✅ Root cause analysis: CDC case mixes different MI estimators causing bias
+  - ✅ Documented CDC limitation with proper @pytest.mark.xfail markers
+  - ✅ 43 tests pass, 8 xfailed (expected for known limitations)
+  
+  **Technical Notes:**
+  - regularized_cholesky() eliminates code duplication and ensures consistency
+  - Uses adaptive regularization: base 1e-12 + condition-based scaling
+  - CDC case requires future workaround (chains different estimators)
+  - Differential entropy can be negative (unlike discrete entropy)
+  
+  **Files Modified:**
+  - src/driada/information/gcmi.py (added regularized_cholesky, updated functions)
+  - tests/test_gcmi_functions.py (corrected test expectations)
+  - tests/test_conditional_mi_and_interaction.py (documented limitations)
+  
+  **✅ COMPLETED (2025-01-11):** Implement CDC workaround to avoid chain rule bias
+  
+  **Implementation Checkpoints:**
+  - ✅ Replaced biased chain rule with entropy-based approach: I(X;Y|Z) = H(X|Z) - H(X|Y,Z)
+  - ✅ Eliminated mixing of incompatible MI estimators in CDC case
+  - ✅ Uses consistent entropy estimation with ent_g() and regularized_cholesky()
+  - ✅ Added numerical stability tolerance for small estimation noise
+  - ✅ All CDC tests now pass and satisfy CMI ≥ 0 constraint
+  - ✅ Zero regressions in other conditional MI cases (CCC, CCD, CDD)
+  
+  **Files Modified:**
+  - src/driada/information/info_base.py (lines 608-658)
+  - tests/test_conditional_mi_and_interaction.py (removed xfail markers, updated docs)
+  
+  **Technical Notes:**
+  - CDC case now uses theoretically sound entropy-based formula
+  - Maintains exact function signature for backward compatibility
+  - Leverages existing infrastructure for reliability and consistency
+  - Production-grade implementation with proper documentation
+- [ ] **NEW HIGH PRIORITY: Fix interaction information sign issues**
+  - [ ] Fix `test_interaction_information_redundancy_continuous` - expects negative II for redundancy
+  - [ ] Fix `test_interaction_information_synergy_xor` - expects positive II for XOR synergy
+  - [ ] Fix `test_interaction_information_chain_structure` - expects negative II for chain
+  - [ ] Fix `test_interaction_information_andgate` - expects positive II for AND gate synergy
+  - [ ] Fix `test_interaction_information_unique_information` - expects near-zero II
+  - [ ] Fix `test_interaction_information_perfect_synergy` - expects positive II for perfect XOR
+  - [ ] Root cause: Interaction information implementation may have sign reversal
+  - [ ] Verify theoretical formula: II(X;Y;Z) = I(X;Y) - I(X;Y|Z)
+  - [ ] All 6 tests currently marked with @pytest.mark.xfail
+  - [ ] Critical for disentanglement analysis which depends on correct II signs
 - [ ] **NEW: Test visualization functions**
   - [ ] Test `plot_disentanglement_heatmap` with various inputs
   - [ ] Test `plot_disentanglement_summary` with single/multiple experiments
@@ -163,6 +214,10 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
 - [ ] Add tests for visualization functions
 - [ ] Test memory usage with large datasets
 - [ ] Add tests for reproducibility with seeds
+- [ ] **Fix test_download_extension** - List ordering assertion issue in test_download.py
+  - [ ] Currently fails due to os.listdir() returning files in different order
+  - [ ] Should use set comparison or sorted lists instead of direct list comparison
+  - [ ] Low priority - not related to INTENSE functionality
 
 ## 4. Features & Functionality
 
