@@ -11,7 +11,8 @@
       "Bash(python -m pytest tests/test_intense_pipelines.py -v)",
       "Bash(python -m pytest tests/test_intense_pipelines.py::test_compute_feat_feat_significance -v)",
       "Bash(python:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "WebFetch(domain:arxiv.org)"
     ],
     "deny": []
   }

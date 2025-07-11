@@ -707,8 +707,8 @@ def interaction_information(ts1, ts2, ts3, ds=1, k=5):
         
     Notes
     -----
-    The interaction information is computed as:
-    II(X;Y;Z) = I(X;Y) - I(X;Y|Z) = I(X;Z) - I(X;Z|Y)
+    The interaction information is computed using Williams & Beer convention:
+    II(X;Y;Z) = I(X;Y|Z) - I(X;Y) = I(X;Z|Y) - I(X;Z)
     
     This implementation assumes X is the target variable (e.g., neural activity)
     and Y, Z are predictor variables (e.g., behavioral features).
@@ -722,8 +722,10 @@ def interaction_information(ts1, ts2, ts3, ds=1, k=5):
     cmi_xz_given_y = conditional_mi(ts1, ts3, ts2, ds=ds, k=k)
     
     # Compute interaction information (should be the same from both formulas)
-    ii_1 = mi_xy - cmi_xy_given_z
-    ii_2 = mi_xz - cmi_xz_given_y
+    # Using Williams & Beer convention: II = I(X;Y|Z) - I(X;Y)
+    # This gives negative II for redundancy and positive II for synergy
+    ii_1 = cmi_xy_given_z - mi_xy
+    ii_2 = cmi_xz_given_y - mi_xz
     
     # Average for numerical stability
     ii = (ii_1 + ii_2) / 2.0

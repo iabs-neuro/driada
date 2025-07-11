@@ -310,11 +310,10 @@ def test_conditional_mi_error_handling():
         conditional_mi(ts_x, ts_y, ts_z)
 
 
-@pytest.mark.xfail(reason="Interaction information signs need investigation")
 def test_interaction_information_redundancy_continuous():
     """Test redundancy case with all continuous variables.
     
-    TODO: Investigate why II is positive when we expect negative (redundancy).
+    Uses Williams & Beer convention where II < 0 indicates redundancy.
     """
     np.random.seed(42)
     
@@ -334,11 +333,10 @@ def test_interaction_information_redundancy_continuous():
     assert ii < -0.2, f"II not negative enough for redundancy: {ii}"
 
 
-@pytest.mark.xfail(reason="Interaction information signs need investigation") 
 def test_interaction_information_synergy_xor():
     """Test synergy with XOR relationship.
     
-    TODO: Investigate why II is negative when we expect positive (synergy).
+    Uses Williams & Beer convention where II > 0 indicates synergy.
     """
     np.random.seed(42)
     
@@ -380,11 +378,11 @@ def test_interaction_information_independence():
     assert abs(ii) < 0.05, f"II too large for independent variables: {ii}"
 
 
-@pytest.mark.xfail(reason="Interaction information signs need investigation")
 def test_interaction_information_chain_structure():
-    """Test II for chain structure X -> Y -> Z.
+    """Test II for chain structure Y -> X -> Z.
     
-    TODO: Investigate sign issue.
+    In a chain structure, Y and Z are conditionally independent given X,
+    so II should be negative (redundancy through X).
     """
     np.random.seed(42)
     
@@ -453,20 +451,19 @@ def test_interaction_information_formula_consistency():
     cmi_xy_given_z = conditional_mi(ts_x, ts_y, ts_z)
     cmi_xz_given_y = conditional_mi(ts_x, ts_z, ts_y)
     
-    # Both formulas should give same result
-    ii_formula1 = mi_xy - cmi_xy_given_z
-    ii_formula2 = mi_xz - cmi_xz_given_y
+    # Both formulas should give same result (Williams & Beer convention)
+    ii_formula1 = cmi_xy_given_z - mi_xy
+    ii_formula2 = cmi_xz_given_y - mi_xz
     
     # Check consistency
     np.testing.assert_allclose(ii_formula1, ii_formula2, rtol=0.1)
     np.testing.assert_allclose(ii, (ii_formula1 + ii_formula2) / 2, rtol=0.1)
 
 
-@pytest.mark.xfail(reason="Interaction information signs need investigation")
 def test_interaction_information_andgate():
     """Test II for AND-gate relationship (another synergy example).
     
-    TODO: Investigate sign issue.
+    Uses Williams & Beer convention where II > 0 indicates synergy.
     """
     np.random.seed(42)
     
@@ -488,11 +485,12 @@ def test_interaction_information_andgate():
     assert ii > 0.05, f"II should be positive for AND gate: {ii}"
 
 
-@pytest.mark.xfail(reason="Interaction information expectation needs verification")
 def test_interaction_information_unique_information():
     """Test case where Y and Z provide unique information about X.
     
-    TODO: Verify expected behavior.
+    When X = x1 + x2 and Y depends on x1, Z depends on x2, this creates
+    synergy because Y and Z together reveal X perfectly, but individually
+    they only reveal partial information.
     """
     np.random.seed(42)
     
@@ -512,8 +510,8 @@ def test_interaction_information_unique_information():
     
     ii = interaction_information(ts_x, ts_y, ts_z)
     
-    # Should be close to zero (neither redundancy nor synergy)
-    assert abs(ii) < 0.1, f"II should be near zero for unique information: {ii}"
+    # Should be positive (synergy) because Y and Z together provide more info than separately
+    assert ii > 0.5, f"II should be positive for synergistic decomposition: {ii}"
 
 
 def test_interaction_information_numerical_stability():
@@ -537,11 +535,10 @@ def test_interaction_information_numerical_stability():
     # Note: sign expectation removed pending investigation
 
 
-@pytest.mark.xfail(reason="Interaction information signs need investigation")
 def test_interaction_information_perfect_synergy():
     """Test perfect synergy case where MI(X;Y)=MI(X;Z)=0 but MI(X;Y,Z)>0.
     
-    TODO: Investigate sign issue.
+    Uses Williams & Beer convention where II > 0 indicates synergy.
     """
     np.random.seed(42)
     

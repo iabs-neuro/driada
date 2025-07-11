@@ -64,7 +64,8 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
     cmi132 = conditional_mi(ts1, ts3, ts2, ds=ds)  # MI(neuron, behavior2 | behavior1)
     
     # Compute interaction information (average of two equivalent formulas)
-    I_av = np.mean([mi12 - cmi123, mi13 - cmi132])
+    # Using Williams & Beer convention: II = I(X;Y|Z) - I(X;Y)
+    I_av = np.mean([cmi123 - mi12, cmi132 - mi13])
     
     if verbose:
         print()
@@ -81,8 +82,8 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
         print('MI(A,Y|X) / MI(A,Y):', np.round(cmi132/mi13, 3) if mi13 > 0 else 'N/A')
         
         print()
-        print('I(A,X,Y) 1:', mi12 - cmi123)
-        print('I(A,X,Y) 2:', mi13 - cmi132)
+        print('I(A,X,Y) 1:', cmi123 - mi12)
+        print('I(A,X,Y) 2:', cmi132 - mi13)
         print('I(A,X,Y) av:', I_av)
         
         print()
