@@ -173,44 +173,43 @@ def test_ent_g_bias_correction():
     assert np.abs(h_corrected - h_uncorrected) > 0.001
 
 
-@pytest.mark.xfail(reason="CRITICAL BUG: GCMI ent_g produces negative joint entropy for near-singular covariance matrices")
 def test_ent_g_deterministic():
     """Test entropy of nearly deterministic relationship.
     
-    CRITICAL BUG DISCOVERED:
-    ========================
-    When Y = X + small_noise (correlation ≈ 1), GCMI produces:
-    - Single entropy: +2.02 bits (correct)  
-    - Joint entropy: -2.58 bits (IMPOSSIBLE - violates H(X,Y) ≥ H(X))
+    For highly correlated variables X₁, X₂ where X₂ = X₁ + small_noise,
+    the joint entropy H(X₁,X₂) ≈ H(X₁) + H(noise) can be less than H(X₁)
+    when the noise variance is very small (< 1/(2πe) ≈ 0.058).
     
-    Root cause: Sample covariance matrix becomes near-singular:
-    - Determinant: 9.5e-05 (extremely small)
-    - Condition number: 38,583 (severely ill-conditioned)
-    - log(det(C)) ≈ -9.26 dominates entropy calculation
-    
-    This is the SAME bug pattern as CDC negative CMI issue.
-    
-    TODO: Fix GCMI numerical instability for near-perfect correlations.
+    This is mathematically correct for differential entropy, unlike discrete entropy
+    where H(X,Y) ≥ max(H(X), H(Y)) always holds.
     """
     np.random.seed(42)
     n = 1000
     
     # Create data where second component is almost determined by first
     x1 = np.random.randn(1, n)
-    noise_level = 0.01
-    x2 = x1 + noise_level * np.random.randn(1, n)  # Very small noise
+    noise_level = 0.01  # Very small noise variance = 0.0001
+    x2 = x1 + noise_level * np.random.randn(1, n)
     x = np.vstack([x1, x2])
     
-    h = ent_g(x, biascorrect=True)
+    h_joint = ent_g(x, biascorrect=True)
     h_single = ent_g(x1, biascorrect=True)
     
-    # This SHOULD be true but currently fails due to GCMI bug:
-    assert h > h_single  # Joint entropy should be at least as large
-    
-    # The additional entropy from noise should be minimal but positive
+    # For differential entropy with small noise variance < 1/(2πe) ≈ 0.058,
+    # joint entropy can be less than marginal entropy
     theoretical_noise_entropy = 0.5 * np.log2(2 * np.pi * np.e * noise_level**2)
-    max_expected_joint = h_single + theoretical_noise_entropy + 0.1  # Small tolerance
-    assert h < max_expected_joint
+    expected_joint = h_single + theoretical_noise_entropy
+    
+    # Check that GCMI result matches theoretical expectation
+    tolerance = 0.1  # Allow small numerical differences
+    assert abs(h_joint - expected_joint) < tolerance, \
+        f"Joint entropy {h_joint:.3f} should be close to {expected_joint:.3f}"
+    
+    # Verify the mathematical relationship holds for this specific case
+    # where noise variance << 1/(2πe)
+    critical_variance = 1 / (2 * np.pi * np.e)
+    assert noise_level**2 < critical_variance, \
+        "Test assumes noise variance < 1/(2πe) for negative differential entropy"
 
 
 def test_ent_g_input_validation():

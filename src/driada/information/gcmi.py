@@ -92,6 +92,47 @@ def demean(x):
     return demeaned_x
 
 
+@njit
+def regularized_cholesky(C, regularization=1e-12):
+    """Compute Cholesky decomposition with regularization for numerical stability.
+    
+    Adds diagonal regularization to prevent issues with near-singular
+    covariance matrices. Uses adaptive regularization for severely ill-conditioned
+    matrices based on determinant check.
+    
+    Parameters
+    ----------
+    C : ndarray
+        Covariance matrix to decompose.
+    regularization : float, optional
+        Base regularization parameter added to diagonal (default: 1e-12).
+        
+    Returns
+    -------
+    ndarray
+        Lower triangular Cholesky factor.
+    """
+    # Check matrix conditioning using determinant
+    det_C = np.linalg.det(C)
+    trace_C = np.trace(C)
+    
+    # Adaptive regularization based on determinant relative to trace
+    # For near-singular matrices, det << trace^n where n is matrix size
+    n = C.shape[0]
+    expected_det_scale = (trace_C / n) ** n
+    
+    if det_C > 0 and det_C < expected_det_scale * 1e-8:  # Severely ill-conditioned
+        # Use stronger regularization proportional to trace
+        adaptive_reg = trace_C * 1e-8 / n  # Scale by matrix size
+        reg = max(regularization, adaptive_reg)
+    else:
+        reg = regularization
+    
+    # Apply regularization
+    C_reg = C + np.eye(C.shape[0]) * reg
+    return np.linalg.cholesky(C_reg)
+
+
 @njit()
 def ent_g(x, biascorrect=True):
     """Entropy of a Gaussian variable in bits
@@ -110,7 +151,7 @@ def ent_g(x, biascorrect=True):
     x = demean(x)
     # covariance
     C = np.dot(x, x.T) / float(Ntrl - 1)
-    chC = np.linalg.cholesky(C)
+    chC = regularized_cholesky(C)
 
     # entropy in nats
     # Extract diagonal manually for Numba compatibility
@@ -169,14 +210,9 @@ def mi_gg(x, y, biascorrect=True, demeaned=False, max_dim=3):
     Cx = Cxy[:Nvarx, :Nvarx]
     Cy = Cxy[Nvarx:, Nvarx:]
 
-    # Add small regularization to prevent numerical issues with identical data
-    Cxy += np.eye(Cxy.shape[0]) * 1e-12
-    Cx += np.eye(Cx.shape[0]) * 1e-12
-    Cy += np.eye(Cy.shape[0]) * 1e-12
-
-    chCxy = np.linalg.cholesky(Cxy)
-    chCx = np.linalg.cholesky(Cx)
-    chCy = np.linalg.cholesky(Cy)
+    chCxy = regularized_cholesky(Cxy)
+    chCx = regularized_cholesky(Cx)
+    chCy = regularized_cholesky(Cy)
 
     # entropies in nats
     # normalizations cancel for mutual information
@@ -247,7 +283,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
         Ntrl_y[yi] = xm.shape[1]
         xm = demean(xm)
         Cm = np.dot(xm, xm.T) / float(Ntrl_y[yi] - 1)
-        chCm = np.linalg.cholesky(Cm)
+        chCm = regularized_cholesky(Cm)
         Hcond[yi] = np.sum(np.log(np.diag(chCm)))  # + c*Nvarx
 
     # class weights
@@ -255,7 +291,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
 
     # unconditional entropy from unconditional Gaussian fit
     Cx = np.dot(x, x.T) / float(Ntrl - 1)
-    chC = np.linalg.cholesky(Cx)
+    chC = regularized_cholesky(Cx)
     Hunc = np.sum(np.log(np.diag(chC)))  # + c*Nvarx
 
     ln2 = np.log(2)
@@ -380,16 +416,10 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     Cxz[Nvarx:,:Nvarx] = Cxyz[Nvarxy:,:Nvarx]
     Cxz[Nvarx:,Nvarx:] = Cxyz[Nvarxy:,Nvarxy:]
 
-    # Add small regularization to prevent numerical issues with identical data
-    Cz += np.eye(Cz.shape[0]) * 1e-12
-    Cxz += np.eye(Cxz.shape[0]) * 1e-12
-    Cyz += np.eye(Cyz.shape[0]) * 1e-12
-    Cxyz += np.eye(Cxyz.shape[0]) * 1e-12
-
-    chCz = np.linalg.cholesky(Cz)
-    chCxz = np.linalg.cholesky(Cxz)
-    chCyz = np.linalg.cholesky(Cyz)
-    chCxyz = np.linalg.cholesky(Cxyz)
+    chCz = regularized_cholesky(Cz)
+    chCxz = regularized_cholesky(Cxz)
+    chCyz = regularized_cholesky(Cyz)
+    chCxyz = regularized_cholesky(Cxyz)
 
     # entropies in nats
     # normalizations cancel for cmi
