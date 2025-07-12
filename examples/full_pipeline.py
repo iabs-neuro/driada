@@ -3,13 +3,13 @@
 Complete INTENSE Pipeline Example
 
 This example demonstrates a comprehensive analysis workflow using DRIADA's INTENSE module:
-1. Generate larger synthetic dataset with multiple feature types
+1. Generate larger synthetic dataset with multiple feature types including MultiTimeSeries
 2. Run comprehensive analysis with parameter exploration
 3. Statistical analysis and significance testing
-4. Multiple visualizations and result interpretation
+4. Create a selectivity heatmap showing neuron-feature relationships
 5. Performance and parameter sensitivity analysis
 
-This showcases the full capabilities of INTENSE for thorough neuronal selectivity analysis.
+This showcases INTENSE's capability to analyze complex neuronal selectivity patterns.
 """
 
 import sys
@@ -108,105 +108,74 @@ def create_statistical_summary(exp, significant_neurons):
     return feature_counts, all_mi_values, all_pvalues
 
 
-def create_comprehensive_visualization(exp, significant_neurons, output_dir):
-    """Create multiple visualizations for comprehensive analysis."""
-    print("\n=== CREATING VISUALIZATIONS ===")
+def create_selectivity_heatmap(exp, significant_neurons, output_dir):
+    """Create a heatmap showing which neurons are selective for each feature."""
+    print("\n=== CREATING SELECTIVITY HEATMAP ===")
     
-    if not significant_neurons:
-        print("No significant neurons found - skipping visualizations")
-        return
+    # Get all features and create ordered lists
+    all_features = sorted([f for f in exp.dynamic_features.keys() if isinstance(f, str)])
+    all_neurons = list(range(exp.n_cells))
     
-    # Create figure with multiple subplots
-    fig = plt.figure(figsize=(15, 10))
+    # Create binary matrix: 1 if neuron is selective for feature, 0 otherwise
+    selectivity_matrix = np.zeros((len(all_neurons), len(all_features)))
     
-    # Plot 1: First significant neuron-feature pair
-    ax1 = plt.subplot(2, 3, 1)
-    cell_id = list(significant_neurons.keys())[0]
-    feat_name = significant_neurons[cell_id][0]
-    driada.intense.plot_neuron_feature_pair(exp, cell_id, feat_name, ax=ax1)
-    ax1.set_title(f"Neuron {cell_id} ↔ {feat_name}")
+    for neuron_idx, cell_id in enumerate(all_neurons):
+        if cell_id in significant_neurons:
+            for feat_name in significant_neurons[cell_id]:
+                if feat_name in all_features:
+                    feat_idx = all_features.index(feat_name)
+                    selectivity_matrix[neuron_idx, feat_idx] = 1
     
-    # Plot 2: Second example if available
-    ax2 = plt.subplot(2, 3, 2)
-    if len(significant_neurons) > 1:
-        cell_id2 = list(significant_neurons.keys())[1]
-        feat_name2 = significant_neurons[cell_id2][0]
-        driada.intense.plot_neuron_feature_pair(exp, cell_id2, feat_name2, ax=ax2)
-        ax2.set_title(f"Neuron {cell_id2} ↔ {feat_name2}")
-    else:
-        ax2.text(0.5, 0.5, 'Only one\nsignificant\nneuron found', 
-                ha='center', va='center', transform=ax2.transAxes)
-        ax2.set_title("Second Example")
+    # Create the heatmap
+    fig, ax = plt.subplots(figsize=(10, 8))
     
-    # Plot 3: Feature distribution
-    ax3 = plt.subplot(2, 3, 3)
-    feature_counts = {}
-    for cell_id, features in significant_neurons.items():
-        for feat_name in features:
-            feature_counts[feat_name] = feature_counts.get(feat_name, 0) + 1
+    # Use binary colormap (white for 0, dark blue for 1)
+    im = ax.imshow(selectivity_matrix, cmap='Blues', aspect='auto', interpolation='nearest')
     
-    if feature_counts:
-        features, counts = zip(*feature_counts.items())
-        ax3.bar(features, counts)
-        ax3.set_title("Feature Selectivity Counts")
-        ax3.set_ylabel("Number of Neurons")
-        plt.setp(ax3.get_xticklabels(), rotation=45, ha='right')
+    # Set ticks and labels
+    ax.set_xticks(range(len(all_features)))
+    ax.set_xticklabels(all_features, rotation=45, ha='right')
+    ax.set_yticks(range(0, len(all_neurons), max(1, len(all_neurons)//20)))  # Show ~20 neuron labels
+    ax.set_yticklabels(range(0, len(all_neurons), max(1, len(all_neurons)//20)))
     
-    # Plot 4: MI distribution
-    ax4 = plt.subplot(2, 3, 4)
-    all_mi_values = []
-    for cell_id, features in significant_neurons.items():
-        for feat_name in features:
-            pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name)
-            all_mi_values.append(pair_stats['pre_rval'])
+    # Labels and title
+    ax.set_xlabel('Features', fontsize=12)
+    ax.set_ylabel('Neurons', fontsize=12)
+    ax.set_title('Neuronal Selectivity Matrix', fontsize=14, fontweight='bold')
     
-    if all_mi_values:
-        ax4.hist(all_mi_values, bins=10, alpha=0.7, edgecolor='black')
-        ax4.set_title("MI Value Distribution")
-        ax4.set_xlabel("Mutual Information")
-        ax4.set_ylabel("Frequency")
+    # Add colorbar
+    cbar = plt.colorbar(im, ax=ax, ticks=[0, 1])
+    cbar.set_label('Selective', rotation=270, labelpad=15)
+    cbar.ax.set_yticklabels(['No', 'Yes'])
     
-    # Plot 5: P-value distribution (log scale)
-    ax5 = plt.subplot(2, 3, 5)
-    all_pvalues = []
-    for cell_id, features in significant_neurons.items():
-        for feat_name in features:
-            pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name)
-            if 'pval' in pair_stats:
-                all_pvalues.append(pair_stats['pval'])
+    # Add summary text
+    n_selective = len(significant_neurons)
+    n_pairs = sum(len(features) for features in significant_neurons.values())
+    selectivity_rate = (n_selective / exp.n_cells) * 100
     
-    if all_pvalues:
-        ax5.hist(np.log10(all_pvalues), bins=10, alpha=0.7, edgecolor='black')
-        ax5.set_title("P-value Distribution")
-        ax5.set_xlabel("log₁₀(P-value)")
-        ax5.set_ylabel("Frequency")
+    summary_text = f'Selective neurons: {n_selective}/{exp.n_cells} ({selectivity_rate:.1f}%)\nTotal selective pairs: {n_pairs}'
+    ax.text(1.15, 0.95, summary_text, transform=ax.transAxes, 
+            fontsize=10, verticalalignment='top', 
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
-    # Plot 6: Summary statistics
-    ax6 = plt.subplot(2, 3, 6)
-    ax6.axis('off')
-    
-    summary_text = f"""Summary Statistics:
-    
-Neurons analyzed: {exp.n_cells}
-Features analyzed: {len(exp.dynamic_features)}
-Significant neurons: {len(significant_neurons)}
-Total sig. pairs: {sum(len(f) for f in significant_neurons.values())}
-
-Selectivity rate: {len(significant_neurons)/exp.n_cells*100:.1f}%
-    
-Recording duration: {exp.n_frames/exp.fps:.1f}s
-Sampling rate: {exp.fps} Hz
-"""
-    
-    ax6.text(0.1, 0.9, summary_text, transform=ax6.transAxes, 
-             fontsize=10, verticalalignment='top', fontfamily='monospace')
+    # Add grid for better readability
+    ax.set_xticks(np.arange(len(all_features)) - 0.5, minor=True)
+    ax.set_yticks(np.arange(len(all_neurons)) - 0.5, minor=True)
+    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, alpha=0.3)
     
     plt.tight_layout()
     
-    # Save comprehensive visualization
-    output_path = os.path.join(output_dir, 'full_pipeline_analysis.png')
+    # Save heatmap
+    output_path = os.path.join(output_dir, 'neuronal_selectivity_heatmap.png')
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
-    print(f"Comprehensive visualization saved to: {output_path}")
+    print(f"Selectivity heatmap saved to: {output_path}")
+    
+    # Print statistics
+    print(f"\nHeatmap statistics:")
+    print(f"  • Matrix size: {len(all_neurons)} neurons × {len(all_features)} features")
+    print(f"  • Selective neurons: {n_selective} ({selectivity_rate:.1f}%)")
+    print(f"  • Total selective pairs: {n_pairs}")
+    print(f"  • Sparsity: {(1 - n_pairs/(len(all_neurons)*len(all_features)))*100:.1f}%")
     
     plt.show()
 
@@ -322,8 +291,8 @@ def main():
                 if 'me' in pair_stats and pair_stats['me'] is not None:
                     print(f"    • Modulation effect: {pair_stats['me']:.4f}")
     
-    # Step 6: Comprehensive visualization
-    create_comprehensive_visualization(exp, significant_neurons, output_dir)
+    # Step 6: Create selectivity heatmap
+    create_selectivity_heatmap(exp, significant_neurons, output_dir)
     
     # Final summary
     print("\n" + "=" * 80)
@@ -340,7 +309,7 @@ def main():
         print(f"• MI range: {np.min(all_mi_values):.4f} - {np.max(all_mi_values):.4f}")
     
     print(f"\nOutput files created in: {output_dir}")
-    print("• full_pipeline_analysis.png - Comprehensive visualization")
+    print("• neuronal_selectivity_heatmap.png - Selectivity matrix visualization")
     
     print(f"\nNext steps:")
     print("• Try mixed_selectivity.py for disentanglement analysis")
