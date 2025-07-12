@@ -20,6 +20,134 @@ The key advantage of MI over traditional correlation measures is its ability to 
 - **Multiple Metrics Support**: MI, Spearman correlation, and other similarity metrics
 - **Parallel Processing**: Efficient computation for large-scale neural datasets
 
+## Quick Start
+
+Analyze neuronal selectivity with synthetic data:
+
+```python
+import driada
+
+# Generate synthetic experiment with place cells and behavioral features
+exp = driada.generate_synthetic_exp(
+    n_dfeats=2,      # discrete features (e.g., trial type)
+    n_cfeats=2,      # continuous features (e.g., x, y position)  
+    nneurons=20,     # number of neurons
+    duration=300,    # 5 minutes recording
+    seed=42
+)
+
+# Discover significant neuron-feature relationships
+stats, significance, info, results = driada.compute_cell_feat_significance(
+    exp,
+    mode='two_stage',
+    n_shuffles_stage1=50,   # preliminary screening
+    n_shuffles_stage2=1000, # validation (use 10000+ for publication)
+    verbose=True
+)
+
+# Use Experiment method to get significant neurons
+significant_neurons = exp.get_significant_neurons()
+print(f"Found {len(significant_neurons)} significant neuron-feature pairs")
+
+# Examine results using Experiment methods
+for cell_id in list(significant_neurons.keys())[:3]:  # Show first 3 neurons
+    for feat_name in significant_neurons[cell_id]:
+        pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name)
+        
+        print(f"Neuron {cell_id} - Feature '{feat_name}':")
+        print(f"  Mutual Information: {pair_stats['pre_rval']:.4f}")
+        if 'pval' in pair_stats:
+            print(f"  P-value: {pair_stats['pval']:.2e}")
+        print(f"  Optimal delay: {pair_stats.get('shift_used', 0):.2f}s")
+```
+
+**Expected output:**
+```
+Found 8 significant neuron-feature pairs
+Neuron 3 - Feature 'c_feat_0':
+  Mutual Information: 0.2847
+  P-value: 2.45e-05
+  Optimal delay: 0.10s
+```
+
+**Visualization:**
+```python
+import matplotlib.pyplot as plt
+
+# Plot neuron-feature relationship for first significant pair
+if significant_neurons:
+    cell_id = list(significant_neurons.keys())[0]
+    feat_name = significant_neurons[cell_id][0]
+    fig, ax = plt.subplots(figsize=(8, 5))
+    driada.intense.plot_neuron_feature_pair(exp, cell_id, feat_name, ax=ax)
+    plt.title(f"Neuron {cell_id} selectivity to {feat_name}")
+    plt.show()
+```
+
+## Using Your Own Data
+
+The `Experiment` class is the main data container throughout DRIADA. It holds neural recordings, behavioral variables, and analysis results in a unified structure.
+
+### Creating an Experiment from Your Data
+
+```python
+import numpy as np
+import driada
+
+# Your neural data
+calcium_traces = np.random.randn(100, 12000)  # 100 neurons, 12000 timepoints
+spike_times = None  # Optional: spike trains (same shape as calcium)
+
+# Your behavioral variables (dynamic features)
+x_position = np.random.randn(12000)           # x coordinate over time
+y_position = np.random.randn(12000)           # y coordinate over time  
+trial_type = np.random.randint(0, 2, 12000)   # discrete: 0=left, 1=right trials
+speed = np.abs(np.random.randn(12000))        # continuous: movement speed
+
+dynamic_features = {
+    'x': x_position,
+    'y': y_position, 
+    'trial_type': trial_type,
+    'speed': speed
+}
+
+# Experimental metadata (static features)
+static_features = {
+    'fps': 20.0,        # sampling rate (frames per second)
+    't_rise_sec': 0.5,  # calcium rise time
+    't_off_sec': 2.0    # calcium decay time
+}
+
+# Experiment identifiers
+exp_identificators = {
+    'session': 'session_001',
+    'animal': 'mouse_123'
+}
+
+# Create Experiment object
+exp = driada.Experiment(
+    signature='MyExperiment',
+    calcium=calcium_traces,
+    spikes=spike_times,  # Can be None
+    exp_identificators=exp_identificators,
+    static_features=static_features,
+    dynamic_features=dynamic_features
+)
+
+print(f"Created experiment with {exp.n_cells} neurons and {exp.n_frames} timepoints")
+
+# Now analyze with INTENSE
+stats, significance, info, results = driada.compute_cell_feat_significance(exp)
+```
+
+**Key Points:**
+- **calcium**: Neural activity traces (numpy array, shape: n_neurons × n_timepoints)
+- **dynamic_features**: Behavioral variables that change over time (dict of numpy arrays)
+- **static_features**: Experimental parameters (dict with 'fps', 't_rise_sec', 't_off_sec')
+- **spikes**: Optional spike trains (can be None to auto-detect from calcium using wavelets)
+- The Experiment automatically converts numpy arrays to TimeSeries objects internally
+- All subsequent DRIADA analysis uses this unified Experiment container
+
 ## Mathematical Framework
 
 ### Mutual Information Computation
