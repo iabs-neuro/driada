@@ -507,7 +507,7 @@ def plot_selectivity_heatmap(exp, significant_neurons,
             # Check if this neuron-feature pair is significant
             if cell_id in significant_neurons and feat_name in significant_neurons[cell_id]:
                 # Get the statistics for this pair
-                pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name)
+                pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name, mode='calcium')
                 
                 # Check significance threshold if provided
                 if significance_threshold is not None:
@@ -516,13 +516,8 @@ def plot_selectivity_heatmap(exp, significant_neurons,
                     if pval is None or pval > significance_threshold:
                         continue
                 
-                # Get the metric value
-                if metric == 'mi':
-                    value = pair_stats['pre_rval']  # MI value
-                elif metric == 'corr':
-                    value = pair_stats.get('corr', pair_stats['pre_rval'])  # Use correlation if available
-                else:
-                    value = pair_stats['pre_rval']  # Default to MI
+                # Get the metric value - 'me' contains the metric value for whichever metric was used
+                value = pair_stats.get('me', 0)
                 
                 selectivity_matrix[neuron_idx, feat_idx] = value
                 all_metric_values.append(value)
@@ -594,8 +589,9 @@ def plot_selectivity_heatmap(exp, significant_neurons,
         ])
     
     summary_text = '\n'.join(summary_lines)
-    ax.text(1.02, 0.95, summary_text, transform=ax.transAxes, 
-            fontsize=10, verticalalignment='top', 
+    # Position text below the plot to avoid colorbar overlap
+    fig.text(0.5, -0.15, summary_text, transform=ax.transAxes, 
+            fontsize=10, verticalalignment='top', horizontalalignment='center',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
     # Add grid for better readability

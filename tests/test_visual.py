@@ -429,11 +429,11 @@ def test_plot_selectivity_heatmap():
                 'pre_rval': mi_value,
                 'pval': pval,
                 'shift_used': 0.0,
-                'corr': mi_value * 0.8  # Mock correlation
+                'me': mi_value  # 'me' stores the metric value
             }
     
     # Mock get_neuron_feature_pair_stats method
-    def get_stats(cell_id, feat_name):
+    def get_stats(cell_id, feat_name, mode='calcium'):
         return exp.stats_table[feat_name][cell_id]
     exp.get_neuron_feature_pair_stats = get_stats
     
@@ -526,11 +526,12 @@ def test_plot_selectivity_heatmap_edge_cases():
             exp.stats_table[feat_name][neuron_id] = {
                 'pre_rval': 0.3 if neuron_id == 0 else 0.1,
                 'pval': None if neuron_id == 1 else 0.001,  # Test None pval
-                'shift_used': 0.0
+                'shift_used': 0.0,
+                'me': 0.3 if neuron_id == 0 else 0.1  # Add 'me' key
             }
     
     # Mock get_neuron_feature_pair_stats method
-    def get_stats(cell_id, feat_name):
+    def get_stats(cell_id, feat_name, mode='calcium'):
         return exp.stats_table[feat_name][cell_id]
     exp.get_neuron_feature_pair_stats = get_stats
     
