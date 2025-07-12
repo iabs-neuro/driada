@@ -183,12 +183,22 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
         else:
             fig, ax0 = plt.subplots(figsize=(10, 6))
             ax1 = None
+    else:
+        # When ax is provided externally, use it as ax0
+        ax0 = ax
+        ax1 = None
+        add_density_plot = False  # Cannot add density plot when single axis provided
+        fig = ax0.figure  # Get the figure from the provided axis
 
     ax0 = make_beautiful(ax0)
 
     ax0.plot(np.arange(ind1, ind2)[::ds], ca, c='b', linewidth=2, alpha=0.5, label=f'neuron {cell_id}')
     if feature.discrete:
-        ax0.scatter(np.arange(ind1, ind2)[::ds][np.where(rbdata == 1)], ca[np.where(rbdata == 1)], c='r', linewidth=2)
+        # For discrete features, use the original data to find where feature is active (1)
+        active_indices = np.where(feature.data[ind1:ind2][::ds] == 1)[0]
+        if len(active_indices) > 0:
+            ax0.scatter(np.arange(ind1, ind2)[::ds][active_indices], ca[active_indices], 
+                       c='r', s=50, alpha=0.7, zorder=10, label=f'{featname}=1')
     else:
         ax0.plot(np.arange(ind1, ind2)[::ds], rbdata, c='r', linewidth=2, alpha=0.5)
 
@@ -197,6 +207,10 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
 
     ax0.set_xlabel('timeframes', fontsize=20)
     ax0.set_ylabel('Signal/behavior', fontsize=20)
+    
+    # Add legend if we have labels
+    if feature.discrete:
+        ax0.legend(loc='upper right')
 
     if title is None:
         title = f'{exp.signature} Neuron {cell_id}, feature {featname}'

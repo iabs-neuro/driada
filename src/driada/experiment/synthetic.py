@@ -531,7 +531,8 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
                                                   create_discrete_pairs=True,
                                                   selectivity_prob=0.8, multi_select_prob=0.5,
                                                   weights_mode='random', duration=1200,
-                                                  seed=42, fps=20, verbose=True):
+                                                  seed=42, fps=20, verbose=True,
+                                                  name_convention='str'):
     """
     Generate synthetic experiment with mixed selectivity and multifeatures.
     
@@ -561,6 +562,10 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
         Sampling rate.
     verbose : bool
         Print progress messages.
+    name_convention : str, optional
+        Naming convention for multifeatures. Options:
+        - 'str' (default): Use string keys like 'xy', 'speed_direction'
+        - 'tuple': Use tuple keys like ('x', 'y'), ('speed', 'head_direction') [DEPRECATED]
         
     Returns
     -------
@@ -598,21 +603,33 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
             disc_series, _ = discretize_via_roi(fbm_series, seed=seed + i + 200)
             features_dict[f'd_feat_from_c{i}'] = disc_series
     
-    # Create multifeatures (e.g., place fields from x,y)
-    multifeature_map = {}
+    # Create multifeatures from existing continuous features
+    multifeatures_to_create = []
     if n_multifeatures > 0 and n_continuous_feats >= 2:
         if verbose:
             print(f'Creating {n_multifeatures} multifeatures...')
-        # Create spatial features
-        if n_multifeatures >= 1:
-            features_dict['x'] = features_dict['c_feat_0']
-            features_dict['y'] = features_dict['c_feat_1']
-            multifeature_map[('x', 'y')] = 'place'
-        # Create additional multifeatures if requested
-        if n_multifeatures >= 2 and n_continuous_feats >= 4:
-            features_dict['speed'] = np.abs(features_dict['c_feat_2'])
-            features_dict['head_direction'] = features_dict['c_feat_3']
-            multifeature_map[('speed', 'head_direction')] = 'locomotion'
+        
+        # Get all continuous features
+        continuous_feats = [f for f in features_dict.keys() if 'c_feat' in f]
+        
+        # Create multifeatures by pairing continuous features
+        multi_idx = 0
+        for i in range(0, min(n_multifeatures * 2, len(continuous_feats)), 2):
+            if multi_idx >= n_multifeatures:
+                break
+            if i + 1 < len(continuous_feats):
+                feat1 = continuous_feats[i]
+                feat2 = continuous_feats[i + 1]
+                
+                if name_convention == 'str':
+                    # String key for the multifeature
+                    mf_name = f'multi{multi_idx}'
+                    multifeatures_to_create.append((mf_name, (feat1, feat2)))
+                else:  # 'tuple' convention (deprecated)
+                    # Tuple key for the multifeature
+                    multifeatures_to_create.append(((feat1, feat2), (feat1, feat2)))
+                
+                multi_idx += 1
     
     # Generate selectivity patterns
     all_feature_names = list(features_dict.keys())
@@ -648,16 +665,16 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
         dynamic_features[feat_name] = TimeSeries(feat_data, discrete=is_discrete)
     
     # Add multifeatures using aggregate_multiple_ts
-    for mf_tuple, mf_name in multifeature_map.items():
+    for mf_key, mf_components in multifeatures_to_create:
         # Get component TimeSeries
         component_ts = []
-        for component_name in mf_tuple:
+        for component_name in mf_components:
             if component_name in dynamic_features and not dynamic_features[component_name].discrete:
                 component_ts.append(dynamic_features[component_name])
         
         # Create MultiTimeSeries if all components are continuous
-        if len(component_ts) == len(mf_tuple):
-            dynamic_features[mf_tuple] = aggregate_multiple_ts(*component_ts)
+        if len(component_ts) == len(mf_components):
+            dynamic_features[mf_key] = aggregate_multiple_ts(*component_ts)
     
     # Create experiment
     exp = Experiment('SyntheticMixedSelectivity',
@@ -669,6 +686,16 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
                      reconstruct_spikes=None)
     
     # Prepare selectivity info
+    # Create multifeature map for return value
+    multifeature_map = {}
+    for i, (mf_key, mf_components) in enumerate(multifeatures_to_create):
+        if isinstance(mf_key, str):
+            # For string convention: components tuple -> multifeature name
+            multifeature_map[mf_components] = mf_key
+        else:
+            # For tuple convention: components tuple -> generated name
+            multifeature_map[mf_key] = f'multifeature_{i}'
+    
     selectivity_info = {
         'matrix': selectivity_matrix,
         'feature_names': all_feature_names,
