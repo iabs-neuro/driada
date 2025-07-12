@@ -50,6 +50,7 @@ from .visual import (
     plot_neuron_feature_pair,
     plot_disentanglement_heatmap,
     plot_disentanglement_summary,
+    plot_selectivity_heatmap,
 )
 
 # Disentanglement analysis functions
@@ -96,6 +97,7 @@ __all__ = [
     "plot_neuron_feature_pair",
     "plot_disentanglement_heatmap",
     "plot_disentanglement_summary",
+    "plot_selectivity_heatmap",
     # Disentanglement
     "disentangle_pair",
     "disentangle_all_selectivities",

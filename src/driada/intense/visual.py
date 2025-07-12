@@ -446,3 +446,172 @@ def plot_disentanglement_summary(disent_matrix, count_matrix, feat_names,
     
     plt.tight_layout()
     return fig
+
+
+def plot_selectivity_heatmap(exp, significant_neurons, 
+                            metric='mi', cmap='viridis', use_log_scale=False,
+                            vmin=None, vmax=None, figsize=(10, 8),
+                            significance_threshold=None, ax=None):
+    """Create a heatmap showing metric values for selective neuron-feature pairs.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        The experiment object containing all data and results
+    significant_neurons : dict
+        Dictionary mapping neuron IDs to lists of significant features
+    metric : str, optional
+        Which metric to display ('mi' for mutual information, 'corr' for correlation)
+        Default: 'mi'
+    cmap : str, optional
+        Colormap to use. Default: 'viridis'
+    use_log_scale : bool, optional
+        Whether to use log scale for metric values. Default: False
+    vmin : float, optional
+        Minimum value for colormap. If None, auto-determined from data
+    vmax : float, optional
+        Maximum value for colormap. If None, auto-determined from data
+    figsize : tuple, optional
+        Figure size (ignored if ax provided). Default: (10, 8)
+    significance_threshold : float, optional
+        If provided, only show pairs with p-value below this threshold
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot on. If None, creates new figure.
+        
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure containing the heatmap
+    ax : matplotlib.axes.Axes
+        Axes containing the heatmap
+    stats : dict
+        Dictionary containing statistics about the data:
+        - n_selective: number of selective neurons
+        - n_pairs: total number of significant pairs
+        - selectivity_rate: percentage of selective neurons
+        - metric_values: list of all non-zero metric values
+        - sparsity: percentage of zero entries in the matrix
+    """
+    # Get all features and create ordered lists
+    all_features = sorted([f for f in exp.dynamic_features.keys() if isinstance(f, str)])
+    all_neurons = list(range(exp.n_cells))
+    
+    # Create matrix with metric values (0 for non-selective pairs)
+    selectivity_matrix = np.zeros((len(all_neurons), len(all_features)))
+    
+    # Collect all metric values for statistics
+    all_metric_values = []
+    
+    for neuron_idx, cell_id in enumerate(all_neurons):
+        for feat_idx, feat_name in enumerate(all_features):
+            # Check if this neuron-feature pair is significant
+            if cell_id in significant_neurons and feat_name in significant_neurons[cell_id]:
+                # Get the statistics for this pair
+                pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name)
+                
+                # Check significance threshold if provided
+                if significance_threshold is not None:
+                    pval = pair_stats.get('pval', None)
+                    # Skip if pval is None (failed stage 1) or above threshold
+                    if pval is None or pval > significance_threshold:
+                        continue
+                
+                # Get the metric value
+                if metric == 'mi':
+                    value = pair_stats['pre_rval']  # MI value
+                elif metric == 'corr':
+                    value = pair_stats.get('corr', pair_stats['pre_rval'])  # Use correlation if available
+                else:
+                    value = pair_stats['pre_rval']  # Default to MI
+                
+                selectivity_matrix[neuron_idx, feat_idx] = value
+                all_metric_values.append(value)
+    
+    # Apply log scale if requested
+    if use_log_scale and len(all_metric_values) > 0:
+        # Add small epsilon to avoid log(0)
+        epsilon = 1e-10
+        selectivity_matrix = np.log10(selectivity_matrix + epsilon)
+        # Set zeros back to a special value for visualization
+        selectivity_matrix[selectivity_matrix < np.log10(epsilon * 2)] = np.nan
+    
+    # Create figure if needed
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+    
+    # Determine color limits
+    if len(all_metric_values) > 0:
+        if vmin is None:
+            vmin = 0 if not use_log_scale else np.log10(min(all_metric_values))
+        if vmax is None:
+            vmax = max(all_metric_values) if not use_log_scale else np.log10(max(all_metric_values))
+    else:
+        vmin = 0
+        vmax = 1
+    
+    # Create masked array to handle NaN values properly
+    masked_matrix = np.ma.masked_invalid(selectivity_matrix)
+    
+    # Plot heatmap
+    im = ax.imshow(masked_matrix, cmap=cmap, aspect='auto', interpolation='nearest',
+                   vmin=vmin, vmax=vmax)
+    
+    # Set ticks and labels
+    ax.set_xticks(range(len(all_features)))
+    ax.set_xticklabels(all_features, rotation=45, ha='right')
+    ax.set_yticks(range(0, len(all_neurons), max(1, len(all_neurons)//20)))  # Show ~20 neuron labels
+    ax.set_yticklabels(range(0, len(all_neurons), max(1, len(all_neurons)//20)))
+    
+    # Labels and title
+    ax.set_xlabel('Features', fontsize=12)
+    ax.set_ylabel('Neurons', fontsize=12)
+    metric_name = 'Mutual Information' if metric == 'mi' else 'Correlation'
+    scale_text = ' (log₁₀)' if use_log_scale else ''
+    ax.set_title(f'Neuronal Selectivity: {metric_name}{scale_text}', fontsize=14, fontweight='bold')
+    
+    # Add colorbar with appropriate label
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label(f'{metric_name}{scale_text}', rotation=270, labelpad=20)
+    
+    # Calculate statistics
+    n_selective = len(significant_neurons)
+    n_pairs = sum(len(features) for features in significant_neurons.values())
+    selectivity_rate = (n_selective / exp.n_cells) * 100
+    sparsity = (1 - n_pairs/(len(all_neurons)*len(all_features)))*100
+    
+    # Add summary text
+    summary_lines = [
+        f'Selective neurons: {n_selective}/{exp.n_cells} ({selectivity_rate:.1f}%)',
+        f'Total selective pairs: {n_pairs}'
+    ]
+    
+    if len(all_metric_values) > 0:
+        summary_lines.extend([
+            f'{metric.upper()} range: [{min(all_metric_values):.3f}, {max(all_metric_values):.3f}]',
+            f'Mean {metric.upper()}: {np.mean(all_metric_values):.3f}'
+        ])
+    
+    summary_text = '\n'.join(summary_lines)
+    ax.text(1.02, 0.95, summary_text, transform=ax.transAxes, 
+            fontsize=10, verticalalignment='top', 
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    # Add grid for better readability
+    ax.set_xticks(np.arange(len(all_features)) - 0.5, minor=True)
+    ax.set_yticks(np.arange(len(all_neurons)) - 0.5, minor=True)
+    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    # Return statistics
+    stats = {
+        'n_selective': n_selective,
+        'n_pairs': n_pairs,
+        'selectivity_rate': selectivity_rate,
+        'metric_values': all_metric_values,
+        'sparsity': sparsity
+    }
+    
+    return fig, ax, stats

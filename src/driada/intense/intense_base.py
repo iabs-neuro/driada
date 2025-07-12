@@ -311,20 +311,25 @@ def calculate_optimal_delays_parallel(ts_bunch1, ts_bunch2, metric,
     return optimal_delays
 
 
-# TODO: add cbunch and fbunch logic
-def get_calcium_feature_me_profile(exp, cell_id, feat_id, window=1000, ds=1, metric='mi'):
+def get_calcium_feature_me_profile(exp, cell_id=None, feat_id=None, cbunch=None, fbunch=None, 
+                                   window=1000, ds=1, metric='mi', data_type='calcium'):
     """
-    Compute metric profile between a neuron's calcium signal and behavioral features.
+    Compute metric profile between neurons and behavioral features across time shifts.
     
     Parameters
     ----------
     exp : Experiment
         Experiment object containing neurons and behavioral features.
-    cell_id : int
-        Index of the neuron in exp.neurons.
-    feat_id : str or tuple of str
-        Feature name(s) to analyze. If tuple, computes joint metrics
-        with multiple features (only supported for metric='mi').
+    cell_id : int, optional
+        Index of a single neuron in exp.neurons. Deprecated - use cbunch instead.
+    feat_id : str or tuple of str, optional
+        Single feature name(s) to analyze. Deprecated - use fbunch instead.
+    cbunch : int, iterable or None, optional
+        Neuron indices. If None (default), all neurons will be analyzed.
+        Takes precedence over cell_id if both provided.
+    fbunch : str, iterable or None, optional
+        Feature names. If None (default), all single features will be analyzed.
+        Takes precedence over feat_id if both provided.
     window : int, optional
         Maximum shift to test in each direction (frames). Default: 1000.
     ds : int, optional
@@ -334,14 +339,20 @@ def get_calcium_feature_me_profile(exp, cell_id, feat_id, window=1000, ds=1, met
         - 'mi': Mutual information
         - 'spearman': Spearman correlation
         - Other metrics supported by get_sim function
+    data_type : str, optional
+        Type of neural data to use. Default: 'calcium'.
+        - 'calcium': Use calcium imaging data
+        - 'spikes': Use spike data
         
     Returns
     -------
-    me0 : float
-        Metric value at zero delay.
-    shifted_me : list of float
-        Metric values at each tested shift, ordered from
-        -window to +window frames.
+    dict
+        If single cell_id and feat_id provided (backward compatibility):
+            {'me0': float, 'shifted_me': list of float}
+        If cbunch or fbunch used:
+            Nested dictionary with structure:
+            {cell_id: {feat_id: {'me0': float, 'shifted_me': list}}}
+            where shifted_me contains metric values from -window to +window.
         
     Notes
     -----
@@ -351,14 +362,18 @@ def get_calcium_feature_me_profile(exp, cell_id, feat_id, window=1000, ds=1, met
     
     Examples
     --------
-    >>> # Mutual information with single feature
+    >>> # Backward compatibility - single cell and feature
     >>> mi_zero, mi_profile = get_calcium_feature_me_profile(exp, 0, 'speed')
     >>> 
-    >>> # Spearman correlation with single feature
-    >>> corr_zero, corr_profile = get_calcium_feature_me_profile(exp, 0, 'speed', metric='spearman')
+    >>> # New usage - analyze multiple cells and features
+    >>> results = get_calcium_feature_me_profile(exp, cbunch=[0, 1, 2], fbunch=['speed', 'head_direction'])
+    >>> # Access specific result: results[cell_id][feat_id]['me0'] and ['shifted_me']
+    >>> 
+    >>> # Analyze all cells with all features
+    >>> results = get_calcium_feature_me_profile(exp, cbunch=None, fbunch=None)
     >>> 
     >>> # Multi-feature joint mutual information
-    >>> mi_zero, mi_profile = get_calcium_feature_me_profile(exp, 0, ('x', 'y'))
+    >>> results = get_calcium_feature_me_profile(exp, cbunch=[0], fbunch=[('x', 'y')])
     """
     # Validate inputs
     validate_common_parameters(ds=ds)
@@ -367,32 +382,72 @@ def get_calcium_feature_me_profile(exp, cell_id, feat_id, window=1000, ds=1, met
     if window <= 0:
         raise ValueError(f"window must be positive, got {window}")
     
-    if not (0 <= cell_id < len(exp.neurons)):
-        raise ValueError(f"cell_id {cell_id} out of range [0, {len(exp.neurons)-1}]")
+    # Check if single cell/feature mode (backward compatibility)
+    single_mode = (cell_id is not None and feat_id is not None and 
+                   cbunch is None and fbunch is None)
     
-    cell = exp.neurons[cell_id]
-    ts1 = cell.ca
-    shifted_me = []
-
-    if isinstance(feat_id, str):
-        ts2 = exp.dynamic_features[feat_id]
-        me0 = get_sim(ts1, ts2, metric, ds=ds)
-
-        for shift in tqdm.tqdm(np.arange(-window, window, ds)//ds):
-            lag_me = get_sim(ts1, ts2, metric, ds=ds, shift=shift)
-            shifted_me.append(lag_me)
-
+    # Handle backward compatibility - if old-style single cell_id/feat_id provided
+    if cbunch is None and cell_id is not None:
+        cbunch = cell_id
+    if fbunch is None and feat_id is not None:
+        fbunch = feat_id
+    
+    # Process cbunch and fbunch using experiment's methods
+    cell_ids = exp._process_cbunch(cbunch)
+    feat_ids = exp._process_fbunch(fbunch, allow_multifeatures=True, mode=data_type)
+    
+    # Validate cell indices
+    for cid in cell_ids:
+        if not (0 <= cid < len(exp.neurons)):
+            raise ValueError(f"cell_id {cid} out of range [0, {len(exp.neurons)-1}]")
+    
+    # Initialize results dictionary
+    results = {}
+    
+    # Progress bar for all combinations
+    total_combinations = len(cell_ids) * len(feat_ids)
+    pbar = tqdm.tqdm(total=total_combinations, desc="Computing ME profiles")
+    
+    for cid in cell_ids:
+        cell = exp.neurons[cid]
+        ts1 = cell.ca if data_type == 'calcium' else cell.spikes
+        results[cid] = {}
+        
+        for fid in feat_ids:
+            shifted_me = []
+            
+            if isinstance(fid, str):
+                # Single feature
+                ts2 = exp.dynamic_features[fid]
+                me0 = get_sim(ts1, ts2, metric, ds=ds)
+                
+                for shift in np.arange(-window, window, ds)//ds:
+                    lag_me = get_sim(ts1, ts2, metric, ds=ds, shift=shift)
+                    shifted_me.append(lag_me)
+                    
+            else:
+                # Multi-feature (tuple)
+                if metric != 'mi':
+                    raise ValueError(f"Multi-feature analysis only supported for metric='mi', got '{metric}'")
+                feats = [exp.dynamic_features[f] for f in fid]
+                me0 = get_multi_mi(feats, ts1, ds=ds)
+                
+                for shift in np.arange(-window, window, ds)//ds:
+                    lag_me = get_multi_mi(feats, ts1, ds=ds, shift=shift)
+                    shifted_me.append(lag_me)
+            
+            results[cid][fid] = {'me0': me0, 'shifted_me': shifted_me}
+            pbar.update(1)
+    
+    pbar.close()
+    
+    # Return format based on usage mode
+    if single_mode:
+        # Backward compatibility - return simple format
+        return results[cell_ids[0]][feat_ids[0]]['me0'], results[cell_ids[0]][feat_ids[0]]['shifted_me']
     else:
-        if metric != 'mi':
-            raise ValueError(f"Multi-feature analysis only supported for metric='mi', got '{metric}'")
-        feats = [exp.dynamic_features[fid] for fid in feat_id]
-        me0 = get_multi_mi(feats, ts1, ds=ds)
-
-        for shift in tqdm.tqdm(np.arange(-window, window, ds)//ds):
-            lag_me = get_multi_mi(feats, ts1, ds=ds, shift=shift)
-            shifted_me.append(lag_me)
-
-    return me0, shifted_me
+        # New format - return full results dictionary
+        return results
 
 
 def scan_pairs(ts_bunch1,
@@ -852,7 +907,8 @@ def compute_me_stats(ts_bunch1,
                      verbose=True,
                      seed=None,
                      enable_parallelization=True,
-                     n_jobs=-1):
+                     n_jobs=-1,
+                     duplicate_behavior='ignore'):
 
     """
     Calculates similarity metric statistics for TimeSeries or MultiTimeSeries pairs
@@ -960,6 +1016,12 @@ def compute_me_stats(ts_bunch1,
 
     seed: int
         random seed for reproducibility
+    
+    duplicate_behavior: str
+        How to handle duplicate TimeSeries in ts_bunch1 or ts_bunch2.
+        - 'ignore': Process duplicates normally (default)
+        - 'raise': Raise an error if duplicates are found
+        - 'warn': Print a warning but continue processing
 
     Returns
     -------
@@ -1029,7 +1091,34 @@ def compute_me_stats(ts_bunch1,
         np.fill_diagonal(precomputed_mask_stage1, 0)
         np.fill_diagonal(precomputed_mask_stage2, 0)
 
-    # TODO: add a keyword argument for behavior on duplicate TS ('ignore/raise error')
+    # Handle duplicate TimeSeries based on duplicate_behavior parameter
+    if duplicate_behavior in ['raise', 'warn']:
+        # Check for duplicates in ts_bunch1
+        ts1_ids = []
+        for ts in ts_bunch1:
+            ts_id = id(ts.data) if hasattr(ts, 'data') else id(ts)
+            ts1_ids.append(ts_id)
+        
+        if len(set(ts1_ids)) < len(ts1_ids):
+            msg = "Duplicate TimeSeries objects found in ts_bunch1"
+            if duplicate_behavior == 'raise':
+                raise ValueError(msg)
+            else:  # warn
+                print(f"Warning: {msg}")
+        
+        # Check for duplicates in ts_bunch2 (if not joint_distr)
+        if not joint_distr:
+            ts2_ids = []
+            for ts in ts_bunch2:
+                ts_id = id(ts.data) if hasattr(ts, 'data') else id(ts)
+                ts2_ids.append(ts_id)
+            
+            if len(set(ts2_ids)) < len(ts2_ids):
+                msg = "Duplicate TimeSeries objects found in ts_bunch2"
+                if duplicate_behavior == 'raise':
+                    raise ValueError(msg)
+                else:  # warn
+                    print(f"Warning: {msg}")
 
     optimal_delays = np.zeros((n1, n2), dtype=int)
     ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if _ not in skip_delays]

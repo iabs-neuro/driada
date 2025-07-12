@@ -12,8 +12,9 @@ from ..information.info_base import get_mi, conditional_mi, MultiTimeSeries
 
 
 # Default multifeature mapping for common behavioral variable combinations
+# Maps component tuples to their semantic names
 DEFAULT_MULTIFEATURE_MAP = {
-    ('x', 'y'): 'place',
+    ('x', 'y'): 'place',  # spatial location multifeature
 }
 
 

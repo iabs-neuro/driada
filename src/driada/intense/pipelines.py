@@ -32,7 +32,8 @@ def compute_cell_feat_significance(exp,
                                   n_jobs=-1,
                                   seed=42,
                                   with_disentanglement=False,
-                                  multifeature_map=None):
+                                  multifeature_map=None,
+                                  duplicate_behavior='ignore'):
 
     """
     Calculates significant neuron-feature pairs
@@ -158,6 +159,12 @@ def compute_cell_feat_significance(exp,
         If None, uses DEFAULT_MULTIFEATURE_MAP from disentanglement module.
         Only used when with_disentanglement=True.
         default: None
+        
+    duplicate_behavior: str
+        How to handle duplicate TimeSeries in neuron or feature bunches.
+        - 'ignore': Process duplicates normally (default)
+        - 'raise': Raise an error if duplicates are found
+        - 'warn': Print a warning but continue processing
 
     Returns
     -------
@@ -279,13 +286,17 @@ def compute_cell_feat_significance(exp,
                                                                    verbose=verbose,
                                                                    enable_parallelization=enable_parallelization,
                                                                    n_jobs=n_jobs,
-                                                                   seed=seed)
+                                                                   seed=seed,
+                                                                   duplicate_behavior=duplicate_behavior)
 
     exp.optimal_nf_delays = info['optimal_delays']
     # add hash data and update Experiment saved statistics and significance if needed
     for i, cell_id in enumerate(cell_ids):
         for j, feat_id in enumerate(feat_ids):
-            # TODO: add check for non-existing feature if use_precomputed_stats==False
+            # Check for non-existing feature if use_precomputed_stats==False
+            if not use_precomputed_stats:
+                if feat_id not in exp._data_hashes[data_type]:
+                    raise ValueError(f"Feature '{feat_id}' not found in data hashes. This may indicate the feature was not properly initialized.")
             computed_stats[cell_id][feat_id]['data_hash'] = exp._data_hashes[data_type][feat_id][cell_id]
 
             me_val = computed_stats[cell_id][feat_id].get('me')
@@ -427,7 +438,8 @@ def compute_feat_feat_significance(exp,
                                   verbose=True,
                                   enable_parallelization=True,
                                   n_jobs=-1,
-                                  seed=42):
+                                  seed=42,
+                                  duplicate_behavior='ignore'):
     """
     Compute pairwise significance between all behavioral features.
     
@@ -473,6 +485,12 @@ def compute_feat_feat_significance(exp,
         Number of parallel jobs. -1 means use all processors. Default: -1.
     seed : int, optional
         Random seed for reproducibility. Default: 42.
+    duplicate_behavior : str, optional
+        How to handle duplicate TimeSeries in ts_bunch1 or ts_bunch2.
+        - 'ignore': Process duplicates normally (default)
+        - 'raise': Raise an error if duplicates are found
+        - 'warn': Print a warning but continue processing
+        Default: 'ignore'.
         
     Returns
     -------
@@ -578,7 +596,8 @@ def compute_feat_feat_significance(exp,
         verbose=verbose,
         enable_parallelization=enable_parallelization,
         n_jobs=n_jobs,
-        seed=seed
+        seed=seed,
+        duplicate_behavior='ignore'  # Default behavior for feature-feature comparison
     )
     
     # Extract matrices from results
@@ -652,7 +671,8 @@ def compute_cell_cell_significance(exp,
                                   verbose=True,
                                   enable_parallelization=True,
                                   n_jobs=-1,
-                                  seed=42):
+                                  seed=42,
+                                  duplicate_behavior='ignore'):
     """
     Compute pairwise functional correlations between neurons using INTENSE.
     
@@ -698,6 +718,12 @@ def compute_cell_cell_significance(exp,
         Number of parallel jobs. -1 means use all processors. Default: -1.
     seed : int, optional
         Random seed for reproducibility. Default: 42.
+    duplicate_behavior : str, optional
+        How to handle duplicate TimeSeries in ts_bunch1 or ts_bunch2.
+        - 'ignore': Process duplicates normally (default)
+        - 'raise': Raise an error if duplicates are found
+        - 'warn': Print a warning but continue processing
+        Default: 'ignore'.
         
     Returns
     -------
@@ -797,7 +823,8 @@ def compute_cell_cell_significance(exp,
         verbose=verbose,
         enable_parallelization=enable_parallelization,
         n_jobs=n_jobs,
-        seed=seed
+        seed=seed,
+        duplicate_behavior='ignore'  # Default behavior for cell-cell comparison
     )
     
     # Extract matrices from results

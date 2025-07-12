@@ -63,11 +63,68 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - Documents Experiment class as main DRIADA data container
   - Shows complete bridge from synthetic to real data workflows
 
-- [ ] **Create examples/ directory with working demos** - Critical for user confidence
-  - [ ] `examples/basic_usage.py` - Minimal working example with synthetic data
-  - [ ] `examples/full_pipeline.py` - Complete analysis pipeline
-  - [ ] `examples/mixed_selectivity.py` - Demonstrate disentanglement features
-  - [ ] Each example must be self-contained and run without external data
+- [x] **Create examples/ directory with working demos** - Critical for user confidence ✅ COMPLETED (2025-01-12)
+  - [x] `examples/basic_usage.py` - Minimal working example with synthetic data
+  - [x] `examples/full_pipeline.py` - Complete analysis pipeline with MultiTimeSeries
+  - [x] `examples/mixed_selectivity.py` - Demonstrate disentanglement features
+  - [x] Each example must be self-contained and run without external data
+  
+  **Implementation Checkpoints:**
+  - ✅ Created examples/__init__.py for proper module structure
+  - ✅ basic_usage.py: 85-line minimal example with visualization
+  - ✅ full_pipeline.py: 341-line comprehensive analysis with parameter sensitivity
+  - ✅ mixed_selectivity.py: 464-line advanced disentanglement analysis
+  - ✅ Fixed visual.py bug: red dots now properly display for discrete features
+  - ✅ Added name_convention parameter to generate_synthetic_exp_with_mixed_selectivity
+    - 'str' (default): Use string keys like 'multi0', 'multi1'
+    - 'tuple' (deprecated): Use tuple keys like ('c_feat_0', 'c_feat_1')
+  - ✅ Updated MultiTimeSeries detection to use isinstance() instead of tuple checks
+  - ✅ All examples tested and working in driada environment
+  
+  **Files Created/Modified:**
+  - examples/__init__.py (new)
+  - examples/basic_usage.py (new, 85 lines)
+  - examples/full_pipeline.py (new, 341 lines)
+  - examples/mixed_selectivity.py (new, 464 lines)
+  - src/driada/experiment/synthetic.py (added name_convention parameter)
+  - src/driada/intense/visual.py (fixed discrete feature plotting)
+  
+  **Technical Notes:**
+  - Examples use realistic parameters for educational value
+  - Each example includes extensive documentation and interpretation
+  - MultiTimeSeries now use string keys by default ('multi0', 'multi1')
+  - Fixed issue where discrete feature red dots were not showing
+  - All examples generate visualizations saved as PNG files
+
+- [ ] **Fix and enhance full_pipeline.py example** - URGENT
+  - [ ] Fix selectivity heatmap to show actual MI values instead of binary 0/1
+  - [ ] Use MI values as colormap data (0 for non-selective pairs)
+  - [ ] Support configurable metrics (MI, correlation, etc.)
+  - [ ] Make all parameters configurable (currently hardcoded)
+  - [ ] Investigate why no neurons are selective for continuous features
+  - [ ] Investigate why no neurons are selective for MultiTimeSeries features
+  - [ ] Add colorbar showing MI value scale
+  - [ ] Consider log scale for better MI value visualization
+  - [ ] Add option to filter by significance threshold
+  
+  **Technical Issues to Address:**
+  - Current implementation only shows binary selectivity (0 or 1)
+  - Synthetic data may not be generating selectivity for continuous/multi features
+  - Need to check if compute_cell_feat_significance properly handles all feature types
+  - May need to adjust synthetic data generation parameters
+
+- [ ] **Update mixed_selectivity.py to use visual.py functions** - HIGH PRIORITY
+  - [ ] Replace custom visualization code with plot_disentanglement_heatmap from visual.py
+  - [ ] Use plot_disentanglement_summary for comprehensive view
+  - [ ] Ensure proper data format for visual.py functions
+  - [ ] Remove redundant visualization code
+  - [ ] Add proper error handling for edge cases
+  - [ ] Test with various disentanglement scenarios
+  
+  **Implementation Notes:**
+  - visual.py already has plot_disentanglement_heatmap and plot_disentanglement_summary
+  - Need to format disentanglement_results correctly for these functions
+  - Should maintain all existing functionality while simplifying code
 
 - [ ] **Create notebooks/ directory with interactive tutorials** - Essential for demo
   - [ ] `notebooks/01_quick_start.ipynb` - 5-minute introduction
@@ -415,6 +472,11 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
 - [ ] Add progress reporting for long computations
 - [ ] Implement checkpoint/resume for long computations
 - [ ] Add batch processing capabilities
+- [ ] **Fix synthetic data generation for continuous/MultiTimeSeries selectivity**
+  - [ ] Investigate why generate_synthetic_exp produces no selectivity for continuous features
+  - [ ] Ensure MultiTimeSeries features can show selectivity in synthetic data
+  - [ ] Add parameters to control continuous feature selectivity strength
+  - [ ] Verify compute_cell_feat_significance handles all feature types equally
 
 ### Medium Priority
 - [ ] Add support for different shuffling strategies
@@ -451,6 +513,10 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
 - [ ] Implement heatmaps for pairwise significance
 - [ ] Add statistical summary plots
 - [ ] Create publication-ready figure exports
+- [ ] **Fix examples to properly use visualization functions**
+  - [ ] Update full_pipeline.py to show MI values in heatmap
+  - [ ] Update mixed_selectivity.py to use plot_disentanglement_heatmap
+  - [ ] Ensure all examples leverage existing visual.py functions
 
 ### Medium Priority
 - [ ] Add 3D visualization capabilities

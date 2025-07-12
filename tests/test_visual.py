@@ -8,6 +8,7 @@ from src.driada.intense.visual import (
     plot_neuron_feature_pair,
     plot_disentanglement_heatmap,
     plot_disentanglement_summary,
+    plot_selectivity_heatmap,
 )
 import matplotlib.pyplot as plt
 from src.driada.experiment.synthetic import generate_synthetic_exp
@@ -393,4 +394,171 @@ def test_plot_disentanglement_summary_with_nan():
     # Should handle NaN values gracefully
     fig = plot_disentanglement_summary(disent_matrix, count_matrix, feat_names)
     assert fig is not None
+    plt.close('all')
+
+
+def test_plot_selectivity_heatmap():
+    """Test plot_selectivity_heatmap function."""
+    # Create mock experiment
+    exp = SimpleNamespace()
+    exp.n_cells = 10
+    exp.dynamic_features = {
+        'd_feat_0': None,
+        'd_feat_1': None, 
+        'c_feat_0': None,
+        'c_feat_1': None,
+        (0, 1): None  # Tuple key to test filtering
+    }
+    
+    # Create mock stats_table with MI values
+    exp.stats_table = {}
+    for feat_name in ['d_feat_0', 'd_feat_1', 'c_feat_0', 'c_feat_1']:
+        exp.stats_table[feat_name] = {}
+        for neuron_id in range(10):
+            # Make some neurons selective
+            if (neuron_id < 3 and feat_name == 'd_feat_0') or \
+               (neuron_id >= 7 and feat_name == 'c_feat_0') or \
+               (neuron_id == 5 and feat_name in ['d_feat_1', 'c_feat_1']):
+                mi_value = np.random.uniform(0.2, 0.5)
+                pval = 0.001
+            else:
+                mi_value = np.random.uniform(0.01, 0.05)
+                pval = 0.5
+            
+            exp.stats_table[feat_name][neuron_id] = {
+                'pre_rval': mi_value,
+                'pval': pval,
+                'shift_used': 0.0,
+                'corr': mi_value * 0.8  # Mock correlation
+            }
+    
+    # Mock get_neuron_feature_pair_stats method
+    def get_stats(cell_id, feat_name):
+        return exp.stats_table[feat_name][cell_id]
+    exp.get_neuron_feature_pair_stats = get_stats
+    
+    # Define significant neurons
+    significant_neurons = {
+        0: ['d_feat_0'],
+        1: ['d_feat_0'],
+        2: ['d_feat_0'],
+        5: ['d_feat_1', 'c_feat_1'],
+        7: ['c_feat_0'],
+        8: ['c_feat_0'],
+        9: ['c_feat_0']
+    }
+    
+    # Test basic functionality
+    fig, ax, stats = plot_selectivity_heatmap(exp, significant_neurons)
+    assert fig is not None
+    assert ax is not None
+    assert isinstance(stats, dict)
+    assert stats['n_selective'] == len(significant_neurons)
+    assert stats['n_pairs'] == sum(len(v) for v in significant_neurons.values())
+    assert len(stats['metric_values']) == stats['n_pairs']
+    assert all(v > 0 for v in stats['metric_values'])  # All MI values should be positive
+    plt.close('all')
+    
+    # Test with custom parameters
+    fig, ax, stats = plot_selectivity_heatmap(
+        exp, significant_neurons,
+        metric='corr',
+        cmap='plasma',
+        use_log_scale=True,
+        figsize=(12, 8)
+    )
+    assert fig is not None
+    plt.close('all')
+    
+    # Test with significance threshold
+    fig, ax, stats = plot_selectivity_heatmap(
+        exp, significant_neurons,
+        significance_threshold=0.01
+    )
+    assert fig is not None
+    plt.close('all')
+    
+    # Test with provided axes
+    fig_custom, ax_custom = plt.subplots(figsize=(10, 6))
+    fig2, ax2, stats2 = plot_selectivity_heatmap(
+        exp, significant_neurons,
+        ax=ax_custom
+    )
+    assert ax2 is ax_custom
+    assert fig2 is fig_custom
+    plt.close('all')
+    
+    # Test with empty significant neurons
+    fig, ax, stats = plot_selectivity_heatmap(exp, {})
+    assert stats['n_selective'] == 0
+    assert stats['n_pairs'] == 0
+    assert len(stats['metric_values']) == 0
+    plt.close('all')
+    
+    # Test with custom vmin/vmax
+    fig, ax, stats = plot_selectivity_heatmap(
+        exp, significant_neurons,
+        vmin=0.1,
+        vmax=0.6
+    )
+    assert fig is not None
+    plt.close('all')
+    
+    # Test that tuple keys in dynamic_features are filtered out
+    # The heatmap should only show 4 features, not 5
+    fig, ax, stats = plot_selectivity_heatmap(exp, significant_neurons)
+    assert len(ax.get_xticklabels()) == 4  # Only string keys
+    plt.close('all')
+
+
+def test_plot_selectivity_heatmap_edge_cases():
+    """Test edge cases for plot_selectivity_heatmap."""
+    # Create minimal mock experiment
+    exp = SimpleNamespace()
+    exp.n_cells = 3
+    exp.dynamic_features = {'d_feat_0': None, 'c_feat_0': None}
+    
+    # Create stats with some None values
+    exp.stats_table = {}
+    for feat_name in ['d_feat_0', 'c_feat_0']:
+        exp.stats_table[feat_name] = {}
+        for neuron_id in range(3):
+            exp.stats_table[feat_name][neuron_id] = {
+                'pre_rval': 0.3 if neuron_id == 0 else 0.1,
+                'pval': None if neuron_id == 1 else 0.001,  # Test None pval
+                'shift_used': 0.0
+            }
+    
+    # Mock get_neuron_feature_pair_stats method
+    def get_stats(cell_id, feat_name):
+        return exp.stats_table[feat_name][cell_id]
+    exp.get_neuron_feature_pair_stats = get_stats
+    
+    # Significant neurons including one with None pval
+    significant_neurons = {0: ['d_feat_0'], 1: ['c_feat_0']}
+    
+    # Should handle None pval gracefully when no threshold
+    fig, ax, stats = plot_selectivity_heatmap(exp, significant_neurons)
+    assert fig is not None
+    assert len(stats['metric_values']) == 2  # Both neurons included
+    plt.close('all')
+    
+    # With threshold, should skip neuron 1 with None pval
+    fig, ax, stats = plot_selectivity_heatmap(
+        exp, significant_neurons,
+        significance_threshold=0.05
+    )
+    assert fig is not None
+    assert len(stats['metric_values']) == 1  # Only neuron 0
+    plt.close('all')
+    
+    # Test with missing corr in stats when metric='corr'
+    exp.stats_table['d_feat_0'][0].pop('corr', None)  # Remove corr if exists
+    fig, ax, stats = plot_selectivity_heatmap(
+        exp, {0: ['d_feat_0']},
+        metric='corr'
+    )
+    assert fig is not None
+    # Should fall back to pre_rval when corr not available
+    assert len(stats['metric_values']) == 1
     plt.close('all')

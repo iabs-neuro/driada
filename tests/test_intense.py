@@ -897,3 +897,47 @@ def test_correlation_detection_scaled(n, T, expected_pairs):
     for pair in sig_pairs:
         i, j = pair
         assert computed_significance[i][j]['stage1'] == True
+
+
+def test_get_calcium_feature_me_profile_cbunch_fbunch():
+    """Test get_calcium_feature_me_profile with cbunch/fbunch support."""
+    from src.driada.intense.intense_base import get_calcium_feature_me_profile
+    from src.driada.experiment.synthetic import generate_synthetic_exp
+    
+    # Create small experiment
+    exp = generate_synthetic_exp(
+        n_dfeats=2, n_cfeats=1, nneurons=3, seed=42,
+        duration=50, fps=10
+    )
+    
+    # Test backward compatibility - old style single cell/feature
+    me0, shifted_me = get_calcium_feature_me_profile(exp, 0, 'd_feat_0', window=20, ds=2)
+    assert isinstance(me0, float)
+    assert isinstance(shifted_me, list)
+    assert len(shifted_me) == 20  # window=20, ds=2
+    
+    # Test new style with cbunch/fbunch
+    results = get_calcium_feature_me_profile(
+        exp, 
+        cbunch=[0, 1], 
+        fbunch=['d_feat_0', 'c_feat_0'],
+        window=20,
+        ds=2
+    )
+    
+    # Check structure
+    assert isinstance(results, dict)
+    assert len(results) == 2  # 2 cells
+    assert 0 in results and 1 in results
+    assert len(results[0]) == 2  # 2 features
+    assert 'd_feat_0' in results[0] and 'c_feat_0' in results[0]
+    assert 'me0' in results[0]['d_feat_0']
+    assert 'shifted_me' in results[0]['d_feat_0']
+    
+    # Test cbunch=None (all cells)
+    results_all = get_calcium_feature_me_profile(exp, cbunch=None, fbunch=['d_feat_0'], window=10, ds=2)
+    assert len(results_all) == 3  # All 3 cells
+    
+    # Test invalid cell index
+    with pytest.raises(ValueError, match="out of range"):
+        get_calcium_feature_me_profile(exp, cbunch=[10], fbunch=['d_feat_0'])

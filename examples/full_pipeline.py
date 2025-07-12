@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import driada
 import matplotlib.pyplot as plt
 import numpy as np
+from driada.intense.visual import plot_selectivity_heatmap
 
 
 def analyze_experiment(exp, analysis_name, n_shuffles_stage2=1000):
@@ -109,61 +110,18 @@ def create_statistical_summary(exp, significant_neurons):
 
 
 def create_selectivity_heatmap(exp, significant_neurons, output_dir):
-    """Create a heatmap showing which neurons are selective for each feature."""
+    """Create a heatmap showing MI values for selective neuron-feature pairs."""
     print("\n=== CREATING SELECTIVITY HEATMAP ===")
     
-    # Get all features and create ordered lists
-    all_features = sorted([f for f in exp.dynamic_features.keys() if isinstance(f, str)])
-    all_neurons = list(range(exp.n_cells))
-    
-    # Create binary matrix: 1 if neuron is selective for feature, 0 otherwise
-    selectivity_matrix = np.zeros((len(all_neurons), len(all_features)))
-    
-    for neuron_idx, cell_id in enumerate(all_neurons):
-        if cell_id in significant_neurons:
-            for feat_name in significant_neurons[cell_id]:
-                if feat_name in all_features:
-                    feat_idx = all_features.index(feat_name)
-                    selectivity_matrix[neuron_idx, feat_idx] = 1
-    
-    # Create the heatmap
-    fig, ax = plt.subplots(figsize=(10, 8))
-    
-    # Use binary colormap (white for 0, dark blue for 1)
-    im = ax.imshow(selectivity_matrix, cmap='Blues', aspect='auto', interpolation='nearest')
-    
-    # Set ticks and labels
-    ax.set_xticks(range(len(all_features)))
-    ax.set_xticklabels(all_features, rotation=45, ha='right')
-    ax.set_yticks(range(0, len(all_neurons), max(1, len(all_neurons)//20)))  # Show ~20 neuron labels
-    ax.set_yticklabels(range(0, len(all_neurons), max(1, len(all_neurons)//20)))
-    
-    # Labels and title
-    ax.set_xlabel('Features', fontsize=12)
-    ax.set_ylabel('Neurons', fontsize=12)
-    ax.set_title('Neuronal Selectivity Matrix', fontsize=14, fontweight='bold')
-    
-    # Add colorbar
-    cbar = plt.colorbar(im, ax=ax, ticks=[0, 1])
-    cbar.set_label('Selective', rotation=270, labelpad=15)
-    cbar.ax.set_yticklabels(['No', 'Yes'])
-    
-    # Add summary text
-    n_selective = len(significant_neurons)
-    n_pairs = sum(len(features) for features in significant_neurons.values())
-    selectivity_rate = (n_selective / exp.n_cells) * 100
-    
-    summary_text = f'Selective neurons: {n_selective}/{exp.n_cells} ({selectivity_rate:.1f}%)\nTotal selective pairs: {n_pairs}'
-    ax.text(1.15, 0.95, summary_text, transform=ax.transAxes, 
-            fontsize=10, verticalalignment='top', 
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
-    
-    # Add grid for better readability
-    ax.set_xticks(np.arange(len(all_features)) - 0.5, minor=True)
-    ax.set_yticks(np.arange(len(all_neurons)) - 0.5, minor=True)
-    ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, alpha=0.3)
-    
-    plt.tight_layout()
+    # Use the new plot_selectivity_heatmap function from visual.py
+    fig, ax, stats = plot_selectivity_heatmap(
+        exp, 
+        significant_neurons,
+        metric='mi',  # Show mutual information values
+        cmap='viridis',  # Use viridis colormap for continuous values
+        use_log_scale=False,  # Linear scale by default
+        figsize=(10, 8)
+    )
     
     # Save heatmap
     output_path = os.path.join(output_dir, 'neuronal_selectivity_heatmap.png')
@@ -172,10 +130,18 @@ def create_selectivity_heatmap(exp, significant_neurons, output_dir):
     
     # Print statistics
     print(f"\nHeatmap statistics:")
-    print(f"  • Matrix size: {len(all_neurons)} neurons × {len(all_features)} features")
-    print(f"  • Selective neurons: {n_selective} ({selectivity_rate:.1f}%)")
-    print(f"  • Total selective pairs: {n_pairs}")
-    print(f"  • Sparsity: {(1 - n_pairs/(len(all_neurons)*len(all_features)))*100:.1f}%")
+    print(f"  • Matrix size: {exp.n_cells} neurons × {len([f for f in exp.dynamic_features.keys() if isinstance(f, str)])} features")
+    print(f"  • Selective neurons: {stats['n_selective']} ({stats['selectivity_rate']:.1f}%)")
+    print(f"  • Total selective pairs: {stats['n_pairs']}")
+    print(f"  • Sparsity: {stats['sparsity']:.1f}%")
+    
+    if stats['metric_values']:
+        print(f"\nMI value statistics:")
+        print(f"  • Min: {min(stats['metric_values']):.4f}")
+        print(f"  • Max: {max(stats['metric_values']):.4f}")
+        print(f"  • Mean: {np.mean(stats['metric_values']):.4f}")
+        print(f"  • Median: {np.median(stats['metric_values']):.4f}")
+        print(f"  • Std: {np.std(stats['metric_values']):.4f}")
     
     plt.show()
 
