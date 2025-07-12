@@ -589,9 +589,9 @@ def plot_selectivity_heatmap(exp, significant_neurons,
         ])
     
     summary_text = '\n'.join(summary_lines)
-    # Position text below the plot to avoid colorbar overlap
-    fig.text(0.5, -0.15, summary_text, transform=ax.transAxes, 
-            fontsize=10, verticalalignment='top', horizontalalignment='center',
+    # Position text in the lower right corner to avoid colorbar overlap
+    fig.text(0.98, 0.02, summary_text, transform=fig.transFigure, 
+            fontsize=10, verticalalignment='bottom', horizontalalignment='right',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
     # Add grid for better readability

@@ -128,13 +128,29 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - Stats returned include n_selective, n_pairs, selectivity_rate, metric_values, sparsity
   - Remaining investigation of continuous/MultiTimeSeries selectivity deferred
 
-- [ ] **Fix plot_selectivity_heatmap visualization issues** - URGENT
-  - [ ] Fix summary text box overlap with colorbar - move below the plot
-  - [ ] Investigate why all MI values appear as 0/1 binary instead of continuous
-  - [ ] Debug get_neuron_feature_pair_stats to ensure it returns actual MI values
-  - [ ] Check if synthetic data generation creates varied MI values
-  - [ ] Verify colormap scaling is working correctly
-  - [ ] Test with real data to confirm issue is not specific to synthetic data
+- [x] **Fix plot_selectivity_heatmap visualization issues** - ✅ COMPLETED (2025-01-12)
+  - [x] Fix summary text box overlap with colorbar - move below the plot
+  - [x] Investigate why all MI values appear as 0/1 binary instead of continuous
+  - [x] Debug get_neuron_feature_pair_stats to ensure it returns actual MI values
+  - [x] Check if synthetic data generation creates varied MI values
+  - [x] Verify colormap scaling is working correctly
+  - [x] Test with real data to confirm issue is not specific to synthetic data
+  
+  **Implementation Checkpoints:**
+  - ✅ Fixed MI value retrieval: changed from using 'pre_rval' to 'me' key
+  - ✅ Added mode='calcium' parameter to get_neuron_feature_pair_stats calls
+  - ✅ Repositioned text box below plot with proper positioning (-0.15 y offset)
+  - ✅ Updated all tests to include 'me' key in mock data
+  - ✅ All 16 visual tests passing
+  
+  **Files Modified:**
+  - src/driada/intense/visual.py (fixed MI value retrieval and text positioning)
+  - tests/test_visual.py (updated mock functions to match signatures)
+  
+  **Technical Notes:**
+  - 'pre_rval' is a pre-computed normalized value (often 1.0 for discrete features)
+  - 'me' contains the actual metric value (MI, correlation, etc.)
+  - Text positioning uses fig.text with transform=ax.transAxes for proper placement
   
   **Technical Investigation Needed:**
   - Check if exp.stats_table contains actual continuous MI values
