@@ -28,22 +28,45 @@ def generate_mixed_selectivity_data():
     """Generate synthetic data with known mixed selectivity patterns and MultiTimeSeries."""
     print("\n=== GENERATING MIXED SELECTIVITY DATA ===")
     
-    # Create synthetic experiment with mixed selectivity and multifeatures
+    # For demonstration, create a smaller experiment with stronger selectivity
     exp, selectivity_info = driada.experiment.generate_synthetic_exp_with_mixed_selectivity(
-        n_discrete_feats=2,      # discrete features (e.g., task context, trial type)
-        n_continuous_feats=4,    # continuous features (e.g., x, y, speed, direction)
-        n_neurons=50,            # larger population for more mixed selectivity
-        n_multifeatures=2,       # create MultiTimeSeries features (e.g., (x,y), (speed,direction))
-        selectivity_prob=0.9,    # very high probability of selectivity
-        multi_select_prob=0.8,   # 80% chance of mixed selectivity
-        weights_mode='random',   # random selectivity weights
-        duration=600,            # 10 minutes for good statistics
-        seed=123,                # different seed for better results
-        fps=20,                  # sampling rate
-        verbose=False
+        n_discrete_feats=2,      # Fewer features for clearer demonstration
+        n_continuous_feats=2,    # Fewer continuous features
+        n_neurons=30,            # Smaller population for faster analysis
+        n_multifeatures=1,       # One multifeature
+        selectivity_prob=1.0,    # All neurons are selective
+        multi_select_prob=0.8,   # Most have mixed selectivity
+        weights_mode='dominant', # One feature dominates (clearer for disentanglement)
+        duration=600,            # 10 minutes
+        seed=123,                # Different seed
+        fps=20,
+        verbose=False,
+        create_discrete_pairs=True,  # Create discrete versions for disentanglement demo
+        # Stronger signal parameters for better detection
+        rate_0=0.01,             # Lower baseline for better dynamic range
+        rate_1=3.0,              # Higher active rate for stronger signals
+        skip_prob=0.05,          # Less skipping for more consistent signals
+        ampl_range=(1.5, 3.5),   # Stronger calcium transients
+        decay_time=2,
+        noise_std=0.05           # Lower noise for better SNR
     )
     
     print(f"Generated experiment: {exp.n_cells} neurons, {len(exp.dynamic_features)} features, {exp.n_frames/exp.fps:.1f}s recording")
+    
+    # Debug: Show selectivity matrix info
+    if 'matrix' in selectivity_info:
+        matrix = selectivity_info['matrix']
+        n_selective = np.sum(np.any(matrix > 0, axis=0))
+        n_mixed = np.sum(np.sum(matrix > 0, axis=0) > 1)
+        print(f"Selectivity matrix: {n_selective} selective neurons, {n_mixed} with mixed selectivity (ground truth)")
+        
+        # Show which features each neuron is selective to (first 10 neurons)
+        print("\nGround truth selectivity (first 10 neurons):")
+        for j in range(min(10, matrix.shape[1])):
+            selective_features = np.where(matrix[:, j] > 0)[0]
+            if len(selective_features) > 0:
+                feat_names = [selectivity_info['feature_names'][i] for i in selective_features]
+                print(f"  Neuron {j}: {feat_names}")
     
     return exp, selectivity_info
 
@@ -62,18 +85,60 @@ def run_intense_analysis(exp):
         elif hasattr(feat_data, '__class__') and feat_data.__class__.__name__ == 'MultiTimeSeries':
             skip_delays.append(feat_name)
     
-    stats, significance, info, results = driada.compute_cell_feat_significance(
+    # Run comprehensive analysis with disentanglement
+    results = driada.compute_cell_feat_significance(
         exp,
         mode='two_stage',
-        n_shuffles_stage1=50,
-        n_shuffles_stage2=1500,  # Higher precision for mixed selectivity
+        n_shuffles_stage1=50,    # Increased for better statistics
+        n_shuffles_stage2=500,   # Increased for more reliable p-values
         allow_mixed_dimensions=True,  # Enable MultiTimeSeries analysis
         skip_delays=skip_delays if skip_delays else None,  # Skip delay optimization for MultiTimeSeries
-        verbose=False
+        verbose=False,
+        with_disentanglement=True,  # Enable disentanglement analysis
+        multifeature_map=driada.intense.DEFAULT_MULTIFEATURE_MAP,
+        metric_distr_type='norm',  # Use normal (Gaussian) distribution for shuffled MI
+        pval_thr=0.05  # Slightly less conservative threshold
     )
+    
+    # Unpack results based on whether disentanglement was included
+    if len(results) == 5:
+        stats, significance, info, intense_results, disentanglement_results = results
+    else:
+        stats, significance, info, intense_results = results
+        disentanglement_results = None
     
     # Extract significant relationships
     significant_neurons = exp.get_significant_neurons()
+    
+    # Debug: Check if we're getting any significant relationships at all
+    if 'calcium' in significance:
+        sig_cal = significance['calcium']
+        stage1_passed = np.sum([v.get('stage1', 0) == 1 for v in sig_cal.values() if isinstance(v, dict)])
+        stage2_passed = np.sum([v.get('stage2', 0) == 1 for v in sig_cal.values() if isinstance(v, dict)])
+        total_pairs = len([v for v in sig_cal.values() if isinstance(v, dict)])
+        print(f"\nDEBUG: Stage 1 passed pairs: {stage1_passed} out of {total_pairs}")
+        print(f"DEBUG: Stage 2 passed pairs: {stage2_passed} out of {total_pairs}")
+        
+        # Check p-values for some pairs
+        pvals = []
+        for k, v in sig_cal.items():
+            if isinstance(v, dict) and 'pval' in v and v['pval'] is not None:
+                pvals.append(v['pval'])
+        if pvals:
+            print(f"DEBUG: P-value distribution: min={min(pvals):.4f}, median={np.median(pvals):.4f}, max={max(pvals):.4f}")
+            print(f"DEBUG: P-values < 0.05: {np.sum(np.array(pvals) < 0.05)} out of {len(pvals)}")
+    
+    # Check some MI values
+    if hasattr(exp, 'stats_tables') and 'calcium' in exp.stats_tables:
+        mi_values = []
+        for cell_id in range(min(10, exp.n_cells)):  # Check first 10 neurons
+            for feat in list(exp.dynamic_features.keys())[:3]:  # Check first 3 features
+                if isinstance(feat, str):
+                    pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat, mode='calcium')
+                    if pair_stats and 'me' in pair_stats and pair_stats['me'] is not None:
+                        mi_values.append(pair_stats['me'])
+        if mi_values:
+            print(f"DEBUG: Sample MI values: min={min(mi_values):.4f}, max={max(mi_values):.4f}, mean={np.mean(mi_values):.4f}")
     
     # Count multifeature relationships
     from driada.information.info_base import MultiTimeSeries
@@ -89,58 +154,57 @@ def run_intense_analysis(exp):
     
     print(f"INTENSE found {len(significant_neurons)} significant neurons, {len(mixed_candidates)} with mixed selectivity")
     
-    return stats, significance, info, results, significant_neurons, mixed_candidates
+    # Debug: Show what features neurons are selective to
+    if mixed_candidates:
+        print("\nMixed selectivity details:")
+        for cell_id, features in list(mixed_candidates.items())[:5]:  # Show first 5
+            print(f"  Neuron {cell_id}: selective to {features}")
+    else:
+        # Show single selectivity neurons to debug
+        print("\nSingle selectivity neurons found:")
+        for i, (cell_id, features) in enumerate(significant_neurons.items()):
+            if i < 5:  # Show first 5
+                print(f"  Neuron {cell_id}: selective to {features}")
+    
+    return stats, significance, info, intense_results, significant_neurons, mixed_candidates, disentanglement_results
 
 
-def analyze_disentanglement(exp, mixed_candidates):
-    """Apply disentanglement analysis to mixed selectivity neurons."""
+def analyze_disentanglement(disentanglement_results, mixed_candidates):
+    """Process disentanglement results from the pipeline."""
     print("\n=== DISENTANGLEMENT ANALYSIS ===")
     
     if not mixed_candidates:
         print("No mixed selectivity candidates found for disentanglement.")
         return None, None, None
     
-    # Get all feature names from the experiment (string features only, excluding MultiTimeSeries)
-    from driada.information.info_base import MultiTimeSeries
-    feat_names = [f for f in exp.dynamic_features.keys() 
-                  if isinstance(f, str) and not isinstance(exp.dynamic_features[f], MultiTimeSeries)]
-    
-    if len(feat_names) < 2:
-        print("Not enough features for disentanglement analysis.")
+    if disentanglement_results is None:
+        print("No disentanglement results available.")
         return None, None, None
     
-    # Use the built-in multifeature map
-    multifeature_map = driada.intense.DEFAULT_MULTIFEATURE_MAP.copy()
+    # Extract results from the pipeline
+    disent_matrix = disentanglement_results.get('disent_matrix')
+    count_matrix = disentanglement_results.get('count_matrix')
+    feat_names = disentanglement_results.get('feature_names', [])
     
-    # Add any additional multifeatures from the experiment
-    for feat in exp.dynamic_features.keys():
-        if isinstance(feat, tuple) and len(feat) == 2:
-            # Create a descriptive name for the multifeature
-            if feat not in multifeature_map:
-                if 'x' in feat[0].lower() and 'y' in feat[1].lower():
-                    multifeature_map[feat] = 'spatial_location'
-                elif 'speed' in feat[0].lower() or 'speed' in feat[1].lower():
-                    multifeature_map[feat] = 'movement'
-                else:
-                    multifeature_map[feat] = f'{feat[0]}_{feat[1]}_combined'
-    
-    # Run disentanglement analysis with correct parameters
-    
-    try:
-        disent_matrix, count_matrix = driada.intense.disentangle_all_selectivities(
-            exp,
-            feat_names,
-            multifeature_map=multifeature_map,
-            cell_bunch=list(mixed_candidates.keys())  # Focus on mixed selectivity neurons
-        )
-        
-        print(f"Disentanglement analysis completed")
-        
-        return disent_matrix, count_matrix, feat_names
-        
-    except Exception as e:
-        print(f"Error in disentanglement analysis: {str(e)}")
+    if disent_matrix is None or count_matrix is None:
+        print("Disentanglement matrices not found in results.")
         return None, None, None
+    
+    print(f"Disentanglement analysis completed by pipeline")
+    print(f"Matrix shape: {disent_matrix.shape}, Non-zero entries: {np.count_nonzero(count_matrix)}")
+    print(f"Feature names analyzed: {feat_names}")
+    
+    # Show summary if available
+    if 'summary' in disentanglement_results:
+        summary = disentanglement_results['summary']
+        if 'overall_stats' in summary:
+            stats = summary['overall_stats']
+            print(f"\nOverall statistics:")
+            print(f"  Total neuron pairs: {stats.get('total_neuron_pairs', 0)}")
+            print(f"  Redundancy rate: {stats.get('redundancy_rate', 0):.1f}%")
+            print(f"  True mixed selectivity rate: {stats.get('true_mixed_selectivity_rate', 0):.1f}%")
+    
+    return disent_matrix, count_matrix, feat_names
 
 
 def interpret_disentanglement_results(exp, disent_matrix, count_matrix, feat_names, mixed_candidates):
@@ -290,21 +354,21 @@ def main():
     # Step 1: Generate mixed selectivity data with MultiTimeSeries
     exp, selectivity_info = generate_mixed_selectivity_data()
     
-    # Step 2: Run INTENSE analysis
-    stats, significance, info, results, significant_neurons, mixed_candidates = run_intense_analysis(exp)
+    # Step 2: Run INTENSE analysis with disentanglement
+    stats, significance, info, intense_results, significant_neurons, mixed_candidates, disentanglement_results = run_intense_analysis(exp)
     
-    # Step 3: Apply disentanglement analysis
-    disentanglement_results = analyze_disentanglement(exp, mixed_candidates)
+    # Step 3: Process disentanglement results
+    disent_matrix, count_matrix, feat_names = analyze_disentanglement(disentanglement_results, mixed_candidates)
     
     # Step 4: Interpret results
     redundancy_cases, synergy_cases, independence_cases = interpret_disentanglement_results(
-        exp, disentanglement_results[0], disentanglement_results[1], disentanglement_results[2], mixed_candidates
+        exp, disent_matrix, count_matrix, feat_names, mixed_candidates
     )
     
     # Step 5: Create visualizations
-    if disentanglement_results[0] is not None:
+    if disent_matrix is not None:
         create_disentanglement_visualization(
-            exp, disentanglement_results[0], disentanglement_results[1], disentanglement_results[2], 
+            exp, disent_matrix, count_matrix, feat_names, 
             mixed_candidates, output_dir
         )
     

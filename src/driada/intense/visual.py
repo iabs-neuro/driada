@@ -54,7 +54,7 @@ def plot_pc_activity(exp, cell_ind, ds=None, ax=None):
     return ax
 
 
-def plot_neuron_feature_density(exp, data_type, cell_id, featname, ind1=0, ind2=100000, ds=1, shift=None, ax=None):
+def plot_neuron_feature_density(exp, data_type, cell_id, featname, ind1=0, ind2=100000, ds=1, shift=None, ax=None, compute_wsd=False):
     """
     Plot density distribution of neural activity conditioned on feature values.
     
@@ -78,6 +78,8 @@ def plot_neuron_feature_density(exp, data_type, cell_id, featname, ind1=0, ind2=
         Temporal shift (not implemented). Default: None.
     ax : matplotlib.axes.Axes, optional
         Axes to plot on. If None, creates new figure.
+    compute_wsd : bool, optional
+        Whether to compute Wasserstein distance for binary features. Default: False.
         
     Returns
     -------
@@ -103,15 +105,19 @@ def plot_neuron_feature_density(exp, data_type, cell_id, featname, ind1=0, ind2=
             vals0 = np.log10(sig[np.where((rbdata == min(rbdata)) & (sig > 0))])
             vals1 = np.log10(sig[np.where((rbdata == max(rbdata)) & (sig > 0))])
 
-            wsd = wasserstein_distance(vals0, vals1)
-            # _ = ax.hist(vals0, bins = 25, color = 'b', log = True, density = True, alpha = 0.7, label=f'{featname}=1')
+            if compute_wsd and len(vals0) > 0 and len(vals1) > 0:
+                wsd = wasserstein_distance(vals0, vals1)
+                title_text = f'wsd={wsd:.3f}'
+            else:
+                title_text = ''
+                
             _ = sns.kdeplot(vals0, ax=ax, c='b', label=f'{featname}=0', linewidth=3, bw_adjust=0.5)
             _ = sns.kdeplot(vals1, ax=ax, c='r', label=f'{featname}=1', linewidth=3, bw_adjust=0.5)
-            # _ = ax.hist(vals1, bins = 25, color = 'r', log = True, density = True, alpha = 0.7, label=f'{featname}=0')
             ax.legend(loc='upper right')
             ax.set_xlabel('log(dF/F)', fontsize=20)
             ax.set_ylabel('density', fontsize=20)
-            ax.set_title(f'wsd={wsd}')
+            if title_text:
+                ax.set_title(title_text)
 
         if data_type == 'spikes':
             raise NotImplementedError('Binary feature density plot for spike data not yet implemented')
@@ -203,7 +209,7 @@ def plot_neuron_feature_pair(exp, cell_id, featname, ind1=0, ind2=100000, ds=1,
         ax0.plot(np.arange(ind1, ind2)[::ds], rbdata, c='r', linewidth=2, alpha=0.5)
 
     if add_density_plot:
-        plot_neuron_feature_density(exp, 'calcium', cell_id, featname, ind1=ind1, ind2=ind2, ds=ds, ax=ax1)
+        plot_neuron_feature_density(exp, 'calcium', cell_id, featname, ind1=ind1, ind2=ind2, ds=ds, ax=ax1, compute_wsd=False)
 
     ax0.set_xlabel('timeframes', fontsize=20)
     ax0.set_ylabel('Signal/behavior', fontsize=20)

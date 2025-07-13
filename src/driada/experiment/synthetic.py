@@ -532,7 +532,9 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
                                                   selectivity_prob=0.8, multi_select_prob=0.5,
                                                   weights_mode='random', duration=1200,
                                                   seed=42, fps=20, verbose=True,
-                                                  name_convention='str'):
+                                                  name_convention='str',
+                                                  rate_0=0.1, rate_1=1.0, skip_prob=0.1,
+                                                  ampl_range=(0.5, 2), decay_time=2, noise_std=0.1):
     """
     Generate synthetic experiment with mixed selectivity and multifeatures.
     
@@ -566,6 +568,18 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
         Naming convention for multifeatures. Options:
         - 'str' (default): Use string keys like 'xy', 'speed_direction'
         - 'tuple': Use tuple keys like ('x', 'y'), ('speed', 'head_direction') [DEPRECATED]
+    rate_0 : float, optional
+        Baseline spike rate in Hz. Default: 0.1.
+    rate_1 : float, optional
+        Active spike rate in Hz. Default: 1.0.
+    skip_prob : float, optional
+        Probability of skipping spikes. Default: 0.1.
+    ampl_range : tuple, optional
+        Range of spike amplitudes. Default: (0.5, 2).
+    decay_time : float, optional
+        Calcium decay time constant in seconds. Default: 2.
+    noise_std : float, optional
+        Standard deviation of additive noise. Default: 0.1.
         
     Returns
     -------
@@ -649,8 +663,8 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
     calcium_signals, _ = generate_synthetic_data_mixed_selectivity(
         features_dict, n_neurons, selectivity_matrix,
         duration=duration, seed=seed + 400, sampling_rate=fps,
-        rate_0=0.1, rate_1=1.0, skip_prob=0.1,
-        ampl_range=(0.5, 2), decay_time=2, noise_std=0.1,
+        rate_0=rate_0, rate_1=rate_1, skip_prob=skip_prob,
+        ampl_range=ampl_range, decay_time=decay_time, noise_std=noise_std,
         verbose=verbose
     )
     
