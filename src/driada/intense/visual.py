@@ -297,8 +297,9 @@ def plot_disentanglement_heatmap(disent_matrix, count_matrix, feat_names,
     
     # Create default colormap if not provided
     if cmap is None:
-        # Red -> White -> Green gradient
-        colors = [(1, 0, 0), (1, 1, 1), (0, 1, 0)]
+        # Red -> Gray -> Green gradient  
+        # Gray at 50% represents equal selectivity (no disentanglement)
+        colors = [(1, 0, 0), (0.7, 0.7, 0.7), (0, 1, 0)]
         n_bins = 100
         cmap = LinearSegmentedColormap.from_list("disentanglement_cmap", colors, N=n_bins)
     

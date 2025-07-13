@@ -641,6 +641,7 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
                     multifeatures_to_create.append((mf_name, (feat1, feat2)))
                 else:  # 'tuple' convention (deprecated)
                     # Tuple key for the multifeature
+                    # TODO: this need fixing
                     multifeatures_to_create.append(((feat1, feat2), (feat1, feat2)))
                 
                 multi_idx += 1

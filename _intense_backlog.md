@@ -869,3 +869,25 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
    - Final documentation review
    - Performance benchmarks
    - Release preparation
+
+## CLEANUP TASKS - Need Investigation
+
+### Test Files from Previous Sessions
+- [ ] **Review test report files** - Determine if needed for documentation
+  - [ ] final_test_report.py - May contain test results summary
+  - [ ] final_timing_report.py - May contain performance benchmarks
+  - [ ] test_examples.py - May be part of example testing suite
+  
+### Performance Test Files  
+- [ ] **Review JIT performance tests** - Determine if part of optimization suite
+  - [ ] test_fixed_jit.py
+  - [ ] test_intense_jit_performance.py  
+  - [ ] test_jit_final.py
+  - [ ] test_jit_performance_isolated.py
+  - [ ] test_performance_comparison.py
+
+### Documentation Files
+- [ ] **Review TODO documentation** - May contain important notes
+  - [ ] TODO_DISENTANGLEMENT_TESTS.md
+  - [ ] TODO_NUMBA_CONFIG.md
+  - [ ] NUMBA_0.60_RIDGE_ISSUE.md - Known issue documentation

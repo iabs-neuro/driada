@@ -38,35 +38,20 @@ def generate_mixed_selectivity_data():
         multi_select_prob=0.8,   # Most have mixed selectivity
         weights_mode='dominant', # One feature dominates (clearer for disentanglement)
         duration=600,            # 10 minutes
-        seed=123,                # Different seed
+        seed=42,
         fps=20,
         verbose=False,
-        create_discrete_pairs=True,  # Create discrete versions for disentanglement demo
-        # Stronger signal parameters for better detection
-        rate_0=0.01,             # Lower baseline for better dynamic range
-        rate_1=3.0,              # Higher active rate for stronger signals
-        skip_prob=0.05,          # Less skipping for more consistent signals
-        ampl_range=(1.5, 3.5),   # Stronger calcium transients
+        create_discrete_pairs=True,  # Create discrete versions of continuous signals for disentanglement demo
+        rate_0=0.1,
+        rate_1=3.0,
+        skip_prob=0.0,
+        ampl_range=(1.5, 3.5),
         decay_time=2,
-        noise_std=0.05           # Lower noise for better SNR
+        noise_std=0.05
     )
     
     print(f"Generated experiment: {exp.n_cells} neurons, {len(exp.dynamic_features)} features, {exp.n_frames/exp.fps:.1f}s recording")
     
-    # Debug: Show selectivity matrix info
-    if 'matrix' in selectivity_info:
-        matrix = selectivity_info['matrix']
-        n_selective = np.sum(np.any(matrix > 0, axis=0))
-        n_mixed = np.sum(np.sum(matrix > 0, axis=0) > 1)
-        print(f"Selectivity matrix: {n_selective} selective neurons, {n_mixed} with mixed selectivity (ground truth)")
-        
-        # Show which features each neuron is selective to (first 10 neurons)
-        print("\nGround truth selectivity (first 10 neurons):")
-        for j in range(min(10, matrix.shape[1])):
-            selective_features = np.where(matrix[:, j] > 0)[0]
-            if len(selective_features) > 0:
-                feat_names = [selectivity_info['feature_names'][i] for i in selective_features]
-                print(f"  Neuron {j}: {feat_names}")
     
     return exp, selectivity_info
 
@@ -82,7 +67,7 @@ def run_intense_analysis(exp):
     for feat_name, feat_data in exp.dynamic_features.items():
         if isinstance(feat_name, tuple):  # Tuple name indicates multifeature
             skip_delays.append(feat_name)
-        elif hasattr(feat_data, '__class__') and feat_data.__class__.__name__ == 'MultiTimeSeries':
+        elif isinstance(feat_data, driada.MultiTimeSeries):
             skip_delays.append(feat_name)
     
     # Run comprehensive analysis with disentanglement
@@ -99,46 +84,15 @@ def run_intense_analysis(exp):
         metric_distr_type='norm',  # Use normal (Gaussian) distribution for shuffled MI
         pval_thr=0.05  # Slightly less conservative threshold
     )
-    
-    # Unpack results based on whether disentanglement was included
-    if len(results) == 5:
-        stats, significance, info, intense_results, disentanglement_results = results
-    else:
-        stats, significance, info, intense_results = results
-        disentanglement_results = None
+
+    stats, significance, info, intense_results, disentanglement_results = results
     
     # Extract significant relationships
     significant_neurons = exp.get_significant_neurons()
     
-    # Debug: Check if we're getting any significant relationships at all
-    if 'calcium' in significance:
-        sig_cal = significance['calcium']
-        stage1_passed = np.sum([v.get('stage1', 0) == 1 for v in sig_cal.values() if isinstance(v, dict)])
-        stage2_passed = np.sum([v.get('stage2', 0) == 1 for v in sig_cal.values() if isinstance(v, dict)])
-        total_pairs = len([v for v in sig_cal.values() if isinstance(v, dict)])
-        print(f"\nDEBUG: Stage 1 passed pairs: {stage1_passed} out of {total_pairs}")
-        print(f"DEBUG: Stage 2 passed pairs: {stage2_passed} out of {total_pairs}")
-        
-        # Check p-values for some pairs
-        pvals = []
-        for k, v in sig_cal.items():
-            if isinstance(v, dict) and 'pval' in v and v['pval'] is not None:
-                pvals.append(v['pval'])
-        if pvals:
-            print(f"DEBUG: P-value distribution: min={min(pvals):.4f}, median={np.median(pvals):.4f}, max={max(pvals):.4f}")
-            print(f"DEBUG: P-values < 0.05: {np.sum(np.array(pvals) < 0.05)} out of {len(pvals)}")
+    # Also get neurons with mixed selectivity (at least 2 features)
+    mixed_selectivity_neurons = exp.get_significant_neurons(min_nspec=2)
     
-    # Check some MI values
-    if hasattr(exp, 'stats_tables') and 'calcium' in exp.stats_tables:
-        mi_values = []
-        for cell_id in range(min(10, exp.n_cells)):  # Check first 10 neurons
-            for feat in list(exp.dynamic_features.keys())[:3]:  # Check first 3 features
-                if isinstance(feat, str):
-                    pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat, mode='calcium')
-                    if pair_stats and 'me' in pair_stats and pair_stats['me'] is not None:
-                        mi_values.append(pair_stats['me'])
-        if mi_values:
-            print(f"DEBUG: Sample MI values: min={min(mi_values):.4f}, max={max(mi_values):.4f}, mean={np.mean(mi_values):.4f}")
     
     # Count multifeature relationships
     from driada.information.info_base import MultiTimeSeries
@@ -148,23 +102,10 @@ def run_intense_analysis(exp):
             if feat in exp.dynamic_features and isinstance(exp.dynamic_features[feat], MultiTimeSeries):
                 multifeature_count += 1
     
-    # Identify neurons with multiple significant features (mixed selectivity candidates)
-    mixed_candidates = {cell_id: features for cell_id, features in significant_neurons.items() 
-                       if len(features) > 1}
+    # Use the pre-filtered mixed selectivity neurons
+    mixed_candidates = mixed_selectivity_neurons
     
-    print(f"INTENSE found {len(significant_neurons)} significant neurons, {len(mixed_candidates)} with mixed selectivity")
-    
-    # Debug: Show what features neurons are selective to
-    if mixed_candidates:
-        print("\nMixed selectivity details:")
-        for cell_id, features in list(mixed_candidates.items())[:5]:  # Show first 5
-            print(f"  Neuron {cell_id}: selective to {features}")
-    else:
-        # Show single selectivity neurons to debug
-        print("\nSingle selectivity neurons found:")
-        for i, (cell_id, features) in enumerate(significant_neurons.items()):
-            if i < 5:  # Show first 5
-                print(f"  Neuron {cell_id}: selective to {features}")
+    print(f"Found {len(significant_neurons)} significant neurons, {len(mixed_candidates)} with mixed selectivity")
     
     return stats, significance, info, intense_results, significant_neurons, mixed_candidates, disentanglement_results
 
@@ -257,86 +198,63 @@ def interpret_disentanglement_results(exp, disent_matrix, count_matrix, feat_nam
     return redundancy_cases, synergy_cases, independence_cases
 
 
-def create_disentanglement_visualization(exp, disent_matrix, count_matrix, feat_names, mixed_candidates, output_dir):
-    """Create comprehensive visualization using production-grade visual.py functions."""
-    print("\n=== CREATING DISENTANGLEMENT VISUALIZATIONS ===")
+def create_visualizations(exp, disent_matrix, count_matrix, feat_names, significant_neurons, mixed_candidates, output_dir):
+    """Create disentanglement and selectivity visualizations."""
+    print("\n=== CREATING VISUALIZATIONS ===")
     
-    if disent_matrix is None or count_matrix is None or not mixed_candidates:
-        print("No disentanglement results to visualize")
-        return
-    
+    # First, create neuron-feature selectivity matrix
     try:
-        # Create disentanglement heatmap using visual.py
-        fig1, ax1 = driada.intense.plot_disentanglement_heatmap(
-            disent_matrix, 
-            count_matrix, 
-            feat_names,
-            title="Feature Disentanglement Analysis",
-            figsize=(10, 8)
+        print("\nCreating neuron-feature selectivity heatmap...")
+        fig_select, ax_select, stats_select = driada.intense.plot_selectivity_heatmap(
+            exp, 
+            significant_neurons,
+            metric='mi',
+            use_log_scale=False,
+            figsize=(12, 10)
         )
         
-        # Save heatmap
-        heatmap_path = os.path.join(output_dir, 'disentanglement_heatmap.png')
-        fig1.savefig(heatmap_path, dpi=150, bbox_inches='tight')
+        # Save selectivity heatmap
+        select_path = os.path.join(output_dir, 'neuron_feature_selectivity.png')
+        fig_select.savefig(select_path, dpi=150, bbox_inches='tight')
+        print(f"Saved: {select_path}")
+        print(f"  - {stats_select['n_selective']} selective neurons ({stats_select['selectivity_rate']:.1f}%)")
+        print(f"  - {stats_select['n_pairs']} neuron-feature pairs")
         
     except Exception as e:
-        print(f"Error creating disentanglement heatmap: {str(e)}")
-        fig1 = None
+        print(f"Error creating selectivity heatmap: {str(e)}")
+        fig_select = None
     
-    try:
-        # Create comprehensive summary using visual.py
-        fig2 = driada.intense.plot_disentanglement_summary(
-            disent_matrix,
-            count_matrix, 
-            feat_names,
-            title_prefix="Mixed Selectivity - ",
-            figsize=(14, 10)
-        )
+    # Create disentanglement heatmap if we have results
+    if disent_matrix is not None and count_matrix is not None:
         
-        # Save summary
-        summary_path = os.path.join(output_dir, 'disentanglement_summary.png')
-        fig2.savefig(summary_path, dpi=150, bbox_inches='tight')
-        
-    except Exception as e:
-        print(f"Error creating disentanglement summary: {str(e)}")
-        fig2 = None
-    
-    # Create an additional plot showing example neuron-feature relationship
-    if mixed_candidates:
         try:
-            example_cell = list(mixed_candidates.keys())[0]
-            example_features = mixed_candidates[example_cell]
-            
-            # Try to find a multifeature example
-            from driada.information.info_base import MultiTimeSeries
-            multifeature_example = None
-            for feat in example_features:
-                if feat in exp.dynamic_features and isinstance(exp.dynamic_features[feat], MultiTimeSeries):
-                    multifeature_example = feat
-                    break
-            
-            example_feature = multifeature_example if multifeature_example else example_features[0]
-            
-            fig3 = driada.intense.plot_neuron_feature_pair(
-                exp, example_cell, example_feature, 
-                title=f"Example Mixed Selectivity: Neuron {example_cell} ↔ {example_feature}"
+            print("\nCreating disentanglement heatmap...")
+            fig_disent, ax_disent = driada.intense.plot_disentanglement_heatmap(
+                disent_matrix, 
+                count_matrix, 
+                feat_names,
+                title="Feature Disentanglement Analysis",
+                figsize=(10, 8)
             )
             
-            # Save example
-            example_path = os.path.join(output_dir, 'example_mixed_selectivity.png')
-            fig3.savefig(example_path, dpi=150, bbox_inches='tight')
+            # Save heatmap
+            heatmap_path = os.path.join(output_dir, 'disentanglement_heatmap.png')
+            fig_disent.savefig(heatmap_path, dpi=150, bbox_inches='tight')
+            print(f"Saved: {heatmap_path}")
             
         except Exception as e:
-            print(f"Error creating example plot: {str(e)}")
+            print(f"Error creating disentanglement heatmap: {str(e)}")
+            fig_disent = None
+    else:
+        print("No disentanglement results to visualize")
+        fig_disent = None
     
-    print(f"\nVisualizations saved: disentanglement_heatmap.png, disentanglement_summary.png")
-    
-    # Show plots if successful
-    if fig1 is not None:
-        plt.figure(fig1.number)
+    # Show plots
+    if fig_select is not None:
+        plt.figure(fig_select.number)
         plt.show()
-    if fig2 is not None:
-        plt.figure(fig2.number)
+    if fig_disent is not None:
+        plt.figure(fig_disent.number) 
         plt.show()
 
 
@@ -345,9 +263,12 @@ def main():
     print("=" * 80)
     print("DRIADA INTENSE - Mixed Selectivity Analysis Example")
     print("=" * 80)
-    print("\nThis example demonstrates advanced disentanglement analysis for neurons")
-    print("that respond to multiple correlated behavioral variables, including")
-    print("MultiTimeSeries features that combine multiple signals.")
+    print("\nThis example demonstrates:")
+    print("1. Generating synthetic data with neurons that respond to multiple features")
+    print("2. Running INTENSE analysis to detect significant neuron-feature relationships")
+    print("3. Using get_significant_neurons(min_nspec=2) to filter mixed selectivity neurons")
+    print("4. Applying disentanglement analysis to separate overlapping selectivities")
+    print("5. Visualizing results with heatmaps and summary plots")
     
     output_dir = os.path.dirname(__file__)
     
@@ -366,34 +287,14 @@ def main():
     )
     
     # Step 5: Create visualizations
-    if disent_matrix is not None:
-        create_disentanglement_visualization(
-            exp, disent_matrix, count_matrix, feat_names, 
-            mixed_candidates, output_dir
-        )
+    create_visualizations(
+        exp, disent_matrix, count_matrix, feat_names, 
+        significant_neurons, mixed_candidates, output_dir
+    )
     
-    # Final summary and interpretation guide
-    print("\n" + "=" * 80)
-    print("MIXED SELECTIVITY ANALYSIS COMPLETE")
-    print("=" * 80)
-    
-    print(f"\nResults interpretation guide:")
-    print(f"• Redundancy (< 0.3): Features provide overlapping information about neuron")
-    print(f"• Independence (0.3-0.7): Features provide separate information")
-    print(f"• Synergy (> 0.7): Combined features provide more info than sum of parts")
-    
-    print(f"\nMultiTimeSeries interpretation:")
-    print(f"• Spatial MultiTimeSeries (x,y): Neurons encoding 2D position")
-    print(f"• Movement MultiTimeSeries (speed,direction): Neurons encoding motion")
-    print(f"• These combined features often show higher MI than individual components")
-    
-    print(f"\nBiological interpretations:")
-    print(f"• Redundancy: Multiple correlated behavioral variables (e.g., speed & distance)")
-    print(f"• Independence: Neuron encodes multiple independent variables")
-    print(f"• Synergy: Neuron requires combination of variables (e.g., place cells need X+Y)")
-    
-    print(f"\nAnalysis complete: {exp.n_cells} neurons, {len(mixed_candidates)} with mixed selectivity")
-    print(f"Results: {len(redundancy_cases)} redundancy, {len(synergy_cases)} synergy cases")
+   print(f"\nVisualization files created:")
+    print(f"  - neuron_feature_selectivity.png: Shows MI values for all neuron-feature pairs")
+    print(f"  - disentanglement_heatmap.png: Shows feature relationship disentanglement")
 
 
 if __name__ == "__main__":
