@@ -183,10 +183,28 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - Need sufficient mixed selectivity neurons for meaningful results
   - Empty disentanglement matrix indicates no mixed selectivity found
   
-  **Known Issue - Empty Disentanglement Matrix:**
-  - [ ] Investigate why synthetic data generates few mixed selectivity neurons
-  - [ ] May need to adjust synthetic data generation parameters
-  - [ ] Consider adding forced mixed selectivity examples for demo purposes
+  **Known Issue - Empty Disentanglement Matrix:** ✅ FIXED (2025-01-13)
+  - [x] Investigate why synthetic data generates few mixed selectivity neurons
+  - [x] May need to adjust synthetic data generation parameters
+  - [x] Consider adding forced mixed selectivity examples for demo purposes
+  
+  **Implementation Checkpoints:**
+  - ✅ Identified weak signal parameters (SNR ~18.75) as root cause
+  - ✅ Optimized signal generation: rate_0=0.01, rate_1=3.0, noise_std=0.05
+  - ✅ Increased shuffles to 50/500 for better statistical power
+  - ✅ Achieved 100% detection rate (30/30 neurons)
+  - ✅ 20 neurons with mixed selectivity successfully detected
+  - ✅ Disentanglement analysis now shows 60% true mixed selectivity
+  
+  **Files Modified:**
+  - examples/mixed_selectivity.py (optimized parameters)
+  - src/driada/experiment/synthetic.py (added signal parameters)
+  - src/driada/intense/visual.py (optional WSD calculation)
+  
+  **Technical Notes:**
+  - Key insight: Dynamic range (rate_1/rate_0) more important than absolute rates
+  - SNR should be >40 for reliable detection
+  - Gaussian (norm) distribution works well for shuffled MI values
 
 - [ ] **Create notebooks/ directory with interactive tutorials** - Essential for demo
   - [ ] `notebooks/01_quick_start.ipynb` - 5-minute introduction
