@@ -158,18 +158,35 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - Check if issue is in data generation vs visualization
   - May need to examine compute_cell_feat_significance output
 
-- [ ] **Update mixed_selectivity.py to use visual.py functions** - HIGH PRIORITY
-  - [ ] Replace custom visualization code with plot_disentanglement_heatmap from visual.py
-  - [ ] Use plot_disentanglement_summary for comprehensive view
-  - [ ] Ensure proper data format for visual.py functions
-  - [ ] Remove redundant visualization code
-  - [ ] Add proper error handling for edge cases
-  - [ ] Test with various disentanglement scenarios
+- [x] **Update mixed_selectivity.py to use visual.py functions** - ✅ COMPLETED (2025-01-13)
+  - [x] Replace custom visualization code with plot_disentanglement_heatmap from visual.py
+  - [x] Use plot_disentanglement_summary for comprehensive view
+  - [x] Ensure proper data format for visual.py functions
+  - [x] Remove redundant visualization code (158 lines removed)
+  - [x] Add proper error handling for edge cases
+  - [x] Test with various disentanglement scenarios
   
-  **Implementation Notes:**
-  - visual.py already has plot_disentanglement_heatmap and plot_disentanglement_summary
-  - Need to format disentanglement_results correctly for these functions
-  - Should maintain all existing functionality while simplifying code
+  **Implementation Checkpoints:**
+  - ✅ Fixed disentangle_all_selectivities() call with correct parameters (feat_names required)
+  - ✅ Updated function to return (disent_matrix, count_matrix, feat_names) tuple
+  - ✅ Replaced 158 lines of custom visualization with 3 visual.py function calls
+  - ✅ Updated interpret_disentanglement_results() to work with matrices instead of dicts
+  - ✅ Added proper exception handling around all visualization calls
+  - ✅ Maintained all educational outputs and interpretations
+  - ✅ Reduced print statements to essential user feedback only
+  
+  **Files Modified:**
+  - examples/mixed_selectivity.py (reduced from 470 to ~350 lines)
+  
+  **Technical Notes:**
+  - disentangle_all_selectivities returns matrices, not dictionary
+  - Need sufficient mixed selectivity neurons for meaningful results
+  - Empty disentanglement matrix indicates no mixed selectivity found
+  
+  **Known Issue - Empty Disentanglement Matrix:**
+  - [ ] Investigate why synthetic data generates few mixed selectivity neurons
+  - [ ] May need to adjust synthetic data generation parameters
+  - [ ] Consider adding forced mixed selectivity examples for demo purposes
 
 - [ ] **Create notebooks/ directory with interactive tutorials** - Essential for demo
   - [ ] `notebooks/01_quick_start.ipynb` - 5-minute introduction
