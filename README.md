@@ -274,7 +274,7 @@ If you use DRIADA in your research, please cite:
 @software{driada2024,
   title = {DRIADA: Dimensionality Reduction for Integrated Activity Data},
   author = {Pospelov, Nikita and contributors},
-  year = {2024},
+  year = {2025},
   url = {https://github.com/iabs-neuro/driada}
 }
 ```
