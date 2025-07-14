@@ -65,9 +65,6 @@ Thumbs.db
 .ipynb_checkpoints
 *.ipynb_checkpoints
 
-# Notebooks directory (temporarily ignored)
-notebooks/
-
 # Data and logs
 *.log
 data/
