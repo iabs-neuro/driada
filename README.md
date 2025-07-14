@@ -17,11 +17,16 @@ DRIADA creates a seamless bridge between understanding individual neurons and po
 
 ### The DRIADA Workflow
 
+DRIADA uniquely combines single-neuron and population-level analyses in one framework. While traditional methods analyze neurons in isolation OR populations as a whole, DRIADA reveals how individual neural selectivity gives rise to collective representations.
+
 ```
-Single Neurons → INTENSE → Selectivity Profiles → Dimensionality Reduction → Latent Manifolds
-                                                ↓                           ↓
-                                         Mixed Selectivity            Population Dynamics
-                                            Analysis                     Visualization
+Single Neurons → INTENSE → Individual Selectivity to Features
+                              ↓
+                    Population Activity → Dimensionality Reduction → Latent Variables
+                              ↓                                           ↓
+                    Integration Analysis ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ←
+                              ↓
+                    Connect single-cell selectivity to population-level variables
 ```
 
 ## Overview
@@ -66,10 +71,6 @@ DRIADA provides a comprehensive toolkit for analyzing both individual neural sel
   - Mixed populations with manifold + feature-selective neurons
 - Test and validate analysis methods before applying to real data
 - Benchmark different algorithms on controlled datasets
-
-## Why DRIADA?
-
-DRIADA uniquely combines single-neuron and population-level analyses in one framework. While traditional methods analyze neurons in isolation OR populations as a whole, DRIADA reveals how individual neural selectivity gives rise to collective representations.
 
 **Perfect for:**
 - 🧭 **Navigation studies**: Extract spatial maps from place cells, head direction from HD cells
@@ -215,11 +216,17 @@ exp = driada.Experiment(
 - **[examples/mixed_selectivity.py](examples/mixed_selectivity.py)** - Advanced disentanglement analysis
 - **[examples/extract_circular_manifold.py](examples/extract_circular_manifold.py)** - Population manifold extraction
 
+### 📓 Interactive Notebooks
+- **[notebooks/01_quick_start.ipynb](notebooks/01_quick_start.ipynb)** - Your first DRIADA analysis
+- **[notebooks/02_understanding_results.ipynb](notebooks/02_understanding_results.ipynb)** - Interpreting INTENSE outputs
+- **[notebooks/03_real_data_workflow.ipynb](notebooks/03_real_data_workflow.ipynb)** - Working with experimental data
+
 ### 🎯 Specialized Guides
 1. **Single-Neuron Analysis**: Start with [README_INTENSE.md](README_INTENSE.md) for selectivity analysis
 2. **Population Analysis**: Use [examples/extract_circular_manifold.py](examples/extract_circular_manifold.py) for manifold extraction
-3. **Synthetic Data**: Generate test populations with `driada.generate_*_manifold_exp()` functions
-4. **Real Data**: Follow the "Using Your Own Data" section above
+3. **Interactive Learning**: Explore [notebooks/](notebooks/) for hands-on tutorials
+4. **Synthetic Data**: Generate test populations with `driada.generate_*_manifold_exp()` functions
+5. **Real Data**: Follow the "Using Your Own Data" section above
 
 ## Requirements
 
