@@ -698,6 +698,495 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     return exp, info
 
 
+# 3D spatial manifold generation functions for flying/swimming animals
+def generate_3d_random_walk(length, bounds=(0, 1), step_size=0.02, momentum=0.8, seed=None):
+    """
+    Generate a 3D random walk trajectory with momentum.
+    
+    Parameters
+    ----------
+    length : int
+        Number of time points.
+    bounds : tuple
+        (min, max) boundaries for the 3D space.
+    step_size : float
+        Step size for movement.
+    momentum : float
+        Momentum factor (0-1) for smoother trajectories.
+    seed : int, optional
+        Random seed.
+        
+    Returns
+    -------
+    positions : ndarray
+        Shape (length, 3) with (x, y, z) positions.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    positions = np.zeros((length, 3))
+    velocity = np.zeros(3)
+    
+    # Start at random position
+    positions[0] = np.random.uniform(bounds[0], bounds[1], 3)
+    
+    for t in range(1, length):
+        # Random acceleration
+        acceleration = np.random.randn(3) * step_size
+        
+        # Update velocity with momentum
+        velocity = momentum * velocity + (1 - momentum) * acceleration
+        
+        # Update position
+        new_pos = positions[t-1] + velocity
+        
+        # Bounce off walls
+        for dim in range(3):
+            if new_pos[dim] < bounds[0]:
+                new_pos[dim] = bounds[0]
+                velocity[dim] *= -0.5
+            elif new_pos[dim] > bounds[1]:
+                new_pos[dim] = bounds[1]
+                velocity[dim] *= -0.5
+        
+        positions[t] = new_pos
+    
+    return positions
+
+
+def gaussian_place_field_3d(positions, center, sigma=0.1):
+    """
+    Calculate neural response using 3D Gaussian place field.
+    
+    Parameters
+    ----------
+    positions : ndarray
+        Shape (n_timepoints, 3) with (x, y, z) positions.
+    center : ndarray
+        (x, y, z) center of the place field.
+    sigma : float
+        Width of the Gaussian place field.
+        
+    Returns
+    -------
+    response : ndarray
+        Neural response at each position.
+    """
+    distances_squared = np.sum((positions - center)**2, axis=1)
+    response = np.exp(-distances_squared / (2 * sigma**2))
+    return response
+
+
+def generate_3d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
+                                baseline_rate=0.1, peak_rate=2.0,
+                                noise_std=0.05, grid_arrangement=True,
+                                seed=None):
+    """
+    Generate population of 3D place cells with Gaussian tuning.
+    
+    Parameters
+    ----------
+    n_neurons : int
+        Number of neurons.
+    positions : ndarray
+        Shape (n_timepoints, 3) with (x, y, z) trajectory.
+    field_sigma : float
+        Width of place fields.
+    baseline_rate : float
+        Baseline firing rate.
+    peak_rate : float
+        Peak firing rate at place field center.
+    noise_std : float
+        Noise in firing rates.
+    grid_arrangement : bool
+        If True, arrange place fields on a 3D grid. If False, random positions.
+    seed : int, optional
+        Random seed.
+        
+    Returns
+    -------
+    firing_rates : ndarray
+        Shape (n_neurons, n_timepoints).
+    place_field_centers : ndarray
+        Shape (n_neurons, 3) with place field centers.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    n_timepoints = len(positions)
+    
+    # Determine place field centers
+    if grid_arrangement:
+        # Arrange on a 3D grid
+        grid_size = int(np.ceil(n_neurons**(1/3)))
+        # Use full space for better coverage
+        x_grid = np.linspace(0.05, 0.95, grid_size)
+        y_grid = np.linspace(0.05, 0.95, grid_size)
+        z_grid = np.linspace(0.05, 0.95, grid_size)
+        centers = []
+        for x in x_grid:
+            for y in y_grid:
+                for z in z_grid:
+                    if len(centers) < n_neurons:
+                        centers.append([x, y, z])
+        place_field_centers = np.array(centers[:n_neurons])
+        
+        # Add small jitter
+        jitter = np.random.normal(0, 0.01, (n_neurons, 3))
+        place_field_centers += jitter
+        place_field_centers = np.clip(place_field_centers, 0.02, 0.98)
+    else:
+        # Random positions - better spread
+        place_field_centers = np.random.uniform(0.05, 0.95, (n_neurons, 3))
+    
+    # Generate firing rates
+    firing_rates = np.zeros((n_neurons, n_timepoints))
+    
+    for i in range(n_neurons):
+        # Gaussian place field response
+        place_response = gaussian_place_field_3d(positions, place_field_centers[i], field_sigma)
+        
+        # Scale to firing rates
+        firing_rate = baseline_rate + (peak_rate - baseline_rate) * place_response
+        
+        # Add noise
+        noise = np.random.normal(0, noise_std, n_timepoints)
+        firing_rate = np.maximum(0, firing_rate + noise)
+        
+        firing_rates[i] = firing_rate
+    
+    return firing_rates, place_field_centers
+
+
+def generate_3d_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
+                             field_sigma=0.1, step_size=0.02, momentum=0.8,
+                             baseline_rate=0.1, peak_rate=2.0,
+                             noise_std=0.05, decay_time=2.0, 
+                             calcium_noise_std=0.1,
+                             grid_arrangement=True,
+                             n_environments=1,
+                             seed=None, verbose=True):
+    """
+    Generate synthetic data with neurons on 3D spatial manifold (3D place cells).
+    
+    Parameters
+    ----------
+    n_neurons : int
+        Number of neurons.
+    duration : float
+        Duration in seconds.
+    sampling_rate : float
+        Sampling rate in Hz.
+    field_sigma : float
+        Width of place fields.
+    step_size : float
+        Step size for movement.
+    momentum : float
+        Momentum for smoother trajectories.
+    baseline_rate : float
+        Baseline firing rate.
+    peak_rate : float
+        Peak firing rate at place field center.
+    noise_std : float
+        Noise in firing rates.
+    decay_time : float
+        Calcium decay time constant.
+    calcium_noise_std : float
+        Noise in calcium signal.
+    grid_arrangement : bool
+        If True, arrange fields on 3D grid.
+    n_environments : int
+        Number of different 3D environments.
+    seed : int, optional
+        Random seed.
+    verbose : bool
+        Print progress.
+        
+    Returns
+    -------
+    calcium_signals : ndarray
+        Calcium signals (n_neurons x n_timepoints).
+    positions : ndarray or list
+        3D positions. If n_environments=1, shape (n_timepoints, 3).
+        Otherwise list of arrays.
+    place_field_centers : ndarray or list
+        Place field centers. If n_environments=1, shape (n_neurons, 3).
+        Otherwise list of arrays.
+    firing_rates : ndarray
+        Underlying firing rates (n_neurons x n_timepoints).
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    n_timepoints = int(duration * sampling_rate)
+    
+    if verbose:
+        print(f'Generating 3D spatial manifold data: {n_neurons} neurons, {duration}s')
+    
+    # Generate data for each environment
+    all_positions = []
+    all_centers = []
+    all_rates = []
+    
+    for env in range(n_environments):
+        if verbose and n_environments > 1:
+            print(f'  Environment {env+1}/{n_environments}')
+        
+        # Generate 3D trajectory
+        if verbose:
+            print('  Generating 3D trajectory...')
+        
+        timepoints_per_env = n_timepoints // n_environments
+        positions = generate_3d_random_walk(
+            timepoints_per_env, 
+            bounds=(0, 1),
+            step_size=step_size,
+            momentum=momentum,
+            seed=(seed + env) if seed else None
+        )
+        
+        # Generate place cells
+        if verbose:
+            print('  Generating 3D place cell responses...')
+        
+        # For multiple environments, randomly remap some place fields
+        if env == 0 or n_environments == 1:
+            firing_rates, centers = generate_3d_manifold_neurons(
+                n_neurons, positions, field_sigma,
+                baseline_rate, peak_rate, noise_std,
+                grid_arrangement,
+                seed=(seed + env + 100) if seed else None
+            )
+        else:
+            # Partial remapping: ~50% of cells change their place fields
+            remap_mask = np.random.random(n_neurons) < 0.5
+            centers = all_centers[0].copy()
+            
+            # Randomly move remapped centers
+            centers[remap_mask] = np.random.uniform(0.05, 0.95, (np.sum(remap_mask), 3))
+            
+            # Generate firing rates with new centers
+            firing_rates = np.zeros((n_neurons, timepoints_per_env))
+            for i in range(n_neurons):
+                place_response = gaussian_place_field_3d(positions, centers[i], field_sigma)
+                firing_rate = baseline_rate + (peak_rate - baseline_rate) * place_response
+                noise = np.random.normal(0, noise_std, timepoints_per_env)
+                firing_rates[i] = np.maximum(0, firing_rate + noise)
+        
+        all_positions.append(positions)
+        all_centers.append(centers)
+        all_rates.append(firing_rates)
+    
+    # Concatenate all environments
+    positions = np.vstack(all_positions) if n_environments > 1 else all_positions[0]
+    firing_rates = np.hstack(all_rates) if n_environments > 1 else all_rates[0]
+    
+    # Convert to calcium signals
+    if verbose:
+        print('  Converting to calcium signals...')
+    
+    calcium_signals = np.zeros((n_neurons, n_timepoints))
+    
+    for i in range(n_neurons):
+        # Generate events from firing rates
+        prob_spike = firing_rates[i] / sampling_rate
+        prob_spike = np.clip(prob_spike, 0, 1)
+        events = np.random.binomial(1, prob_spike)
+        
+        # Convert to calcium
+        calcium_signal = generate_pseudo_calcium_signal(
+            events=events,
+            duration=duration,
+            sampling_rate=sampling_rate,
+            amplitude_range=(0.5, 2.0),
+            decay_time=decay_time,
+            noise_std=calcium_noise_std
+        )
+        calcium_signals[i] = calcium_signal
+    
+    if verbose:
+        print('  Done!')
+    
+    # Return appropriate format
+    if n_environments == 1:
+        return calcium_signals, positions, all_centers[0], firing_rates
+    else:
+        return calcium_signals, all_positions, all_centers, firing_rates
+
+
+def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
+                            field_sigma=0.1, step_size=0.02, momentum=0.8,
+                            baseline_rate=0.1, peak_rate=2.0,
+                            noise_std=0.05, decay_time=2.0,
+                            calcium_noise_std=0.1,
+                            grid_arrangement=True,
+                            n_environments=1,
+                            add_head_direction=False,
+                            seed=None, verbose=True):
+    """
+    Generate synthetic experiment with 3D place cells.
+    
+    Parameters
+    ----------
+    n_neurons : int
+        Number of neurons (default 125 = 5x5x5 grid).
+    duration : float
+        Duration in seconds.
+    fps : float
+        Sampling rate.
+    field_sigma : float
+        Place field width.
+    step_size : float
+        Movement step size.
+    momentum : float
+        Movement momentum.
+    baseline_rate : float
+        Baseline firing rate.
+    peak_rate : float
+        Peak firing rate.
+    noise_std : float
+        Firing rate noise.
+    decay_time : float
+        Calcium decay time.
+    calcium_noise_std : float
+        Calcium signal noise.
+    grid_arrangement : bool
+        Arrange fields on 3D grid.
+    n_environments : int
+        Number of environments.
+    add_head_direction : bool
+        If True, add 3D head direction (azimuth and elevation).
+    seed : int, optional
+        Random seed.
+    verbose : bool
+        Print progress.
+        
+    Returns
+    -------
+    exp : Experiment
+        Experiment object.
+    info : dict
+        Information about the generated data.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    # Generate 3D manifold data
+    calcium_signals, positions, centers, firing_rates = generate_3d_manifold_data(
+        n_neurons, duration, fps,
+        field_sigma, step_size, momentum,
+        baseline_rate, peak_rate,
+        noise_std, decay_time, calcium_noise_std,
+        grid_arrangement, n_environments,
+        seed, verbose
+    )
+    
+    # Create dynamic features
+    dynamic_features = {}
+    
+    if n_environments == 1:
+        # Single environment
+        dynamic_features['x_position'] = TimeSeries(positions[:, 0], discrete=False)
+        dynamic_features['y_position'] = TimeSeries(positions[:, 1], discrete=False)
+        dynamic_features['z_position'] = TimeSeries(positions[:, 2], discrete=False)
+        
+        # Also add as multifeature for manifold analysis
+        dynamic_features['position_3d'] = MultiTimeSeries([
+            TimeSeries(positions[:, 0], discrete=False),
+            TimeSeries(positions[:, 1], discrete=False),
+            TimeSeries(positions[:, 2], discrete=False)
+        ])
+    else:
+        # Multiple environments - concatenate all
+        all_x = np.concatenate([pos[:, 0] for pos in positions])
+        all_y = np.concatenate([pos[:, 1] for pos in positions])
+        all_z = np.concatenate([pos[:, 2] for pos in positions])
+        
+        dynamic_features['x_position'] = TimeSeries(all_x, discrete=False)
+        dynamic_features['y_position'] = TimeSeries(all_y, discrete=False)
+        dynamic_features['z_position'] = TimeSeries(all_z, discrete=False)
+        
+        dynamic_features['position_3d'] = MultiTimeSeries([
+            TimeSeries(all_x, discrete=False),
+            TimeSeries(all_y, discrete=False),
+            TimeSeries(all_z, discrete=False)
+        ])
+        
+        # Add environment indicator
+        env_indicator = np.concatenate([
+            np.full(len(pos), env_idx) 
+            for env_idx, pos in enumerate(positions)
+        ])
+        dynamic_features['environment'] = TimeSeries(env_indicator, discrete=True)
+    
+    # Optionally add 3D head direction
+    if add_head_direction:
+        if verbose:
+            print('  Adding 3D head direction features...')
+        
+        # Calculate head direction from trajectory
+        if n_environments == 1:
+            velocities = np.diff(positions, axis=0, prepend=positions[0:1])
+        else:
+            all_positions = np.vstack(positions)
+            velocities = np.diff(all_positions, axis=0, prepend=all_positions[0:1])
+        
+        # Azimuth (horizontal angle)
+        azimuth = np.arctan2(velocities[:, 1], velocities[:, 0])
+        azimuth = (azimuth + 2 * np.pi) % (2 * np.pi)
+        
+        # Elevation (vertical angle)
+        horizontal_dist = np.sqrt(velocities[:, 0]**2 + velocities[:, 1]**2)
+        elevation = np.arctan2(velocities[:, 2], horizontal_dist)
+        elevation = np.clip(elevation, -np.pi/2, np.pi/2)  # -90 to +90 degrees
+        
+        dynamic_features['azimuth'] = TimeSeries(azimuth, discrete=False)
+        dynamic_features['elevation'] = TimeSeries(elevation, discrete=False)
+        
+        # Add circular representations
+        dynamic_features['azimuth_circular'] = MultiTimeSeries([
+            TimeSeries(np.cos(azimuth), discrete=False),
+            TimeSeries(np.sin(azimuth), discrete=False)
+        ])
+        
+        # For elevation, use both sin/cos since it's not fully circular
+        dynamic_features['elevation_circular'] = MultiTimeSeries([
+            TimeSeries(np.cos(elevation), discrete=False),
+            TimeSeries(np.sin(elevation), discrete=False)
+        ])
+    
+    # Create static features
+    static_features = {
+        'fps': fps,
+        't_rise_sec': 0.5,
+        't_off_sec': decay_time
+    }
+    
+    # Create experiment
+    exp = Experiment(
+        'SpatialManifold3D',
+        calcium_signals,
+        None,
+        {},
+        static_features,
+        dynamic_features,
+        reconstruct_spikes=None
+    )
+    
+    # Prepare info
+    info = {
+        'positions': positions,
+        'place_field_centers': centers,
+        'firing_rates': firing_rates,
+        'field_sigma': field_sigma,
+        'manifold_type': '3d_spatial',
+        'n_neurons': n_neurons,
+        'n_environments': n_environments
+    }
+    
+    return exp, info
+
+
 def generate_pseudo_calcium_multisignal(n,
                                         events=None,
                                         duration=600,

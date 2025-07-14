@@ -38,6 +38,8 @@ from .experiment import (
     load_exp_from_pickle,
     generate_synthetic_exp,
     generate_circular_manifold_exp,
+    generate_2d_manifold_exp,
+    generate_3d_manifold_exp,
 )
 
 __all__ = [
@@ -66,4 +68,6 @@ __all__ = [
     "load_exp_from_pickle",
     "generate_synthetic_exp",
     "generate_circular_manifold_exp",
+    "generate_2d_manifold_exp",
+    "generate_3d_manifold_exp",
 ]
