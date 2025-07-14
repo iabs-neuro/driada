@@ -34,6 +34,12 @@ from .synthetic import (
     generate_circular_manifold_neurons,
     generate_circular_manifold_data,
     generate_circular_manifold_exp,
+    # 2D spatial manifold functions
+    generate_2d_random_walk,
+    gaussian_place_field,
+    generate_2d_manifold_neurons,
+    generate_2d_manifold_data,
+    generate_2d_manifold_exp,
 )
 
 # Neuron analysis
@@ -72,6 +78,12 @@ __all__ = [
     "generate_circular_manifold_neurons",
     "generate_circular_manifold_data",
     "generate_circular_manifold_exp",
+    # 2D spatial manifold functions
+    "generate_2d_random_walk",
+    "gaussian_place_field",
+    "generate_2d_manifold_neurons",
+    "generate_2d_manifold_data", 
+    "generate_2d_manifold_exp",
     # Neuron analysis
     "Neuron",
     # Wavelet analysis
