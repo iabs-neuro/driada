@@ -28,6 +28,12 @@ from .synthetic import (
     generate_multiselectivity_patterns,
     generate_binary_time_series,
     generate_fbm_time_series,
+    # Circular manifold functions
+    generate_circular_random_walk,
+    von_mises_tuning_curve,
+    generate_circular_manifold_neurons,
+    generate_circular_manifold_data,
+    generate_circular_manifold_exp,
 )
 
 # Neuron analysis
@@ -60,6 +66,12 @@ __all__ = [
     "generate_multiselectivity_patterns",
     "generate_binary_time_series",
     "generate_fbm_time_series",
+    # Circular manifold functions
+    "generate_circular_random_walk",
+    "von_mises_tuning_curve",
+    "generate_circular_manifold_neurons",
+    "generate_circular_manifold_data",
+    "generate_circular_manifold_exp",
     # Neuron analysis
     "Neuron",
     # Wavelet analysis

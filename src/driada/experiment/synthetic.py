@@ -2,8 +2,229 @@ import numpy as np
 from fbm import FBM
 import itertools
 import tqdm
+from scipy import stats
+from scipy.special import i0
 from .exp_base import *
 from ..information.info_base import TimeSeries, MultiTimeSeries, aggregate_multiple_ts
+
+
+# Circular manifold generation functions for head direction cells
+def generate_circular_random_walk(length, step_std=0.1, seed=None):
+    """
+    Generate a random walk on a circle (head direction trajectory).
+    
+    Parameters
+    ----------
+    length : int
+        Number of time points.
+    step_std : float
+        Standard deviation of angular steps in radians.
+    seed : int, optional
+        Random seed for reproducibility.
+        
+    Returns
+    -------
+    angles : ndarray
+        Array of angles in radians [0, 2π).
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    # Generate random steps
+    steps = np.random.normal(0, step_std, length)
+    
+    # Cumulative sum to get trajectory
+    angles = np.cumsum(steps)
+    
+    # Wrap to [0, 2π)
+    angles = angles % (2 * np.pi)
+    
+    return angles
+
+
+def von_mises_tuning_curve(angles, preferred_direction, kappa):
+    """
+    Calculate neural response using Von Mises tuning curve.
+    
+    Parameters
+    ----------
+    angles : ndarray
+        Current head directions in radians.
+    preferred_direction : float
+        Preferred direction of the neuron in radians.
+    kappa : float
+        Concentration parameter (inverse width of tuning curve).
+        Higher kappa = narrower tuning.
+        
+    Returns
+    -------
+    response : ndarray
+        Neural response (firing rate modulation).
+    """
+    # Von Mises distribution normalized to max=1
+    response = np.exp(kappa * (np.cos(angles - preferred_direction) - 1))
+    return response
+
+
+def generate_circular_manifold_neurons(n_neurons, head_direction, kappa=4.0, 
+                                      baseline_rate=0.1, peak_rate=2.0,
+                                      noise_std=0.05, seed=None):
+    """
+    Generate population of head direction cells with Von Mises tuning.
+    
+    Parameters
+    ----------
+    n_neurons : int
+        Number of neurons in the population.
+    head_direction : ndarray
+        Head direction trajectory in radians.
+    kappa : float
+        Concentration parameter for Von Mises tuning curves.
+        Typical values: 2-8 (higher = narrower tuning).
+    baseline_rate : float
+        Baseline firing rate when far from preferred direction.
+    peak_rate : float
+        Peak firing rate at preferred direction.
+    noise_std : float
+        Standard deviation of noise in firing rates.
+    seed : int, optional
+        Random seed for reproducibility.
+        
+    Returns
+    -------
+    firing_rates : ndarray
+        Shape (n_neurons, n_timepoints) with firing rates.
+    preferred_directions : ndarray
+        Preferred direction for each neuron in radians.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    n_timepoints = len(head_direction)
+    
+    # Uniformly distribute preferred directions around the circle
+    preferred_directions = np.linspace(0, 2*np.pi, n_neurons, endpoint=False)
+    
+    # Add small random jitter to break perfect symmetry
+    jitter = np.random.normal(0, 0.1, n_neurons)
+    preferred_directions = (preferred_directions + jitter) % (2*np.pi)
+    
+    # Generate firing rates for each neuron
+    firing_rates = np.zeros((n_neurons, n_timepoints))
+    
+    for i in range(n_neurons):
+        # Von Mises tuning curve
+        tuning_response = von_mises_tuning_curve(head_direction, 
+                                               preferred_directions[i], 
+                                               kappa)
+        
+        # Scale to desired firing rate range
+        firing_rate = baseline_rate + (peak_rate - baseline_rate) * tuning_response
+        
+        # Add noise
+        noise = np.random.normal(0, noise_std, n_timepoints)
+        firing_rate = np.maximum(0, firing_rate + noise)  # Ensure non-negative
+        
+        firing_rates[i, :] = firing_rate
+    
+    return firing_rates, preferred_directions
+
+
+def generate_circular_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
+                                   kappa=4.0, step_std=0.1,
+                                   baseline_rate=0.1, peak_rate=2.0,
+                                   noise_std=0.05, 
+                                   decay_time=2.0, calcium_noise_std=0.1,
+                                   seed=None, verbose=True):
+    """
+    Generate synthetic data with neurons on circular manifold (head direction cells).
+    
+    Parameters
+    ----------
+    n_neurons : int
+        Number of neurons.
+    duration : float
+        Duration in seconds.
+    sampling_rate : float
+        Sampling rate in Hz.
+    kappa : float
+        Von Mises concentration parameter (tuning width).
+    step_std : float
+        Standard deviation of head direction random walk steps.
+    baseline_rate : float
+        Baseline firing rate.
+    peak_rate : float
+        Peak firing rate at preferred direction.
+    noise_std : float
+        Noise in firing rates.
+    decay_time : float
+        Calcium decay time constant.
+    calcium_noise_std : float
+        Noise in calcium signal.
+    seed : int, optional
+        Random seed.
+    verbose : bool
+        Print progress.
+        
+    Returns
+    -------
+    calcium_signals : ndarray
+        Calcium signals (n_neurons x n_timepoints).
+    head_direction : ndarray
+        Head direction trajectory.
+    preferred_directions : ndarray
+        Preferred direction for each neuron.
+    firing_rates : ndarray
+        Underlying firing rates.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    n_timepoints = int(duration * sampling_rate)
+    
+    if verbose:
+        print(f'Generating circular manifold data: {n_neurons} neurons, {duration}s')
+    
+    # Generate head direction trajectory
+    if verbose:
+        print('  Generating head direction trajectory...')
+    head_direction = generate_circular_random_walk(n_timepoints, step_std, seed)
+    
+    # Generate neural responses
+    if verbose:
+        print('  Generating neural responses with Von Mises tuning...')
+    firing_rates, preferred_directions = generate_circular_manifold_neurons(
+        n_neurons, head_direction, kappa,
+        baseline_rate, peak_rate, noise_std,
+        seed=(seed + 1) if seed else None
+    )
+    
+    # Convert firing rates to calcium signals
+    if verbose:
+        print('  Converting to calcium signals...')
+    calcium_signals = np.zeros((n_neurons, n_timepoints))
+    
+    for i in range(n_neurons):
+        # Generate Poisson events from firing rates
+        prob_spike = firing_rates[i, :] / sampling_rate
+        prob_spike = np.clip(prob_spike, 0, 1)  # Ensure valid probability
+        events = np.random.binomial(1, prob_spike)
+        
+        # Convert to calcium using existing function
+        calcium_signal = generate_pseudo_calcium_signal(
+            events=events,
+            duration=duration,
+            sampling_rate=sampling_rate,
+            amplitude_range=(0.5, 2.0),
+            decay_time=decay_time,
+            noise_std=calcium_noise_std
+        )
+        calcium_signals[i, :] = calcium_signal
+    
+    if verbose:
+        print('  Done!')
+    
+    return calcium_signals, head_direction, preferred_directions, firing_rates
 
 
 def generate_pseudo_calcium_multisignal(n,
@@ -67,7 +288,11 @@ def generate_pseudo_calcium_signal(events=None,
     else:
         num_samples = len(events)
         event_times = np.where(events>0)[0]
-        event_amplitudes = events[event_times]
+        # Use amplitude_range to modulate event amplitudes instead of using binary values
+        if len(event_times) > 0:
+            event_amplitudes = np.random.uniform(amplitude_range[0], amplitude_range[1], len(event_times))
+        else:
+            event_amplitudes = np.array([])
 
     # Initialize the signal with zeros
     signal = np.zeros(num_samples)
@@ -815,3 +1040,134 @@ def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=2
                          reconstruct_spikes=None)
 
     return exp
+
+
+def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
+                                  kappa=4.0, step_std=0.1,
+                                  baseline_rate=0.1, peak_rate=2.0,
+                                  noise_std=0.05, decay_time=2.0,
+                                  calcium_noise_std=0.1,
+                                  add_mixed_features=False,
+                                  n_extra_features=0,
+                                  seed=None, verbose=True):
+    """
+    Generate synthetic experiment with head direction cells on circular manifold.
+    
+    Parameters
+    ----------
+    n_neurons : int
+        Number of neurons.
+    duration : float
+        Duration in seconds.
+    fps : float
+        Sampling rate (frames per second).
+    kappa : float
+        Von Mises concentration (tuning width). Higher = narrower tuning.
+        Typical values: 2-8.
+    step_std : float
+        Standard deviation of head direction random walk.
+    baseline_rate : float
+        Baseline firing rate.
+    peak_rate : float
+        Peak firing rate at preferred direction.
+    noise_std : float
+        Noise in firing rates.
+    decay_time : float
+        Calcium decay time constant.
+    calcium_noise_std : float
+        Noise in calcium signal.
+    add_mixed_features : bool
+        If True, add neurons with mixed selectivity to head direction
+        and other features.
+    n_extra_features : int
+        Number of additional features to generate if add_mixed_features=True.
+    seed : int, optional
+        Random seed.
+    verbose : bool
+        Print progress.
+        
+    Returns
+    -------
+    exp : Experiment
+        Experiment object with circular manifold data.
+    info : dict
+        Dictionary containing:
+        - 'head_direction': Head direction trajectory
+        - 'preferred_directions': Preferred directions of neurons
+        - 'firing_rates': Underlying firing rates
+        - 'kappa': Von Mises concentration used
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    # Generate circular manifold data
+    calcium_signals, head_direction, preferred_directions, firing_rates = \
+        generate_circular_manifold_data(
+            n_neurons, duration, fps,
+            kappa, step_std,
+            baseline_rate, peak_rate,
+            noise_std, decay_time, calcium_noise_std,
+            seed, verbose
+        )
+    
+    # Create dynamic features
+    dynamic_features = {
+        'head_direction': TimeSeries(head_direction, discrete=False)
+    }
+    
+    # Add circular representation as multifeature (cos, sin)
+    # This allows INTENSE to properly detect circular selectivity
+    cos_head = np.cos(head_direction)
+    sin_head = np.sin(head_direction)
+    circular_components = [
+        TimeSeries(cos_head, discrete=False),
+        TimeSeries(sin_head, discrete=False)
+    ]
+    dynamic_features['circular_angle'] = MultiTimeSeries(circular_components)
+    
+    # Optionally add extra features and mixed selectivity
+    if add_mixed_features and n_extra_features > 0:
+        if verbose:
+            print(f'Adding {n_extra_features} extra features...')
+        
+        n_timepoints = int(duration * fps)
+        
+        # Add continuous features
+        for i in range(n_extra_features):
+            fbm_series = generate_fbm_time_series(n_timepoints, hurst=0.3, 
+                                                seed=(seed + 100 + i) if seed else None)
+            dynamic_features[f'c_feat_{i}'] = TimeSeries(fbm_series, discrete=False)
+        
+        # TODO: Add mixed selectivity by modulating some neurons with extra features
+        # This would involve modifying the calcium signals based on the extra features
+        # For now, we keep pure head direction selectivity
+    
+    # Create static features
+    static_features = {
+        'fps': fps,
+        't_rise_sec': 0.5,  # Standard GCaMP rise time
+        't_off_sec': decay_time
+    }
+    
+    # Create experiment
+    exp = Experiment(
+        'CircularManifold',
+        calcium_signals,
+        None,  # No spike data
+        {},    # No identificators
+        static_features,
+        dynamic_features,
+        reconstruct_spikes=None
+    )
+    
+    # Prepare info dictionary
+    info = {
+        'head_direction': head_direction,
+        'preferred_directions': preferred_directions,
+        'firing_rates': firing_rates,
+        'kappa': kappa,
+        'manifold_type': 'circular',
+        'n_neurons': n_neurons
+    }
+    
+    return exp, info

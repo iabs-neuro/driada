@@ -37,6 +37,7 @@ from .experiment import (
     save_exp_to_pickle,
     load_exp_from_pickle,
     generate_synthetic_exp,
+    generate_circular_manifold_exp,
 )
 
 __all__ = [
@@ -64,4 +65,5 @@ __all__ = [
     "save_exp_to_pickle",
     "load_exp_from_pickle",
     "generate_synthetic_exp",
+    "generate_circular_manifold_exp",
 ]
