@@ -313,14 +313,14 @@ class TestGenerate3DManifoldExp:
         # Use 27 neurons (3x3x3 grid) with larger fields for better coverage
         exp, info = generate_3d_manifold_exp(
             n_neurons=27,       # 3x3x3 grid
-            duration=300,
-            field_sigma=0.15,   # Larger fields for better coverage
-            step_size=0.04,     # Good exploration
-            momentum=0.7,       # Smoother movement
-            peak_rate=4.0,      # High peak rate
-            baseline_rate=0.05, # Low baseline  
-            noise_std=0.02,     # Low noise
-            calcium_noise_std=0.05,  # Moderate calcium noise
+            duration=900,       # Triple duration for excellent 3D coverage
+            field_sigma=0.18,   # Even larger fields for better coverage
+            step_size=0.05,     # Slightly larger steps for better exploration
+            momentum=0.6,       # Less momentum for more coverage
+            peak_rate=5.0,      # Higher peak rate for stronger signal
+            baseline_rate=0.02, # Lower baseline for better SNR
+            noise_std=0.01,     # Very low noise
+            calcium_noise_std=0.03,  # Lower calcium noise
             decay_time=1.5,     # Reasonable decay
             verbose=False, 
             seed=42
