@@ -46,6 +46,8 @@ from .synthetic import (
     generate_3d_manifold_neurons,
     generate_3d_manifold_data,
     generate_3d_manifold_exp,
+    # Mixed population generator
+    generate_mixed_population_exp,
 )
 
 # Neuron analysis
@@ -96,6 +98,8 @@ __all__ = [
     "generate_3d_manifold_neurons",
     "generate_3d_manifold_data",
     "generate_3d_manifold_exp",
+    # Mixed population generator
+    "generate_mixed_population_exp",
     # Neuron analysis
     "Neuron",
     # Wavelet analysis

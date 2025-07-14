@@ -2131,3 +2131,480 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     }
     
     return exp, info
+
+
+def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
+                                  manifold_type='2d_spatial', manifold_params=None,
+                                  n_discrete_features=3, n_continuous_features=3,
+                                  feature_params=None, correlation_mode='independent',
+                                  correlation_strength=0.3, duration=600, fps=20.0,
+                                  seed=None, verbose=True):
+    """
+    Generate synthetic experiment with mixed population of manifold and feature-selective cells.
+    
+    This function creates a neural population combining spatial cells (place cells, head direction)
+    with feature-selective cells responding to behavioral variables. The mixing ratio and
+    correlations between spatial and behavioral activities can be configured.
+    
+    Parameters
+    ----------
+    n_neurons : int
+        Total number of neurons in the population.
+    manifold_fraction : float
+        Fraction of neurons that are manifold cells (0.0-1.0).
+        Remaining neurons will be feature-selective.
+    manifold_type : str
+        Type of manifold: 'circular', '2d_spatial', '3d_spatial'.
+    manifold_params : dict, optional
+        Parameters for manifold generation. If None, uses defaults.
+    n_discrete_features : int
+        Number of discrete behavioral features.
+    n_continuous_features : int
+        Number of continuous behavioral features.
+    feature_params : dict, optional
+        Parameters for feature generation. If None, uses defaults.
+    correlation_mode : str
+        How to correlate spatial and behavioral activities:
+        - 'independent': No correlation between spatial and behavioral
+        - 'spatial_correlated': Behavioral features modulated by spatial position
+        - 'feature_correlated': Spatial activity modulated by behavioral features
+    correlation_strength : float
+        Strength of correlation (0.0-1.0) when correlation_mode is not 'independent'.
+    duration : float
+        Duration of experiment in seconds.
+    fps : float
+        Sampling rate in Hz.
+    seed : int, optional
+        Random seed for reproducibility.
+    verbose : bool
+        Print progress messages.
+        
+    Returns
+    -------
+    exp : Experiment
+        Experiment object with mixed population.
+    info : dict
+        Dictionary containing:
+        - 'population_composition': Details about neuron allocation
+        - 'manifold_info': Information about manifold cells
+        - 'feature_selectivity': Information about feature-selective cells
+        - 'spatial_data': Spatial trajectory data
+        - 'behavioral_features': Behavioral feature data
+        - 'correlation_applied': Correlation mode used
+        
+    Examples
+    --------
+    >>> # Generate population with 60% place cells, 40% feature-selective
+    >>> exp, info = generate_mixed_population_exp(
+    ...     n_neurons=50,
+    ...     manifold_fraction=0.6,
+    ...     manifold_type='2d_spatial',
+    ...     correlation_mode='spatial_correlated'
+    ... )
+    
+    >>> # Check population composition
+    >>> print(f"Manifold cells: {info['population_composition']['n_manifold']}")
+    >>> print(f"Feature-selective: {info['population_composition']['n_feature_selective']}")
+    
+    Notes
+    -----
+    The function integrates existing manifold and feature generators to create
+    realistic mixed populations. Spatial correlations can model scenarios where
+    behavioral variables depend on location (e.g., speed varying with position)
+    or where spatial coding is modulated by behavioral state.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    # Validate parameters
+    if not 0.0 <= manifold_fraction <= 1.0:
+        raise ValueError(f"manifold_fraction must be between 0.0 and 1.0, got {manifold_fraction}")
+    
+    if manifold_type not in ['circular', '2d_spatial', '3d_spatial']:
+        raise ValueError(f"manifold_type must be 'circular', '2d_spatial', or '3d_spatial', got {manifold_type}")
+    
+    if correlation_mode not in ['independent', 'spatial_correlated', 'feature_correlated']:
+        raise ValueError(f"Invalid correlation_mode: {correlation_mode}")
+    
+    if not 0.0 <= correlation_strength <= 1.0:
+        raise ValueError(f"correlation_strength must be between 0.0 and 1.0, got {correlation_strength}")
+    
+    # Calculate population allocation
+    n_manifold = int(n_neurons * manifold_fraction)
+    n_feature_selective = n_neurons - n_manifold
+    
+    if verbose:
+        print(f'Generating mixed population: {n_neurons} total neurons')
+        print(f'  Manifold cells ({manifold_type}): {n_manifold}')
+        print(f'  Feature-selective cells: {n_feature_selective}')
+        print(f'  Correlation mode: {correlation_mode}')
+    
+    # Set default parameters
+    if manifold_params is None:
+        manifold_params = {
+            'field_sigma': 0.1,
+            'baseline_rate': 0.1,
+            'peak_rate': 2.0,
+            'noise_std': 0.05,
+            'decay_time': 2.0,
+            'calcium_noise_std': 0.1
+        }
+    
+    if feature_params is None:
+        feature_params = {
+            'rate_0': 0.1,
+            'rate_1': 1.0,
+            'skip_prob': 0.1,
+            'hurst': 0.3,
+            'ampl_range': (0.5, 2.0),
+            'decay_time': 2.0,
+            'noise_std': 0.1
+        }
+    
+    # Initialize containers
+    all_calcium_signals = []
+    dynamic_features = {}
+    manifold_info = {}
+    spatial_data = None
+    feature_selectivity = None
+    
+    # Generate manifold cells
+    if n_manifold > 0:
+        if verbose:
+            print(f'  Generating {n_manifold} {manifold_type} manifold cells...')
+        
+        manifold_seed = seed if seed is None else seed + 1000
+        
+        if manifold_type == 'circular':
+            calcium_manifold, head_direction, preferred_dirs, firing_rates = \
+                generate_circular_manifold_data(
+                    n_manifold, duration, fps,
+                    kappa=manifold_params.get('kappa', 4.0),
+                    step_std=manifold_params.get('step_std', 0.1),
+                    baseline_rate=manifold_params['baseline_rate'],
+                    peak_rate=manifold_params['peak_rate'],
+                    noise_std=manifold_params['noise_std'],
+                    decay_time=manifold_params['decay_time'],
+                    calcium_noise_std=manifold_params['calcium_noise_std'],
+                    seed=manifold_seed,
+                    verbose=verbose
+                )
+            
+            # Add circular features
+            dynamic_features['head_direction'] = TimeSeries(head_direction, discrete=False)
+            dynamic_features['circular_angle'] = MultiTimeSeries([
+                TimeSeries(np.cos(head_direction), discrete=False),
+                TimeSeries(np.sin(head_direction), discrete=False)
+            ])
+            
+            spatial_data = head_direction
+            manifold_info = {
+                'manifold_type': 'circular',
+                'head_direction': head_direction,
+                'preferred_directions': preferred_dirs,
+                'firing_rates': firing_rates
+            }
+            
+        elif manifold_type == '2d_spatial':
+            calcium_manifold, positions, centers, firing_rates = \
+                generate_2d_manifold_data(
+                    n_manifold, duration, fps,
+                    field_sigma=manifold_params['field_sigma'],
+                    step_size=manifold_params.get('step_size', 0.02),
+                    momentum=manifold_params.get('momentum', 0.8),
+                    baseline_rate=manifold_params['baseline_rate'],
+                    peak_rate=manifold_params['peak_rate'],
+                    noise_std=manifold_params['noise_std'],
+                    decay_time=manifold_params['decay_time'],
+                    calcium_noise_std=manifold_params['calcium_noise_std'],
+                    grid_arrangement=manifold_params.get('grid_arrangement', True),
+                    n_environments=1,
+                    seed=manifold_seed,
+                    verbose=verbose
+                )
+            
+            # Add spatial features
+            dynamic_features['x_position'] = TimeSeries(positions[:, 0], discrete=False)
+            dynamic_features['y_position'] = TimeSeries(positions[:, 1], discrete=False)
+            dynamic_features['position_2d'] = MultiTimeSeries([
+                TimeSeries(positions[:, 0], discrete=False),
+                TimeSeries(positions[:, 1], discrete=False)
+            ])
+            
+            spatial_data = positions
+            manifold_info = {
+                'manifold_type': '2d_spatial',
+                'positions': positions,
+                'place_field_centers': centers,
+                'firing_rates': firing_rates
+            }
+            
+        elif manifold_type == '3d_spatial':
+            calcium_manifold, positions, centers, firing_rates = \
+                generate_3d_manifold_data(
+                    n_manifold, duration, fps,
+                    field_sigma=manifold_params['field_sigma'],
+                    step_size=manifold_params.get('step_size', 0.02),
+                    momentum=manifold_params.get('momentum', 0.8),
+                    baseline_rate=manifold_params['baseline_rate'],
+                    peak_rate=manifold_params['peak_rate'],
+                    noise_std=manifold_params['noise_std'],
+                    decay_time=manifold_params['decay_time'],
+                    calcium_noise_std=manifold_params['calcium_noise_std'],
+                    grid_arrangement=manifold_params.get('grid_arrangement', True),
+                    n_environments=1,
+                    seed=manifold_seed,
+                    verbose=verbose
+                )
+            
+            # Add 3D spatial features
+            dynamic_features['x_position'] = TimeSeries(positions[:, 0], discrete=False)
+            dynamic_features['y_position'] = TimeSeries(positions[:, 1], discrete=False)
+            dynamic_features['z_position'] = TimeSeries(positions[:, 2], discrete=False)
+            dynamic_features['position_3d'] = MultiTimeSeries([
+                TimeSeries(positions[:, 0], discrete=False),
+                TimeSeries(positions[:, 1], discrete=False),
+                TimeSeries(positions[:, 2], discrete=False)
+            ])
+            
+            spatial_data = positions
+            manifold_info = {
+                'manifold_type': '3d_spatial',
+                'positions': positions,
+                'place_field_centers': centers,
+                'firing_rates': firing_rates
+            }
+        
+        all_calcium_signals.append(calcium_manifold)
+    
+    # Generate behavioral features
+    behavioral_features_data = {}
+    
+    if n_discrete_features > 0 or n_continuous_features > 0:
+        if verbose:
+            print(f'  Generating behavioral features: {n_discrete_features} discrete, {n_continuous_features} continuous')
+        
+        length = int(duration * fps)
+        feature_seed = seed if seed is None else seed + 2000
+        
+        # Generate discrete features
+        for i in range(n_discrete_features):
+            binary_series = generate_binary_time_series(
+                length, 
+                avg_islands=feature_params.get('avg_islands', 10),
+                avg_duration=int(feature_params.get('avg_duration', 5) * fps)
+            )
+            
+            feat_name = f'd_feat_{i}'
+            behavioral_features_data[feat_name] = binary_series
+            dynamic_features[feat_name] = TimeSeries(binary_series, discrete=True)
+            if feature_seed is not None:
+                feature_seed += 1
+        
+        # Generate continuous features
+        for i in range(n_continuous_features):
+            fbm_series = generate_fbm_time_series(
+                length, 
+                hurst=feature_params['hurst'], 
+                seed=feature_seed
+            )
+            
+            feat_name = f'c_feat_{i}'
+            behavioral_features_data[feat_name] = fbm_series
+            dynamic_features[feat_name] = TimeSeries(fbm_series, discrete=False)
+            if feature_seed is not None:
+                feature_seed += 1
+    
+    # Apply correlation if requested
+    if correlation_mode == 'spatial_correlated' and spatial_data is not None:
+        if verbose:
+            print(f'  Applying spatial correlation (strength={correlation_strength})')
+        
+        # Modulate behavioral features based on spatial position
+        for feat_name, feat_data in behavioral_features_data.items():
+            if 'c_feat' in feat_name:  # Only continuous features
+                # Use average position as spatial signal
+                if spatial_data.ndim == 1:  # Circular case
+                    spatial_signal = np.sin(spatial_data)  # Project to [-1, 1]
+                else:  # 2D/3D spatial case
+                    spatial_signal = np.mean(spatial_data, axis=1)  # Average position
+                
+                # Normalize spatial signal
+                spatial_signal = (spatial_signal - np.mean(spatial_signal)) / np.std(spatial_signal)
+                
+                # Apply correlation
+                correlated_feat = (1 - correlation_strength) * feat_data + \
+                                  correlation_strength * spatial_signal * np.std(feat_data)
+                
+                behavioral_features_data[feat_name] = correlated_feat
+                dynamic_features[feat_name] = TimeSeries(correlated_feat, discrete=False)
+    
+    # Generate feature-selective cells
+    if n_feature_selective > 0:
+        if verbose:
+            print(f'  Generating {n_feature_selective} feature-selective cells...')
+        
+        feature_seed = seed if seed is None else seed + 3000
+        
+        # Prepare features for synthetic data generation
+        discrete_feats = [behavioral_features_data[f'd_feat_{i}'] 
+                         for i in range(n_discrete_features)]
+        continuous_feats = [behavioral_features_data[f'c_feat_{i}'] 
+                           for i in range(n_continuous_features)]
+        
+        all_feats = discrete_feats + continuous_feats
+        
+        if len(all_feats) == 0:
+            # No features - generate baseline neurons
+            calcium_features = np.random.normal(0, feature_params['noise_std'], 
+                                               (n_feature_selective, int(duration * fps)))
+            gt_features = np.zeros((0, n_feature_selective))
+        else:
+            # Generate neurons for discrete features
+            all_calcium_parts = []
+            all_gt_parts = []
+            
+            if n_discrete_features > 0:
+                # Generate neurons selective to discrete features
+                discrete_seed = None if feature_seed is None else feature_seed + 10
+                feats_d, calcium_d, gt_d = generate_synthetic_data(
+                    n_discrete_features, n_feature_selective // 2 if n_continuous_features > 0 else n_feature_selective,
+                    ftype='d',
+                    duration=duration,
+                    seed=discrete_seed,
+                    sampling_rate=fps,
+                    rate_0=feature_params['rate_0'],
+                    rate_1=feature_params['rate_1'],
+                    skip_prob=feature_params['skip_prob'],
+                    ampl_range=feature_params['ampl_range'],
+                    decay_time=feature_params['decay_time'],
+                    noise_std=feature_params['noise_std'],
+                    verbose=False
+                )
+                all_calcium_parts.append(calcium_d)
+                # Adjust gt_d indices to account for all features
+                gt_d_adjusted = np.zeros((n_discrete_features + n_continuous_features, gt_d.shape[1]))
+                gt_d_adjusted[:n_discrete_features, :] = gt_d
+                all_gt_parts.append(gt_d_adjusted)
+            
+            if n_continuous_features > 0:
+                # Generate neurons selective to continuous features
+                remaining_neurons = n_feature_selective - (len(all_calcium_parts[0]) if all_calcium_parts else 0)
+                continuous_seed = None if feature_seed is None else feature_seed + 100
+                feats_c, calcium_c, gt_c = generate_synthetic_data(
+                    n_continuous_features, remaining_neurons,
+                    ftype='c',
+                    duration=duration,
+                    seed=continuous_seed,
+                    sampling_rate=fps,
+                    rate_0=feature_params['rate_0'],
+                    rate_1=feature_params['rate_1'],
+                    skip_prob=feature_params['skip_prob'],
+                    hurst=feature_params['hurst'],
+                    ampl_range=feature_params['ampl_range'],
+                    decay_time=feature_params['decay_time'],
+                    noise_std=feature_params['noise_std'],
+                    verbose=False
+                )
+                all_calcium_parts.append(calcium_c)
+                # Adjust gt_c indices to account for discrete features
+                gt_c_adjusted = np.zeros((n_discrete_features + n_continuous_features, gt_c.shape[1]))
+                gt_c_adjusted[n_discrete_features:, :] = gt_c
+                all_gt_parts.append(gt_c_adjusted)
+            
+            # Combine calcium signals and ground truth
+            if len(all_calcium_parts) == 1:
+                calcium_features = all_calcium_parts[0]
+                gt_features = all_gt_parts[0]
+            else:
+                calcium_features = np.vstack(all_calcium_parts)
+                # Combine ground truth matrices
+                gt_features = np.zeros((n_discrete_features + n_continuous_features, calcium_features.shape[0]))
+                neuron_idx = 0
+                for gt_part in all_gt_parts:
+                    n_neurons_part = gt_part.shape[1] if len(gt_part.shape) > 1 else 0
+                    if n_neurons_part > 0:
+                        gt_features[:, neuron_idx:neuron_idx + n_neurons_part] = gt_part
+                        neuron_idx += n_neurons_part
+        
+        # Apply feature correlation if requested
+        if correlation_mode == 'feature_correlated' and spatial_data is not None and n_manifold > 0:
+            if verbose:
+                print(f'  Applying feature correlation to manifold cells (strength={correlation_strength})')
+            
+            # Modulate manifold cells based on behavioral features
+            if len(all_feats) > 0:
+                # Use first continuous feature as modulation signal
+                modulation_signal = None
+                for feat_name, feat_data in behavioral_features_data.items():
+                    if 'c_feat' in feat_name:
+                        modulation_signal = feat_data
+                        break
+                
+                if modulation_signal is not None:
+                    # Normalize modulation signal
+                    mod_norm = (modulation_signal - np.mean(modulation_signal)) / np.std(modulation_signal)
+                    
+                    # Apply to manifold calcium signals
+                    for i in range(n_manifold):
+                        baseline = np.mean(calcium_manifold[i])
+                        modulated = calcium_manifold[i] + correlation_strength * mod_norm * baseline * 0.2
+                        calcium_manifold[i] = np.maximum(0, modulated)  # Ensure non-negative
+        
+        all_calcium_signals.append(calcium_features)
+        feature_selectivity = gt_features
+    
+    # Combine all calcium signals
+    if len(all_calcium_signals) == 1:
+        combined_calcium = all_calcium_signals[0]
+    else:
+        combined_calcium = np.vstack(all_calcium_signals)
+    
+    # Create static features
+    static_features = {
+        'fps': fps,
+        't_rise_sec': 0.5,
+        't_off_sec': manifold_params.get('decay_time', 2.0)
+    }
+    
+    # Create experiment
+    exp = Experiment(
+        'MixedPopulation',
+        combined_calcium,
+        None,  # No spike data
+        {},    # No identificators
+        static_features,
+        dynamic_features,
+        reconstruct_spikes=None
+    )
+    
+    # Prepare comprehensive info dictionary
+    info = {
+        'population_composition': {
+            'n_manifold': n_manifold,
+            'n_feature_selective': n_feature_selective,
+            'manifold_type': manifold_type,
+            'manifold_indices': list(range(n_manifold)),
+            'feature_indices': list(range(n_manifold, n_neurons)),
+            'manifold_fraction': manifold_fraction
+        },
+        'manifold_info': manifold_info,
+        'feature_selectivity': feature_selectivity,
+        'spatial_data': spatial_data,
+        'behavioral_features': behavioral_features_data,
+        'correlation_applied': correlation_mode,
+        'correlation_strength': correlation_strength if correlation_mode != 'independent' else 0.0,
+        'parameters': {
+            'manifold_params': manifold_params,
+            'feature_params': feature_params,
+            'n_discrete_features': n_discrete_features,
+            'n_continuous_features': n_continuous_features
+        }
+    }
+    
+    if verbose:
+        print(f'  Mixed population generated successfully!')
+        print(f'  Total calcium traces: {combined_calcium.shape}')
+        print(f'  Total features: {len(dynamic_features)}')
+    
+    return exp, info
