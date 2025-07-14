@@ -1,4 +1,182 @@
-# INTENSE Module Production-Ready TODO List
+# DRIADA Production-Ready TODO List
+
+**DRIADA = Dimensionality Reduction for Integrated Activity Data**
+
+A comprehensive library bridging element-wise and population-wise analysis for both biological and artificial neural systems.
+
+## 🎯 CORE VISION & ROADMAP TO COMPLETION (2025-01-14)
+
+**Mission**: Create a unified framework that seamlessly connects single-neuron selectivity analysis (INTENSE) with population-level dimensionality reduction, enabling researchers to understand both individual neural coding and collective neural representations.
+
+### 🏗️ MAJOR MILESTONES FOR COMPLETION
+
+1. **Augment Synthetic Data Generation** - Add manifold-based neural activity
+   - Generate neural activity lying on circular manifolds (e.g., head direction cells)
+   - Generate activity on 2D/3D spatial manifolds (e.g., place cells on grids)
+   - Create mixed populations with both selective neurons and manifold structure
+   - Add noise models reflecting biological/artificial constraints
+
+2. **Complete Test Coverage** - Ensure robustness of all modules
+   - Test dimensionality reduction algorithms (PCA, UMAP, diffusion maps)
+   - Test dimensionality estimation methods
+   - Verify integration between modules
+   - Add performance benchmarks for large-scale data
+
+3. **Create Latent Variable Extraction Examples** - Demonstrate core capabilities
+   - Show how to extract circular variables from head direction cells
+   - Demonstrate 2D spatial map extraction from place cells
+   - Extract task-relevant variables from mixed populations
+   - Compare different dimensionality reduction methods
+
+4. **Build INTENSE → Latent Variables Pipeline** - Bridge element to population
+   - Map individual neuron selectivity to population manifolds
+   - Show how single-cell MI relates to population structure
+   - Create workflow: neurons → selectivity → manifold → interpretation
+   - Demonstrate on both biological and artificial neural data
+
+5. **Comprehensive Examples & Documentation** - Enable widespread adoption
+   - End-to-end workflows for common use cases
+   - Comparison with traditional methods
+   - Best practices for different data types
+   - Performance optimization guides
+
+6. **Update README & Documentation** - Complete the vision
+   - Show full DRIADA capabilities (not just INTENSE)
+   - Include population-level analysis examples
+   - Demonstrate biological + artificial neural system analysis
+   - Clear value proposition for integrated analysis
+
+### 🔄 INTEGRATION ARCHITECTURE
+
+```
+Single Neurons → INTENSE → Selectivity Profiles → Dimensionality Reduction → Latent Manifolds
+                                                ↓                           ↓
+                                         Mixed Selectivity            Population Dynamics
+                                            Analysis                     Visualization
+```
+
+## 📋 DETAILED IMPLEMENTATION PLAN
+
+### 📅 PRIORITY TIMELINE
+
+**Phase 1 (Weeks 1-2): Foundation**
+- Complete Milestone 1 (Synthetic Data) - Enable testing and examples
+- Complete Milestone 2 (Test Coverage) - Ensure reliability
+
+**Phase 2 (Weeks 3-4): Core Integration**  
+- Complete Milestone 3 (Latent Extraction Examples) - Demonstrate capabilities
+- Complete Milestone 4 (Pipeline) - Build the bridge
+
+**Phase 3 (Weeks 5-6): Polish & Release**
+- Complete Milestone 5 (Full Examples) - Enable adoption
+- Complete Milestone 6 (Documentation) - Complete the vision
+
+### MILESTONE 1: Augment Synthetic Data Generation
+- [ ] **Create manifold-based neural population generators**
+  - [ ] Implement circular manifold generator (head direction cells)
+    - [ ] Ring attractor network structure
+    - [ ] Von Mises tuning curves
+    - [ ] Configurable population size and tuning width
+  - [ ] Implement 2D spatial manifold generator (place cells)
+    - [ ] Grid-based place fields
+    - [ ] Configurable field size and density
+    - [ ] Multiple map support (remapping)
+  - [ ] Implement 3D manifold generator
+    - [ ] 3D place cells for flying/swimming animals
+    - [ ] Configurable dimensionality
+  - [ ] Add realistic noise models
+    - [ ] Poisson spiking noise
+    - [ ] Calcium indicator dynamics
+    - [ ] Motion artifacts
+  - [ ] Create mixed population generator
+    - [ ] Combine manifold cells with feature-selective cells
+    - [ ] Configurable mixing ratios
+    - [ ] Correlated vs independent populations
+
+### MILESTONE 2: Complete Test Coverage
+- [ ] **Test dimensionality reduction module**
+  - [ ] Unit tests for each DR algorithm (PCA, UMAP, diffusion maps, etc.)
+  - [ ] Integration tests with Experiment objects
+  - [ ] Performance benchmarks for different data sizes
+  - [ ] Validation against known manifolds
+- [ ] **Test dimensionality estimation module**
+  - [ ] Test effective dimensionality estimators
+  - [ ] Validate on synthetic data with known dimensionality
+  - [ ] Edge cases (high noise, sparse data)
+- [ ] **Test integration between modules**
+  - [ ] INTENSE → DR pipeline tests
+  - [ ] Data flow validation
+  - [ ] Memory efficiency tests
+
+### MILESTONE 3: Create Latent Variable Extraction Examples
+- [ ] **examples/extract_circular_manifold.py**
+  - [ ] Generate head direction cell population
+  - [ ] Apply different DR methods
+  - [ ] Reconstruct circular variable
+  - [ ] Validate against ground truth
+- [ ] **examples/extract_spatial_map.py**
+  - [ ] Generate place cell population
+  - [ ] Extract 2D spatial representation
+  - [ ] Compare methods (PCA vs UMAP vs Isomap)
+  - [ ] Show robustness to noise
+- [ ] **examples/extract_task_variables.py**
+  - [ ] Mixed selectivity population
+  - [ ] Disentangle task-relevant dimensions
+  - [ ] Show advantage over single-cell analysis
+- [ ] **examples/compare_dr_methods.py**
+  - [ ] Systematic comparison of all DR methods
+  - [ ] Performance metrics
+  - [ ] Recommendations for different use cases
+
+### MILESTONE 4: Build INTENSE → Latent Variables Pipeline
+- [ ] **Create integrated analysis module**
+  - [ ] `SelectivityManifoldMapper` class
+  - [ ] Map selectivity profiles to manifold structure
+  - [ ] Statistical tests for manifold-selectivity relationships
+- [ ] **Implement pipeline functions**
+  - [ ] `analyze_population_structure()`
+  - [ ] `map_selectivity_to_manifold()`
+  - [ ] `identify_functional_subspaces()`
+- [ ] **Create visualization tools**
+  - [ ] Plot selectivity on manifold
+  - [ ] Interactive 3D visualizations
+  - [ ] Temporal dynamics on manifold
+
+### MILESTONE 5: Comprehensive Examples & Documentation
+- [ ] **examples/full_pipeline_biological.py**
+  - [ ] Load real neural data
+  - [ ] Complete INTENSE analysis
+  - [ ] Extract population manifold
+  - [ ] Relate single cells to population
+- [ ] **examples/full_pipeline_artificial.py**
+  - [ ] Analyze RNN representations
+  - [ ] Compare to biological data
+  - [ ] Interpretability insights
+- [ ] **Create tutorial notebooks**
+  - [ ] `04_population_analysis.ipynb`
+  - [ ] `05_integrated_pipeline.ipynb`
+  - [ ] `06_advanced_workflows.ipynb`
+- [ ] **Write best practices guide**
+  - [ ] When to use which method
+  - [ ] Parameter selection
+  - [ ] Computational considerations
+
+### MILESTONE 6: Update README & Documentation
+- [ ] **Expand main README.md**
+  - [ ] Add population analysis section
+  - [ ] Show integrated workflow example
+  - [ ] Update architecture diagram
+  - [ ] Add comparison table (DRIADA vs other tools)
+- [ ] **Create module-specific READMEs**
+  - [ ] README_DIMENSIONALITY.md
+  - [ ] README_INTEGRATION.md
+  - [ ] README_SYNTHETIC.md
+- [ ] **Update API documentation**
+  - [ ] Complete docstrings
+  - [ ] Generate API reference
+  - [ ] Add mathematical background
+
+## PREVIOUS CONTENT (INTENSE-specific):
 
 INTENSE = Information-Theoretic Evaluation of Neuronal Selectivity
 A toolbox to analyze individual neuronal selectivity to external patterns using mutual information and other metrics.
@@ -212,12 +390,40 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - [ ] `notebooks/03_real_data_workflow.ipynb` - Working with actual neuroscience data
   - [ ] Include visualizations and explanations for each step
 
-- [ ] **Improve main README.md** - Currently inadequate for new users
-  - [ ] Replace minimal installation-only content
-  - [ ] Add project overview and key capabilities
-  - [ ] Include quick example showing DRIADA/INTENSE in action
-  - [ ] Link to detailed documentation and examples
-  - [ ] Add "Why use DRIADA?" section with clear value proposition
+- [ ] **Improve main README.md** - Currently inadequate for new users (PARTIALLY COMPLETED 2025-01-14)
+  - [x] Replace minimal installation-only content ✅
+  - [x] Add project overview and key capabilities ✅
+  - [x] Include quick example showing DRIADA/INTENSE in action ✅
+  - [x] Link to detailed documentation and examples ✅
+  - [x] Add "Why use DRIADA?" section with clear value proposition ✅
+  - [ ] Add population-level analysis examples and documentation
+  - [ ] Add integration/dimensionality reduction examples
+  - [ ] Create comprehensive overview of all DRIADA modules
+  
+  **Implementation Checkpoints (2025-01-14):**
+  - ✅ Expanded README from 13 to 184 lines with comprehensive content
+  - ✅ Added professional badges for version, Python support, and license
+  - ✅ Created clear overview section highlighting DRIADA capabilities
+  - ✅ Added "Why DRIADA?" section explaining value over correlation methods
+  - ✅ Included working quick-start example with neural selectivity analysis
+  - ✅ Linked to notebooks/, examples/, and detailed documentation
+  - ✅ Added contributing guidelines and citation information
+  - ✅ Validated Python syntax in code examples
+  
+  **Files Modified:**
+  - README.md (improved, 184 lines)
+  
+  **Technical Notes:**
+  - Maintained existing installation instructions while adding context
+  - Used realistic example with proper DRIADA API usage
+  - Emphasized INTENSE module as key differentiator
+  - Added development setup instructions for contributors
+  
+  **Still Needed:**
+  - Population-level analysis examples (dimensionality reduction)
+  - Integration workflow examples
+  - Documentation for non-INTENSE modules
+  - Complete module overview
 
 - [x] **Create beginner-friendly API examples in README_INTENSE.md** ✅ COMPLETED (2025-01-12)
   - [x] Current README has excellent theory but zero practical guidance
