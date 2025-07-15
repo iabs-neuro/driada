@@ -20,13 +20,13 @@ DRIADA creates a seamless bridge between understanding individual neurons and po
 DRIADA uniquely combines single-neuron and population-level analyses in one framework. While traditional methods analyze neurons in isolation OR populations as a whole, DRIADA reveals how individual neural selectivity gives rise to collective representations.
 
 ```
-Single Neurons → INTENSE → Individual Selectivity to Features
-                              ↓
-                    Population Activity → Dimensionality Reduction → Latent Variables
-                              ↓                                           ↓
-                    Integration Analysis ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ←
-                              ↓
-                    Connect single-cell selectivity to population-level variables
+Dimensionality reduction  ←  Population Activity  ←  Single Neurons  →  INTENSE
+         ↓                                                                ↓
+Latent Variables                                                 Individual Selectivity
+         ↓                                                                ↓
+          → → → → → → → → →  Integration Analysis ← ← ← ← ← ← ← ← ← ← ← ← ←
+                                       ↓
+         Connect single-cell selectivity to population-level variables
 ```
 
 ## Overview
@@ -73,11 +73,9 @@ DRIADA provides a comprehensive toolkit for analyzing both individual neural sel
 - Benchmark different algorithms on controlled datasets
 
 **Perfect for:**
-- 🧭 **Navigation studies**: Extract spatial maps from place cells, head direction from HD cells
 - 🧠 **Cognitive neuroscience**: Identify task-relevant neural subspaces and their dynamics
 - 🤖 **AI interpretability**: Understand representations in artificial neural networks
 - 🔬 **Systems neuroscience**: Bridge cellular and population-level descriptions
-- 🎮 **Brain-computer interfaces**: Find optimal population subspaces for decoding
 
 ## Quick Start
 
