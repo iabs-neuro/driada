@@ -1,6 +1,7 @@
 from .stats import *
 from .intense_base import compute_me_stats, IntenseResults
 from ..information.info_base import TimeSeries, MultiTimeSeries
+from .disentanglement import disentangle_all_selectivities, DEFAULT_MULTIFEATURE_MAP
 
 
 def compute_cell_feat_significance(exp,
@@ -29,7 +30,10 @@ def compute_cell_feat_significance(exp,
                                   verbose=True,
                                   enable_parallelization=True,
                                   n_jobs=-1,
-                                  seed=42):
+                                  seed=42,
+                                  with_disentanglement=False,
+                                  multifeature_map=None,
+                                  duplicate_behavior='ignore'):
 
     """
     Calculates significant neuron-feature pairs
@@ -142,12 +146,43 @@ def compute_cell_feat_significance(exp,
         Window for optimal shift search (seconds). Optimal shift (in frames) will lie in the range
         -shift_window*fps <= opt_shift <= shift_window*fps
         Has no effect if find_optimal_delays = False
+        
+    with_disentanglement: bool
+        If True, performs a full INTENSE pipeline with mixed selectivity analysis:
+        1. Computes behavioral feature-feature significance
+        2. Computes neuron-feature significance  
+        3. Disentangles mixed selectivities using behavioral correlations
+        default: False
+        
+    multifeature_map: dict or None
+        Mapping from multifeature tuples to aggregated names for disentanglement.
+        If None, uses DEFAULT_MULTIFEATURE_MAP from disentanglement module.
+        Only used when with_disentanglement=True.
+        default: None
+        
+    duplicate_behavior: str
+        How to handle duplicate TimeSeries in neuron or feature bunches.
+        - 'ignore': Process duplicates normally (default)
+        - 'raise': Raise an error if duplicates are found
+        - 'warn': Print a warning but continue processing
 
     Returns
     -------
     stats: dict of dict of dicts
         Outer dict: dynamic features, inner dict: cells, last dict: stats.
         Can be easily converted to pandas DataFrame by pd.DataFrame(stats)
+    significance: dict of dict of bools
+        Significance results for each neuron-feature pair
+    info: dict
+        Additional information from compute_me_stats
+    intense_res: IntenseResults
+        Complete results object
+    disentanglement_results: dict (only if with_disentanglement=True)
+        Contains:
+        - 'feat_feat_significance': Feature-feature significance matrix
+        - 'disent_matrix': Disentanglement results matrix
+        - 'count_matrix': Count matrix from disentanglement
+        - 'summary': Summary statistics from disentanglement
     """
 
     exp.check_ds(ds)
@@ -165,16 +200,21 @@ def compute_cell_feat_significance(exp,
 
     #min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
     if not allow_mixed_dimensions:
-        feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids if hasattr(exp, feat_id)]
+        feats = [exp.dynamic_features[feat_id] for feat_id in feat_ids if feat_id in exp.dynamic_features]
         if joint_distr:
             feat_ids = [tuple(sorted(feat_ids))]
     else:
         feats = []
         for feat_id in feat_ids:
             if isinstance(feat_id, str):
+                if feat_id not in exp.dynamic_features:
+                    raise ValueError(f"Feature '{feat_id}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}")
                 ts = exp.dynamic_features[feat_id]
                 feats.append(ts)
             elif isinstance(feat_id, tuple):
+                for f in feat_id:
+                    if f not in exp.dynamic_features:
+                        raise ValueError(f"Feature '{f}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}")
                 parts = [exp.dynamic_features[f] for f in feat_id]
                 mts = MultiTimeSeries(parts)
                 feats.append(mts)
@@ -246,13 +286,17 @@ def compute_cell_feat_significance(exp,
                                                                    verbose=verbose,
                                                                    enable_parallelization=enable_parallelization,
                                                                    n_jobs=n_jobs,
-                                                                   seed=seed)
+                                                                   seed=seed,
+                                                                   duplicate_behavior=duplicate_behavior)
 
     exp.optimal_nf_delays = info['optimal_delays']
     # add hash data and update Experiment saved statistics and significance if needed
     for i, cell_id in enumerate(cell_ids):
         for j, feat_id in enumerate(feat_ids):
-            # TODO: add check for non-existing feature if use_precomputed_stats==False
+            # Check for non-existing feature if use_precomputed_stats==False
+            if not use_precomputed_stats:
+                if feat_id not in exp._data_hashes[data_type]:
+                    raise ValueError(f"Feature '{feat_id}' not found in data hashes. This may indicate the feature was not properly initialized.")
             computed_stats[cell_id][feat_id]['data_hash'] = exp._data_hashes[data_type][feat_id][cell_id]
 
             me_val = computed_stats[cell_id][feat_id].get('me')
@@ -301,6 +345,541 @@ def compute_cell_feat_significance(exp,
     #intense_res.update('significance', computed_significance)
     intense_res.update('info', info)
     intense_res.update('intense_params', intense_params)
-    #TODO: change to IntenseResults
+    
+    # Perform disentanglement analysis if requested
+    if with_disentanglement:
+        if verbose:
+            print("\nPerforming mixed selectivity disentanglement analysis...")
+        
+        # Step 1: Compute feature-feature significance
+        _, feat_feat_significance, _, feat_names, _ = compute_feat_feat_significance(
+            exp,
+            feat_bunch=feat_bunch if feat_bunch is not None else 'all',
+            metric=metric,
+            mode=mode,
+            n_shuffles_stage1=n_shuffles_stage1,
+            n_shuffles_stage2=n_shuffles_stage2 // 10,  # Reduce shuffles for feat-feat
+            metric_distr_type=metric_distr_type,
+            noise_ampl=noise_ampl,
+            ds=ds,
+            topk1=topk1,
+            topk2=topk2,
+            multicomp_correction=multicomp_correction,
+            pval_thr=pval_thr,
+            verbose=verbose,
+            enable_parallelization=enable_parallelization,
+            n_jobs=n_jobs,
+            seed=seed
+        )
+        
+        # Step 2: Use default multifeature map if not provided
+        if multifeature_map is None:
+            multifeature_map = DEFAULT_MULTIFEATURE_MAP
+            
+        # Step 3: Run disentanglement analysis
+        disent_matrix, count_matrix = disentangle_all_selectivities(
+            exp,
+            feat_names,
+            ds=ds,
+            multifeature_map=multifeature_map,
+            feat_feat_significance=feat_feat_significance,
+            cell_bunch=cell_ids
+        )
+        
+        # Step 4: Get summary statistics
+        from .disentanglement import get_disentanglement_summary
+        summary = get_disentanglement_summary(
+            disent_matrix, 
+            count_matrix, 
+            feat_names,
+            feat_feat_significance
+        )
+        
+        # Package disentanglement results
+        disentanglement_results = {
+            'feat_feat_significance': feat_feat_significance,
+            'disent_matrix': disent_matrix,
+            'count_matrix': count_matrix,
+            'feature_names': feat_names,
+            'summary': summary
+        }
+        
+        # Add to IntenseResults
+        intense_res.update('disentanglement', disentanglement_results)
+        
+        if verbose:
+            print(f"\nDisentanglement analysis complete!")
+            print(f"Total mixed selectivity pairs analyzed: {summary['overall_stats']['total_neuron_pairs']}")
+            print(f"Redundancy rate: {summary['overall_stats']['redundancy_rate']:.1f}%")
+            print(f"Independence rate: {summary['overall_stats']['independence_rate']:.1f}%")
+            if 'true_mixed_selectivity_rate' in summary['overall_stats']:
+                print(f"True mixed selectivity rate: {summary['overall_stats']['true_mixed_selectivity_rate']:.1f}%")
+        
+        # Return with disentanglement results
+        return computed_stats, computed_significance, info, intense_res, disentanglement_results
+    
+    # Return multiple values for backward compatibility
     return computed_stats, computed_significance, info, intense_res
+
+
+def compute_feat_feat_significance(exp,
+                                  feat_bunch='all',
+                                  metric='mi',
+                                  mode='two_stage',
+                                  n_shuffles_stage1=100,
+                                  n_shuffles_stage2=1000,
+                                  metric_distr_type='gamma',
+                                  noise_ampl=1e-3,
+                                  ds=1,
+                                  topk1=1,
+                                  topk2=5,
+                                  multicomp_correction='holm',
+                                  pval_thr=0.01,
+                                  verbose=True,
+                                  enable_parallelization=True,
+                                  n_jobs=-1,
+                                  seed=42,
+                                  duplicate_behavior='ignore'):
+    """
+    Compute pairwise significance between all behavioral features.
+    
+    This function calculates pairwise similarity (e.g., mutual information) between
+    all behavioral features using the two-stage INTENSE approach. The diagonal 
+    elements are set to zero as self-similarity is prevented by the check_for_coincidence
+    mechanism in get_mi.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object containing behavioral data.
+    feat_bunch : str, list or None
+        Feature names to analyze. Default: 'all' (all features including multifeatures).
+        Can be a list of specific feature names.
+    metric : str, optional
+        Similarity metric to use. Default: 'mi' (mutual information).
+    mode : str, optional
+        Computation mode: 'two_stage', 'stage1', or 'stage2'. Default: 'two_stage'.
+    n_shuffles_stage1 : int, optional
+        Number of shuffles for stage 1. Default: 100.
+    n_shuffles_stage2 : int, optional
+        Number of shuffles for stage 2. Default: 1000.
+    metric_distr_type : str, optional
+        Distribution type for metric null distribution. Default: 'gamma'.
+    noise_ampl : float, optional
+        Small noise amplitude for numerical stability. Default: 1e-3.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+    topk1 : int, optional
+        Top-k criterion for stage 1. Default: 1.
+    topk2 : int, optional
+        Top-k criterion for stage 2. Default: 5.
+    multicomp_correction : str or None, optional
+        Multiple comparison correction method. Default: 'holm'.
+    pval_thr : float, optional
+        P-value threshold for significance. Default: 0.01.
+    verbose : bool, optional
+        Whether to print progress information. Default: True.
+    enable_parallelization : bool, optional
+        Whether to use parallel processing. Default: True.
+    n_jobs : int, optional
+        Number of parallel jobs. -1 means use all processors. Default: -1.
+    seed : int, optional
+        Random seed for reproducibility. Default: 42.
+    duplicate_behavior : str, optional
+        How to handle duplicate TimeSeries in ts_bunch1 or ts_bunch2.
+        - 'ignore': Process duplicates normally (default)
+        - 'raise': Raise an error if duplicates are found
+        - 'warn': Print a warning but continue processing
+        Default: 'ignore'.
+        
+    Returns
+    -------
+    similarity_matrix : ndarray
+        Matrix of similarity values between features. Element [i,j] contains
+        the similarity between feature i and feature j. Diagonal is zero.
+    significance_matrix : ndarray
+        Matrix of binary significance values. 1 indicates significant similarity.
+    p_value_matrix : ndarray
+        Matrix of p-values for each comparison.
+    feature_names : list
+        List of feature names corresponding to matrix indices.
+        May include tuples for multifeatures (e.g., ('x', 'y')).
+    info : dict
+        Dictionary containing additional information from compute_me_stats.
+        
+    Notes
+    -----
+    - Uses the two-stage INTENSE approach for efficient significance testing
+    - Diagonal elements are zero (self-similarity check prevents computation)
+    - The function handles both discrete and continuous variables
+    - Supports MultiTimeSeries (e.g., place fields from x,y coordinates)
+    - For mutual information, values are in bits
+    - No optimal delay search is performed (delays are set to 0)
+    
+    Examples
+    --------
+    >>> # Compute MI between all behavioral variables (default)
+    >>> sim_mat, sig_mat, pval_mat, features, info = compute_feat_feat_significance(exp)
+    >>> 
+    >>> # Analyze only specific features
+    >>> sim_mat, sig_mat, pval_mat, features, info = compute_feat_feat_significance(
+    ...     exp, 
+    ...     feat_bunch=['speed', 'head_direction', ('x', 'y')]
+    ... )
+    """
+    import numpy as np
+    
+    # Process feature bunch - default is all features
+    if feat_bunch == 'all':
+        feat_bunch = None  # None means all features in _process_fbunch
+    feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=True, mode='calcium')
+    n_features = len(feat_ids)
+    
+    # Handle empty feature list case
+    if n_features == 0:
+        if verbose:
+            print("No features to analyze - returning empty results")
+        return (
+            np.array([]).reshape(0, 0),  # similarity_matrix
+            np.array([]).reshape(0, 0),  # significance_matrix
+            np.array([]).reshape(0, 0),  # p_value_matrix
+            [],  # feature_names
+            {}   # info
+        )
+    
+    if verbose:
+        print(f"Computing behavioral similarity matrix for {n_features} features...")
+        print(f"Features: {feat_ids}")
+    
+    # Get TimeSeries/MultiTimeSeries objects for all features
+    from ..information.info_base import aggregate_multiple_ts
+    
+    feature_ts = []
+    for feat_id in feat_ids:
+        if isinstance(feat_id, tuple):
+            # Create MultiTimeSeries for tuples using aggregate_multiple_ts
+            ts_list = [exp.dynamic_features[f] for f in feat_id]
+            ts = aggregate_multiple_ts(*ts_list)
+        else:
+            ts = exp.dynamic_features[feat_id]
+        feature_ts.append(ts)
+    
+    # Create masks that exclude diagonal (self-comparisons) AND lower triangle
+    # This ensures we only compute the upper triangle for symmetric results
+    precomputed_mask_stage1 = np.triu(np.ones((n_features, n_features)), k=1)
+    precomputed_mask_stage2 = np.triu(np.ones((n_features, n_features)), k=1)
+    
+    # Call compute_me_stats with features against themselves
+    # Note: optimal delays are disabled (set to False)
+    stats, significance, info = compute_me_stats(
+        feature_ts,
+        feature_ts,
+        names1=feat_ids,
+        names2=feat_ids,
+        metric=metric,
+        mode=mode,
+        precomputed_mask_stage1=precomputed_mask_stage1,
+        precomputed_mask_stage2=precomputed_mask_stage2,
+        n_shuffles_stage1=n_shuffles_stage1,
+        n_shuffles_stage2=n_shuffles_stage2,
+        joint_distr=False,
+        allow_mixed_dimensions=True,  # Allow MultiTimeSeries
+        metric_distr_type=metric_distr_type,
+        noise_ampl=noise_ampl,
+        ds=ds,
+        topk1=topk1,
+        topk2=topk2,
+        multicomp_correction=multicomp_correction,
+        pval_thr=pval_thr,
+        find_optimal_delays=False,  # No delay optimization
+        shift_window=0,  # No shift window needed
+        verbose=verbose,
+        enable_parallelization=enable_parallelization,
+        n_jobs=n_jobs,
+        seed=seed,
+        duplicate_behavior='ignore'  # Default behavior for feature-feature comparison
+    )
+    
+    # Extract matrices from results
+    similarity_matrix = np.zeros((n_features, n_features))
+    significance_matrix = np.zeros((n_features, n_features))
+    p_value_matrix = np.ones((n_features, n_features))
+    
+    # Fill matrices from stats and significance dictionaries
+    # Since we only computed upper triangle, we need to fill both upper and lower
+    for i, feat1 in enumerate(feat_ids):
+        for j, feat2 in enumerate(feat_ids):
+            if i == j:
+                # Diagonal is already 0
+                continue
+                
+            # Convert tuples to strings for dictionary keys if needed
+            key1 = str(feat1) if isinstance(feat1, tuple) else feat1
+            key2 = str(feat2) if isinstance(feat2, tuple) else feat2
+            
+            # We computed only upper triangle, so check if this pair was computed
+            if i < j:
+                # Upper triangle - get from stats
+                if key1 in stats and key2 in stats[key1]:
+                    stats_dict = stats[key1][key2]
+                    if stats_dict:  # Check if dict is not empty
+                        similarity_matrix[i, j] = stats_dict.get('me', 0)
+                        p_value_matrix[i, j] = stats_dict.get('p', 1)
+                    
+                    sig_dict = significance.get(key1, {}).get(key2, {})
+                    if sig_dict.get('stage2') is not None:
+                        significance_matrix[i, j] = float(sig_dict['stage2'])
+                    elif sig_dict.get('stage1') is not None:
+                        significance_matrix[i, j] = float(sig_dict['stage1'])
+            else:
+                # Lower triangle - copy from upper triangle for symmetry
+                similarity_matrix[i, j] = similarity_matrix[j, i]
+                p_value_matrix[i, j] = p_value_matrix[j, i]
+                significance_matrix[i, j] = significance_matrix[j, i]
+    
+    # Ensure diagonal is zero (should already be due to coincidence check)
+    np.fill_diagonal(similarity_matrix, 0)
+    np.fill_diagonal(significance_matrix, 0)
+    np.fill_diagonal(p_value_matrix, 1)
+    
+    if verbose:
+        print(f"\nBehavioral similarity matrix computation complete!")
+        print(f"Feature pairs analyzed: {n_features * n_features}")
+        print(f"Significant pairs (stage 1): {info.get('n_significant_stage1', 0)}")
+        print(f"Significant pairs (final): {np.sum(significance_matrix)}")
+        # Count unique significant pairs (upper triangle only)
+        unique_sig = np.sum(np.triu(significance_matrix, k=1))
+        print(f"Unique significant pairs: {unique_sig}")
+    
+    return similarity_matrix, significance_matrix, p_value_matrix, feat_ids, info
+
+
+def compute_cell_cell_significance(exp,
+                                  cell_bunch=None,
+                                  data_type='calcium',
+                                  metric='mi',
+                                  mode='two_stage',
+                                  n_shuffles_stage1=100,
+                                  n_shuffles_stage2=1000,
+                                  metric_distr_type='gamma',
+                                  noise_ampl=1e-3,
+                                  ds=1,
+                                  topk1=1,
+                                  topk2=5,
+                                  multicomp_correction='holm',
+                                  pval_thr=0.01,
+                                  verbose=True,
+                                  enable_parallelization=True,
+                                  n_jobs=-1,
+                                  seed=42,
+                                  duplicate_behavior='ignore'):
+    """
+    Compute pairwise functional correlations between neurons using INTENSE.
+    
+    This function calculates pairwise similarity (e.g., mutual information) between
+    all neurons using the two-stage INTENSE approach. This can reveal functionally
+    correlated neurons that may form assemblies or functional modules.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object containing neural data.
+    cell_bunch : int, list or None, optional
+        Neuron indices to analyze. Default: None (all neurons).
+    data_type : str, optional
+        Type of neural data: 'calcium' or 'spikes'. Default: 'calcium'.
+    metric : str, optional
+        Similarity metric to use. Default: 'mi' (mutual information).
+    mode : str, optional
+        Computation mode: 'two_stage', 'stage1', or 'stage2'. Default: 'two_stage'.
+    n_shuffles_stage1 : int, optional
+        Number of shuffles for stage 1. Default: 100.
+    n_shuffles_stage2 : int, optional
+        Number of shuffles for stage 2. Default: 1000.
+    metric_distr_type : str, optional
+        Distribution type for metric null distribution. Default: 'gamma'.
+    noise_ampl : float, optional
+        Small noise amplitude for numerical stability. Default: 1e-3.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+    topk1 : int, optional
+        Top-k criterion for stage 1. Default: 1.
+    topk2 : int, optional
+        Top-k criterion for stage 2. Default: 5.
+    multicomp_correction : str or None, optional
+        Multiple comparison correction method. Default: 'holm'.
+    pval_thr : float, optional
+        P-value threshold for significance. Default: 0.01.
+    verbose : bool, optional
+        Whether to print progress information. Default: True.
+    enable_parallelization : bool, optional
+        Whether to use parallel processing. Default: True.
+    n_jobs : int, optional
+        Number of parallel jobs. -1 means use all processors. Default: -1.
+    seed : int, optional
+        Random seed for reproducibility. Default: 42.
+    duplicate_behavior : str, optional
+        How to handle duplicate TimeSeries in ts_bunch1 or ts_bunch2.
+        - 'ignore': Process duplicates normally (default)
+        - 'raise': Raise an error if duplicates are found
+        - 'warn': Print a warning but continue processing
+        Default: 'ignore'.
+        
+    Returns
+    -------
+    similarity_matrix : ndarray
+        Matrix of similarity values between neurons. Element [i,j] contains
+        the similarity between neuron i and neuron j. Diagonal is zero.
+    significance_matrix : ndarray
+        Matrix of binary significance values. 1 indicates significant similarity.
+    p_value_matrix : ndarray
+        Matrix of p-values for each comparison.
+    cell_ids : list
+        List of cell IDs corresponding to matrix indices.
+    info : dict
+        Dictionary containing additional information from compute_me_stats.
+        
+    Notes
+    -----
+    - Uses the two-stage INTENSE approach for efficient significance testing
+    - Diagonal elements are zero (self-similarity check prevents computation)
+    - For calcium imaging data, considers temporal dynamics
+    - For spike data, uses discrete MI formulation
+    - Can identify functional assemblies through graph analysis of significant pairs
+    - No optimal delay search is performed (synchronous activity assumed)
+    
+    Examples
+    --------
+    >>> # Compute functional correlations between all neurons
+    >>> sim_mat, sig_mat, pval_mat, cells, info = compute_cell_cell_significance(exp)
+    >>> 
+    >>> # Analyze only specific neurons
+    >>> sim_mat, sig_mat, pval_mat, cells, info = compute_cell_cell_significance(
+    ...     exp, 
+    ...     cell_bunch=[0, 5, 10, 15, 20],
+    ...     data_type='spikes'
+    ... )
+    """
+    import numpy as np
+    
+    # Check downsampling
+    exp.check_ds(ds)
+    
+    # Process cell bunch
+    cell_ids = exp._process_cbunch(cell_bunch)
+    n_cells = len(cell_ids)
+    cells = [exp.neurons[cell_id] for cell_id in cell_ids]
+    
+    if verbose:
+        print(f"Computing neuronal similarity matrix for {n_cells} neurons...")
+        print(f"Data type: {data_type}")
+    
+    # Get neural signals based on data type
+    if data_type == 'calcium':
+        signals = [cell.ca for cell in cells]
+    elif data_type == 'spikes':
+        signals = [cell.sp for cell in cells]
+        # Check if spike data exists and is non-degenerate
+        if any(sig is None for sig in signals):
+            raise ValueError("Some neurons have no spike data. Use reconstruct_spikes or provide spike data.")
+        # Check if all spike data is identical (e.g., all zeros)
+        if len(signals) > 1:
+            first_data = signals[0].data
+            if all(np.array_equal(sig.data, first_data) for sig in signals[1:]):
+                import warnings
+                warnings.warn("All neurons have identical spike data. This may lead to degenerate results.")
+    else:
+        raise ValueError('"data_type" can be either "calcium" or "spikes"')
+    
+    # Create masks that exclude diagonal (self-comparisons) AND lower triangle
+    # This ensures we only compute the upper triangle for symmetric results
+    precomputed_mask_stage1 = np.triu(np.ones((n_cells, n_cells)), k=1)
+    precomputed_mask_stage2 = np.triu(np.ones((n_cells, n_cells)), k=1)
+    
+    # Call compute_me_stats with neurons against themselves
+    # Note: optimal delays are disabled (set to False) for synchronous analysis
+    stats, significance, info = compute_me_stats(
+        signals,
+        signals,
+        names1=cell_ids,
+        names2=cell_ids,
+        metric=metric,
+        mode=mode,
+        precomputed_mask_stage1=precomputed_mask_stage1,
+        precomputed_mask_stage2=precomputed_mask_stage2,
+        n_shuffles_stage1=n_shuffles_stage1,
+        n_shuffles_stage2=n_shuffles_stage2,
+        joint_distr=False,
+        allow_mixed_dimensions=False,  # Neurons are single time series
+        metric_distr_type=metric_distr_type,
+        noise_ampl=noise_ampl,
+        ds=ds,
+        topk1=topk1,
+        topk2=topk2,
+        multicomp_correction=multicomp_correction,
+        pval_thr=pval_thr,
+        find_optimal_delays=False,  # Assume synchronous activity
+        shift_window=0,  # No shift window needed
+        verbose=verbose,
+        enable_parallelization=enable_parallelization,
+        n_jobs=n_jobs,
+        seed=seed,
+        duplicate_behavior='ignore'  # Default behavior for cell-cell comparison
+    )
+    
+    # Extract matrices from results
+    similarity_matrix = np.zeros((n_cells, n_cells))
+    significance_matrix = np.zeros((n_cells, n_cells))
+    p_value_matrix = np.ones((n_cells, n_cells))
+    
+    # Fill matrices from stats and significance dictionaries
+    # Since we only computed upper triangle, we need to fill both upper and lower
+    for i, cell1 in enumerate(cell_ids):
+        for j, cell2 in enumerate(cell_ids):
+            if i == j:
+                # Diagonal is already 0
+                continue
+                
+            # We computed only upper triangle, so check if this pair was computed
+            if i < j:
+                # Upper triangle - get from stats
+                if cell1 in stats and cell2 in stats[cell1]:
+                    stats_dict = stats[cell1][cell2]
+                    if stats_dict:  # Check if dict is not empty
+                        similarity_matrix[i, j] = stats_dict.get('me', 0)
+                        p_value_matrix[i, j] = stats_dict.get('p', 1)
+                    
+                    sig_dict = significance.get(cell1, {}).get(cell2, {})
+                    if sig_dict.get('stage2') is not None:
+                        significance_matrix[i, j] = float(sig_dict['stage2'])
+                    elif sig_dict.get('stage1') is not None:
+                        significance_matrix[i, j] = float(sig_dict['stage1'])
+            else:
+                # Lower triangle - copy from upper triangle for symmetry
+                similarity_matrix[i, j] = similarity_matrix[j, i]
+                p_value_matrix[i, j] = p_value_matrix[j, i]
+                significance_matrix[i, j] = significance_matrix[j, i]
+    
+    # Ensure diagonal is zero (should already be due to coincidence check)
+    np.fill_diagonal(similarity_matrix, 0)
+    np.fill_diagonal(significance_matrix, 0)
+    np.fill_diagonal(p_value_matrix, 1)
+    
+    if verbose:
+        print(f"\nNeuronal similarity matrix computation complete!")
+        print(f"Neuron pairs analyzed: {n_cells * n_cells}")
+        print(f"Significant pairs (stage 1): {info.get('n_significant_stage1', 0)}")
+        print(f"Significant pairs (final): {np.sum(significance_matrix)}")
+        # Count unique significant pairs (upper triangle only)
+        unique_sig = np.sum(np.triu(significance_matrix, k=1))
+        print(f"Unique significant pairs: {unique_sig}")
+        
+        # Basic network statistics
+        if unique_sig > 0:
+            avg_connections = np.sum(significance_matrix) / n_cells
+            print(f"Average connections per neuron: {avg_connections:.2f}")
+            max_connections = np.max(np.sum(significance_matrix, axis=1))
+            print(f"Maximum connections for a single neuron: {int(max_connections)}")
+    
+    return similarity_matrix, significance_matrix, p_value_matrix, cell_ids, info
 

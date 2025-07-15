@@ -3,10 +3,15 @@ from os.path import join, splitext
 import tqdm
 import matplotlib.pyplot as plt
 
+# Fix scipy compatibility issue for ssqueezepy
+import scipy.integrate
+if not hasattr(scipy.integrate, 'trapz'):
+    scipy.integrate.trapz = scipy.integrate.trapezoid
+
 from ssqueezepy import cwt
 from ssqueezepy.wavelets import Wavelet, time_resolution
 
-from scipy.ndimage.filters import gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelmax
 from numba import njit
 
@@ -150,7 +155,8 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
 
             # 2. generate new ridges
             new_ridges = [Ridge(mi, peaks[si, mi], wvt_scales[si], wvt_time) for mi in max_inds if mi not in maxima_used_for_prolongation]
-            all_ridges.extend(new_ridges)
+            # Use += instead of extend() to fix Numba 0.60+ type inference issue
+            all_ridges += new_ridges
 
     for r in all_ridges:
         r.terminate()
@@ -243,17 +249,19 @@ def extract_wvt_events(traces, wvt_kwargs):
     return st_ev_inds, end_ev_inds, all_ridges
 
 
-def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
-    ncells = len(end_ev_inds)
+@njit
+def events_to_ts_array_numba(length, ncells, st_ev_inds_flat, end_ev_inds_flat, event_counts, fps, min_event_dur, max_event_dur):
+    """Numba-optimized version of events_to_ts_array."""
     spikes = np.zeros((ncells, length))
 
-    mindur = int(MIN_EVENT_DUR * fps)
-    maxdur = int(MAX_EVENT_DUR * fps)
+    mindur = int(min_event_dur * fps)
+    maxdur = int(max_event_dur * fps)
 
+    event_idx = 0
     for i in range(ncells):
-        for j in range(len(st_ev_inds[i])):
-            start = int(st_ev_inds[i][j])
-            end = int(end_ev_inds[i][j])
+        for j in range(event_counts[i]):
+            start = int(st_ev_inds_flat[event_idx])
+            end = int(end_ev_inds_flat[event_idx])
             start_, end_ = min(start, end), max(start, end)
             dur = end_ - start_
             if mindur <= dur <= maxdur:
@@ -263,5 +271,20 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
             else:
                 middle = (start_ + end_)//2
                 spikes[i, int(middle - mindur//2): int(middle + mindur//2)] = 1
+            event_idx += 1
 
     return spikes
+
+
+def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
+    """Convert event indices to time series array with spike trains."""
+    ncells = len(end_ev_inds)
+    
+    # Flatten the jagged arrays for numba
+    event_counts = np.array([len(st_ev_inds[i]) for i in range(ncells)])
+    st_ev_inds_flat = np.concatenate([st_ev_inds[i] for i in range(ncells)])
+    end_ev_inds_flat = np.concatenate([end_ev_inds[i] for i in range(ncells)])
+    
+    # Call numba function
+    return events_to_ts_array_numba(length, ncells, st_ev_inds_flat, end_ev_inds_flat, 
+                                   event_counts, fps, MIN_EVENT_DUR, MAX_EVENT_DUR)

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(conda run:*)",
+      "Bash(conda:*)",
+      "Bash(pytest:*)",
+      "Bash(sed:*)",
+      "Bash(python -m pytest tests/test_intense_pipelines.py -v)",
+      "Bash(python -m pytest tests/test_intense_pipelines.py::test_compute_feat_feat_significance -v)",
+      "Bash(python:*)",
+      "Bash(source:*)",
+      "WebFetch(domain:arxiv.org)",
+      "Bash(git checkout:*)"
+    ],
+    "deny": []
+  }
+}

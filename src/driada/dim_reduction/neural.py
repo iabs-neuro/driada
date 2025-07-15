@@ -44,6 +44,42 @@ class Encoder(nn.Module):
         return code
 
 
+class VAEEncoder(nn.Module):
+    """Special encoder for VAE that doesn't use sigmoid activation"""
+    
+    def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
+        super().__init__()
+        dropout = kwargs.get('dropout', None)
+
+        self.encoder_hidden_layer = nn.Linear(
+            in_features=orig_dim, out_features=inter_dim
+        )
+        self.encoder_output_layer = nn.Linear(
+            in_features=inter_dim, out_features=code_dim
+        )
+
+        if dropout is not None:
+            if 0 <= dropout < 1:
+                self.dropout = nn.Dropout(p=dropout)
+            else:
+                raise ValueError('Dropout rate should be in the range 0<=dropout<1')
+        else:
+            self.dropout = nn.Dropout(0.0)
+
+        if device is None:
+            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self._device = device
+
+    def forward(self, features):
+        activation = self.encoder_hidden_layer(features)
+        activation = self.dropout(torch.ones(activation.shape).to(self._device)) * activation
+        activation = F.leaky_relu(activation)
+        # No sigmoid activation for VAE! The output represents mean and log variance
+        code = self.encoder_output_layer(activation)
+        return code
+
+
 class Decoder(nn.Module):
 
     def __init__(self, code_dim, inter_dim, orig_dim, kwargs, device=None):
@@ -70,30 +106,28 @@ class Decoder(nn.Module):
         else:
             self._device = device
 
-    def forward(self, code):
-        activation = self.decoder_hidden_layer(code)
-        # activation = torch.relu(activation)
+    def forward(self, features):
+        activation = self.decoder_hidden_layer(features)
         activation = self.dropout(torch.ones(activation.shape).to(self._device)) * activation
+        # activation = torch.relu(activation)
         activation = F.leaky_relu(activation)
         activation = self.decoder_output_layer(activation)
-        reconstructed = torch.sigmoid(activation)
-        # reconstructed = F.leaky_relu(activation)
-
+        reconstructed = activation
+        # reconstructed = torch.sigmoid(activation)
         return reconstructed
 
 
 class AE(nn.Module):
 
-    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs=None, dec_kwargs=None, device=None):
-        super().__init__()
-        if device is None:
-            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self._device = device
-        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim,
-                               kwargs=enc_kwargs, device=self._device)
-        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim,
-                               kwargs=dec_kwargs, device=self._device)
+    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs, dec_kwargs, device):
+        super(AE, self).__init__()
+
+        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=enc_kwargs, device=device)
+        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=dec_kwargs, device=device)
+        self.orig_dim = orig_dim
+        self.inter_dim = inter_dim
+        self.code_dim = code_dim
+        self._device = device
 
     def forward(self, features):
         code = self.encoder.forward(features)
@@ -108,11 +142,12 @@ class AE(nn.Module):
 
 class VAE(nn.Module):
 
-    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs=None, dec_kwargs=None):
+    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs=None, dec_kwargs=None, device=None):
         super(VAE, self).__init__()
 
-        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=2 * code_dim, kwargs=enc_kwargs)
-        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=dec_kwargs)
+        # Use VAEEncoder instead of regular Encoder
+        self.encoder = VAEEncoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=2 * code_dim, kwargs=enc_kwargs or {}, device=device)
+        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=dec_kwargs or {}, device=device)
         self.orig_dim = orig_dim
         self.inter_dim = inter_dim
         self.code_dim = code_dim

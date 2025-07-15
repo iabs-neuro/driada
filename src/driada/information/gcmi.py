@@ -6,6 +6,16 @@ from scipy.special import ndtri, psi, digamma
 
 from .info_utils import py_fast_digamma_arr
 
+# Import JIT versions if available
+try:
+    from .gcmi_jit_utils import (
+        ctransform_jit, ctransform_2d_jit, copnorm_jit, copnorm_2d_jit,
+        mi_gg_jit, cmi_ggg_jit, gcmi_cc_jit
+    )
+    _JIT_AVAILABLE = True
+except ImportError:
+    _JIT_AVAILABLE = False
+
 #TODO: credits to original GCMI: https://github.com/robince/gcmi
 
 def ctransform(x):
@@ -13,8 +23,19 @@ def ctransform(x):
     cx = ctransform(x) returns the empirical CDF value along the first
     axis of x. Data is ranked and scaled within [0 1] (open interval).
     """
-
-    xi = np.argsort(np.atleast_2d(x))
+    x = np.atleast_2d(x)
+    
+    # Use JIT version for suitable inputs
+    if _JIT_AVAILABLE and x.flags.c_contiguous and x.dtype in (np.float32, np.float64):
+        if x.shape[0] == 1:
+            # 1D case
+            return ctransform_jit(x.ravel()).reshape(1, -1)
+        else:
+            # 2D case
+            return ctransform_2d_jit(x)
+    
+    # Fallback to original implementation
+    xi = np.argsort(x)
     xr = np.argsort(xi)
     cx = (xr + 1).astype(float) / (xr.shape[-1] + 1)
     return cx
@@ -26,6 +47,18 @@ def copnorm(x):
     cx = copnorm(x) returns standard normal samples with the same empirical
     CDF value as the input. Operates along the last axis.
     """
+    x = np.atleast_2d(x)
+    
+    # Use JIT version for suitable inputs
+    if _JIT_AVAILABLE and x.flags.c_contiguous and x.dtype in (np.float32, np.float64):
+        if x.shape[0] == 1:
+            # 1D case
+            return copnorm_jit(x.ravel()).reshape(1, -1)
+        else:
+            # 2D case
+            return copnorm_2d_jit(x)
+    
+    # Fallback to original implementation
     # cx = sp.stats.norm.ppf(ctransform(x))
     cx = ndtri(ctransform(x))
     return cx
@@ -33,11 +66,23 @@ def copnorm(x):
 
 @njit
 def demean(x):
+    """Demean each row of a 2D array.
+    
+    Parameters
+    ----------
+    x : ndarray
+        2D array where each row is demeaned independently.
+        
+    Returns
+    -------
+    ndarray
+        Array with same shape as input with zero mean rows.
+    """
     # Get the number of rows
     num_rows = x.shape[0]
 
     # Create an output array with the same shape as input
-    demeaned_x= np.empty_like(x)
+    demeaned_x = np.empty_like(x)
 
     # Demean each row
     for i in range(num_rows):
@@ -47,7 +92,48 @@ def demean(x):
     return demeaned_x
 
 
-#@njit()
+@njit
+def regularized_cholesky(C, regularization=1e-12):
+    """Compute Cholesky decomposition with regularization for numerical stability.
+    
+    Adds diagonal regularization to prevent issues with near-singular
+    covariance matrices. Uses adaptive regularization for severely ill-conditioned
+    matrices based on determinant check.
+    
+    Parameters
+    ----------
+    C : ndarray
+        Covariance matrix to decompose.
+    regularization : float, optional
+        Base regularization parameter added to diagonal (default: 1e-12).
+        
+    Returns
+    -------
+    ndarray
+        Lower triangular Cholesky factor.
+    """
+    # Check matrix conditioning using determinant
+    det_C = np.linalg.det(C)
+    trace_C = np.trace(C)
+    
+    # Adaptive regularization based on determinant relative to trace
+    # For near-singular matrices, det << trace^n where n is matrix size
+    n = C.shape[0]
+    expected_det_scale = (trace_C / n) ** n
+    
+    if det_C > 0 and det_C < expected_det_scale * 1e-8:  # Severely ill-conditioned
+        # Use stronger regularization proportional to trace
+        adaptive_reg = trace_C * 1e-8 / n  # Scale by matrix size
+        reg = max(regularization, adaptive_reg)
+    else:
+        reg = regularization
+    
+    # Apply regularization
+    C_reg = C + np.eye(C.shape[0]) * reg
+    return np.linalg.cholesky(C_reg)
+
+
+@njit()
 def ent_g(x, biascorrect=True):
     """Entropy of a Gaussian variable in bits
     H = ent_g(x) returns the entropy of a (possibly
@@ -65,14 +151,18 @@ def ent_g(x, biascorrect=True):
     x = demean(x)
     # covariance
     C = np.dot(x, x.T) / float(Ntrl - 1)
-    chC = np.linalg.cholesky(C)
+    chC = regularized_cholesky(C)
 
     # entropy in nats
-    HX = np.sum(np.log(np.diagonal(chC))) + 0.5 * Nvarx * (np.log(2 * np.pi) + 1.0)
+    # Extract diagonal manually for Numba compatibility
+    diag_sum = 0.0
+    for i in range(chC.shape[0]):
+        diag_sum += np.log(chC[i, i])
+    HX = diag_sum + 0.5 * Nvarx * (np.log(2 * np.pi) + 1.0)
 
     ln2 = np.log(2)
     if biascorrect:
-        psiterms = py_fast_digamma_arr((Ntrl - np.arange(1, Nvarx + 1).astype(float)) / 2.0) / 2.0
+        psiterms = py_fast_digamma_arr((Ntrl - np.arange(1, Nvarx + 1, dtype=np.float64)) / 2.0) / 2.0
         dterm = (ln2 - np.log(Ntrl - 1.0)) / 2.0
         HX = HX - Nvarx * dterm - psiterms.sum()
 
@@ -81,7 +171,7 @@ def ent_g(x, biascorrect=True):
 
 
 @njit()
-def mi_gg(x, y, biascorrect=True, demeaned=False):
+def mi_gg(x, y, biascorrect=True, demeaned=False, max_dim=3):
     """Mutual information (MI) between two Gaussian variables in bits
 
     I = mi_gg(x,y) returns the MI between two (possibly multidimensional)
@@ -93,12 +183,14 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
     bias correction should be applied to the estimated MI.
     demeaned : false / true option (default false) which specifies whether th
     input data already has zero mean (true if it has been copula-normalized)
+    max_dim : int (default 3) which specifies the maximum allowed dimensionality
+    to prevent undersampling issues.
     """
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
-    if x.ndim > 3 or y.ndim > 3:
-        raise ValueError("x and y must be at most 3d")
+    if x.ndim > max_dim or y.ndim > max_dim:
+        raise ValueError(f"x and y must be at most {max_dim}d to prevent undersampling issues")
     Ntrl = x.shape[1]
     Nvarx = x.shape[0]
     Nvary = y.shape[0]
@@ -118,9 +210,9 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
     Cx = Cxy[:Nvarx, :Nvarx]
     Cy = Cxy[Nvarx:, Nvarx:]
 
-    chCxy = np.linalg.cholesky(Cxy)
-    chCx = np.linalg.cholesky(Cx)
-    chCy = np.linalg.cholesky(Cy)
+    chCxy = regularized_cholesky(Cxy)
+    chCx = regularized_cholesky(Cx)
+    chCy = regularized_cholesky(Cy)
 
     # entropies in nats
     # normalizations cancel for mutual information
@@ -191,7 +283,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
         Ntrl_y[yi] = xm.shape[1]
         xm = demean(xm)
         Cm = np.dot(xm, xm.T) / float(Ntrl_y[yi] - 1)
-        chCm = np.linalg.cholesky(Cm)
+        chCm = regularized_cholesky(Cm)
         Hcond[yi] = np.sum(np.log(np.diag(chCm)))  # + c*Nvarx
 
     # class weights
@@ -199,7 +291,7 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
 
     # unconditional entropy from unconditional Gaussian fit
     Cx = np.dot(x, x.T) / float(Ntrl - 1)
-    chC = np.linalg.cholesky(Cx)
+    chC = regularized_cholesky(Cx)
     Hunc = np.sum(np.log(np.diag(chC)))  # + c*Nvarx
 
     ln2 = np.log(2)
@@ -241,6 +333,12 @@ def gcmi_cc(x, y):
 
     if y.shape[1] != Ntrl:
         raise ValueError("number of trials do not match")
+    
+    # Use JIT version if available and suitable
+    if (_JIT_AVAILABLE and 
+        x.flags.c_contiguous and y.flags.c_contiguous and
+        x.dtype in (np.float32, np.float64) and y.dtype in (np.float32, np.float64)):
+        return gcmi_cc_jit(x, y)
 
     '''
     # check for repeated values
@@ -281,6 +379,15 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
     z = np.atleast_2d(z)
+    
+    # Use JIT version if available and suitable
+    if (_JIT_AVAILABLE and 
+        x.flags.c_contiguous and y.flags.c_contiguous and z.flags.c_contiguous and
+        x.dtype in (np.float32, np.float64) and 
+        y.dtype in (np.float32, np.float64) and 
+        z.dtype in (np.float32, np.float64)):
+        return cmi_ggg_jit(x, y, z, biascorrect, demeaned)
+    
     if x.ndim > 2 or y.ndim > 2 or z.ndim > 2:
         raise ValueError("x, y and z must be at most 2d")
     Ntrl = x.shape[1]
@@ -309,10 +416,10 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     Cxz[Nvarx:,:Nvarx] = Cxyz[Nvarxy:,:Nvarx]
     Cxz[Nvarx:,Nvarx:] = Cxyz[Nvarxy:,Nvarxy:]
 
-    chCz = np.linalg.cholesky(Cz)
-    chCxz = np.linalg.cholesky(Cxz)
-    chCyz = np.linalg.cholesky(Cyz)
-    chCxyz = np.linalg.cholesky(Cxyz)
+    chCz = regularized_cholesky(Cz)
+    chCxz = regularized_cholesky(Cxz)
+    chCyz = regularized_cholesky(Cyz)
+    chCxyz = regularized_cholesky(Cxyz)
 
     # entropies in nats
     # normalizations cancel for cmi
@@ -323,7 +430,7 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
 
     ln2 = np.log(2)
     if biascorrect:
-        psiterms = psi((Ntrl - np.arange(1,Nvarxyz+1)).astype(np.float)/2.0) / 2.0
+        psiterms = psi((Ntrl - np.arange(1,Nvarxyz+1)).astype(float)/2.0) / 2.0
         dterm = (ln2 - np.log(Ntrl-1.0)) / 2.0
         HZ = HZ - Nvarz*dterm - psiterms[:Nvarz].sum()
         HXZ = HXZ - Nvarxz*dterm - psiterms[:Nvarxz].sum()
