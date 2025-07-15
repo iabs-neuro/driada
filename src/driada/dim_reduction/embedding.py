@@ -234,6 +234,11 @@ class Embedding:
         if not continue_learning:
             # create a model from `AE` autoencoder class
             # load it to the specified device, either gpu or cpu
+            # Ensure kwargs are dictionaries, not None
+            if enc_kwargs is None:
+                enc_kwargs = {}
+            if dec_kwargs is None:
+                dec_kwargs = {}
             model = AE(orig_dim=self.init_data.shape[0], inter_dim=inter_dim, code_dim=self.dim,
                        enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs, device=device)
 
