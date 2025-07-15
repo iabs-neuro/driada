@@ -43,11 +43,12 @@ class ProximityGraph(Network):
                                              weighted=all_params['weighted'])
 
         node_mapping = self._init_to_final_node_mapping
-        lost_nodes = set(range(self.n)) - set(list(node_mapping.keys()))
+        original_n = self.data.shape[1]  # Data is (features, samples)
+        lost_nodes = set(range(original_n)) - set(list(node_mapping.keys()))
         if len(lost_nodes) > 0:
             print(f'{len(lost_nodes)} nodes lost after giant component creation!')
 
-            if len(lost_nodes) >= self.max_deleted_nodes * self.n:
+            if len(lost_nodes) >= self.max_deleted_nodes * original_n:
                 raise Exception(f'more than {self.max_deleted_nodes * 100} % of nodes discarded during gc creation!')
             else:
                 self.lost_nodes = lost_nodes

@@ -11,7 +11,7 @@ def create_default_adj(directed=False):
     seed = 42
     G = nx.random_regular_graph(5, 100, seed=seed)
     adj = nx.adjacency_matrix(G)
-    adj = sp.csr_matrix(turn_to_partially_directed(adj.A, int(directed)))
+    adj = sp.csr_matrix(turn_to_partially_directed(adj.toarray(), int(directed)))
     return adj
 
 
