@@ -146,7 +146,8 @@ class Embedding:
         dim = self.dim
 
         A = A.asfptype()
-        vecs = spectral_embedding(A.todense(), n_components=dim, eigen_solver=None,
+        # Convert to numpy array instead of matrix to avoid sklearn compatibility issues
+        vecs = spectral_embedding(np.asarray(A.todense()), n_components=dim, eigen_solver=None,
                                   random_state=None, eigen_tol=0.0, norm_laplacian=True, drop_first=True).T
 
         self.coords = vecs
