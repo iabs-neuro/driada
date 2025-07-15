@@ -95,6 +95,22 @@ class Embedding:
         self.coords = map.fit_transform(spmatrix).T
         self.reducer_ = map
 
+    def create_mds_embedding_(self):
+        """Create MDS (Multi-Dimensional Scaling) embedding."""
+        from sklearn.manifold import MDS
+        
+        # MDS typically uses a distance matrix
+        if hasattr(self, 'init_distmat') and self.init_distmat is not None:
+            # Use provided distance matrix
+            mds = MDS(n_components=self.dim, dissimilarity='precomputed', random_state=42)
+            self.coords = mds.fit_transform(self.init_distmat).T
+        else:
+            # Compute from data
+            mds = MDS(n_components=self.dim, random_state=42)
+            self.coords = mds.fit_transform(self.init_data.T).T
+        
+        self.reducer_ = mds
+
 
     def create_mvu_embedding_(self):
         mvu = MaximumVarianceUnfolding(equation="berkley", solver=cp.SCS, solver_tol=1e-2,
@@ -386,7 +402,7 @@ class Embedding:
 
     def create_vae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
                               enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, kld_weight=1,
-                              train_size=0.8, inter_dim=128, verbose=True):
+                              train_size=0.8, inter_dim=128, verbose=True, log_every=10, **kwargs):
 
     # TODO: add best model mechanism as above
         # ---------------------------------------------------------------------------
@@ -409,7 +425,7 @@ class Embedding:
             # create a model from `VAE` autoencoder class
             # load it to the specified device, either gpu or cpu
             model = VAE(orig_dim=len(self.init_data), inter_dim=inter_dim, code_dim=self.dim,
-                        enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs)
+                        enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs, device=device)
             model = model.to(device)
         else:
             model = self.nnmodel
@@ -429,7 +445,7 @@ class Embedding:
             loss = 0
             loss1 = 0
             loss2 = 0
-            for batch_features, _ in train_loader:
+            for batch_features, _, _ in train_loader:  # NeuroDataset returns 3 values
                 batch_features = batch_features.to(device)
                 # reset the gradients back to zero
                 # PyTorch accumulates gradients on subsequent backward passes
@@ -437,7 +453,7 @@ class Embedding:
 
                 # compute reconstructions
                 data = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
-                data = data.to(device)
+                data = data.to(device).float()  # Ensure float32
                 reconstruction, mu, logvar = model(data)
 
                 # compute training reconstruction loss
@@ -464,12 +480,12 @@ class Embedding:
 
             # display the epoch training loss
             # display the epoch training loss
-            if (epoch + 1) % 10 == 0:
+            if (epoch + 1) % log_every == 0:
                 # compute loss on test part
                 tloss = 0
-                for batch_features, _ in test_loader:
+                for batch_features, _, _ in test_loader:  # NeuroDataset returns 3 values
                     data = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
-                    data = data.to(device)
+                    data = data.to(device).float()  # Ensure float32
                     reconstruction, mu, logvar = model(data)
 
                     # compute training reconstruction loss

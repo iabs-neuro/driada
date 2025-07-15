@@ -35,8 +35,8 @@ def test_mds():
     data, _ = create_swiss_roll_data(200)
     D = MVData(data)
     
-    # MDS needs distance matrix
-    distmat = D.get_distmat()
+    # MDS requires distance matrix to be set
+    D.distmat = D.get_distmat()
     
     embedding_params = {
         'e_method_name': 'mds',
@@ -44,7 +44,7 @@ def test_mds():
     }
     
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, distmat=distmat)
+    emb = D.get_embedding(embedding_params)
     
     assert emb.coords.shape == (2, 200)
     assert not np.any(np.isnan(emb.coords))
@@ -271,7 +271,7 @@ def test_experiment_to_mvdata_pipeline():
 def test_circular_manifold_extraction():
     """Test DR on circular manifold data"""
     # Generate head direction cells
-    exp = generate_circular_manifold_exp(
+    exp, info = generate_circular_manifold_exp(
         n_neurons=100,
         duration=300,
         kappa=4.0,  # Von Mises concentration parameter
@@ -319,7 +319,7 @@ def test_circular_manifold_extraction():
 def test_2d_manifold_extraction():
     """Test DR on 2D spatial manifold data"""
     # Generate place cells
-    exp = generate_2d_manifold_exp(
+    exp, info = generate_2d_manifold_exp(
         n_neurons=100,
         duration=300,
         field_sigma=0.2,  # Place field size
@@ -470,7 +470,7 @@ def test_swiss_roll_unfolding():
     graph_params = {
         'g_method_name': 'knn',
         'weighted': 0,
-        'nn': 12,
+        'nn': 7,  # Fewer neighbors to avoid shortcuts across the roll
         'max_deleted_nodes': 0.2,
         'dist_to_aff': 'hk'
     }
@@ -483,36 +483,23 @@ def test_swiss_roll_unfolding():
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
     
-    # Check spatial correspondence using k-nearest neighbors preservation
-    embedding_points = emb.coords.T
+    # Use manifold metrics to evaluate preservation
+    from src.driada.dim_reduction import knn_preservation_rate, trustworthiness, continuity
     
-    # For each point, check if its k nearest neighbors in original space
-    # are still among its 2k nearest neighbors in embedded space
-    from sklearn.neighbors import NearestNeighbors
+    # Convert to proper format (n_samples, n_features)
+    X_high = data
+    X_low = emb.coords.T
     
+    # Compute preservation metrics
     k = 10
-    # Original space neighbors
-    nbrs_orig = NearestNeighbors(n_neighbors=k+1).fit(data.T)
-    orig_distances, orig_indices = nbrs_orig.kneighbors(data.T)
+    preservation_rate = knn_preservation_rate(X_high, X_low, k=k, flexible=True)
+    trust = trustworthiness(X_high, X_low, k=k)
+    cont = continuity(X_high, X_low, k=k)
     
-    # Embedded space neighbors  
-    nbrs_emb = NearestNeighbors(n_neighbors=2*k+1).fit(embedding_points)
-    emb_distances, emb_indices = nbrs_emb.kneighbors(embedding_points)
-    
-    # Check neighborhood preservation
-    preserved = 0
-    for i in range(len(data.T)):
-        # Original neighbors (excluding self)
-        orig_neighbors = set(orig_indices[i][1:k+1])
-        # Embedded neighbors (excluding self)
-        emb_neighbors = set(emb_indices[i][1:2*k+1])
-        # Count preserved neighbors
-        preserved += len(orig_neighbors.intersection(emb_neighbors))
-    
-    preservation_rate = preserved / (len(data.T) * k)
-    
-    # Should preserve at least 70% of local neighborhoods
-    assert preservation_rate > 0.7
+    # Should preserve local structure well with proper n_neighbors
+    assert preservation_rate > 0.7, f"KNN preservation rate {preservation_rate:.3f} too low"
+    assert trust > 0.8, f"Trustworthiness {trust:.3f} too low"
+    assert cont > 0.8, f"Continuity {cont:.3f} too low"
 
 
 def test_circle_preservation():
@@ -539,49 +526,24 @@ def test_circle_preservation():
     embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
     emb = D.get_embedding(embedding_params)
     
-    # Check that embedded points form a circular structure
-    embedding_points = emb.coords.T
+    # Use manifold metrics for circular structure
+    from src.driada.dim_reduction import circular_structure_preservation, knn_preservation_rate
     
-    # Use circular statistics to test if points lie on a circle
-    # 1. Check variance of distances from center
-    center = np.mean(embedding_points, axis=0)
-    distances = np.linalg.norm(embedding_points - center, axis=1)
+    # Convert to proper format
+    X_high = data.T  # (n_samples, n_features)
+    X_low = emb.coords.T  # (n_samples, 2)
     
-    # Coefficient of variation should be small for circle
-    cv = np.std(distances) / np.mean(distances)
-    assert cv < 0.3  # Allow some variation due to noise
+    # Test circular structure preservation
+    circular_metrics = circular_structure_preservation(X_low, true_angles=theta, k_neighbors=3)
     
-    # 2. Check angular uniformity using circular variance
-    centered = embedding_points - center
-    angles = np.arctan2(centered[:, 1], centered[:, 0])
+    # Check metrics
+    assert circular_metrics['distance_cv'] < 0.3, f"Distance CV {circular_metrics['distance_cv']:.3f} too high"
+    assert circular_metrics['consecutive_preservation'] > 0.8, f"Consecutive preservation {circular_metrics['consecutive_preservation']:.3f} too low"
+    assert circular_metrics['circular_correlation'] > 0.7, f"Circular correlation {circular_metrics['circular_correlation']:.3f} too low"
     
-    # Compute circular variance
-    cos_mean = np.mean(np.cos(angles))
-    sin_mean = np.mean(np.sin(angles))
-    circular_variance = 1 - np.sqrt(cos_mean**2 + sin_mean**2)
-    
-    # For uniform distribution on circle, circular variance should be high
-    assert circular_variance > 0.8
-    
-    # 3. Check that consecutive points are neighbors in embedding
-    # Since we generated points in order along the circle
-    from sklearn.neighbors import NearestNeighbors
-    
-    nbrs = NearestNeighbors(n_neighbors=3).fit(embedding_points)
-    distances, indices = nbrs.kneighbors(embedding_points)
-    
-    # Count how many times consecutive points are neighbors
-    consecutive_preserved = 0
-    for i in range(n_points):
-        neighbors = set(indices[i])
-        # Check if previous or next point is among neighbors
-        prev_idx = (i - 1) % n_points
-        next_idx = (i + 1) % n_points
-        if prev_idx in neighbors or next_idx in neighbors:
-            consecutive_preserved += 1
-    
-    # Most points should have their consecutive neighbors preserved
-    assert consecutive_preserved / n_points > 0.8
+    # Also check general neighborhood preservation
+    preservation_rate = knn_preservation_rate(X_high, X_low, k=5)
+    assert preservation_rate > 0.8, f"KNN preservation {preservation_rate:.3f} too low for linear method on linear manifold"
 
 
 # Graph construction method tests
@@ -655,3 +617,46 @@ def test_high_dimensional_data():
     
     assert emb.coords.shape == (10, n_samples)
     assert not np.any(np.isnan(emb.coords))
+
+
+def test_linear_vs_nonlinear_on_manifolds():
+    """Compare linear (PCA) vs nonlinear (Isomap) methods on manifolds"""
+    from src.driada.dim_reduction import manifold_preservation_score
+    
+    # Generate swiss roll - a classic nonlinear manifold
+    n_samples = 500
+    data, color = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=42)
+    D = MVData(data.T)
+    
+    # Common parameters
+    metric_params = {'metric_name': 'l2', 'sigma': 1, 'p': 2}
+    graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 7,  # Fewer neighbors to avoid shortcuts across the roll
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+    
+    # Apply PCA (linear method)
+    pca_params = {'e_method_name': 'pca', 'dim': 2}
+    pca_params['e_method'] = METHODS_DICT[pca_params['e_method_name']]
+    pca_emb = D.get_embedding(pca_params)
+    
+    # Apply Isomap (nonlinear method)
+    iso_params = {'e_method_name': 'isomap', 'dim': 2}
+    iso_params['e_method'] = METHODS_DICT[iso_params['e_method_name']]
+    iso_emb = D.get_embedding(iso_params, g_params=graph_params, m_params=metric_params)
+    
+    # Compare preservation scores
+    pca_scores = manifold_preservation_score(data, pca_emb.coords.T, k_neighbors=10)
+    iso_scores = manifold_preservation_score(data, iso_emb.coords.T, k_neighbors=10)
+    
+    # For swiss roll, the key metric is geodesic distance preservation
+    # Isomap should preserve geodesic distances much better than PCA
+    assert iso_scores['geodesic_correlation'] > pca_scores['geodesic_correlation'] + 0.2, \
+        f"Isomap geodesic correlation {iso_scores['geodesic_correlation']:.3f} not sufficiently better than PCA {pca_scores['geodesic_correlation']:.3f}"
+    
+    # Overall, at least one method should do reasonably well
+    assert max(iso_scores['overall_score'], pca_scores['overall_score']) > 0.5, \
+        f"Neither method achieved good preservation (Isomap: {iso_scores['overall_score']:.3f}, PCA: {pca_scores['overall_score']:.3f})"

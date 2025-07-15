@@ -68,7 +68,21 @@ class MVData(object):
         return cm
 
     def get_distmat(self, method='euclidean'):
-        raise NotImplementedError('To be implemented soon')
+        """Compute pairwise distance matrix.
+        
+        Parameters
+        ----------
+        method : str
+            Distance metric (default: 'euclidean')
+            
+        Returns
+        -------
+        np.ndarray
+            Distance matrix of shape (n_samples, n_samples)
+        """
+        from scipy.spatial.distance import pdist, squareform
+        distances = pdist(self.data.T, metric=method)
+        return squareform(distances)
 
     def get_embedding(self, e_params, g_params=None, m_params=None, kwargs=None):
         method = e_params['e_method']
