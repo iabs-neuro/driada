@@ -21,6 +21,13 @@ from .manifold_metrics import (
     circular_structure_preservation,
     procrustes_analysis,
     manifold_preservation_score,
+    # Reconstruction validation functions
+    circular_distance,
+    extract_angles_from_embedding,
+    compute_reconstruction_error,
+    compute_temporal_consistency,
+    compute_decoding_accuracy,
+    manifold_reconstruction_score,
 )
 
 __all__ = [
@@ -40,4 +47,11 @@ __all__ = [
     "circular_structure_preservation",
     "procrustes_analysis",
     "manifold_preservation_score",
+    # Reconstruction validation functions
+    "circular_distance",
+    "extract_angles_from_embedding",
+    "compute_reconstruction_error",
+    "compute_temporal_consistency",
+    "compute_decoding_accuracy",
+    "manifold_reconstruction_score",
 ]

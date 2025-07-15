@@ -521,3 +521,327 @@ def manifold_preservation_score(
     metrics['overall_score'] = overall_score
     
     return metrics
+
+
+# =============================================================================
+# MANIFOLD RECONSTRUCTION VALIDATION
+# =============================================================================
+
+def circular_distance(angles1: np.ndarray, angles2: np.ndarray) -> np.ndarray:
+    """Compute circular distance between two sets of angles
+    
+    Parameters:
+    -----------
+    angles1, angles2 : np.ndarray
+        Arrays of angles in radians
+        
+    Returns:
+    --------
+    np.ndarray
+        Circular distances between corresponding angles
+    """
+    diff = angles1 - angles2
+    return np.abs(np.arctan2(np.sin(diff), np.cos(diff)))
+
+
+def extract_angles_from_embedding(embedding: np.ndarray) -> np.ndarray:
+    """Extract angular information from 2D embedding
+    
+    Parameters:
+    -----------
+    embedding : np.ndarray
+        2D embedding with shape (n_timepoints, 2)
+        
+    Returns:
+    --------
+    np.ndarray
+        Extracted angles in radians
+    """
+    if embedding.shape[1] != 2:
+        raise ValueError("Embedding must be 2D for angle extraction")
+    
+    # Center the embedding
+    centered = embedding - np.mean(embedding, axis=0)
+    
+    # Extract angles
+    angles = np.arctan2(centered[:, 1], centered[:, 0])
+    
+    return angles
+
+
+def compute_reconstruction_error(
+    embedding: np.ndarray, 
+    true_variable: np.ndarray, 
+    manifold_type: str = 'circular'
+) -> float:
+    """Compute reconstruction error between embedding and ground truth
+    
+    Parameters:
+    -----------
+    embedding : np.ndarray
+        Low-dimensional embedding
+    true_variable : np.ndarray
+        Ground truth variable (angles or positions)
+    manifold_type : str
+        Type of manifold ('circular' or 'spatial')
+        
+    Returns:
+    --------
+    float
+        Reconstruction error
+    """
+    if manifold_type == 'circular':
+        # Extract angles from embedding
+        reconstructed_angles = extract_angles_from_embedding(embedding)
+        
+        # Compute circular distance
+        distances = circular_distance(reconstructed_angles, true_variable)
+        return np.mean(distances)
+        
+    elif manifold_type == 'spatial':
+        # For spatial manifolds, we need to align the embedding with true positions
+        # Use Procrustes analysis for optimal alignment
+        aligned_embedding, _ = procrustes_analysis(true_variable, embedding)
+        
+        # Compute distances
+        distances = np.linalg.norm(aligned_embedding - true_variable, axis=1)
+        return np.mean(distances)
+    
+    else:
+        raise ValueError(f"Unknown manifold type: {manifold_type}")
+
+
+def compute_temporal_consistency(
+    embedding: np.ndarray, 
+    true_variable: np.ndarray, 
+    manifold_type: str = 'circular'
+) -> float:
+    """Compute temporal consistency between embedding and ground truth
+    
+    Parameters:
+    -----------
+    embedding : np.ndarray
+        Low-dimensional embedding
+    true_variable : np.ndarray
+        Ground truth variable (angles or positions)
+    manifold_type : str
+        Type of manifold ('circular' or 'spatial')
+        
+    Returns:
+    --------
+    float
+        Temporal consistency score (correlation)
+    """
+    if manifold_type == 'circular':
+        # Extract angles from embedding
+        reconstructed_angles = extract_angles_from_embedding(embedding)
+        
+        # Compute temporal derivatives
+        true_velocity = np.diff(true_variable)
+        reconstructed_velocity = np.diff(reconstructed_angles)
+        
+        # Handle circular wrapping
+        true_velocity = np.arctan2(np.sin(true_velocity), np.cos(true_velocity))
+        reconstructed_velocity = np.arctan2(np.sin(reconstructed_velocity), np.cos(reconstructed_velocity))
+        
+        # Compute correlation
+        correlation = np.corrcoef(true_velocity, reconstructed_velocity)[0, 1]
+        return correlation if not np.isnan(correlation) else 0.0
+        
+    elif manifold_type == 'spatial':
+        # Use Procrustes analysis for optimal alignment
+        aligned_embedding, _ = procrustes_analysis(true_variable, embedding)
+        
+        # Compute velocity vectors
+        true_velocity = np.diff(true_variable, axis=0)
+        reconstructed_velocity = np.diff(aligned_embedding, axis=0)
+        
+        # Compute correlation of velocity magnitudes
+        true_speed = np.linalg.norm(true_velocity, axis=1)
+        reconstructed_speed = np.linalg.norm(reconstructed_velocity, axis=1)
+        
+        correlation = np.corrcoef(true_speed, reconstructed_speed)[0, 1]
+        return correlation if not np.isnan(correlation) else 0.0
+    
+    else:
+        raise ValueError(f"Unknown manifold type: {manifold_type}")
+
+
+def train_simple_decoder(embedding: np.ndarray, true_variable: np.ndarray, manifold_type: str = 'circular'):
+    """Train a simple decoder from embedding to ground truth variable
+    
+    Parameters:
+    -----------
+    embedding : np.ndarray
+        Low-dimensional embedding with shape (n_timepoints, n_features)
+    true_variable : np.ndarray
+        Ground truth variable (angles or positions)
+    manifold_type : str
+        Type of manifold ('circular' or 'spatial')
+        
+    Returns:
+    --------
+    callable
+        Trained decoder function
+    """
+    from sklearn.linear_model import LinearRegression
+    from sklearn.preprocessing import StandardScaler
+    
+    # Ensure embedding has correct shape
+    if embedding.shape[0] != true_variable.shape[0]:
+        raise ValueError(f"Embedding and true_variable must have same number of timepoints. "
+                        f"Got embedding: {embedding.shape}, true_variable: {true_variable.shape}")
+    
+    # Standardize embedding
+    scaler = StandardScaler()
+    embedding_scaled = scaler.fit_transform(embedding)
+    
+    if manifold_type == 'circular':
+        # For circular variables, predict sin and cos components
+        sin_component = np.sin(true_variable)
+        cos_component = np.cos(true_variable)
+        
+        # Train separate regressors for sin and cos
+        sin_regressor = LinearRegression().fit(embedding_scaled, sin_component)
+        cos_regressor = LinearRegression().fit(embedding_scaled, cos_component)
+        
+        def decoder(new_embedding):
+            new_embedding_scaled = scaler.transform(new_embedding)
+            pred_sin = sin_regressor.predict(new_embedding_scaled)
+            pred_cos = cos_regressor.predict(new_embedding_scaled)
+            return np.arctan2(pred_sin, pred_cos)
+            
+    elif manifold_type == 'spatial':
+        # For spatial variables, direct regression
+        regressor = LinearRegression().fit(embedding_scaled, true_variable)
+        
+        def decoder(new_embedding):
+            new_embedding_scaled = scaler.transform(new_embedding)
+            return regressor.predict(new_embedding_scaled)
+    
+    else:
+        raise ValueError(f"Unknown manifold type: {manifold_type}")
+    
+    return decoder
+
+
+def compute_decoding_accuracy(
+    embedding: np.ndarray, 
+    true_variable: np.ndarray, 
+    manifold_type: str = 'circular',
+    train_fraction: float = 0.8
+) -> dict:
+    """Compute decoding accuracy using train/test split
+    
+    Parameters:
+    -----------
+    embedding : np.ndarray
+        Low-dimensional embedding
+    true_variable : np.ndarray
+        Ground truth variable (angles or positions)
+    manifold_type : str
+        Type of manifold ('circular' or 'spatial')
+    train_fraction : float
+        Fraction of data to use for training
+        
+    Returns:
+    --------
+    dict
+        Dictionary containing training and testing errors
+    """
+    n_samples = embedding.shape[0]
+    n_train = int(n_samples * train_fraction)
+    
+    # Split data
+    train_embedding = embedding[:n_train]
+    test_embedding = embedding[n_train:]
+    train_variable = true_variable[:n_train]
+    test_variable = true_variable[n_train:]
+    
+    # Train decoder
+    decoder = train_simple_decoder(train_embedding, train_variable, manifold_type)
+    
+    # Compute training error
+    train_predictions = decoder(train_embedding)
+    train_error = compute_reconstruction_error(
+        train_embedding, train_variable, manifold_type
+    ) if manifold_type == 'circular' else np.mean(
+        np.linalg.norm(train_predictions - train_variable, axis=1)
+    )
+    
+    # Compute testing error
+    test_predictions = decoder(test_embedding)
+    if manifold_type == 'circular':
+        test_error = np.mean(circular_distance(test_predictions, test_variable))
+    else:
+        test_error = np.mean(np.linalg.norm(test_predictions - test_variable, axis=1))
+    
+    return {
+        'train_error': train_error,
+        'test_error': test_error,
+        'generalization_gap': test_error - train_error
+    }
+
+
+def manifold_reconstruction_score(
+    embedding: np.ndarray,
+    true_variable: np.ndarray,
+    manifold_type: str = 'circular',
+    weights: Optional[dict] = None
+) -> dict:
+    """Compute comprehensive manifold reconstruction score
+    
+    Parameters:
+    -----------
+    embedding : np.ndarray
+        Low-dimensional embedding
+    true_variable : np.ndarray
+        Ground truth variable (angles or positions)
+    manifold_type : str
+        Type of manifold ('circular' or 'spatial')
+    weights : dict, optional
+        Weights for combining metrics
+        
+    Returns:
+    --------
+    dict
+        Dictionary containing reconstruction metrics
+    """
+    if weights is None:
+        weights = {
+            'reconstruction_error': 0.4,
+            'temporal_consistency': 0.3,
+            'decoding_accuracy': 0.3
+        }
+    
+    # Compute metrics
+    reconstruction_error = compute_reconstruction_error(embedding, true_variable, manifold_type)
+    temporal_consistency = compute_temporal_consistency(embedding, true_variable, manifold_type)
+    decoding_results = compute_decoding_accuracy(embedding, true_variable, manifold_type)
+    
+    # Normalize reconstruction error (lower is better, so invert)
+    max_error = np.pi if manifold_type == 'circular' else 1.0  # Normalized for spatial
+    normalized_error = 1.0 - min(reconstruction_error / max_error, 1.0)
+    
+    # Normalize decoding accuracy (lower test error is better)
+    max_decode_error = np.pi if manifold_type == 'circular' else 1.0
+    normalized_decode = 1.0 - min(decoding_results['test_error'] / max_decode_error, 1.0)
+    
+    # Ensure temporal consistency is positive
+    temporal_consistency = max(temporal_consistency, 0.0)
+    
+    # Compute weighted score
+    overall_score = (
+        weights['reconstruction_error'] * normalized_error +
+        weights['temporal_consistency'] * temporal_consistency +
+        weights['decoding_accuracy'] * normalized_decode
+    )
+    
+    return {
+        'reconstruction_error': reconstruction_error,
+        'temporal_consistency': temporal_consistency,
+        'decoding_train_error': decoding_results['train_error'],
+        'decoding_test_error': decoding_results['test_error'],
+        'generalization_gap': decoding_results['generalization_gap'],
+        'overall_reconstruction_score': overall_score
+    }
