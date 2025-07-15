@@ -4,6 +4,7 @@ meta-config.yml
 _intense_backlog.md
 TODO_NUMBA_CONFIG.md
 TODO_DISENTANGLEMENT_TESTS.md
+.claude/
 
 # Markdown files (except README)
 *.md
