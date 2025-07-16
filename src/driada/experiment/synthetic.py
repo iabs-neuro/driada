@@ -2460,18 +2460,36 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
                                                (n_feature_selective, int(duration * fps)))
             gt_features = np.zeros((0, n_feature_selective))
         else:
-            # Generate neurons for discrete features
-            all_calcium_parts = []
-            all_gt_parts = []
+            # Check if mixed selectivity is requested
+            use_mixed_selectivity = feature_params.get('multi_select_prob', 0) > 0
             
-            if n_discrete_features > 0:
-                # Generate neurons selective to discrete features
-                discrete_seed = None if feature_seed is None else feature_seed + 10
-                feats_d, calcium_d, gt_d = generate_synthetic_data(
-                    n_discrete_features, n_feature_selective // 2 if n_continuous_features > 0 else n_feature_selective,
-                    ftype='d',
+            if use_mixed_selectivity:
+                # Use mixed selectivity generation
+                selectivity_seed = None if feature_seed is None else feature_seed + 500
+                
+                # Generate selectivity patterns
+                selectivity_matrix = generate_multiselectivity_patterns(
+                    n_feature_selective, 
+                    n_discrete_features + n_continuous_features,
+                    mode='random',
+                    selectivity_prob=feature_params.get('selectivity_prob', 0.8),
+                    multi_select_prob=feature_params.get('multi_select_prob', 0.4),
+                    weights_mode='random',
+                    seed=selectivity_seed
+                )
+                
+                # Create features dictionary
+                features_dict = {}
+                for i in range(n_discrete_features):
+                    features_dict[f'd_feat_{i}'] = behavioral_features_data[f'd_feat_{i}']
+                for i in range(n_continuous_features):
+                    features_dict[f'c_feat_{i}'] = behavioral_features_data[f'c_feat_{i}']
+                
+                # Generate mixed selective signals
+                calcium_features, gt_features = generate_synthetic_data_mixed_selectivity(
+                    features_dict, n_feature_selective, selectivity_matrix,
                     duration=duration,
-                    seed=discrete_seed,
+                    seed=feature_seed,
                     sampling_rate=fps,
                     rate_0=feature_params['rate_0'],
                     rate_1=feature_params['rate_1'],
@@ -2481,51 +2499,74 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
                     noise_std=feature_params['noise_std'],
                     verbose=False
                 )
-                all_calcium_parts.append(calcium_d)
-                # Adjust gt_d indices to account for all features
-                gt_d_adjusted = np.zeros((n_discrete_features + n_continuous_features, gt_d.shape[1]))
-                gt_d_adjusted[:n_discrete_features, :] = gt_d
-                all_gt_parts.append(gt_d_adjusted)
-            
-            if n_continuous_features > 0:
-                # Generate neurons selective to continuous features
-                remaining_neurons = n_feature_selective - (len(all_calcium_parts[0]) if all_calcium_parts else 0)
-                continuous_seed = None if feature_seed is None else feature_seed + 100
-                feats_c, calcium_c, gt_c = generate_synthetic_data(
-                    n_continuous_features, remaining_neurons,
-                    ftype='c',
-                    duration=duration,
-                    seed=continuous_seed,
-                    sampling_rate=fps,
-                    rate_0=feature_params['rate_0'],
-                    rate_1=feature_params['rate_1'],
-                    skip_prob=feature_params['skip_prob'],
-                    hurst=feature_params['hurst'],
-                    ampl_range=feature_params['ampl_range'],
-                    decay_time=feature_params['decay_time'],
-                    noise_std=feature_params['noise_std'],
-                    verbose=False
-                )
-                all_calcium_parts.append(calcium_c)
-                # Adjust gt_c indices to account for discrete features
-                gt_c_adjusted = np.zeros((n_discrete_features + n_continuous_features, gt_c.shape[1]))
-                gt_c_adjusted[n_discrete_features:, :] = gt_c
-                all_gt_parts.append(gt_c_adjusted)
-            
-            # Combine calcium signals and ground truth
-            if len(all_calcium_parts) == 1:
-                calcium_features = all_calcium_parts[0]
-                gt_features = all_gt_parts[0]
             else:
-                calcium_features = np.vstack(all_calcium_parts)
-                # Combine ground truth matrices
-                gt_features = np.zeros((n_discrete_features + n_continuous_features, calcium_features.shape[0]))
-                neuron_idx = 0
-                for gt_part in all_gt_parts:
-                    n_neurons_part = gt_part.shape[1] if len(gt_part.shape) > 1 else 0
-                    if n_neurons_part > 0:
-                        gt_features[:, neuron_idx:neuron_idx + n_neurons_part] = gt_part
-                        neuron_idx += n_neurons_part
+                # Original code for single selectivity
+                # Generate neurons for discrete features
+                all_calcium_parts = []
+                all_gt_parts = []
+                
+                if n_discrete_features > 0:
+                    # Generate neurons selective to discrete features
+                    discrete_seed = None if feature_seed is None else feature_seed + 10
+                    feats_d, calcium_d, gt_d = generate_synthetic_data(
+                        n_discrete_features, n_feature_selective // 2 if n_continuous_features > 0 else n_feature_selective,
+                        ftype='d',
+                        duration=duration,
+                        seed=discrete_seed,
+                        sampling_rate=fps,
+                        rate_0=feature_params['rate_0'],
+                        rate_1=feature_params['rate_1'],
+                        skip_prob=feature_params['skip_prob'],
+                        ampl_range=feature_params['ampl_range'],
+                        decay_time=feature_params['decay_time'],
+                        noise_std=feature_params['noise_std'],
+                        verbose=False
+                    )
+                    all_calcium_parts.append(calcium_d)
+                    # Adjust gt_d indices to account for all features
+                    gt_d_adjusted = np.zeros((n_discrete_features + n_continuous_features, gt_d.shape[1]))
+                    gt_d_adjusted[:n_discrete_features, :] = gt_d
+                    all_gt_parts.append(gt_d_adjusted)
+                
+                if n_continuous_features > 0:
+                    # Generate neurons selective to continuous features
+                    remaining_neurons = n_feature_selective - (len(all_calcium_parts[0]) if all_calcium_parts else 0)
+                    continuous_seed = None if feature_seed is None else feature_seed + 100
+                    feats_c, calcium_c, gt_c = generate_synthetic_data(
+                        n_continuous_features, remaining_neurons,
+                        ftype='c',
+                        duration=duration,
+                        seed=continuous_seed,
+                        sampling_rate=fps,
+                        rate_0=feature_params['rate_0'],
+                        rate_1=feature_params['rate_1'],
+                        skip_prob=feature_params['skip_prob'],
+                        hurst=feature_params['hurst'],
+                        ampl_range=feature_params['ampl_range'],
+                        decay_time=feature_params['decay_time'],
+                        noise_std=feature_params['noise_std'],
+                        verbose=False
+                    )
+                    all_calcium_parts.append(calcium_c)
+                    # Adjust gt_c indices to account for discrete features
+                    gt_c_adjusted = np.zeros((n_discrete_features + n_continuous_features, gt_c.shape[1]))
+                    gt_c_adjusted[n_discrete_features:, :] = gt_c
+                    all_gt_parts.append(gt_c_adjusted)
+                
+                # Combine calcium signals and ground truth
+                if len(all_calcium_parts) == 1:
+                    calcium_features = all_calcium_parts[0]
+                    gt_features = all_gt_parts[0]
+                else:
+                    calcium_features = np.vstack(all_calcium_parts)
+                    # Combine ground truth matrices
+                    gt_features = np.zeros((n_discrete_features + n_continuous_features, calcium_features.shape[0]))
+                    neuron_idx = 0
+                    for gt_part in all_gt_parts:
+                        n_neurons_part = gt_part.shape[1] if len(gt_part.shape) > 1 else 0
+                        if n_neurons_part > 0:
+                            gt_features[:, neuron_idx:neuron_idx + n_neurons_part] = gt_part
+                            neuron_idx += n_neurons_part
         
         # Apply feature correlation if requested
         if correlation_mode == 'feature_correlated' and spatial_data is not None and n_manifold > 0:

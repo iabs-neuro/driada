@@ -233,6 +233,34 @@ A small amount of noise (default: 10^-3) is added to MI values to:
 - Improve parametric distribution fitting
 - Avoid degeneracies in rank-based statistics
 
+#### Rank Values (r-vals) and Non-parametric Testing
+
+INTENSE employs a dual approach combining parametric and non-parametric methods:
+
+**Rank Values (r-vals)**: For each neuron-feature pair, INTENSE computes the rank of the observed MI value within the null distribution:
+```
+r-val = rank(MI_observed) / (n_shuffles + 1)
+```
+
+The r-val represents the proportion of shuffled MI values that are **lower** than the observed MI. This is equivalent to computing an empirical p-value:
+```
+empirical_p_value = 1 - r-val
+```
+
+**Advantages of r-vals**:
+- Distribution-free: No assumptions about the shape of the MI distribution
+- Robust: Unaffected by outliers or distribution fitting failures
+- Conservative: The (n_shuffles + 1) denominator prevents p-values of exactly 0
+
+**Dual Criterion for Significance**: INTENSE requires both criteria to be met:
+1. **Non-parametric criterion**: r-val > (1 - k/(n_shuffles + 1)), typically k=5
+2. **Parametric criterion**: p-value < threshold (after multiple comparison correction)
+
+This dual approach provides robustness:
+- The r-val criterion ensures the observed MI is genuinely in the extreme tail
+- The parametric p-value provides a continuous measure of significance
+- Both must pass, preventing false positives from poor distribution fits
+
 ### Two-Stage Testing Procedure
 
 The two-stage approach balances computational efficiency with statistical rigor:

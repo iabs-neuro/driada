@@ -86,6 +86,9 @@ def compute_cell_feat_significance(exp,
 
     metric_distr_type: str
         Distribution type for shuffled metric distribution fit. Supported options are distributions from scipy.stats
+        Note: While 'gamma' is theoretically appropriate for MI distributions, empirical testing shows
+        that 'norm' (normal distribution) often performs better due to its conservative p-values when
+        fitting poorly to the skewed MI data. This conservatism reduces false positives.
         default: "gamma"
 
     noise_ampl: float

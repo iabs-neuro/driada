@@ -175,7 +175,7 @@ def analyze_single_cell_selectivity(exp):
         mode='two_stage',
         n_shuffles_stage1=50,      # Reduced for faster screening
         n_shuffles_stage2=500,
-        metric_distr_type='norm',  # NOTE: norm works better than gamma - investigate why
+        metric_distr_type='norm',  # NOTE: norm's conservative p-values reduce false positives (see docs)
         pval_thr=0.05,             # More lenient threshold
         verbose=True,              # Enable to see progress
         find_optimal_delays=False,  # Disabled due to MultiTimeSeries incompatibility
