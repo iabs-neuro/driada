@@ -1,11 +1,22 @@
 """
-Fixed version of extract_task_variables.py with optimized parameters for mixed selectivity detection.
+Extract task-relevant dimensions from mixed selectivity neural populations.
 
-Key improvements:
-1. Relaxed p-value threshold (0.001 vs 0.05)
-2. Disabled multiple comparison correction
-3. Improved data generation parameters
-4. Proper handling of MultiTimeSeries features
+This example demonstrates how population-level dimensionality reduction reveals
+task structure that is distributed across neurons with mixed selectivity:
+
+1. Generate a mixed population combining place cells (2D manifold) with 
+   task-modulated neurons responding to speed, direction, and rewards
+2. Show how individual neurons have mixed selectivity to multiple variables
+3. Apply dimensionality reduction to extract latent task-relevant dimensions
+4. Demonstrate that population analysis reveals task structure better than
+   single-cell analysis alone
+5. Validate extracted dimensions against ground truth task variables
+
+Key insights:
+- Single neurons often respond to multiple correlated task variables
+- Population activity contains low-dimensional structure reflecting task demands
+- Combining INTENSE (single-cell) with DR (population) provides complete picture
+- Task-relevant dimensions emerge naturally from neural population geometry
 """
 
 import numpy as np
@@ -13,54 +24,67 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr, spearmanr
 from scipy.spatial.distance import pdist, squareform
 
-# Import DRIADA modules
 from driada.experiment import generate_mixed_population_exp
 from driada.intense import compute_cell_feat_significance
-from driada.dimensionality import pca_dimension, effective_rank, nn_dimension
+from driada.dimensionality import pca_dimension, eff_dim, nn_dimension
 from driada.dim_reduction import MVData, knn_preservation_rate, procrustes_analysis
 from driada.dim_reduction.manifold_metrics import trustworthiness, continuity
 
 
-def generate_task_data_improved(duration=600, fps=20, seed=42):
+def generate_task_data(duration=600, fps=20, seed=42):
     """
-    Generate mixed population with improved parameters for better mixed selectivity detection.
+    Generate a mixed neural population engaged in a navigation task.
     
-    Key improvements:
-    - Longer duration (600s vs 300s)
-    - Lower noise levels
-    - Higher selectivity probability
-    - Better signal-to-noise ratio
+    The task involves:
+    - Spatial navigation (place cells on 2D manifold)
+    - Speed modulation (some neurons encode running speed)
+    - Reward signals (some neurons respond to reward locations)
+    - Mixed selectivity (many neurons respond to combinations)
+    
+    Parameters
+    ----------
+    duration : float
+        Duration of experiment in seconds
+    fps : float
+        Sampling rate in Hz
+    seed : int
+        Random seed for reproducibility
+        
+    Returns
+    -------
+    exp : Experiment
+        DRIADA Experiment object with mixed population
+    info : dict
+        Information about population composition
     """
-    print("\n=== GENERATING IMPROVED TASK DATA ===")
+    print("\n=== GENERATING TASK DATA ===")
     print("Task: 2D navigation with speed modulation and reward signals")
-    print("Improvements: longer duration, lower noise, higher selectivity")
     
-    # Generate mixed population with improved parameters
     exp, info = generate_mixed_population_exp(
-        n_neurons=200,              # Total population size
-        manifold_type='2d_spatial', # Place cells for spatial navigation
-        manifold_fraction=0.6,      # 60% pure place cells
-        n_discrete_features=1,      # Reward states (0/1)
-        n_continuous_features=2,    # Speed and head direction
-        duration=duration,          # Longer duration for better statistics
+        n_neurons=200,
+        manifold_type='2d_spatial',
+        manifold_fraction=0.6,
+        n_discrete_features=1,
+        n_continuous_features=2,
+        duration=duration,
         fps=fps,
         correlation_mode='spatial_correlated',
         seed=seed,
         manifold_params={
             'grid_arrangement': True,
             'field_sigma': 0.15,
-            'noise_std': 0.05,        # Reduced noise (was 0.1)
+            'noise_std': 0.05,
             'baseline_rate': 0.1,
             'peak_rate': 2.0,
             'decay_time': 2.0,
-            'calcium_noise_std': 0.05 # Reduced calcium noise (was 0.1)
+            'calcium_noise_std': 0.05
         },
         feature_params={
-            'selectivity_prob': 0.9,  # Higher selectivity (was 0.8)
-            'multi_select_prob': 0.6, # Keep 60% mixed selectivity
+            'selectivity_prob': 0.9,
+            'multi_select_prob': 0.6,
             'rate_0': 0.5,
-            'rate_1': 4.0,            # Higher contrast (was 3.0)
-            'noise_std': 0.05,        # Reduced noise (was 0.1)
+            'rate_1': 4.0,
+            'noise_std': 0.05,
             'hurst': 0.3,
             'skip_prob': 0.0,
             'ampl_range': (1.5, 3.5),
@@ -68,7 +92,6 @@ def generate_task_data_improved(duration=600, fps=20, seed=42):
         }
     )
     
-    # Same feature mapping as original
     feature_mapping = {
         'd_feat_0': 'reward',
         'c_feat_0': 'speed', 
@@ -80,7 +103,6 @@ def generate_task_data_improved(duration=600, fps=20, seed=42):
         if old_name in exp.dynamic_features:
             print(f"  - {old_name} represents {new_meaning}")
     
-    # Same feature processing as original
     if 'position_2d' in exp.dynamic_features:
         pos = exp.dynamic_features['position_2d'].data
         velocity = np.diff(pos, axis=1)
@@ -114,26 +136,28 @@ def generate_task_data_improved(duration=600, fps=20, seed=42):
     return exp, info
 
 
-def analyze_single_cell_selectivity_improved(exp):
+def analyze_single_cell_selectivity(exp):
     """
-    Improved INTENSE analysis with optimized parameters for mixed selectivity detection.
+    Perform INTENSE analysis to identify single-neuron selectivity patterns.
     
-    Key improvements:
-    - Relaxed p-value threshold (0.001 vs 0.05)
-    - Disabled multiple comparison correction
-    - Proper handling of MultiTimeSeries features
+    Parameters
+    ----------
+    exp : Experiment
+        DRIADA Experiment object
+        
+    Returns
+    -------
+    results : dict
+        Analysis results including selectivity profiles
     """
     import time
-    print("\n=== IMPROVED SINGLE-CELL SELECTIVITY ANALYSIS ===")
-    print("Improvements: relaxed thresholds, disabled multiple comparisons")
+    print("\n=== SINGLE-CELL SELECTIVITY ANALYSIS ===")
     
-    # Focus on key task variables
     task_features = ['position_2d', 'c_feat_0', 'c_feat_1', 'd_feat_0']
     available_features = [f for f in task_features if f in exp.dynamic_features]
     
     print(f"Analyzing {exp.n_cells} neurons × {len(available_features)} features = {exp.n_cells * len(available_features)} pairs")
     
-    # Create skip_delays for MultiTimeSeries features
     skip_delays = {}
     for feat_name in available_features:
         if hasattr(exp.dynamic_features[feat_name], 'data') and \
@@ -141,9 +165,6 @@ def analyze_single_cell_selectivity_improved(exp):
            exp.dynamic_features[feat_name].data.ndim > 1:
             skip_delays[feat_name] = True
     
-    print(f"MultiTimeSeries features with skip_delays: {list(skip_delays.keys())}")
-    
-    # Run INTENSE analysis with improved parameters
     start = time.time()
     results = compute_cell_feat_significance(
         exp,
@@ -152,28 +173,25 @@ def analyze_single_cell_selectivity_improved(exp):
         n_shuffles_stage1=50,
         n_shuffles_stage2=500,
         metric_distr_type='norm',
-        pval_thr=0.001,             # Relaxed threshold (was 0.05)
-        multicomp_correction=None,  # Disabled multiple comparisons
+        pval_thr=0.001,
+        multicomp_correction=None,
         verbose=True,
         find_optimal_delays=False,
         allow_mixed_dimensions=True,
-        skip_delays=skip_delays,    # Proper MultiTimeSeries handling
+        skip_delays=skip_delays,
         with_disentanglement=False
     )
     print(f"INTENSE computation time: {time.time() - start:.2f}s")
     
-    # Unpack results
     stats, significance, info, intense_results = results
     
-    # Analyze selectivity patterns
     significant_neurons = exp.get_significant_neurons()
     mixed_selectivity_neurons = exp.get_significant_neurons(min_nspec=2)
     
-    print(f"\nIMPROVED SELECTIVITY RESULTS:")
-    print(f"  - Total selective neurons: {len(significant_neurons)}/{exp.n_cells} ({len(significant_neurons)/exp.n_cells*100:.1f}%)")
-    print(f"  - Mixed selectivity neurons: {len(mixed_selectivity_neurons)} ({len(mixed_selectivity_neurons)/exp.n_cells*100:.1f}%)")
+    print(f"\nSelectivity Summary:")
+    print(f"  - Total selective neurons: {len(significant_neurons)}/{exp.n_cells}")
+    print(f"  - Mixed selectivity neurons: {len(mixed_selectivity_neurons)}")
     
-    # Count selectivity by feature
     feature_counts = {}
     for neuron_id, features in significant_neurons.items():
         for feat in features:
@@ -183,15 +201,9 @@ def analyze_single_cell_selectivity_improved(exp):
     for feat, count in sorted(feature_counts.items()):
         print(f"  - {feat}: {count} neurons")
     
-    # Show examples of mixed selectivity
     if mixed_selectivity_neurons:
-        print(f"\nMixed selectivity examples (first 5):")
+        print(f"\nMixed selectivity patterns (top 5):")
         for i, (neuron_id, features) in enumerate(list(mixed_selectivity_neurons.items())[:5]):
-            print(f"  Neuron {neuron_id}: {', '.join(features)}")
-    else:
-        print(f"\nNo mixed selectivity detected")
-        print(f"Top single-feature neurons (first 5):")
-        for i, (neuron_id, features) in enumerate(list(significant_neurons.items())[:5]):
             print(f"  Neuron {neuron_id}: {', '.join(features)}")
     
     return {
@@ -202,63 +214,524 @@ def analyze_single_cell_selectivity_improved(exp):
     }
 
 
-def compare_original_vs_improved():
-    """Compare original vs improved mixed selectivity detection."""
-    print("="*70)
-    print("MIXED SELECTIVITY DETECTION COMPARISON")
-    print("="*70)
+def extract_population_structure(exp, neural_data=None, ds=5):
+    """
+    Apply dimensionality reduction to extract task-relevant population structure.
     
-    # Test improved approach
-    print("\n1. IMPROVED APPROACH:")
-    exp_improved, info_improved = generate_task_data_improved(duration=600, fps=20, seed=42)
-    results_improved = analyze_single_cell_selectivity_improved(exp_improved)
+    Parameters
+    ----------
+    exp : Experiment
+        DRIADA Experiment object
+    neural_data : ndarray, optional
+        Neural activity matrix. If None, uses exp.calcium
+    ds : int
+        Downsampling factor for dimensionality reduction
+        
+    Returns
+    -------
+    embeddings : dict
+        Dictionary of embeddings from different DR methods
+    """
+    print("\n=== POPULATION-LEVEL ANALYSIS ===")
+    print(f"Downsampling factor: {ds}")
+
+    if neural_data is None:
+        neural_data = exp.calcium[:, ::ds]
     
-    # Ground truth analysis
-    print(f"\n=== GROUND TRUTH ANALYSIS (IMPROVED) ===")
-    if 'feature_selectivity' in info_improved:
-        gt = info_improved['feature_selectivity']
-        n_features_per_neuron = np.sum(gt > 0, axis=0)
-        gt_selective = np.sum(n_features_per_neuron > 0)
-        gt_mixed = np.sum(n_features_per_neuron > 1)
-        print(f"Ground truth selective: {gt_selective}/80 feature neurons")
-        print(f"Ground truth mixed selectivity: {gt_mixed}/80 feature neurons ({gt_mixed/80*100:.1f}%)")
+    from driada.dim_reduction import MVData, METHODS_DICT
+    mvdata = MVData(neural_data)
     
-    # Results comparison
-    print(f"\n=== PERFORMANCE COMPARISON ===")
-    print(f"ORIGINAL APPROACH (from previous runs):")
-    print(f"  - Total selective neurons: 13/200 (6.5%)")
-    print(f"  - Mixed selectivity neurons: 0 (0%)")
-    print(f"  - Detection rate: 0%")
+    print("\nEstimating dimensionality:")
+    data_t = neural_data.T
+    print(f"  - PCA 90% variance: {pca_dimension(data_t, threshold=0.90)} dimensions")
+    print(f"  - PCA 95% variance: {pca_dimension(data_t, threshold=0.95)} dimensions")
     
-    print(f"\nIMPROVED APPROACH:")
-    print(f"  - Total selective neurons: {len(results_improved['significant_neurons'])}/200 ({len(results_improved['significant_neurons'])/200*100:.1f}%)")
-    print(f"  - Mixed selectivity neurons: {len(results_improved['mixed_selectivity_neurons'])} ({len(results_improved['mixed_selectivity_neurons'])/200*100:.1f}%)")
+    # Try eff_dim with correction, fallback to without if it fails
+    try:
+        eff_dim_value = eff_dim(data_t, enable_correction=True)
+        print(f"  - Effective dimension (corrected): {eff_dim_value:.2f}")
+    except Exception as e:
+        # Correction can fail with near-singular matrices
+        try:
+            eff_dim_value = eff_dim(data_t, enable_correction=False)
+            print(f"  - Effective dimension: {eff_dim_value:.2f}")
+        except Exception as e2:
+            print(f"  - Effective dimension: Failed ({str(e2)})")
     
-    # Calculate improvement
-    original_mixed = 0
-    improved_mixed = len(results_improved['mixed_selectivity_neurons'])
-    improvement = improved_mixed - original_mixed
+    n_samples = min(1000, data_t.shape[0])
+    sample_idx = np.random.choice(data_t.shape[0], n_samples, replace=False)
+    data_sample = data_t[sample_idx]
     
-    print(f"\nIMPROVEMENT SUMMARY:")
-    print(f"  - Additional selective neurons: {len(results_improved['significant_neurons']) - 13}")
-    print(f"  - Additional mixed selectivity neurons: {improvement}")
-    print(f"  - Success: Mixed selectivity detection enabled!")
+    try:
+        nn_dim = nn_dimension(data_sample, k=5)
+        print(f"  - k-NN dimension: {nn_dim:.2f}")
+    except:
+        print(f"  - k-NN dimension: Failed")
     
-    return exp_improved, results_improved
+    embeddings = {}
+    
+    print("\nApplying dimensionality reduction:")
+    
+    pca_params = {
+        'e_method_name': 'pca',
+        'dim': 10,
+        'e_method': METHODS_DICT['pca']
+    }
+    pca_emb = mvdata.get_embedding(pca_params)
+    embeddings['pca'] = pca_emb.coords.T
+    pca_var = np.var(pca_emb.coords, axis=1)
+    pca_var_ratio = pca_var / np.sum(pca_var)
+    print(f"  - PCA: captured {np.sum(pca_var_ratio[:3]):.1%} variance in 3D")
+    
+    metric_params = {
+        'metric_name': 'l2',
+        'sigma': 1,
+        'p': 2
+    }
+    
+    isomap_graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 30,
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+    isomap_params = {
+        'e_method_name': 'isomap',
+        'dim': 3,
+        'e_method': METHODS_DICT['isomap']
+    }
+    isomap_emb = mvdata.get_embedding(isomap_params, g_params=isomap_graph_params, m_params=metric_params)
+    embeddings['isomap'] = isomap_emb.coords.T
+    print(f"  - Isomap: embedded into 3D manifold")
+    
+    umap_graph_params = {
+        'g_method_name': 'knn',
+        'weighted': 0,
+        'nn': 30,
+        'max_deleted_nodes': 0.2,
+        'dist_to_aff': 'hk'
+    }
+    umap_params = {
+        'e_method_name': 'umap',
+        'dim': 3,
+        'min_dist': 0.1,
+        'e_method': METHODS_DICT['umap']
+    }
+    umap_emb = mvdata.get_embedding(umap_params, g_params=umap_graph_params, m_params=metric_params)
+    embeddings['umap'] = umap_emb.coords.T
+    print(f"  - UMAP: embedded into 3D space")
+    
+    return embeddings
+
+
+def compare_with_task_variables(exp, embeddings, ds=5):
+    """
+    Compare extracted dimensions with ground truth task variables.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        DRIADA Experiment object
+    embeddings : dict
+        Dictionary of embeddings from different methods
+    ds : int
+        Downsampling factor used in embeddings
+        
+    Returns
+    -------
+    correlations : dict
+        Correlations between embedding dimensions and task variables
+    """
+    print("\n=== COMPARING WITH TASK VARIABLES ===")
+    
+    correlations = {}
+    
+    if 'position_2d' in exp.dynamic_features:
+        pos_data = exp.dynamic_features['position_2d'].data[:, ::ds]
+        pos_x = pos_data[0]
+        pos_y = pos_data[1]
+    else:
+        pos_x = pos_y = None
+        
+    speed = exp.dynamic_features.get('c_feat_0', None)
+    if speed is not None:
+        speed = speed.data[::ds]
+        
+    reward = exp.dynamic_features.get('d_feat_0', None)
+    if reward is not None:
+        reward = reward.data[::ds]
+    
+    for method_name, embedding in embeddings.items():
+        correlations[method_name] = {}
+        
+        print(f"\n{method_name.upper()} correlations with task variables:")
+        
+        if pos_x is not None:
+            from driada.dim_reduction import procrustes_analysis
+            true_pos = np.column_stack([pos_x, pos_y])
+            aligned_embedding, _ = procrustes_analysis(true_pos, embedding[:, :2])
+            
+            r_x = pearsonr(aligned_embedding[:, 0], pos_x)[0]
+            r_y = pearsonr(aligned_embedding[:, 1], pos_y)[0]
+            
+            spatial_corr = np.sqrt(r_x**2 + r_y**2) / np.sqrt(2)
+            correlations[method_name]['spatial'] = spatial_corr
+            print(f"  - Spatial encoding (2D): {spatial_corr:.3f}")
+        
+        if speed is not None:
+            speed_corrs = [abs(pearsonr(embedding[:, i], speed)[0]) 
+                           for i in range(min(3, embedding.shape[1]))]
+            best_speed_corr = max(speed_corrs)
+            correlations[method_name]['speed'] = best_speed_corr
+            print(f"  - Speed encoding: {best_speed_corr:.3f}")
+        
+        if reward is not None:
+            reward_corrs = [abs(spearmanr(embedding[:, i], reward)[0]) 
+                           for i in range(min(3, embedding.shape[1]))]
+            best_reward_corr = max(reward_corrs)
+            correlations[method_name]['reward'] = best_reward_corr
+            print(f"  - Reward encoding: {best_reward_corr:.3f}")
+        
+        if pos_x is not None:
+            from driada.dim_reduction.manifold_metrics import trustworthiness, continuity
+            from sklearn.metrics import pairwise_distances
+            
+            k = 10
+            knn_score = knn_preservation_rate(true_pos, embedding[:, :2], k=k)
+            correlations[method_name]['knn_preservation'] = knn_score
+            print(f"  - k-NN preservation (k={k}): {knn_score:.3f}")
+            
+            trust = trustworthiness(true_pos, embedding[:, :2], k=k)
+            correlations[method_name]['trustworthiness'] = trust
+            print(f"  - Trustworthiness (k={k}): {trust:.3f}")
+            
+            cont = continuity(true_pos, embedding[:, :2], k=k)
+            correlations[method_name]['continuity'] = cont
+            print(f"  - Continuity (k={k}): {cont:.3f}")
+            
+            _, procrustes_dist = procrustes_analysis(true_pos, embedding[:, :2])
+            correlations[method_name]['procrustes_distance'] = procrustes_dist
+            print(f"  - Procrustes distance: {procrustes_dist:.3f}")
+            
+            true_dists = pairwise_distances(true_pos).flatten()
+            emb_dists = pairwise_distances(embedding[:, :2]).flatten()
+            dist_corr = spearmanr(true_dists, emb_dists)[0]
+            correlations[method_name]['distance_correlation'] = dist_corr
+            print(f"  - Distance correlation: {dist_corr:.3f}")
+    
+    return correlations
+
+
+def visualize_trajectories(exp, embeddings, ds=5):
+    """
+    Visualize true and reconstructed trajectories.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        DRIADA Experiment object
+    embeddings : dict
+        Dictionary of embeddings from different methods
+    ds : int
+        Downsampling factor used in embeddings
+        
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Trajectory visualization figure
+    """
+    if 'position_2d' not in exp.dynamic_features:
+        return None
+        
+    pos_data = exp.dynamic_features['position_2d'].data[:, ::ds]
+    pos_x = pos_data[0]
+    pos_y = pos_data[1]
+    time_points = np.arange(len(pos_x))
+    
+    n_methods = len(embeddings)
+    fig, axes = plt.subplots(1, n_methods + 1, figsize=(5*(n_methods + 1), 4))
+    
+    ax = axes[0]
+    scatter = ax.scatter(pos_x, pos_y, c=time_points, cmap='viridis', s=1, alpha=0.5)
+    ax.plot(pos_x[:100], pos_y[:100], 'r-', alpha=0.5, linewidth=1, label='Start')
+    ax.set_xlabel('X position')
+    ax.set_ylabel('Y position')
+    ax.set_title('True trajectory')
+    ax.set_aspect('equal')
+    ax.legend()
+    
+    for i, (method_name, embedding) in enumerate(embeddings.items()):
+        ax = axes[i + 1]
+        
+        from driada.dim_reduction import procrustes_analysis
+        aligned_embedding, _ = procrustes_analysis(
+            np.column_stack([pos_x, pos_y]), 
+            embedding[:, :2]
+        )
+        
+        scatter = ax.scatter(aligned_embedding[:, 0], aligned_embedding[:, 1], 
+                           c=time_points, cmap='viridis', s=1, alpha=0.5)
+        ax.plot(aligned_embedding[:100, 0], aligned_embedding[:100, 1], 
+                'r-', alpha=0.5, linewidth=1, label='Start')
+        ax.set_xlabel('Dim 1')
+        ax.set_ylabel('Dim 2')
+        ax.set_title(f'{method_name.upper()} reconstruction')
+        ax.set_aspect('equal')
+        
+    plt.tight_layout()
+    return fig
+
+
+def visualize_results(exp, embeddings, selectivity_results, correlations, ds=5):
+    """
+    Create comprehensive visualization of results.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        DRIADA Experiment object
+    embeddings : dict
+        Dictionary of embeddings
+    selectivity_results : dict
+        Results from INTENSE analysis
+    correlations : dict
+        Correlations with task variables
+    ds : int
+        Downsampling factor used
+    """
+    fig = plt.figure(figsize=(24, 18))
+    
+    gs = fig.add_gridspec(4, 4, hspace=0.5, wspace=0.4)
+    
+    ax1 = fig.add_subplot(gs[0, 0])
+    features = list(selectivity_results['significant_neurons'].values())
+    feature_counts = {}
+    for neuron_features in features:
+        for feat in neuron_features:
+            feature_counts[feat] = feature_counts.get(feat, 0) + 1
+    
+    if feature_counts:
+        ax1.bar(range(len(feature_counts)), list(feature_counts.values()))
+        ax1.set_xticks(range(len(feature_counts)))
+        ax1.set_xticklabels(list(feature_counts.keys()), rotation=45, ha='right')
+        ax1.set_ylabel('Number of selective neurons')
+        ax1.set_title('Single-cell selectivity')
+    
+    ax2 = fig.add_subplot(gs[0, 1])
+    n_features_per_neuron = [len(features) for features in selectivity_results['significant_neurons'].values()]
+    if n_features_per_neuron:
+        hist_data = np.bincount(n_features_per_neuron)
+        ax2.bar(range(len(hist_data)), hist_data)
+        ax2.set_xlabel('Number of features')
+        ax2.set_ylabel('Number of neurons')
+        ax2.set_title('Mixed selectivity distribution')
+    
+    for i, (method_name, embedding) in enumerate(embeddings.items()):
+        ax = fig.add_subplot(gs[1, i])
+        
+        if 'position_2d' in exp.dynamic_features:
+            pos_data = exp.dynamic_features['position_2d'].data[:, ::ds]
+            pos_x = pos_data[0]
+            pos_y = pos_data[1]
+            colors = np.arctan2(pos_y - 0.5, pos_x - 0.5)
+            scatter = ax.scatter(embedding[:, 0], embedding[:, 1], 
+                               c=colors, cmap='hsv', alpha=0.5, s=10)
+            cbar = plt.colorbar(scatter, ax=ax, label='Position angle', fraction=0.046, pad=0.04)
+            cbar.ax.tick_params(labelsize=8)
+        else:
+            ax.scatter(embedding[:, 0], embedding[:, 1], alpha=0.5, s=10)
+        
+        ax.set_xlabel('Dim 1')
+        ax.set_ylabel('Dim 2')
+        ax.set_title(f'{method_name.upper()} embedding')
+    
+    best_method = max(correlations.keys(), 
+                     key=lambda m: correlations[m].get('spatial', 0))
+    ax3d = fig.add_subplot(gs[1, 3], projection='3d')
+    embedding = embeddings[best_method]
+    
+    if 'c_feat_0' in exp.dynamic_features:
+        colors = exp.dynamic_features['c_feat_0'].data[::ds]
+        scatter = ax3d.scatter(embedding[:, 0], embedding[:, 1], embedding[:, 2],
+                             c=colors, cmap='viridis', alpha=0.6, s=20)
+        cbar = plt.colorbar(scatter, ax=ax3d, label='Speed', pad=0.15, fraction=0.046, shrink=0.8)
+        cbar.ax.tick_params(labelsize=8)
+    else:
+        ax3d.scatter(embedding[:, 0], embedding[:, 1], embedding[:, 2],
+                    alpha=0.6, s=20)
+    
+    ax3d.set_xlabel('Dim 1', labelpad=10)
+    ax3d.set_ylabel('Dim 2', labelpad=10)
+    ax3d.set_zlabel('Dim 3', labelpad=10)
+    ax3d.set_title(f'Best embedding ({best_method.upper()}) - 3D', pad=20)
+    ax3d.view_init(elev=20, azim=45)
+    
+    ax4 = fig.add_subplot(gs[2:3, 0:4])
+    methods = list(correlations.keys())
+    
+    all_metrics = ['spatial', 'speed', 'reward', 'knn_preservation', 
+                   'trustworthiness', 'continuity', 'distance_correlation', 'procrustes_distance']
+    
+    available_metrics = []
+    for metric in all_metrics:
+        if any(metric in correlations[m] for m in methods):
+            available_metrics.append(metric)
+    
+    corr_matrix = np.zeros((len(methods), len(available_metrics)))
+    for i, method in enumerate(methods):
+        for j, metric in enumerate(available_metrics):
+            value = correlations[method].get(metric, 0)
+            if metric == 'procrustes_distance':
+                max_proc_dist = max(correlations[m].get('procrustes_distance', 0) for m in methods)
+                if max_proc_dist > 0:
+                    value = 1 - (value / max_proc_dist)
+                else:
+                    value = 1.0
+            corr_matrix[i, j] = value
+    
+    im = ax4.imshow(corr_matrix, aspect='auto', cmap='RdBu_r', vmin=0, vmax=1)
+    ax4.set_xticks(range(len(available_metrics)))
+    ax4.set_xticklabels(available_metrics, rotation=45, ha='right')
+    ax4.set_yticks(range(len(methods)))
+    ax4.set_yticklabels(methods)
+    ax4.set_title('Task variable encoding and manifold quality metrics')
+    cbar = plt.colorbar(im, ax=ax4, fraction=0.046, pad=0.04)
+    cbar.set_label('Correlation / Quality Score')
+    
+    for i in range(len(methods)):
+        for j in range(len(available_metrics)):
+            text_color = 'white' if abs(corr_matrix[i, j] - 0.5) > 0.3 else 'black'
+            ax4.text(j, i, f'{corr_matrix[i, j]:.2f}', 
+                    ha='center', va='center', color=text_color, fontsize=8)
+    
+    ax5 = fig.add_subplot(gs[3, 1:3])
+    
+    single_cell_encoding = {}
+    total_neurons = exp.n_cells
+    for feat, count in feature_counts.items():
+        single_cell_encoding[feat] = count / total_neurons
+    
+    population_encoding = {}
+    encoding_metrics = ['spatial', 'speed', 'reward']
+    for metric in encoding_metrics:
+        best_corr = max(correlations[m].get(metric, 0) for m in methods)
+        population_encoding[metric] = best_corr
+    
+    feature_map = {
+        'position_2d': 'spatial',
+        'c_feat_0': 'speed',
+        'd_feat_0': 'reward',
+        'c_feat_1': 'head_direction'
+    }
+    
+    compared_features = []
+    single_values = []
+    population_values = []
+    
+    for feat, mapped in feature_map.items():
+        if feat in single_cell_encoding and mapped in population_encoding:
+            compared_features.append(mapped)
+            single_values.append(single_cell_encoding[feat])
+            population_values.append(population_encoding[mapped])
+    
+    if compared_features:
+        x = np.arange(len(compared_features))
+        width = 0.35
+        
+        ax5.bar(x - width/2, single_values, width, label='Single-cell (fraction)', alpha=0.7)
+        ax5.bar(x + width/2, population_values, width, label='Population (correlation)', alpha=0.7)
+        
+        ax5.set_xlabel('Task variable')
+        ax5.set_ylabel('Encoding strength')
+        ax5.set_xticks(x)
+        ax5.set_xticklabels(compared_features)
+        ax5.legend()
+        ax5.set_title('Single-cell vs Population encoding')
+        ax5.set_ylim(0, 1)
+    
+    plt.suptitle('Task Variable Extraction from Mixed Selectivity Population', fontsize=16, y=0.99)
+    plt.savefig('task_variable_extraction.png', dpi=150, bbox_inches='tight')
+    plt.show()
+
+
+def main():
+    """Run the complete analysis pipeline."""
+    import time
+    
+    print("=" * 70)
+    print("TASK VARIABLE EXTRACTION FROM MIXED SELECTIVITY POPULATIONS")
+    print("=" * 70)
+    
+    start_time = time.time()
+    exp, info = generate_task_data(duration=600, fps=20, seed=42)
+    print(f"\nTime for data generation: {time.time() - start_time:.2f}s")
+    
+    start_time = time.time()
+    selectivity_results = analyze_single_cell_selectivity(exp)
+    print(f"Time for INTENSE analysis: {time.time() - start_time:.2f}s")
+    
+    start_time = time.time()
+    ds = 5
+    embeddings = extract_population_structure(exp, ds=ds)
+    print(f"Time for dimensionality reduction: {time.time() - start_time:.2f}s")
+    
+    start_time = time.time()
+    correlations = compare_with_task_variables(exp, embeddings, ds=ds)
+    print(f"Time for comparison: {time.time() - start_time:.2f}s")
+    
+    start_time = time.time()
+    visualize_results(exp, embeddings, selectivity_results, correlations, ds=ds)
+    print(f"Time for main visualization: {time.time() - start_time:.2f}s")
+    
+    start_time = time.time()
+    traj_fig = visualize_trajectories(exp, embeddings, ds=ds)
+    if traj_fig:
+        plt.savefig('task_variable_trajectories.png', dpi=150, bbox_inches='tight')
+        plt.show()
+    print(f"Time for trajectory visualization: {time.time() - start_time:.2f}s")
+    
+    print("\n" + "=" * 70)
+    print("KEY INSIGHTS")
+    print("=" * 70)
+    
+    print("\n1. SINGLE-CELL ANALYSIS:")
+    print(f"   - {len(selectivity_results['significant_neurons'])} neurons show selectivity")
+    print(f"   - {len(selectivity_results['mixed_selectivity_neurons'])} have mixed selectivity")
+    print("   - Individual neurons encode combinations of task variables")
+    
+    print("\n2. POPULATION ANALYSIS:")
+    best_method = max(correlations.keys(), 
+                     key=lambda m: correlations[m].get('spatial', 0))
+    print(f"   - Best method for spatial encoding: {best_method.upper()}")
+    print(f"   - Spatial correlation: {correlations[best_method].get('spatial', 0):.3f}")
+    print("   - Population activity reveals continuous task structure")
+    
+    print("\n3. MANIFOLD QUALITY METRICS:")
+    best_method = max(correlations.keys(), 
+                     key=lambda m: correlations[m].get('spatial', 0))
+    print(f"   Best method: {best_method.upper()}")
+    if best_method in correlations:
+        metrics = correlations[best_method]
+        print(f"   - Spatial correlation: {metrics.get('spatial', 0):.3f}")
+        print(f"   - k-NN preservation: {metrics.get('knn_preservation', 0):.3f}")
+        print(f"   - Trustworthiness: {metrics.get('trustworthiness', 0):.3f}")
+        print(f"   - Continuity: {metrics.get('continuity', 0):.3f}")
+        print(f"   - Distance correlation: {metrics.get('distance_correlation', 0):.3f}")
+        print(f"   - Procrustes distance: {metrics.get('procrustes_distance', 0):.3f}")
+    
+    print("\n4. TASK SPACE GEOMETRY:")
+    print("   - Neural manifold reflects task structure")
+    print("   - Different methods capture different aspects:")
+    print("     * PCA: global linear relationships")
+    print("     * Isomap: manifold geometry")  
+    print("     * UMAP: local and global structure")
+    
+    print("\n" + "=" * 70)
+    print("Visualization saved as 'task_variable_extraction.png'")
+    
+    return exp, selectivity_results, embeddings, correlations
 
 
 if __name__ == "__main__":
-    # Run comparison
-    exp, results = compare_original_vs_improved()
-    
-    print(f"\n" + "="*70)
-    print("CONCLUSION: MIXED SELECTIVITY DETECTION FIXED")
-    print("="*70)
-    print(f"Key improvements that enabled detection:")
-    print(f"1. Relaxed p-value threshold: 0.001 (vs 0.05)")
-    print(f"2. Disabled multiple comparison correction")
-    print(f"3. Longer recording duration: 600s (vs 300s)")
-    print(f"4. Reduced noise levels in data generation")
-    print(f"5. Higher selectivity probability: 90% (vs 80%)")
-    print(f"6. Proper MultiTimeSeries handling with skip_delays")
-    print(f"\nResult: {len(results['mixed_selectivity_neurons'])} mixed selectivity neurons detected!")
+    exp, selectivity_results, embeddings, correlations = main()
