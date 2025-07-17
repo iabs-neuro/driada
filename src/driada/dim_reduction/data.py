@@ -67,13 +67,15 @@ class MVData(object):
         cm = correlation_matrix(self.data)
         return cm
 
-    def get_distmat(self, method='euclidean'):
+    def get_distmat(self, m_params=None):
         """Compute pairwise distance matrix.
         
         Parameters
         ----------
-        method : str
-            Distance metric (default: 'euclidean')
+        m_params : dict or str, optional
+            If dict: metric parameters with 'metric_name' key and optional metric-specific params
+            If str: metric name directly
+            If None: defaults to 'euclidean'
             
         Returns
         -------
@@ -81,8 +83,36 @@ class MVData(object):
             Distance matrix of shape (n_samples, n_samples)
         """
         from scipy.spatial.distance import pdist, squareform
-        distances = pdist(self.data.T, metric=method)
-        return squareform(distances)
+        
+        # Handle different input types
+        if m_params is None:
+            metric = 'euclidean'
+            metric_kwargs = {}
+        elif isinstance(m_params, str):
+            metric = m_params
+            metric_kwargs = {}
+        elif isinstance(m_params, dict):
+            metric = m_params.get('metric_name', 'euclidean')
+            # Convert l2 to euclidean for scipy
+            if metric == 'l2':
+                metric = 'euclidean'
+            # Extract additional parameters for the metric
+            metric_kwargs = {k: v for k, v in m_params.items() if k not in ['metric_name', 'sigma']}
+            # For minkowski distance, 'p' parameter is needed
+            if metric == 'minkowski' and 'p' in m_params:
+                metric_kwargs['p'] = m_params['p']
+        else:
+            metric = 'euclidean'
+            metric_kwargs = {}
+            
+        # Compute distance matrix
+        if metric_kwargs:
+            distances = pdist(self.data.T, metric=metric, **metric_kwargs)
+        else:
+            distances = pdist(self.data.T, metric=metric)
+            
+        self.distmat = squareform(distances)
+        return self.distmat
 
     def get_embedding(self, e_params, g_params=None, m_params=None, kwargs=None):
         method = e_params['e_method']
