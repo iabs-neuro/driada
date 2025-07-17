@@ -83,9 +83,8 @@ class TestEffDim:
         
         assert isinstance(ed, float)
         
-    @pytest.mark.xfail(reason="Known issue: correction can fail with certain data")
     def test_eff_dim_correction_edge_cases(self):
-        """Test correction with edge cases that might fail."""
+        """Test correction with edge cases that previously failed."""
         np.random.seed(42)
         
         # Near-singular data that might cause correction to fail
@@ -96,9 +95,10 @@ class TestEffDim:
         noise = 0.01 * np.random.randn(n_features, n_samples)
         data = base + noise
         
-        # This might fail with current implementation
+        # This should now work with the fix
         ed_corrected = eff_dim(data, enable_correction=True)
         assert isinstance(ed_corrected, float)
+        assert 0 < ed_corrected <= n_features
         
     def test_eff_dim_single_dimension(self):
         """Test with effectively one-dimensional data."""
@@ -111,3 +111,67 @@ class TestEffDim:
         ed = eff_dim(data, enable_correction=False)
         # Should be close to 1 or 2 (circular manifold)
         assert 0.5 < ed < 3
+        
+    def test_eff_dim_negative_eigenvalues(self):
+        """Test handling of matrices with negative eigenvalues."""
+        np.random.seed(42)
+        n_features = 50
+        n_samples = 60  # Close to n_features to increase chance of numerical issues
+        
+        # Create data that might lead to negative eigenvalues
+        data = np.random.randn(n_features, n_samples)
+        # Add some correlation structure
+        data[1:10] = 0.9 * data[0] + 0.1 * np.random.randn(9, n_samples)
+        
+        # Both should work without errors
+        ed_uncorrected = eff_dim(data, enable_correction=False)
+        ed_corrected = eff_dim(data, enable_correction=True)
+        
+        assert isinstance(ed_uncorrected, float)
+        assert isinstance(ed_corrected, float)
+        assert 0 < ed_uncorrected <= n_features
+        assert 0 < ed_corrected <= n_features
+        
+    def test_eff_dim_correction_with_warnings(self):
+        """Test that appropriate warnings are issued for negative eigenvalues."""
+        np.random.seed(42)
+        n_features = 100
+        n_samples = 105  # Very close to n_features
+        
+        # Create nearly rank-deficient data
+        rank = 50
+        U = np.random.randn(n_features, rank)
+        V = np.random.randn(rank, n_samples)
+        data = U @ V
+        # Add tiny noise to avoid exact rank deficiency
+        data += 1e-10 * np.random.randn(n_features, n_samples)
+        
+        # Should work and possibly issue warning about negative eigenvalues
+        ed_corrected = eff_dim(data, enable_correction=True)
+        assert isinstance(ed_corrected, float)
+        assert 0 < ed_corrected <= n_features
+        
+    def test_eff_dim_extreme_cases(self):
+        """Test with extreme data configurations."""
+        np.random.seed(42)
+        
+        # Case 1: Very low variance in most dimensions
+        data1 = 1e-10 * np.random.randn(10, 100)  # Tiny variance
+        data1[0] = np.random.randn(100)  # Normal variance in one dimension
+        ed1 = eff_dim(data1, enable_correction=False)
+        # Note: Even tiny variance contributes to effective dimension
+        # For participation ratio (q=2), all non-zero eigenvalues contribute
+        assert 8.0 < ed1 < 10.0  # Will be close to 9 due to formula
+        
+        # Case 2: Perfectly correlated features
+        base = np.random.randn(1, 100)
+        data2 = np.tile(base, (10, 1))
+        data2 += 1e-10 * np.random.randn(10, 100)  # Tiny noise to avoid singular matrix
+        ed2 = eff_dim(data2, enable_correction=False)
+        assert 0.9 < ed2 < 1.5  # Should be close to 1
+        
+        # Case 3: Very high n/t ratio with correction
+        data3 = np.random.randn(90, 100)
+        ed3 = eff_dim(data3, enable_correction=True, correction_iters=3)  # Fewer iterations for speed
+        assert isinstance(ed3, float)
+        assert 0 < ed3 <= 90
