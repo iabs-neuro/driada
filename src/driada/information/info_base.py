@@ -302,6 +302,9 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
 
         if ts.discrete:
             ny1 = np.roll(mts.copula_normal_data[:, ::ds], shift)
+            # Ensure ny1 is contiguous for better performance with Numba
+            if not ny1.flags['C_CONTIGUOUS']:
+                ny1 = np.ascontiguousarray(ny1)
             ny2 = ts.int_data[::ds]
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
@@ -459,6 +462,9 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
         elif ts1.discrete and not ts2.discrete:
             ny1 = ts1.int_data[::ds]
             ny2 = np.roll(ts2.copula_normal_data[::ds], shift)
+            # Ensure ny2 is contiguous for better performance with Numba
+            if not ny2.flags['C_CONTIGUOUS']:
+                ny2 = np.ascontiguousarray(ny2)
             mi = mi_model_gd(ny2, ny1, np.max(ny1), biascorrect=True, demeaned=True)
 
         elif not ts1.discrete and ts2.discrete:
@@ -471,7 +477,9 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
             print(sum(ny2))
             print(ny1)
             '''
-
+            # Ensure ny1 is contiguous for better performance with Numba
+            if not ny1.flags['C_CONTIGUOUS']:
+                ny1 = np.ascontiguousarray(ny1)
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         if mi < 0:

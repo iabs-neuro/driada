@@ -136,7 +136,7 @@ def generate_task_data(duration=600, fps=20, seed=42):
     return exp, info
 
 
-def analyze_single_cell_selectivity(exp):
+def analyze_single_cell_selectivity(exp, ds=5):
     """
     Perform INTENSE analysis to identify single-neuron selectivity patterns.
     
@@ -144,6 +144,8 @@ def analyze_single_cell_selectivity(exp):
     ----------
     exp : Experiment
         DRIADA Experiment object
+    ds : int
+        Downsampling factor for INTENSE analysis
         
     Returns
     -------
@@ -152,6 +154,7 @@ def analyze_single_cell_selectivity(exp):
     """
     import time
     print("\n=== SINGLE-CELL SELECTIVITY ANALYSIS ===")
+    print(f"Downsampling factor: {ds}")
     
     task_features = ['position_2d', 'c_feat_0', 'c_feat_1', 'd_feat_0']
     available_features = [f for f in task_features if f in exp.dynamic_features]
@@ -173,13 +176,14 @@ def analyze_single_cell_selectivity(exp):
         n_shuffles_stage1=50,
         n_shuffles_stage2=500,
         metric_distr_type='norm',
-        pval_thr=0.001,
+        pval_thr=0.01,
         multicomp_correction=None,
         verbose=True,
         find_optimal_delays=False,
         allow_mixed_dimensions=True,
         skip_delays=skip_delays,
-        with_disentanglement=False
+        with_disentanglement=False,
+        ds=ds
     )
     print(f"INTENSE computation time: {time.time() - start:.2f}s")
     
@@ -248,12 +252,12 @@ def extract_population_structure(exp, neural_data=None, ds=5):
     
     # Try eff_dim with correction, fallback to without if it fails
     try:
-        eff_dim_value = eff_dim(data_t, enable_correction=True)
+        eff_dim_value = eff_dim(data_t.T, enable_correction=True)
         print(f"  - Effective dimension (corrected): {eff_dim_value:.2f}")
     except Exception as e:
         # Correction can fail with near-singular matrices
         try:
-            eff_dim_value = eff_dim(data_t, enable_correction=False)
+            eff_dim_value = eff_dim(data_t.T, enable_correction=False)
             print(f"  - Effective dimension: {eff_dim_value:.2f}")
         except Exception as e2:
             print(f"  - Effective dimension: Failed ({str(e2)})")
@@ -281,7 +285,7 @@ def extract_population_structure(exp, neural_data=None, ds=5):
     embeddings['pca'] = pca_emb.coords.T
     pca_var = np.var(pca_emb.coords, axis=1)
     pca_var_ratio = pca_var / np.sum(pca_var)
-    print(f"  - PCA: captured {np.sum(pca_var_ratio[:3]):.1%} variance in 3D")
+    print(f"  - PCA: captured {np.sum(pca_var_ratio[:2]):.1%} variance in 2D")
     
     metric_params = {
         'metric_name': 'l2',
@@ -298,29 +302,29 @@ def extract_population_structure(exp, neural_data=None, ds=5):
     }
     isomap_params = {
         'e_method_name': 'isomap',
-        'dim': 3,
+        'dim': 2,
         'e_method': METHODS_DICT['isomap']
     }
     isomap_emb = mvdata.get_embedding(isomap_params, g_params=isomap_graph_params, m_params=metric_params)
     embeddings['isomap'] = isomap_emb.coords.T
-    print(f"  - Isomap: embedded into 3D manifold")
+    print(f"  - Isomap: embedded into 2D manifold")
     
     umap_graph_params = {
         'g_method_name': 'knn',
         'weighted': 0,
-        'nn': 30,
+        'nn': 50,
         'max_deleted_nodes': 0.2,
         'dist_to_aff': 'hk'
     }
     umap_params = {
         'e_method_name': 'umap',
-        'dim': 3,
+        'dim': 2,
         'min_dist': 0.1,
         'e_method': METHODS_DICT['umap']
     }
     umap_emb = mvdata.get_embedding(umap_params, g_params=umap_graph_params, m_params=metric_params)
     embeddings['umap'] = umap_emb.coords.T
-    print(f"  - UMAP: embedded into 3D space")
+    print(f"  - UMAP: embedded into 2D space")
     
     return embeddings
 
@@ -423,66 +427,6 @@ def compare_with_task_variables(exp, embeddings, ds=5):
     return correlations
 
 
-def visualize_trajectories(exp, embeddings, ds=5):
-    """
-    Visualize true and reconstructed trajectories.
-    
-    Parameters
-    ----------
-    exp : Experiment
-        DRIADA Experiment object
-    embeddings : dict
-        Dictionary of embeddings from different methods
-    ds : int
-        Downsampling factor used in embeddings
-        
-    Returns
-    -------
-    fig : matplotlib.figure.Figure
-        Trajectory visualization figure
-    """
-    if 'position_2d' not in exp.dynamic_features:
-        return None
-        
-    pos_data = exp.dynamic_features['position_2d'].data[:, ::ds]
-    pos_x = pos_data[0]
-    pos_y = pos_data[1]
-    time_points = np.arange(len(pos_x))
-    
-    n_methods = len(embeddings)
-    fig, axes = plt.subplots(1, n_methods + 1, figsize=(5*(n_methods + 1), 4))
-    
-    ax = axes[0]
-    scatter = ax.scatter(pos_x, pos_y, c=time_points, cmap='viridis', s=1, alpha=0.5)
-    ax.plot(pos_x[:100], pos_y[:100], 'r-', alpha=0.5, linewidth=1, label='Start')
-    ax.set_xlabel('X position')
-    ax.set_ylabel('Y position')
-    ax.set_title('True trajectory')
-    ax.set_aspect('equal')
-    ax.legend()
-    
-    for i, (method_name, embedding) in enumerate(embeddings.items()):
-        ax = axes[i + 1]
-        
-        from driada.dim_reduction import procrustes_analysis
-        aligned_embedding, _ = procrustes_analysis(
-            np.column_stack([pos_x, pos_y]), 
-            embedding[:, :2]
-        )
-        
-        scatter = ax.scatter(aligned_embedding[:, 0], aligned_embedding[:, 1], 
-                           c=time_points, cmap='viridis', s=1, alpha=0.5)
-        ax.plot(aligned_embedding[:100, 0], aligned_embedding[:100, 1], 
-                'r-', alpha=0.5, linewidth=1, label='Start')
-        ax.set_xlabel('Dim 1')
-        ax.set_ylabel('Dim 2')
-        ax.set_title(f'{method_name.upper()} reconstruction')
-        ax.set_aspect('equal')
-        
-    plt.tight_layout()
-    return fig
-
-
 def visualize_results(exp, embeddings, selectivity_results, correlations, ds=5):
     """
     Create comprehensive visualization of results.
@@ -500,35 +444,11 @@ def visualize_results(exp, embeddings, selectivity_results, correlations, ds=5):
     ds : int
         Downsampling factor used
     """
-    fig = plt.figure(figsize=(24, 18))
-    
-    gs = fig.add_gridspec(4, 4, hspace=0.5, wspace=0.4)
-    
-    ax1 = fig.add_subplot(gs[0, 0])
-    features = list(selectivity_results['significant_neurons'].values())
-    feature_counts = {}
-    for neuron_features in features:
-        for feat in neuron_features:
-            feature_counts[feat] = feature_counts.get(feat, 0) + 1
-    
-    if feature_counts:
-        ax1.bar(range(len(feature_counts)), list(feature_counts.values()))
-        ax1.set_xticks(range(len(feature_counts)))
-        ax1.set_xticklabels(list(feature_counts.keys()), rotation=45, ha='right')
-        ax1.set_ylabel('Number of selective neurons')
-        ax1.set_title('Single-cell selectivity')
-    
-    ax2 = fig.add_subplot(gs[0, 1])
-    n_features_per_neuron = [len(features) for features in selectivity_results['significant_neurons'].values()]
-    if n_features_per_neuron:
-        hist_data = np.bincount(n_features_per_neuron)
-        ax2.bar(range(len(hist_data)), hist_data)
-        ax2.set_xlabel('Number of features')
-        ax2.set_ylabel('Number of neurons')
-        ax2.set_title('Mixed selectivity distribution')
+    # Create figure 1: Embeddings
+    fig1 = plt.figure(figsize=(15, 5))
     
     for i, (method_name, embedding) in enumerate(embeddings.items()):
-        ax = fig.add_subplot(gs[1, i])
+        ax = fig1.add_subplot(1, 3, i+1)
         
         if 'position_2d' in exp.dynamic_features:
             pos_data = exp.dynamic_features['position_2d'].data[:, ::ds]
@@ -536,38 +456,24 @@ def visualize_results(exp, embeddings, selectivity_results, correlations, ds=5):
             pos_y = pos_data[1]
             colors = np.arctan2(pos_y - 0.5, pos_x - 0.5)
             scatter = ax.scatter(embedding[:, 0], embedding[:, 1], 
-                               c=colors, cmap='hsv', alpha=0.5, s=10)
+                               c=colors, cmap='hsv', alpha=0.6, s=20)
             cbar = plt.colorbar(scatter, ax=ax, label='Position angle', fraction=0.046, pad=0.04)
             cbar.ax.tick_params(labelsize=8)
         else:
-            ax.scatter(embedding[:, 0], embedding[:, 1], alpha=0.5, s=10)
+            ax.scatter(embedding[:, 0], embedding[:, 1], alpha=0.6, s=20)
         
         ax.set_xlabel('Dim 1')
         ax.set_ylabel('Dim 2')
         ax.set_title(f'{method_name.upper()} embedding')
     
-    best_method = max(correlations.keys(), 
-                     key=lambda m: correlations[m].get('spatial', 0))
-    ax3d = fig.add_subplot(gs[1, 3], projection='3d')
-    embedding = embeddings[best_method]
+    plt.tight_layout()
+    plt.savefig('task_variable_embeddings.png', dpi=150, bbox_inches='tight')
+    plt.show()
     
-    if 'c_feat_0' in exp.dynamic_features:
-        colors = exp.dynamic_features['c_feat_0'].data[::ds]
-        scatter = ax3d.scatter(embedding[:, 0], embedding[:, 1], embedding[:, 2],
-                             c=colors, cmap='viridis', alpha=0.6, s=20)
-        cbar = plt.colorbar(scatter, ax=ax3d, label='Speed', pad=0.15, fraction=0.046, shrink=0.8)
-        cbar.ax.tick_params(labelsize=8)
-    else:
-        ax3d.scatter(embedding[:, 0], embedding[:, 1], embedding[:, 2],
-                    alpha=0.6, s=20)
+    # Create figure 2: Metrics comparison
+    fig2 = plt.figure(figsize=(12, 6))
     
-    ax3d.set_xlabel('Dim 1', labelpad=10)
-    ax3d.set_ylabel('Dim 2', labelpad=10)
-    ax3d.set_zlabel('Dim 3', labelpad=10)
-    ax3d.set_title(f'Best embedding ({best_method.upper()}) - 3D', pad=20)
-    ax3d.view_init(elev=20, azim=45)
-    
-    ax4 = fig.add_subplot(gs[2:3, 0:4])
+    ax4 = fig2.add_subplot(1, 1, 1)
     methods = list(correlations.keys())
     
     all_metrics = ['spatial', 'speed', 'reward', 'knn_preservation', 
@@ -603,9 +509,22 @@ def visualize_results(exp, embeddings, selectivity_results, correlations, ds=5):
         for j in range(len(available_metrics)):
             text_color = 'white' if abs(corr_matrix[i, j] - 0.5) > 0.3 else 'black'
             ax4.text(j, i, f'{corr_matrix[i, j]:.2f}', 
-                    ha='center', va='center', color=text_color, fontsize=8)
+                    ha='center', va='center', color=text_color, fontsize=10)
     
-    ax5 = fig.add_subplot(gs[3, 1:3])
+    plt.tight_layout()
+    plt.savefig('task_variable_metrics.png', dpi=150, bbox_inches='tight')
+    plt.show()
+    
+    # Create figure 3: Single-cell vs Population encoding comparison
+    fig3 = plt.figure(figsize=(8, 6))
+    ax5 = fig3.add_subplot(1, 1, 1)
+    
+    # Get feature counts for single-cell encoding
+    features = list(selectivity_results['significant_neurons'].values())
+    feature_counts = {}
+    for neuron_features in features:
+        for feat in neuron_features:
+            feature_counts[feat] = feature_counts.get(feat, 0) + 1
     
     single_cell_encoding = {}
     total_neurons = exp.n_cells
@@ -650,8 +569,8 @@ def visualize_results(exp, embeddings, selectivity_results, correlations, ds=5):
         ax5.set_title('Single-cell vs Population encoding')
         ax5.set_ylim(0, 1)
     
-    plt.suptitle('Task Variable Extraction from Mixed Selectivity Population', fontsize=16, y=0.99)
-    plt.savefig('task_variable_extraction.png', dpi=150, bbox_inches='tight')
+    plt.tight_layout()
+    plt.savefig('task_variable_encoding_comparison.png', dpi=150, bbox_inches='tight')
     plt.show()
 
 
@@ -667,12 +586,14 @@ def main():
     exp, info = generate_task_data(duration=600, fps=20, seed=42)
     print(f"\nTime for data generation: {time.time() - start_time:.2f}s")
     
+    # Set downsampling factor for both INTENSE and DR analysis
+    ds = 5
+    
     start_time = time.time()
-    selectivity_results = analyze_single_cell_selectivity(exp)
+    selectivity_results = analyze_single_cell_selectivity(exp, ds=ds)
     print(f"Time for INTENSE analysis: {time.time() - start_time:.2f}s")
     
     start_time = time.time()
-    ds = 5
     embeddings = extract_population_structure(exp, ds=ds)
     print(f"Time for dimensionality reduction: {time.time() - start_time:.2f}s")
     
@@ -682,14 +603,7 @@ def main():
     
     start_time = time.time()
     visualize_results(exp, embeddings, selectivity_results, correlations, ds=ds)
-    print(f"Time for main visualization: {time.time() - start_time:.2f}s")
-    
-    start_time = time.time()
-    traj_fig = visualize_trajectories(exp, embeddings, ds=ds)
-    if traj_fig:
-        plt.savefig('task_variable_trajectories.png', dpi=150, bbox_inches='tight')
-        plt.show()
-    print(f"Time for trajectory visualization: {time.time() - start_time:.2f}s")
+    print(f"Time for visualization: {time.time() - start_time:.2f}s")
     
     print("\n" + "=" * 70)
     print("KEY INSIGHTS")
@@ -728,7 +642,10 @@ def main():
     print("     * UMAP: local and global structure")
     
     print("\n" + "=" * 70)
-    print("Visualization saved as 'task_variable_extraction.png'")
+    print("Visualizations saved as:")
+    print("  - task_variable_embeddings.png")
+    print("  - task_variable_metrics.png")
+    print("  - task_variable_encoding_comparison.png")
     
     return exp, selectivity_results, embeddings, correlations
 
