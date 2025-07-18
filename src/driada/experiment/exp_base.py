@@ -151,6 +151,9 @@ class Experiment():
         self.stats_tables = {}
         self.significance_tables = {}
         self.selectivity_tables_initialized = False
+        
+        # for dimensionality reduction embeddings
+        self.embeddings = {'calcium': {}, 'spikes': {}}
 
         print('Building data hashes...')
         self._build_data_hashes(mode='calcium')
@@ -680,3 +683,55 @@ class Experiment():
     def _load_precomputed_data(self, **kwargs):
         if 'mi_significance' in kwargs:
             self.mi_significance_table = {**self.mi_significance_table, **kwargs['mi_significance']}
+    
+    def store_embedding(self, embedding, method_name, data_type='calcium', metadata=None):
+        """
+        Store dimensionality reduction embedding in the experiment.
+        
+        Parameters
+        ----------
+        embedding : np.ndarray
+            The embedding array, shape (n_timepoints, n_components)
+        method_name : str
+            Name of the DR method (e.g., 'pca', 'umap', 'isomap')
+        data_type : str
+            Type of data used ('calcium' or 'spikes')
+        metadata : dict, optional
+            Additional metadata about the embedding (e.g., parameters, quality metrics)
+        """
+        if data_type not in ['calcium', 'spikes']:
+            raise ValueError("data_type must be 'calcium' or 'spikes'")
+        
+        if embedding.shape[0] != self.n_frames:
+            raise ValueError(f"Embedding timepoints ({embedding.shape[0]}) must match experiment frames ({self.n_frames})")
+        
+        self.embeddings[data_type][method_name] = {
+            'data': embedding,
+            'metadata': metadata or {},
+            'timestamp': np.datetime64('now'),
+            'shape': embedding.shape
+        }
+    
+    def get_embedding(self, method_name, data_type='calcium'):
+        """
+        Retrieve stored embedding.
+        
+        Parameters
+        ----------
+        method_name : str
+            Name of the DR method
+        data_type : str
+            Type of data used ('calcium' or 'spikes')
+            
+        Returns
+        -------
+        dict
+            Dictionary containing 'data' and 'metadata'
+        """
+        if data_type not in ['calcium', 'spikes']:
+            raise ValueError("data_type must be 'calcium' or 'spikes'")
+        
+        if method_name not in self.embeddings[data_type]:
+            raise KeyError(f"No embedding found for method '{method_name}' with data_type '{data_type}'")
+        
+        return self.embeddings[data_type][method_name]

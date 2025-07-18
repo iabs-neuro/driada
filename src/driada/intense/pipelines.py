@@ -886,3 +886,224 @@ def compute_cell_cell_significance(exp,
     
     return similarity_matrix, significance_matrix, p_value_matrix, cell_ids, info
 
+
+def compute_embedding_selectivity(exp,
+                                embedding_methods=None,
+                                cell_bunch=None,
+                                data_type='calcium',
+                                metric='mi',
+                                mode='two_stage',
+                                n_shuffles_stage1=100,
+                                n_shuffles_stage2=10000,
+                                metric_distr_type='norm',
+                                noise_ampl=1e-3,
+                                ds=1,
+                                use_precomputed_stats=True,
+                                save_computed_stats=True,
+                                force_update=False,
+                                topk1=1,
+                                topk2=5,
+                                multicomp_correction='holm',
+                                pval_thr=0.01,
+                                find_optimal_delays=True,
+                                shift_window=5,
+                                verbose=True,
+                                enable_parallelization=True,
+                                n_jobs=-1,
+                                seed=42):
+    """
+    Compute INTENSE selectivity between neurons and dimensionality reduction embeddings.
+    
+    This function treats each embedding component as a dynamic feature and computes
+    the mutual information between neural activity and embedding dimensions. This reveals
+    how individual neurons contribute to the population-level manifold structure.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object with stored embeddings
+    embedding_methods : str, list or None
+        Names of embedding methods to analyze. If None, analyzes all stored embeddings.
+    cell_bunch : int, iterable or None
+        Neuron indices. By default (None), all neurons will be taken
+    data_type : str
+        Data type used for embeddings and INTENSE ('calcium' or 'spikes')
+    metric : str
+        Similarity metric between TimeSeries (default: 'mi')
+    mode : str
+        Computation mode: 'stage1', 'stage2', or 'two_stage' (default)
+    n_shuffles_stage1 : int
+        Number of shuffles for first stage (default: 100)
+    n_shuffles_stage2 : int
+        Number of shuffles for second stage (default: 10000)
+    metric_distr_type : str
+        Distribution type for shuffled metric distribution fit (default: 'norm')
+    noise_ampl : float
+        Small noise amplitude added to improve numerical fit (default: 1e-3)
+    ds : int
+        Downsampling constant (default: 1)
+    use_precomputed_stats : bool
+        Whether to use stats saved in Experiment instance (default: True)
+    save_computed_stats : bool
+        Whether to save computed stats to Experiment instance (default: True)
+    force_update : bool
+        Force update saved statistics if data hash collision found (default: False)
+    topk1 : int
+        True MI for stage 1 should be among topk1 MI shuffles (default: 1)
+    topk2 : int
+        True MI for stage 2 should be among topk2 MI shuffles (default: 5)
+    multicomp_correction : str or None
+        Multiple comparison correction type: None, 'bonferroni', or 'holm' (default)
+    pval_thr : float
+        P-value threshold (default: 0.01)
+    find_optimal_delays : bool
+        Find optimal temporal delays between neural activity and embeddings (default: True)
+    shift_window : int
+        Window for optimal shift search in seconds (default: 5)
+    verbose : bool
+        Print progress information (default: True)
+    enable_parallelization : bool
+        Enable parallel computation (default: True)
+    n_jobs : int
+        Number of parallel jobs, -1 for all cores (default: -1)
+    seed : int
+        Random seed (default: 42)
+        
+    Returns
+    -------
+    results : dict
+        Dictionary with keys as embedding method names, each containing:
+        - 'stats': Statistics for each neuron-component pair
+        - 'significance': Significance results
+        - 'info': Additional information from compute_me_stats
+        - 'significant_neurons': Dict of neurons significantly selective to embedding components
+        - 'n_components': Number of embedding components
+        - 'component_selectivity': For each component, list of selective neurons
+    """
+    
+    # Get list of embedding methods to analyze
+    if embedding_methods is None:
+        embedding_methods = list(exp.embeddings[data_type].keys())
+    elif isinstance(embedding_methods, str):
+        embedding_methods = [embedding_methods]
+    
+    if not embedding_methods:
+        raise ValueError(f"No embeddings found for data_type '{data_type}'. "
+                        "Use exp.store_embedding() to add embeddings first.")
+    
+    results = {}
+    
+    # Process each embedding method
+    for method_name in embedding_methods:
+        if verbose:
+            print(f"\n{'='*60}")
+            print(f"Computing selectivity for embedding: {method_name}")
+            print(f"{'='*60}")
+        
+        # Get embedding data
+        embedding_dict = exp.get_embedding(method_name, data_type)
+        embedding_data = embedding_dict['data']
+        n_components = embedding_data.shape[1]
+        
+        # Create TimeSeries for each embedding component
+        embedding_features = {}
+        for comp_idx in range(n_components):
+            feat_name = f"{method_name}_comp{comp_idx}"
+            embedding_features[feat_name] = TimeSeries(embedding_data[:, comp_idx])
+        
+        # Temporarily add embedding components to dynamic features
+        original_features = exp.dynamic_features.copy()
+        exp.dynamic_features.update(embedding_features)
+        
+        # Also update internal experiment attributes for the new features
+        for feat_name, feat_ts in embedding_features.items():
+            setattr(exp, feat_name, feat_ts)
+        
+        # Rebuild data hashes to include new features
+        exp._build_data_hashes(mode=data_type)
+        
+        # Initialize stats tables if not already done
+        if save_computed_stats and data_type not in exp.stats_tables:
+            exp._set_selectivity_tables(data_type)
+        
+        try:
+            # Run INTENSE analysis
+            stats, significance, info, intense_res = compute_cell_feat_significance(
+                exp,
+                cell_bunch=cell_bunch,
+                feat_bunch=list(embedding_features.keys()),
+                data_type=data_type,
+                metric=metric,
+                mode=mode,
+                n_shuffles_stage1=n_shuffles_stage1,
+                n_shuffles_stage2=n_shuffles_stage2,
+                metric_distr_type=metric_distr_type,
+                noise_ampl=noise_ampl,
+                ds=ds,
+                use_precomputed_stats=False,  # Must be False for new dynamic features
+                save_computed_stats=False,  # Don't save stats for temporary embedding features
+                force_update=force_update,
+                topk1=topk1,
+                topk2=topk2,
+                multicomp_correction=multicomp_correction,
+                pval_thr=pval_thr,
+                find_optimal_delays=find_optimal_delays,
+                shift_window=shift_window,
+                verbose=verbose,
+                enable_parallelization=enable_parallelization,
+                n_jobs=n_jobs,
+                seed=seed
+            )
+            
+            # Extract significant neurons from the significance results
+            significant_neurons = {}
+            for feat_name in embedding_features.keys():
+                if feat_name in significance:
+                    for neuron_id, sig_info in significance[feat_name].items():
+                        if sig_info.get('stage2', False):  # Check if significant in stage 2
+                            if neuron_id not in significant_neurons:
+                                significant_neurons[neuron_id] = []
+                            significant_neurons[neuron_id].append(feat_name)
+            
+            # Organize component selectivity
+            component_selectivity = {comp_idx: [] for comp_idx in range(n_components)}
+            for neuron_id, features in significant_neurons.items():
+                for feat in features:
+                    comp_idx = int(feat.split('_comp')[-1])
+                    component_selectivity[comp_idx].append(neuron_id)
+            
+            # Store results
+            results[method_name] = {
+                'stats': stats,
+                'significance': significance,
+                'info': info,
+                'significant_neurons': significant_neurons,
+                'n_components': n_components,
+                'component_selectivity': component_selectivity,
+                'embedding_metadata': embedding_dict.get('metadata', {})
+            }
+            
+            if verbose:
+                n_sig_neurons = len(significant_neurons)
+                n_total_neurons = len(exp._process_cbunch(cell_bunch))
+                print(f"\nResults for {method_name}:")
+                print(f"  Embedding dimensions: {n_components}")
+                print(f"  Significant neurons: {n_sig_neurons}/{n_total_neurons} ({100*n_sig_neurons/n_total_neurons:.1f}%)")
+                
+                # Component-wise summary
+                for comp_idx in range(n_components):
+                    n_selective = len(component_selectivity[comp_idx])
+                    if n_selective > 0:
+                        print(f"  Component {comp_idx}: {n_selective} selective neurons")
+            
+        finally:
+            # Restore original features
+            exp.dynamic_features = original_features
+            
+            # Remove temporary attributes
+            for feat_name in embedding_features.keys():
+                if hasattr(exp, feat_name):
+                    delattr(exp, feat_name)
+    
+    return results
+

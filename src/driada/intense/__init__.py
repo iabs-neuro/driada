@@ -24,6 +24,7 @@ from .pipelines import (
     compute_cell_feat_significance,
     compute_feat_feat_significance,
     compute_cell_cell_significance,
+    compute_embedding_selectivity,
 )
 
 # Statistical functions
@@ -77,6 +78,7 @@ __all__ = [
     "compute_cell_feat_significance",
     "compute_feat_feat_significance",
     "compute_cell_cell_significance",
+    "compute_embedding_selectivity",
     # Statistics
     "chebyshev_ineq",
     "get_lognormal_p",
