@@ -26,8 +26,7 @@ class TestGenerateMixedPopulationExp:
             manifold_type='2d_spatial',
             duration=60,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Check experiment structure
         assert isinstance(exp, Experiment)
@@ -63,8 +62,8 @@ class TestGenerateMixedPopulationExp:
                 manifold_type=manifold_type,
                 duration=30,
                 seed=42,
-                verbose=False
-            )
+                verbose=False, return_info=Trueverbose=False
+            , return_info=True)
             
             assert info['population_composition']['manifold_type'] == manifold_type
             assert info['population_composition']['n_manifold'] == 12  # 80% of 15
@@ -94,8 +93,7 @@ class TestGenerateMixedPopulationExp:
             manifold_type='2d_spatial',
             duration=30,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         assert info['population_composition']['n_manifold'] == 10
         assert info['population_composition']['n_feature_selective'] == 0
@@ -108,8 +106,7 @@ class TestGenerateMixedPopulationExp:
             manifold_type='2d_spatial',
             duration=30,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         assert info['population_composition']['n_manifold'] == 0
         assert info['population_composition']['n_feature_selective'] == 10
@@ -122,8 +119,7 @@ class TestGenerateMixedPopulationExp:
             manifold_type='2d_spatial',
             duration=30,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         assert exp.n_cells == 1
         total_neurons = info['population_composition']['n_manifold'] + info['population_composition']['n_feature_selective']
@@ -142,8 +138,8 @@ class TestGenerateMixedPopulationExp:
                 correlation_strength=0.5,
                 duration=60,
                 seed=42,
-                verbose=False
-            )
+                verbose=False, return_info=Trueverbose=False
+            , return_info=True)
             
             assert info['correlation_applied'] == mode
             if mode == 'independent':
@@ -166,8 +162,7 @@ class TestGenerateMixedPopulationExp:
             n_continuous_features=5,
             duration=30,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         assert 'c_feat_0' in exp.dynamic_features
         assert 'c_feat_4' in exp.dynamic_features
@@ -181,8 +176,7 @@ class TestGenerateMixedPopulationExp:
             n_continuous_features=0,
             duration=30,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         assert 'd_feat_0' in exp.dynamic_features
         assert 'd_feat_3' in exp.dynamic_features
@@ -196,8 +190,7 @@ class TestGenerateMixedPopulationExp:
             n_continuous_features=0,
             duration=30,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Should still work with just manifold features
         assert exp.n_cells == 15
@@ -252,8 +245,7 @@ class TestGenerateMixedPopulationExp:
             feature_params=custom_feature_params,
             duration=60,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Check parameters were stored
         assert info['parameters']['manifold_params']['field_sigma'] == 0.2
@@ -268,13 +260,15 @@ class TestGenerateMixedPopulationExp:
         exp1, info1 = generate_mixed_population_exp(
             n_neurons=20,
             seed=123,
-            verbose=False
+            verbose=False,
+            return_info=True
         )
         
         exp2, info2 = generate_mixed_population_exp(
             n_neurons=20,
             seed=123,
-            verbose=False
+            verbose=False,
+            return_info=True
         )
         
         # Should produce identical results
@@ -284,7 +278,8 @@ class TestGenerateMixedPopulationExp:
         exp3, info3 = generate_mixed_population_exp(
             n_neurons=20,
             seed=456,
-            verbose=False
+            verbose=False,
+            return_info=True
         )
         
         assert not np.array_equal(exp1.calcium, exp3.calcium)
@@ -299,8 +294,7 @@ class TestGenerateMixedPopulationExp:
             correlation_strength=0.3,
             duration=60,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Check all required keys exist
         required_keys = [
@@ -349,8 +343,7 @@ class TestGenerateMixedPopulationExp:
             n_continuous_features=2,
             duration=30,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Check spatial features
         assert isinstance(exp.dynamic_features['x_position'], TimeSeries)
@@ -370,8 +363,7 @@ class TestGenerateMixedPopulationExp:
             manifold_fraction=0.5,
             duration=120,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Basic shape checks
         assert exp.calcium.shape[0] == 30
@@ -397,7 +389,8 @@ class TestGenerateMixedPopulationExp:
             manifold_fraction=0.5,
             correlation_mode='independent',
             seed=42,
-            verbose=False
+            verbose=False,
+            return_info=True
         )
         
         # Generate with spatial correlation
@@ -407,7 +400,8 @@ class TestGenerateMixedPopulationExp:
             correlation_mode='spatial_correlated',
             correlation_strength=0.8,
             seed=42,
-            verbose=False
+            verbose=False,
+            return_info=True
         )
         
         # Features should be different due to correlation
@@ -428,8 +422,7 @@ class TestGenerateMixedPopulationExp:
             manifold_fraction=0.5,
             duration=60,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Should be able to run INTENSE analysis without errors
         stats, significance, analysis_info, results = compute_cell_feat_significance(
@@ -456,8 +449,7 @@ class TestMixedPopulationIntegration:
             n_neurons=15,
             duration=30,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Test basic Experiment methods
         assert exp.n_cells == 15
@@ -489,8 +481,7 @@ class TestMixedPopulationIntegration:
             },
             duration=300,  # Increased duration for better statistics
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         # Test with position features (should detect manifold cells)
         from driada.intense.pipelines import compute_cell_feat_significance
@@ -535,8 +526,7 @@ class TestMixedPopulationEdgeCases:
             n_neurons=5,
             duration=1,  # 1 second
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         
         assert exp.n_frames == 20  # 1s * 20fps
         assert exp.n_cells == 5
@@ -550,8 +540,7 @@ class TestMixedPopulationEdgeCases:
             correlation_mode='spatial_correlated',
             correlation_strength=0.01,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         assert info['correlation_strength'] == 0.01
         
         # Very strong correlation
@@ -560,8 +549,7 @@ class TestMixedPopulationEdgeCases:
             correlation_mode='spatial_correlated',
             correlation_strength=0.99,
             seed=42,
-            verbose=False
-        )
+            verbose=False, return_info=True)
         assert info['correlation_strength'] == 0.99
 
 

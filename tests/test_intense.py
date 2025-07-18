@@ -941,3 +941,35 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch():
     # Test invalid cell index
     with pytest.raises(ValueError, match="out of range"):
         get_calcium_feature_me_profile(exp, cbunch=[10], fbunch=['d_feat_0'])
+
+
+def test_intense_handles_no_significant_neurons():
+    """Test that INTENSE handles cases with no significant neurons gracefully."""
+    from src.driada.experiment.exp_base import Experiment
+    
+    # Create experiment with pure noise
+    n_neurons = 10
+    n_frames = 200
+    exp = Experiment(
+        signature='test_nosig',
+        calcium=np.random.randn(n_neurons, n_frames) * 0.01,  # Very weak signals
+        spikes=None,
+        exp_identificators={},
+        static_features={'fps': 10.0},
+        dynamic_features={
+            'random_feature': TimeSeries(np.random.randn(n_frames))
+        }
+    )
+    
+    # Run INTENSE - should complete without errors
+    stats, significance, info, results = compute_cell_feat_significance(
+        exp,
+        n_shuffles_stage1=10,
+        n_shuffles_stage2=20,
+        verbose=False
+    )
+    
+    # Should handle empty results gracefully
+    sig_neurons = exp.get_significant_neurons()
+    assert isinstance(sig_neurons, dict)
+    assert len(sig_neurons) == 0  # Should find no significant neurons with pure noise

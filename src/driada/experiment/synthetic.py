@@ -1,9 +1,6 @@
 import numpy as np
 from fbm import FBM
 import itertools
-import tqdm
-from scipy import stats
-from scipy.special import i0
 from .exp_base import *
 from ..information.info_base import TimeSeries, MultiTimeSeries, aggregate_multiple_ts
 
@@ -551,7 +548,7 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
                             grid_arrangement=True,
                             n_environments=1,
                             add_head_direction=False,
-                            seed=None, verbose=True):
+                            seed=None, verbose=True, return_info=False):
     """
     Generate synthetic experiment with place cells on 2D spatial manifold.
     
@@ -589,12 +586,14 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
         Random seed.
     verbose : bool
         Print progress.
+    return_info : bool
+        If True, return (exp, info) tuple. If False (default), return only exp.
         
     Returns
     -------
     exp : Experiment
         Experiment object.
-    info : dict
+    info : dict (only if return_info=True)
         Information about the generated data.
     """
     if seed is not None:
@@ -695,7 +694,10 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
         'n_environments': n_environments
     }
     
-    return exp, info
+    if return_info:
+        return exp, info
+    else:
+        return exp
 
 
 # 3D spatial manifold generation functions for flying/swimming animals
@@ -1022,7 +1024,7 @@ def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
                             grid_arrangement=True,
                             n_environments=1,
                             add_head_direction=False,
-                            seed=None, verbose=True):
+                            seed=None, verbose=True, return_info=False):
     """
     Generate synthetic experiment with 3D place cells.
     
@@ -1060,12 +1062,14 @@ def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
         Random seed.
     verbose : bool
         Print progress.
+    return_info : bool
+        If True, return (exp, info) tuple. If False (default), return only exp.
         
     Returns
     -------
     exp : Experiment
         Experiment object.
-    info : dict
+    info : dict (only if return_info=True)
         Information about the generated data.
     """
     if seed is not None:
@@ -1184,7 +1188,10 @@ def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
         'n_environments': n_environments
     }
     
-    return exp, info
+    if return_info:
+        return exp, info
+    else:
+        return exp
 
 
 def generate_pseudo_calcium_multisignal(n,
@@ -1381,12 +1388,16 @@ def delete_one_islands(binary_ts, probability):
     return result
 
 
-def generate_fbm_time_series(length, hurst, seed=None):
+def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
     if seed is not None:
         np.random.seed(seed)
 
     f = FBM(n=length-1, hurst=hurst, length=1.0, method='daviesharte')
     fbm_series = f.fbm()
+    
+    # Apply circular shift to break correlation with spatial trajectory
+    if roll_shift is not None:
+        fbm_series = np.roll(fbm_series, roll_shift)
 
     return fbm_series
 
@@ -1408,7 +1419,8 @@ def select_signal_roi(values, seed=42):
 
 def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, sampling_rate=20.0,
                             rate_0=0.1, rate_1=1.0, skip_prob=0.0, hurst=0.5, ampl_range=(0.5, 2), decay_time=2,
-                            avg_islands=10, avg_duration=5, noise_std=0.1, verbose=True):
+                            avg_islands=10, avg_duration=5, noise_std=0.1, verbose=True, pregenerated_features=None,
+                            apply_random_neuron_shifts=False):
     gt = np.zeros((nfeats, nneurons))
     length = int(duration * sampling_rate)
     
@@ -1416,23 +1428,30 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
     if nneurons == 0:
         return np.array([]), np.array([]).reshape(0, length), gt
 
-    print('Generating features...')
-    all_feats = []
-    for i in tqdm.tqdm(np.arange(nfeats)):
-        if ftype == 'c':
-            # Generate the series
-            fbm_series = generate_fbm_time_series(length, hurst, seed=seed)
-            all_feats.append(fbm_series)
+    # Use pregenerated features if provided, otherwise generate new ones
+    if pregenerated_features is not None:
+        print('Using pregenerated features...')
+        all_feats = pregenerated_features
+        if len(all_feats) != nfeats:
+            raise ValueError(f'Number of pregenerated features ({len(all_feats)}) does not match nfeats ({nfeats})')
+    else:
+        print('Generating features...')
+        all_feats = []
+        for i in tqdm.tqdm(np.arange(nfeats)):
+            if ftype == 'c':
+                # Generate the series
+                fbm_series = generate_fbm_time_series(length, hurst, seed=seed)
+                all_feats.append(fbm_series)
 
-        elif ftype == 'd':
-            # Generate binary series
-            binary_series = generate_binary_time_series(length, avg_islands, avg_duration * sampling_rate)
-            all_feats.append(binary_series)
+            elif ftype == 'd':
+                # Generate binary series
+                binary_series = generate_binary_time_series(length, avg_islands, avg_duration * sampling_rate)
+                all_feats.append(binary_series)
 
-        else:
-            raise ValueError('unknown feature flag')
+            else:
+                raise ValueError('unknown feature flag')
 
-        seed += 1  # save reproducibility, but break degeneracy
+            seed += 1  # save reproducibility, but break degeneracy
 
     print('Generating signals...')
     if nfeats > 0:
@@ -1451,14 +1470,31 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
             # Generate random baseline activity
             binary_series = generate_binary_time_series(length, avg_islands // 2, avg_duration * sampling_rate // 2)
         elif ftype == 'c':
-            csignal = all_feats[foi]
+            csignal = all_feats[foi].copy()  # Make a copy to avoid modifying the original
+            
+            # Apply random per-neuron shift to break correlations
+            if apply_random_neuron_shifts:
+                # Apply a unique random shift for this neuron
+                neuron_shift = np.random.randint(0, length)
+                csignal = np.roll(csignal, neuron_shift)
+                if verbose and j < 3:  # Print for first 3 neurons only
+                    print(f'      Neuron {j}: Applied shift={neuron_shift} to continuous feature {foi}')
+            
             loc, lower_border, upper_border = select_signal_roi(csignal, seed=seed)
             # Generate binary series from a continuous one
             binary_series = np.zeros(length)
             binary_series[np.where((csignal >= lower_border) & (csignal <= upper_border))] = 1
 
         elif ftype == 'd':
-            binary_series = all_feats[foi]
+            binary_series = all_feats[foi].copy()  # Make a copy
+            
+            # Apply random per-neuron shift to break correlations
+            if apply_random_neuron_shifts:
+                # Apply a unique random shift for this neuron
+                neuron_shift = np.random.randint(0, length)
+                binary_series = np.roll(binary_series, neuron_shift)
+                if verbose and j < 3:  # Print for first 3 neurons only
+                    print(f'      Neuron {j}: Applied shift={neuron_shift} to discrete feature {foi}')
 
         else:
             raise ValueError('unknown feature flag')
@@ -2009,7 +2045,7 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
                                   calcium_noise_std=0.1,
                                   add_mixed_features=False,
                                   n_extra_features=0,
-                                  seed=None, verbose=True):
+                                  seed=None, verbose=True, return_info=False):
     """
     Generate synthetic experiment with head direction cells on circular manifold.
     
@@ -2045,12 +2081,14 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
         Random seed.
     verbose : bool
         Print progress.
+    return_info : bool
+        If True, return (exp, info) tuple. If False (default), return only exp.
         
     Returns
     -------
     exp : Experiment
         Experiment object with circular manifold data.
-    info : dict
+    info : dict (only if return_info=True)
         Dictionary containing:
         - 'head_direction': Head direction trajectory
         - 'preferred_directions': Preferred directions of neurons
@@ -2130,7 +2168,10 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
         'n_neurons': n_neurons
     }
     
-    return exp, info
+    if return_info:
+        return exp, info
+    else:
+        return exp
 
 
 def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
@@ -2138,7 +2179,7 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
                                   n_discrete_features=3, n_continuous_features=3,
                                   feature_params=None, correlation_mode='independent',
                                   correlation_strength=0.3, duration=600, fps=20.0,
-                                  seed=None, verbose=True):
+                                  seed=None, verbose=True, return_info=False):
     """
     Generate synthetic experiment with mixed population of manifold and feature-selective cells.
     
@@ -2178,12 +2219,14 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
         Random seed for reproducibility.
     verbose : bool
         Print progress messages.
+    return_info : bool
+        If True, return (exp, info) tuple. If False (default), return only exp.
         
     Returns
     -------
     exp : Experiment
         Experiment object with mixed population.
-    info : dict
+    info : dict (only if return_info=True)
         Dictionary containing:
         - 'population_composition': Details about neuron allocation
         - 'manifold_info': Information about manifold cells
@@ -2439,6 +2482,58 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
                 behavioral_features_data[feat_name] = correlated_feat
                 dynamic_features[feat_name] = TimeSeries(correlated_feat, discrete=False)
     
+    elif correlation_mode == 'independent':
+        # Ensure true independence by regenerating features with different seeds
+        if verbose:
+            print(f'  Ensuring feature independence by regenerating behavioral features...')
+        
+        # Use completely different seeds for independent features
+        independent_seed = seed + 10000 if seed is not None else None
+        
+        # Regenerate discrete features with new seeds
+        for i in range(n_discrete_features):
+            if independent_seed is not None:
+                np.random.seed(independent_seed + i * 100)
+            
+            # Generate new binary series with different temporal pattern
+            binary_series = generate_binary_time_series(
+                length, 
+                avg_islands=feature_params.get('avg_islands', 10) + np.random.randint(-3, 4),  # Vary parameters
+                avg_duration=int(feature_params.get('avg_duration', 5) * fps * np.random.uniform(0.5, 1.5))
+            )
+            
+            feat_name = f'd_feat_{i}'
+            behavioral_features_data[feat_name] = binary_series
+            dynamic_features[feat_name] = TimeSeries(binary_series, discrete=True)
+        
+        # Regenerate continuous features with new seeds
+        for i in range(n_continuous_features):
+            if independent_seed is not None:
+                np.random.seed(independent_seed + 1000 + i * 100)
+            
+            # Use random low Hurst parameter (0.2-0.4) to break temporal autocorrelation and ensure independence
+            # Anti-persistent behavior (H < 0.5) breaks accidental spatial correlations
+            # Varying H across features prevents systematic correlations
+            low_hurst = np.random.uniform(0.2, 0.4)
+            
+            # Apply random circular shift to break correlation with spatial trajectory
+            # Random shift between 1/4 and 3/4 of the series length
+            roll_shift = np.random.randint(length // 4, 3 * length // 4)
+            
+            if verbose:
+                print(f'    Feature c_feat_{i}: Using Hurst={low_hurst:.3f}, roll_shift={roll_shift} for independence')
+            
+            fbm_series = generate_fbm_time_series(
+                length, 
+                hurst=low_hurst, 
+                seed=independent_seed + 1000 + i * 100 if independent_seed is not None else None,
+                roll_shift=roll_shift
+            )
+            
+            feat_name = f'c_feat_{i}'
+            behavioral_features_data[feat_name] = fbm_series
+            dynamic_features[feat_name] = TimeSeries(fbm_series, discrete=False)
+    
     # Generate feature-selective cells
     if n_feature_selective > 0:
         if verbose:
@@ -2508,6 +2603,9 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
                 if n_discrete_features > 0:
                     # Generate neurons selective to discrete features
                     discrete_seed = None if feature_seed is None else feature_seed + 10
+                    # Pass pregenerated discrete features
+                    discrete_feat_list = [behavioral_features_data[f'd_feat_{i}'] 
+                                        for i in range(n_discrete_features)]
                     feats_d, calcium_d, gt_d = generate_synthetic_data(
                         n_discrete_features, n_feature_selective // 2 if n_continuous_features > 0 else n_feature_selective,
                         ftype='d',
@@ -2520,7 +2618,9 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
                         ampl_range=feature_params['ampl_range'],
                         decay_time=feature_params['decay_time'],
                         noise_std=feature_params['noise_std'],
-                        verbose=False
+                        verbose=verbose,
+                        pregenerated_features=discrete_feat_list,
+                        apply_random_neuron_shifts=(correlation_mode == 'independent')
                     )
                     all_calcium_parts.append(calcium_d)
                     # Adjust gt_d indices to account for all features
@@ -2532,6 +2632,9 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
                     # Generate neurons selective to continuous features
                     remaining_neurons = n_feature_selective - (len(all_calcium_parts[0]) if all_calcium_parts else 0)
                     continuous_seed = None if feature_seed is None else feature_seed + 100
+                    # Pass pregenerated continuous features
+                    continuous_feat_list = [behavioral_features_data[f'c_feat_{i}'] 
+                                          for i in range(n_continuous_features)]
                     feats_c, calcium_c, gt_c = generate_synthetic_data(
                         n_continuous_features, remaining_neurons,
                         ftype='c',
@@ -2545,7 +2648,9 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
                         ampl_range=feature_params['ampl_range'],
                         decay_time=feature_params['decay_time'],
                         noise_std=feature_params['noise_std'],
-                        verbose=False
+                        verbose=verbose,
+                        pregenerated_features=continuous_feat_list,
+                        apply_random_neuron_shifts=(correlation_mode == 'independent')
                     )
                     all_calcium_parts.append(calcium_c)
                     # Adjust gt_c indices to account for discrete features
@@ -2648,4 +2753,112 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
         print(f'  Total calcium traces: {combined_calcium.shape}')
         print(f'  Total features: {len(dynamic_features)}')
     
-    return exp, info
+    if return_info:
+        return exp, info
+    else:
+        return exp
+
+
+def _generate_feature_selective_neurons(features, n_neurons, feature_type, duration, 
+                                       seed=None, fps=20.0, rate_0=0.1, rate_1=1.0, 
+                                       skip_prob=0.0, ampl_range=(0.5, 2), decay_time=2, 
+                                       noise_std=0.1):
+    """
+    Generate feature-selective neurons using provided behavioral features.
+    
+    This function replicates the logic from generate_synthetic_data but uses 
+    externally provided features instead of generating new ones internally.
+    This is crucial for ensuring true independence when correlation_mode='independent'.
+    
+    Parameters
+    ----------
+    features : list
+        List of behavioral feature time series to use
+    n_neurons : int
+        Number of neurons to generate
+    feature_type : str
+        'discrete' or 'continuous' - type of features
+    duration : float
+        Duration in seconds
+    seed : int, optional
+        Random seed for reproducibility
+    fps : float
+        Sampling rate
+    rate_0, rate_1 : float
+        Poisson firing rates for inactive/active states
+    skip_prob : float
+        Probability of skipping active periods
+    ampl_range : tuple
+        (min, max) amplitude range for calcium signals
+    decay_time : float
+        Calcium signal decay time constant
+    noise_std : float
+        Noise standard deviation
+        
+    Returns
+    -------
+    calcium_signals : ndarray
+        Shape (n_neurons, n_timepoints) calcium signals
+    gt_matrix : ndarray
+        Shape (n_features, n_neurons) ground truth selectivity matrix
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    n_features = len(features)
+    length = int(duration * fps)
+    
+    # Handle edge cases
+    if n_neurons == 0 or n_features == 0:
+        return (np.array([]).reshape(0, length), 
+                np.zeros((n_features, 0)))
+    
+    # Initialize ground truth matrix
+    gt_matrix = np.zeros((n_features, n_neurons))
+    
+    # Assign each neuron to a random feature
+    feature_assignments = np.random.choice(n_features, size=n_neurons)
+    for i, feat_idx in enumerate(feature_assignments):
+        gt_matrix[feat_idx, i] = 1
+    
+    # Generate calcium signals for each neuron
+    calcium_signals = []
+    
+    for j in range(n_neurons):
+        feat_idx = feature_assignments[j]
+        feature_signal = features[feat_idx]
+        
+        if feature_type == 'discrete':
+            # For discrete features, use the binary signal directly
+            binary_series = feature_signal.copy()
+        else:  # continuous
+            # For continuous features, convert to binary using ROI selection
+            loc, lower_border, upper_border = select_signal_roi(feature_signal, seed=seed)
+            binary_series = np.zeros(length)
+            binary_series[(feature_signal >= lower_border) & (feature_signal <= upper_border)] = 1
+        
+        # Apply random skipping
+        mod_binary_series = delete_one_islands(binary_series, skip_prob)
+        
+        # Apply Poisson process
+        poisson_series = apply_poisson_to_binary_series(
+            mod_binary_series, rate_0 / fps, rate_1 / fps
+        )
+        
+        # Generate pseudo-calcium signal
+        calcium_signal = generate_pseudo_calcium_signal(
+            duration=duration,
+            events=poisson_series,
+            sampling_rate=fps,
+            amplitude_range=ampl_range,
+            decay_time=decay_time,
+            noise_std=noise_std
+        )
+        
+        calcium_signals.append(calcium_signal)
+        
+        # Update seed to maintain reproducibility while avoiding degeneracy
+        if seed is not None:
+            seed += 1
+    
+    return np.vstack(calcium_signals), gt_matrix

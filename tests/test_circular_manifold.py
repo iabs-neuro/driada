@@ -228,7 +228,7 @@ def test_generate_circular_manifold_data_calcium():
         n_neurons=20, duration=60, fps=20,
         kappa=6.0, baseline_rate=0.5, peak_rate=5.0,
         noise_std=0.02, calcium_noise_std=0.02,
-        seed=42, verbose=False
+        seed=42, verbose=False, return_info=True
     )
     
     # Test that circular selectivity can be detected using INTENSE
@@ -310,7 +310,7 @@ def test_generate_circular_manifold_exp_extra_features():
     exp, info = generate_circular_manifold_exp(
         n_neurons=30, duration=20, fps=20,
         add_mixed_features=True, n_extra_features=3,
-        seed=42, verbose=False
+        seed=42, verbose=False, return_info=True
     )
     
     # Should have head direction plus circular_angle multifeature plus extra features
@@ -335,7 +335,7 @@ def test_generate_circular_manifold_exp_parameters():
     exp, info = generate_circular_manifold_exp(
         n_neurons=20, duration=10, fps=30,
         kappa=kappa, baseline_rate=baseline, peak_rate=peak,
-        seed=42, verbose=False
+        seed=42, verbose=False, return_info=True
     )
     
     # Check that parameters were used
@@ -380,7 +380,7 @@ def test_various_sizes(n_neurons, duration):
     """Test generation with various sizes."""
     exp, info = generate_circular_manifold_exp(
         n_neurons=n_neurons, duration=duration, fps=20, 
-        seed=42, verbose=False
+        seed=42, verbose=False, return_info=True
     )
     
     expected_frames = int(duration * 20)
@@ -440,7 +440,7 @@ def test_integration_with_intense():
         kappa=6.0,  # Stronger tuning
         baseline_rate=0.05, peak_rate=3.0,  # Higher dynamic range
         noise_std=0.01,  # Lower noise
-        seed=42, verbose=False
+        seed=42, verbose=False, return_info=True
     )
     
     # Run INTENSE analysis

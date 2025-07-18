@@ -40,6 +40,7 @@ from .experiment import (
     generate_circular_manifold_exp,
     generate_2d_manifold_exp,
     generate_3d_manifold_exp,
+    generate_mixed_population_exp,
 )
 
 __all__ = [
@@ -70,4 +71,5 @@ __all__ = [
     "generate_circular_manifold_exp",
     "generate_2d_manifold_exp",
     "generate_3d_manifold_exp",
+    "generate_mixed_population_exp",
 ]

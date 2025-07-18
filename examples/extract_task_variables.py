@@ -89,7 +89,8 @@ def generate_task_data(duration=600, fps=20, seed=42):
             'skip_prob': 0.0,
             'ampl_range': (1.5, 3.5),
             'decay_time': 2.0
-        }
+        },
+        return_info=True
     )
     
     feature_mapping = {

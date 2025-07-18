@@ -109,7 +109,7 @@ class MIDistributionInvestigator:
         
         # Scenario 1: Circular manifold (head direction cells)
         print("  - Scenario 1: Circular manifold")
-        exp_circular, _ = generate_circular_manifold_exp(
+        exp_circular = generate_circular_manifold_exp(
             n_neurons=20,
             duration=300,
             fps=20,
@@ -126,7 +126,7 @@ class MIDistributionInvestigator:
         
         # Scenario 2: Mixed population with spatial and feature components
         print("  - Scenario 2: Mixed population")
-        exp_mixed, _ = generate_mixed_population_exp(
+        exp_mixed = generate_mixed_population_exp(
             n_neurons=50,
             manifold_type='2d_spatial',
             manifold_fraction=0.6,

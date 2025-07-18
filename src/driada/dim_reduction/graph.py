@@ -75,6 +75,8 @@ class ProximityGraph(Network):
             sqdist_matrix = self.neigh_distmat.multiply(self.neigh_distmat)
             mean_sqdist = sqdist_matrix.sum() / sqdist_matrix.nnz
             self.adj.data = np.exp(-sqdist_matrix.data / (1.0 * sigma * mean_sqdist))
+            # Ensure symmetry after transformation
+            self.adj = (self.adj + self.adj.T) / 2.0
 
     def construct_adjacency(self):
         construct_fn = getattr(self, 'create_' + self.g_method_name + '_graph_')
@@ -144,6 +146,47 @@ class ProximityGraph(Network):
         A = A + A.T
         self.adj = A
         #print('WARNING: distmat is not yet implemented in this branch')
+    
+    def create_eps_graph_(self):
+        """Create epsilon-ball graph where edges connect points within distance eps."""
+        from sklearn.neighbors import radius_neighbors_graph
+        
+        # Use radius_neighbors_graph to create epsilon-ball graph
+        # eps is the maximum distance between points
+        # mode='connectivity' gives binary adjacency matrix
+        # include_self=False excludes self-loops
+        A = radius_neighbors_graph(self.data.T, self.eps, mode='connectivity', 
+                                   metric=self.metric, metric_params=self.metric_args,
+                                   include_self=False)
+        
+        # Ensure symmetry
+        A = A + A.T
+        A = A.astype(bool, casting='unsafe', copy=True)
+        
+        # Check if graph is too sparse or too dense
+        nnz_ratio = A.nnz / (self.data.shape[1] * (self.data.shape[1] - 1))
+        if nnz_ratio < self.eps_min:
+            raise ValueError(f'Epsilon graph too sparse (density={nnz_ratio:.4f} < eps_min={self.eps_min}). '
+                           f'Consider increasing eps parameter.')
+        if nnz_ratio > 0.5:
+            print(f'WARNING: Epsilon graph is dense (density={nnz_ratio:.4f}). '
+                  f'Consider decreasing eps parameter.')
+        
+        self.adj = A
+        self.bin_adj = A.copy()
+        
+        # For weighted graphs, compute distance matrix
+        if self.weighted:
+            # Get distance matrix for connected pairs
+            D = radius_neighbors_graph(self.data.T, self.eps, mode='distance',
+                                     metric=self.metric, metric_params=self.metric_args,
+                                     include_self=False)
+            D = D + D.T
+            self.neigh_distmat = D
+            self.distances_to_affinities()
+        else:
+            # For unweighted graphs, create sparse zero matrix for distances
+            self.neigh_distmat = sp.csr_matrix(A.shape)
 
     def calculate_indim(self, mode, factor=2):
 

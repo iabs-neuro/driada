@@ -371,7 +371,7 @@ class TestGenerate2DManifoldExp:
             n_neurons=10, duration=30,
             field_sigma=0.05,  # Narrow fields
             verbose=False, seed=42
-        )
+        , return_info=True)
         
         # Wide fields should have more correlated activity
         calcium_wide = exp_wide.calcium
