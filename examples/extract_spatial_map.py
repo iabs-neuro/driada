@@ -363,7 +363,7 @@ def main():
         duration=300,        # Longer duration for better quality
         fps=fps,
         field_sigma=0.15,    # Place field width
-        peak_rate=3.0,       # Peak firing rate
+        peak_rate=1.0,       # Realistic peak firing rate for calcium imaging
         noise_std=0.05,      # Firing noise
         grid_arrangement=True,
         seed=42,

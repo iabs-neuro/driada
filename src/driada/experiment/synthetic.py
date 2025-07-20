@@ -1,8 +1,87 @@
+"""
+Synthetic data generation for neural manifold analysis.
+
+This module provides functions to generate synthetic neural data with realistic
+properties for testing and demonstration purposes. It supports various manifold
+types (circular, 2D spatial, 3D spatial) and mixed populations with both
+manifold and feature-selective cells.
+
+Calcium Dynamics and Physiological Constraints
+----------------------------------------------
+When generating synthetic calcium imaging data, it's important to use
+physiologically realistic firing rates to avoid artifacts:
+
+1. **Typical Neural Firing Rates**:
+   - Cortical pyramidal cells: 0.1-2 Hz (sparse firing)
+   - Hippocampal place cells: 0.5-5 Hz (with brief peaks up to 20 Hz)
+   - Fast-spiking interneurons: 5-50 Hz
+   
+2. **Calcium Indicator Constraints**:
+   - GCaMP indicators have slow dynamics with decay times of 1-2 seconds
+   - This temporal filtering means high firing rates (>2 Hz) can cause
+     signal saturation where the calcium signal plateaus
+   - Saturated signals lose information about the underlying neural activity
+   
+3. **Recommended Parameters**:
+   - baseline_rate: 0.1 Hz (typical sparse baseline)
+   - peak_rate: 0.5-1.0 Hz (realistic for pyramidal cells)
+   - Maximum peak_rate: 2.0 Hz (to avoid saturation)
+   - decay_time: 2.0 seconds (typical for GCaMP6)
+   
+4. **Why This Matters**:
+   - Unrealistic firing rates can make synthetic data behave differently
+     from real experimental data
+   - Calcium saturation can artificially increase correlations between neurons
+   - Temporal smoothing from slow dynamics affects information content
+   
+References
+----------
+- Chen et al. (2013). Ultrasensitive fluorescent proteins for imaging neuronal activity. Nature.
+- Dana et al. (2019). High-performance calcium sensors for imaging activity in neuronal populations. Nature Methods.
+"""
+
 import numpy as np
 from fbm import FBM
 import itertools
+import warnings
 from .exp_base import *
 from ..information.info_base import TimeSeries, MultiTimeSeries, aggregate_multiple_ts
+
+
+def validate_peak_rate(peak_rate, context=""):
+    """
+    Validate that peak firing rate is within physiologically realistic range.
+    
+    Parameters
+    ----------
+    peak_rate : float
+        Peak firing rate in Hz.
+    context : str, optional
+        Context string for more informative warning message.
+        
+    Notes
+    -----
+    Typical firing rates for neurons:
+    - Cortical pyramidal cells: 0.1-2 Hz (sparse firing)
+    - Hippocampal place cells: 0.5-5 Hz (with brief peaks up to 20 Hz)
+    - Fast-spiking interneurons: 5-50 Hz
+    
+    For calcium imaging with GCaMP indicators:
+    - Decay time ~1-2 seconds limits temporal resolution
+    - Firing rates >2 Hz can cause signal saturation
+    - Realistic modeling should use rates in 0.1-2 Hz range
+    """
+    if peak_rate > 2.0:
+        warning_msg = (
+            f"peak_rate={peak_rate:.1f} Hz exceeds recommended maximum of 2.0 Hz "
+            f"for calcium imaging. "
+            f"High firing rates can cause calcium signal saturation due to slow "
+            f"indicator dynamics (decay time ~2s). Consider using peak_rate <= 2.0 Hz "
+            f"for more realistic calcium traces."
+        )
+        if context:
+            warning_msg = f"{context}: {warning_msg}"
+        warnings.warn(warning_msg, UserWarning, stacklevel=2)
 
 
 # Circular manifold generation functions for head direction cells
@@ -64,7 +143,7 @@ def von_mises_tuning_curve(angles, preferred_direction, kappa):
 
 
 def generate_circular_manifold_neurons(n_neurons, head_direction, kappa=4.0, 
-                                      baseline_rate=0.1, peak_rate=2.0,
+                                      baseline_rate=0.1, peak_rate=1.0,
                                       noise_std=0.05, seed=None):
     """
     Generate population of head direction cells with Von Mises tuning.
@@ -80,8 +159,11 @@ def generate_circular_manifold_neurons(n_neurons, head_direction, kappa=4.0,
         Typical values: 2-8 (higher = narrower tuning).
     baseline_rate : float
         Baseline firing rate when far from preferred direction.
+        Default is 0.1 Hz (realistic for sparse firing neurons).
     peak_rate : float
         Peak firing rate at preferred direction.
+        Default is 1.0 Hz (realistic for calcium imaging).
+        Values >2 Hz may cause calcium signal saturation.
     noise_std : float
         Standard deviation of noise in firing rates.
     seed : int, optional
@@ -94,6 +176,9 @@ def generate_circular_manifold_neurons(n_neurons, head_direction, kappa=4.0,
     preferred_directions : ndarray
         Preferred direction for each neuron in radians.
     """
+    # Validate firing rate
+    validate_peak_rate(peak_rate, context="generate_circular_manifold_neurons")
+    
     if seed is not None:
         np.random.seed(seed)
     
@@ -129,7 +214,7 @@ def generate_circular_manifold_neurons(n_neurons, head_direction, kappa=4.0,
 
 def generate_circular_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
                                    kappa=4.0, step_std=0.1,
-                                   baseline_rate=0.1, peak_rate=2.0,
+                                   baseline_rate=0.1, peak_rate=1.0,
                                    noise_std=0.05, 
                                    decay_time=2.0, calcium_noise_std=0.1,
                                    seed=None, verbose=True):
@@ -149,9 +234,10 @@ def generate_circular_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
     step_std : float
         Standard deviation of head direction random walk steps.
     baseline_rate : float
-        Baseline firing rate.
+        Baseline firing rate. Default is 0.1 Hz.
     peak_rate : float
-        Peak firing rate at preferred direction.
+        Peak firing rate at preferred direction. Default is 1.0 Hz.
+        Values >2 Hz may cause calcium signal saturation.
     noise_std : float
         Noise in firing rates.
     decay_time : float
@@ -304,7 +390,7 @@ def gaussian_place_field(positions, center, sigma=0.1):
 
 
 def generate_2d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
-                                baseline_rate=0.1, peak_rate=2.0,
+                                baseline_rate=0.1, peak_rate=1.0,
                                 noise_std=0.05, grid_arrangement=True,
                                 seed=None):
     """
@@ -319,9 +405,10 @@ def generate_2d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
     field_sigma : float
         Width of place fields.
     baseline_rate : float
-        Baseline firing rate.
+        Baseline firing rate. Default is 0.1 Hz.
     peak_rate : float
-        Peak firing rate at place field center.
+        Peak firing rate at place field center. Default is 1.0 Hz.
+        Values >2 Hz may cause calcium signal saturation.
     noise_std : float
         Noise in firing rates.
     grid_arrangement : bool
@@ -336,6 +423,9 @@ def generate_2d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
     place_field_centers : ndarray
         Shape (n_neurons, 2) with place field centers.
     """
+    # Validate firing rate
+    validate_peak_rate(peak_rate, context="generate_2d_manifold_neurons")
+    
     if seed is not None:
         np.random.seed(seed)
     
@@ -384,7 +474,7 @@ def generate_2d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
 
 def generate_2d_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
                              field_sigma=0.1, step_size=0.02, momentum=0.8,
-                             baseline_rate=0.1, peak_rate=2.0,
+                             baseline_rate=0.1, peak_rate=1.0,
                              noise_std=0.05, decay_time=2.0, 
                              calcium_noise_std=0.1,
                              grid_arrangement=True,
@@ -542,7 +632,7 @@ def generate_2d_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
 
 def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
                             field_sigma=0.1, step_size=0.02, momentum=0.8,
-                            baseline_rate=0.1, peak_rate=2.0,
+                            baseline_rate=0.1, peak_rate=1.0,
                             noise_std=0.05, decay_time=2.0,
                             calcium_noise_std=0.1,
                             grid_arrangement=True,
@@ -780,7 +870,7 @@ def gaussian_place_field_3d(positions, center, sigma=0.1):
 
 
 def generate_3d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
-                                baseline_rate=0.1, peak_rate=2.0,
+                                baseline_rate=0.1, peak_rate=1.0,
                                 noise_std=0.05, grid_arrangement=True,
                                 seed=None):
     """
@@ -795,9 +885,10 @@ def generate_3d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
     field_sigma : float
         Width of place fields.
     baseline_rate : float
-        Baseline firing rate.
+        Baseline firing rate. Default is 0.1 Hz.
     peak_rate : float
-        Peak firing rate at place field center.
+        Peak firing rate at place field center. Default is 1.0 Hz.
+        Values >2 Hz may cause calcium signal saturation.
     noise_std : float
         Noise in firing rates.
     grid_arrangement : bool
@@ -812,6 +903,9 @@ def generate_3d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
     place_field_centers : ndarray
         Shape (n_neurons, 3) with place field centers.
     """
+    # Validate firing rate
+    validate_peak_rate(peak_rate, context="generate_3d_manifold_neurons")
+    
     if seed is not None:
         np.random.seed(seed)
     
@@ -862,7 +956,7 @@ def generate_3d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
 
 def generate_3d_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
                              field_sigma=0.1, step_size=0.02, momentum=0.8,
-                             baseline_rate=0.1, peak_rate=2.0,
+                             baseline_rate=0.1, peak_rate=1.0,
                              noise_std=0.05, decay_time=2.0, 
                              calcium_noise_std=0.1,
                              grid_arrangement=True,
@@ -1018,7 +1112,7 @@ def generate_3d_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
 
 def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
                             field_sigma=0.1, step_size=0.02, momentum=0.8,
-                            baseline_rate=0.1, peak_rate=2.0,
+                            baseline_rate=0.1, peak_rate=1.0,
                             noise_std=0.05, decay_time=2.0,
                             calcium_noise_std=0.1,
                             grid_arrangement=True,
@@ -1451,6 +1545,7 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
             else:
                 raise ValueError('unknown feature flag')
 
+        if seed is not None:
             seed += 1  # save reproducibility, but break degeneracy
 
     print('Generating signals...')
@@ -1516,7 +1611,8 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
                                                                noise_std=noise_std)
 
         all_signals.append(pseudo_calcium_signal)
-        seed += 1  # save reproducibility, but break degeneracy
+        if seed is not None:
+            seed += 1  # save reproducibility, but break degeneracy
 
     return np.vstack(all_feats), np.vstack(all_signals), gt
 
@@ -2287,7 +2383,7 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
         manifold_params = {
             'field_sigma': 0.1,
             'baseline_rate': 0.1,
-            'peak_rate': 2.0,
+            'peak_rate': 1.0,  # Realistic for calcium imaging
             'noise_std': 0.05,
             'decay_time': 2.0,
             'calcium_noise_std': 0.1

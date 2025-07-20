@@ -75,7 +75,7 @@ def generate_task_data(duration=600, fps=20, seed=42):
             'field_sigma': 0.15,
             'noise_std': 0.05,
             'baseline_rate': 0.1,
-            'peak_rate': 2.0,
+            'peak_rate': 1.0,  # Realistic for calcium imaging
             'decay_time': 2.0,
             'calcium_noise_std': 0.05
         },

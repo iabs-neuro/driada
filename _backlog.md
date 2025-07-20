@@ -152,27 +152,35 @@ A comprehensive library bridging element-wise and population-wise analysis for b
   - [ ] Test effective dimensionality estimators
   - [ ] Validate on synthetic data with known dimensionality
   - [ ] Edge cases (high noise, sparse data)
-- [ ] **Enhance DR Method Configuration (PRE-RELEASE PRIORITY)**
-  - [ ] Update DRMethod objects with default parameters
-    - [ ] Add default_params attribute to each method object
-    - [ ] Define sensible defaults for common use cases
-    - [ ] Include default metric_params where applicable
-    - [ ] Include default graph_params for graph-based methods
-  - [ ] Update examples to use minimal parameter specification
-    - [ ] Only require non-default parameters from users
-    - [ ] Simplify DR method usage across codebase
-    - [ ] t-SNE: {'dim': 2, 'perplexity': 30}
-    - [ ] Isomap: {'dim': 2} + graph {'nn': 5}
-    - [ ] MDS: {'dim': 2}
-  - [ ] Define default metric parameters
-    - [ ] l2/euclidean: {'sigma': 1.0}
-    - [ ] minkowski: {'p': 2, 'sigma': 1.0}
-  - [ ] Define default graph parameters
-    - [ ] knn: {'nn': 10, 'weighted': 0, 'max_deleted_nodes': 0.1}
-    - [ ] eps: {'eps': 0.1, 'weighted': 0}
-    - [ ] umap: {'nn': 15}
-  - [ ] Update MVData.get_embedding() to merge defaults
-  - [ ] Remove e_method parameter requirement
+- [x] **Enhance DR Method Configuration (PRE-RELEASE PRIORITY)** ✅ COMPLETED (2025-01-20)
+  - [x] Update DRMethod objects with default parameters
+    - [x] Add default_params attribute to each method object
+    - [x] Define sensible defaults for common use cases
+    - [x] Include default metric_params where applicable
+    - [x] Include default graph_params for graph-based methods
+  - [x] Update examples to use minimal parameter specification
+    - [x] Only require non-default parameters from users
+    - [x] Simplify DR method usage across codebase
+    - [x] t-SNE: {'dim': 2, 'perplexity': 30}
+    - [x] Isomap: {'dim': 2} + graph {'nn': 15}
+    - [x] MDS: {'dim': 2}
+  - [x] Define default metric parameters
+    - [x] l2/euclidean: {'sigma': 1.0}
+    - [x] minkowski: {'p': 2, 'sigma': 1.0}
+  - [x] Define default graph parameters
+    - [x] knn: {'nn': 15, 'weighted': 0, 'max_deleted_nodes': 0.2}
+    - [x] eps: {'eps': 0.1, 'weighted': 0}
+    - [x] umap: {'nn': 15}
+  - [x] Update MVData.get_embedding() to merge defaults
+  - [x] Remove e_method parameter requirement
+  **Implementation Details:**
+  - Created new simplified API: `mvdata.get_embedding(method='pca', dim=3)`
+  - Added merge_params_with_defaults() function for parameter handling
+  - Maintained full backward compatibility with legacy API
+  - Added parameter mapping (e.g., n_neighbors → nn)
+  - Created comprehensive unit tests in test_dr_defaults.py
+  - Updated examples to showcase new API
+  **Commit**: 4eb81d4 "feat: enhance DR method configuration with default parameters"
 - [ ] **Test integration between modules**
   - [ ] INTENSE → DR pipeline tests
   - [ ] Data flow validation
