@@ -1009,7 +1009,7 @@ def compute_embedding_selectivity(exp,
         embedding_features = {}
         for comp_idx in range(n_components):
             feat_name = f"{method_name}_comp{comp_idx}"
-            embedding_features[feat_name] = TimeSeries(embedding_data[:, comp_idx])
+            embedding_features[feat_name] = TimeSeries(embedding_data[:, comp_idx], discrete=False)
         
         # Temporarily add embedding components to dynamic features
         original_features = exp.dynamic_features.copy()

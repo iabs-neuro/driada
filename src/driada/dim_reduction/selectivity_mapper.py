@@ -132,45 +132,24 @@ class SelectivityManifoldMapper:
         # Create MVData and compute embedding
         mvdata = MVData(data=neural_data)  # MVData expects (n_features, n_samples)
         
-        # Import required for method configuration
-        from .dr_base import METHODS_DICT
+        # Prepare parameters for the new simplified API
+        params = {'dim': n_components}
         
-        # Prepare embedding parameters
-        e_params = {
-            'e_method_name': method,
-            'e_method': METHODS_DICT.get(method),
-            'dim': n_components
-        }
+        # Handle method-specific parameters from dr_kwargs
+        if 'n_neighbors' in dr_kwargs:
+            params['n_neighbors'] = dr_kwargs['n_neighbors']
+        if 'min_dist' in dr_kwargs:
+            params['min_dist'] = dr_kwargs['min_dist']
+        if 'perplexity' in dr_kwargs:
+            params['perplexity'] = dr_kwargs['perplexity']
+        if 'dm_alpha' in dr_kwargs:
+            params['dm_alpha'] = dr_kwargs['dm_alpha']
         
-        # Add method-specific parameters
-        if method == 'umap':
-            e_params['min_dist'] = dr_kwargs.get('min_dist', 0.1)
-        elif method in ['dmaps', 'auto_dmaps']:
-            e_params['dm_alpha'] = dr_kwargs.get('dm_alpha', 0.5)
+        # Add any other parameters
+        params.update(dr_kwargs)
         
-        # Handle method-specific parameters
-        if method in ['isomap', 'umap', 'le', 'auto_le']:
-            # These methods require graph parameters
-            g_params = {
-                'g_method_name': 'knn',
-                'nn': dr_kwargs.get('n_neighbors', 15),
-                'weighted': 0,
-                'max_deleted_nodes': 0.2,
-                'dist_to_aff': 'hk'
-            }
-            m_params = {
-                'metric_name': dr_kwargs.get('metric', 'l2'),
-                'sigma': dr_kwargs.get('sigma', 1)
-            }
-        else:
-            g_params = None
-            m_params = None
-        
-        # Extract any additional kwargs
-        extra_kwargs = {k: v for k, v in dr_kwargs.items() if k not in ['n_neighbors', 'metric', 'sigma']}
-        
-        # Get embedding
-        embedding_obj = mvdata.get_embedding(e_params, g_params=g_params, m_params=m_params, kwargs=extra_kwargs)
+        # Get embedding using simplified API
+        embedding_obj = mvdata.get_embedding(method=method, **params)
         embedding = embedding_obj.coords.T  # Transpose to (n_timepoints, n_components)
         
         # Check if embedding has all timepoints

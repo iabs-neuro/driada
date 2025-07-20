@@ -125,7 +125,7 @@ def generate_test_datasets(n_samples: int = 1000, noise: float = 0.0, seed: int 
 
 def get_dr_method_configs() -> Dict[str, Dict]:
     """
-    Get configuration parameters for each DR method.
+    Get configuration parameters for each DR method using simplified API.
     
     Returns
     -------
@@ -136,77 +136,37 @@ def get_dr_method_configs() -> Dict[str, Dict]:
     
     # PCA - Principal Component Analysis
     configs['pca'] = {
-        'params': {
-            'e_method_name': 'pca',
-            'dim': 2,
-            'e_method': METHODS_DICT['pca']
-        },
+        'params': {},  # All defaults
         'description': 'Linear projection maximizing variance'
     }
     
     # MDS - Multi-Dimensional Scaling  
     configs['mds'] = {
-        'params': {
-            'e_method_name': 'mds',
-            'dim': 2,
-            'e_method': METHODS_DICT['mds']
-        },
-        'metric_params': {
-            'metric_name': 'l2',
-            'sigma': 1
-        },
+        'params': {},  # All defaults
+        'requires_distmat': True,
         'description': 'Preserves pairwise distances'
     }
     
     # Isomap - Isometric mapping
     configs['isomap'] = {
         'params': {
-            'e_method_name': 'isomap',
-            'dim': 2,
-            'e_method': METHODS_DICT['isomap']
-        },
-        'graph_params': {
-            'g_method_name': 'knn',
-            'nn': 10,
-            'weighted': 0,
-            'max_deleted_nodes': 0.3,
-            'dist_to_aff': 'hk'
-        },
-        'metric_params': {
-            'metric_name': 'l2',
-            'sigma': 1
+            'n_neighbors': 10,
+            'max_deleted_nodes': 0.3
         },
         'description': 'Preserves geodesic distances'
     }
     
     # t-SNE - t-distributed Stochastic Neighbor Embedding
     configs['tsne'] = {
-        'params': {
-            'e_method_name': 'tsne',
-            'dim': 2,
-            'e_method': METHODS_DICT['tsne']
-        },
+        'params': {},  # Uses default perplexity=30
         'description': 'Emphasizes local structure, good for visualization'
     }
     
     # UMAP - Uniform Manifold Approximation and Projection
     configs['umap'] = {
         'params': {
-            'e_method_name': 'umap',
-            'dim': 2,
-            'min_dist': 0.1,
-            'e_method': METHODS_DICT['umap']
-        },
-        'graph_params': {
-            'g_method_name': 'knn',
-            'nn': 15,
-            'weighted': 0,
-            'max_deleted_nodes': 0.1,
-            'dist_to_aff': 'hk'
-        },
-        'metric_params': {
-            'metric_name': 'l2',
-            'sigma': 1
+            'n_neighbors': 15,
+            'min_dist': 0.1
         },
         'description': 'Balances local and global structure'
     }
@@ -258,16 +218,14 @@ def evaluate_dr_method(
         # Time the embedding
         start_time = time.time()
         
-        # Get embedding
+        # Get embedding using simplified API
         params = method_config['params']
-        graph_params = method_config.get('graph_params', None)
-        metric_params = method_config.get('metric_params', None)
         
         # For MDS, we need to compute distance matrix first
-        if method_name == 'mds':
-            mvdata.get_distmat(metric_params)
+        if method_config.get('requires_distmat', False):
+            mvdata.get_distmat()
         
-        embedding = mvdata.get_embedding(params, g_params=graph_params, m_params=metric_params)
+        embedding = mvdata.get_embedding(method=method_name, **params)
         
         runtime = time.time() - start_time
         current, peak = tracemalloc.get_traced_memory()

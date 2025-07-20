@@ -482,14 +482,23 @@ A comprehensive library bridging element-wise and population-wise analysis for b
 - [x] **Commit**: 725e716 "feat: implement SelectivityManifoldMapper for INTENSE-DR integration (#milestone-4)"
 
 **Remaining tasks:**
-- [ ] **Create comprehensive example for SelectivityManifoldMapper**
-  - [ ] `examples/selectivity_manifold_mapper_demo.py`
-  - [ ] Show full workflow: data → INTENSE → embeddings → component selectivity
-  - [ ] Compare different DR methods (PCA, UMAP, ISOMAP)
-  - [ ] Visualize neuron selectivity to embedding components
-  - [ ] Show functional organization analysis
-  - [ ] Demonstrate how embedding components relate to behavioral features
-  - [ ] Include command-line interface like intense_dr_pipeline.py
+- [ ] **Enhance comprehensive example for SelectivityManifoldMapper** (IN PROGRESS)
+  - [x] `examples/selectivity_manifold_mapper_demo.py` - Basic structure created
+  - [x] Show full workflow: data → INTENSE → embeddings → component selectivity
+  - [ ] **IMPROVEMENTS NEEDED:**
+    - [ ] Replace Isomap with Laplacian Eigenmaps (LE) for better manifold capture
+    - [ ] Fix component selectivity detection (currently showing 0 selective neurons)
+    - [ ] Use `multicomp_correction='holm'` instead of None for INTENSE analysis
+    - [ ] Increase `n_shuffles_stage2` to 2000 (currently 500 in quick mode)
+    - [ ] Add more sophisticated visualization of neuron participation in components
+    - [ ] Show which behavioral features each component captures
+    - [ ] Add 3D visualization option for first 3 components
+    - [ ] Include temporal trajectory animations on manifold
+  - [x] Compare different DR methods (PCA, UMAP currently working)
+  - [x] Visualize neuron selectivity to embedding components (heatmap created)
+  - [x] Show functional organization analysis
+  - [x] Demonstrate how embedding components relate to behavioral features
+  - [x] Include command-line interface like intense_dr_pipeline.py
 - [ ] **Implement pipeline functions**
   - [ ] `analyze_population_structure()`
   - [ ] `map_selectivity_to_manifold()`

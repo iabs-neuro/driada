@@ -1,30 +1,128 @@
 from pynndescent.distances import named_distances
 import sys
+from typing import Dict, Optional, Any
 
 class DRMethod(object):
+    """Dimensionality reduction method configuration.
+    
+    Attributes
+    ----------
+    is_linear : bool
+        Whether the method is linear
+    requires_graph : bool
+        Whether the method requires a proximity graph
+    requires_distmat : bool
+        Whether the method requires a distance matrix
+    nn_based : bool
+        Whether the method is neural network based
+    default_params : dict
+        Default parameters for the embedding method
+    default_graph_params : dict or None
+        Default graph construction parameters (if requires_graph)
+    default_metric_params : dict or None
+        Default metric parameters (if requires weights)
+    """
 
-    def __init__(self, is_linear, requires_graph, requires_distmat, nn_based):
+    def __init__(self, is_linear, requires_graph, requires_distmat, nn_based,
+                 default_params=None, default_graph_params=None, default_metric_params=None):
         self.is_linear = is_linear
         self.requires_graph = requires_graph
         self.requires_distmat = requires_distmat
         self.nn_based = nn_based
+        self.default_params = default_params or {}
+        self.default_graph_params = default_graph_params
+        self.default_metric_params = default_metric_params
 
+
+# Default graph parameters for graph-based methods
+DEFAULT_KNN_GRAPH = {
+    'g_method_name': 'knn',
+    'nn': 15,
+    'weighted': 0,
+    'max_deleted_nodes': 0.2,
+    'dist_to_aff': 'hk'
+}
+
+DEFAULT_METRIC = {
+    'metric_name': 'l2',
+    'sigma': 1.0
+}
 
 METHODS_DICT = {
-    'pca': DRMethod(1, 0, 0, 0),
-    'le': DRMethod(0, 1, 0, 0),
-    'auto_le': DRMethod(0, 1, 0, 0),
-    'dmaps': DRMethod(0, 1, 0, 0),
-    'auto_dmaps': DRMethod(0, 1, 0, 0),
-    'mds': DRMethod(0, 0, 1, 0),
-    'isomap': DRMethod(0, 1, 0, 0),
-    'lle': DRMethod(0, 1, 0, 0),
-    'hlle': DRMethod(0, 1, 0, 0),
-    'mvu': DRMethod(0, 1, 0, 0),
-    'ae': DRMethod(0, 0, 0, 1),
-    'vae': DRMethod(0, 0, 0, 1),
-    'tsne': DRMethod(0, 0, 0, 0),
-    'umap': DRMethod(0, 1, 0, 0)
+    'pca': DRMethod(
+        1, 0, 0, 0,
+        default_params={'dim': 2}
+    ),
+    'le': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2},
+        default_graph_params=DEFAULT_KNN_GRAPH,
+        default_metric_params=DEFAULT_METRIC
+    ),
+    'auto_le': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2},
+        default_graph_params=DEFAULT_KNN_GRAPH,
+        default_metric_params=DEFAULT_METRIC
+    ),
+    'dmaps': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2, 'dm_alpha': 0.5},
+        default_graph_params=DEFAULT_KNN_GRAPH,
+        default_metric_params=DEFAULT_METRIC
+    ),
+    'auto_dmaps': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2, 'dm_alpha': 0.5},
+        default_graph_params=DEFAULT_KNN_GRAPH,
+        default_metric_params=DEFAULT_METRIC
+    ),
+    'mds': DRMethod(
+        0, 0, 1, 0,
+        default_params={'dim': 2}
+    ),
+    'isomap': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2},
+        default_graph_params={**DEFAULT_KNN_GRAPH, 'nn': 15},
+        default_metric_params=DEFAULT_METRIC
+    ),
+    'lle': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2},
+        default_graph_params={**DEFAULT_KNN_GRAPH, 'nn': 10},
+        default_metric_params=DEFAULT_METRIC
+    ),
+    'hlle': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2},
+        default_graph_params={**DEFAULT_KNN_GRAPH, 'nn': 10},
+        default_metric_params=DEFAULT_METRIC
+    ),
+    'mvu': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2},
+        default_graph_params=DEFAULT_KNN_GRAPH,
+        default_metric_params=DEFAULT_METRIC
+    ),
+    'ae': DRMethod(
+        0, 0, 0, 1,
+        default_params={'dim': 2}
+    ),
+    'vae': DRMethod(
+        0, 0, 0, 1,
+        default_params={'dim': 2}
+    ),
+    'tsne': DRMethod(
+        0, 0, 0, 0,
+        default_params={'dim': 2, 'perplexity': 30}
+    ),
+    'umap': DRMethod(
+        0, 1, 0, 0,
+        default_params={'dim': 2, 'min_dist': 0.1},
+        default_graph_params={**DEFAULT_KNN_GRAPH, 'nn': 15},
+        default_metric_params=DEFAULT_METRIC
+    )
 }
 
 GRAPH_CONSTRUCTION_METHODS = ['knn', 'auto_knn', 'eps', 'eknn', 'umap', 'tsne']
@@ -109,3 +207,68 @@ def e_param_filter(para):
         appr_keys.append('dm_alpha')
 
     return {key: para[key] for key in appr_keys}
+
+
+def merge_params_with_defaults(method_name: str, user_params: Optional[Dict[str, Any]] = None) -> Dict[str, Dict[str, Any]]:
+    """Merge user parameters with method defaults.
+    
+    Parameters
+    ----------
+    method_name : str
+        Name of the DR method
+    user_params : dict or None
+        User-provided parameters. Can contain 'e_params', 'g_params', 'm_params' keys
+        or direct parameter values which will be treated as embedding parameters.
+        
+    Returns
+    -------
+    dict
+        Dictionary with 'e_params', 'g_params', 'm_params' keys containing merged parameters
+    """
+    if method_name not in METHODS_DICT:
+        raise ValueError(f"Unknown method: {method_name}")
+    
+    method = METHODS_DICT[method_name]
+    
+    # Initialize with defaults
+    e_params = method.default_params.copy()
+    e_params['e_method_name'] = method_name
+    e_params['e_method'] = method
+    
+    g_params = method.default_graph_params.copy() if method.default_graph_params else None
+    m_params = method.default_metric_params.copy() if method.default_metric_params else None
+    
+    if user_params is None:
+        return {'e_params': e_params, 'g_params': g_params, 'm_params': m_params}
+    
+    # Handle different input formats
+    if 'e_params' in user_params or 'g_params' in user_params or 'm_params' in user_params:
+        # User provided structured parameters
+        if 'e_params' in user_params and user_params['e_params']:
+            e_params.update(user_params['e_params'])
+        if 'g_params' in user_params and user_params['g_params'] and g_params is not None:
+            g_params.update(user_params['g_params'])
+        if 'm_params' in user_params and user_params['m_params'] and m_params is not None:
+            m_params.update(user_params['m_params'])
+    else:
+        # User provided flat parameters - need to distribute to appropriate dicts
+        for key, value in user_params.items():
+            if key == 'n_neighbors' and g_params is not None:
+                # Map n_neighbors to nn in graph params
+                g_params['nn'] = value
+            elif key == 'metric' and m_params is not None:
+                # Map metric to metric_name in metric params
+                m_params['metric_name'] = value
+            elif key == 'sigma' and m_params is not None:
+                m_params['sigma'] = value
+            elif key == 'max_deleted_nodes' and g_params is not None:
+                g_params['max_deleted_nodes'] = value
+            else:
+                # All other params go to embedding params
+                e_params[key] = value
+    
+    # Always ensure e_method is set
+    if 'e_method' not in e_params or e_params['e_method'] is None:
+        e_params['e_method'] = method
+    
+    return {'e_params': e_params, 'g_params': g_params, 'm_params': m_params}
