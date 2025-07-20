@@ -42,6 +42,17 @@ from .plot import (
     plot_mat,
 )
 
+# Advanced visualization utilities
+from .visual import (
+    plot_embedding_comparison,
+    plot_trajectories,
+    plot_component_interpretation,
+    plot_embeddings_grid,
+    plot_neuron_selectivity_summary,
+    plot_component_selectivity_heatmap,
+    DEFAULT_DPI,
+)
+
 # Output utilities
 from .output import show_output
 
@@ -88,6 +99,14 @@ __all__ = [
     "make_beautiful",
     "create_default_figure",
     "plot_mat",
+    # Advanced visualization
+    "plot_embedding_comparison",
+    "plot_trajectories",
+    "plot_component_interpretation",
+    "plot_embeddings_grid",
+    "plot_neuron_selectivity_summary",
+    "plot_component_selectivity_heatmap",
+    "DEFAULT_DPI",
     # Output
     "show_output",
     # Naming

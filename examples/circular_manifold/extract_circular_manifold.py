@@ -301,36 +301,48 @@ def main():
     
     # Visualize results
     print("\n5. Visualizing extracted manifolds...")
-    fig = visualize_manifold_extraction(embeddings, true_angles, methods)
-    plt.savefig('circular_manifold_extraction.png', dpi=150, bbox_inches='tight')
+    from driada.utils.visual import plot_embedding_comparison, DEFAULT_DPI
+    
+    # Prepare embeddings dict and features
+    embeddings_dict = {method: emb for method, emb in zip(methods, embeddings)}
+    features = {'angle': true_angles}
+    feature_names = {'angle': 'True head direction (rad)'}
+    
+    # Create embedding comparison using visual utility
+    fig1 = plot_embedding_comparison(
+        embeddings=embeddings_dict,
+        features=features,
+        feature_names=feature_names,
+        with_trajectory=False,
+        compute_metrics=True,
+        figsize=(15, 5),
+        save_path='circular_manifold_extraction.png',
+        dpi=DEFAULT_DPI
+    )
+    
+    # Keep the custom reconstruction analysis
+    fig2 = visualize_manifold_extraction(embeddings, true_angles, methods)
+    plt.savefig('circular_manifold_reconstruction.png', dpi=DEFAULT_DPI, bbox_inches='tight')
     
     # Additional analysis: temporal continuity
     print("\n6. Analyzing temporal continuity of extracted manifolds...")
-    fig2, axes = plt.subplots(1, len(methods), figsize=(5*len(methods), 4))
+    from driada.utils.visual import plot_trajectories
     
-    if len(methods) == 1:
-        axes = [axes]
+    # Use only first 1000 timepoints for trajectory visualization
+    traj_len = min(1000, embeddings[0].shape[0])
+    trajectories_dict = {method: emb[:traj_len] for method, emb in zip(methods, embeddings)}
     
-    for i, (embedding, method) in enumerate(zip(embeddings, methods)):
-        # Plot trajectory in embedding space
-        ax = axes[i]
-        
-        # Show first 1000 timepoints as trajectory
-        traj_len = min(1000, embedding.shape[0])
-        points = embedding[:traj_len]
-        
-        # Create line segments colored by time
-        for j in range(traj_len - 1):
-            ax.plot(points[j:j+2, 0], points[j:j+2, 1], 
-                   color=plt.cm.viridis(j/traj_len), alpha=0.5)
-        
-        ax.set_title(f'{method} Trajectory')
-        ax.set_xlabel('Component 1')
-        ax.set_ylabel('Component 2')
-        ax.set_aspect('equal')
-    
-    plt.tight_layout()
-    plt.savefig('circular_manifold_trajectories.png', dpi=150, bbox_inches='tight')
+    fig3 = plot_trajectories(
+        embeddings=trajectories_dict,
+        trajectory_kwargs={
+            'arrow_spacing': 50,
+            'linewidth': 0.5,
+            'alpha': 0.5
+        },
+        figsize=(15, 5),
+        save_path='circular_manifold_trajectories.png',
+        dpi=DEFAULT_DPI
+    )
     
     # Summary statistics
     print("\n7. Summary of manifold extraction quality:")
@@ -365,6 +377,7 @@ def main():
     print("\nResults saved to:")
     print("- circular_manifold_eigenspectrum.png")
     print("- circular_manifold_extraction.png")
+    print("- circular_manifold_reconstruction.png")
     print("- circular_manifold_trajectories.png")
     
     plt.show()

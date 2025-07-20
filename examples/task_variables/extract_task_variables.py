@@ -445,30 +445,27 @@ def visualize_results(exp, embeddings, selectivity_results, correlations, ds=5):
     ds : int
         Downsampling factor used
     """
-    # Create figure 1: Embeddings
-    fig1 = plt.figure(figsize=(15, 5))
+    from driada.utils.visual import plot_embedding_comparison, DEFAULT_DPI
     
-    for i, (method_name, embedding) in enumerate(embeddings.items()):
-        ax = fig1.add_subplot(1, 3, i+1)
-        
-        if 'position_2d' in exp.dynamic_features:
-            pos_data = exp.dynamic_features['position_2d'].data[:, ::ds]
-            pos_x = pos_data[0]
-            pos_y = pos_data[1]
-            colors = np.arctan2(pos_y - 0.5, pos_x - 0.5)
-            scatter = ax.scatter(embedding[:, 0], embedding[:, 1], 
-                               c=colors, cmap='hsv', alpha=0.6, s=20)
-            cbar = plt.colorbar(scatter, ax=ax, label='Position angle', fraction=0.046, pad=0.04)
-            cbar.ax.tick_params(labelsize=8)
-        else:
-            ax.scatter(embedding[:, 0], embedding[:, 1], alpha=0.6, s=20)
-        
-        ax.set_xlabel('Dim 1')
-        ax.set_ylabel('Dim 2')
-        ax.set_title(f'{method_name.upper()} embedding')
+    # Create figure 1: Embeddings using visual utility
+    # Prepare features for coloring
+    features = {}
+    if 'position_2d' in exp.dynamic_features:
+        pos_data = exp.dynamic_features['position_2d'].data[:, ::ds]
+        pos_x = pos_data[0]
+        pos_y = pos_data[1]
+        features['angle'] = np.arctan2(pos_y - 0.5, pos_x - 0.5)
     
-    plt.tight_layout()
-    plt.savefig('task_variable_embeddings.png', dpi=150, bbox_inches='tight')
+    fig1 = plot_embedding_comparison(
+        embeddings=embeddings,
+        features=features,
+        feature_names={'angle': 'Position angle'},
+        with_trajectory=False,  # Simple visualization without trajectory
+        compute_metrics=False,  # No density contours needed
+        figsize=(15, 5),
+        save_path='task_variable_embeddings.png',
+        dpi=DEFAULT_DPI
+    )
     plt.show()
     
     # Create figure 2: Metrics comparison

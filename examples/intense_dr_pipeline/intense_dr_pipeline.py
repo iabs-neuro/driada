@@ -571,59 +571,71 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
     # 6. Visualize results
     if enable_visualizations:
         print("\n5. Creating visualizations...")
+        from driada.utils.visual import plot_embeddings_grid, DEFAULT_DPI
         
-        fig = plt.figure(figsize=(18, 14))
-        
-        # Add filter info to title if filtering is applied
-        main_title = 'INTENSE-Guided DR: Benefit of Spatial Neuron Selection'
-        if filter_method != 'none':
-            main_title += f'\n(Filtered with {filter_method} method)'
-        fig.suptitle(main_title, fontsize=14)
-    
-        # Plot true trajectory
-        ax1 = plt.subplot(3, 4, 1)
-        ax1.scatter(true_positions[:, 0], true_positions[:, 1], c=np.arange(len(true_positions)), 
-                    cmap='viridis', s=1, alpha=0.5)
-        ax1.set_title('True 2D Trajectory')
-        ax1.set_xlabel('X position')
-        ax1.set_ylabel('Y position')
-        ax1.set_aspect('equal')
-        
-        # Plot embeddings for key scenarios
-        plot_idx = 2
-        key_scenarios = ["All neurons", "Spatial neurons", "Random half", "Non-selective"]
-        
+        # Prepare embeddings for grid plot
+        grid_embeddings = {}
+        grid_metrics = {}
         for method_name in dr_methods.keys():
-            for scenario in key_scenarios[:3]:  # Plot first 3 scenarios
+            grid_embeddings[method_name] = {}
+            grid_metrics[method_name] = {}
+            for scenario in ["All neurons", "Spatial neurons", "Random half", "Non-selective"]:
                 if scenario in results[method_name] and results[method_name][scenario]:
-                    ax = plt.subplot(3, 4, plot_idx)
-                    embedding = results[method_name][scenario]['embedding']
-                    r2 = results[method_name][scenario]['metrics']['spatial_decoding_r2_avg']
-                    ax.scatter(embedding[:, 0], embedding[:, 1], c=np.arange(len(embedding)), 
-                              cmap='viridis', s=1, alpha=0.5)
-                    ax.set_title(f'{method_name} - {scenario.split("(")[0].strip()}\nR²={r2:.3f}')
-                    ax.set_xlabel('Component 1')
-                    ax.set_ylabel('Component 2')
-                    plot_idx += 1
+                    grid_embeddings[method_name][scenario] = results[method_name][scenario]['embedding']
+                    grid_metrics[method_name][scenario] = {
+                        'R²': results[method_name][scenario]['metrics']['spatial_decoding_r2_avg']
+                    }
         
+        # Create labels for coloring (time/trajectory position)
+        labels = np.arange(len(true_positions))
         
-        # Plot neuron selectivity summary
-        ax_summary = plt.subplot(3, 2, 6)
-        categories = ['Spatial\n(position_2d)', 'Spatial\n(x_position)', 'Spatial\n(y_position)', 'Non-spatial']
-        counts = [len(sig_neurons_2d), len(sig_neurons_x), len(sig_neurons_y), exp.n_cells - len(spatial_neurons)]
-        colors = ['darkgreen', 'green', 'lightgreen', 'gray']
+        # Plot embeddings grid
+        title = 'INTENSE-Guided DR: Benefit of Spatial Neuron Selection'
+        if filter_method != 'none':
+            title += f'\n(Filtered with {filter_method} method)'
         
-        ax_summary.bar(categories, counts, color=colors, alpha=0.7)
-        ax_summary.set_ylabel('Number of neurons')
-        ax_summary.set_title('Neuron Selectivity Categories')
+        fig1 = plot_embeddings_grid(
+            embeddings=grid_embeddings,
+            labels=labels,
+            metrics=grid_metrics,
+            colormap='viridis',
+            figsize=(18, 12),
+            n_cols=4,
+            save_path='intense_dr_pipeline_results.png',
+            dpi=DEFAULT_DPI
+        )
         
-        # Add percentage labels
-        for i, (cat, count) in enumerate(zip(categories, counts)):
-            percentage = count / exp.n_cells * 100
-            ax_summary.text(i, count + 1, f'{percentage:.1f}%', ha='center')
+        # Add custom title and true trajectory subplot
+        fig1.suptitle(title, fontsize=14)
         
-        plt.tight_layout()
-        plt.savefig('intense_dr_pipeline_results.png', dpi=150, bbox_inches='tight')
+        # Find an empty subplot position to add true trajectory
+        ax_true = fig1.add_subplot(3, 4, 1)
+        ax_true.scatter(true_positions[:, 0], true_positions[:, 1], c=labels, 
+                       cmap='viridis', s=1, alpha=0.5)
+        ax_true.set_title('True 2D Trajectory')
+        ax_true.set_xlabel('X position')
+        ax_true.set_ylabel('Y position')
+        ax_true.set_aspect('equal')
+        
+        plt.show()
+        
+        # Create neuron selectivity summary using visual utility
+        from driada.utils.visual import plot_neuron_selectivity_summary
+        
+        selectivity_counts = {
+            'Spatial\n(position_2d)': len(sig_neurons_2d),
+            'Spatial\n(x_position)': len(sig_neurons_x),
+            'Spatial\n(y_position)': len(sig_neurons_y),
+            'Non-spatial': exp.n_cells - len(spatial_neurons)
+        }
+        
+        fig_summary = plot_neuron_selectivity_summary(
+            selectivity_counts=selectivity_counts,
+            total_neurons=exp.n_cells,
+            figsize=(8, 6),
+            save_path='intense_dr_neuron_selectivity.png',
+            dpi=DEFAULT_DPI
+        )
         plt.show()
         
         # 6. Create quality metrics comparison figure

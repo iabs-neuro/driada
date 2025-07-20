@@ -183,41 +183,36 @@ def apply_dimensionality_reduction(neural_data, true_positions, n_neighbors=30):
 
 def visualize_embeddings(embeddings, true_positions, metrics):
     """Visualize DR embeddings colored by true position."""
-    n_methods = len(embeddings)
-    
-    # Create figure with more space for colorbar
-    fig = plt.figure(figsize=(6*n_methods + 2, 12))
+    from driada.utils.visual import plot_embedding_comparison, plot_trajectories, DEFAULT_DPI
     
     # Use position magnitude for coloring
     position_color = np.sqrt(true_positions[:, 0]**2 + true_positions[:, 1]**2)
     
-    # Create a grid for subplots with space for colorbar
-    gs = fig.add_gridspec(2, n_methods + 1, width_ratios=[1]*n_methods + [0.05], 
-                          hspace=0.3, wspace=0.3, left=0.08, right=0.85, 
-                          top=0.92, bottom=0.08)
+    # Create features dict for visual utility
+    features = {
+        'position_magnitude': position_color
+    }
+    feature_names = {
+        'position_magnitude': 'Distance from origin'
+    }
     
-    axes = []
-    for i in range(2):
-        row_axes = []
-        for j in range(n_methods):
-            ax = fig.add_subplot(gs[i, j])
-            row_axes.append(ax)
-        axes.append(row_axes)
+    # Create embedding comparison using visual utility
+    fig1 = plot_embedding_comparison(
+        embeddings=embeddings,
+        features=features,
+        feature_names=feature_names,
+        with_trajectory=True,
+        compute_metrics=True,
+        figsize=(18, 15),
+        dpi=DEFAULT_DPI
+    )
     
-    # Add colorbar axis
-    cbar_ax = fig.add_subplot(gs[:, -1])
-    
-    scatter = None  # Will store the last scatter plot for colorbar
-    
-    for i, (method, embedding) in enumerate(embeddings.items()):
-        # Plot embedding
-        ax = axes[0][i]
-        scatter = ax.scatter(embedding[:, 0], embedding[:, 1], 
-                           c=position_color, cmap='viridis',
-                           s=20, alpha=0.6)
-        ax.set_title(f'{method} Embedding', fontsize=14, pad=20)
-        ax.set_xlabel('Component 1', fontsize=12)
-        ax.set_ylabel('Component 2', fontsize=12)
+    # Add metrics text to each subplot
+    # This is custom to this example, so we'll modify the figure
+    method_list = list(embeddings.keys())
+    for i, method in enumerate(method_list):
+        # Find the first row subplot for this method
+        ax = fig1.axes[i]  # First row axes
         
         # Add metrics text
         metric_text = f"k-NN: {metrics[method]['knn_preservation']:.3f}\n"
@@ -229,28 +224,8 @@ def visualize_embeddings(embeddings, true_positions, metrics):
         ax.text(0.02, 0.98, metric_text, transform=ax.transAxes,
                 verticalalignment='top', fontsize=9,
                 bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.9))
-        
-        # Plot trajectory segment
-        ax = axes[1][i]
-        traj_len = 500
-        traj_embedding = embedding[:traj_len]
-        
-        # Create trajectory colored by time
-        for j in range(traj_len - 1):
-            ax.plot(traj_embedding[j:j+2, 0], traj_embedding[j:j+2, 1],
-                   color=plt.cm.plasma(j/traj_len), alpha=0.7)
-        
-        ax.set_title(f'{method} Trajectory', fontsize=14, pad=20)
-        ax.set_xlabel('Component 1', fontsize=12)
-        ax.set_ylabel('Component 2', fontsize=12)
-        ax.set_aspect('equal')
     
-    # Add colorbar in the dedicated space
-    if scatter is not None:
-        cbar = fig.colorbar(scatter, cax=cbar_ax, label='Distance from origin')
-        cbar.ax.tick_params(labelsize=10)
-    
-    return fig
+    return fig1
 
 
 def test_noise_robustness(neural_data, true_positions, noise_levels):

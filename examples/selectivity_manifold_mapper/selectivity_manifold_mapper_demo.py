@@ -56,9 +56,14 @@ def parse_arguments():
         help="Save generated plots to files"
     )
     parser.add_argument(
+        "--no-viz",
+        action="store_true",
+        help="Skip visualization generation for faster execution"
+    )
+    parser.add_argument(
         "--methods",
         type=str,
-        default="pca,umap,isomap",
+        default="pca,umap,le",  # Changed from isomap to le
         help="Comma-separated list of DR methods to use"
     )
     return parser.parse_args()
@@ -94,20 +99,19 @@ def generate_rich_synthetic_data(quick_mode: bool = False):
         duration = 600  # 10 minutes
         print("Full mode: 500 neurons, 10 minutes")
     
-    # Generate mixed population with 2D spatial manifold
+    # Generate mixed population with circular manifold (head direction cells)
     exp, info = generate_mixed_population_exp(
         n_neurons=n_neurons,
-        manifold_type='2d_spatial',
-        manifold_fraction=0.6,  # 60% place cells
-        n_discrete_features=1,   # Reward feature
-        n_continuous_features=2, # Speed and head direction
+        manifold_type='circular',
+        manifold_fraction=0.6,  # 60% head direction cells
+        n_discrete_features=1,   # Task/trial type feature
+        n_continuous_features=2, # Speed and reward magnitude
         duration=duration,
         fps=20.0,
-        correlation_mode='spatial_correlated',
+        correlation_mode='independent',  # Features NOT correlated with head direction
         seed=42,
         manifold_params={
-            'grid_arrangement': True,
-            'field_sigma': 0.15,
+            'kappa': 2.0,  # Von Mises concentration parameter
             'noise_std': 0.05,
             'baseline_rate': 0.1,
             'peak_rate': 1.0,  # Realistic firing rate
@@ -130,16 +134,18 @@ def generate_rich_synthetic_data(quick_mode: bool = False):
     
     # Rename features for clarity
     feature_mapping = {
-        'd_feat_0': 'reward',
+        'd_feat_0': 'task_type',
         'c_feat_0': 'speed',
-        'c_feat_1': 'head_direction'
+        'c_feat_1': 'reward_magnitude'
     }
     
     print(f"\nGenerated {exp.n_cells} neurons:")
-    print(f"  - Pure manifold cells: ~{int(exp.n_cells * 0.6)}")
+    print(f"  - Pure head direction cells: ~{int(exp.n_cells * 0.6)}")
     print(f"  - Feature-selective cells: ~{int(exp.n_cells * 0.4)}")
     print(f"  - Expected mixed selectivity: ~{int(exp.n_cells * 0.4 * 0.6)}")
     print(f"  - Recording duration: {duration}s at 20 Hz")
+    print(f"  - Manifold type: Circular (head direction)")
+    print(f"  - Features: Independent of head direction")
     
     return exp, info
 
@@ -175,13 +181,13 @@ def run_intense_analysis(exp, quick_mode: bool = False):
         print("Full mode: 100/2000 shuffles")
     
     # Analyze all behavioral features
-    features_to_analyze = ['position_2d', 'c_feat_0', 'c_feat_1', 'd_feat_0']
+    features_to_analyze = ['circular_position', 'c_feat_0', 'c_feat_1', 'd_feat_0']
     available_features = [f for f in features_to_analyze if f in exp.dynamic_features]
     
     print(f"Analyzing {exp.n_cells} neurons × {len(available_features)} features")
     
     # Skip delays for MultiTimeSeries features
-    skip_delays = {'position_2d': True}
+    skip_delays = {'circular_position': True} if 'circular_position' in available_features else {}
     
     # Run INTENSE analysis
     start_time = time.time()
@@ -265,9 +271,9 @@ def create_embeddings_and_analyze(exp, methods: List[str], quick_mode: bool = Fa
         n_shuffles = 500
         print("Quick mode: 5 components, 500 shuffles")
     else:
-        n_components = 10
+        n_components = 5
         n_shuffles = 1000
-        print("Full mode: 10 components, 1000 shuffles")
+        print("Full mode: 5 components, 1000 shuffles")
     
     # Create embeddings for each method
     for method in methods:
@@ -277,7 +283,20 @@ def create_embeddings_and_analyze(exp, methods: List[str], quick_mode: bool = Fa
         if method == 'pca':
             dr_kwargs = {}
         elif method == 'umap':
-            dr_kwargs = {'n_neighbors': 30}  # min_dist is handled internally
+            # For circular manifolds, UMAP needs specific tuning
+            dr_kwargs = {
+                'n_neighbors': 30,  # Reduced for tighter local structure
+                'min_dist': 0.8,    # Balanced for circular preservation
+                'metric': 'euclidean',
+                'n_epochs': 500,    # More epochs for better convergence
+                'init': 'spectral', # Better initialization for manifolds
+                'spread': 1.0       # Standard spread
+            }
+        elif method == 'le':
+            # Laplacian Eigenmaps for circular manifolds
+            dr_kwargs = {
+                'n_neighbors': 40,  # Smaller neighborhood for circular structure
+            }
         elif method == 'isomap':
             dr_kwargs = {'n_neighbors': 30}
         else:
@@ -322,7 +341,7 @@ def create_embeddings_and_analyze(exp, methods: List[str], quick_mode: bool = Fa
         n_shuffles_stage1=50,
         n_shuffles_stage2=n_shuffles,
         metric_distr_type='norm',
-        pval_thr=0.05,  # More lenient for components
+        pval_thr=0.01,  # More lenient for components
         multicomp_correction=None,  # No correction for exploratory analysis
         find_optimal_delays=False,  # Components are instantaneous
         verbose=True,
@@ -373,13 +392,16 @@ def visualize_results(exp, mapper, embedding_results, methods: List[str], save_p
     # 1. Embedding comparison figure
     create_embedding_comparison_figure(exp, methods, save_plots)
     
-    # 2. Component selectivity heatmap
+    # 2. Separate trajectory visualization
+    create_trajectory_figure(exp, methods, save_plots)
+    
+    # 3. Component selectivity heatmap
     create_component_selectivity_heatmap(exp, embedding_results, save_plots)
     
-    # 3. Functional organization analysis
+    # 4. Functional organization analysis
     create_functional_organization_figure(exp, mapper, embedding_results, save_plots)
     
-    # 4. Component interpretation figure
+    # 5. Component interpretation figure
     create_component_interpretation_figure(exp, embedding_results, save_plots)
     
     plt.show()
@@ -387,66 +409,64 @@ def visualize_results(exp, mapper, embedding_results, methods: List[str], save_p
 
 def create_embedding_comparison_figure(exp, methods: List[str], save_plots: bool = False):
     """Create figure comparing embeddings colored by behavioral features."""
-    n_methods = len(methods)
-    fig = plt.figure(figsize=(5*n_methods, 10))
-    gs = gridspec.GridSpec(2, n_methods, hspace=0.3, wspace=0.3)
+    from driada.utils.visual import plot_embedding_comparison
     
-    # Get behavioral data - no downsampling needed, embeddings are full length
-    if 'position_2d' in exp.dynamic_features:
+    # Prepare embeddings dict
+    embeddings = {}
+    for method in methods:
+        embedding_dict = exp.get_embedding(method, 'calcium')
+        if embedding_dict is not None:
+            embeddings[method] = embedding_dict['data']
+    
+    # Get behavioral data
+    features = {}
+    if 'circular_position' in exp.dynamic_features:
+        features['angle'] = exp.dynamic_features['circular_position'].data
+    elif 'position_2d' in exp.dynamic_features:
         positions = exp.dynamic_features['position_2d'].data.T
-        pos_angle = np.arctan2(positions[:, 1] - 0.5, positions[:, 0] - 0.5)
-    else:
-        pos_angle = None
+        features['angle'] = np.arctan2(positions[:, 1] - 0.5, positions[:, 0] - 0.5)
     
     if 'c_feat_0' in exp.dynamic_features:
-        speed = exp.dynamic_features['c_feat_0'].data
-    else:
-        speed = None
+        features['speed'] = exp.dynamic_features['c_feat_0'].data
     
-    for i, method in enumerate(methods):
-        # Get embedding
-        embedding_dict = exp.get_embedding(method, 'calcium')
-        if embedding_dict is None:
-            continue
-        
-        embedding = embedding_dict['data']
-        
-        # Plot colored by position angle
-        ax1 = fig.add_subplot(gs[0, i])
-        if pos_angle is not None:
-            # Normalize angle to [0, 1] for color mapping
-            angle_norm = (pos_angle + np.pi) / (2 * np.pi)
-            scatter = ax1.scatter(embedding[:, 0], embedding[:, 1], 
-                                c=angle_norm, cmap='hsv', alpha=0.6, s=1, vmin=0, vmax=1)
-            cbar = plt.colorbar(scatter, ax=ax1, label='Position angle')
-            # Set colorbar ticks to show actual angles
-            cbar.set_ticks([0, 0.25, 0.5, 0.75, 1])
-            cbar.set_ticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
-        else:
-            ax1.scatter(embedding[:, 0], embedding[:, 1], alpha=0.6, s=1)
-        
-        ax1.set_xlabel('Component 0')
-        ax1.set_ylabel('Component 1')
-        ax1.set_title(f'{method.upper()} - Spatial structure')
-        
-        # Plot colored by speed
-        ax2 = fig.add_subplot(gs[1, i])
-        if speed is not None:
-            scatter = ax2.scatter(embedding[:, 0], embedding[:, 1], 
-                                c=speed, cmap='viridis', alpha=0.6, s=1)
-            plt.colorbar(scatter, ax=ax2, label='Speed')
-        else:
-            ax2.scatter(embedding[:, 0], embedding[:, 1], alpha=0.6, s=1)
-        
-        ax2.set_xlabel('Component 0')
-        ax2.set_ylabel('Component 1')
-        ax2.set_title(f'{method.upper()} - Speed modulation')
-    
-    plt.suptitle('Population Embeddings Colored by Behavioral Features', fontsize=16)
+    # Create figure using visual utility
+    fig = plot_embedding_comparison(
+        embeddings=embeddings,
+        features=features,
+        methods=methods,
+        with_trajectory=True,
+        compute_metrics=True,
+        save_path='selectivity_mapper_embeddings.png' if save_plots else None
+    )
     
     if save_plots:
-        plt.savefig('selectivity_mapper_embeddings.png', dpi=150, bbox_inches='tight')
         print("Saved: selectivity_mapper_embeddings.png")
+    
+    return fig
+
+
+def create_trajectory_figure(exp, methods: List[str], save_plots: bool = False):
+    """Create separate figure showing trajectories in embedding space."""
+    from driada.utils.visual import plot_trajectories
+    
+    # Prepare embeddings dict
+    embeddings = {}
+    for method in methods:
+        embedding_dict = exp.get_embedding(method, 'calcium')
+        if embedding_dict is not None:
+            embeddings[method] = embedding_dict['data']
+    
+    # Create figure using visual utility
+    fig = plot_trajectories(
+        embeddings=embeddings,
+        methods=methods,
+        save_path='selectivity_mapper_trajectories.png' if save_plots else None
+    )
+    
+    if save_plots:
+        print("Saved: selectivity_mapper_trajectories.png")
+    
+    return fig
 
 
 def create_component_selectivity_heatmap(exp, embedding_results: Dict, save_plots: bool = False):
@@ -469,22 +489,28 @@ def create_component_selectivity_heatmap(exp, embedding_results: Dict, save_plot
         selectivity_matrix = np.zeros((n_neurons, n_components))
         
         # Fill in MI values for significant pairs
-        for feat_name, feat_stats in results['stats'].items():
-            # Check if this is a component feature
-            if isinstance(feat_name, str) and feat_name.startswith(f"{method}_comp"):
-                comp_idx = int(feat_name.split('_comp')[-1])
-                
-                for neuron_id, stats in feat_stats.items():
+        # Note: stats structure is stats[neuron_id][feat_name]
+        for neuron_id, neuron_stats in results['stats'].items():
+            for feat_name, stats in neuron_stats.items():
+                # Check if this is a component feature
+                if isinstance(feat_name, str) and feat_name.startswith(f"{method}_comp"):
+                    comp_idx = int(feat_name.split('_comp')[-1])
+                    
                     if stats.get('me') is not None:
-                        # Check if significant
-                        if feat_name in results['significance'] and \
-                           neuron_id in results['significance'][feat_name] and \
-                           results['significance'][feat_name][neuron_id].get('stage2', False):
+                        # Check if significant (correct significance structure)
+                        if neuron_id in results['significance'] and \
+                           feat_name in results['significance'][neuron_id] and \
+                           results['significance'][neuron_id][feat_name].get('stage2', False):
                             selectivity_matrix[neuron_id, comp_idx] = stats['me']
         
-        # Plot heatmap
-        im = ax.imshow(selectivity_matrix.T, aspect='auto', cmap='hot', 
-                      interpolation='nearest')
+        # Plot heatmap with proper scaling
+        max_val = np.max(selectivity_matrix)
+        if max_val > 0:
+            im = ax.imshow(selectivity_matrix.T, aspect='auto', cmap='hot', 
+                          interpolation='nearest', vmin=0, vmax=max_val)
+        else:
+            im = ax.imshow(selectivity_matrix.T, aspect='auto', cmap='hot', 
+                          interpolation='nearest')
         ax.set_xlabel('Neuron ID')
         ax.set_ylabel('Component')
         ax.set_title(f'{method.upper()} Component Selectivity')
@@ -558,94 +584,94 @@ def create_functional_organization_figure(exp, mapper, embedding_results: Dict, 
 
 
 def create_component_interpretation_figure(exp, embedding_results: Dict, save_plots: bool = False):
-    """Visualize how components relate to behavioral features."""
-    # Focus on PCA for interpretability
-    if 'pca' not in embedding_results:
-        print("PCA not found in results, skipping component interpretation")
+    """Visualize how components relate to behavioral features using MI values."""
+    from driada.utils.visual import plot_component_interpretation
+    from driada.information.info_base import get_sim, TimeSeries
+    
+    # Get list of available methods
+    available_methods = [method for method in embedding_results.keys() 
+                        if method in ['pca', 'umap', 'le'] and embedding_results[method] is not None]
+    
+    if not available_methods:
+        print("No DR methods found in results, skipping component interpretation")
         return
     
-    pca_results = embedding_results['pca']
-    
-    # Create correlation matrix between components and features
-    embedding_dict = exp.get_embedding('pca', 'calcium')
-    pca_embedding = embedding_dict['data']
-    
-    # Get behavioral features
-    features_data = {}
+    # Get behavioral feature names and keys
     feature_names = []
-    
-    if 'position_2d' in exp.dynamic_features:
-        pos_data = exp.dynamic_features['position_2d'].data
-        features_data['X position'] = pos_data[0]
-        features_data['Y position'] = pos_data[1]
-        feature_names.extend(['X position', 'Y position'])
+    feature_keys = []
     
     if 'c_feat_0' in exp.dynamic_features:
-        features_data['Speed'] = exp.dynamic_features['c_feat_0'].data
         feature_names.append('Speed')
+        feature_keys.append('c_feat_0')
     
     if 'c_feat_1' in exp.dynamic_features:
-        features_data['Head direction'] = exp.dynamic_features['c_feat_1'].data
-        feature_names.append('Head direction')
+        feature_names.append('Reward magnitude')
+        feature_keys.append('c_feat_1')
     
     if 'd_feat_0' in exp.dynamic_features:
-        features_data['Reward'] = exp.dynamic_features['d_feat_0'].data.astype(float)
-        feature_names.append('Reward')
+        feature_names.append('Task type')
+        feature_keys.append('d_feat_0')
     
-    # Compute correlations
-    n_components = min(5, pca_embedding.shape[1])  # Show top 5 components
-    correlation_matrix = np.zeros((len(feature_names), n_components))
+    # Prepare MI matrices and metadata
+    mi_matrices = {}
+    metadata = {}
     
-    for i, feat_name in enumerate(feature_names):
-        for j in range(n_components):
-            correlation_matrix[i, j] = np.corrcoef(features_data[feat_name], 
-                                                  pca_embedding[:, j])[0, 1]
+    ds = 5  # Same as used in INTENSE analysis
     
-    # Create figure
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    for method in available_methods:
+        try:
+            embedding_dict = exp.get_embedding(method, 'calcium')
+            embedding = embedding_dict['data']
+            
+            # Compute MI between components and behavioral features
+            n_components = min(5, embedding_results[method]['n_components'])
+            mi_matrix = np.zeros((len(feature_keys), n_components))
+            
+            for comp_idx in range(n_components):
+                comp_data = embedding[:, comp_idx]
+                
+                for feat_idx, feat_key in enumerate(feature_keys):
+                    try:
+                        feat_data = exp.dynamic_features[feat_key].data
+                        is_discrete = exp.dynamic_features[feat_key].discrete
+                        
+                        # Create TimeSeries objects
+                        comp_ts = TimeSeries(comp_data, discrete=False)
+                        feat_ts = TimeSeries(feat_data, discrete=is_discrete)
+                        
+                        # Compute MI
+                        mi = get_sim(comp_ts, feat_ts, metric='mi', 
+                                   shift=0, ds=ds, k=5, estimator='gcmi')
+                        
+                        mi_matrix[feat_idx, comp_idx] = mi
+                        
+                    except Exception as e:
+                        print(f"Error computing MI for {method} comp{comp_idx} vs {feat_key}: {e}")
+                        mi_matrix[feat_idx, comp_idx] = 0
+            
+            mi_matrices[method] = mi_matrix
+            
+            # Add metadata if available
+            if method == 'pca' and 'metadata' in embedding_dict:
+                metadata[method] = embedding_dict['metadata']
+                
+        except Exception as e:
+            print(f"Failed to process {method}: {e}")
+            continue
     
-    # Correlation heatmap
-    im = ax1.imshow(correlation_matrix, aspect='auto', cmap='RdBu_r', 
-                   vmin=-1, vmax=1)
-    ax1.set_xticks(range(n_components))
-    ax1.set_xticklabels([f'PC{i}' for i in range(n_components)])
-    ax1.set_yticks(range(len(feature_names)))
-    ax1.set_yticklabels(feature_names)
-    ax1.set_xlabel('Principal Components')
-    ax1.set_title('Component-Feature Correlations')
-    
-    # Add correlation values
-    for i in range(len(feature_names)):
-        for j in range(n_components):
-            text = ax1.text(j, i, f'{correlation_matrix[i, j]:.2f}',
-                           ha="center", va="center", color="black" if abs(correlation_matrix[i, j]) < 0.5 else "white")
-    
-    plt.colorbar(im, ax=ax1, label='Correlation')
-    
-    # Explained variance for PCA
-    if 'metadata' in embedding_dict and 'explained_variance_ratio' in embedding_dict['metadata']:
-        var_exp = embedding_dict['metadata']['explained_variance_ratio'][:n_components]
-        ax2.bar(range(n_components), var_exp * 100)
-        ax2.set_xlabel('Principal Component')
-        ax2.set_ylabel('Explained Variance (%)')
-        ax2.set_title('PCA Explained Variance')
-        ax2.set_xticks(range(n_components))
-        ax2.set_xticklabels([f'PC{i}' for i in range(n_components)])
-        
-        # Add cumulative variance
-        cum_var = np.cumsum(var_exp) * 100
-        ax2_twin = ax2.twinx()
-        ax2_twin.plot(range(n_components), cum_var, 'ro-', label='Cumulative')
-        ax2_twin.set_ylabel('Cumulative Variance (%)')
-        ax2_twin.set_ylim(0, 100)
-        ax2_twin.legend()
-    
-    plt.suptitle('Component Interpretation: Relating Embeddings to Behavior', fontsize=16)
-    plt.tight_layout()
+    # Create figure using visual utility
+    fig = plot_component_interpretation(
+        mi_matrices=mi_matrices,
+        feature_names=feature_names,
+        metadata=metadata,
+        n_components=5,
+        save_path='selectivity_mapper_component_interpretation.png' if save_plots else None
+    )
     
     if save_plots:
-        plt.savefig('selectivity_mapper_component_interpretation.png', dpi=150, bbox_inches='tight')
         print("Saved: selectivity_mapper_component_interpretation.png")
+    
+    return fig
 
 
 def main():
@@ -682,8 +708,9 @@ def main():
     # Step 3: Create embeddings and analyze component selectivity
     mapper, embedding_results = create_embeddings_and_analyze(exp, valid_methods, args.quick)
     
-    # Step 4: Create visualizations
-    visualize_results(exp, mapper, embedding_results, valid_methods, args.save_plots)
+    # Step 4: Create visualizations (unless disabled)
+    if not args.no_viz:
+        visualize_results(exp, mapper, embedding_results, valid_methods, args.save_plots)
     
     print("\n" + "="*70)
     print("DEMONSTRATION COMPLETE")

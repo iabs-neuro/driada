@@ -1056,10 +1056,12 @@ def compute_embedding_selectivity(exp,
             )
             
             # Extract significant neurons from the significance results
+            # Note: significance structure is significance[neuron_id][feat_name]
             significant_neurons = {}
-            for feat_name in embedding_features.keys():
-                if feat_name in significance:
-                    for neuron_id, sig_info in significance[feat_name].items():
+            for neuron_id in significance.keys():
+                for feat_name in embedding_features.keys():
+                    if feat_name in significance[neuron_id]:
+                        sig_info = significance[neuron_id][feat_name]
                         if sig_info.get('stage2', False):  # Check if significant in stage 2
                             if neuron_id not in significant_neurons:
                                 significant_neurons[neuron_id] = []
