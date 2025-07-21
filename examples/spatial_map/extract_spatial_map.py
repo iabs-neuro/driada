@@ -346,7 +346,7 @@ def main():
     )
     
     # Extract data
-    neural_data = exp.calcium  # Shape: (n_neurons, n_timepoints)
+    neural_data = exp.calcium.data  # Shape: (n_neurons, n_timepoints)
     positions = info['positions']  # True positions
     place_centers = info['place_field_centers']
     

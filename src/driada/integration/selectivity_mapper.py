@@ -12,7 +12,7 @@ from scipy import stats
 from sklearn.decomposition import PCA
 
 from ..experiment import Experiment
-from .data import MVData
+from ..dim_reduction.data import MVData
 from ..intense.pipelines import compute_embedding_selectivity
 
 

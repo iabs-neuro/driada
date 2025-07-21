@@ -7,10 +7,9 @@ from sklearn.datasets import make_swiss_roll, make_s_curve, make_circles
 import numpy as np
 import pytest
 import time
-from src.driada.dim_reduction.data import MVData
-from src.driada.dim_reduction.dr_base import METHODS_DICT
-from src.driada.experiment import Experiment
-from src.driada.experiment.synthetic import (
+from driada.dim_reduction.data import MVData
+from driada.experiment import Experiment
+from driada.experiment.synthetic import (
     generate_synthetic_exp, 
     generate_circular_manifold_exp,
     generate_2d_manifold_exp
@@ -38,13 +37,8 @@ def test_mds():
     # MDS requires distance matrix to be set
     D.distmat = D.get_distmat()
     
-    embedding_params = {
-        'e_method_name': 'mds',
-        'dim': 2
-    }
-    
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params)
+    # Use new simplified API
+    emb = D.get_embedding(method='mds', dim=2)
     
     assert emb.coords.shape == (2, 200)
     assert not np.any(np.isnan(emb.coords))
@@ -56,30 +50,12 @@ def test_lle():
     data, _ = create_swiss_roll_data(500)
     D = MVData(data)
     
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-    
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 10,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-    
-    embedding_params = {
-        'e_method_name': 'lle',
-        'dim': 2
-    }
-    
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    # Use new simplified API
     emb = D.get_embedding(
-        embedding_params, 
-        g_params=graph_params, 
-        m_params=metric_params
+        method='lle',
+        dim=2,
+        nn=10,
+        metric='l2'
     )
     
     assert emb.coords.shape == (2, 500)
@@ -107,24 +83,12 @@ def test_hlle():
     }
     
     # HLLE needs more neighbors
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 30,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-    
-    embedding_params = {
-        'e_method_name': 'hlle',
-        'dim': 2
-    }
-    
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
+    # Use new simplified API
     emb = D.get_embedding(
-        embedding_params, 
-        g_params=graph_params, 
-        m_params=metric_params
+        method='hlle',
+        dim=2,
+        nn=30,
+        metric='l2'
     )
     
     assert emb.coords.shape == (2, n_points)
@@ -138,33 +102,14 @@ def test_mvu():
     data = np.random.randn(5, n_points)
     D = MVData(data)
     
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-    
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 10,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-    
-    embedding_params = {
-        'e_method_name': 'mvu',
-        'dim': 2
-    }
-    
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    
     # MVU might not be fully implemented or might fail
     try:
+        # Use new simplified API
         emb = D.get_embedding(
-            embedding_params, 
-            g_params=graph_params, 
-            m_params=metric_params
+            method='mvu',
+            dim=2,
+            nn=10,
+            metric='l2'
         )
         assert emb.coords.shape == (2, n_points)
     except Exception:
@@ -177,25 +122,19 @@ def test_vae():
     data, _ = create_swiss_roll_data(500)
     D = MVData(data)
     
-    embedding_params = {
-        'e_method_name': 'vae',
-        'dim': 2
-    }
-    
-    nn_params = {
-        'continue_learning': 0,
-        'epochs': 50,  # Reduced for testing
-        'lr': 1e-3,
-        'seed': 42,
-        'batch_size': 64,
-        'feature_dropout': 0.2,
-        'verbose': False,
-        'enc_kwargs': {'dropout': 0.2},
-        'dec_kwargs': {'dropout': 0.2}
-    }
-    
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, kwargs=nn_params)
+    # Use new simplified API
+    emb = D.get_embedding(
+        method='vae',
+        dim=2,
+        epochs=50,  # Reduced for testing
+        lr=1e-3,
+        seed=42,
+        batch_size=64,
+        feature_dropout=0.2,
+        verbose=False,
+        enc_kwargs={'dropout': 0.2},
+        dec_kwargs={'dropout': 0.2}
+    )
     
     assert emb.coords.shape == (2, 500)
     assert not np.any(np.isnan(emb.coords))
@@ -206,33 +145,14 @@ def test_dmaps_not_implemented():
     data, _ = create_swiss_roll_data(100)
     D = MVData(data)
     
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-    
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 10,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-    
-    embedding_params = {
-        'e_method_name': 'dmaps',
-        'dim': 2,
-        'dm_alpha': 0.5
-    }
-    
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    
+    # Use new simplified API
     with pytest.raises(Exception) as excinfo:
         emb = D.get_embedding(
-            embedding_params, 
-            g_params=graph_params, 
-            m_params=metric_params
+            method='dmaps',
+            dim=2,
+            dm_alpha=0.5,
+            nn=10,
+            metric='l2'
         )
     assert "not so easy to implement" in str(excinfo.value)
 
@@ -256,13 +176,8 @@ def test_experiment_to_mvdata_pipeline():
     # Create MVData object
     D = MVData(calcium_data)
     
-    # Apply PCA
-    embedding_params = {
-        'e_method_name': 'pca',
-        'dim': 3
-    }
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params)
+    # Apply PCA using new simplified API
+    emb = D.get_embedding(method='pca', dim=3)
     
     assert emb.coords.shape == (3, calcium_data.shape[1])
     assert not np.any(np.isnan(emb.coords))
@@ -283,22 +198,8 @@ def test_circular_manifold_extraction():
     calcium_data = exp.calcium.T
     D = MVData(calcium_data)
     
-    # Apply Isomap (good for manifolds)
-    metric_params = {'metric_name': 'l2', 'sigma': 1, 'p': 2}
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 15,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-    embedding_params = {
-        'e_method_name': 'isomap',
-        'dim': 2
-    }
-    
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    # Apply Isomap (good for manifolds) using new simplified API
+    emb = D.get_embedding(method='isomap', dim=2, nn=15, metric='l2')
     
     # Check embedding quality
     assert emb.coords.shape == (2, calcium_data.shape[1])
@@ -331,23 +232,8 @@ def test_2d_manifold_extraction():
     calcium_data = exp.calcium.T
     D = MVData(calcium_data)
     
-    # Apply UMAP
-    metric_params = {'metric_name': 'l2', 'sigma': 1, 'p': 2}
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 20,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-    embedding_params = {
-        'e_method_name': 'umap',
-        'dim': 2,
-        'min_dist': 0.1
-    }
-    
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    # Apply UMAP using new simplified API
+    emb = D.get_embedding(method='umap', dim=2, nn=20, min_dist=0.1, metric='l2')
     
     # Check embedding
     assert emb.coords.shape == (2, calcium_data.shape[1])
@@ -368,19 +254,13 @@ def test_pca_performance(n_samples, n_features):
     data = np.random.randn(n_features, n_samples)
     D = MVData(data)
     
-    embedding_params = {
-        'e_method_name': 'pca',
-        'dim': min(10, n_features - 1)
-    }
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    
-    # Time the embedding
+    # Time the embedding using new simplified API
     start_time = time.time()
-    emb = D.get_embedding(embedding_params)
+    emb = D.get_embedding(method='pca', dim=min(10, n_features - 1))
     elapsed_time = time.time() - start_time
     
     # Check results
-    assert emb.coords.shape == (embedding_params['dim'], n_samples)
+    assert emb.coords.shape == (min(10, n_features - 1), n_samples)
     
     # Performance assertions (PCA should be fast)
     if n_samples <= 500:
@@ -406,17 +286,12 @@ def test_nonlinear_methods_performance(method_name):
         'dist_to_aff': 'hk'
     }
     
-    embedding_params = {
-        'e_method_name': method_name,
-        'dim': 2
-    }
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    
+    # Use new simplified API
     start_time = time.time()
     if method_name == 'tsne':
-        emb = D.get_embedding(embedding_params)
+        emb = D.get_embedding(method=method_name, dim=2)
     else:
-        emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+        emb = D.get_embedding(method=method_name, dim=2, nn=15, metric='l2')
     elapsed_time = time.time() - start_time
     
     assert emb.coords.shape == (2, n_samples)
@@ -439,14 +314,9 @@ def test_linear_manifold_preservation():
     A = np.random.randn(10, 2)
     data = A @ latent + 0.1 * np.random.randn(10, n_samples)
     
-    # Apply PCA
+    # Apply PCA using new simplified API
     D = MVData(data)
-    embedding_params = {
-        'e_method_name': 'pca',
-        'dim': 2
-    }
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params)
+    emb = D.get_embedding(method='pca', dim=2)
     
     # Check that we recover a 2D representation
     assert emb.coords.shape == (2, n_samples)
@@ -475,13 +345,8 @@ def test_swiss_roll_unfolding():
         'dist_to_aff': 'hk'
     }
     
-    # Apply Isomap - should unfold the roll
-    embedding_params = {
-        'e_method_name': 'isomap',
-        'dim': 2
-    }
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    # Apply Isomap - should unfold the roll using new simplified API
+    emb = D.get_embedding(method='isomap', dim=2, nn=10, metric='l2')
     
     # Use manifold metrics to evaluate preservation
     from src.driada.dim_reduction import knn_preservation_rate, trustworthiness, continuity
@@ -518,13 +383,8 @@ def test_circle_preservation():
     
     D = MVData(data)
     
-    # Test PCA first
-    embedding_params = {
-        'e_method_name': 'pca',
-        'dim': 2
-    }
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params)
+    # Test PCA first using new simplified API
+    emb = D.get_embedding(method='pca', dim=2)
     
     # Use manifold metrics for circular structure
     from src.driada.dim_reduction import circular_structure_preservation, knn_preservation_rate
@@ -587,13 +447,8 @@ def test_small_dataset():
     data = np.random.randn(5, n_points)
     D = MVData(data)
     
-    # Test PCA
-    embedding_params = {
-        'e_method_name': 'pca',
-        'dim': 2
-    }
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params)
+    # Test PCA using new simplified API
+    emb = D.get_embedding(method='pca', dim=2)
     
     assert emb.coords.shape == (2, n_points)
     assert not np.any(np.isnan(emb.coords))
@@ -607,13 +462,8 @@ def test_high_dimensional_data():
     data = np.random.randn(n_features, n_samples)
     D = MVData(data)
     
-    # PCA should handle this
-    embedding_params = {
-        'e_method_name': 'pca',
-        'dim': 10
-    }
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params)
+    # PCA should handle this using new simplified API
+    emb = D.get_embedding(method='pca', dim=10)
     
     assert emb.coords.shape == (10, n_samples)
     assert not np.any(np.isnan(emb.coords))
@@ -628,25 +478,11 @@ def test_linear_vs_nonlinear_on_manifolds():
     data, color = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=42)
     D = MVData(data.T)
     
-    # Common parameters
-    metric_params = {'metric_name': 'l2', 'sigma': 1, 'p': 2}
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 7,  # Fewer neighbors to avoid shortcuts across the roll
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
+    # Apply PCA (linear method) using new simplified API
+    pca_emb = D.get_embedding(method='pca', dim=2)
     
-    # Apply PCA (linear method)
-    pca_params = {'e_method_name': 'pca', 'dim': 2}
-    pca_params['e_method'] = METHODS_DICT[pca_params['e_method_name']]
-    pca_emb = D.get_embedding(pca_params)
-    
-    # Apply Isomap (nonlinear method)
-    iso_params = {'e_method_name': 'isomap', 'dim': 2}
-    iso_params['e_method'] = METHODS_DICT[iso_params['e_method_name']]
-    iso_emb = D.get_embedding(iso_params, g_params=graph_params, m_params=metric_params)
+    # Apply Isomap (nonlinear method) using new simplified API
+    iso_emb = D.get_embedding(method='isomap', dim=2, nn=7, metric='l2')
     
     # Compare preservation scores
     pca_scores = manifold_preservation_score(data, pca_emb.coords.T, k_neighbors=10)

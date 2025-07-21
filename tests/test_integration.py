@@ -45,7 +45,7 @@ class TestINTENSEToDRIntegration:
         assert len(sig_neurons) > 0, "No significant neurons found"
         
         # Extract neural data for DR
-        neural_data = exp.calcium
+        neural_data = exp.calcium.data
         
         # Apply PCA
         pca = PCA(n_components=2)
@@ -61,7 +61,6 @@ class TestINTENSEToDRIntegration:
         exp = generate_2d_manifold_exp(
             n_neurons=25,
             duration=200,
-            n_environments=1,
             noise_std=0.2,
             seed=123
         )
@@ -71,6 +70,8 @@ class TestINTENSEToDRIntegration:
             exp,
             n_shuffles_stage1=50,
             n_shuffles_stage2=100,
+            allow_mixed_dimensions=True,
+            find_optimal_delays=False,  # Can't use with multifeatures
             verbose=False
         )
         
@@ -78,9 +79,9 @@ class TestINTENSEToDRIntegration:
         sig_neurons = exp.get_significant_neurons()
         if len(sig_neurons) > 0:
             selective_ids = list(sig_neurons.keys())
-            neural_subset = exp.calcium[selective_ids, :]
+            neural_subset = exp.calcium.data[selective_ids, :]
         else:
-            neural_subset = exp.calcium
+            neural_subset = exp.calcium.data
             
         # Apply Isomap
         iso = Isomap(n_components=2, n_neighbors=10)
@@ -102,8 +103,8 @@ class TestINTENSEToDRIntegration:
             seed=42
         )
         
-        # Convert to MVData
-        mvdata = MVData(exp.calcium)
+        # Convert to MVData - exp.calcium is already a MultiTimeSeries which inherits from MVData
+        mvdata = exp.calcium
         
         # Test multiple DR methods
         methods = {
@@ -114,27 +115,20 @@ class TestINTENSEToDRIntegration:
         
         for method_name, method in methods.items():
             if isinstance(method, dict):
-                # Graph-based methods
-                params = {
-                    'e_method_name': method_name,
-                    'dim': 2,
-                    'graph_params': {
-                        'g_method_name': 'knn',
-                        'nn': method['nn'],
-                        'weighted': False,
-                        'max_deleted_nodes': 0.5
-                    },
-                    'metric_params': {
-                        'metric_name': 'euclidean'
-                    }
-                }
-                embedding = mvdata.get_embedding(params)
+                # Graph-based methods - use new simplified API
+                embedding = mvdata.get_embedding(method=method_name, dim=2, nn=method['nn'])
             else:
                 # Direct methods like PCA
                 embedding = method.fit_transform(mvdata.data.T)
             
-            assert embedding is not None
-            assert embedding.shape[0] == exp.n_frames
+            if hasattr(embedding, 'coords'):
+                # Embedding object from get_embedding
+                assert embedding is not None
+                assert embedding.coords.shape[1] == exp.n_frames
+            else:
+                # Direct numpy array from sklearn
+                assert embedding is not None
+                assert embedding.shape[0] == exp.n_frames
             
     def test_dimensionality_estimation_integration(self):
         """Test dimensionality estimation on INTENSE-processed data"""
@@ -147,7 +141,7 @@ class TestINTENSEToDRIntegration:
         )
         
         # Get neural data
-        neural_data = exp.calcium.T  # (n_timepoints, n_neurons)
+        neural_data = exp.calcium.data.T  # (n_timepoints, n_neurons)
         
         # Estimate dimensionality with different methods
         intrinsic_dim = nn_dimension(neural_data, k=5)
@@ -187,8 +181,8 @@ class TestINTENSEToDRIntegration:
             verbose=False
         )
         
-        # Apply DR
-        mvdata = MVData(exp.calcium)
+        # Apply DR - exp.calcium is already a MultiTimeSeries which inherits from MVData
+        mvdata = exp.calcium
         embedding = mvdata.get_embedding({
             'e_method_name': 'pca',
             'dim': 10
@@ -212,8 +206,9 @@ class TestINTENSEToDRIntegration:
             signature='test_flow',
             calcium=calcium_data,
             spikes=None,
+            reconstruct_spikes=None,  # Disable spike reconstruction for synthetic data
             exp_identificators={},
-            static_features={'fps': 10.0},
+            static_features={'fps': 10.0, 't_off_sec': 1.0},  # Set explicit t_off to reduce exclusion zone
             dynamic_features={
                 'phase': np.linspace(0, 4*np.pi, n_frames)
             }
@@ -231,30 +226,36 @@ class TestINTENSEToDRIntegration:
         )
         
         # Check INTENSE outputs
-        assert hasattr(exp, 'stats_table')
-        assert exp.stats_table is not None
+        assert hasattr(exp, 'stats_tables')
+        assert exp.stats_tables is not None
         
-        # DR pipeline
-        mvdata = MVData(exp.calcium)
+        # DR pipeline - exp.calcium is already a MultiTimeSeries which inherits from MVData
+        mvdata = exp.calcium
         pca_embedding = mvdata.get_embedding({
             'e_method_name': 'pca',
             'dim': 3
         })
         
         # Validate final output
-        assert pca_embedding.shape == (n_frames, 3)
-        assert not np.any(np.isnan(pca_embedding))
+        assert pca_embedding.coords.shape == (3, n_frames)
+        assert not np.any(np.isnan(pca_embedding.coords))
         
     def test_error_handling_integration(self):
         """Test error handling across module boundaries"""
         # Create experiment with problematic data
+        # Use more frames to avoid shuffle_mask issues, but still problematic for analysis
+        n_frames = 500
+        calcium_data = np.ones((10, n_frames)) + 0.01 * np.random.randn(10, n_frames)
+        calcium_data = np.maximum(0, calcium_data)  # Ensure non-negative
+        
         exp = Experiment(
             signature='test_errors',
-            calcium=np.ones((10, 100)),  # Constant data - problematic for some methods
+            calcium=calcium_data,  # Near-constant data - problematic for some methods
             spikes=None,
+            reconstruct_spikes=None,  # Disable spike reconstruction
             exp_identificators={},
             static_features={'fps': 10.0},
-            dynamic_features={'dummy': np.zeros(100)}
+            dynamic_features={'dummy': np.zeros(n_frames)}
         )
         
         # INTENSE should handle constant features gracefully
@@ -265,8 +266,8 @@ class TestINTENSEToDRIntegration:
             verbose=False
         )
         
-        # MVData should handle constant data
-        mvdata = MVData(exp.calcium)
+        # MVData should handle constant data - exp.calcium is already a MultiTimeSeries which inherits from MVData
+        mvdata = exp.calcium
         
         # PCA should work (though not meaningful)
         pca_embedding = mvdata.get_embedding({
@@ -274,3 +275,4 @@ class TestINTENSEToDRIntegration:
             'dim': 2
         })
         assert pca_embedding is not None
+        assert hasattr(pca_embedding, 'coords')

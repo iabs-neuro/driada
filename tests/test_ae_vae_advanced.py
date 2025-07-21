@@ -7,7 +7,6 @@ import numpy as np
 import torch
 from sklearn.datasets import make_swiss_roll
 from src.driada.dim_reduction.data import MVData
-from src.driada.dim_reduction.dr_base import METHODS_DICT
 from src.driada.dim_reduction.manifold_metrics import knn_preservation_rate
 
 
@@ -33,9 +32,18 @@ def test_vae_latent_space_regularization():
         'dec_kwargs': {'dropout': 0.1}
     }
     
-    vae_params = {'e_method_name': 'vae', 'dim': 2}
-    vae_params['e_method'] = METHODS_DICT[vae_params['e_method_name']]
-    vae_emb = D.get_embedding(vae_params, kwargs=nn_params)
+    vae_emb = D.get_embedding(
+        method='vae',
+        dim=2,
+        epochs=100,
+        batch_size=32,
+        lr=1e-3,
+        train_size=0.8,
+        verbose=False,
+        kld_weight=0.1,
+        enc_kwargs={'dropout': 0.1},
+        dec_kwargs={'dropout': 0.1}
+    )
     
     # Check latent space properties
     latent_mean = np.mean(vae_emb.coords, axis=1)
@@ -70,9 +78,20 @@ def test_ae_correlation_loss():
         'dec_kwargs': {'dropout': 0.2}
     }
     
-    ae_params = {'e_method_name': 'ae', 'dim': 2}
-    ae_params['e_method'] = METHODS_DICT[ae_params['e_method_name']]
-    ae_emb = D.get_embedding(ae_params, kwargs=nn_params)
+    ae_emb = D.get_embedding(
+        method='ae',
+        dim=2,
+        epochs=100,
+        lr=5e-3,
+        seed=42,
+        batch_size=64,
+        feature_dropout=0.2,
+        add_corr_loss=True,
+        corr_hyperweight=1.0,
+        verbose=False,
+        enc_kwargs={'dropout': 0.2},
+        dec_kwargs={'dropout': 0.2}
+    )
     
     # Latent features should have low correlation
     latent_corr = np.abs(np.corrcoef(ae_emb.coords)[0, 1])
@@ -99,16 +118,33 @@ def test_ae_vs_vae_reconstruction_quality():
     }
     
     # Train AE
-    ae_params = {'e_method_name': 'ae', 'dim': 2}
-    ae_params['e_method'] = METHODS_DICT[ae_params['e_method_name']]
-    ae_emb = D.get_embedding(ae_params, kwargs=nn_params_base.copy())
+    ae_emb = D.get_embedding(
+        method='ae',
+        dim=2,
+        epochs=100,
+        lr=1e-3,
+        seed=42,
+        batch_size=64,
+        feature_dropout=0.1,
+        verbose=False,
+        enc_kwargs={'dropout': 0.1},
+        dec_kwargs={'dropout': 0.1}
+    )
     
     # Train VAE with low KL weight for fair comparison
-    vae_params = {'e_method_name': 'vae', 'dim': 2}
-    vae_params['e_method'] = METHODS_DICT[vae_params['e_method_name']]
-    vae_nn_params = nn_params_base.copy()
-    vae_nn_params['kld_weight'] = 0.01
-    vae_emb = D.get_embedding(vae_params, kwargs=vae_nn_params)
+    vae_emb = D.get_embedding(
+        method='vae',
+        dim=2,
+        epochs=100,
+        lr=1e-3,
+        seed=42,
+        batch_size=64,
+        feature_dropout=0.1,
+        verbose=False,
+        kld_weight=0.01,
+        enc_kwargs={'dropout': 0.1},
+        dec_kwargs={'dropout': 0.1}
+    )
     
     # Compare neighborhood preservation
     k = 10

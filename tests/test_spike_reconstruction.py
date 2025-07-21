@@ -2,10 +2,10 @@
 
 import pytest
 import numpy as np
-from src.driada.experiment.synthetic import generate_synthetic_exp
-from src.driada.experiment.exp_base import Experiment, WVT_EVENT_DETECTION_PARAMS
-from src.driada.experiment.wavelet_event_detection import extract_wvt_events, events_to_ts_array
-from src.driada.information.info_base import TimeSeries
+from driada.experiment.synthetic import generate_synthetic_exp
+from driada.experiment.exp_base import Experiment, WVT_EVENT_DETECTION_PARAMS
+from driada.experiment.wavelet_event_detection import extract_wvt_events, events_to_ts_array
+from driada.information.info_base import TimeSeries
 
 
 def test_events_to_ts_array_basic():
@@ -86,7 +86,7 @@ def test_wavelet_spike_reconstruction():
     exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=0, nneurons=3, seed=42)
     
     # Get calcium data
-    calcium = exp.calcium
+    calcium = exp.calcium.data
     fps = exp.fps
     
     # Set up wavelet parameters
@@ -118,7 +118,7 @@ def test_experiment_with_spike_reconstruction():
     # Check that spikes were created
     assert hasattr(exp, 'spikes')
     assert exp.spikes is not None
-    assert exp.spikes.shape == exp.calcium.shape
+    assert exp.spikes.data.shape == exp.calcium.data.shape
     
     # Check that neurons have spike TimeSeries
     for neuron in exp.neurons:
@@ -127,7 +127,7 @@ def test_experiment_with_spike_reconstruction():
         assert neuron.sp.discrete == True
         
     # Check that spikes are not all zero
-    assert np.sum(exp.spikes) > 0
+    assert np.sum(exp.spikes.data) > 0
     
     # Check that different neurons have different spike patterns
     spike_sums = [np.sum(neuron.sp.data) for neuron in exp.neurons]
@@ -141,7 +141,7 @@ def test_spike_reconstruction_reproducibility():
     exp2 = generate_synthetic_exp(n_dfeats=1, n_cfeats=0, nneurons=3, seed=42, with_spikes=True)
     
     # Check that calcium signals are identical
-    assert np.allclose(exp1.calcium, exp2.calcium)
+    assert np.allclose(exp1.calcium.data, exp2.calcium.data)
     
     # Check that reconstructed spikes are identical
     for i in range(3):

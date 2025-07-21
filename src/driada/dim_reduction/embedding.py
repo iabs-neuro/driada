@@ -12,7 +12,11 @@ from sklearn.manifold import spectral_embedding, Isomap, LocallyLinearEmbedding,
 
 from .dr_base import *
 from .graph import ProximityGraph
-from .neural import *
+try:
+    from .neural import *
+except ImportError:
+    # torch is optional dependency
+    pass
 from .mvu import *
 
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix

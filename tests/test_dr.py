@@ -67,13 +67,7 @@ def test_pca():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    embedding_params = {
-        'e_method_name': 'pca',
-        'dim': 2
-    }
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params)
+    emb = D.get_embedding(method='pca', dim=2)
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0,0]) in [np.float64, np.float32]
 
@@ -82,27 +76,7 @@ def test_le():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 10,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-
-    embedding_params = {
-        'e_method_name': 'le',
-        'dim': 2
-    }
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    emb = D.get_embedding(method='le', dim=2, nn=10, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
@@ -111,27 +85,7 @@ def test_auto_le():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 10,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-
-    embedding_params = {
-        'e_method_name': 'auto_le',
-        'dim': 2
-    }
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    emb = D.get_embedding(method='auto_le', dim=2, nn=10, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
@@ -140,28 +94,7 @@ def test_umap():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 10,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-
-    embedding_params = {
-        'e_method_name': 'umap',
-        'dim': 2,
-        'min_dist': 0.1
-    }
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    emb = D.get_embedding(method='umap', dim=2, min_dist=0.1, nn=10, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
@@ -170,28 +103,7 @@ def test_isomap():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 10,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-
-    embedding_params = {
-        'e_method_name': 'isomap',
-        'dim': 2,
-        'min_dist': 0.1
-    }
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    emb = D.get_embedding(method='isomap', dim=2, nn=10, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
@@ -200,13 +112,7 @@ def test_tsne():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    embedding_params = {
-        'e_method_name': 'tsne',
-        'dim': 2,
-    }
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params)
+    emb = D.get_embedding(method='tsne', dim=2)
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
@@ -215,28 +121,7 @@ def test_auto_dmaps():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-
-    graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 10,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-
-    embedding_params = {
-        'e_method_name': 'auto_dmaps',
-        'dim': 2,
-        'dm_alpha': 1
-    }
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params, g_params=graph_params, m_params=metric_params)
+    emb = D.get_embedding(method='auto_dmaps', dim=2, dm_alpha=1, nn=10, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
@@ -245,28 +130,17 @@ def test_ae_simple():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    embedding_params = {
-        'e_method_name': 'ae',  # autoencoder
-        'check_graph_connectivity': 0,
-        'min_dist': 0.9,
-        'dm_alpha': 0.0,
-        'dim': 2
-    }
-
-    nn_params = {'continue_learning': 0,
-                 'epochs': 200,
-                 'lr': 5 * 1e-3,
-                 'seed': 42,
-                 'batch_size': 512,
-                 'enc_kwargs': None,
-                 'dec_kwargs': None,
-                 'feature_dropout': 0.5,
-                 'enc_kwargs': {'dropout': 0.2},
-                 'dec_kwargs': {'dropout': 0.2}}
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params,
-                          kwargs=nn_params)
+    emb = D.get_embedding(
+        method='ae',
+        dim=2,
+        epochs=200,
+        lr=5 * 1e-3,
+        seed=42,
+        batch_size=512,
+        feature_dropout=0.5,
+        enc_kwargs={'dropout': 0.2},
+        dec_kwargs={'dropout': 0.2}
+    )
 
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
@@ -276,30 +150,19 @@ def test_ae_corr():
     data = create_swiss_roll_data()
     D = MVData(data)
 
-    embedding_params = {
-        'e_method_name': 'ae',  # autoencoder
-        'check_graph_connectivity': 0,
-        'min_dist': 0.9,
-        'dm_alpha': 0.0,
-        'dim': 2
-    }
-
-    nn_params = {'continue_learning': 0,
-                 'epochs': 200,
-                 'lr': 5 * 1e-3,
-                 'seed': 42,
-                 'batch_size': 512,
-                 'enc_kwargs': None,
-                 'dec_kwargs': None,
-                 'feature_dropout': 0.5,
-                 'add_corr_loss': True,
-                 'corr_hyperweight': 1,
-                 'enc_kwargs': {'dropout': 0.2},
-                 'dec_kwargs': {'dropout': 0.2}}
-
-    embedding_params['e_method'] = METHODS_DICT[embedding_params['e_method_name']]
-    emb = D.get_embedding(embedding_params,
-                          kwargs=nn_params)
+    emb = D.get_embedding(
+        method='ae',
+        dim=2,
+        epochs=200,
+        lr=5 * 1e-3,
+        seed=42,
+        batch_size=512,
+        feature_dropout=0.5,
+        add_corr_loss=True,
+        corr_hyperweight=1,
+        enc_kwargs={'dropout': 0.2},
+        dec_kwargs={'dropout': 0.2}
+    )
 
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]

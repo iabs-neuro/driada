@@ -241,13 +241,25 @@ def extract_population_structure(exp, neural_data=None, ds=5):
     print(f"Downsampling factor: {ds}")
 
     if neural_data is None:
-        neural_data = exp.calcium[:, ::ds]
-    
-    from driada.dim_reduction import MVData, METHODS_DICT
-    mvdata = MVData(neural_data)
+        # exp.calcium is already a MultiTimeSeries which inherits from MVData
+        # We can downsample it if needed
+        if ds > 1:
+            neural_data = exp.calcium.data[:, ::ds]
+            from driada import MultiTimeSeries
+            mvdata = MultiTimeSeries(neural_data, discrete=False)
+        else:
+            mvdata = exp.calcium  # Use directly - it's already an MVData!
+    else:
+        from driada.dim_reduction import MVData
+        mvdata = MVData(neural_data)
     
     print("\nEstimating dimensionality:")
-    data_t = neural_data.T
+    # Get the actual data array for dimensionality estimation
+    if hasattr(mvdata, 'data'):
+        data_array = mvdata.data
+    else:
+        data_array = neural_data
+    data_t = data_array.T
     print(f"  - PCA 90% variance: {pca_dimension(data_t, threshold=0.90)} dimensions")
     print(f"  - PCA 95% variance: {pca_dimension(data_t, threshold=0.95)} dimensions")
     
@@ -277,53 +289,30 @@ def extract_population_structure(exp, neural_data=None, ds=5):
     
     print("\nApplying dimensionality reduction:")
     
-    pca_params = {
-        'e_method_name': 'pca',
-        'dim': 10,
-        'e_method': METHODS_DICT['pca']
-    }
-    pca_emb = mvdata.get_embedding(pca_params)
+    # Use the new simplified API
+    pca_emb = mvdata.get_embedding(method='pca', dim=10)
     embeddings['pca'] = pca_emb.coords.T
     pca_var = np.var(pca_emb.coords, axis=1)
     pca_var_ratio = pca_var / np.sum(pca_var)
     print(f"  - PCA: captured {np.sum(pca_var_ratio[:2]):.1%} variance in 2D")
     
-    metric_params = {
-        'metric_name': 'l2',
-        'sigma': 1,
-        'p': 2
-    }
-    
-    isomap_graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 30,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-    isomap_params = {
-        'e_method_name': 'isomap',
-        'dim': 2,
-        'e_method': METHODS_DICT['isomap']
-    }
-    isomap_emb = mvdata.get_embedding(isomap_params, g_params=isomap_graph_params, m_params=metric_params)
+    # Use the new simplified API for Isomap
+    isomap_emb = mvdata.get_embedding(
+        method='isomap', 
+        dim=2,
+        n_neighbors=30,
+        max_deleted_nodes=0.2
+    )
     embeddings['isomap'] = isomap_emb.coords.T
     print(f"  - Isomap: embedded into 2D manifold")
     
-    umap_graph_params = {
-        'g_method_name': 'knn',
-        'weighted': 0,
-        'nn': 50,
-        'max_deleted_nodes': 0.2,
-        'dist_to_aff': 'hk'
-    }
-    umap_params = {
-        'e_method_name': 'umap',
-        'dim': 2,
-        'min_dist': 0.1,
-        'e_method': METHODS_DICT['umap']
-    }
-    umap_emb = mvdata.get_embedding(umap_params, g_params=umap_graph_params, m_params=metric_params)
+    # Use the new simplified API for UMAP
+    umap_emb = mvdata.get_embedding(
+        method='umap',
+        dim=2,
+        n_neighbors=50,
+        min_dist=0.1
+    )
     embeddings['umap'] = umap_emb.coords.T
     print(f"  - UMAP: embedded into 2D space")
     

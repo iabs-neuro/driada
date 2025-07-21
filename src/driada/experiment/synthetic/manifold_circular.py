@@ -307,10 +307,7 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     # Create dynamic features
     head_direction_ts = TimeSeries(
         data=head_direction,
-        feature_type='c',
-        feature_name='head_direction',
-        fs=fps,
-        is_binary=False
+        discrete=False
     )
     
     dynamic_features = {

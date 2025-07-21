@@ -292,7 +292,7 @@ def main():
         significant_neurons, mixed_candidates, output_dir
     )
     
-   print(f"\nVisualization files created:")
+    print(f"\nVisualization files created:")
     print(f"  - neuron_feature_selectivity.png: Shows MI values for all neuron-feature pairs")
     print(f"  - disentanglement_heatmap.png: Shows feature relationship disentanglement")
 

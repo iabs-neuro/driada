@@ -21,7 +21,6 @@ from driada import (
     MultiTimeSeries,
 )
 from driada.dim_reduction import MVData
-from driada.dim_reduction.dr_base import METHODS_DICT
 from driada.information import get_sim
 from driada.signals import filter_neural_signals, adaptive_filter_neural_signals
 
@@ -306,7 +305,7 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
     
     # Test with true spatial neurons
     print("  Computing spatial decoding with TRUE spatial neurons...")
-    calcium_true_spatial = exp.calcium[true_spatial_neurons, ::ds] if ds > 1 else exp.calcium[true_spatial_neurons]
+    calcium_true_spatial = exp.calcium.data[true_spatial_neurons, ::ds] if ds > 1 else exp.calcium.data[true_spatial_neurons]
     
     # Simple spatial decoding test with regularized decoder
     from sklearn.model_selection import train_test_split
@@ -331,7 +330,7 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
     
     # Test with true non-spatial neurons
     print("  Computing spatial decoding with TRUE non-spatial neurons...")
-    calcium_true_nonspatial = exp.calcium[true_nonspatial_neurons, ::ds] if ds > 1 else exp.calcium[true_nonspatial_neurons]
+    calcium_true_nonspatial = exp.calcium.data[true_nonspatial_neurons, ::ds] if ds > 1 else exp.calcium.data[true_nonspatial_neurons]
     
     X_train, X_test, y_train, y_test = train_test_split(
         calcium_true_nonspatial.T, true_positions, test_size=0.5, random_state=42
@@ -359,17 +358,17 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
     else:
         print("  ✅ Non-spatial neurons show minimal spatial decoding (as expected)")
 
-    print(f"  Calcium data shape: {exp.calcium.shape}")
+    print(f"  Calcium data shape: {exp.calcium.data.shape}")
     print(f"  Downsampled positions shape: {true_positions.shape}")
     
     # 5. Create scenarios to demonstrate benefit
     print("\n4. Creating test scenarios...")
     
     # Get all neurons
-    calcium_all = exp.calcium[:, ::ds]
+    calcium_all = exp.calcium.data[:, ::ds]
     
     # Get spatial neurons (detected by INTENSE)
-    calcium_spatial = exp.calcium[spatial_neurons, ::ds]
+    calcium_spatial = exp.calcium.data[spatial_neurons, ::ds]
     
     # Get non-selective neurons (neither spatial nor detected for other features)
     all_neurons = set(range(exp.n_cells))
@@ -384,12 +383,12 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
             # Feature might not have been tested
             pass
     non_selective_neurons = list(all_neurons - selective_neurons)
-    calcium_non_selective = exp.calcium[non_selective_neurons, ::ds] if non_selective_neurons else None
+    calcium_non_selective = exp.calcium.data[non_selective_neurons, ::ds] if non_selective_neurons else None
     
     # Get random half of all neurons
     np.random.seed(seed)  # For reproducibility
     random_half_idx = np.random.choice(exp.n_cells, size=exp.n_cells//2, replace=False)
-    calcium_random_half = exp.calcium[random_half_idx, ::ds]
+    calcium_random_half = exp.calcium.data[random_half_idx, ::ds]
     
     print(f"  All neurons: {calcium_all.shape[0]} neurons")
     print(f"  Spatial neurons (INTENSE): {calcium_spatial.shape[0]} neurons")
@@ -441,50 +440,25 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
     # Define DR methods with DRIADA parameters
     dr_methods = {
         'PCA': {
+            'method': 'pca',
             'params': {
-                'e_method_name': 'pca',
-                'dim': 2,
-                'e_method': METHODS_DICT['pca']
+                'dim': 2
             }
         },
         'Isomap': {
+            'method': 'isomap',
             'params': {
-                'e_method_name': 'isomap',
                 'dim': 2,
-                'e_method': METHODS_DICT['isomap']
-            },
-            'graph_params': {
-                'g_method_name': 'knn',
-                'nn': 30,
-                'weighted': 0,
-                'max_deleted_nodes': 0.2,
-                'dist_to_aff': 'hk'
-            },
-            'metric_params': {
-                'metric_name': 'l2',
-                'sigma': 1
+                'n_neighbors': 30
             }
         },
         'UMAP': {
+            'method': 'umap',
             'params': {
-                'e_method_name': 'umap',
                 'dim': 2,
-                'min_dist': 0.1,
-                'random_state': 42,
-                'e_method': METHODS_DICT['umap'],
-                'min_dist': 0.8
-            },
-            'graph_params': {
-                'g_method_name': 'knn',
-                'nn': 80,
-                'weighted': 0,
-                'max_deleted_nodes': 0.1,
-                'dist_to_aff': 'hk'
-            },
-            'metric_params': {
-                'metric_name': 'l2',
-                'sigma': 1
-            }
+                'n_neighbors': 80,
+                'min_dist': 0.8,
+                'random_state': 42
         }
     }
     
@@ -523,16 +497,15 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
             try:
                 mvdata = MVData(calcium_data)  # MVData expects (n_features, n_samples)
                 
-                # Adjust graph parameters for smaller datasets
-                graph_params = method_config.get('graph_params', None)
-                if graph_params and 'nn' in graph_params:
-                    graph_params = graph_params.copy()
-                    graph_params['nn'] = min(graph_params['nn'], calcium_data.shape[1] // 10)
+                # Adjust n_neighbors for smaller datasets if needed
+                params = method_config['params'].copy()
+                if 'n_neighbors' in params:
+                    params['n_neighbors'] = min(params['n_neighbors'], calcium_data.shape[1] // 10)
                 
+                # Get embedding using new API
                 embedding_obj = mvdata.get_embedding(
-                    method_config['params'],
-                    g_params=graph_params,
-                    m_params=method_config.get('metric_params', None)
+                    method=method_config['method'],
+                    **params
                 )
                 embedding = embedding_obj.coords.T  # Extract coordinates, shape: (n_samples, n_dims)
                 

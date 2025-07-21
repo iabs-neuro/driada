@@ -8,7 +8,7 @@ import logging
 
 import driada
 from driada.experiment import Experiment
-from driada.dim_reduction import SelectivityManifoldMapper
+from driada.integration import SelectivityManifoldMapper
 from driada.intense import compute_cell_feat_significance, compute_embedding_selectivity
 
 

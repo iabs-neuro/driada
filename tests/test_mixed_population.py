@@ -62,8 +62,8 @@ class TestGenerateMixedPopulationExp:
                 manifold_type=manifold_type,
                 duration=30,
                 seed=42,
-                verbose=False, return_info=Trueverbose=False
-            , return_info=True)
+                verbose=False,
+                return_info=True)
             
             assert info['population_composition']['manifold_type'] == manifold_type
             assert info['population_composition']['n_manifold'] == 12  # 80% of 15
@@ -138,8 +138,8 @@ class TestGenerateMixedPopulationExp:
                 correlation_strength=0.5,
                 duration=60,
                 seed=42,
-                verbose=False, return_info=Trueverbose=False
-            , return_info=True)
+                verbose=False,
+                return_info=True)
             
             assert info['correlation_applied'] == mode
             if mode == 'independent':
@@ -272,7 +272,8 @@ class TestGenerateMixedPopulationExp:
         )
         
         # Should produce identical results
-        np.testing.assert_array_equal(exp1.calcium, exp2.calcium)
+        # Now calcium is a MultiTimeSeries, so compare the underlying data
+        np.testing.assert_array_equal(exp1.calcium.data, exp2.calcium.data)
         
         # Check different seeds produce different results
         exp3, info3 = generate_mixed_population_exp(
@@ -282,7 +283,7 @@ class TestGenerateMixedPopulationExp:
             return_info=True
         )
         
-        assert not np.array_equal(exp1.calcium, exp3.calcium)
+        assert not np.array_equal(exp1.calcium.data, exp3.calcium.data)
     
     def test_info_dictionary_completeness(self):
         """Test that info dictionary contains all expected information."""
@@ -366,13 +367,14 @@ class TestGenerateMixedPopulationExp:
             verbose=False, return_info=True)
         
         # Basic shape checks
-        assert exp.calcium.shape[0] == 30
-        assert exp.calcium.shape[1] == int(120 * 20)  # 120s * 20fps
+        # Now calcium is a MultiTimeSeries
+        assert exp.calcium.data.shape[0] == 30
+        assert exp.calcium.data.shape[1] == int(120 * 20)  # 120s * 20fps
         
         # Check calcium signals have reasonable properties
-        assert np.all(exp.calcium >= 0)  # Non-negative
-        assert np.mean(exp.calcium) > 0  # Some activity
-        assert np.std(exp.calcium) > 0   # Some variability
+        assert np.all(exp.calcium.data >= 0)  # Non-negative
+        assert np.mean(exp.calcium.data) > 0  # Some activity
+        assert np.std(exp.calcium.data) > 0   # Some variability
         
         # Check manifold vs feature-selective neurons have different indices
         manifold_indices = info['population_composition']['manifold_indices']
@@ -461,7 +463,8 @@ class TestMixedPopulationIntegration:
         assert len(feature_names) > 0
         
         # Test that we can access calcium data
-        calcium_subset = exp.calcium[:5, :100]  # First 5 neurons, first 100 timepoints
+        # Now calcium is a MultiTimeSeries, access the underlying data
+        calcium_subset = exp.calcium.data[:5, :100]  # First 5 neurons, first 100 timepoints
         assert calcium_subset.shape == (5, 100)
     
     def test_mixed_population_with_intense(self):

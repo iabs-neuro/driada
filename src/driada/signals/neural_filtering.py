@@ -8,58 +8,144 @@ before applying dimensionality reduction and manifold analysis.
 import numpy as np
 from scipy.signal import savgol_filter
 from scipy.ndimage import gaussian_filter1d
+import pywt
+
+
+def filter_1d_timeseries(data, method='gaussian', **kwargs):
+    """
+    Filter a 1D time series using various denoising methods.
+    
+    This is the core filtering function used by TimeSeries.filter() method.
+    Supports Gaussian smoothing, Savitzky-Golay filtering, and wavelet denoising.
+    
+    Parameters
+    ----------
+    data : ndarray
+        1D time series data
+    method : str
+        Filtering method: 'gaussian', 'savgol', 'wavelet', or 'none'
+    **kwargs : dict
+        Method-specific parameters:
+        - gaussian: sigma (default: 1.0) - standard deviation for Gaussian kernel
+        - savgol: window_length (default: 5), polyorder (default: 2)
+        - wavelet: wavelet (default: 'db4'), level (default: auto), 
+                  mode (default: 'smooth'), threshold_method (default: 'mad')
+        
+    Returns
+    -------
+    ndarray
+        Filtered 1D time series
+        
+    Examples
+    --------
+    >>> # Gaussian smoothing for general noise reduction
+    >>> filtered = filter_1d_timeseries(data, method='gaussian', sigma=1.5)
+    
+    >>> # Savitzky-Golay for preserving peaks while smoothing
+    >>> filtered = filter_1d_timeseries(data, method='savgol', window_length=5)
+    
+    >>> # Wavelet denoising for multi-scale noise removal
+    >>> filtered = filter_1d_timeseries(data, method='wavelet', wavelet='db4')
+    """
+    if method == 'none':
+        return data.copy()
+    
+    # Ensure we have a 1D array
+    data = np.asarray(data).ravel()
+    
+    if method == 'gaussian':
+        # Gaussian filter: good for general smoothing
+        sigma = kwargs.get('sigma', 1.0)
+        return gaussian_filter1d(data, sigma=sigma)
+        
+    elif method == 'savgol':
+        # Savitzky-Golay: preserves features like peaks better than Gaussian
+        window_length = kwargs.get('window_length', 5)
+        polyorder = kwargs.get('polyorder', 2)
+        
+        # Ensure window_length is odd
+        if window_length % 2 == 0:
+            window_length += 1
+            
+        # Check if signal is long enough
+        if len(data) <= window_length:
+            return data.copy()
+            
+        return savgol_filter(data, window_length, polyorder)
+        
+    elif method == 'wavelet':
+        # Wavelet denoising: excellent for multi-scale noise removal
+        wavelet = kwargs.get('wavelet', 'db4')  # Daubechies 4 is a good default
+        level = kwargs.get('level', None)
+        mode = kwargs.get('mode', 'smooth')  # boundary handling
+        threshold_method = kwargs.get('threshold_method', 'mad')
+        
+        n = len(data)
+        
+        # Determine decomposition level if not specified
+        max_level = pywt.dwt_max_level(n, wavelet)
+        if level is None:
+            # Automatic level selection: balance between noise removal and signal preservation
+            level = min(max_level, max(1, int(np.log2(n)) - 4))
+        elif level > max_level:
+            level = max_level
+        
+        # Perform wavelet decomposition
+        coeffs = pywt.wavedec(data, wavelet, mode=mode, level=level)
+        
+        # Apply thresholding to detail coefficients (not the approximation)
+        if threshold_method == 'mad':
+            # MAD-based threshold: robust to outliers
+            for j in range(1, len(coeffs)):
+                detail_coeffs = coeffs[j]
+                # Estimate noise level using Median Absolute Deviation
+                sigma = np.median(np.abs(detail_coeffs)) / 0.6745
+                # Universal threshold (Donoho & Johnstone)
+                threshold = sigma * np.sqrt(2 * np.log(n))
+                # Soft thresholding: shrinks coefficients smoothly
+                coeffs[j] = pywt.threshold(detail_coeffs, threshold, mode='soft')
+                
+        elif threshold_method == 'sure':
+            # SURE (Stein's Unbiased Risk Estimate): data-adaptive threshold
+            for j in range(1, len(coeffs)):
+                threshold = np.std(coeffs[j]) * np.sqrt(2 * np.log(len(coeffs[j])))
+                coeffs[j] = pywt.threshold(coeffs[j], threshold, mode='soft')
+        
+        # Reconstruct the signal
+        reconstructed = pywt.waverec(coeffs, wavelet, mode=mode)
+        
+        # Handle potential length mismatch
+        return reconstructed[:n]
+        
+    else:
+        raise ValueError(f"Unknown filtering method: {method}. "
+                        f"Choose from: 'gaussian', 'savgol', 'wavelet', 'none'")
 
 
 def filter_neural_signals(neural_data, method='gaussian', **kwargs):
-    """Filter neural signals to improve manifold analysis
+    """
+    Filter multiple neural signals (2D array compatibility wrapper).
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     neural_data : ndarray
         Neural data with shape (n_neurons, n_timepoints)
     method : str
-        Filtering method: 'gaussian', 'savgol', or 'none'
+        Filtering method: 'gaussian', 'savgol', 'wavelet', or 'none'
     **kwargs : dict
-        Method-specific parameters
+        Method-specific parameters (see filter_1d_timeseries)
         
-    Returns:
-    --------
+    Returns
+    -------
     ndarray
         Filtered neural data with same shape as input
-        
-    Examples:
-    ---------
-    >>> # Gaussian filtering
-    >>> filtered = filter_neural_signals(data, method='gaussian', sigma=1.5)
-    
-    >>> # Savitzky-Golay filtering
-    >>> filtered = filter_neural_signals(data, method='savgol', 
-    ...                                 window_length=5, polyorder=2)
     """
-    if method == 'none':
-        return neural_data
+    if neural_data.ndim == 1:
+        return filter_1d_timeseries(neural_data, method=method, **kwargs)
     
     filtered_data = np.zeros_like(neural_data)
-    
-    if method == 'gaussian':
-        sigma = kwargs.get('sigma', 1.0)
-        for i in range(neural_data.shape[0]):
-            filtered_data[i] = gaussian_filter1d(neural_data[i], sigma=sigma)
-            
-    elif method == 'savgol':
-        window_length = kwargs.get('window_length', 5)
-        polyorder = kwargs.get('polyorder', 2)
-        # Ensure window_length is odd and valid
-        if window_length % 2 == 0:
-            window_length += 1
-        
-        for i in range(neural_data.shape[0]):
-            if len(neural_data[i]) > window_length:
-                filtered_data[i] = savgol_filter(neural_data[i], window_length, polyorder)
-            else:
-                filtered_data[i] = neural_data[i]
-    else:
-        raise ValueError(f"Unknown filtering method: {method}")
+    for i in range(neural_data.shape[0]):
+        filtered_data[i] = filter_1d_timeseries(neural_data[i], method=method, **kwargs)
     
     return filtered_data
 

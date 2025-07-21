@@ -23,7 +23,10 @@ def check_dynamic_features(dynamic_features):
         current_ts = dynamic_features[feat_id]
         if isinstance(current_ts, TimeSeries):
             len_ts = len(current_ts.data)
-        elif hasattr(current_ts, 'data'):  # MultiTimeSeries or similar
+        elif isinstance(current_ts, np.ndarray):
+            # Handle raw numpy arrays
+            len_ts = current_ts.shape[-1] if current_ts.ndim > 1 else len(current_ts)
+        elif hasattr(current_ts, 'data') and hasattr(current_ts.data, 'shape'):  # MultiTimeSeries or similar
             len_ts = current_ts.data.shape[1]  # MultiTimeSeries data is (n_features, n_timepoints)
         else:
             len_ts = len(current_ts)
@@ -116,27 +119,32 @@ class Experiment():
         self.n_cells = calcium.shape[0]
         self.n_frames = calcium.shape[1]
 
+        # Store raw calcium and spikes arrays temporarily
+        self._calcium_raw = calcium
+        self._spikes_raw = spikes if spikes is not None else np.zeros(calcium.shape)
+        
         self.neurons = []
-        self.calcium = np.zeros(calcium.shape)
-        if spikes is None:
-            self.spikes = np.zeros(calcium.shape)
-        else:
-            self.spikes = spikes
-
+        
         print('Building neurons...')
         for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True):
             cell = Neuron(str(i),
-                          calcium[i, :],
-                          self.spikes[i, :],
+                          self._calcium_raw[i, :],
+                          self._spikes_raw[i, :],
                           default_t_rise=static_features.get('t_rise_sec'),
                           default_t_off=static_features.get('t_off_sec'),
                           fps=static_features.get('fps'),
                           fit_individual_t_off=fit_individual_t_off)
 
-                #cell.reconstruct_spikes(**kwargs)
-
-            self.calcium[i, :] = cell.ca.data
             self.neurons.append(cell)
+        
+        # Now create MultiTimeSeries from neurons to preserve their shuffle masks
+        calcium_ts_list = [neuron.ca for neuron in self.neurons]
+        spikes_ts_list = [neuron.sp if neuron.sp is not None else TimeSeries(np.zeros(self.n_frames), discrete=True) for neuron in self.neurons]
+        
+        # Create MultiTimeSeries from the TimeSeries objects in neurons
+        # This preserves the individual shuffle masks created by each Neuron
+        self.calcium = MultiTimeSeries(calcium_ts_list)
+        self.spikes = MultiTimeSeries(spikes_ts_list)
 
         self.dynamic_features = dynamic_features
         for feat_id in dynamic_features:
@@ -542,8 +550,9 @@ class Experiment():
         Returns:
 
         '''
-        if self.spikes is None:
-            raise AttributeError('Unable to shuffle spikes without spikes data')
+        # Check if spikes data is meaningful (not all zeros)
+        if np.allclose(self.spikes.data, 0):
+            raise AttributeError('Unable to shuffle spikes without meaningful spikes data')
 
         cell_list = self._process_cbunch(cbunch)
 

@@ -7,6 +7,7 @@ from .gcmi import *
 from .info_utils import binary_mi_score
 from ..utils.data import correlation_matrix
 from .entropy import entropy_d, joint_entropy_dd, joint_entropy_cd, joint_entropy_cdd
+from ..dim_reduction.data import MVData
 
 import numpy as np
 import warnings
@@ -121,32 +122,144 @@ class TimeSeries():
             self.entropy[ds] = nonparam_entropy_c(self.data) / np.log(2)
             #self.entropy[ds] = get_tdmi(self.scdata[::ds], min_shift=1, max_shift=2)[0]
             #raise AttributeError('Entropy for continuous variables is not yet implemented'
+    
+    def filter(self, method='gaussian', **kwargs):
+        """
+        Apply filtering to the time series and return a new filtered TimeSeries.
+        
+        Parameters
+        ----------
+        method : str
+            Filtering method: 'gaussian', 'savgol', 'wavelet', or 'none'
+        **kwargs : dict
+            Method-specific parameters:
+            - gaussian: sigma (default: 1.0)
+            - savgol: window_length (default: 5), polyorder (default: 2)
+            - wavelet: wavelet (default: 'db4'), level (default: None)
+            
+        Returns
+        -------
+        TimeSeries
+            New TimeSeries object with filtered data
+        """
+        from ..signals.neural_filtering import filter_1d_timeseries
+        
+        if method == 'none':
+            return TimeSeries(self.data.copy(), discrete=self.discrete, 
+                            shuffle_mask=self.shuffle_mask.copy())
+        
+        if self.discrete:
+            warnings.warn("Filtering discrete time series may produce unexpected results")
+        
+        # Apply filtering to 1D time series
+        filtered_data = filter_1d_timeseries(self.data, method=method, **kwargs)
+        
+        # Create new TimeSeries with filtered data
+        return TimeSeries(filtered_data, discrete=self.discrete, 
+                         shuffle_mask=self.shuffle_mask.copy())
 
 
-class MultiTimeSeries:
-
-    def __init__(self, tslist):
-        self._check_input(tslist)
-
-        self.data = np.vstack([ts.data for ts in tslist])
+class MultiTimeSeries(MVData):
+    """
+    MultiTimeSeries represents multiple aligned time series.
+    Now inherits from MVData to enable direct dimensionality reduction.
+    Supports either all-continuous or all-discrete components (no mixing).
+    """
+    
+    def __init__(self, data_or_tslist, labels=None, distmat=None, rescale_rows=False, 
+                 data_name=None, downsampling=None, discrete=None, shuffle_mask=None):
+        # Handle both numpy array and list of TimeSeries inputs
+        if isinstance(data_or_tslist, np.ndarray):
+            # Direct numpy array input: each row is a time series
+            if data_or_tslist.ndim != 2:
+                raise ValueError("When providing numpy array, it must be 2D with shape (n_series, n_timepoints)")
+            if discrete is None:
+                raise ValueError("When providing numpy array, 'discrete' parameter must be specified")
+            
+            # Set discrete flag early for numpy array input
+            self.discrete = discrete
+            
+            # Create TimeSeries objects from numpy array rows for processing
+            tslist = [TimeSeries(data_or_tslist[i, :], discrete=discrete) for i in range(data_or_tslist.shape[0])]
+            data = data_or_tslist
+            
+            # Store provided shuffle_mask for later use (after combining with TimeSeries masks)
+            self._provided_shuffle_mask = shuffle_mask
+        else:
+            # List of TimeSeries objects
+            tslist = data_or_tslist
+            self._check_input(tslist)
+            # Stack data from all TimeSeries
+            data = np.vstack([ts.data for ts in tslist])
+            
+            # Store provided shuffle_mask for later use
+            self._provided_shuffle_mask = shuffle_mask
+        
+        # Initialize MVData parent class
+        super().__init__(data, labels=labels, distmat=distmat, 
+                        rescale_rows=rescale_rows, data_name=data_name, 
+                        downsampling=downsampling)
+        
+        # Additional MultiTimeSeries specific attributes
         self.scdata = np.vstack([ts.scdata for ts in tslist])
-        self.copula_normal_data = np.vstack([ts.copula_normal_data for ts in tslist])
-
-        shuffle_masks = np.vstack([ts.shuffle_mask for ts in tslist])
-        self.shuffle_mask = ~np.all(~shuffle_masks, axis=0) # if any of individual masks is False, then False
-
+        
+        # Handle copula normal data for continuous components
+        if not self.discrete:
+            self.copula_normal_data = np.vstack([ts.copula_normal_data for ts in tslist])
+        else:
+            # For discrete MultiTimeSeries, store integer data
+            self.int_data = np.vstack([ts.int_data for ts in tslist])
+            self.copula_normal_data = None
+        
+        # Combine shuffle masks
+        if hasattr(self, '_provided_shuffle_mask') and self._provided_shuffle_mask is not None:
+            # If shuffle_mask was provided explicitly, use it
+            self.shuffle_mask = self._provided_shuffle_mask
+            if not np.any(self.shuffle_mask):
+                warnings.warn('Provided shuffle_mask has no valid positions for shuffling!')
+        else:
+            # Otherwise, combine individual TimeSeries masks restrictively
+            shuffle_masks = np.vstack([ts.shuffle_mask for ts in tslist])
+            # Restrictive combination: ALL masks must allow shuffling at a position
+            self.shuffle_mask = np.all(shuffle_masks, axis=0)
+            
+            # Check if the combined mask is problematic
+            valid_positions = np.sum(self.shuffle_mask)
+            total_positions = len(self.shuffle_mask)
+            
+            if valid_positions == 0:
+                raise ValueError(f'Combined shuffle_mask has NO valid positions for shuffling! '
+                                f'This typically happens when combining many neurons with restrictive individual masks. '
+                                f'Consider providing an explicit shuffle_mask parameter to MultiTimeSeries.')
+            elif valid_positions < 0.1 * total_positions:
+                warnings.warn(f'Combined shuffle_mask is extremely restrictive: only {valid_positions}/{total_positions} '
+                             f'({100*valid_positions/total_positions:.1f}%) positions are valid for shuffling. '
+                             f'This may cause issues with shuffle-based significance testing.')
+        
         self.entropy = dict()  # supports various downsampling constants
+    
+    @property
+    def shape(self):
+        """Return shape of the data for compatibility with numpy-like access."""
+        return self.data.shape
 
     def _check_input(self, tslist):
         is_ts = np.array([isinstance(ts, TimeSeries) for ts in tslist])
         if not np.all(is_ts):
             raise ValueError('Input to MultiTimeSeries must be iterable of TimeSeries')
-
-        is_continuous = np.array([not ts.discrete for ts in tslist])
-        if not np.all(is_continuous):
-            raise ValueError('Currently all components of MultiTimeSeries must be continuous')
-        else:
-            self.discrete = False
+        
+        # Check all TimeSeries have same length
+        lengths = np.array([len(ts.data) for ts in tslist])
+        if not np.all(lengths == lengths[0]):
+            raise ValueError('All TimeSeries must have the same length')
+        
+        # Check all TimeSeries have same discrete/continuous type
+        is_discrete = np.array([ts.discrete for ts in tslist])
+        if not (np.all(is_discrete) or np.all(~is_discrete)):
+            raise ValueError('All components of MultiTimeSeries must be either continuous or discrete (no mixing)')
+        
+        # Set discrete flag based on components
+        self.discrete = is_discrete[0]
 
     def get_entropy(self, ds=1):
         if ds not in self.entropy.keys():
@@ -154,12 +267,38 @@ class MultiTimeSeries:
         return self.entropy[ds]
 
     def _compute_entropy(self, ds=1):
-        # TODO: rewrite this using int_data and via ent_d from driada.information.entropy
-        #self.entropy[ds] = nonparam_entropy_c(self.data) / np.log(2)
         if self.discrete:
-            raise ValueError('not implemented yet')
+            # All components are discrete - use joint discrete entropy
+            self.entropy[ds] = entropy_d(self.int_data[:, ::ds])
         else:
-            self.entropy[ds] = ent_g(self.data)
+            # All continuous - use existing continuous entropy
+            self.entropy[ds] = ent_g(self.data[:, ::ds])
+    
+    def filter(self, method='gaussian', **kwargs):
+        """
+        Apply filtering to all time series components and return a new filtered MultiTimeSeries.
+        
+        Parameters
+        ----------
+        method : str
+            Filtering method: 'gaussian', 'savgol', 'wavelet', or 'none'
+        **kwargs : dict
+            Method-specific parameters (see TimeSeries.filter for details)
+            
+        Returns
+        -------
+        MultiTimeSeries
+            New MultiTimeSeries object with all components filtered
+        """
+        from ..signals.neural_filtering import filter_neural_signals
+        
+        # Apply filtering to all time series at once
+        filtered_data = filter_neural_signals(self.data, method=method, **kwargs)
+        
+        # Create new MultiTimeSeries from filtered data
+        return MultiTimeSeries(filtered_data, labels=self.labels, 
+                              rescale_rows=self.rescale_rows, 
+                              data_name=self.data_name, discrete=self.discrete)
 
 
 def get_stats_function(sname):

@@ -364,28 +364,19 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     
     # Create dynamic features
     position_ts = MultiTimeSeries(
-        data=positions,
-        feature_type='c',
-        feature_name='position_2d',
-        fs=fps,
-        is_binary=False
+        [TimeSeries(positions[0, :], discrete=False),
+         TimeSeries(positions[1, :], discrete=False)]
     )
     
     # Also create separate x, y features
     x_ts = TimeSeries(
         data=positions[0, :],
-        feature_type='c',
-        feature_name='x',
-        fs=fps,
-        is_binary=False
+        discrete=False
     )
     
     y_ts = TimeSeries(
         data=positions[1, :],
-        feature_type='c',
-        feature_name='y',
-        fs=fps,
-        is_binary=False
+        discrete=False
     )
     
     dynamic_features = {

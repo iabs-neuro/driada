@@ -9,7 +9,6 @@ from .data import MVData
 from .dr_base import METHODS_DICT, DRMethod
 from .embedding import Embedding
 from .graph import ProximityGraph
-from .selectivity_mapper import SelectivityManifoldMapper
 
 # Import manifold metrics
 from .manifold_metrics import (
@@ -38,7 +37,6 @@ __all__ = [
     "DRMethod",
     "Embedding",
     "ProximityGraph",
-    "SelectivityManifoldMapper",
     # Manifold metrics
     "compute_distance_matrix",
     "knn_preservation_rate",

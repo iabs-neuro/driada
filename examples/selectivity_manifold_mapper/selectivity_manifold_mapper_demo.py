@@ -36,7 +36,8 @@ from driada import (
     generate_mixed_population_exp,
     compute_cell_feat_significance
 )
-from driada.dim_reduction import SelectivityManifoldMapper, METHODS_DICT
+from driada.dim_reduction import METHODS_DICT
+from driada.integration import SelectivityManifoldMapper
 from driada.intense import compute_embedding_selectivity
 
 
