@@ -800,15 +800,22 @@ This module would position DRIADA as a comprehensive framework for interpretable
   - [ ] Generate meaningful visualizations
   - [ ] Add to examples README
 
-### Task 4b: Remove e_method Redundancy (PRE-RELEASE PRIORITY)
-- [ ] **Simplify DR method specification**
-  - [ ] e_method can be reconstructed from e_method_name using METHODS_DICT
-  - [ ] Update MVData.get_embedding() to auto-construct method objects
-  - [ ] Deprecate e_method parameter in favor of e_method_name only
-  - [ ] Maintain backward compatibility with deprecation warning
-- [ ] **Update all examples and tests**
-  - [ ] Remove e_method parameter from all calls
-  - [ ] Simplify DR method usage throughout codebase
+### Task 4b: Remove e_method Redundancy (PRE-RELEASE PRIORITY) ✅ COMPLETED (2025-01-21)
+**Note**: Discovered during analysis that this was already completed in commit "refactor: update all DR code to use new simplified API"
+- [x] **Simplify DR method specification** ✅ COMPLETED
+  - [x] e_method can be reconstructed from e_method_name using METHODS_DICT
+  - [x] Update MVData.get_embedding() to auto-construct method objects
+  - [x] Deprecate e_method parameter in favor of e_method_name only
+  - [x] Maintain backward compatibility with deprecation warning
+- [x] **Update all examples and tests** ✅ COMPLETED
+  - [x] Remove e_method parameter from all calls
+  - [x] Simplify DR method usage throughout codebase
+  
+**Implementation Details:**
+- Simplified API allows `mvdata.get_embedding(method='pca')` instead of passing both e_method and e_method_name
+- merge_params_with_defaults() automatically sets both parameters
+- All examples updated to use new simplified format
+- Backward compatibility maintained - old code still works
 
 ### Task 5: Enhance TimeSeries and MultiTimeSeries Architecture (PRE-RELEASE PRIORITY) ✅ COMPLETED (2025-01-21)
 **Note**: Critical for improving user experience and enabling direct DR on neural data

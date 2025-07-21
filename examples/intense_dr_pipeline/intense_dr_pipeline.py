@@ -23,6 +23,10 @@ from driada import (
 from driada.dim_reduction import MVData
 from driada.information import get_sim
 from driada.signals import filter_neural_signals, adaptive_filter_neural_signals
+from driada.utils import (
+    compute_spatial_decoding_accuracy,
+    compute_spatial_information,
+)
 
 
 def compute_spatial_correspondence_metrics(embedding, true_positions):
@@ -41,80 +45,41 @@ def compute_spatial_correspondence_metrics(embedding, true_positions):
     metrics : dict
         Dictionary containing spatial correspondence metrics
     """
-    from scipy.spatial.distance import pdist, squareform
-    from scipy.stats import spearmanr
-    from sklearn.neighbors import NearestNeighbors
-    from sklearn.model_selection import train_test_split
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.metrics import r2_score
+    from scipy.spatial.distance import pdist
+    from scipy.spatial import procrustes
     
     metrics = {}
     
-    # 1. SPATIAL DECODING ACCURACY - Most important metric
-    # Can we recover position from embedding coordinates?
-    try:
-        X_train, X_test, y_train, y_test = train_test_split(
-            embedding, true_positions, test_size=0.5, random_state=42
-        )
-        # Use regularized decoder to prevent overfitting
-        decoder = RandomForestRegressor(
-            n_estimators=20,      # Fewer trees
-            max_depth=3,          # Limited depth
-            min_samples_leaf=50,  # Require more samples per leaf
-            random_state=42, 
-            n_jobs=-1
-        )
-        decoder.fit(X_train, y_train)
-        y_pred = decoder.predict(X_test)
-        
-        metrics['spatial_decoding_r2_x'] = r2_score(y_test[:, 0], y_pred[:, 0])
-        metrics['spatial_decoding_r2_y'] = r2_score(y_test[:, 1], y_pred[:, 1])
-        metrics['spatial_decoding_r2_avg'] = (metrics['spatial_decoding_r2_x'] + metrics['spatial_decoding_r2_y']) / 2
-        metrics['spatial_decoding_mse'] = np.mean((y_test - y_pred)**2)
-    except Exception as e:
-        # Fallback if decoding fails
-        metrics['spatial_decoding_r2_avg'] = 0.0
-        metrics['spatial_decoding_r2_x'] = 0.0
-        metrics['spatial_decoding_r2_y'] = 0.0
-        metrics['spatial_decoding_mse'] = float('inf')
+    # 1. SPATIAL DECODING ACCURACY - Use library function
+    # Need to transpose embedding for library function (expects n_neurons x n_samples)
+    decoding_metrics = compute_spatial_decoding_accuracy(
+        embedding.T,  # Transpose to (n_dims, n_samples)
+        true_positions,
+        test_size=0.5,
+        n_estimators=20,
+        max_depth=3,
+        min_samples_leaf=50,
+        random_state=42
+    )
     
-    # 3. SPATIAL INFORMATION CONTENT
-    # Mutual information between embedding and spatial positions using DRIADA's native methods
-    try:
-        from driada.information import get_sim
-        
-        # Create TimeSeries objects for positions
-        x_pos_ts = TimeSeries(true_positions[:, 0], discrete=False)
-        y_pos_ts = TimeSeries(true_positions[:, 1], discrete=False)
-        
-        # Create MultiTimeSeries for 2D position
-        pos_2d_mts = MultiTimeSeries([x_pos_ts, y_pos_ts])
-        
-        # Create MultiTimeSeries for embedding
-        if embedding.shape[1] == 1:
-            embed_mts = TimeSeries(embedding[:, 0], discrete=False)
-        else:
-            embed_ts_list = [TimeSeries(embedding[:, i], discrete=False) for i in range(embedding.shape[1])]
-            embed_mts = MultiTimeSeries(embed_ts_list)
-        
-        # Calculate mutual information using get_sim
-        # MI with x position
-        mi_x = get_sim(embed_mts, x_pos_ts, metric='mi', estimator='gcmi')
-        # MI with y position  
-        mi_y = get_sim(embed_mts, y_pos_ts, metric='mi', estimator='gcmi')
-        # MI with 2D position
-        mi_2d = get_sim(embed_mts, pos_2d_mts, metric='mi', estimator='gcmi')
-        
-        metrics['spatial_mi_x'] = mi_x
-        metrics['spatial_mi_y'] = mi_y
-        metrics['spatial_mi_total'] = mi_2d  # Use 2D MI instead of sum
-    except Exception as e:
-        print(f"Warning: MI calculation failed: {e}")
-        metrics['spatial_mi_x'] = 0.0
-        metrics['spatial_mi_y'] = 0.0
-        metrics['spatial_mi_total'] = 0.0
+    # Map to expected metric names
+    metrics['spatial_decoding_r2_x'] = decoding_metrics['r2_x']
+    metrics['spatial_decoding_r2_y'] = decoding_metrics['r2_y']
+    metrics['spatial_decoding_r2_avg'] = decoding_metrics['r2_avg']
+    metrics['spatial_decoding_mse'] = decoding_metrics['mse']
     
-    # 4. DISTANCE CORRELATION
+    # 2. SPATIAL INFORMATION CONTENT - Use library function
+    mi_metrics = compute_spatial_information(
+        embedding.T,  # Transpose to (n_dims, n_samples)
+        true_positions
+    )
+    
+    # Map to expected metric names
+    metrics['spatial_mi_x'] = mi_metrics['mi_x']
+    metrics['spatial_mi_y'] = mi_metrics['mi_y']
+    metrics['spatial_mi_total'] = mi_metrics['mi_total']
+    
+    # 3. DISTANCE CORRELATION
     # Pearson correlation between pairwise distances
     try:
         dist_embed = pdist(embedding)
@@ -125,11 +90,9 @@ def compute_spatial_correspondence_metrics(embedding, true_positions):
     except:
         metrics['distance_correlation'] = 0.0
     
-    # 5. IMPROVED PROCRUSTES ANALYSIS
+    # 4. IMPROVED PROCRUSTES ANALYSIS
     # Proper implementation without arbitrary padding
     try:
-        from scipy.spatial import procrustes
-        
         # Only use first 2 dimensions of embedding for fair comparison
         embedding_2d = embedding[:, :2] if embedding.shape[1] >= 2 else embedding
         
@@ -142,7 +105,6 @@ def compute_spatial_correspondence_metrics(embedding, true_positions):
         metrics['procrustes_disparity'] = disparity
     except:
         metrics['procrustes_disparity'] = 1.0
-    
     
     return metrics
 
@@ -459,6 +421,7 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
                 'n_neighbors': 80,
                 'min_dist': 0.8,
                 'random_state': 42
+            }
         }
     }
     
