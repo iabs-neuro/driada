@@ -489,7 +489,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
             for i in range(mts.data.shape[0]):
                 if np.allclose(mts.data[i, ::ds], ts.data[::ds], rtol=1e-10, atol=1e-10):
                     warnings.warn('MI computation between MultiTimeSeries containing identical data detected, returning 0')
-                    return 0
+                    return 0.0
 
         if ts.discrete:
             ny1 = np.roll(mts.copula_normal_data[:, ::ds], shift)
@@ -514,7 +514,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
             if np.allclose(ts1.data, ts2.data) and shift == 0:  # and not (ts1.discrete and ts2.discrete):
                 warnings.warn('MI computation of a MultiTimeSeries with itself is meaningless, 0 will be returned forcefully')
                 # raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
-                return 0
+                return 0.0
 
         if mts1.discrete or mts2.discrete:
             raise NotImplementedError('MI computation between MultiTimeSeries\
@@ -649,6 +649,8 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
                 ny1 = ts1.int_data[::ds]  # .reshape(-1, 1)
                 ny2 = np.roll(ts2.int_data[::ds], shift)
                 mi = mutual_info_score(ny1, ny2)
+                # Ensure float type for consistency
+                mi = float(mi)
 
         elif ts1.discrete and not ts2.discrete:
             ny1 = ts1.int_data[::ds]
@@ -663,6 +665,9 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
             #TODO: fix zd error
             ny2 = np.roll(ts2.int_data[::ds], shift)
             #ny2 = np.roll(ts2.data[::ds], shift)
+            # Ensure ny1 is contiguous for better performance with Numba
+            if not ny1.flags['C_CONTIGUOUS']:
+                ny1 = np.ascontiguousarray(ny1)
             '''
             print(ny2)
             print(sum(ny2))
@@ -674,7 +679,7 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         if mi < 0:
-            mi = 0
+            mi = 0.0
 
         return mi
 

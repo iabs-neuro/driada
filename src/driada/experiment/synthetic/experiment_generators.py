@@ -108,8 +108,9 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
             else:
                 raise ValueError('unknown feature flag')
 
-        if seed is not None:
-            seed += 1  # save reproducibility, but break degeneracy
+        # Do not modify seed during feature generation
+        # if seed is not None:
+        #     seed += 1  # save reproducibility, but break degeneracy
 
     print('Generating signals...')
     if nfeats > 0:
@@ -174,8 +175,9 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
                                                                noise_std=noise_std)
 
         all_signals.append(pseudo_calcium_signal)
-        if seed is not None:
-            seed += 1  # save reproducibility, but break degeneracy
+        # Do not modify seed during feature generation
+        # if seed is not None:
+        #     seed += 1  # save reproducibility, but break degeneracy
 
     return np.vstack(all_feats), np.vstack(all_signals), gt
 
@@ -206,6 +208,9 @@ def generate_synthetic_exp(n_dfeats=20, n_cfeats=20, nneurons=500, seed=0, fps=2
     exp : Experiment
         Synthetic experiment object with calcium signals and optionally spike data.
     """
+    # Set the numpy random seed at the beginning of the function
+    if seed is not None:
+        np.random.seed(seed)
     # Split neurons between those responding to discrete and continuous features
     # For odd numbers, give the extra neuron to the first group
     # But if one type has 0 features, allocate all neurons to the other type
