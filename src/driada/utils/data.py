@@ -8,6 +8,52 @@ import scipy.stats as st
 from numba import njit
 
 
+def create_correlated_gaussian_data(n_features=10, n_samples=10000, 
+                                   correlation_pairs=None, seed=42):
+    """Generate multivariate Gaussian data with specified correlations.
+    
+    Parameters
+    ----------
+    n_features : int
+        Number of features (dimensions)
+    n_samples : int
+        Number of samples
+    correlation_pairs : list of tuples or None
+        List of (i, j, correlation) tuples specifying correlated features.
+        If None, uses default pattern: [(1, 9, 0.9), (2, 8, 0.8), (3, 7, 0.7)]
+    seed : int
+        Random seed for reproducibility
+        
+    Returns
+    -------
+    data : np.ndarray
+        Data array of shape (n_features, n_samples)
+    cov_matrix : np.ndarray
+        Covariance matrix used to generate the data
+    """
+    np.random.seed(seed)
+    if correlation_pairs is None:
+        correlation_pairs = [(1, 9, 0.9), (2, 8, 0.8), (3, 7, 0.7)]
+    
+    # Create correlation matrix
+    C = np.eye(n_features)
+    for i, j, corr in correlation_pairs:
+        if i < n_features and j < n_features:
+            C[i, j] = C[j, i] = corr
+    
+    # Ensure positive definite
+    min_eig = np.min(np.linalg.eigvals(C))
+    if min_eig < 0:
+        C += (-min_eig + 0.01) * np.eye(n_features)
+    
+    # Generate data
+    data = np.random.multivariate_normal(
+        np.zeros(n_features), C, size=n_samples
+    ).T
+    
+    return data, C
+
+
 def populate_nested_dict(content, outer, inner):
     nested_dict = {o: {} for o in outer}
     for o in outer:

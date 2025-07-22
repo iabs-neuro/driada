@@ -9,21 +9,21 @@ from src.driada.experiment.synthetic import (
     generate_circular_manifold_exp,
     generate_2d_manifold_exp
 )
+from src.driada.utils.data import create_correlated_gaussian_data
 
 n_gaussian = 10
 n_swiss_roll = 1000
 
 def create_default_data(n=n_gaussian, T=10000):
-    C = np.zeros((n,n))
-    C[1, 9] = 0.9
-    C[2, 8] = 0.8
-    C = (C + C.T)
-    np.fill_diagonal(C, 1)
-    signals = np.random.multivariate_normal(np.zeros(n),
-                                            C,
-                                            size=T,
-                                            check_valid='raise').T
-    return signals
+    # Use the utility function with the same correlation pattern
+    correlation_pairs = [(1, 9, 0.9), (2, 8, 0.8)]
+    data, _ = create_correlated_gaussian_data(
+        n_features=n,
+        n_samples=T,
+        correlation_pairs=correlation_pairs,
+        seed=None  # Don't set seed to maintain original behavior
+    )
+    return data
 
 
 def create_swiss_roll_data():

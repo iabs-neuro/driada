@@ -1,6 +1,6 @@
 from driada.intense.intense_base import compute_me_stats
 from driada.information.info_base import TimeSeries, MultiTimeSeries
-from driada.utils.data import retrieve_relevant_from_nested_dict
+from driada.utils.data import retrieve_relevant_from_nested_dict, create_correlated_gaussian_data
 from driada.intense.pipelines import compute_cell_feat_significance
 # Experiment imports are handled by synthetic module
 import numpy as np
@@ -13,17 +13,14 @@ def create_correlated_ts(n=100,
                          T=10000,
                          noise_scale=0.2):
 
-    np.random.seed(42)
-    C = np.zeros((n,n))
-    C[1, n-1] = 0.9
-    C[2, n-2] = 0.8
-    C[5, n-5] = 0.7
-    C = (C + C.T)
-    np.fill_diagonal(C, 1)
-    signals = np.random.multivariate_normal(np.zeros(n),
-                                            C,
-                                            size=T,
-                                            check_valid='raise').T
+    # Use the utility function with custom correlation pattern
+    correlation_pairs = [(1, n-1, 0.9), (2, n-2, 0.8), (5, n-5, 0.7)]
+    signals, _ = create_correlated_gaussian_data(
+        n_features=n,
+        n_samples=T,
+        correlation_pairs=correlation_pairs,
+        seed=42
+    )
 
     # cutting coherency windows, setting to 0 outside them
     w=100

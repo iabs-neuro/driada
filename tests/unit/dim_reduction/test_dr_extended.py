@@ -3,10 +3,10 @@ Extended tests for dimensionality reduction module.
 Includes missing DR algorithm tests, integration tests, performance benchmarks,
 and validation against known manifolds.
 """
-from sklearn.datasets import make_swiss_roll, make_s_curve, make_circles
 import numpy as np
 import pytest
 import time
+from sklearn.datasets import make_swiss_roll, make_s_curve, make_circles
 from driada.dim_reduction.data import MVData
 from driada.experiment import Experiment
 from driada.experiment.synthetic import (
@@ -18,11 +18,21 @@ from driada.experiment.synthetic import (
 
 # Test data generation helpers
 def create_swiss_roll_data(n_samples=1000):
+    """Create swiss roll data helper."""
     random_state = 42
     data, color = make_swiss_roll(n_samples=n_samples,
                                   noise=0.0,
                                   random_state=random_state,
                                   hole=False)
+    return data.T, color
+
+
+def create_s_curve_data(n_samples=1000):
+    """Create S-curve data helper."""
+    random_state = 42
+    data, color = make_s_curve(n_samples=n_samples,
+                               noise=0.1,
+                               random_state=random_state)
     return data.T, color
 
 

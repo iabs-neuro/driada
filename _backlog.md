@@ -328,13 +328,20 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
 - [ ] Test all supported metrics (MI, correlation, etc.)
 - [ ] Test all distribution types for p-value calculation
 - [ ] **NEW: Test disentanglement analysis functions**
-  - [ ] Unit tests for `disentangle_pair` with various MI/CMI combinations
-  - [ ] Test redundancy detection (negative interaction information)
-  - [ ] Test synergy detection (positive interaction information)
-  - [ ] Test edge cases (zero MI, equal contributions)
-  - [ ] Integration tests for `disentangle_all_selectivities`
-  - [ ] Test multifeature mapping and aggregation
-  - [ ] Test error handling for missing features
+  - [x] Unit tests for `disentangle_pair` with various MI/CMI combinations ✅ COMPLETED
+  - [x] Test redundancy detection (negative interaction information) ✅ COMPLETED
+  - [x] Test synergy detection (positive interaction information) ✅ COMPLETED
+  - [x] Test edge cases (zero MI, equal contributions) ✅ COMPLETED
+  - [x] Integration tests for `disentangle_all_selectivities` ✅ COMPLETED
+  - [x] Test multifeature mapping and aggregation ✅ COMPLETED
+  - [x] Test error handling for missing features ✅ COMPLETED
+- [ ] **NEW: Disentanglement Integration Tests (FROM ARCHIVE)**
+  - [ ] End-to-end workflow with synthetic experiments
+  - [ ] Test with known selectivity patterns (pure place cells, mixed selectivity)
+  - [ ] Verify disentanglement detects correct patterns
+  - [ ] Test with various noise levels
+  - [ ] Compatibility tests with existing INTENSE pipeline
+  - [ ] Test with different data types (calcium vs spikes)
 - [x] **NEW: Test information theory additions** ✅ COMPLETED (2025-01-11)
 - [x] **NEW HIGH PRIORITY: Fix interaction information sign issues** ✅ COMPLETED (2025-01-11)
 - [ ] **NEW: Implement Partial Information Decomposition (PID) module**
@@ -351,11 +358,11 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - [ ] Create visualization functions for PID results
   - [ ] Document theoretical background and usage
   - [ ] Note: This is different from interaction information (II) which only gives net redundancy/synergy
-- [ ] **NEW: Test visualization functions**
-  - [ ] Test `plot_disentanglement_heatmap` with various inputs
-  - [ ] Test `plot_disentanglement_summary` with single/multiple experiments
-  - [ ] Test colormap generation and masking
-  - [ ] Test parameter validation and error handling
+- [x] **NEW: Test visualization functions** ✅ COMPLETED
+  - [x] Test `plot_disentanglement_heatmap` with various inputs ✅ COMPLETED
+  - [x] Test `plot_disentanglement_summary` with single/multiple experiments ✅ COMPLETED
+  - [x] Test colormap generation and masking ✅ COMPLETED
+  - [x] Test parameter validation and error handling ✅ COMPLETED
 - [ ] **NEW: Test compute_feat_feat_significance function**
   - [ ] Test with default 'all' features mode
   - [ ] Test with specific feature subsets
@@ -365,6 +372,20 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
   - [ ] Test with different metrics (MI, correlation)
   - [ ] Verify matrix symmetry
   - [ ] Test parallel vs sequential execution
+
+- [ ] **NEW: Disentanglement Performance Tests (FROM ARCHIVE)**
+  - [ ] Time complexity for different population sizes
+  - [ ] Memory usage with large datasets (>1000 neurons)
+  - [ ] Stress tests with many features (>20)
+  - [ ] Very long time series (>100k frames)
+  - [ ] Create benchmark suite for disentanglement analysis
+- [ ] **NEW: Mathematical Property Validation Tests (FROM ARCHIVE)**
+  - [ ] Verify CMI chain rule: I(X;Y,Z) = I(X;Y) + I(X;Z|Y)
+  - [ ] Test CMI inequality: CMI ≤ MI
+  - [ ] Verify H(X,Y) ≥ max(H(X), H(Y))
+  - [ ] Test H(Z|X) ≤ H(Z)
+  - [ ] Validate entropy relationships
+  - [ ] Test symmetry of interaction information
 
 ### Medium Priority
 - [ ] Add property-based testing for statistical functions
@@ -380,6 +401,15 @@ A toolbox to analyze individual neuronal selectivity to external patterns using 
 ## 4. Features & Functionality
 
 ### High Priority
+- [ ] **Implement Numba Configuration System (FROM ARCHIVE)**
+  - [ ] Create driada/config.py with environment variable support
+  - [ ] Implement conditional_njit decorator that respects configuration
+  - [ ] Refactor all @njit decorators to use conditional version
+  - [ ] Add DRIADA_DISABLE_NUMBA environment variable support
+  - [ ] Create fallback pure Python implementations for JIT functions
+  - [ ] Make Numba an optional dependency in pyproject.toml
+  - [ ] Add tests for both Numba-enabled and disabled modes
+  - [ ] Update documentation with usage instructions
 - [ ] Implement missing MultiTimeSeries support in joint_distr mode
 - [ ] Add support for custom similarity metrics
 - [ ] Implement auto-correlation based min_shift calculation
@@ -758,16 +788,24 @@ This module would position DRIADA as a comprehensive framework for interpretable
   - [ ] Run all tests to ensure nothing breaks
   - [ ] Update test imports as needed
 
-### Task 2: Process Documentation from Archive
-- [ ] **Review archive documentation**
-  - [ ] Process TODO_DISENTANGLEMENT_TESTS.md
-  - [ ] Process TODO_NUMBA_CONFIG.md  
-  - [ ] Process NUMBA_0.60_RIDGE_ISSUE.md
-  - [ ] Extract actionable items and implementation plans
-- [ ] **Integrate findings**
-  - [ ] Update relevant modules based on archive insights
-  - [ ] Document any unresolved issues in appropriate places
-  - [ ] Move completed items to main documentation
+### Task 2: Process Documentation from Archive ✅ COMPLETED (2025-01-22)
+- [x] **Review archive documentation** ✅ COMPLETED
+  - [x] Process TODO_DISENTANGLEMENT_TESTS.md ✅ COMPLETED
+  - [x] Process TODO_NUMBA_CONFIG.md ✅ COMPLETED
+  - [x] Process NUMBA_0.60_RIDGE_ISSUE.md ✅ COMPLETED
+  - [x] Extract actionable items and implementation plans ✅ COMPLETED
+- [x] **Integrate findings** ✅ COMPLETED
+  - [x] Update relevant modules based on archive insights ✅ COMPLETED
+  - [x] Document any unresolved issues in appropriate places ✅ COMPLETED
+  - [x] Move completed items to main documentation ✅ COMPLETED
+
+**Implementation Details:**
+- Created ARCHIVE_PROCESSING_SUMMARY.md documenting all findings
+- Identified that many disentanglement tests are already implemented
+- Numba configuration system remains unimplemented (added to Features)
+- NUMBA_0.60_RIDGE_ISSUE is resolved (no action needed)
+- Added missing test items to Testing section
+- Added Numba configuration to Features & Functionality section
 
 ### Task 3: Verify Global Code Coverage and Create Missing Tests
 - [ ] **Run comprehensive coverage analysis**
@@ -888,23 +926,31 @@ This module would position DRIADA as a comprehensive framework for interpretable
 - Updated intense_dr_pipeline.py to use library functions
 - Added visualization example for spatial maps
 
-### Task 7: Refactor Signal Module (PRE-RELEASE PRIORITY)
+### Task 7: Refactor Signal Module (PRE-RELEASE PRIORITY) ✅ COMPLETED (2025-01-21)
 **Note**: Signal class is barely used but refactoring improves code organization
-- [ ] **Analyze Signal module usage**
-  - [ ] Signal class barely used (only in ts_wavelet_denoise)
-  - [ ] neural_filtering.py actively used
-  - [ ] brownian() and ApEn() unused
-- [ ] **Implement refactoring plan**
-  - [ ] Move brownian() to utils/signals.py
-  - [ ] Move ApEn() to utils/signals.py
-  - [ ] Keep neural_filtering.py in signals/
-  - [ ] Deprecate Signal class with warning
-  - [ ] Remove unused wavelet methods
-- [ ] **Update module structure**
-  - [ ] Update signals/__init__.py
-  - [ ] Fix any imports
-  - [ ] Update documentation
-  - [ ] Ensure backward compatibility
+- [x] **Analyze Signal module usage** ✅ COMPLETED
+  - [x] Signal class barely used (only in ts_wavelet_denoise)
+  - [x] neural_filtering.py actively used
+  - [x] brownian() and ApEn() unused
+- [x] **Implement refactoring plan** ✅ COMPLETED
+  - [x] Move brownian() to utils/signals.py
+  - [x] Move ApEn() to utils/signals.py (renamed to approximate_entropy)
+  - [x] Move all filtering functions to utils/signals.py
+  - [x] Delete entire signals module (Signal class was unused)
+  - [x] Add approximate_entropy method to TimeSeries class
+- [x] **Update module structure** ✅ COMPLETED
+  - [x] Create utils/signals.py with all functionality
+  - [x] Fix all imports throughout codebase
+  - [x] Update documentation
+  - [x] Ensure backward compatibility with deprecation warning
+
+**Implementation Details:**
+- Consolidated all signal processing in utils/signals.py
+- Renamed ApEn to approximate_entropy for clarity
+- Removed manifold_preprocessing wrapper (redundant)
+- Added comprehensive tests for all functionality
+- Created backward compatibility module with deprecation warning
+- Simplified API by removing unnecessary abstractions
 
 ## 🚀 POST-RELEASE ENHANCEMENTS
 
