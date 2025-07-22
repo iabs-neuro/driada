@@ -32,7 +32,7 @@ import os
 import pytest
 import numpy as np
 from sklearn.datasets import make_swiss_roll, make_s_curve
-from src.driada.utils.data import create_correlated_gaussian_data
+from driada.utils.data import create_correlated_gaussian_data
 
 
 def pytest_configure(config):
@@ -91,12 +91,12 @@ def small_experiment():
     
     Suitable for quick unit tests.
     """
-    from src.driada.experiment.synthetic import generate_synthetic_exp
+    from driada.experiment.synthetic import generate_synthetic_exp
     return generate_synthetic_exp(
         n_dfeats=2, 
         n_cfeats=2, 
         nneurons=5, 
-        duration=10,  # 10 seconds
+        duration=60,  # 60 seconds for sufficient shuffling
         fps=20, 
         seed=42
     )
@@ -108,12 +108,12 @@ def medium_experiment():
     
     Suitable for integration tests.
     """
-    from src.driada.experiment.synthetic import generate_synthetic_exp
+    from driada.experiment.synthetic import generate_synthetic_exp
     return generate_synthetic_exp(
         n_dfeats=3, 
         n_cfeats=3, 
         nneurons=20, 
-        duration=60,  # 1 minute
+        duration=200,  # 200 seconds for thorough testing
         fps=20, 
         seed=42
     )
@@ -125,12 +125,12 @@ def large_experiment():
     
     Suitable for performance tests and thorough validation.
     """
-    from src.driada.experiment.synthetic import generate_synthetic_exp
+    from driada.experiment.synthetic import generate_synthetic_exp
     return generate_synthetic_exp(
         n_dfeats=5, 
         n_cfeats=5, 
         nneurons=50, 
-        duration=300,  # 5 minutes
+        duration=1000,  # 1000 seconds for extensive testing
         fps=20, 
         seed=42
     )
@@ -140,11 +140,11 @@ def large_experiment():
 @pytest.fixture(params=["small", "medium", "large"])
 def continuous_only_experiment(request):
     """Experiment with only continuous features in 3 sizes."""
-    from src.driada.experiment.synthetic import generate_synthetic_exp
+    from driada.experiment.synthetic import generate_synthetic_exp
     sizes = {
-        "small": (0, 2, 5, 10),    # n_dfeats, n_cfeats, nneurons, duration
-        "medium": (0, 3, 10, 30),
-        "large": (0, 5, 30, 120)
+        "small": (0, 2, 5, 60),    # n_dfeats, n_cfeats, nneurons, duration
+        "medium": (0, 3, 10, 200),
+        "large": (0, 5, 30, 1000)
     }
     n_dfeats, n_cfeats, nneurons, duration = sizes[request.param]
     return generate_synthetic_exp(
@@ -160,11 +160,11 @@ def continuous_only_experiment(request):
 @pytest.fixture(params=["small", "medium", "large"])
 def discrete_only_experiment(request):
     """Experiment with only discrete features in 3 sizes."""
-    from src.driada.experiment.synthetic import generate_synthetic_exp
+    from driada.experiment.synthetic import generate_synthetic_exp
     sizes = {
-        "small": (2, 0, 5, 10),    # n_dfeats, n_cfeats, nneurons, duration
-        "medium": (3, 0, 10, 30),
-        "large": (5, 0, 30, 120)
+        "small": (2, 0, 5, 60),    # n_dfeats, n_cfeats, nneurons, duration
+        "medium": (3, 0, 10, 200),
+        "large": (5, 0, 30, 1000)
     }
     n_dfeats, n_cfeats, nneurons, duration = sizes[request.param]
     return generate_synthetic_exp(
@@ -180,11 +180,11 @@ def discrete_only_experiment(request):
 @pytest.fixture(params=["small", "medium", "large"])
 def mixed_features_experiment(request):
     """Experiment with mixed discrete and continuous features in 3 sizes."""
-    from src.driada.experiment.synthetic import generate_synthetic_exp
+    from driada.experiment.synthetic import generate_synthetic_exp
     sizes = {
-        "small": (2, 2, 5, 10),    # n_dfeats, n_cfeats, nneurons, duration
-        "medium": (3, 3, 20, 60),
-        "large": (5, 5, 50, 300)
+        "small": (2, 2, 5, 60),    # n_dfeats, n_cfeats, nneurons, duration
+        "medium": (3, 3, 20, 200),
+        "large": (5, 5, 50, 1000)
     }
     n_dfeats, n_cfeats, nneurons, duration = sizes[request.param]
     return generate_synthetic_exp(
@@ -194,6 +194,78 @@ def mixed_features_experiment(request):
         duration=duration,
         fps=20, 
         seed=42
+    )
+
+
+@pytest.fixture
+def experiment_factory():
+    """Factory fixture for creating experiments with custom parameters.
+    
+    This fixture provides a function that creates experiments with specific
+    configurations while still benefiting from pytest's fixture management.
+    
+    Usage in tests:
+        def test_something(experiment_factory):
+            # Create experiment with specific parameters
+            exp = experiment_factory(n_dfeats=5, n_cfeats=0, nneurons=2)
+            
+            # Or with additional parameters
+            exp = experiment_factory(
+                n_dfeats=1, 
+                n_cfeats=0, 
+                nneurons=3, 
+                with_spikes=True,
+                fps=30
+            )
+    
+    Returns
+    -------
+    factory : callable
+        Function that creates experiments with given parameters.
+        Accepts all parameters of generate_synthetic_exp.
+    """
+    from driada.experiment.synthetic import generate_synthetic_exp
+    
+    def factory(**kwargs):
+        # Set default parameters that can be overridden
+        defaults = {
+            'n_dfeats': 2,
+            'n_cfeats': 2,
+            'nneurons': 10,
+            'duration': 200,  # Default to medium duration
+            'fps': 20,
+            'seed': 42
+        }
+        # Update defaults with provided kwargs
+        params = {**defaults, **kwargs}
+        return generate_synthetic_exp(**params)
+    
+    return factory
+
+
+@pytest.fixture(scope="session")
+def spike_reconstruction_experiment():
+    """Fixture for experiment with spike reconstruction enabled.
+    
+    This fixture creates a standard experiment configuration with spike
+    reconstruction from calcium signals. Used for testing spike-related
+    functionality.
+    
+    Returns
+    -------
+    exp : Experiment
+        Experiment with n_dfeats=1, n_cfeats=0, nneurons=5, with_spikes=True
+    """
+    from driada.experiment.synthetic import generate_synthetic_exp
+    
+    return generate_synthetic_exp(
+        n_dfeats=1,
+        n_cfeats=0,
+        nneurons=5,
+        duration=200,
+        fps=20,
+        seed=42,
+        with_spikes=True  # Enable spike reconstruction
     )
 
 
@@ -262,7 +334,7 @@ def correlated_gaussian_data(correlation_pattern):
 @pytest.fixture
 def simple_timeseries():
     """Create a simple TimeSeries for unit tests."""
-    from src.driada.information.info_base import TimeSeries
+    from driada.information.info_base import TimeSeries
     
     values = np.sin(np.linspace(0, 4*np.pi, 1000)) + 0.1 * np.random.randn(1000)
     return TimeSeries(
@@ -276,7 +348,7 @@ def simple_timeseries():
 @pytest.fixture
 def multi_timeseries():
     """Create a MultiTimeSeries for unit tests."""
-    from src.driada.information.info_base import TimeSeries, MultiTimeSeries
+    from driada.information.info_base import TimeSeries, MultiTimeSeries
     
     n_features = 3
     n_samples = 1000
@@ -301,7 +373,7 @@ def multi_timeseries():
 @pytest.fixture
 def circular_manifold_data():
     """Generate circular manifold data for testing."""
-    from src.driada.experiment.synthetic import generate_circular_manifold_data
+    from driada.experiment.synthetic import generate_circular_manifold_data
     
     data = generate_circular_manifold_data(
         n_samples=1000,
@@ -315,7 +387,7 @@ def circular_manifold_data():
 @pytest.fixture
 def spatial_2d_data():
     """Generate 2D spatial manifold data for testing."""
-    from src.driada.experiment.synthetic import generate_2d_manifold_data
+    from driada.experiment.synthetic import generate_2d_manifold_data
     
     data = generate_2d_manifold_data(
         grid_size=20,

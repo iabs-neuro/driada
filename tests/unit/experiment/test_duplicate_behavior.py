@@ -2,14 +2,14 @@
 
 import pytest
 import numpy as np
-from src.driada.intense.intense_base import compute_me_stats
-from src.driada.intense.pipelines import (
+from driada.intense.intense_base import compute_me_stats
+from driada.intense.pipelines import (
     compute_cell_feat_significance,
     compute_feat_feat_significance,
     compute_cell_cell_significance
 )
-from src.driada.information.info_base import TimeSeries
-from src.driada.experiment.synthetic import generate_synthetic_exp
+from driada.information.info_base import TimeSeries
+from driada.experiment.synthetic import generate_synthetic_exp
 
 
 def test_duplicate_behavior_ignore():
@@ -101,13 +101,10 @@ def test_duplicate_behavior_raise():
         )
 
 
-def test_duplicate_behavior_in_pipelines():
+def test_duplicate_behavior_in_pipelines(small_experiment):
     """Test duplicate behavior parameter in pipeline functions."""
-    # Create synthetic experiment
-    exp = generate_synthetic_exp(
-        n_dfeats=2, n_cfeats=1, nneurons=3, seed=42,
-        duration=100, fps=10
-    )
+    # Use fixture for consistent test data
+    exp = small_experiment
     
     # Test compute_cell_feat_significance
     stats, significance, info, results = compute_cell_feat_significance(

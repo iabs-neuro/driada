@@ -123,9 +123,9 @@ class SelectivityManifoldMapper:
         
         # Get neural data
         if data_type == 'calcium':
-            neural_data = self.experiment.calcium[neuron_indices, :]
+            neural_data = self.experiment.calcium.data[neuron_indices, :]
         elif data_type == 'spikes':
-            neural_data = self.experiment.spikes[neuron_indices, :]
+            neural_data = self.experiment.spikes.data[neuron_indices, :]
         else:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
         

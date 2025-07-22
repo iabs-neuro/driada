@@ -2,9 +2,9 @@ import networkx as nx
 import numpy as np
 import scipy.sparse as sp
 
-from src.driada.network.net_base import Network
-from src.driada.network.graph_utils import get_giant_scc_from_graph
-from src.driada.network.matrix_utils import turn_to_partially_directed
+from driada.network.net_base import Network
+from driada.network.graph_utils import get_giant_scc_from_graph
+from driada.network.matrix_utils import turn_to_partially_directed
 
 
 def create_default_adj(directed=False):

@@ -359,7 +359,7 @@ def test_swiss_roll_unfolding():
     emb = D.get_embedding(method='isomap', dim=2, nn=10, metric='l2')
     
     # Use manifold metrics to evaluate preservation
-    from src.driada.dim_reduction import knn_preservation_rate, trustworthiness, continuity
+    from driada.dim_reduction import knn_preservation_rate, trustworthiness, continuity
     
     # Convert to proper format (n_samples, n_features)
     X_high = data
@@ -397,7 +397,7 @@ def test_circle_preservation():
     emb = D.get_embedding(method='pca', dim=2)
     
     # Use manifold metrics for circular structure
-    from src.driada.dim_reduction import circular_structure_preservation, knn_preservation_rate
+    from driada.dim_reduction import circular_structure_preservation, knn_preservation_rate
     
     # Convert to proper format
     X_high = data.T  # (n_samples, n_features)
@@ -481,7 +481,7 @@ def test_high_dimensional_data():
 
 def test_linear_vs_nonlinear_on_manifolds():
     """Compare linear (PCA) vs nonlinear (Isomap) methods on manifolds"""
-    from src.driada.dim_reduction import manifold_preservation_score
+    from driada.dim_reduction import manifold_preservation_score
     
     # Generate swiss roll - a classic nonlinear manifold
     n_samples = 500

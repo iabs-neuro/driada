@@ -1,8 +1,8 @@
-from src.driada.intense.intense_base import compute_me_stats
-from src.driada.experiment.exp_base import *
-from src.driada.experiment.synthetic import *
-from src.driada.intense.pipelines import compute_cell_feat_significance
-from src.driada.information.info_base import TimeSeries, MultiTimeSeries
+from driada.intense.intense_base import compute_me_stats
+from driada.experiment.exp_base import *
+from driada.experiment.synthetic import *
+from driada.intense.pipelines import compute_cell_feat_significance
+from driada.information.info_base import TimeSeries, MultiTimeSeries
 
 
 def test_creation(medium_experiment):

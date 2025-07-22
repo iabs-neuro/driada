@@ -15,15 +15,10 @@ from driada.intense import compute_cell_feat_significance, compute_embedding_sel
 class TestExperimentEmbeddings:
     """Test embedding storage functionality in Experiment class."""
     
-    def test_store_embedding(self):
+    def test_store_embedding(self, small_experiment):
         """Test storing embeddings in experiment."""
-        # Generate synthetic experiment
-        exp = driada.generate_synthetic_exp(
-            n_cfeats=2,
-            nneurons=20,
-            duration=100,
-            seed=42
-        )
+        # Use fixture for consistent test data
+        exp = small_experiment
         
         # Create dummy embedding
         n_components = 3
@@ -41,15 +36,10 @@ class TestExperimentEmbeddings:
         assert stored['shape'] == embedding.shape
         assert 'timestamp' in stored
     
-    def test_get_embedding(self):
+    def test_get_embedding(self, small_experiment):
         """Test retrieving embeddings from experiment."""
-        # Generate synthetic experiment
-        exp = driada.generate_synthetic_exp(
-            n_cfeats=2,
-            nneurons=20,
-            duration=100,
-            seed=42
-        )
+        # Use fixture for consistent test data
+        exp = small_experiment
         
         # Store embedding
         embedding = np.random.randn(exp.n_frames, 2)
@@ -63,14 +53,9 @@ class TestExperimentEmbeddings:
         with pytest.raises(KeyError):
             exp.get_embedding('nonexistent', 'calcium')
     
-    def test_embedding_validation(self):
+    def test_embedding_validation(self, small_experiment):
         """Test embedding validation."""
-        exp = driada.generate_synthetic_exp(
-            n_cfeats=2,
-            nneurons=20,
-            duration=100,
-            seed=42
-        )
+        exp = small_experiment
         
         # Wrong shape should raise error
         wrong_shape = np.random.randn(50, 2)  # Wrong number of timepoints
@@ -87,14 +72,10 @@ class TestSelectivityManifoldMapper:
     """Test SelectivityManifoldMapper functionality."""
     
     @pytest.fixture
-    def exp_with_selectivity(self):
+    def exp_with_selectivity(self, medium_experiment):
         """Generate experiment with computed selectivity."""
-        exp = driada.generate_synthetic_exp(
-            n_cfeats=3,
-            nneurons=50,
-            duration=300,
-            seed=42
-        )
+        # Use medium fixture for more neurons and duration
+        exp = medium_experiment
         
         # Compute selectivity
         compute_cell_feat_significance(
@@ -162,7 +143,7 @@ class TestSelectivityManifoldMapper:
         mapper = SelectivityManifoldMapper(exp_with_selectivity)
         
         # Use specific neurons
-        neuron_indices = [0, 5, 10, 15, 20]
+        neuron_indices = [0, 5, 10, 15, 19]
         embedding = mapper.create_embedding(
             'umap',
             n_components=2,
@@ -215,14 +196,10 @@ class TestEmbeddingSelectivity:
     """Test computing selectivity to embedding components."""
     
     @pytest.fixture
-    def exp_with_embedding(self):
+    def exp_with_embedding(self, medium_experiment):
         """Generate experiment with embedding."""
-        exp = driada.generate_synthetic_exp(
-            n_cfeats=2,
-            nneurons=30,
-            duration=200,
-            seed=42
-        )
+        # Use medium fixture
+        exp = medium_experiment
         
         # Create and store PCA embedding
         mapper = SelectivityManifoldMapper(exp)
@@ -276,14 +253,10 @@ class TestEmbeddingSelectivity:
             assert 'component_specialization' in org
             assert 'functional_clusters' in org
     
-    def test_multiple_embeddings(self):
+    def test_multiple_embeddings(self, small_experiment):
         """Test analyzing multiple embeddings."""
-        exp = driada.generate_synthetic_exp(
-            n_cfeats=2,
-            nneurons=20,
-            duration=150,
-            seed=42
-        )
+        # Use fixture
+        exp = small_experiment
         
         mapper = SelectivityManifoldMapper(exp)
         

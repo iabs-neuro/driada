@@ -4,7 +4,7 @@ Unit tests for manifold metrics module.
 import numpy as np
 import pytest
 from sklearn.datasets import make_swiss_roll
-from src.driada.dim_reduction.manifold_metrics import (
+from driada.dim_reduction.manifold_metrics import (
     compute_distance_matrix,
     knn_preservation_rate,
     trustworthiness,

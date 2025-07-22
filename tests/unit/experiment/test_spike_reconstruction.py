@@ -80,10 +80,10 @@ def test_events_to_ts_array_edge_cases():
     assert np.sum(spikes[0]) <= int(2.5 * fps)  # At most 2.5s
 
 
-def test_wavelet_spike_reconstruction():
+def test_wavelet_spike_reconstruction(small_experiment):
     """Test spike reconstruction using wavelet method."""
-    # Generate synthetic calcium data
-    exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=0, nneurons=3, seed=42)
+    # Use fixture for synthetic calcium data
+    exp = small_experiment
     
     # Get calcium data
     calcium = exp.calcium.data
@@ -110,10 +110,10 @@ def test_wavelet_spike_reconstruction():
         assert not np.all([np.array_equal(spikes[0], spikes[i]) for i in range(1, calcium.shape[0])])
 
 
-def test_experiment_with_spike_reconstruction():
+def test_experiment_with_spike_reconstruction(spike_reconstruction_experiment):
     """Test creating experiment with spike reconstruction."""
-    # Create experiment with spike reconstruction
-    exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=0, nneurons=5, seed=42, with_spikes=True)
+    # Use fixture for experiment with spike reconstruction
+    exp = spike_reconstruction_experiment
     
     # Check that spikes were created
     assert hasattr(exp, 'spikes')

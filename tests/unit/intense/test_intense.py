@@ -737,10 +737,10 @@ def test_get_multicomp_correction_fdr():
 from driada.intense.pipelines import compute_cell_feat_significance
 
 
-def test_compute_cell_feat_significance_integration():
+def test_compute_cell_feat_significance_integration(small_experiment):
     """Integration test for compute_cell_feat_significance."""
-    # Create synthetic experiment with minimal setup
-    exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=5, seed=42, fps=20)
+    # Use fixture for synthetic experiment
+    exp = small_experiment
     
     # Get the first available feature from the experiment
     available_features = list(exp.dynamic_features.keys())
@@ -897,16 +897,12 @@ def test_correlation_detection_scaled(n, T, expected_pairs):
         assert computed_significance[i][j]['stage1'] == True
 
 
-def test_get_calcium_feature_me_profile_cbunch_fbunch():
+def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
     """Test get_calcium_feature_me_profile with cbunch/fbunch support."""
     from driada.intense.intense_base import get_calcium_feature_me_profile
-    from driada.experiment.synthetic import generate_synthetic_exp
     
-    # Create small experiment
-    exp = generate_synthetic_exp(
-        n_dfeats=2, n_cfeats=1, nneurons=3, seed=42,
-        duration=50, fps=10
-    )
+    # Use fixture
+    exp = small_experiment
     
     # Test backward compatibility - old style single cell/feature
     me0, shifted_me = get_calcium_feature_me_profile(exp, 0, 'd_feat_0', window=20, ds=2)
@@ -934,7 +930,7 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch():
     
     # Test cbunch=None (all cells)
     results_all = get_calcium_feature_me_profile(exp, cbunch=None, fbunch=['d_feat_0'], window=10, ds=2)
-    assert len(results_all) == 3  # All 3 cells
+    assert len(results_all) == exp.n_cells  # All cells in fixture
     
     # Test invalid cell index
     with pytest.raises(ValueError, match="out of range"):

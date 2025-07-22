@@ -73,9 +73,9 @@ class Neuron():
             self.sp = None
         else:
             self.sp = TimeSeries(sp.astype(int), discrete=True)
-        self.n_frames = len(ca.data)
+        self.n_frames = len(self.ca.data)
 
-        self.sp_count = np.sum(self.sp.data.astype(bool).astype(int))
+        self.sp_count = np.sum(self.sp.data.astype(bool).astype(int)) if self.sp is not None else 0
         self.t_off = None
         self.noise_ampl = None
         self.mad = None

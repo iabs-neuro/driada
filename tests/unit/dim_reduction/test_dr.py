@@ -2,14 +2,14 @@ from sklearn.datasets import make_swiss_roll, make_s_curve, make_circles
 import numpy as np
 import pytest
 import time
-from src.driada.dim_reduction.data import *
-from src.driada.experiment import Experiment
-from src.driada.experiment.synthetic import (
+from driada.dim_reduction.data import *
+from driada.experiment import Experiment
+from driada.experiment.synthetic import (
     generate_synthetic_exp, 
     generate_circular_manifold_exp,
     generate_2d_manifold_exp
 )
-from src.driada.utils.data import create_correlated_gaussian_data
+from driada.utils.data import create_correlated_gaussian_data
 
 n_gaussian = 10
 n_swiss_roll = 1000

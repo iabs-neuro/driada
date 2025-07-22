@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from src.driada.intense.visual import (
+from driada.intense.visual import (
     plot_pc_activity,
     plot_neuron_feature_density,
     plot_neuron_feature_pair,
@@ -11,14 +11,13 @@ from src.driada.intense.visual import (
     plot_selectivity_heatmap,
 )
 import matplotlib.pyplot as plt
-from src.driada.experiment.synthetic import generate_synthetic_exp
 from types import SimpleNamespace
+import pytest
 
 
-def create_minimal_experiment_for_visual(T=500, num_neurons=3):
-    """Create minimal experiment for visual testing only."""
-    # Use synthetic module to create a proper experiment
-    exp = generate_synthetic_exp(n_dfeats=3, n_cfeats=3, nneurons=num_neurons, seed=42, fps=20)
+def create_minimal_experiment_for_visual(exp):
+    """Prepare experiment for visual testing."""
+    # Use provided fixture experiment
     
     # The visual functions expect exp.x, exp.y to be features with .data attribute
     # Create simple spatial trajectory
@@ -51,10 +50,10 @@ def create_minimal_experiment_for_visual(T=500, num_neurons=3):
     return exp
 
 
-def test_plot_pc_activity():
+def test_plot_pc_activity(mixed_features_experiment):
     """Test place cell activity plotting."""
-    # Create minimal experiment for visual testing
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=5)
+    # Use fixture
+    exp = create_minimal_experiment_for_visual(mixed_features_experiment)
     
     # Add stats table for the plot
     exp.stats_table = {('x', 'y'): []}
@@ -70,10 +69,10 @@ def test_plot_pc_activity():
     plt.close('all')
 
 
-def test_plot_neuron_feature_density():
+def test_plot_neuron_feature_density(mixed_features_experiment):
     """Test neuron feature density plotting."""
-    # Create minimal experiment for visual testing
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    # Use fixture
+    exp = create_minimal_experiment_for_visual(mixed_features_experiment)
     
     # Should run without error
     ax = plot_neuron_feature_density(exp, 'calcium', 0, 'speed', ind1=0, ind2=100)
@@ -81,10 +80,10 @@ def test_plot_neuron_feature_density():
     plt.close('all')
 
 
-def test_plot_neuron_feature_pair():
+def test_plot_neuron_feature_pair(mixed_features_experiment):
     """Test neuron feature pair plotting."""
-    # Create minimal experiment for visual testing
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    # Use fixture
+    exp = create_minimal_experiment_for_visual(mixed_features_experiment)
     
     # Should run without error
     fig = plot_neuron_feature_pair(exp, 0, 'speed', ind1=0, ind2=100)
@@ -92,10 +91,10 @@ def test_plot_neuron_feature_pair():
     plt.close('all')
 
 
-def test_plot_neuron_feature_density_discrete():
+def test_plot_neuron_feature_density_discrete(mixed_features_experiment):
     """Test neuron feature density plotting with discrete features."""
-    # Create minimal experiment for visual testing  
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    # Use fixture
+    exp = create_minimal_experiment_for_visual(mixed_features_experiment)
     
     # Add a binary feature
     exp.binary_feat = SimpleNamespace(
@@ -112,10 +111,10 @@ def test_plot_neuron_feature_density_discrete():
     plt.close('all')
 
 
-def test_plot_neuron_feature_pair_no_density():
+def test_plot_neuron_feature_pair_no_density(mixed_features_experiment):
     """Test neuron feature pair plotting without density subplot."""
-    # Create minimal experiment for visual testing  
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    # Use fixture
+    exp = create_minimal_experiment_for_visual(mixed_features_experiment)
     
     # Should run without error
     fig = plot_neuron_feature_pair(exp, 0, 'speed', ind1=0, ind2=100, add_density_plot=False)
@@ -236,10 +235,10 @@ def test_plot_disentanglement_summary():
     plt.close('all')
 
 
-def test_plot_neuron_feature_density_edge_cases():
+def test_plot_neuron_feature_density_edge_cases(small_experiment):
     """Test edge cases for neuron feature density plotting."""
     # Create minimal experiment
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    exp = create_minimal_experiment_for_visual(small_experiment)
     
     # Test with shift parameter (currently unused but in signature)
     ax = plot_neuron_feature_density(exp, 'calcium', 0, 'speed', shift=10)
@@ -263,10 +262,10 @@ def test_plot_neuron_feature_density_edge_cases():
     plt.close('all')
 
 
-def test_plot_pc_activity_edge_cases():
+def test_plot_pc_activity_edge_cases(small_experiment):
     """Test edge cases for place cell activity plotting."""
     # Create experiment
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=5)
+    exp = create_minimal_experiment_for_visual(small_experiment)
     
     # Add stats table
     exp.stats_table = {('x', 'y'): []}
@@ -297,10 +296,10 @@ def test_plot_pc_activity_edge_cases():
     plt.close('all')
 
 
-def test_plot_neuron_feature_pair_edge_cases():
+def test_plot_neuron_feature_pair_edge_cases(small_experiment):
     """Test edge cases for neuron feature pair plotting."""
     # Create experiment
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    exp = create_minimal_experiment_for_visual(small_experiment)
     
     # Test with custom title
     fig = plot_neuron_feature_pair(exp, 0, 'speed', title='Custom Title')
@@ -325,10 +324,10 @@ def test_plot_neuron_feature_pair_edge_cases():
     plt.close('all')
 
 
-def test_plot_neuron_feature_density_continuous():
+def test_plot_neuron_feature_density_continuous(small_experiment):
     """Test neuron feature density plotting with continuous features."""
     # Create minimal experiment
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    exp = create_minimal_experiment_for_visual(small_experiment)
     
     # Test continuous feature density plot
     ax = plot_neuron_feature_density(exp, 'calcium', 0, 'speed')
@@ -336,10 +335,10 @@ def test_plot_neuron_feature_density_continuous():
     plt.close('all')
 
 
-def test_plot_neuron_feature_pair_binary():
+def test_plot_neuron_feature_pair_binary(small_experiment):
     """Test neuron feature pair plotting with binary features."""
     # Create experiment
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    exp = create_minimal_experiment_for_visual(small_experiment)
     
     # Add a binary feature with is_binary attribute
     exp.binary_feat = SimpleNamespace(
@@ -355,10 +354,10 @@ def test_plot_neuron_feature_pair_binary():
     plt.close('all')
 
 
-def test_plot_neuron_feature_density_binary_calcium():
+def test_plot_neuron_feature_density_binary_calcium(small_experiment):
     """Test neuron feature density plotting with binary features for calcium data."""
     # Create experiment
-    exp = create_minimal_experiment_for_visual(T=500, num_neurons=3)
+    exp = create_minimal_experiment_for_visual(small_experiment)
     
     # Add a binary feature
     exp.binary_feat = SimpleNamespace(

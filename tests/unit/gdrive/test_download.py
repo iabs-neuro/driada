@@ -1,6 +1,6 @@
 import os
 
-from src.driada.gdrive.download import *
+from driada.gdrive.download import *
 import shutil
 import os
 

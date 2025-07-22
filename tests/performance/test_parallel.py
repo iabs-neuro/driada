@@ -1,11 +1,11 @@
 import numpy as np
-from src.driada.intense.intense_base import (calculate_optimal_delays_parallel,
+from driada.intense.intense_base import (calculate_optimal_delays_parallel,
                                              calculate_optimal_delays,
                                              scan_pairs,
                                              scan_pairs_parallel,
                                              scan_pairs_router)
 
-from src.driada.information.info_base import TimeSeries
+from driada.information.info_base import TimeSeries
 
 shift_window = 40
 ds = 5

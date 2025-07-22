@@ -13,7 +13,8 @@
       "Bash(python:*)",
       "Bash(source:*)",
       "WebFetch(domain:arxiv.org)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

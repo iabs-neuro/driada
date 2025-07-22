@@ -1,7 +1,7 @@
 import numpy as np
-from src.driada.experiment.neuron import *
-from src.driada.utils.neural import generate_pseudo_calcium_multisignal
-from src.driada.experiment.wavelet_event_detection import (WVT_EVENT_DETECTION_PARAMS,
+from driada.experiment.neuron import *
+from driada.utils.neural import generate_pseudo_calcium_multisignal
+from driada.experiment.wavelet_event_detection import (WVT_EVENT_DETECTION_PARAMS,
                                       extract_wvt_events, events_to_ts_array, ridges_to_containers)
 
 

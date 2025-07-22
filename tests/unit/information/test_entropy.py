@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from src.driada.information.entropy import (
+from driada.information.entropy import (
     entropy_d,
     probs_to_entropy,
     joint_entropy_dd,

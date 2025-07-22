@@ -107,6 +107,12 @@ A comprehensive library bridging element-wise and population-wise analysis for b
       - [ ] Issue appears systematic - same neurons flagged across different random seeds
       - [ ] Could be related to shuffle mask handling or MI calculation
       - [ ] Need to verify shuffling procedure is working correctly
+    - [ ] **BUG: Fix compute_feat_feat_significance self-comparison error**
+      - [ ] Error: "MI computation of a TimeSeries with itself is not allowed"
+      - [ ] Occurs when computing feature-feature significance matrix
+      - [ ] Diagonal should be masked but scan_pairs still attempts self-comparison
+      - [ ] Solution: Create copies of TimeSeries objects or handle in scan_pairs
+      - [ ] Related test: test_compute_feat_feat_significance in test_intense_pipelines.py
 
 ### MILESTONE 3: Create Latent Variable Extraction Examples ✅ COMPLETED (2025-07-18)
 - [x] **examples/extract_circular_manifold.py** ✅ COMPLETED (2025-01-14)

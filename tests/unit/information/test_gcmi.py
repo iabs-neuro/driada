@@ -39,15 +39,15 @@ REMAINING CONSIDERATIONS:
 import numpy as np
 import pytest
 import time
-from src.driada.information.gcmi import (
+from driada.information.gcmi import (
     demean, ent_g, mi_model_gd, gccmi_ccd, ctransform, copnorm, 
     mi_gg, cmi_ggg, gcmi_cc, _JIT_AVAILABLE
 )
-from src.driada.information.gcmi_jit_utils import (
+from driada.information.gcmi_jit_utils import (
     ctransform_jit, copnorm_jit, ctransform_2d_jit, copnorm_2d_jit,
     mi_gg_jit, cmi_ggg_jit, gcmi_cc_jit
 )
-from src.driada.information.info_base import TimeSeries, get_mi, conditional_mi, interaction_information
+from driada.information.info_base import TimeSeries, get_mi, conditional_mi, interaction_information
 from scipy import stats as scipy_stats
 
 
@@ -600,7 +600,7 @@ class TestGCMIConsistency:
         mi_info_base = get_mi(ts_x, ts_y)
         
         # Calculate directly using mi_model_gd (note: x needs copula normalization)
-        from src.driada.information.gcmi import copnorm
+        from driada.information.gcmi import copnorm
         x_norm = copnorm(x.reshape(1, -1))
         mi_direct = mi_model_gd(x_norm, y, n_classes, biascorrect=True, demeaned=True)
         
@@ -667,7 +667,7 @@ class TestGCMIStability:
         
         cmi = gccmi_ccd(x, y, z_single, 1)
         # Should equal unconditional MI
-        from src.driada.information.gcmi import gcmi_cc
+        from driada.information.gcmi import gcmi_cc
         mi_uncond = gcmi_cc(x, y)
         mi_comparison_tolerance = 0.05  # Allow estimation differences
         assert np.abs(cmi - mi_uncond) < mi_comparison_tolerance
@@ -911,6 +911,6 @@ class TestGCMIJIT:
 
 def test_jit_availability():
     """Test that JIT imports are working."""
-    from src.driada.information import gcmi
+    from driada.information import gcmi
     assert hasattr(gcmi, '_JIT_AVAILABLE')
     assert gcmi._JIT_AVAILABLE == True  # Should be available in test environment

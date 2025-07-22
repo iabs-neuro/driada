@@ -6,8 +6,8 @@ Consolidates important tests from debugging session.
 import numpy as np
 import torch
 from sklearn.datasets import make_swiss_roll
-from src.driada.dim_reduction.data import MVData
-from src.driada.dim_reduction.manifold_metrics import knn_preservation_rate
+from driada.dim_reduction.data import MVData
+from driada.dim_reduction.manifold_metrics import knn_preservation_rate
 
 
 def test_vae_latent_space_regularization():
@@ -162,7 +162,7 @@ def test_ae_vs_vae_reconstruction_quality():
 
 def test_vae_encoder_unconstrained():
     """Verify VAE encoder outputs are not constrained to [0,1]"""
-    from src.driada.dim_reduction.neural import VAE
+    from driada.dim_reduction.neural import VAE
     
     device = torch.device("cpu")
     model = VAE(orig_dim=10, inter_dim=64, code_dim=2, device=device)

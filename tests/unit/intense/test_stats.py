@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 from scipy import stats as scipy_stats
-from src.driada.intense.stats import (
+from driada.intense.stats import (
     chebyshev_ineq,
     get_lognormal_p,
     get_gamma_p,

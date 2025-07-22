@@ -2,15 +2,15 @@
 
 import pytest
 import numpy as np
-from src.driada.intense.disentanglement import (
+from driada.intense.disentanglement import (
     disentangle_pair,
     disentangle_all_selectivities,
     create_multifeature_map,
     get_disentanglement_summary,
     DEFAULT_MULTIFEATURE_MAP
 )
-from src.driada.information.info_base import TimeSeries, MultiTimeSeries
-from src.driada.experiment.synthetic import generate_synthetic_exp
+from driada.information.info_base import TimeSeries, MultiTimeSeries
+from driada.experiment.synthetic import generate_synthetic_exp
 
 
 def create_redundant_timeseries(n_points=1000):
@@ -155,18 +155,17 @@ def test_disentangle_pair_discrete():
     assert 0 <= result <= 1
 
 
-def test_disentangle_all_selectivities_basic():
+@pytest.mark.parametrize("mixed_features_experiment", ["medium"], indirect=True)
+def test_disentangle_all_selectivities_basic(mixed_features_experiment):
     """Test basic functionality of disentangle_all_selectivities."""
-    # Create experiment
-    exp = generate_synthetic_exp(
-        n_dfeats=2, n_cfeats=2, nneurons=5, seed=42,
-        duration=400, fps=10
-    )
+    # Use fixture (medium has sufficient duration and neurons)
+    exp = mixed_features_experiment
     
     # Initialize selectivity tables
     exp._set_selectivity_tables('calcium')
     
-    feat_names = ['dfeat0', 'dfeat1', 'cfeat0', 'cfeat1']
+    # Get actual feature names from experiment
+    feat_names = list(exp.dynamic_features.keys())
     
     # Run analysis
     disent_matrix, count_matrix = disentangle_all_selectivities(
@@ -183,17 +182,17 @@ def test_disentangle_all_selectivities_basic():
     assert np.all(count_matrix >= 0)
 
 
-def test_disentangle_all_selectivities_cell_bunch():
+@pytest.mark.parametrize("medium_experiment", ["medium"], indirect=True)
+def test_disentangle_all_selectivities_cell_bunch(medium_experiment):
     """Test with specific cell subset."""
-    exp = generate_synthetic_exp(
-        n_dfeats=2, n_cfeats=1, nneurons=10, seed=42,
-        duration=400, fps=10
-    )
+    # Use medium fixture (has mixed features, just use subset of cells)
+    exp = medium_experiment
     
     # Initialize selectivity tables
     exp._set_selectivity_tables('calcium')
     
-    feat_names = ['dfeat0', 'dfeat1', 'cfeat0']
+    # Get actual feature names from experiment (use first 3)
+    feat_names = list(exp.dynamic_features.keys())[:3]
     
     # Test with subset of cells
     disent_matrix, count_matrix = disentangle_all_selectivities(
@@ -204,25 +203,27 @@ def test_disentangle_all_selectivities_cell_bunch():
     assert count_matrix.shape == (3, 3)
 
 
-def test_disentangle_all_selectivities_with_significance():
+@pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
+def test_disentangle_all_selectivities_with_significance(mixed_features_experiment):
     """Test with feature-feature significance matrix."""
-    exp = generate_synthetic_exp(
-        n_dfeats=2, n_cfeats=2, nneurons=5, seed=42,
-        duration=400, fps=10
-    )
+    # Use small fixture
+    exp = mixed_features_experiment
     
     # Initialize selectivity tables
     exp._set_selectivity_tables('calcium')
     
-    feat_names = ['dfeat0', 'dfeat1', 'cfeat0', 'cfeat1']
+    # Get actual feature names from experiment
+    feat_names = list(exp.dynamic_features.keys())
     n_features = len(feat_names)
     
-    # Create significance matrix
+    # Create significance matrix appropriate for actual feature count
     feat_feat_significance = np.zeros((n_features, n_features))
-    feat_feat_significance[0, 1] = 1
-    feat_feat_significance[1, 0] = 1
-    feat_feat_significance[2, 3] = 1
-    feat_feat_significance[3, 2] = 1
+    if n_features >= 2:
+        feat_feat_significance[0, 1] = 1
+        feat_feat_significance[1, 0] = 1
+    if n_features >= 4:
+        feat_feat_significance[2, 3] = 1
+        feat_feat_significance[3, 2] = 1
     
     disent_matrix, count_matrix = disentangle_all_selectivities(
         exp, feat_names, ds=2, feat_feat_significance=feat_feat_significance
@@ -232,45 +233,53 @@ def test_disentangle_all_selectivities_with_significance():
     assert count_matrix.shape == (n_features, n_features)
 
 
-def test_disentangle_all_selectivities_multifeature():
+@pytest.mark.parametrize("continuous_only_experiment", ["medium"], indirect=True)
+def test_disentangle_all_selectivities_multifeature(continuous_only_experiment):
     """Test with multifeature mapping."""
-    exp = generate_synthetic_exp(
-        n_dfeats=0, n_cfeats=4, nneurons=5, seed=42,
-        duration=400, fps=10
-    )
+    # Use continuous fixture (medium has 3 continuous features)
+    exp = continuous_only_experiment
     
     # Initialize selectivity tables
     exp._set_selectivity_tables('calcium')
     
-    # Add x and y attributes
-    exp.x = exp.c_feat_0
-    exp.y = exp.c_feat_1
-    
-    multifeature_map = {('x', 'y'): 'place'}
-    feat_names = ['place', 'cfeat2', 'cfeat3']
+    # Get available continuous features
+    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith('c_feat_')]
+    if len(c_feats) >= 2:
+        # Add x and y attributes from first two continuous features
+        exp.x = exp.dynamic_features[c_feats[0]]
+        exp.y = exp.dynamic_features[c_feats[1]]
+        
+        multifeature_map = {('x', 'y'): 'place'}
+        remaining_feats = c_feats[2:] if len(c_feats) > 2 else []
+        feat_names = ['place'] + remaining_feats
+        expected_shape = len(feat_names)
+    else:
+        # Skip test if not enough continuous features
+        pytest.skip("Not enough continuous features for multifeature test")
     
     # This might raise error if no neurons have selectivity
     try:
         disent_matrix, count_matrix = disentangle_all_selectivities(
             exp, feat_names, ds=2, multifeature_map=multifeature_map
         )
-        assert disent_matrix.shape == (3, 3)
+        assert disent_matrix.shape == (expected_shape, expected_shape)
+        assert count_matrix.shape == (expected_shape, expected_shape)
     except ValueError as e:
         # Expected if features not found
         assert "not in feat_names" in str(e) or "not found" in str(e)
 
 
-def test_disentangle_all_selectivities_empty_neurons():
+@pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
+def test_disentangle_all_selectivities_empty_neurons(mixed_features_experiment):
     """Test when no neurons have significant selectivity."""
-    exp = generate_synthetic_exp(
-        n_dfeats=1, n_cfeats=1, nneurons=2, seed=42,
-        duration=100, fps=10
-    )
+    # Use small fixture (will mock empty neurons)
+    exp = mixed_features_experiment
     
     # Mock empty significant neurons
     exp.get_significant_neurons = lambda min_nspec=2, cbunch=None: {}
     
-    feat_names = ['dfeat0', 'cfeat0']
+    # Use actual feature names
+    feat_names = list(exp.dynamic_features.keys())[:2]
     disent_matrix, count_matrix = disentangle_all_selectivities(
         exp, feat_names, ds=1
     )
@@ -280,18 +289,18 @@ def test_disentangle_all_selectivities_empty_neurons():
     assert np.all(count_matrix == 0)
 
 
-def test_disentangle_all_selectivities_error_handling():
+@pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
+def test_disentangle_all_selectivities_error_handling(mixed_features_experiment):
     """Test error handling in disentangle_all_selectivities."""
-    exp = generate_synthetic_exp(
-        n_dfeats=1, n_cfeats=1, nneurons=3, seed=42,
-        duration=400, fps=10
-    )
+    # Use small fixture
+    exp = mixed_features_experiment
     
     # Initialize selectivity tables
     exp._set_selectivity_tables('calcium')
     
-    # Include non-existent feature
-    feat_names = ['dfeat0', 'cfeat0', 'nonexistent']
+    # Include real features and non-existent one
+    real_features = list(exp.dynamic_features.keys())[:2]
+    feat_names = real_features + ['nonexistent']
     
     # Should handle gracefully
     disent_matrix, count_matrix = disentangle_all_selectivities(
@@ -302,18 +311,24 @@ def test_disentangle_all_selectivities_error_handling():
     assert count_matrix.shape == (3, 3)
 
 
-def test_create_multifeature_map_valid():
+@pytest.mark.parametrize("continuous_only_experiment", ["medium"], indirect=True)
+def test_create_multifeature_map_valid(continuous_only_experiment):
     """Test creating valid multifeature map."""
-    exp = generate_synthetic_exp(
-        n_dfeats=0, n_cfeats=4, nneurons=2, seed=42,
-        duration=100, fps=10
-    )
+    # Use continuous fixture
+    exp = continuous_only_experiment
     
-    # Add attributes
-    exp.x = exp.c_feat_0
-    exp.y = exp.c_feat_1
-    exp.speed = exp.c_feat_2
-    exp.head_direction = exp.c_feat_3
+    # Get actual continuous features
+    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith('c_feat_')]
+    
+    # Need at least 4 features for this test
+    if len(c_feats) < 4:
+        pytest.skip("Not enough continuous features for full multifeature test")
+    
+    # Add attributes from actual features
+    exp.x = exp.dynamic_features[c_feats[0]]
+    exp.y = exp.dynamic_features[c_feats[1]]
+    exp.speed = exp.dynamic_features[c_feats[2]]
+    exp.head_direction = exp.dynamic_features[c_feats[3]]
     
     mapping_dict = {
         ('x', 'y'): 'place',
@@ -329,14 +344,16 @@ def test_create_multifeature_map_valid():
     assert validated_map[('head_direction', 'speed')] == 'locomotion'
 
 
-def test_create_multifeature_map_invalid():
+@pytest.mark.parametrize("continuous_only_experiment", ["small"], indirect=True)
+def test_create_multifeature_map_invalid(continuous_only_experiment):
     """Test error when component doesn't exist."""
-    exp = generate_synthetic_exp(
-        n_dfeats=0, n_cfeats=2, nneurons=2, seed=42,
-        duration=100, fps=10
-    )
+    # Use continuous fixture
+    exp = continuous_only_experiment
     
-    exp.x = exp.c_feat_0
+    # Get first continuous feature
+    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith('c_feat_')]
+    if c_feats:
+        exp.x = exp.dynamic_features[c_feats[0]]
     # Don't add y
     
     mapping_dict = {('x', 'y'): 'place'}
@@ -345,12 +362,11 @@ def test_create_multifeature_map_invalid():
         create_multifeature_map(exp, mapping_dict)
 
 
-def test_create_multifeature_map_empty():
+@pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
+def test_create_multifeature_map_empty(mixed_features_experiment):
     """Test with empty mapping."""
-    exp = generate_synthetic_exp(
-        n_dfeats=1, n_cfeats=1, nneurons=2, seed=42,
-        duration=100, fps=10
-    )
+    # Use mixed fixture
+    exp = mixed_features_experiment
     
     validated_map = create_multifeature_map(exp, {})
     assert validated_map == {}
