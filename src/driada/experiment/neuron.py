@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit
 from scipy.stats import median_abs_deviation
 from scipy.optimize import minimize
-from ..signals.sig_base import TimeSeries
+from ..information.info_base import TimeSeries
 from .wavelet_event_detection import *
 
 DEFAULT_T_RISE = 0.25 #sec

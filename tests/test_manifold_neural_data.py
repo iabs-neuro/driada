@@ -39,7 +39,7 @@ from driada.dimensionality import (
     pca_dimension,
     effective_rank
 )
-from driada.signals import manifold_preprocessing
+from driada.utils import filter_signals
 
 
 # Shared data generation utilities
@@ -57,7 +57,7 @@ def generate_neural_manifold_data():
         seed=42
     )
     # Filter neural signals for better manifold analysis
-    filtered_circular = manifold_preprocessing(exp_circular.calcium.T, method='gaussian', sigma=1.5)
+    filtered_circular = filter_signals(exp_circular.calcium.T, method='gaussian', sigma=1.5)
     manifold_data['circular'] = {
         'neural_data': filtered_circular.T,  # Transpose to (neurons, timepoints) for MVData
         'true_angles': info_circular['head_direction'],
@@ -74,7 +74,7 @@ def generate_neural_manifold_data():
         seed=42
     )
     # Filter neural signals for better manifold analysis
-    filtered_2d = manifold_preprocessing(exp_2d.calcium.T, method='gaussian', sigma=1.2)
+    filtered_2d = filter_signals(exp_2d.calcium.T, method='gaussian', sigma=1.2)
     manifold_data['2d_spatial'] = {
         'neural_data': filtered_2d.T,  # Transpose to (neurons, timepoints) for MVData
         'true_positions': np.column_stack([
@@ -93,7 +93,7 @@ def generate_neural_manifold_data():
         seed=42
     )
     # Filter neural signals for better manifold analysis
-    filtered_3d = manifold_preprocessing(exp_3d.calcium.T, method='gaussian', sigma=1.0)
+    filtered_3d = filter_signals(exp_3d.calcium.T, method='gaussian', sigma=1.0)
     manifold_data['3d_spatial'] = {
         'neural_data': filtered_3d.T,  # Transpose to (neurons, timepoints) for MVData
         'true_positions': np.column_stack([
@@ -213,7 +213,7 @@ def test_dimensionality_guided_reconstruction():
         seed=42
     )
     
-    filtered = manifold_preprocessing(exp.calcium.T, method='gaussian', sigma=1.5)
+    filtered = filter_signals(exp.calcium.T, method='gaussian', sigma=1.5)
     neural_data = filtered.T
     D = MVData(neural_data)
     
@@ -839,8 +839,8 @@ def test_generalization_to_new_data():
     )
     
     # Apply filtering
-    neural_data1 = manifold_preprocessing(exp1.calcium.T, method='gaussian', sigma=1.5).T
-    neural_data2 = manifold_preprocessing(exp2.calcium.T, method='gaussian', sigma=1.5).T
+    neural_data1 = filter_signals(exp1.calcium.T, method='gaussian', sigma=1.5).T
+    neural_data2 = filter_signals(exp2.calcium.T, method='gaussian', sigma=1.5).T
     
     true_angles1 = info1['head_direction']
     true_angles2 = info2['head_direction']

@@ -11,6 +11,7 @@ from ..dim_reduction.data import MVData
 
 import numpy as np
 import warnings
+from typing import Optional
 from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import entropy, differential_entropy
 
@@ -142,7 +143,7 @@ class TimeSeries():
         TimeSeries
             New TimeSeries object with filtered data
         """
-        from ..signals.neural_filtering import filter_1d_timeseries
+        from ..utils.signals import filter_1d_timeseries
         
         if method == 'none':
             return TimeSeries(self.data.copy(), discrete=self.discrete, 
@@ -157,6 +158,57 @@ class TimeSeries():
         # Create new TimeSeries with filtered data
         return TimeSeries(filtered_data, discrete=self.discrete, 
                          shuffle_mask=self.shuffle_mask.copy())
+    
+    def approximate_entropy(self, m: int = 2, r: Optional[float] = None) -> float:
+        """
+        Calculate approximate entropy (ApEn) of the time series.
+        
+        Approximate entropy is a regularity statistic that quantifies the 
+        unpredictability of fluctuations in a time series. A time series 
+        containing many repetitive patterns has a relatively small ApEn; 
+        a less predictable process has a higher ApEn.
+        
+        Parameters
+        ----------
+        m : int, optional
+            Pattern length. Common values are 1 or 2. Default is 2.
+        r : float, optional
+            Tolerance threshold for pattern matching. If None, defaults to
+            0.2 times the standard deviation of the data.
+        
+        Returns
+        -------
+        float
+            The approximate entropy value. Higher values indicate more 
+            randomness/complexity.
+        
+        Raises
+        ------
+        ValueError
+            If called on a discrete TimeSeries.
+            
+        Notes
+        -----
+        This method is only valid for continuous time series. For discrete
+        time series, consider using other complexity measures.
+        
+        Examples
+        --------
+        >>> ts = TimeSeries(np.random.randn(1000), discrete=False)
+        >>> apen = ts.approximate_entropy(m=2)
+        >>> print(f"Approximate entropy: {apen:.3f}")
+        """
+        if self.discrete:
+            raise ValueError("approximate_entropy is only valid for continuous time series")
+        
+        # Use lazy import to avoid circular imports
+        from ..utils.signals import approximate_entropy
+        
+        # Default r to 0.2 * std if not provided
+        if r is None:
+            r = 0.2 * np.std(self.data)
+        
+        return approximate_entropy(self.data, m=m, r=r)
 
 
 class MultiTimeSeries(MVData):

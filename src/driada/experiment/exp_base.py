@@ -4,7 +4,7 @@ import tqdm
 from itertools import combinations
 import pickle
 
-from ..signals.sig_base import TimeSeries
+from ..information.info_base import TimeSeries
 from ..information.info_base import MultiTimeSeries
 from .neuron import DEFAULT_MIN_BEHAVIOUR_TIME, Neuron
 from .wavelet_event_detection import WVT_EVENT_DETECTION_PARAMS, extract_wvt_events, events_to_ts_array, ridges_to_containers

@@ -22,7 +22,7 @@ from driada import (
 )
 from driada.dim_reduction import MVData
 from driada.information import get_sim
-from driada.signals import filter_neural_signals, adaptive_filter_neural_signals
+from driada.utils import filter_signals, adaptive_filter_signals
 from driada.utils import (
     compute_spatial_decoding_accuracy,
     compute_spatial_information,
@@ -378,21 +378,21 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
         
         # Apply filtering to all scenarios
         if filter_method == 'adaptive':
-            calcium_all = adaptive_filter_neural_signals(calcium_all, **filter_params)
-            calcium_spatial = adaptive_filter_neural_signals(calcium_spatial, **filter_params)
-            calcium_random_half = adaptive_filter_neural_signals(calcium_random_half, **filter_params)
+            calcium_all = adaptive_filter_signals(calcium_all, **filter_params)
+            calcium_spatial = adaptive_filter_signals(calcium_spatial, **filter_params)
+            calcium_random_half = adaptive_filter_signals(calcium_random_half, **filter_params)
             if calcium_non_selective is not None:
-                calcium_non_selective = adaptive_filter_neural_signals(calcium_non_selective, **filter_params)
-            calcium_all_noisy = adaptive_filter_neural_signals(calcium_all_noisy, **filter_params)
-            calcium_spatial_noisy = adaptive_filter_neural_signals(calcium_spatial_noisy, **filter_params)
+                calcium_non_selective = adaptive_filter_signals(calcium_non_selective, **filter_params)
+            calcium_all_noisy = adaptive_filter_signals(calcium_all_noisy, **filter_params)
+            calcium_spatial_noisy = adaptive_filter_signals(calcium_spatial_noisy, **filter_params)
         else:
-            calcium_all = filter_neural_signals(calcium_all, method=filter_method, **filter_params)
-            calcium_spatial = filter_neural_signals(calcium_spatial, method=filter_method, **filter_params)
-            calcium_random_half = filter_neural_signals(calcium_random_half, method=filter_method, **filter_params)
+            calcium_all = filter_signals(calcium_all, method=filter_method, **filter_params)
+            calcium_spatial = filter_signals(calcium_spatial, method=filter_method, **filter_params)
+            calcium_random_half = filter_signals(calcium_random_half, method=filter_method, **filter_params)
             if calcium_non_selective is not None:
-                calcium_non_selective = filter_neural_signals(calcium_non_selective, method=filter_method, **filter_params)
-            calcium_all_noisy = filter_neural_signals(calcium_all_noisy, method=filter_method, **filter_params)
-            calcium_spatial_noisy = filter_neural_signals(calcium_spatial_noisy, method=filter_method, **filter_params)
+                calcium_non_selective = filter_signals(calcium_non_selective, method=filter_method, **filter_params)
+            calcium_all_noisy = filter_signals(calcium_all_noisy, method=filter_method, **filter_params)
+            calcium_spatial_noisy = filter_signals(calcium_spatial_noisy, method=filter_method, **filter_params)
         
         print("  Filtering completed successfully")
     

@@ -88,6 +88,15 @@ from .spatial import (
     compute_spatial_metrics,
 )
 
+# Signal generation and analysis utilities
+from .signals import (
+    brownian,
+    approximate_entropy,
+    filter_1d_timeseries,
+    filter_signals,
+    adaptive_filter_signals,
+)
+
 __all__ = [
     # Data manipulation
     "populate_nested_dict",
@@ -146,4 +155,10 @@ __all__ = [
     "filter_by_direction",
     "analyze_spatial_coding",
     "compute_spatial_metrics",
+    # Signal generation and analysis
+    "brownian",
+    "approximate_entropy",
+    "filter_1d_timeseries",
+    "filter_signals",
+    "adaptive_filter_signals",
 ]

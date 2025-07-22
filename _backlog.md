@@ -854,26 +854,39 @@ This module would position DRIADA as a comprehensive framework for interpretable
     - [ ] exp.calcium.get_embedding() should work
     - [ ] Automatic MVData conversion through inheritance
 
-### Task 6: Create Spatial Analysis Utilities (PRE-RELEASE PRIORITY)
+### Task 6: Create Spatial Analysis Utilities (PRE-RELEASE PRIORITY) ✅ COMPLETED (2025-01-21)
 **Note**: Many spatial metrics already exist in manifold_metrics.py - focus on integration
-- [ ] **Review existing spatial metrics**
-  - [ ] manifold_metrics.py already has many metrics
-  - [ ] Identify gaps from intense_dr_pipeline.py
-  - [ ] Plan integration strategy
-- [ ] **Create utils.spatial module**
-  - [ ] Spatial-specific metrics not in manifold_metrics
-    - [ ] Place field analysis functions
-    - [ ] Grid score computation
-    - [ ] Spatial information rate
-    - [ ] Speed/direction filtering
-  - [ ] High-level spatial analysis functions
-    - [ ] analyze_spatial_coding()
-    - [ ] extract_place_fields()
-    - [ ] compute_spatial_metrics()
-- [ ] **Update examples to use library functions**
-  - [ ] Replace inline implementations
-  - [ ] Ensure consistent metric usage
-  - [ ] Add comparison plots
+- [x] **Review existing spatial metrics** ✅ COMPLETED
+  - [x] manifold_metrics.py already has many metrics
+  - [x] Identify gaps from intense_dr_pipeline.py
+  - [x] Plan integration strategy
+- [x] **Create utils.spatial module** ✅ COMPLETED
+  - [x] Spatial-specific metrics not in manifold_metrics
+    - [x] Place field analysis functions
+    - [x] Grid score computation
+    - [x] Spatial information rate
+    - [x] Speed/direction filtering
+  - [x] High-level spatial analysis functions
+    - [x] analyze_spatial_coding()
+    - [x] extract_place_fields()
+    - [x] compute_spatial_metrics()
+- [x] **Update examples to use library functions** ✅ COMPLETED
+  - [x] Replace inline implementations
+  - [x] Ensure consistent metric usage
+  - [x] Add comparison plots
+
+**Implementation Details:**
+- Created comprehensive spatial.py module with 759 lines
+- Supports continuous calcium signals as primary input
+- Implements occupancy maps, rate maps, place field detection
+- Added spatial information rate (Skaggs et al. 1993)
+- Grid score computation with rotational analysis
+- Position decoding using Random Forest
+- Speed and direction filtering utilities
+- Full integration with TimeSeries/MultiTimeSeries
+- 100% test coverage with 34 tests
+- Updated intense_dr_pipeline.py to use library functions
+- Added visualization example for spatial maps
 
 ### Task 7: Refactor Signal Module (PRE-RELEASE PRIORITY)
 **Note**: Signal class is barely used but refactoring improves code organization
