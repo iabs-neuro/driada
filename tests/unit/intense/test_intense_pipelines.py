@@ -16,13 +16,10 @@ from src.driada.experiment.synthetic import (
 )
 
 
-def test_compute_cell_feat_significance_with_disentanglement():
+def test_compute_cell_feat_significance_with_disentanglement(medium_experiment):
     """Test compute_cell_feat_significance with disentanglement mode."""
-    # Create smaller experiment for speed
-    exp = generate_synthetic_exp(
-        n_dfeats=1, n_cfeats=1, nneurons=3, seed=42, fps=10,
-        duration=400  # Optimized duration
-    )
+    # Use fixture for consistent test data
+    exp = medium_experiment
     
     # Run with disentanglement - use stage1 only for faster testing
     stats, significance, info, results, disent_results = compute_cell_feat_significance(
@@ -62,10 +59,11 @@ def test_compute_cell_feat_significance_with_disentanglement():
     assert 'feature_pairs' in disent_results['summary']
 
 
-def test_compute_cell_feat_significance_continuous_features():
+@pytest.mark.parametrize("continuous_only_experiment", ["small"], indirect=True)
+def test_compute_cell_feat_significance_continuous_features(continuous_only_experiment):
     """Test compute_cell_feat_significance with continuous features."""
-    # Create experiment with only continuous features
-    exp = generate_synthetic_exp(n_dfeats=0, n_cfeats=3, nneurons=6, seed=42)
+    # Use fixture with only continuous features
+    exp = continuous_only_experiment
     
     # Run without disentanglement
     result = compute_cell_feat_significance(
@@ -258,10 +256,10 @@ def test_compute_cell_cell_significance_spike_data():
     assert np.allclose(np.diag(sim_mat), 0)
 
 
-def test_compute_cell_cell_significance_subset():
+def test_compute_cell_cell_significance_subset(medium_experiment):
     """Test neuron-neuron correlation with neuron subset."""
-    # Create experiment
-    exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=0, nneurons=10, seed=42)
+    # Use fixture (has 20 neurons)
+    exp = medium_experiment
     
     # Select subset of neurons
     selected_neurons = [1, 3, 5, 7]

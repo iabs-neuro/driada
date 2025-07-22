@@ -5,12 +5,12 @@ from src.driada.intense.pipelines import compute_cell_feat_significance
 from src.driada.information.info_base import TimeSeries, MultiTimeSeries
 
 
-def test_creation():
-    exp = generate_synthetic_exp(5, 5, 20)
+def test_creation(medium_experiment):
+    exp = medium_experiment
 
 
-def test_intense_exp():
-    exp = generate_synthetic_exp(5, 5, 20)
+def test_intense_exp(medium_experiment):
+    exp = medium_experiment
     res_ = compute_cell_feat_significance(exp,
                                           cell_bunch=None,
                                           feat_bunch=None,

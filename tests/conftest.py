@@ -3,6 +3,29 @@
 This module provides shared fixtures and utilities for the DRIADA test suite.
 It leverages existing data generation functions from the main codebase to avoid
 duplication and ensure consistency.
+
+Experiment Fixtures Usage:
+-------------------------
+1. Basic fixtures (fixed size):
+   - small_experiment: 5 neurons, 10s, mixed features
+   - medium_experiment: 20 neurons, 60s, mixed features  
+   - large_experiment: 50 neurons, 300s, mixed features
+
+2. Parametrized fixtures (3 sizes):
+   - continuous_only_experiment: Only continuous features
+   - discrete_only_experiment: Only discrete features
+   - mixed_features_experiment: Both feature types
+   
+   Use with: @pytest.mark.parametrize("fixture_name", ["small"], indirect=True)
+   Or test all sizes: (default behavior if not parametrized)
+
+Example:
+    def test_my_function(small_experiment):
+        # Uses small fixed-size experiment
+        
+    @pytest.mark.parametrize("continuous_only_experiment", ["medium"], indirect=True)
+    def test_continuous(continuous_only_experiment):
+        # Uses medium-sized continuous-only experiment
 """
 
 import os
@@ -91,6 +114,84 @@ def medium_experiment():
         n_cfeats=3, 
         nneurons=20, 
         duration=60,  # 1 minute
+        fps=20, 
+        seed=42
+    )
+
+
+@pytest.fixture
+def large_experiment():
+    """Large test experiment.
+    
+    Suitable for performance tests and thorough validation.
+    """
+    from src.driada.experiment.synthetic import generate_synthetic_exp
+    return generate_synthetic_exp(
+        n_dfeats=5, 
+        n_cfeats=5, 
+        nneurons=50, 
+        duration=300,  # 5 minutes
+        fps=20, 
+        seed=42
+    )
+
+
+# Specialized fixtures for different feature types
+@pytest.fixture(params=["small", "medium", "large"])
+def continuous_only_experiment(request):
+    """Experiment with only continuous features in 3 sizes."""
+    from src.driada.experiment.synthetic import generate_synthetic_exp
+    sizes = {
+        "small": (0, 2, 5, 10),    # n_dfeats, n_cfeats, nneurons, duration
+        "medium": (0, 3, 10, 30),
+        "large": (0, 5, 30, 120)
+    }
+    n_dfeats, n_cfeats, nneurons, duration = sizes[request.param]
+    return generate_synthetic_exp(
+        n_dfeats=n_dfeats, 
+        n_cfeats=n_cfeats, 
+        nneurons=nneurons, 
+        duration=duration,
+        fps=20, 
+        seed=42
+    )
+
+
+@pytest.fixture(params=["small", "medium", "large"])
+def discrete_only_experiment(request):
+    """Experiment with only discrete features in 3 sizes."""
+    from src.driada.experiment.synthetic import generate_synthetic_exp
+    sizes = {
+        "small": (2, 0, 5, 10),    # n_dfeats, n_cfeats, nneurons, duration
+        "medium": (3, 0, 10, 30),
+        "large": (5, 0, 30, 120)
+    }
+    n_dfeats, n_cfeats, nneurons, duration = sizes[request.param]
+    return generate_synthetic_exp(
+        n_dfeats=n_dfeats, 
+        n_cfeats=n_cfeats, 
+        nneurons=nneurons, 
+        duration=duration,
+        fps=20, 
+        seed=42
+    )
+
+
+@pytest.fixture(params=["small", "medium", "large"])
+def mixed_features_experiment(request):
+    """Experiment with mixed discrete and continuous features in 3 sizes."""
+    from src.driada.experiment.synthetic import generate_synthetic_exp
+    sizes = {
+        "small": (2, 2, 5, 10),    # n_dfeats, n_cfeats, nneurons, duration
+        "medium": (3, 3, 20, 60),
+        "large": (5, 5, 50, 300)
+    }
+    n_dfeats, n_cfeats, nneurons, duration = sizes[request.param]
+    return generate_synthetic_exp(
+        n_dfeats=n_dfeats, 
+        n_cfeats=n_cfeats, 
+        nneurons=nneurons, 
+        duration=duration,
         fps=20, 
         seed=42
     )
