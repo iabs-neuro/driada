@@ -943,14 +943,29 @@ This module would position DRIADA as a comprehensive framework for interpretable
 - Added visualization example for spatial maps
 
 ### Task 7: Refactor Signal Module (PRE-RELEASE PRIORITY) ✅ COMPLETED (2025-01-21)
-**Note**: Signal class is barely used but refactoring improves code organization
-- [x] **Analyze Signal module usage** ✅ COMPLETED
-  - [x] Signal class barely used (only in ts_wavelet_denoise)
-  - [x] neural_filtering.py actively used
-  - [x] brownian() and ApEn() unused
-- [x] **Implement refactoring plan** ✅ COMPLETED
-  - [x] Move brownian() to utils/signals.py
-  - [x] Move ApEn() to utils/signals.py (renamed to approximate_entropy)
+
+### Task 8: Refactor Spike Reconstruction in Experiment ✅ COMPLETED (2025-01-23)
+**Note**: Refactored spike reconstruction to support multiple methods and future extensibility
+- [x] **Modified Experiment class** ✅ COMPLETED
+  - [x] Added _reconstruct_spikes method that accepts string or callable
+  - [x] Maintains backward compatibility with 'wavelet' method
+  - [x] Stores reconstruction metadata for future reference
+- [x] **Created spike_reconstruction.py module** ✅ COMPLETED
+  - [x] Unified reconstruct_spikes function accepting MultiTimeSeries
+  - [x] Implemented wavelet_reconstruction (existing method)
+  - [x] Implemented threshold_reconstruction (new classical method)
+  - [x] Returns (spikes, metadata) tuple for all methods
+- [x] **Added comprehensive tests** ✅ COMPLETED
+  - [x] Tests for wavelet, threshold, and custom methods
+  - [x] Jaccard similarity comparison between methods
+  - [x] Parameter propagation tests
+  - [x] Integration tests with Experiment class
+  - [x] All tests use fixtures from conftest.py
+- [x] **Created comparison example** ✅ COMPLETED
+  - [x] spike_reconstruction_comparison.py demonstrates both methods
+  - [x] Visualizes calcium, wavelet spikes, and threshold spikes
+  - [x] Computes Jaccard similarity metrics
+  - [x] Shows metadata and parameters used
   - [x] Move all filtering functions to utils/signals.py
   - [x] Delete entire signals module (Signal class was unused)
   - [x] Add approximate_entropy method to TimeSeries class
