@@ -1,6 +1,6 @@
 """
-Comprehensive SelectivityManifoldMapper Demonstration
-=====================================================
+SelectivityManifoldMapper Demonstration with Manifold Quality Metrics
+==================================================================================
 
 This example demonstrates the complete workflow of analyzing how individual neuron
 selectivity relates to population-level manifold structure using DRIADA's integrated
@@ -13,6 +13,9 @@ Key concepts demonstrated:
 4. Analyzing neuron selectivity to embedding components
 5. Visualizing functional organization in manifolds
 6. Demonstrating how behavioral features map to embedding dimensions
+7. Quantifying manifold preservation quality using comprehensive metrics
+8. Using DRIADA's visual utilities for consistent, publication-ready figures
+
 
 Usage:
     python selectivity_manifold_mapper_demo.py [--quick] [--save-plots] [--methods METHOD1,METHOD2,...]
@@ -20,7 +23,7 @@ Usage:
     Options:
     --quick         Run with smaller dataset for quick testing (200 neurons, 300s)
     --save-plots    Save generated plots to files
-    --methods       Comma-separated list of DR methods to use (default: pca,umap,isomap)
+    --methods       Comma-separated list of DR methods to use (default: pca,umap,le)
 """
 
 import numpy as np
@@ -30,6 +33,7 @@ import seaborn as sns
 import argparse
 from typing import Dict, List, Tuple, Optional
 import time
+import os
 
 # Import DRIADA modules
 from driada import (
@@ -39,6 +43,22 @@ from driada import (
 from driada.dim_reduction import METHODS_DICT
 from driada.integration import SelectivityManifoldMapper
 from driada.intense import compute_embedding_selectivity
+
+# Import manifold preservation metrics
+from driada.dim_reduction.manifold_metrics import (
+    knn_preservation_rate,
+    trustworthiness,
+    continuity,
+    geodesic_distance_correlation,
+    stress
+)
+
+
+def get_output_directory():
+    """Get the output directory for saving plots, creating it if needed."""
+    output_dir = 'selectivity_manifold_mapper_output'
+    os.makedirs(output_dir, exist_ok=True)
+    return output_dir
 
 
 def parse_arguments():
@@ -91,6 +111,9 @@ def generate_rich_synthetic_data(quick_mode: bool = False):
     print("="*70)
     
     # Parameters for data generation
+    sel_prob = 0.5
+    mixed_sel_prob = 0.0
+    manifold_fraction = 0.4
     if quick_mode:
         n_neurons = 200
         duration = 300  # 5 minutes
@@ -104,9 +127,9 @@ def generate_rich_synthetic_data(quick_mode: bool = False):
     exp, info = generate_mixed_population_exp(
         n_neurons=n_neurons,
         manifold_type='circular',
-        manifold_fraction=0.6,  # 60% head direction cells
-        n_discrete_features=1,   # Task/trial type feature
-        n_continuous_features=2, # Speed and reward magnitude
+        manifold_fraction=manifold_fraction,  # 40% head direction cells
+        n_discrete_features=1,
+        n_continuous_features=2,
         duration=duration,
         fps=20.0,
         correlation_mode='independent',  # Features NOT correlated with head direction
@@ -115,13 +138,13 @@ def generate_rich_synthetic_data(quick_mode: bool = False):
             'kappa': 2.0,  # Von Mises concentration parameter
             'noise_std': 0.05,
             'baseline_rate': 0.1,
-            'peak_rate': 1.0,  # Realistic firing rate
+            'peak_rate': 2.0,
             'decay_time': 2.0,
             'calcium_noise_std': 0.05
         },
         feature_params={
-            'selectivity_prob': 0.9,
-            'multi_select_prob': 0.6,  # High mixed selectivity
+            'selectivity_prob': sel_prob,
+            'multi_select_prob': mixed_sel_prob,
             'rate_0': 0.5,
             'rate_1': 2.0,
             'noise_std': 0.05,
@@ -134,16 +157,11 @@ def generate_rich_synthetic_data(quick_mode: bool = False):
     )
     
     # Rename features for clarity
-    feature_mapping = {
-        'd_feat_0': 'task_type',
-        'c_feat_0': 'speed',
-        'c_feat_1': 'reward_magnitude'
-    }
     
     print(f"\nGenerated {exp.n_cells} neurons:")
-    print(f"  - Pure head direction cells: ~{int(exp.n_cells * 0.6)}")
-    print(f"  - Feature-selective cells: ~{int(exp.n_cells * 0.4)}")
-    print(f"  - Expected mixed selectivity: ~{int(exp.n_cells * 0.4 * 0.6)}")
+    print(f"  - Pure head direction cells: ~{int(exp.n_cells * manifold_fraction)}")
+    print(f"  - Feature-selective cells: ~{int(exp.n_cells * (1-manifold_fraction) * sel_prob)}")
+    print(f"  - Expected mixed selectivity: ~{int(exp.n_cells * (1-manifold_fraction) * mixed_sel_prob)}")
     print(f"  - Recording duration: {duration}s at 20 Hz")
     print(f"  - Manifold type: Circular (head direction)")
     print(f"  - Features: Independent of head direction")
@@ -180,15 +198,15 @@ def run_intense_analysis(exp, quick_mode: bool = False):
         n_shuffles_stage1 = 100
         n_shuffles_stage2 = 2000
         print("Full mode: 100/2000 shuffles")
-    
+
     # Analyze all behavioral features
-    features_to_analyze = ['circular_position', 'c_feat_0', 'c_feat_1', 'd_feat_0']
+    features_to_analyze = ['head_direction', 'c_feat_0', 'c_feat_1', 'd_feat_0']
     available_features = [f for f in features_to_analyze if f in exp.dynamic_features]
     
     print(f"Analyzing {exp.n_cells} neurons × {len(available_features)} features")
     
-    # Skip delays for MultiTimeSeries features
-    skip_delays = {'circular_position': True} if 'circular_position' in available_features else {}
+    # Skip delays for head direction (it's circular)
+    skip_delays = {'head_direction': True} if 'head_direction' in available_features else {}
     
     # Run INTENSE analysis
     start_time = time.time()
@@ -286,25 +304,27 @@ def create_embeddings_and_analyze(exp, methods: List[str], quick_mode: bool = Fa
         elif method == 'umap':
             # For circular manifolds, UMAP needs specific tuning
             dr_kwargs = {
-                'n_neighbors': 30,  # Reduced for tighter local structure
+                'n_neighbors': 50,  # Reduced for tighter local structure
                 'min_dist': 0.8,    # Balanced for circular preservation
                 'metric': 'euclidean',
-                'n_epochs': 500,    # More epochs for better convergence
+                'n_epochs': 1000,    # More epochs for better convergence
                 'init': 'spectral', # Better initialization for manifolds
-                'spread': 1.0       # Standard spread
             }
         elif method == 'le':
             # Laplacian Eigenmaps for circular manifolds
             dr_kwargs = {
-                'n_neighbors': 40,  # Smaller neighborhood for circular structure
+                'n_neighbors': 100,  # Smaller neighborhood for circular structure
             }
         elif method == 'isomap':
-            dr_kwargs = {'n_neighbors': 30}
+            dr_kwargs = {'n_neighbors': 50}
         else:
             dr_kwargs = {}
         
-        # Create embedding using all neurons
+        # Create embedding using all neurons with downsampling
         try:
+            # Add downsampling parameter to dr_kwargs
+            dr_kwargs['ds'] = 5  # Same downsampling as used in INTENSE analysis
+            
             embedding = mapper.create_embedding(
                 method=method,
                 n_components=n_components,
@@ -369,7 +389,125 @@ def create_embeddings_and_analyze(exp, methods: List[str], quick_mode: bool = Fa
     return mapper, embedding_results
 
 
-def visualize_results(exp, mapper, embedding_results, methods: List[str], save_plots: bool = False):
+def compute_manifold_quality_metrics(exp, methods: List[str], k_neighbors: int = 20):
+    """
+    Compute manifold preservation metrics for each embedding method.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object with embeddings
+    methods : list of str
+        DR methods to evaluate
+    k_neighbors : int
+        Number of neighbors for metrics computation
+        
+    Returns
+    -------
+    metrics_dict : dict
+        Dictionary mapping method names to metric values
+    """
+    print("\n" + "="*70)
+    print("COMPUTING MANIFOLD PRESERVATION METRICS")
+    print("="*70)
+    
+    # Get calcium data as high-dimensional representation
+    # exp.calcium is a MultiTimeSeries object with shape (n_neurons, n_timepoints)
+    X_high = exp.calcium.data.T  # (n_timepoints, n_neurons)
+    
+    # Downsample for computational efficiency (same as used in analysis)
+    ds = 5
+    X_high = X_high[::ds]
+    
+    metrics_dict = {}
+    
+    for method in methods:
+        try:
+            # Get embedding
+            embedding_dict = exp.get_embedding(method, 'calcium')
+            if embedding_dict is None:
+                continue
+                
+            X_low = embedding_dict['data']
+            
+            # Check if embedding was created with downsampling
+            # If created by SelectivityManifoldMapper, it includes ds in metadata
+            ds_used = embedding_dict.get('metadata', {}).get('ds', 1)
+            if ds_used != ds:
+                # Re-downsample the embedding if needed
+                if ds_used == 1 and X_low.shape[0] == exp.calcium.data.shape[1]:
+                    X_low = X_low[::ds]
+            
+            # Ensure same dimensions
+            if X_low.shape[0] != X_high.shape[0]:
+                print(f"Warning: Embedding size mismatch for {method} after adjustment, skipping metrics")
+                print(f"  X_high shape: {X_high.shape}, X_low shape: {X_low.shape}")
+                continue
+            
+            print(f"\nComputing metrics for {method.upper()}...")
+            
+            # Compute various metrics
+            metrics = {}
+            
+            # 1. k-NN preservation rate
+            try:
+                metrics['knn_preservation'] = knn_preservation_rate(
+                    X_high, X_low, k=k_neighbors
+                )
+                print(f"  k-NN preservation rate: {metrics['knn_preservation']:.3f}")
+            except Exception as e:
+                print(f"  k-NN preservation failed: {e}")
+                metrics['knn_preservation'] = None
+            
+            # 2. Trustworthiness
+            try:
+                metrics['trustworthiness'] = trustworthiness(
+                    X_high, X_low, k=k_neighbors
+                )
+                print(f"  Trustworthiness: {metrics['trustworthiness']:.3f}")
+            except Exception as e:
+                print(f"  Trustworthiness failed: {e}")
+                metrics['trustworthiness'] = None
+            
+            # 3. Continuity
+            try:
+                metrics['continuity'] = continuity(
+                    X_high, X_low, k=k_neighbors
+                )
+                print(f"  Continuity: {metrics['continuity']:.3f}")
+            except Exception as e:
+                print(f"  Continuity failed: {e}")
+                metrics['continuity'] = None
+            
+            # 4. Geodesic distance correlation (for manifold structure)
+            try:
+                metrics['geodesic_corr'] = geodesic_distance_correlation(
+                    X_high, X_low, k_neighbors=k_neighbors, method='spearman'
+                )
+                print(f"  Geodesic distance correlation: {metrics['geodesic_corr']:.3f}")
+            except Exception as e:
+                print(f"  Geodesic correlation failed: {e}")
+                metrics['geodesic_corr'] = None
+            
+            # 5. Normalized stress
+            try:
+                metrics['stress'] = stress(X_high, X_low, normalized=True)
+                print(f"  Normalized stress: {metrics['stress']:.3f}")
+            except Exception as e:
+                print(f"  Stress computation failed: {e}")
+                metrics['stress'] = None
+            
+            metrics_dict[method] = metrics
+            
+        except Exception as e:
+            print(f"Failed to compute metrics for {method}: {e}")
+            continue
+    
+    return metrics_dict
+
+
+def visualize_results(exp, mapper, embedding_results, methods: List[str], 
+                     manifold_metrics: Optional[Dict] = None, save_plots: bool = False):
     """
     Create comprehensive visualizations of the results.
     
@@ -383,6 +521,8 @@ def visualize_results(exp, mapper, embedding_results, methods: List[str], save_p
         Component selectivity results
     methods : list of str
         DR methods to visualize
+    manifold_metrics : dict, optional
+        Manifold preservation metrics for each method
     save_plots : bool
         Whether to save plots to files
     """
@@ -396,8 +536,8 @@ def visualize_results(exp, mapper, embedding_results, methods: List[str], save_p
     # 2. Separate trajectory visualization
     create_trajectory_figure(exp, methods, save_plots)
     
-    # 3. Component selectivity heatmap
-    create_component_selectivity_heatmap(exp, embedding_results, save_plots)
+    # 3. Component selectivity heatmap (using visual utilities)
+    create_component_selectivity_heatmap_v2(exp, embedding_results, save_plots)
     
     # 4. Functional organization analysis
     create_functional_organization_figure(exp, mapper, embedding_results, save_plots)
@@ -405,12 +545,17 @@ def visualize_results(exp, mapper, embedding_results, methods: List[str], save_p
     # 5. Component interpretation figure
     create_component_interpretation_figure(exp, embedding_results, save_plots)
     
+    # 6. Manifold quality metrics visualization (NEW)
+    if manifold_metrics is not None:
+        create_manifold_quality_figure(manifold_metrics, save_plots)
+    
     plt.show()
 
 
 def create_embedding_comparison_figure(exp, methods: List[str], save_plots: bool = False):
     """Create figure comparing embeddings colored by behavioral features."""
     from driada.utils.visual import plot_embedding_comparison
+    import os
     
     # Prepare embeddings dict
     embeddings = {}
@@ -419,16 +564,26 @@ def create_embedding_comparison_figure(exp, methods: List[str], save_plots: bool
         if embedding_dict is not None:
             embeddings[method] = embedding_dict['data']
     
-    # Get behavioral data
+    # Get behavioral data and downsample to match embeddings
     features = {}
-    if 'circular_position' in exp.dynamic_features:
-        features['angle'] = exp.dynamic_features['circular_position'].data
-    elif 'position_2d' in exp.dynamic_features:
-        positions = exp.dynamic_features['position_2d'].data.T
-        features['angle'] = np.arctan2(positions[:, 1] - 0.5, positions[:, 0] - 0.5)
+    ds = 5  # Same downsampling as used in INTENSE analysis
     
+    # Use head_direction for angle (convert from [0, 2π] to [-π, π])
+    if 'head_direction' in exp.dynamic_features:
+        angle_data = exp.dynamic_features['head_direction'].data[::ds]
+        # Convert from [0, 2π] to [-π, π] as expected by visual utilities
+        features['angle'] = angle_data - np.pi
+    
+    # Use first continuous feature for secondary coloring
     if 'c_feat_0' in exp.dynamic_features:
-        features['speed'] = exp.dynamic_features['c_feat_0'].data
+        features['speed'] = exp.dynamic_features['c_feat_0'].data[::ds]
+    
+    # Create output directory if needed
+    if save_plots:
+        output_dir = get_output_directory()
+        save_path = os.path.join(output_dir, 'selectivity_mapper_embeddings.png')
+    else:
+        save_path = None
     
     # Create figure using visual utility
     fig = plot_embedding_comparison(
@@ -437,11 +592,11 @@ def create_embedding_comparison_figure(exp, methods: List[str], save_plots: bool
         methods=methods,
         with_trajectory=True,
         compute_metrics=True,
-        save_path='selectivity_mapper_embeddings.png' if save_plots else None
+        save_path=save_path
     )
     
     if save_plots:
-        print("Saved: selectivity_mapper_embeddings.png")
+        print(f"Saved: {save_path}")
     
     return fig
 
@@ -449,6 +604,7 @@ def create_embedding_comparison_figure(exp, methods: List[str], save_plots: bool
 def create_trajectory_figure(exp, methods: List[str], save_plots: bool = False):
     """Create separate figure showing trajectories in embedding space."""
     from driada.utils.visual import plot_trajectories
+    import os
     
     # Prepare embeddings dict
     embeddings = {}
@@ -457,40 +613,49 @@ def create_trajectory_figure(exp, methods: List[str], save_plots: bool = False):
         if embedding_dict is not None:
             embeddings[method] = embedding_dict['data']
     
+    # Create output directory if needed
+    if save_plots:
+        output_dir = get_output_directory()
+        save_path = os.path.join(output_dir, 'selectivity_mapper_trajectories.png')
+    else:
+        save_path = None
+    
     # Create figure using visual utility
     fig = plot_trajectories(
         embeddings=embeddings,
         methods=methods,
-        save_path='selectivity_mapper_trajectories.png' if save_plots else None
+        save_path=save_path
     )
     
     if save_plots:
-        print("Saved: selectivity_mapper_trajectories.png")
+        print(f"Saved: {save_path}")
     
     return fig
 
 
-def create_component_selectivity_heatmap(exp, embedding_results: Dict, save_plots: bool = False):
-    """Create heatmap showing neuron selectivity to embedding components."""
-    # Prepare data for heatmap
+def create_component_selectivity_heatmap_v2(exp, embedding_results: Dict, save_plots: bool = False):
+    """Create heatmap showing neuron selectivity to embedding components using visual utilities."""
+    from driada.utils.visual import plot_component_selectivity_heatmap
+    import os
+    
+    # Get methods
     methods = list(embedding_results.keys())
-    max_components = max(res['n_components'] for res in embedding_results.values())
     
-    # Create figure
-    fig, axes = plt.subplots(1, len(methods), figsize=(5*len(methods), 8))
-    if len(methods) == 1:
-        axes = [axes]
+    # Calculate total components and components per method
+    n_components_per_method = {method: results['n_components'] 
+                               for method, results in embedding_results.items()}
+    total_components = sum(n_components_per_method.values())
     
-    for ax, method in zip(axes, methods):
-        results = embedding_results[method]
+    # Create single concatenated selectivity matrix
+    n_neurons = exp.n_cells
+    selectivity_matrix = np.zeros((n_neurons, total_components))
+    
+    # Fill in MI values for each method
+    comp_offset = 0
+    for method, results in embedding_results.items():
         n_components = results['n_components']
         
-        # Create selectivity matrix
-        n_neurons = exp.n_cells
-        selectivity_matrix = np.zeros((n_neurons, n_components))
-        
         # Fill in MI values for significant pairs
-        # Note: stats structure is stats[neuron_id][feat_name]
         for neuron_id, neuron_stats in results['stats'].items():
             for feat_name, stats in neuron_stats.items():
                 # Check if this is a component feature
@@ -498,42 +663,39 @@ def create_component_selectivity_heatmap(exp, embedding_results: Dict, save_plot
                     comp_idx = int(feat_name.split('_comp')[-1])
                     
                     if stats.get('me') is not None:
-                        # Check if significant (correct significance structure)
+                        # Check if significant
                         if neuron_id in results['significance'] and \
                            feat_name in results['significance'][neuron_id] and \
                            results['significance'][neuron_id][feat_name].get('stage2', False):
-                            selectivity_matrix[neuron_id, comp_idx] = stats['me']
+                            selectivity_matrix[neuron_id, comp_offset + comp_idx] = stats['me']
         
-        # Plot heatmap with proper scaling
-        max_val = np.max(selectivity_matrix)
-        if max_val > 0:
-            im = ax.imshow(selectivity_matrix.T, aspect='auto', cmap='hot', 
-                          interpolation='nearest', vmin=0, vmax=max_val)
-        else:
-            im = ax.imshow(selectivity_matrix.T, aspect='auto', cmap='hot', 
-                          interpolation='nearest')
-        ax.set_xlabel('Neuron ID')
-        ax.set_ylabel('Component')
-        ax.set_title(f'{method.upper()} Component Selectivity')
-        
-        # Add colorbar
-        cbar = plt.colorbar(im, ax=ax)
-        cbar.set_label('Mutual Information (bits)')
-        
-        # Add grid
-        ax.set_yticks(range(n_components))
-        ax.grid(True, alpha=0.3, axis='y')
+        comp_offset += n_components
     
-    plt.suptitle('Neuron Selectivity to Embedding Components', fontsize=16)
-    plt.tight_layout()
+    # Create output directory if needed
+    if save_plots:
+        output_dir = get_output_directory()
+        save_path = os.path.join(output_dir, 'selectivity_mapper_component_heatmap.png')
+    else:
+        save_path = None
+    
+    # Use visual utility to create the figure
+    fig = plot_component_selectivity_heatmap(
+        selectivity_matrix=selectivity_matrix,
+        methods=methods,
+        n_components_per_method=n_components_per_method,
+        save_path=save_path
+    )
     
     if save_plots:
-        plt.savefig('selectivity_mapper_component_heatmap.png', dpi=150, bbox_inches='tight')
-        print("Saved: selectivity_mapper_component_heatmap.png")
+        print(f"Saved: {save_path}")
+    
+    return fig
 
 
 def create_functional_organization_figure(exp, mapper, embedding_results: Dict, save_plots: bool = False):
     """Analyze and visualize functional organization in the manifold."""
+    import os
+    
     fig = plt.figure(figsize=(15, 5))
     
     # Get original feature selectivity
@@ -580,14 +742,17 @@ def create_functional_organization_figure(exp, mapper, embedding_results: Dict, 
     plt.tight_layout()
     
     if save_plots:
-        plt.savefig('selectivity_mapper_functional_org.png', dpi=150, bbox_inches='tight')
-        print("Saved: selectivity_mapper_functional_org.png")
+        output_dir = get_output_directory()
+        save_path = os.path.join(output_dir, 'selectivity_mapper_functional_org.png')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Saved: {save_path}")
 
 
 def create_component_interpretation_figure(exp, embedding_results: Dict, save_plots: bool = False):
     """Visualize how components relate to behavioral features using MI values."""
     from driada.utils.visual import plot_component_interpretation
     from driada.information.info_base import get_sim, TimeSeries
+    import os
     
     # Get list of available methods
     available_methods = [method for method in embedding_results.keys() 
@@ -596,21 +761,25 @@ def create_component_interpretation_figure(exp, embedding_results: Dict, save_pl
     if not available_methods:
         print("No DR methods found in results, skipping component interpretation")
         return
-    
-    # Get behavioral feature names and keys
+
+    # Get behavioral feature names and keys that actually exist in the experiment
     feature_names = []
     feature_keys = []
     
+    if 'head_direction' in exp.dynamic_features:
+        feature_names.append('Head Direction')
+        feature_keys.append('head_direction')
+    
     if 'c_feat_0' in exp.dynamic_features:
-        feature_names.append('Speed')
+        feature_names.append('Continuous Feature 0')
         feature_keys.append('c_feat_0')
     
     if 'c_feat_1' in exp.dynamic_features:
-        feature_names.append('Reward magnitude')
+        feature_names.append('Continuous Feature 1')
         feature_keys.append('c_feat_1')
     
     if 'd_feat_0' in exp.dynamic_features:
-        feature_names.append('Task type')
+        feature_names.append('Discrete Feature')
         feature_keys.append('d_feat_0')
     
     # Prepare MI matrices and metadata
@@ -626,7 +795,7 @@ def create_component_interpretation_figure(exp, embedding_results: Dict, save_pl
             
             # Compute MI between components and behavioral features
             n_components = min(5, embedding_results[method]['n_components'])
-            mi_matrix = np.zeros((len(feature_keys), n_components))
+            mi_matrix = np.zeros((len(feature_names), n_components))
             
             for comp_idx in range(n_components):
                 comp_data = embedding[:, comp_idx]
@@ -660,17 +829,123 @@ def create_component_interpretation_figure(exp, embedding_results: Dict, save_pl
             print(f"Failed to process {method}: {e}")
             continue
     
+    # Create output directory if needed
+    if save_plots:
+        output_dir = get_output_directory()
+        save_path = os.path.join(output_dir, 'selectivity_mapper_component_interpretation.png')
+    else:
+        save_path = None
+    
     # Create figure using visual utility
     fig = plot_component_interpretation(
         mi_matrices=mi_matrices,
         feature_names=feature_names,
         metadata=metadata,
         n_components=5,
-        save_path='selectivity_mapper_component_interpretation.png' if save_plots else None
+        save_path=save_path
     )
     
     if save_plots:
-        print("Saved: selectivity_mapper_component_interpretation.png")
+        print(f"Saved: {save_path}")
+    
+    return fig
+
+
+def create_manifold_quality_figure(metrics_dict: Dict, save_plots: bool = False):
+    """
+    Create visualization of manifold preservation metrics.
+    
+    Parameters
+    ----------
+    metrics_dict : dict
+        Dictionary mapping method names to metric values
+    save_plots : bool
+        Whether to save the plot
+    """
+    # Prepare data for visualization
+    methods = list(metrics_dict.keys())
+    metric_names = ['knn_preservation', 'trustworthiness', 'continuity', 
+                    'geodesic_corr', 'stress']
+    metric_labels = ['k-NN\nPreservation', 'Trustworthiness', 'Continuity',
+                     'Geodesic\nCorrelation', 'Normalized\nStress']
+    
+    # Create matrix of metric values
+    n_methods = len(methods)
+    n_metrics = len(metric_names)
+    metric_matrix = np.zeros((n_methods, n_metrics))
+    
+    for i, method in enumerate(methods):
+        for j, metric_name in enumerate(metric_names):
+            value = metrics_dict[method].get(metric_name)
+            if value is not None:
+                # For stress, lower is better, so invert it
+                if metric_name == 'stress':
+                    metric_matrix[i, j] = 1 - value
+                else:
+                    metric_matrix[i, j] = value
+            else:
+                metric_matrix[i, j] = np.nan
+    
+    # Create figure
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # 1. Bar plot comparison
+    x = np.arange(n_metrics)
+    width = 0.25
+    
+    for i, method in enumerate(methods):
+        offset = (i - n_methods/2 + 0.5) * width
+        bars = ax1.bar(x + offset, metric_matrix[i], width, 
+                       label=method.upper(), alpha=0.8)
+        
+        # Add value labels on bars
+        for j, bar in enumerate(bars):
+            height = bar.get_height()
+            if not np.isnan(height):
+                ax1.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{height:.2f}', ha='center', va='bottom', fontsize=8)
+    
+    ax1.set_xlabel('Metrics')
+    ax1.set_ylabel('Score (higher is better)')
+    ax1.set_title('Manifold Preservation Metrics Comparison')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(metric_labels, rotation=45, ha='right')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3, axis='y')
+    ax1.set_ylim(0, 1.1)
+    
+    # 2. Radar plot
+    # Prepare data for radar plot
+    angles = np.linspace(0, 2 * np.pi, n_metrics, endpoint=False).tolist()
+    angles += angles[:1]  # Complete the circle
+    
+    ax2 = plt.subplot(122, projection='polar')
+    
+    for i, method in enumerate(methods):
+        values = metric_matrix[i].tolist()
+        values += values[:1]  # Complete the circle
+        
+        # Replace NaN with 0 for plotting
+        values = [0 if np.isnan(v) else v for v in values]
+        
+        ax2.plot(angles, values, 'o-', linewidth=2, label=method.upper())
+        ax2.fill(angles, values, alpha=0.25)
+    
+    ax2.set_xticks(angles[:-1])
+    ax2.set_xticklabels(metric_labels)
+    ax2.set_ylim(0, 1)
+    ax2.set_title('Manifold Quality Profile', pad=20)
+    ax2.legend(loc='upper right', bbox_to_anchor=(1.2, 1.1))
+    ax2.grid(True)
+    
+    plt.suptitle('Manifold Preservation Quality Assessment', fontsize=16)
+    plt.tight_layout()
+    
+    if save_plots:
+        output_dir = get_output_directory()
+        save_path = os.path.join(output_dir, 'selectivity_mapper_manifold_quality.png')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Saved: {save_path}")
     
     return fig
 
@@ -709,22 +984,17 @@ def main():
     # Step 3: Create embeddings and analyze component selectivity
     mapper, embedding_results = create_embeddings_and_analyze(exp, valid_methods, args.quick)
     
-    # Step 4: Create visualizations (unless disabled)
+    # Step 4: Compute manifold preservation metrics
+    manifold_metrics = compute_manifold_quality_metrics(exp, valid_methods)
+    
+    # Step 5: Create visualizations (unless disabled)
     if not args.no_viz:
-        visualize_results(exp, mapper, embedding_results, valid_methods, args.save_plots)
+        visualize_results(exp, mapper, embedding_results, valid_methods, 
+                         manifold_metrics, args.save_plots)
     
     print("\n" + "="*70)
     print("DEMONSTRATION COMPLETE")
     print("="*70)
-    
-    # Summary insights
-    print("\nKey Insights:")
-    print("1. SelectivityManifoldMapper bridges single-neuron and population analyses")
-    print("2. Neurons selective to behavioral features often contribute to specific manifold dimensions")
-    print("3. Different DR methods capture different aspects of population structure")
-    print("4. Component selectivity reveals functional organization in neural manifolds")
-    print("\nThis demonstrates DRIADA's unique capability to connect scales of neural analysis!")
-
 
 if __name__ == "__main__":
     main()

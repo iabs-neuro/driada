@@ -129,6 +129,13 @@ class SelectivityManifoldMapper:
         else:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
         
+        # Apply downsampling if requested
+        ds = dr_kwargs.pop('ds', 1)  # Remove 'ds' from dr_kwargs and default to 1
+        if ds > 1:
+            neural_data = neural_data[:, ::ds]
+            if self.logger:
+                self.logger.info(f"Downsampling data by factor {ds}: {neural_data.shape[1]} timepoints")
+        
         # Create MVData and compute embedding
         mvdata = MVData(data=neural_data)  # MVData expects (n_features, n_samples)
         
@@ -152,9 +159,10 @@ class SelectivityManifoldMapper:
         embedding_obj = mvdata.get_embedding(method=method, **params)
         embedding = embedding_obj.coords.T  # Transpose to (n_timepoints, n_components)
         
-        # Check if embedding has all timepoints
-        if embedding.shape[0] < self.experiment.n_frames:
-            n_missing = self.experiment.n_frames - embedding.shape[0]
+        # Check if embedding has all timepoints (accounting for downsampling)
+        expected_frames = self.experiment.n_frames // ds
+        if embedding.shape[0] < expected_frames:
+            n_missing = expected_frames - embedding.shape[0]
             raise ValueError(
                 f"{method} embedding dropped {n_missing} timepoints due to graph disconnection. "
                 f"This is not supported for INTENSE analysis. Try increasing n_neighbors or using a different method."
@@ -168,7 +176,8 @@ class SelectivityManifoldMapper:
             'neuron_indices': neuron_indices.tolist(),
             'n_neurons': len(neuron_indices),
             'dr_params': dr_kwargs,
-            'data_type': data_type
+            'data_type': data_type,
+            'ds': ds  # Store downsampling factor
         }
         
         # Store in experiment

@@ -711,8 +711,14 @@ class Experiment():
         if data_type not in ['calcium', 'spikes']:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
         
-        if embedding.shape[0] != self.n_frames:
-            raise ValueError(f"Embedding timepoints ({embedding.shape[0]}) must match experiment frames ({self.n_frames})")
+        # Check if embedding matches expected timepoints (accounting for downsampling)
+        ds = metadata.get('ds', 1) if metadata else 1
+        expected_frames = self.n_frames // ds
+        if embedding.shape[0] != expected_frames:
+            raise ValueError(
+                f"Embedding timepoints ({embedding.shape[0]}) must match expected frames "
+                f"({expected_frames} = {self.n_frames} / ds={ds})"
+            )
         
         self.embeddings[data_type][method_name] = {
             'data': embedding,

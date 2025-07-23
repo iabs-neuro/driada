@@ -14,7 +14,8 @@
       "Bash(source:*)",
       "WebFetch(domain:arxiv.org)",
       "Bash(git checkout:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(open:*)"
     ],
     "deny": []
   }
