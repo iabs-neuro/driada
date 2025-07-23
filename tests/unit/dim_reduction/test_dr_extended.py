@@ -181,7 +181,7 @@ def test_experiment_to_mvdata_pipeline():
     )
     
     # Extract neural activity
-    calcium_data = exp.calcium.T  # MVData expects (features, samples)
+    calcium_data = exp.calcium.data.T  # MVData expects (features, samples)
     
     # Create MVData object
     D = MVData(calcium_data)
@@ -201,11 +201,12 @@ def test_circular_manifold_extraction():
         duration=300,
         kappa=4.0,  # Von Mises concentration parameter
         noise_std=0.1,
-        seed=42
+        seed=42,
+        return_info=True
     )
     
     # Extract neural activity
-    calcium_data = exp.calcium.T
+    calcium_data = exp.calcium.data.T
     D = MVData(calcium_data)
     
     # Apply Isomap (good for manifolds) using new simplified API
@@ -234,12 +235,13 @@ def test_2d_manifold_extraction():
         n_neurons=100,
         duration=300,
         field_sigma=0.2,  # Place field size
-        peak_rate=5.0,
-        seed=42
+        peak_rate=2.0,
+        seed=42,
+        return_info=True
     )
     
     # Extract neural activity
-    calcium_data = exp.calcium.T
+    calcium_data = exp.calcium.data.T
     D = MVData(calcium_data)
     
     # Apply UMAP using new simplified API

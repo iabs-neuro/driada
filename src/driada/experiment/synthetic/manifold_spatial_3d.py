@@ -294,7 +294,8 @@ def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
                             baseline_rate=0.1, peak_rate=1.0,
                             noise_std=0.05, grid_arrangement=True,
                             decay_time=2.0, calcium_noise_std=0.1,
-                            bounds=(0, 1), seed=None, verbose=True):
+                            bounds=(0, 1), seed=None, verbose=True,
+                            return_info=False):
     """
     Generate complete experiment with 3D spatial manifold (place cells).
     
@@ -330,11 +331,21 @@ def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
         Random seed.
     verbose : bool
         Print progress.
+    return_info : bool
+        If True, return (exp, info) tuple with additional information.
         
     Returns
     -------
     exp : Experiment
         DRIADA Experiment object with 3D spatial manifold data.
+    info : dict, optional
+        Only returned if return_info=True. Contains:
+        - manifold_type: '3d_spatial'
+        - n_neurons: Number of neurons
+        - positions: 3D trajectory (n_frames, 3)
+        - place_field_centers: 3D place field centers (n_neurons, 3)
+        - firing_rates: Raw firing rates (n_neurons, n_frames)
+        - parameters: Dictionary of all parameters used
     """
     # Generate data
     calcium, positions, place_field_centers, firing_rates = generate_3d_manifold_data(
@@ -416,5 +427,28 @@ def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
     
     # Store firing rates
     exp.firing_rates = firing_rates
+    
+    # Create info dictionary if requested
+    if return_info:
+        info = {
+            'manifold_type': '3d_spatial',
+            'n_neurons': n_neurons,
+            'positions': positions,
+            'place_field_centers': place_field_centers,
+            'firing_rates': firing_rates,
+            'parameters': {
+                'field_sigma': field_sigma,
+                'step_size': step_size,
+                'momentum': momentum,
+                'baseline_rate': baseline_rate,
+                'peak_rate': peak_rate,
+                'noise_std': noise_std,
+                'grid_arrangement': grid_arrangement,
+                'decay_time': decay_time,
+                'calcium_noise_std': calcium_noise_std,
+                'bounds': bounds
+            }
+        }
+        return exp, info
     
     return exp

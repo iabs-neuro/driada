@@ -15,7 +15,8 @@
       "WebFetch(domain:arxiv.org)",
       "Bash(git checkout:*)",
       "Bash(rg:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(time python -m pytest:*)"
     ],
     "deny": []
   }

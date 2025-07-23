@@ -468,8 +468,8 @@ def test_compute_cell_cell_significance_downsampling(discrete_only_experiment):
         seed=42
     )
     
-    # Should work with downsampling
-    assert sim_mat.shape == (3, 3)
+    # Should work with downsampling (small fixture has 5 neurons)
+    assert sim_mat.shape == (5, 5)
     assert np.all(sim_mat >= 0)
 
 

@@ -241,7 +241,7 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
                                   baseline_rate=0.1, peak_rate=1.0,
                                   noise_std=0.05,
                                   decay_time=2.0, calcium_noise_std=0.1,
-                                  seed=None, verbose=True):
+                                  seed=None, verbose=True, return_info=False):
     """
     Generate complete experiment with circular manifold (head direction cells).
     
@@ -333,5 +333,25 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     
     # Store firing rates as additional data
     exp.firing_rates = firing_rates
+    
+    # Create info dictionary if requested
+    if return_info:
+        info = {
+            'manifold_type': 'circular',
+            'n_neurons': n_neurons,
+            'head_direction': head_direction,
+            'preferred_directions': preferred_directions,
+            'firing_rates': firing_rates,
+            'parameters': {
+                'kappa': kappa,
+                'step_std': step_std,
+                'baseline_rate': baseline_rate,
+                'peak_rate': peak_rate,
+                'noise_std': noise_std,
+                'decay_time': decay_time,
+                'calcium_noise_std': calcium_noise_std
+            }
+        }
+        return exp, info
     
     return exp

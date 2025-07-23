@@ -289,7 +289,7 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
                             baseline_rate=0.1, peak_rate=1.0,
                             noise_std=0.05, grid_arrangement=True,
                             decay_time=2.0, calcium_noise_std=0.1,
-                            bounds=(0, 1), seed=None, verbose=True):
+                            bounds=(0, 1), seed=None, verbose=True, return_info=False):
     """
     Generate complete experiment with 2D spatial manifold (place cells).
     
@@ -325,11 +325,15 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
         Random seed.
     verbose : bool
         Print progress.
+    return_info : bool
+        If True, return (exp, info) tuple with additional information.
         
     Returns
     -------
     exp : Experiment
         DRIADA Experiment object with 2D spatial manifold data.
+    info : dict, optional
+        If return_info=True, dictionary with manifold info.
     """
     # Generate data
     calcium, positions, place_field_centers, firing_rates = generate_2d_manifold_data(
@@ -404,5 +408,28 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     
     # Store firing rates
     exp.firing_rates = firing_rates
+    
+    # Create info dictionary if requested
+    if return_info:
+        info = {
+            'manifold_type': '2d_spatial',
+            'n_neurons': n_neurons,
+            'positions': positions,
+            'place_field_centers': place_field_centers,
+            'firing_rates': firing_rates,
+            'parameters': {
+                'field_sigma': field_sigma,
+                'step_size': step_size,
+                'momentum': momentum,
+                'baseline_rate': baseline_rate,
+                'peak_rate': peak_rate,
+                'noise_std': noise_std,
+                'grid_arrangement': grid_arrangement,
+                'decay_time': decay_time,
+                'calcium_noise_std': calcium_noise_std,
+                'bounds': bounds
+            }
+        }
+        return exp, info
     
     return exp

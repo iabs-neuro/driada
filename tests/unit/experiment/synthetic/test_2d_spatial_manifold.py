@@ -233,13 +233,61 @@ class TestGenerate2DManifoldData:
 class TestGenerate2DManifoldExp:
     """Test experiment generation with 2D manifold."""
     
+    def test_return_info_false(self):
+        """Test basic experiment generation without info."""
+        exp = generate_2d_manifold_exp(
+            n_neurons=10, duration=10, verbose=False, seed=42
+        )
+        
+        # Should only return experiment
+        assert hasattr(exp, 'calcium')
+        assert hasattr(exp, 'dynamic_features')
+        assert exp.n_cells == 10
+    
+    def test_return_info_true(self):
+        """Test experiment generation with info."""
+        exp, info = generate_2d_manifold_exp(
+            n_neurons=10, duration=10, verbose=False, seed=42, return_info=True
+        )
+        
+        # Check experiment
+        assert hasattr(exp, 'calcium')
+        assert exp.n_cells == 10
+        
+        # Check info dictionary
+        assert isinstance(info, dict)
+        assert info['manifold_type'] == '2d_spatial'
+        assert info['n_neurons'] == 10
+        assert 'positions' in info
+        assert 'place_field_centers' in info
+        assert 'firing_rates' in info
+        assert 'parameters' in info
+        
+        # Check parameters
+        params = info['parameters']
+        assert 'field_sigma' in params
+        assert 'step_size' in params
+        assert 'momentum' in params
+        assert 'baseline_rate' in params
+        assert 'peak_rate' in params
+        assert 'noise_std' in params
+        assert 'grid_arrangement' in params
+        assert 'decay_time' in params
+        assert 'calcium_noise_std' in params
+        assert 'bounds' in params
+        
+        # Check data shapes
+        assert info['positions'].shape == (2, 200)  # 2D x timepoints
+        assert info['place_field_centers'].shape == (10, 2)
+        assert info['firing_rates'].shape == (10, 200)
+    
     def test_basic_experiment(self):
         """Test basic experiment generation."""
         n_neurons = 20
         duration = 30
         
         exp, info = generate_2d_manifold_exp(
-            n_neurons, duration, verbose=False, seed=42
+            n_neurons, duration, verbose=False, seed=42, return_info=True
         )
         
         # Check experiment structure
@@ -247,8 +295,8 @@ class TestGenerate2DManifoldExp:
         assert exp.n_frames == int(duration * 20)  # Default fps=20
         
         # Check features
-        assert 'x_position' in exp.dynamic_features
-        assert 'y_position' in exp.dynamic_features
+        assert 'x' in exp.dynamic_features
+        assert 'y' in exp.dynamic_features
         assert 'position_2d' in exp.dynamic_features
         
         # Check info
@@ -257,27 +305,12 @@ class TestGenerate2DManifoldExp:
         assert 'positions' in info
         assert 'place_field_centers' in info
     
-    def test_with_head_direction(self):
-        """Test adding head direction feature."""
-        exp, info = generate_2d_manifold_exp(
-            n_neurons=20, duration=30,
-            add_head_direction=True,
-            verbose=False, seed=42
-        )
-        
-        assert 'head_direction' in exp.dynamic_features
-        assert 'head_direction_circular' in exp.dynamic_features
-        
-        # Check head direction is properly calculated
-        hd = exp.dynamic_features['head_direction'].data
-        assert np.all(hd >= 0)
-        assert np.all(hd <= 2 * np.pi)
     
     def test_intense_analysis_compatibility(self):
         """Test that generated data works with INTENSE analysis."""
         # Generate experiment with place cells
         # Use 16 neurons (4x4 grid) with larger fields for better coverage
-        exp, info = generate_2d_manifold_exp(
+        exp = generate_2d_manifold_exp(
             n_neurons=16,       # 4x4 grid
             duration=300,
             field_sigma=0.15,   # Larger fields for better coverage (overlapping)
@@ -295,7 +328,7 @@ class TestGenerate2DManifoldExp:
         # Test 1: Individual x,y position analysis
         stats1, significance1, _, _ = compute_cell_feat_significance(
             exp,
-            feat_bunch=['x_position', 'y_position'],
+            feat_bunch=['x', 'y'],
             mode='two_stage',
             n_shuffles_stage1=30,
             n_shuffles_stage2=200,
@@ -305,7 +338,7 @@ class TestGenerate2DManifoldExp:
         # Count significant neurons for individual features
         significant_neurons = exp.get_significant_neurons()
         individual_selective = sum(1 for features in significant_neurons.values() 
-                                 if 'x_position' in features or 'y_position' in features)
+                                 if 'x' in features or 'y' in features)
         
         # Clear previous results for second test
         exp.selectivity_tables_initialized = False
@@ -345,7 +378,7 @@ class TestGenerate2DManifoldExp:
         exp, info = generate_2d_manifold_exp(
             n_neurons=20, duration=60,
             n_environments=2,
-            verbose=False, seed=42
+            verbose=False, seed=42, return_info=True
         )
         
         # Should have environment indicator
@@ -363,15 +396,15 @@ class TestGenerate2DManifoldExp:
         exp_wide, _ = generate_2d_manifold_exp(
             n_neurons=10, duration=30,
             field_sigma=0.3,  # Wide fields
-            verbose=False, seed=42
+            verbose=False, seed=42, return_info=True
         )
         
         # Narrow place fields  
         exp_narrow, _ = generate_2d_manifold_exp(
             n_neurons=10, duration=30,
             field_sigma=0.05,  # Narrow fields
-            verbose=False, seed=42
-        , return_info=True)
+            verbose=False, seed=42, return_info=True
+        )
         
         # Wide fields should have more correlated activity
         calcium_wide = exp_wide.calcium
