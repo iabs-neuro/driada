@@ -76,19 +76,11 @@ class Experiment():
             if spikes is not None:
                 warnings.warn(f'Spike data will be overridden by reconstructed spikes from Ca2+ data with method={reconstruct_spikes}')
 
-            if reconstruct_spikes == 'wavelet':
-                print('Reconstructing events with wavelet method...')
-                wvt_kwargs = WVT_EVENT_DETECTION_PARAMS.copy()
-                wvt_kwargs['fps'] = static_features.get('fps')
-                if spike_kwargs is not None:
-                    for k, v in spike_kwargs.items():
-                        wvt_kwargs[k] = v
-                st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(calcium, wvt_kwargs)
-                self._all_wvt_ridges = [ridges_to_containers(ridges) for ridges in all_ridges]
-                spikes = events_to_ts_array(calcium.shape[1], st_ev_inds, end_ev_inds, wvt_kwargs['fps'])
-
-            else:
-                raise ValueError(f'"{reconstruct_spikes} method for event reconstruction is not available"')
+            # Store the reconstruction method for potential future use
+            self.spike_reconstruction_method = reconstruct_spikes
+            
+            # Reconstruct spikes
+            spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
 
         self.filtered_flag = False
         if bad_frames_mask is not None:
@@ -621,6 +613,51 @@ class Experiment():
             fpairs = list(combinations(tslist, 2))
             MIs = [get_1d_mi(ts1, ts2, ds=ds) for (ts1,ts2) in fpairs]
             return sum(single_entropies) - sum(MIs)
+
+    def _reconstruct_spikes(self, calcium, method, fps, spike_kwargs=None):
+        """
+        Reconstruct spikes from calcium signals using specified method.
+        
+        Parameters
+        ----------
+        calcium : np.ndarray
+            Calcium traces, shape (n_neurons, n_timepoints)
+        method : str or callable
+            Reconstruction method: 'wavelet' or a callable function
+        fps : float
+            Sampling rate in frames per second
+        spike_kwargs : dict, optional
+            Method-specific parameters
+            
+        Returns
+        -------
+        spikes : np.ndarray
+            Reconstructed spike trains
+        """
+        from .spike_reconstruction import reconstruct_spikes
+        
+        # Convert calcium to MultiTimeSeries if needed
+        if not hasattr(calcium, 'data'):
+            # Create temporary MultiTimeSeries from numpy array
+            from ..information.info_base import TimeSeries, MultiTimeSeries
+            ts_list = [TimeSeries(calcium[i, :]) for i in range(calcium.shape[0])]
+            calcium_mts = MultiTimeSeries(ts_list)
+        else:
+            calcium_mts = calcium
+            
+        # Call the unified reconstruction function
+        spikes_mts, metadata = reconstruct_spikes(
+            calcium_mts, 
+            method=method, 
+            fps=fps, 
+            params=spike_kwargs
+        )
+        
+        # Store metadata
+        self._reconstruction_metadata = metadata
+        
+        # Return numpy array for backward compatibility
+        return spikes_mts.data
 
     def get_significant_neurons(self, min_nspec=1, cbunch=None, fbunch=None, mode='calcium'):
         '''

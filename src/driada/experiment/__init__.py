@@ -61,6 +61,13 @@ from .wavelet_event_detection import (
 )
 from .wavelet_ridge import ridges_to_containers
 
+# Spike reconstruction
+from .spike_reconstruction import (
+    reconstruct_spikes,
+    wavelet_reconstruction,
+    threshold_reconstruction,
+)
+
 __all__ = [
     # Core class
     "Experiment",
@@ -107,4 +114,8 @@ __all__ = [
     "events_from_trace",
     "get_cwt_ridges",
     "ridges_to_containers",
+    # Spike reconstruction
+    "reconstruct_spikes",
+    "wavelet_reconstruction",
+    "threshold_reconstruction",
 ]
