@@ -27,7 +27,7 @@ from driada.experiment.synthetic import (
 )
 
 
-@pytest.mark.skip(reason="Bug in compute_feat_feat_significance - see backlog TODO")
+# @pytest.mark.skip(reason="Bug in compute_feat_feat_significance - see backlog TODO")
 def test_compute_cell_feat_significance_with_disentanglement(medium_experiment):
     """Test compute_cell_feat_significance with disentanglement mode."""
     # Use fixture for consistent test data
@@ -125,7 +125,7 @@ def test_compute_cell_feat_significance_without_disentanglement(mixed_features_e
     assert hasattr(results, 'update')  # IntenseResults has update method
 
 
-@pytest.mark.skip(reason="Bug in compute_feat_feat_significance - see backlog TODO")
+# # @pytest.mark.skip(reason="Bug in compute_feat_feat_significance - see backlog TODO")
 @pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
 def test_compute_feat_feat_significance(mixed_features_experiment):
     """Test feature-feature significance computation."""

@@ -96,8 +96,9 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
         all_feats = []
         for i in tqdm.tqdm(np.arange(nfeats)):
             if ftype == 'c':
-                # Generate the series
-                fbm_series = generate_fbm_time_series(length, hurst, seed=seed)
+                # Generate the series with unique seed for each feature
+                feature_seed = seed + i if seed is not None else None
+                fbm_series = generate_fbm_time_series(length, hurst, seed=feature_seed)
                 all_feats.append(fbm_series)
 
             elif ftype == 'd':
@@ -107,10 +108,6 @@ def generate_synthetic_data(nfeats, nneurons, ftype='c', duration=600, seed=42, 
 
             else:
                 raise ValueError('unknown feature flag')
-
-        # Do not modify seed during feature generation
-        # if seed is not None:
-        #     seed += 1  # save reproducibility, but break degeneracy
 
     print('Generating signals...')
     if nfeats > 0:
