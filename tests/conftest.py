@@ -197,6 +197,30 @@ def mixed_features_experiment(request):
     )
 
 
+@pytest.fixture(params=["small", "medium", "large"])
+def multifeature_experiment(request):
+    """Experiment with at least 4 continuous features for multifeature tests.
+    
+    This fixture ensures there are always enough features for tests that require
+    multiple feature pairs (e.g., place from x,y and locomotion from speed,head_direction).
+    """
+    from driada.experiment.synthetic import generate_synthetic_exp
+    sizes = {
+        "small": (0, 4, 10, 100),    # n_dfeats, n_cfeats, nneurons, duration
+        "medium": (0, 6, 20, 200),   # More features for complex tests
+        "large": (0, 8, 30, 500)     # Even more features
+    }
+    n_dfeats, n_cfeats, nneurons, duration = sizes[request.param]
+    return generate_synthetic_exp(
+        n_dfeats=n_dfeats, 
+        n_cfeats=n_cfeats, 
+        nneurons=nneurons, 
+        duration=duration,
+        fps=20, 
+        seed=42
+    )
+
+
 @pytest.fixture
 def experiment_factory():
     """Factory fixture for creating experiments with custom parameters.

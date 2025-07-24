@@ -233,29 +233,26 @@ def test_disentangle_all_selectivities_with_significance(mixed_features_experime
     assert count_matrix.shape == (n_features, n_features)
 
 
-@pytest.mark.parametrize("continuous_only_experiment", ["medium"], indirect=True)
-def test_disentangle_all_selectivities_multifeature(continuous_only_experiment):
+@pytest.mark.parametrize("multifeature_experiment", ["small"], indirect=True)
+def test_disentangle_all_selectivities_multifeature(multifeature_experiment):
     """Test with multifeature mapping."""
-    # Use continuous fixture (medium has 3 continuous features)
-    exp = continuous_only_experiment
+    # Use multifeature fixture (guaranteed to have at least 4 continuous features)
+    exp = multifeature_experiment
     
     # Initialize selectivity tables
     exp._set_selectivity_tables('calcium')
     
     # Get available continuous features
     c_feats = [k for k in exp.dynamic_features.keys() if k.startswith('c_feat_')]
-    if len(c_feats) >= 2:
-        # Add x and y attributes from first two continuous features
-        exp.x = exp.dynamic_features[c_feats[0]]
-        exp.y = exp.dynamic_features[c_feats[1]]
-        
-        multifeature_map = {('x', 'y'): 'place'}
-        remaining_feats = c_feats[2:] if len(c_feats) > 2 else []
-        feat_names = ['place'] + remaining_feats
-        expected_shape = len(feat_names)
-    else:
-        # Skip test if not enough continuous features
-        pytest.skip("Not enough continuous features for multifeature test")
+    
+    # Add x and y attributes from first two continuous features
+    exp.x = exp.dynamic_features[c_feats[0]]
+    exp.y = exp.dynamic_features[c_feats[1]]
+    
+    multifeature_map = {('x', 'y'): 'place'}
+    remaining_feats = c_feats[2:] if len(c_feats) > 2 else []
+    feat_names = ['place'] + remaining_feats
+    expected_shape = len(feat_names)
     
     # This might raise error if no neurons have selectivity
     try:
@@ -311,18 +308,14 @@ def test_disentangle_all_selectivities_error_handling(mixed_features_experiment)
     assert count_matrix.shape == (3, 3)
 
 
-@pytest.mark.parametrize("continuous_only_experiment", ["medium"], indirect=True)
-def test_create_multifeature_map_valid(continuous_only_experiment):
+@pytest.mark.parametrize("multifeature_experiment", ["small"], indirect=True)
+def test_create_multifeature_map_valid(multifeature_experiment):
     """Test creating valid multifeature map."""
-    # Use continuous fixture
-    exp = continuous_only_experiment
+    # Use multifeature fixture (guaranteed to have at least 4 continuous features)
+    exp = multifeature_experiment
     
     # Get actual continuous features
     c_feats = [k for k in exp.dynamic_features.keys() if k.startswith('c_feat_')]
-    
-    # Need at least 4 features for this test
-    if len(c_feats) < 4:
-        pytest.skip("Not enough continuous features for full multifeature test")
     
     # Add attributes from actual features
     exp.x = exp.dynamic_features[c_feats[0]]
