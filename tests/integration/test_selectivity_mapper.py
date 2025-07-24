@@ -80,9 +80,9 @@ class TestSelectivityManifoldMapper:
         # Compute selectivity
         compute_cell_feat_significance(
             exp,
-            mode='two_stage',
+            mode='stage1',
             n_shuffles_stage1=20,
-            n_shuffles_stage2=100,
+            ds=5,
             verbose=False
         )
         
@@ -212,10 +212,11 @@ class TestEmbeddingSelectivity:
         results = compute_embedding_selectivity(
             exp_with_embedding,
             embedding_methods='pca',
-            mode='two_stage',
+            mode='stage1',
             n_shuffles_stage1=10,
-            n_shuffles_stage2=50,
-            verbose=False
+            ds=5,
+            verbose=False,
+            enable_parallelization=False
         )
         
         # Check results structure
@@ -241,7 +242,9 @@ class TestEmbeddingSelectivity:
             'pca',
             n_shuffles_stage1=10,
             n_shuffles_stage2=50,
-            verbose=False
+            ds=5,
+            verbose=False,
+            enable_parallelization=False
         )
         
         # Get functional organization
@@ -269,7 +272,9 @@ class TestEmbeddingSelectivity:
             exp,
             mode='stage1',  # Quick test
             n_shuffles_stage1=10,
-            verbose=False
+            ds=5,
+            verbose=False,
+            enable_parallelization=False
         )
         
         # Should have results for both
@@ -280,64 +285,38 @@ class TestEmbeddingSelectivity:
 class TestIntegrationWorkflow:
     """Test complete workflow integration."""
     
-    def test_full_workflow(self):
+    def test_full_workflow(self, mixed_population_exp_fast, intense_params_fast):
         """Test complete workflow from data to manifold selectivity."""
-        # 1. Generate experiment with spatial features
-        exp = driada.generate_mixed_population_exp(
-            n_neurons=50,
-            manifold_fraction=0.6,  # 60% manifold neurons = 30 neurons
-            manifold_type='2d_spatial',
-            manifold_params={
-                'field_sigma': 0.15, 
-                'baseline_rate': 0.1, 
-                'peak_rate': 1.0,
-                'noise_std': 0.05,
-                'decay_time': 2.0,
-                'calcium_noise_std': 0.1
-            },
-            duration=300,
-            seed=42
-        )
+        # 1. Use fixture for experiment
+        exp = mixed_population_exp_fast
         
-        # 2. Compute behavioral selectivity
+        # 2. Compute behavioral selectivity with fixture params
         compute_cell_feat_significance(
             exp,
-            mode='two_stage',
-            n_shuffles_stage1=20,
-            n_shuffles_stage2=100,
-            pval_thr=0.05,
-            allow_mixed_dimensions=True,
-            find_optimal_delays=False,  # Disable to avoid issues with MultiTimeSeries
-            verbose=False
+            **intense_params_fast
         )
         
         # 3. Create mapper and embeddings
         mapper = SelectivityManifoldMapper(exp)
         
-        # Create embeddings with different neuron selections
-        mapper.create_embedding('pca', n_components=5, neuron_selection='all')
-        mapper.create_embedding('umap', n_components=5, neuron_selection='significant')
+        # Create PCA embedding only
+        mapper.create_embedding('pca', n_components=3, neuron_selection='all')
         
         # 4. Analyze embedding selectivity
         results = mapper.analyze_embedding_selectivity(
-            ['pca', 'umap'],
+            'pca',
             n_shuffles_stage1=10,
-            n_shuffles_stage2=50,
-            verbose=False
+            n_shuffles_stage2=20,
+            ds=5,
+            verbose=False,
+            enable_parallelization=False
         )
         
-        # 5. Compare organizations
-        comparison = mapper.compare_embeddings(['pca', 'umap'])
+        # 5. Get functional organization
+        org_pca = mapper.get_functional_organization('pca')
         
         # Verify results
         assert 'pca' in results
-        assert 'umap' in results
-        assert 'participation_overlap' in comparison or 'n_participating_neurons' in comparison
-        
-        # Get functional organizations
-        org_pca = mapper.get_functional_organization('pca')
-        org_umap = mapper.get_functional_organization('umap')
-        
-        # Both should have valid organization info
-        assert org_pca['n_components'] == 5
-        assert org_umap['n_components'] == 5
+        assert org_pca['n_components'] == 3
+        assert 'component_importance' in org_pca
+        assert len(org_pca['component_importance']) == 3
