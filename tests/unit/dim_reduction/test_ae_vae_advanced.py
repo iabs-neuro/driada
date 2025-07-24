@@ -135,13 +135,13 @@ def test_ae_vs_vae_reconstruction_quality():
     vae_emb = D.get_embedding(
         method='vae',
         dim=2,
-        epochs=100,
-        lr=1e-3,
+        epochs=200,  # More epochs for better convergence
+        lr=5e-4,     # Slightly lower learning rate
         seed=42,
         batch_size=64,
         feature_dropout=0.1,
         verbose=False,
-        kld_weight=0.01,
+        kld_weight=0.005,  # Even lower KL weight for better reconstruction
         enc_kwargs={'dropout': 0.1},
         dec_kwargs={'dropout': 0.1}
     )
@@ -151,13 +151,10 @@ def test_ae_vs_vae_reconstruction_quality():
     ae_knn = knn_preservation_rate(data, ae_emb.coords.T, k=k)
     vae_knn = knn_preservation_rate(data, vae_emb.coords.T, k=k)
     
-    # Both should achieve reasonable preservation
-    assert ae_knn > 0.2, f"AE preservation too low: {ae_knn:.3f}"
-    assert vae_knn > 0.05, f"VAE preservation too low: {vae_knn:.3f}"
-    
-    # AE typically preserves structure better due to no regularization
-    # But difference shouldn't be extreme with low KL weight
-    assert ae_knn > vae_knn - 0.2, "VAE performing unexpectedly poorly"
+    # Both should achieve reasonable preservation for swiss roll
+    # With proper training parameters, both can achieve good results
+    assert ae_knn > 0.25, f"AE preservation too low: {ae_knn:.3f}"
+    assert vae_knn > 0.25, f"VAE preservation too low: {vae_knn:.3f}"
 
 
 def test_vae_encoder_unconstrained():

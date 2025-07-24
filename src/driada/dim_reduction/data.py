@@ -186,7 +186,23 @@ class MVData(object):
                             f' Try constructing it first with get_distmat() method')
 
         emb = Embedding(self.data, self.distmat, self.labels, e_params, g=graph)
-        emb.build(kwargs=kwargs)
+        
+        # For neural network methods, extract NN-specific params from e_params to pass as kwargs
+        if method.nn_based:
+            nn_kwargs = kwargs or {}
+            # Extract neural network specific parameters from e_params
+            nn_params = ['epochs', 'lr', 'batch_size', 'seed', 'verbose', 
+                        'feature_dropout', 'enc_kwargs', 'dec_kwargs', 
+                        'kld_weight', 'inter_dim', 'train_size',
+                        'add_corr_loss', 'corr_hyperweight',
+                        'add_mi_loss', 'mi_hyperweight', 'minimize_mi_data',
+                        'log_every', 'device', 'continue_learning']
+            for param in nn_params:
+                if param in e_params:
+                    nn_kwargs[param] = e_params[param]
+            emb.build(kwargs=nn_kwargs)
+        else:
+            emb.build(kwargs=kwargs)
 
         return emb
 

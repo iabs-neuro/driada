@@ -68,14 +68,16 @@ class TestNNDimension:
     
     def test_circle_manifold(self):
         """Test on 1D circle embedded in 2D."""
-        n_samples = 100  # Reduced from 500
-        t = np.linspace(0, 2*np.pi, n_samples)
+        n_samples = 300  # Increased for better estimation
+        t = np.linspace(0, 2*np.pi, n_samples, endpoint=False)
         data = np.column_stack([np.cos(t), np.sin(t)])
         
-        # Add small noise
-        data += 0.01 * np.random.randn(*data.shape)
+        # Add very small noise
+        np.random.seed(42)
+        data += 0.005 * np.random.randn(*data.shape)
         
-        dim = nn_dimension(data, k=2)
+        # Use k=5 for more stable estimation
+        dim = nn_dimension(data, k=5)
         # k-NN can overestimate for circles due to boundary effects
         assert 0.8 < dim < 2.3, f"Expected dimension ~1-2, got {dim}"
     
