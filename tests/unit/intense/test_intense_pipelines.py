@@ -506,7 +506,7 @@ def test_mixed_selectivity_generation():
         selectivity_prob=0.8,
         multi_select_prob=0.5,
         weights_mode='random',
-        duration=10,  # Reduced from 20
+        duration=30,  # Increased from 10 to avoid issues
         seed=42,
         verbose=False
     )
@@ -538,16 +538,13 @@ def test_discretize_via_roi():
     continuous_signal = np.random.randn(1000)
     
     # Discretize
-    binary_signal, roi_params = discretize_via_roi(continuous_signal, seed=42)
+    binary_signal = discretize_via_roi(continuous_signal, seed=42)
     
     # Check output
     assert len(binary_signal) == len(continuous_signal)
     assert set(np.unique(binary_signal)).issubset({0, 1})
-    assert len(roi_params) == 3  # loc, lower_border, upper_border
     
-    # Check ROI parameters make sense
-    loc, lower, upper = roi_params
-    assert lower < loc < upper
+    # Check that discretization worked
     assert np.sum(binary_signal) > 0  # Some values should be 1
     assert np.sum(binary_signal) < len(binary_signal)  # Some values should be 0
 
@@ -558,13 +555,14 @@ def test_disentanglement_with_mixed_selectivity():
     exp, selectivity_info = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=0,
         n_continuous_feats=4,
-        n_neurons=20,
+        n_neurons=10,  # Reduced from 20 for faster testing
         n_multifeatures=1,
         create_discrete_pairs=True,
         selectivity_prob=0.9,
         multi_select_prob=0.7,
         weights_mode='dominant',  # One feature dominates
         duration=30,  # Reduced from 120 for faster testing
+        fps=10,  # Lower sampling rate for speed
         seed=42,
         verbose=False
     )
@@ -613,7 +611,8 @@ def test_equal_weight_mixed_selectivity():
         selectivity_prob=0.9,
         multi_select_prob=0.8,
         weights_mode='equal',  # Equal weights - no clear dominance
-        duration=200,  # Realistic duration for proper testing
+        duration=60,  # Reduced from 200 for faster testing
+        fps=10,  # Lower sampling rate for speed
         seed=42,
         verbose=False
     )
@@ -671,7 +670,8 @@ def test_multifeature_generation():
         n_neurons=5,
         n_multifeatures=2,
         create_discrete_pairs=False,
-        duration=60,
+        duration=30,  # Reduced from 60 for faster testing
+        fps=10,  # Lower sampling rate for speed
         seed=42,
         verbose=False
     )

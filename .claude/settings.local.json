@@ -24,7 +24,15 @@
       "Bash(cat:*)",
       "Bash(claude update)",
       "Bash(time pytest tests/unit/dim_reduction/test_intrinsic.py -xvs -q)",
-      "Bash(time pytest tests/integration/test_manifold_neural_data.py -xvs -q)"
+      "Bash(time pytest tests/integration/test_manifold_neural_data.py -xvs -q)",
+      "Bash(time pytest tests/unit/test_api_imports.py -v --tb=short)",
+      "Bash(time pytest tests/unit/utils/test_utils_signals.py -v --tb=short)",
+      "Bash(time pytest tests/unit/intense/test_intense.py -v --tb=short)",
+      "Bash(time pytest tests/unit/dim_reduction/test_dr_extended.py -v --tb=short)",
+      "Bash(time pytest tests/integration/test_integration.py -v --tb=short)",
+      "Bash(time pytest tests/performance/test_parallel.py -v --tb=short)",
+      "Bash(time pytest tests/unit/intense/test_intense_pipelines.py -v --tb=short)",
+      "Bash(time pytest tests/unit/dim_reduction/test_intrinsic.py -v --tb=short)"
     ],
     "deny": []
   }

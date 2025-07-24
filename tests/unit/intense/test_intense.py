@@ -846,6 +846,137 @@ def test_stats_not_empty_stage2():
         'me': 0.5
     }
     assert stats_not_empty(stats2, 'hash456', stage=2)
+
+
+def test_parallel_mi_equality(correlated_ts_small, fast_test_params):
+    """Test that parallel and serial scan_pairs produce identical results."""
+    from driada.intense.intense_base import scan_pairs, scan_pairs_parallel
+    
+    tslist1, tslist2, n = correlated_ts_small
+    
+    # Generate random optimal delays
+    np.random.seed(42)
+    optd = np.random.randint(-40, 40, size=(len(tslist1), len(tslist2)))
+    
+    # Run serial version
+    rshifts1, mitable1 = scan_pairs(
+        tslist1,
+        tslist2,
+        metric='mi',
+        nsh=fast_test_params['n_shuffles_stage1'],
+        optimal_delays=optd,
+        ds=fast_test_params['ds'],
+        joint_distr=False,
+        noise_const=fast_test_params['noise_ampl'],
+        seed=42
+    )
+    
+    # Run parallel version
+    rshifts2, mitable2 = scan_pairs_parallel(
+        tslist1,
+        tslist2,
+        'mi',
+        fast_test_params['n_shuffles_stage1'],
+        optd,
+        ds=fast_test_params['ds'],
+        joint_distr=False,
+        n_jobs=2,  # Use 2 jobs for stability
+        noise_const=fast_test_params['noise_ampl'],
+        seed=42
+    )
+    
+    # Verify shapes and values match
+    assert rshifts1.shape == rshifts2.shape
+    assert mitable1.shape == mitable2.shape
+    assert np.allclose(rshifts1, rshifts2)
+    assert np.allclose(mitable1, mitable2)
+
+
+def test_parallel_router(correlated_ts_small, fast_test_params):
+    """Test scan_pairs_router with and without parallelization."""
+    from driada.intense.intense_base import scan_pairs_router
+    
+    tslist1, tslist2, n = correlated_ts_small
+    
+    # Generate random optimal delays
+    np.random.seed(42)
+    optd = np.random.randint(-40, 40, size=(len(tslist1), len(tslist2)))
+    
+    # Run with parallelization
+    rshifts1, mitable1 = scan_pairs_router(
+        tslist1,
+        tslist2,
+        'mi',
+        fast_test_params['n_shuffles_stage1'],
+        optd,
+        ds=fast_test_params['ds'],
+        joint_distr=False,
+        noise_const=fast_test_params['noise_ampl'],
+        seed=42,
+        enable_parallelization=True,
+        n_jobs=2
+    )
+    
+    # Run without parallelization
+    rshifts2, mitable2 = scan_pairs_router(
+        tslist1,
+        tslist2,
+        'mi',
+        fast_test_params['n_shuffles_stage1'],
+        optd,
+        ds=fast_test_params['ds'],
+        joint_distr=False,
+        noise_const=fast_test_params['noise_ampl'],
+        seed=42,
+        enable_parallelization=False,
+        n_jobs=-1
+    )
+    
+    # Verify results match
+    assert rshifts1.shape == rshifts2.shape
+    assert mitable1.shape == mitable2.shape
+    assert np.allclose(rshifts1, rshifts2)
+    assert np.allclose(mitable1, mitable2)
+
+
+def test_optimal_delays_parallel(correlated_ts_small, fast_test_params):
+    """Test parallel vs serial optimal delay calculation."""
+    from driada.intense.intense_base import (
+        calculate_optimal_delays,
+        calculate_optimal_delays_parallel
+    )
+    
+    tslist1, tslist2, n = correlated_ts_small
+    
+    # Parameters
+    shift_window = 20  # Reduced for faster testing
+    ds = fast_test_params['ds']
+    
+    # Run parallel version
+    optimal_delays1 = calculate_optimal_delays_parallel(
+        tslist1,
+        tslist2,
+        'mi',
+        shift_window,
+        ds,
+        verbose=False,
+        n_jobs=2  # Use 2 jobs for stability
+    )
+    
+    # Run serial version
+    optimal_delays2 = calculate_optimal_delays(
+        tslist1,
+        tslist2,
+        'mi',
+        shift_window,
+        ds,
+        verbose=False
+    )
+    
+    # Verify results match
+    assert optimal_delays1.shape == optimal_delays2.shape
+    assert optimal_delays1.shape == (len(tslist1), len(tslist2))
+    assert np.allclose(optimal_delays1, optimal_delays2)
     
     # Missing required field
     stats2_incomplete = {
