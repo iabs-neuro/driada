@@ -79,34 +79,14 @@ class TestINTENSEToDRIntegration:
         # Convert to MVData - exp.calcium is already a MultiTimeSeries which inherits from MVData
         mvdata = exp.calcium
         
-        # Test multiple DR methods
-        methods = {
-            'pca': PCA(n_components=3),
-            'isomap': {'nn': 10},
-            'umap': {'nn': 15}
-        }
+        # Test PCA integration (other DR methods tested separately)
+        pca = PCA(n_components=3)
+        embedding = pca.fit_transform(mvdata.data.T)
         
-        for method_name, method in methods.items():
-            if isinstance(method, dict):
-                # Graph-based methods - use new simplified API
-                embedding = mvdata.get_embedding(method=method_name, dim=2, nn=method['nn'])
-            else:
-                # Direct methods like PCA
-                embedding = method.fit_transform(mvdata.data.T)
-            
-            if hasattr(embedding, 'coords'):
-                # Embedding object from get_embedding
-                assert embedding is not None
-                # Check frames, accounting for possible node loss in graph methods
-                if method_name in ['isomap', 'umap'] and embedding.coords.shape[1] < exp.n_frames:
-                    # Graph methods may lose nodes
-                    assert embedding.coords.shape[1] <= exp.n_frames
-                else:
-                    assert embedding.coords.shape[1] == exp.n_frames
-            else:
-                # Direct numpy array from sklearn
-                assert embedding is not None
-                assert embedding.shape[0] == exp.n_frames
+        # Verify embedding
+        assert embedding is not None
+        assert embedding.shape == (exp.n_frames, 3)
+        assert not np.any(np.isnan(embedding))
             
     def test_dimensionality_estimation_integration(self, circular_manifold_exp_balanced):
         """Test dimensionality estimation on INTENSE-processed data"""
@@ -129,7 +109,7 @@ class TestINTENSEToDRIntegration:
         assert linear_dim >= intrinsic_dim
         assert eff_rank > 0
         
-    def test_memory_efficiency(self, memory_test_exp):
+    def test_memory_efficiency(self, memory_test_exp, intense_params_fast):
         """Test memory efficiency of integrated pipeline"""
         try:
             import psutil
@@ -146,13 +126,7 @@ class TestINTENSEToDRIntegration:
         # Run INTENSE with downsampling
         stats, significance, info, results = compute_cell_feat_significance(
             exp,
-            n_shuffles_stage1=20,
-            n_shuffles_stage2=50,
-            ds=5,  # Downsample by factor of 5
-            allow_mixed_dimensions=True,  # Need this for 2D spatial features
-            find_optimal_delays=False,  # Can't use with multifeatures
-            verbose=False,
-            enable_parallelization=False
+            **intense_params_fast
         )
         
         # Apply DR - exp.calcium is already a MultiTimeSeries which inherits from MVData
@@ -168,37 +142,18 @@ class TestINTENSEToDRIntegration:
         # Memory increase should be reasonable (<500MB for this test)
         assert memory_increase < 500, f"Memory increased by {memory_increase}MB"
         
-    def test_data_flow_validation(self):
+    def test_data_flow_validation(self, circular_manifold_exp_fast, intense_params_fast):
         """Validate data flows correctly through pipeline"""
-        # Create synthetic experiment
-        n_neurons = 20
-        n_frames = 200
-        calcium_data = np.random.randn(n_neurons, n_frames)
-        calcium_data[0, :] = np.sin(np.linspace(0, 4*np.pi, n_frames)) + 0.1 * np.random.randn(n_frames)
-        
-        exp = Experiment(
-            signature='test_flow',
-            calcium=calcium_data,
-            spikes=None,
-            reconstruct_spikes=None,  # Disable spike reconstruction for synthetic data
-            exp_identificators={},
-            static_features={'fps': 10.0, 't_off_sec': 1.0},  # Set explicit t_off to reduce exclusion zone
-            dynamic_features={
-                'phase': np.linspace(0, 4*np.pi, n_frames)
-            }
-        )
+        # Use standard fixture
+        exp = circular_manifold_exp_fast
         
         # Verify data shapes at each stage
-        assert exp.calcium.shape == (n_neurons, n_frames)
+        assert exp.calcium.shape == (exp.n_cells, exp.n_frames)
         
         # INTENSE analysis
         stats, significance, info, results = compute_cell_feat_significance(
             exp,
-            n_shuffles_stage1=20,
-            n_shuffles_stage2=50,
-            ds=5,
-            verbose=False,
-            enable_parallelization=False
+            **intense_params_fast
         )
         
         # Check INTENSE outputs
@@ -213,35 +168,22 @@ class TestINTENSEToDRIntegration:
         })
         
         # Validate final output
-        assert pca_embedding.coords.shape == (3, n_frames)
+        assert pca_embedding.coords.shape == (3, exp.n_frames)
         assert not np.any(np.isnan(pca_embedding.coords))
         
-    def test_error_handling_integration(self):
+    def test_error_handling_integration(self, circular_manifold_exp_fast, intense_params_fast):
         """Test error handling across module boundaries"""
-        # Create experiment with problematic data
-        # Use more frames to avoid shuffle_mask issues, but still problematic for analysis
-        n_frames = 500
-        calcium_data = np.ones((10, n_frames)) + 0.01 * np.random.randn(10, n_frames)
-        calcium_data = np.maximum(0, calcium_data)  # Ensure non-negative
+        # Use standard fixture but modify data to be problematic
+        exp = circular_manifold_exp_fast
         
-        exp = Experiment(
-            signature='test_errors',
-            calcium=calcium_data,  # Near-constant data - problematic for some methods
-            spikes=None,
-            reconstruct_spikes=None,  # Disable spike reconstruction
-            exp_identificators={},
-            static_features={'fps': 10.0},
-            dynamic_features={'dummy': np.zeros(n_frames)}
-        )
+        # Make calcium data near-constant (problematic for some methods)
+        exp.calcium.data = np.ones_like(exp.calcium.data) + 0.01 * np.random.randn(*exp.calcium.data.shape)
+        exp.calcium.data = np.maximum(0, exp.calcium.data)
         
         # INTENSE should handle constant features gracefully
         stats, significance, info, results = compute_cell_feat_significance(
             exp,
-            n_shuffles_stage1=10,
-            n_shuffles_stage2=20,
-            ds=5,
-            verbose=False,
-            enable_parallelization=False
+            **intense_params_fast
         )
         
         # MVData should handle constant data - exp.calcium is already a MultiTimeSeries which inherits from MVData
