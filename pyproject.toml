@@ -46,7 +46,8 @@ dependencies = [
     "ssqueezepy>=0.6.5",
     "cvxpy>=1.4.2",
     "pynndescent>=0.5.10",
-    "pydiffmap>=0.2.0.1"
+    "pydiffmap>=0.2.0.1",
+    "psutil>=5.9.0"
 ]
 
 classifiers = [

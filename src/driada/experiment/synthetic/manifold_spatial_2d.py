@@ -7,6 +7,7 @@ manifolds, typically used to model hippocampal place cells.
 
 import numpy as np
 from .core import validate_peak_rate, generate_pseudo_calcium_signal
+from .utils import get_effective_decay_time
 from ..exp_base import Experiment
 from ...information.info_base import TimeSeries, MultiTimeSeries
 
@@ -335,6 +336,9 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     info : dict, optional
         If return_info=True, dictionary with manifold info.
     """
+    # Calculate effective decay time for shuffle mask
+    effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)
+    
     # Generate data
     calcium, positions, place_field_centers, firing_rates = generate_2d_manifold_data(
         n_neurons=n_neurons,
@@ -358,7 +362,7 @@ def generate_2d_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     static_features = {
         'fps': fps,
         't_rise_sec': 0.04,
-        't_off_sec': decay_time,
+        't_off_sec': effective_decay_time,  # Use effective decay time for shuffle mask
         'manifold_type': '2d_spatial',
         'field_sigma': field_sigma,
         'baseline_rate': baseline_rate,

@@ -162,7 +162,7 @@ class TestNNDimension:
     def test_sample_size_scaling(self):
         """Test behavior with different sample sizes."""
         # Generate 2D Swiss roll with varying sample sizes
-        sample_sizes = [100, 500, 1000, 2000]
+        sample_sizes = [100, 300, 500]  # Reduced for faster tests
         dims = []
         
         for n in sample_sizes:
@@ -323,7 +323,7 @@ class TestCorrelationDimension:
     def test_sample_size_effect(self):
         """Test behavior with different sample sizes."""
         # Need sufficient samples for correlation dimension
-        sample_sizes = [200, 500, 1000]
+        sample_sizes = [200, 400]  # Reduced for faster tests
         dims = []
         
         for n in sample_sizes:

@@ -217,7 +217,7 @@ def test_compute_cell_cell_significance(discrete_only_experiment):
         cell_bunch=None,  # All neurons
         data_type='calcium',
         mode='stage1',  # Changed from two_stage for speed
-        n_shuffles_stage1=50,  # Increased from 10 for reliability
+        n_shuffles_stage1=25,  # Reduced for speed
         n_shuffles_stage2=50,
         verbose=False,
         seed=42

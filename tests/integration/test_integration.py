@@ -180,6 +180,8 @@ class TestINTENSEToDRIntegration:
             n_shuffles_stage1=20,
             n_shuffles_stage2=50,
             ds=5,  # Downsample by factor of 5
+            allow_mixed_dimensions=True,  # Need this for 2D spatial features
+            find_optimal_delays=False,  # Can't use with multifeatures
             verbose=False
         )
         

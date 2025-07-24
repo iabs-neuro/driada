@@ -22,7 +22,9 @@
       "Bash(node:*)",
       "Bash(npm:*)",
       "Bash(cat:*)",
-      "Bash(claude update)"
+      "Bash(claude update)",
+      "Bash(time pytest tests/unit/dim_reduction/test_intrinsic.py -xvs -q)",
+      "Bash(time pytest tests/integration/test_manifold_neural_data.py -xvs -q)"
     ],
     "deny": []
   }

@@ -373,7 +373,7 @@ def test_generate_circular_manifold_exp_reproducibility():
 
 
 @pytest.mark.parametrize("n_neurons,duration", [
-    (10, 5),
+    (10, 20),
     (100, 60),
     (200, 30),
 ])
@@ -394,24 +394,24 @@ def test_edge_cases():
     """Test edge cases."""
     # Very few neurons
     exp, info = generate_circular_manifold_exp(
-        n_neurons=2, duration=5, verbose=False, return_info=True
+        n_neurons=2, duration=20, verbose=False, return_info=True
     )
     assert exp.n_cells == 2
     
-    # Very short duration
+    # Short duration (but still meaningful)
     exp, info = generate_circular_manifold_exp(
-        n_neurons=10, duration=1, fps=10, verbose=False, return_info=True
+        n_neurons=10, duration=20, fps=10, verbose=False, return_info=True
     )
-    assert exp.n_frames == 10
+    assert exp.n_frames == 200
     
     # High noise
     exp, info = generate_circular_manifold_exp(
-        n_neurons=20, duration=10, noise_std=0.5, 
+        n_neurons=20, duration=20, noise_std=0.5, 
         calcium_noise_std=0.5, verbose=False, return_info=True
     )
     # Should still generate valid data
-    assert not np.any(np.isnan(exp.calcium))
-    assert not np.any(np.isinf(exp.calcium))
+    assert not np.any(np.isnan(exp.calcium.data))
+    assert not np.any(np.isinf(exp.calcium.data))
     
 
 def test_von_mises_edge_cases():

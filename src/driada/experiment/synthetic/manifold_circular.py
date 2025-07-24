@@ -7,6 +7,7 @@ manifolds, typically used to model head direction cells.
 
 import numpy as np
 from .core import validate_peak_rate, generate_pseudo_calcium_signal
+from .utils import get_effective_decay_time
 from ..exp_base import Experiment
 from ...information.info_base import TimeSeries
 
@@ -277,6 +278,9 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     exp : Experiment
         DRIADA Experiment object with circular manifold data.
     """
+    # Calculate effective decay time for shuffle mask
+    effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)
+    
     # Generate data
     calcium, head_direction, preferred_directions, firing_rates = generate_circular_manifold_data(
         n_neurons=n_neurons,
@@ -297,7 +301,7 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     static_features = {
         'fps': fps,
         't_rise_sec': 0.04,
-        't_off_sec': decay_time,
+        't_off_sec': effective_decay_time,  # Use effective decay time for shuffle mask
         'manifold_type': 'circular',
         'kappa': kappa,
         'baseline_rate': baseline_rate,
