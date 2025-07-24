@@ -377,7 +377,7 @@ def generate_mixed_population_exp(n_neurons=100, manifold_fraction=0.6,
     if not 0.0 <= correlation_strength <= 1.0:
         raise ValueError(f"correlation_strength must be between 0.0 and 1.0, got {correlation_strength}")
 
-    selectivity_prob = feature_params.get('selectivity_prob', 1.0)
+    selectivity_prob = feature_params.get('selectivity_prob', 1.0) if feature_params else 1.0
     # Calculate population allocation
     n_manifold = int(n_neurons * manifold_fraction)
     n_feature_selective = int((n_neurons - n_manifold) * selectivity_prob)

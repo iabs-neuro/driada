@@ -213,10 +213,11 @@ def test_dimensionality_guided_reconstruction():
         fps=20.0,
         kappa=4.0,
         noise_std=0.1,
-        seed=42
+        seed=42,
+        return_info=True
     )
     
-    filtered = filter_signals(exp.calcium.T, method='gaussian', sigma=1.5)
+    filtered = filter_signals(exp.calcium.data.T, method='gaussian', sigma=1.5)
     neural_data = filtered.T
     D = MVData(neural_data)
     

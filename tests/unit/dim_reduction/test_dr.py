@@ -11,39 +11,43 @@ from driada.experiment.synthetic import (
 )
 from driada.utils.data import create_correlated_gaussian_data
 
+# Test data sizes - much smaller for faster execution
 n_gaussian = 10
-n_swiss_roll = 1000
+n_swiss_roll = 100  # Reduced from 1000 for faster tests
+n_time_samples = 500  # Reduced from 10000
 
-def create_default_data(n=n_gaussian, T=10000):
-    # Use the utility function with the same correlation pattern
+
+@pytest.fixture
+def small_swiss_roll_mvdata():
+    """Small swiss roll MVData for fast tests."""
+    data, color = make_swiss_roll(
+        n_samples=n_swiss_roll, 
+        noise=0.0, 
+        random_state=42,
+        hole=False
+    )
+    return MVData(data.T)
+
+
+@pytest.fixture
+def small_gaussian_mvdata():
+    """Small gaussian MVData for fast tests."""
     correlation_pairs = [(1, 9, 0.9), (2, 8, 0.8)]
     data, _ = create_correlated_gaussian_data(
-        n_features=n,
-        n_samples=T,
+        n_features=n_gaussian,
+        n_samples=n_time_samples,
         correlation_pairs=correlation_pairs,
-        seed=None  # Don't set seed to maintain original behavior
+        seed=42
     )
-    return data
+    return MVData(data)
 
 
-def create_swiss_roll_data():
-    random_state = 42
-    data, _ = make_swiss_roll(n_samples=n_swiss_roll,
-                              noise=0.0,
-                              random_state=random_state,
-                              hole=False)
-    return data.T
-
-
-def test_corrmat():
-    data = create_default_data()
-    D = MVData(data)
-    cm = D.corr_mat()
+def test_corrmat(small_gaussian_mvdata):
+    cm = small_gaussian_mvdata.corr_mat()
     assert np.allclose(np.diag(cm), np.ones(n_gaussian))
 
 
-def test_proximity_graph():
-    data = create_swiss_roll_data()
+def test_proximity_graph(small_swiss_roll_mvdata):
 
     metric_params = {
         'metric_name': 'l2',
@@ -54,89 +58,71 @@ def test_proximity_graph():
     graph_params = {
         'g_method_name': 'knn',
         'weighted': 0,
-        'nn': 10,
+        'nn': 5,  # Reduced for faster tests
         'max_deleted_nodes': 0.2,
         'dist_to_aff': 'hk'
     }
 
-    D = MVData(data)
-    G = D.get_proximity_graph(metric_params, graph_params)
+    G = small_swiss_roll_mvdata.get_proximity_graph(metric_params, graph_params)
 
 
-def test_pca():
-    data = create_swiss_roll_data()
-    D = MVData(data)
+def test_pca(small_swiss_roll_mvdata):
 
-    emb = D.get_embedding(method='pca', dim=2)
+    emb = small_swiss_roll_mvdata.get_embedding(method='pca', dim=2)
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0,0]) in [np.float64, np.float32]
 
 
-def test_le():
-    data = create_swiss_roll_data()
-    D = MVData(data)
+def test_le(small_swiss_roll_mvdata):
 
-    emb = D.get_embedding(method='le', dim=2, nn=10, metric='l2')
+    emb = small_swiss_roll_mvdata.get_embedding(method='le', dim=2, nn=5, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
-def test_auto_le():
-    data = create_swiss_roll_data()
-    D = MVData(data)
+def test_auto_le(small_swiss_roll_mvdata):
 
-    emb = D.get_embedding(method='auto_le', dim=2, nn=10, metric='l2')
+    emb = small_swiss_roll_mvdata.get_embedding(method='auto_le', dim=2, nn=5, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
-def test_umap():
-    data = create_swiss_roll_data()
-    D = MVData(data)
+def test_umap(small_swiss_roll_mvdata):
 
-    emb = D.get_embedding(method='umap', dim=2, min_dist=0.1, nn=10, metric='l2')
+    emb = small_swiss_roll_mvdata.get_embedding(method='umap', dim=2, min_dist=0.1, nn=5, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
-def test_isomap():
-    data = create_swiss_roll_data()
-    D = MVData(data)
+def test_isomap(small_swiss_roll_mvdata):
 
-    emb = D.get_embedding(method='isomap', dim=2, nn=10, metric='l2')
+    emb = small_swiss_roll_mvdata.get_embedding(method='isomap', dim=2, nn=5, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
-def test_tsne():
-    data = create_swiss_roll_data()
-    D = MVData(data)
+def test_tsne(small_swiss_roll_mvdata):
 
-    emb = D.get_embedding(method='tsne', dim=2)
+    emb = small_swiss_roll_mvdata.get_embedding(method='tsne', dim=2, n_iter=250)  # Reduced iterations
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
-def test_auto_dmaps():
-    data = create_swiss_roll_data()
-    D = MVData(data)
+def test_auto_dmaps(small_swiss_roll_mvdata):
 
-    emb = D.get_embedding(method='auto_dmaps', dim=2, dm_alpha=1, nn=10, metric='l2')
+    emb = small_swiss_roll_mvdata.get_embedding(method='auto_dmaps', dim=2, dm_alpha=1, nn=5, metric='l2')
     assert emb.coords.shape == (2, n_swiss_roll)
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
-def test_ae_simple():
-    data = create_swiss_roll_data()
-    D = MVData(data)
-
-    emb = D.get_embedding(
+def test_ae_simple(small_swiss_roll_mvdata):
+    emb = small_swiss_roll_mvdata.get_embedding(
         method='ae',
         dim=2,
-        epochs=200,
+        epochs=50,  # Reduced from 200
         lr=5 * 1e-3,
         seed=42,
-        batch_size=512,
+        batch_size=32,  # Reduced from 512
         feature_dropout=0.5,
         enc_kwargs={'dropout': 0.2},
         dec_kwargs={'dropout': 0.2}
@@ -146,17 +132,14 @@ def test_ae_simple():
     assert type(emb.coords[0, 0]) in [np.float64, np.float32]
 
 
-def test_ae_corr():
-    data = create_swiss_roll_data()
-    D = MVData(data)
-
-    emb = D.get_embedding(
+def test_ae_corr(small_swiss_roll_mvdata):
+    emb = small_swiss_roll_mvdata.get_embedding(
         method='ae',
         dim=2,
-        epochs=200,
+        epochs=50,  # Reduced from 200
         lr=5 * 1e-3,
         seed=42,
-        batch_size=512,
+        batch_size=32,  # Reduced from 512
         feature_dropout=0.5,
         add_corr_loss=True,
         corr_hyperweight=1,

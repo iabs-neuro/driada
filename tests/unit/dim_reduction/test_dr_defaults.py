@@ -72,75 +72,64 @@ class TestMVDataSimplifiedAPI:
     """Test MVData's simplified get_embedding API."""
     
     @pytest.fixture
-    def sample_data(self):
-        """Generate sample data for testing."""
+    def sample_mvdata(self):
+        """Generate sample MVData for testing."""
         np.random.seed(42)
         n_features, n_samples = 50, 100
-        return np.random.randn(n_features, n_samples)
+        data = np.random.randn(n_features, n_samples)
+        return MVData(data)
     
-    def test_simplified_api_pca(self, sample_data):
+    def test_simplified_api_pca(self, sample_mvdata):
         """Test simplified API with PCA."""
-        mvdata = MVData(sample_data)
-        
         # Test with defaults
-        emb = mvdata.get_embedding(method='pca')
+        emb = sample_mvdata.get_embedding(method='pca')
         assert emb.coords.shape == (2, 100)
         
         # Test with custom dimension
-        emb = mvdata.get_embedding(method='pca', dim=3)
+        emb = sample_mvdata.get_embedding(method='pca', dim=3)
         assert emb.coords.shape == (3, 100)
     
-    def test_simplified_api_graph_method(self, sample_data):
+    def test_simplified_api_graph_method(self, sample_mvdata):
         """Test simplified API with graph-based method."""
-        mvdata = MVData(sample_data)
-        
         # Test Isomap
-        emb = mvdata.get_embedding(method='isomap', n_neighbors=10)
+        emb = sample_mvdata.get_embedding(method='isomap', n_neighbors=10)
         assert emb.coords.shape[0] == 2  # Default dim
         assert hasattr(emb, 'graph')
         assert emb.graph.nn == 10
     
-    def test_simplified_api_tsne(self, sample_data):
+    def test_simplified_api_tsne(self, sample_mvdata):
         """Test simplified API with t-SNE."""
-        mvdata = MVData(sample_data)
-        
-        # Test with custom perplexity
-        emb = mvdata.get_embedding(method='tsne', perplexity=15)
+        # Test with custom perplexity and reduced iterations
+        emb = sample_mvdata.get_embedding(method='tsne', perplexity=15, n_iter=250)
         assert emb.coords.shape[0] == 2
     
-    def test_simplified_api_mds(self, sample_data):
+    def test_simplified_api_mds(self, sample_mvdata):
         """Test simplified API with MDS."""
-        mvdata = MVData(sample_data)
-        
         # MDS requires distance matrix
-        mvdata.get_distmat()
-        emb = mvdata.get_embedding(method='mds')
+        sample_mvdata.get_distmat()
+        emb = sample_mvdata.get_embedding(method='mds')
         assert emb.coords.shape == (2, 100)
     
-    def test_backward_compatibility(self, sample_data):
+    def test_backward_compatibility(self, sample_mvdata):
         """Test that legacy API still works."""
-        mvdata = MVData(sample_data)
-        
         # Legacy format
         e_params = {
             'e_method_name': 'pca',
             'e_method': METHODS_DICT['pca'],
             'dim': 3
         }
-        emb = mvdata.get_embedding(e_params)
+        emb = sample_mvdata.get_embedding(e_params)
         assert emb.coords.shape == (3, 100)
     
-    def test_error_handling(self, sample_data):
+    def test_error_handling(self, sample_mvdata):
         """Test error handling in simplified API."""
-        mvdata = MVData(sample_data)
-        
         # No method or e_params provided
         with pytest.raises(ValueError, match="Either 'method' or 'e_params'"):
-            mvdata.get_embedding()
+            sample_mvdata.get_embedding()
         
         # Invalid method
         with pytest.raises(ValueError, match="Unknown method"):
-            mvdata.get_embedding(method='invalid_method')
+            sample_mvdata.get_embedding(method='invalid_method')
 
 
 class TestParameterPropagation:

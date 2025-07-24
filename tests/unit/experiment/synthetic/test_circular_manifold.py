@@ -288,7 +288,7 @@ def test_generate_circular_manifold_data_calcium():
 def test_generate_circular_manifold_exp_basic():
     """Test creating an experiment object."""
     exp, info = generate_circular_manifold_exp(
-        n_neurons=50, duration=30, fps=20, seed=42, verbose=False
+        n_neurons=50, duration=30, fps=20, seed=42, verbose=False, return_info=True
     )
     
     # Check experiment properties
@@ -301,7 +301,8 @@ def test_generate_circular_manifold_exp_basic():
     assert 'head_direction' in info
     assert 'preferred_directions' in info
     assert 'firing_rates' in info
-    assert info['kappa'] == 4.0
+    assert 'parameters' in info
+    assert info['parameters']['kappa'] == 4.0
     assert info['manifold_type'] == 'circular'
     
 
@@ -393,20 +394,20 @@ def test_edge_cases():
     """Test edge cases."""
     # Very few neurons
     exp, info = generate_circular_manifold_exp(
-        n_neurons=2, duration=5, verbose=False
+        n_neurons=2, duration=5, verbose=False, return_info=True
     )
     assert exp.n_cells == 2
     
     # Very short duration
     exp, info = generate_circular_manifold_exp(
-        n_neurons=10, duration=1, fps=10, verbose=False
+        n_neurons=10, duration=1, fps=10, verbose=False, return_info=True
     )
     assert exp.n_frames == 10
     
     # High noise
     exp, info = generate_circular_manifold_exp(
         n_neurons=20, duration=10, noise_std=0.5, 
-        calcium_noise_std=0.5, verbose=False
+        calcium_noise_std=0.5, verbose=False, return_info=True
     )
     # Should still generate valid data
     assert not np.any(np.isnan(exp.calcium))
@@ -482,7 +483,8 @@ def test_linear_vs_circular_detection():
         noise_std=0.01,
         calcium_noise_std=0.05,
         seed=42, 
-        verbose=False
+        verbose=False,
+        return_info=True
     )
     
     # Test 1: Linear head_direction analysis

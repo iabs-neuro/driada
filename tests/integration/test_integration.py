@@ -158,8 +158,11 @@ class TestINTENSEToDRIntegration:
         
     def test_memory_efficiency(self):
         """Test memory efficiency of integrated pipeline"""
-        import psutil
-        import os
+        try:
+            import psutil
+            import os
+        except ImportError:
+            pytest.skip("psutil not installed")
         
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
@@ -168,7 +171,6 @@ class TestINTENSEToDRIntegration:
         exp = generate_2d_manifold_exp(
             n_neurons=64,
             duration=500,
-            environments=['env1'],
             seed=42
         )
         

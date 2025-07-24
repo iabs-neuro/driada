@@ -18,7 +18,7 @@ class TestGenerate2DRandomWalk:
         length = 1000
         positions = generate_2d_random_walk(length, seed=42)
         
-        assert positions.shape == (length, 2)
+        assert positions.shape == (2, length)
         assert np.all(positions >= 0)
         assert np.all(positions <= 1)
     
@@ -28,7 +28,7 @@ class TestGenerate2DRandomWalk:
         bounds = (-2, 2)
         positions = generate_2d_random_walk(length, bounds=bounds, seed=42)
         
-        assert positions.shape == (length, 2)
+        assert positions.shape == (2, length)
         assert np.all(positions >= bounds[0])
         assert np.all(positions <= bounds[1])
     
@@ -42,8 +42,8 @@ class TestGenerate2DRandomWalk:
         pos_large = generate_2d_random_walk(length, step_size=0.1, seed=42)
         
         # Large steps should cover more distance
-        dist_small = np.sum(np.sqrt(np.sum(np.diff(pos_small, axis=0)**2, axis=1)))
-        dist_large = np.sum(np.sqrt(np.sum(np.diff(pos_large, axis=0)**2, axis=1)))
+        dist_small = np.sum(np.sqrt(np.sum(np.diff(pos_small, axis=1)**2, axis=0)))
+        dist_large = np.sum(np.sqrt(np.sum(np.diff(pos_large, axis=1)**2, axis=0)))
         
         assert dist_large > dist_small * 5
     
@@ -58,8 +58,8 @@ class TestGenerate2DRandomWalk:
         
         # Calculate direction changes
         def direction_changes(positions):
-            velocities = np.diff(positions, axis=0)
-            angles = np.arctan2(velocities[:, 1], velocities[:, 0])
+            velocities = np.diff(positions, axis=1)
+            angles = np.arctan2(velocities[1, :], velocities[0, :])
             angle_changes = np.abs(np.diff(angles))
             return np.sum(angle_changes > np.pi/2)  # Count sharp turns
         
@@ -83,13 +83,14 @@ class TestGaussianPlaceField:
     
     def test_basic_response(self):
         """Test basic place field response."""
-        # Create positions
-        positions = np.array([[0.5, 0.5], [0.6, 0.5], [0.5, 0.6], [0.0, 0.0]])
+        # Create positions - shape (2, n_timepoints)
+        positions = np.array([[0.5, 0.6, 0.5, 0.0],
+                             [0.5, 0.5, 0.6, 0.0]])
         center = np.array([0.5, 0.5])
         
         response = gaussian_place_field(positions, center, sigma=0.1)
         
-        assert len(response) == len(positions)
+        assert len(response) == positions.shape[1]
         assert response[0] == pytest.approx(1.0)  # At center
         assert response[3] < 0.01  # Far from center
         assert np.all(response >= 0)
@@ -97,7 +98,8 @@ class TestGaussianPlaceField:
     
     def test_sigma_effect(self):
         """Test that sigma controls field width."""
-        positions = np.array([[0.5, 0.5], [0.6, 0.5]])
+        positions = np.array([[0.5, 0.6], 
+                             [0.5, 0.5]])
         center = np.array([0.5, 0.5])
         
         # Narrow field
@@ -125,7 +127,7 @@ class TestGenerate2DManifoldNeurons:
             n_neurons, positions, seed=42
         )
         
-        assert firing_rates.shape == (n_neurons, len(positions))
+        assert firing_rates.shape == (n_neurons, positions.shape[1])
         assert centers.shape == (n_neurons, 2)
         assert np.all(firing_rates >= 0)
         assert np.all(centers >= 0)
@@ -164,7 +166,9 @@ class TestGenerate2DManifoldNeurons:
     def test_firing_rate_modulation(self):
         """Test firing rate modulation by place fields."""
         n_neurons = 10
-        positions = np.array([[0.5, 0.5]] * 100 + [[0.0, 0.0]] * 100)
+        # positions shape should be (2, n_timepoints)
+        positions = np.array([[0.5] * 100 + [0.0] * 100,
+                             [0.5] * 100 + [0.0] * 100])
         
         firing_rates, centers = generate_2d_manifold_neurons(
             n_neurons, positions, 
@@ -199,7 +203,7 @@ class TestGenerate2DManifoldData:
         n_timepoints = int(duration * fps)
         
         assert calcium.shape == (n_neurons, n_timepoints)
-        assert positions.shape == (n_timepoints, 2)
+        assert positions.shape == (2, n_timepoints)
         assert centers.shape == (n_neurons, 2)
         assert rates.shape == (n_neurons, n_timepoints)
         
@@ -208,26 +212,6 @@ class TestGenerate2DManifoldData:
         assert np.mean(calcium) > 0  # Should have activity
         assert np.std(calcium) > 0   # Should have variability
     
-    def test_multiple_environments(self):
-        """Test generation with multiple environments (remapping)."""
-        n_neurons = 20
-        duration = 60
-        fps = 20
-        n_environments = 3
-        
-        calcium, positions_list, centers_list, rates = generate_2d_manifold_data(
-            n_neurons, duration, fps, 
-            n_environments=n_environments,
-            seed=42, verbose=False
-        )
-        
-        assert len(positions_list) == n_environments
-        assert len(centers_list) == n_environments
-        
-        # Check remapping occurred
-        # At least some centers should be different between environments
-        centers_diff = np.sum(np.abs(centers_list[0] - centers_list[1]))
-        assert centers_diff > 1.0  # Significant remapping
 
 
 class TestGenerate2DManifoldExp:
@@ -373,22 +357,6 @@ class TestGenerate2DManifoldExp:
         assert individual_selective >= 8, \
             f"Expected at least 8/16 neurons with individual features, got {individual_selective}"
     
-    def test_multiple_environments_experiment(self):
-        """Test experiment with multiple environments."""
-        exp, info = generate_2d_manifold_exp(
-            n_neurons=20, duration=60,
-            n_environments=2,
-            verbose=False, seed=42, return_info=True
-        )
-        
-        # Should have environment indicator
-        assert 'environment' in exp.dynamic_features
-        
-        env_data = exp.dynamic_features['environment'].data
-        assert len(np.unique(env_data)) == 2
-        
-        # Check info contains list of centers
-        assert len(info['place_field_centers']) == 2
     
     def test_parameter_effects(self):
         """Test various parameter settings."""

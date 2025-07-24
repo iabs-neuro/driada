@@ -16,7 +16,13 @@
       "Bash(git checkout:*)",
       "Bash(rg:*)",
       "Bash(open:*)",
-      "Bash(time python -m pytest:*)"
+      "Bash(time python -m pytest:*)",
+      "Bash(echo $CONDA_DEFAULT_ENV)",
+      "Bash(claude --version)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(cat:*)",
+      "Bash(claude update)"
     ],
     "deny": []
   }

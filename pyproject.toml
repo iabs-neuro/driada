@@ -30,6 +30,7 @@ dependencies = [
     "matplotlib>=3.7.0",
     "networkx>=3.1",
     "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
     "scipy>=1.11.4",
     "tqdm>=4.66.1",
     "numba>=0.59.0",
@@ -63,3 +64,52 @@ gpu = ["torch",
 [project.urls]
 Homepage = "https://github.com/iabs-neuro/driada"
 Issues = "https://github.com/iabs-neuro/driada/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--cov=driada",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-report=term:skip-covered",
+    "--cov-fail-under=90",
+    "--no-cov-on-fail",
+    "-v"
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "gpu: marks tests that require GPU",
+    "integration: marks integration tests"
+]
+
+[tool.coverage.run]
+source = ["driada"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/setup.py",
+    "*/conftest.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod"
+]
+precision = 2
+show_missing = true
+skip_covered = false
+sort = "Cover"
+
+[tool.coverage.html]
+directory = "htmlcov"

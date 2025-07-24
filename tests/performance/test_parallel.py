@@ -17,8 +17,9 @@ def test_mi_equality():
 
     rshifts1, mitable1 = scan_pairs(ts_bunch1,
                                     ts_bunch2,
-                                    100,
-                                    optd,
+                                    metric='mi',
+                                    nsh=100,
+                                    optimal_delays=optd,
                                     ds=5,
                                     joint_distr=False,
                                     noise_const=1e-4,
@@ -26,6 +27,7 @@ def test_mi_equality():
 
     rshifts2, mitable2 = scan_pairs_parallel(ts_bunch1,
                                              ts_bunch2,
+                                             'mi',
                                              100,
                                              optd,
                                              ds=5,
@@ -47,6 +49,7 @@ def test_wrapper():
 
     rshifts1, mitable1 = scan_pairs_router(ts_bunch1,
                                            ts_bunch2,
+                                           'mi',
                                            100,
                                            optd,
                                            ds=5,
@@ -58,6 +61,7 @@ def test_wrapper():
 
     rshifts2, mitable2 = scan_pairs_router(ts_bunch1,
                                            ts_bunch2,
+                                           'mi',
                                            100,
                                            optd,
                                            ds=5,

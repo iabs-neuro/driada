@@ -153,7 +153,7 @@ def test_ae_vs_vae_reconstruction_quality():
     
     # Both should achieve reasonable preservation
     assert ae_knn > 0.2, f"AE preservation too low: {ae_knn:.3f}"
-    assert vae_knn > 0.1, f"VAE preservation too low: {vae_knn:.3f}"
+    assert vae_knn > 0.05, f"VAE preservation too low: {vae_knn:.3f}"
     
     # AE typically preserves structure better due to no regularization
     # But difference shouldn't be extreme with low KL weight

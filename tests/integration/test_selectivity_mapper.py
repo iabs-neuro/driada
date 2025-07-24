@@ -59,7 +59,7 @@ class TestExperimentEmbeddings:
         
         # Wrong shape should raise error
         wrong_shape = np.random.randn(50, 2)  # Wrong number of timepoints
-        with pytest.raises(ValueError, match="must match experiment frames"):
+        with pytest.raises(ValueError, match="must match expected frames"):
             exp.store_embedding(wrong_shape, 'test', 'calcium')
         
         # Wrong data type should raise error
