@@ -51,8 +51,8 @@ def base_correlated_signals_small():
 
 @pytest.fixture(scope="session")
 def base_correlated_signals_medium():
-    """Medium correlated signals (n=20, T=2000) for standard tests."""
-    n, T = 20, 2000
+    """Medium correlated signals (n=20, T=1000) for standard tests."""
+    n, T = 20, 1000
     correlation_pairs = [(1, n-1, 0.9), (2, n-2, 0.8), (5, n-5, 0.7)]
     signals, _ = create_correlated_gaussian_data(
         n_features=n,
@@ -184,7 +184,7 @@ def fast_test_params():
         'n_shuffles_stage2': 100,
         'ds': 5,
         'noise_ampl': 1e-4,  # Reduced noise
-        'enable_parallelization': True,
+        'enable_parallelization': False,  # Disabled for faster single tests
         'verbose': False
     }
 
@@ -197,7 +197,7 @@ def balanced_test_params():
         'n_shuffles_stage2': 500,
         'ds': 5,
         'noise_ampl': 1e-4,  # Reduced noise
-        'enable_parallelization': True,
+        'enable_parallelization': False,  # Disabled for faster single tests
         'verbose': False
     }
 
@@ -212,7 +212,7 @@ def strict_test_params():
         'noise_ampl': 1e-4,  # Reduced noise
         'multicomp_correction': 'holm',
         'pval_thr': 0.001,
-        'enable_parallelization': True,
+        'enable_parallelization': False,  # Disabled for faster single tests
         'verbose': False
     }
 

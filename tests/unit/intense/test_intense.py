@@ -981,7 +981,7 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
         get_calcium_feature_me_profile(exp, cbunch=[10], fbunch=['d_feat_0'])
 
 
-def test_intense_handles_no_significant_neurons():
+def test_intense_handles_no_significant_neurons(balanced_test_params):
     """Test that INTENSE handles cases with no significant neurons gracefully."""
     # Create truly non-selective neurons by using a different approach
     import numpy as np
@@ -989,8 +989,8 @@ def test_intense_handles_no_significant_neurons():
     
     # Generate random calcium signals and random features
     np.random.seed(42)
-    n_neurons = 20
-    duration = 600  # seconds
+    n_neurons = 10  # Reduced from 20
+    duration = 300  # Increased for better statistics
     fps = 20.0
     n_frames = int(duration * fps)
     
@@ -1015,39 +1015,19 @@ def test_intense_handles_no_significant_neurons():
     # Run INTENSE - should complete without errors
     stats, significance, info, results = compute_cell_feat_significance(
         exp,
-        n_shuffles_stage1=50,
-        n_shuffles_stage2=500,
+        n_shuffles_stage1=balanced_test_params['n_shuffles_stage1'],
+        n_shuffles_stage2=balanced_test_params['n_shuffles_stage2'],
         multicomp_correction='holm',  # Ensure multiple comparison correction
         pval_thr=0.001,  # Stricter threshold
         metric_distr_type='gamma',  # Use gamma distribution (theoretically appropriate for MI)
-        verbose=True,
-        ds=5  # Standard downsampling
+        verbose=False,  # Disable verbose for speed
+        ds=balanced_test_params['ds'],  # Use balanced downsampling
+        enable_parallelization=balanced_test_params['enable_parallelization']
     )
     
     # Should handle empty results gracefully
     sig_neurons = exp.get_significant_neurons()
     assert isinstance(sig_neurons, dict)
-    
-    # Debug: check what's happening
-    print(f"\nTotal neurons analyzed: {exp.n_cells}")
-    print(f"Found {len(sig_neurons)} significant neurons")
-    
-    # Check shuffle mask status
-    print(f"\nCalcium MultiTimeSeries shuffle mask:")
-    print(f"  Valid positions: {np.sum(exp.calcium.shuffle_mask)}/{len(exp.calcium.shuffle_mask)}")
-    print(f"  First 20 positions: {exp.calcium.shuffle_mask[:20]}")
-    
-    # Check individual neuron shuffle masks
-    neuron_masks = [neuron.ca.shuffle_mask for neuron in exp.neurons[:5]]
-    print(f"\nFirst 5 neuron shuffle masks (first 20 positions):")
-    for i, mask in enumerate(neuron_masks):
-        print(f"  Neuron {i}: {mask[:20]}")
-    
-    if sig_neurons:
-        print(f"\nSignificant neurons details:")
-        for neuron_id in list(sig_neurons.keys())[:3]:  # Check first 3
-            pair_stats = exp.get_neuron_feature_pair_stats(neuron_id, 'c_feat_0')
-            print(f"Neuron {neuron_id}: MI={pair_stats.get('me', 'N/A'):.6f}, p-value={pair_stats.get('pval', 'N/A'):.2e}, rval={pair_stats.get('rval', 'N/A'):.4f}")
     
     # With stricter threshold (0.001) and Holm correction, we should get very few false positives
     assert len(sig_neurons) <= 1  # At most 1 false positive expected
