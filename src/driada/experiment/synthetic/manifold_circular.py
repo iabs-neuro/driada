@@ -9,7 +9,7 @@ import numpy as np
 from .core import validate_peak_rate, generate_pseudo_calcium_signal
 from .utils import get_effective_decay_time
 from ..exp_base import Experiment
-from ...information.info_base import TimeSeries
+from ...information.info_base import TimeSeries, MultiTimeSeries
 
 
 def generate_circular_random_walk(length, step_std=0.1, seed=None):
@@ -242,6 +242,7 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
                                   baseline_rate=0.1, peak_rate=1.0,
                                   noise_std=0.05,
                                   decay_time=2.0, calcium_noise_std=0.1,
+                                  add_mixed_features=False,
                                   seed=None, verbose=True, return_info=False):
     """
     Generate complete experiment with circular manifold (head direction cells).
@@ -268,6 +269,8 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
         Calcium decay time.
     calcium_noise_std : float
         Calcium signal noise.
+    add_mixed_features : bool
+        Whether to add circular_angle MultiTimeSeries (cos/sin representation).
     seed : int, optional
         Random seed.
     verbose : bool
@@ -317,6 +320,18 @@ def generate_circular_manifold_exp(n_neurons=100, duration=600, fps=20.0,
     dynamic_features = {
         'head_direction': head_direction_ts
     }
+    
+    # Add circular_angle MultiTimeSeries if requested
+    if add_mixed_features:
+        # Create circular_angle as MultiTimeSeries with cos and sin components
+        # This is the proper representation for circular variables
+        cos_component = np.cos(head_direction)
+        sin_component = np.sin(head_direction)
+        circular_angle_mts = MultiTimeSeries([
+            TimeSeries(data=cos_component, discrete=False),
+            TimeSeries(data=sin_component, discrete=False)
+        ])
+        dynamic_features['circular_angle'] = circular_angle_mts
     
     # Store additional information
     static_features['preferred_directions'] = preferred_directions

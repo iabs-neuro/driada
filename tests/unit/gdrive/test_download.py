@@ -54,7 +54,7 @@ def test_download_extension():
                                                 extensions=['.txt'],  # allowed file extensions
                                             )
 
-    assert os.listdir(TEST_DIR) == ['test.txt', 'test2.txt']
+    assert sorted(os.listdir(TEST_DIR)) == sorted(['test.txt', 'test2.txt'])
 
 
 def test_download_whitelist():
@@ -70,7 +70,7 @@ def test_download_whitelist():
                                                 extensions=['.txt'],  # allowed file extensions
                                             )
 
-    assert os.listdir(TEST_DIR) == ['test.txt', 'test2.txt', 'white.xlsx']
+    assert sorted(os.listdir(TEST_DIR)) == sorted(['test.txt', 'test2.txt', 'white.xlsx'])
 
 
 def test_erase():
