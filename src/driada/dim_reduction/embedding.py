@@ -521,4 +521,40 @@ class Embedding:
 
         fn = getattr(self, 'create_' + self.all_params['e_method_name'] + '_embedding_')
         fn(continue_learning=1, epochs=add_epochs, kwargs=kwargs)
+    
+    def to_mvdata(self):
+        """Convert embedding coordinates to MVData for further processing.
+        
+        This allows embeddings to be used as input for additional dimensionality
+        reduction or analysis steps, enabling recursive embedding pipelines.
+        
+        Returns
+        -------
+        MVData
+            An MVData object containing the embedding coordinates as data,
+            with the same labels as the original data.
+            
+        Examples
+        --------
+        >>> mvdata = MVData(high_dim_data)
+        >>> embedding = mvdata.get_embedding(method='pca', dim=10)
+        >>> # Convert embedding back to MVData for further reduction
+        >>> embedding_mvdata = embedding.to_mvdata()
+        >>> final_embedding = embedding_mvdata.get_embedding(method='umap', dim=2)
+        """
+        # Import here to avoid circular dependency
+        from .data import MVData
+        
+        if self.coords is None:
+            raise ValueError("Embedding has not been built yet. Call build() first.")
+        
+        # Create MVData with embedding coordinates
+        # coords shape is (embedding_dim, n_points), which matches MVData format
+        return MVData(
+            data=self.coords,
+            labels=self.labels,
+            distmat=None,  # Distance matrix would need to be recomputed for embedding space
+            rescale_rows=False,  # Embeddings are already scaled appropriately
+            data_name=f"{self.e_method_name}_embedding"
+        )
 
