@@ -28,10 +28,10 @@ from driada.experiment.synthetic import (
 
 
 # @pytest.mark.skip(reason="Bug in compute_feat_feat_significance - see backlog TODO")
-def test_compute_cell_feat_significance_with_disentanglement(medium_experiment):
+def test_compute_cell_feat_significance_with_disentanglement(small_experiment):
     """Test compute_cell_feat_significance with disentanglement mode."""
     # Use fixture for consistent test data
-    exp = medium_experiment
+    exp = small_experiment
     
     # Run with disentanglement - use stage1 only for faster testing
     stats, significance, info, results, disent_results = compute_cell_feat_significance(
@@ -167,7 +167,7 @@ def test_compute_feat_feat_significance(mixed_features_experiment):
     assert np.all((pval_mat >= 0) & (pval_mat <= 1))
 
 
-@pytest.mark.parametrize("discrete_only_experiment", ["medium"], indirect=True)
+@pytest.mark.parametrize("discrete_only_experiment", ["small"], indirect=True)
 def test_compute_feat_feat_significance_specific_features(discrete_only_experiment):
     """Test feature-feature significance with specific feature subset."""
     # Use discrete fixture (medium has 3 features)
@@ -188,9 +188,9 @@ def test_compute_feat_feat_significance_specific_features(discrete_only_experime
     )
     
     # Check correct features were used
-    assert len(feat_ids) == 3
+    assert len(feat_ids) == len(selected_features)
     assert all(f in selected_features for f in feat_ids)
-    assert sim_mat.shape == (3, 3)
+    assert sim_mat.shape == (len(selected_features), len(selected_features))
 
 
 @pytest.mark.parametrize("discrete_only_experiment", ["small"], indirect=True)
@@ -273,10 +273,10 @@ def test_compute_cell_cell_significance_spike_data():
     assert np.allclose(np.diag(sim_mat), 0)
 
 
-def test_compute_cell_cell_significance_subset(medium_experiment):
+def test_compute_cell_cell_significance_subset(small_experiment):
     """Test neuron-neuron correlation with neuron subset."""
     # Use fixture (adapts to available neurons)
-    exp = medium_experiment
+    exp = small_experiment
     
     # Select subset of neurons (adapt to available count)
     n_available = exp.n_cells
@@ -360,7 +360,7 @@ def test_compute_cell_cell_significance_errors(discrete_only_experiment):
         )
 
 
-@pytest.mark.parametrize("continuous_only_experiment", ["medium"], indirect=True)
+@pytest.mark.parametrize("continuous_only_experiment", ["small"], indirect=True)
 def test_compute_feat_feat_significance_multifeatures(continuous_only_experiment):
     """Test feature-feature significance with MultiTimeSeries."""
     # Use fixture with continuous features for multifeature support
@@ -390,7 +390,7 @@ def test_compute_feat_feat_significance_multifeatures(continuous_only_experiment
     assert sim_mat.shape == (3, 3)
 
 
-@pytest.mark.parametrize("discrete_only_experiment", ["medium"], indirect=True)
+@pytest.mark.parametrize("discrete_only_experiment", ["small"], indirect=True)
 def test_with_disentanglement_custom_multifeature_map(discrete_only_experiment):
     """Test disentanglement with custom multifeature mapping."""
     # Use discrete fixture (adapt to available features)

@@ -58,21 +58,40 @@ def generate_binary_time_series(length, avg_islands, avg_duration):
 
     # Adjust series to match the desired number of islands
     actual_islands = sum(1 for value, group in itertools.groupby(series) if value == 1)
-    while actual_islands != avg_islands:
+    max_iterations = 1000  # Prevent infinite loops
+    iterations = 0
+    while actual_islands != avg_islands and iterations < max_iterations:
         if actual_islands < avg_islands:
             # If we have too few islands, turn on a random '0' to create a new island
             zero_positions = np.where(series == 0)[0]
             if len(zero_positions) > 0:
                 turn_on = np.random.choice(zero_positions)
                 series[turn_on] = 1
-                actual_islands += 1
+                # Recalculate actual islands since changing one bit might not create a new island
+                new_islands = sum(1 for value, group in itertools.groupby(series) if value == 1)
+                if new_islands == actual_islands:
+                    # No change, break to avoid infinite loop
+                    break
+                actual_islands = new_islands
+            else:
+                # No zeros left, can't add more islands
+                break
         else:
             # If we have too many islands, turn off a random '1' to merge islands
             one_positions = np.where(series == 1)[0]
             if len(one_positions) > 1:
                 turn_off = np.random.choice(one_positions)
                 series[turn_off] = 0
-                actual_islands -= 1
+                # Recalculate actual islands since changing one bit might not merge islands
+                new_islands = sum(1 for value, group in itertools.groupby(series) if value == 1)
+                if new_islands == actual_islands:
+                    # No change, break to avoid infinite loop
+                    break
+                actual_islands = new_islands
+            else:
+                # Not enough ones, can't reduce islands
+                break
+        iterations += 1
 
     return series
 

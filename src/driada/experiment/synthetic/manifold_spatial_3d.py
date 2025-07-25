@@ -71,7 +71,8 @@ def gaussian_place_field_3d(positions, center, sigma=0.1):
     Parameters
     ----------
     positions : ndarray
-        Shape (3, n_timepoints) with x, y, z coordinates.
+        Shape (3, n_timepoints) with x, y, z coordinates OR
+        Shape (n_positions, 3) with positions in rows.
     center : ndarray
         Shape (3,) with place field center coordinates.
     sigma : float
@@ -82,10 +83,18 @@ def gaussian_place_field_3d(positions, center, sigma=0.1):
     response : ndarray
         Neural response (firing rate modulation).
     """
-    # Calculate squared distance from center
-    dx = positions[0, :] - center[0]
-    dy = positions[1, :] - center[1]
-    dz = positions[2, :] - center[2]
+    # Handle both input formats
+    if positions.shape[0] == 3 and positions.shape[1] != 3:
+        # Format: (3, n_timepoints)
+        dx = positions[0, :] - center[0]
+        dy = positions[1, :] - center[1]
+        dz = positions[2, :] - center[2]
+    else:
+        # Format: (n_positions, 3)
+        dx = positions[:, 0] - center[0]
+        dy = positions[:, 1] - center[1]
+        dz = positions[:, 2] - center[2]
+    
     dist_sq = dx**2 + dy**2 + dz**2
     
     # Gaussian response
@@ -113,6 +122,7 @@ def generate_3d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
         Baseline firing rate. Default is 0.1 Hz.
     peak_rate : float
         Peak firing rate at place field center. Default is 1.0 Hz.
+        Values >2 Hz may cause calcium signal saturation.
     noise_std : float
         Noise in firing rates.
     grid_arrangement : bool
@@ -213,6 +223,7 @@ def generate_3d_manifold_data(n_neurons, duration=600, sampling_rate=20.0,
         Baseline firing rate. Default is 0.1 Hz.
     peak_rate : float
         Peak firing rate. Default is 1.0 Hz.
+        Values >2 Hz may cause calcium signal saturation.
     noise_std : float
         Firing rate noise.
     grid_arrangement : bool
@@ -318,6 +329,7 @@ def generate_3d_manifold_exp(n_neurons=125, duration=600, fps=20.0,
         Baseline firing rate. Default is 0.1 Hz.
     peak_rate : float
         Peak firing rate. Default is 1.0 Hz.
+        Values >2 Hz may cause calcium signal saturation.
     noise_std : float
         Firing rate noise.
     grid_arrangement : bool

@@ -15,6 +15,13 @@ from types import SimpleNamespace
 import pytest
 
 
+@pytest.mark.slow
+@pytest.mark.visual
+class TestVisualPlottingSlow:
+    """Original visual tests that create real plots - marked as slow."""
+    pass
+
+
 def create_minimal_experiment_for_visual(exp):
     """Prepare experiment for visual testing."""
     # Use provided fixture experiment

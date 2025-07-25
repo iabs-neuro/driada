@@ -112,6 +112,7 @@ def generate_2d_manifold_neurons(n_neurons, positions, field_sigma=0.1,
         Baseline firing rate. Default is 0.1 Hz.
     peak_rate : float
         Peak firing rate at place field center. Default is 1.0 Hz.
+        Values >2 Hz may cause calcium signal saturation.
     noise_std : float
         Noise in firing rates.
     grid_arrangement : bool
