@@ -15,6 +15,8 @@ class DRMethod(object):
         Whether the method requires a distance matrix
     nn_based : bool
         Whether the method is neural network based
+    handles_disconnected_graphs : bool
+        Whether the method can handle disconnected graphs without preprocessing
     default_params : dict
         Default parameters for the embedding method
     default_graph_params : dict or None
@@ -24,11 +26,13 @@ class DRMethod(object):
     """
 
     def __init__(self, is_linear, requires_graph, requires_distmat, nn_based,
+                 handles_disconnected_graphs=0,
                  default_params=None, default_graph_params=None, default_metric_params=None):
         self.is_linear = is_linear
         self.requires_graph = requires_graph
         self.requires_distmat = requires_distmat
         self.nn_based = nn_based
+        self.handles_disconnected_graphs = handles_disconnected_graphs
         self.default_params = default_params or {}
         self.default_graph_params = default_graph_params
         self.default_metric_params = default_metric_params
@@ -118,7 +122,7 @@ METHODS_DICT = {
         default_params={'dim': 2, 'perplexity': 30}
     ),
     'umap': DRMethod(
-        0, 1, 0, 0,
+        0, 1, 0, 0, 1,  # handles_disconnected_graphs=1
         default_params={'dim': 2, 'min_dist': 0.1},
         default_graph_params={**DEFAULT_KNN_GRAPH, 'nn': 15},
         default_metric_params=DEFAULT_METRIC

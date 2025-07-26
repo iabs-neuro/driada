@@ -76,7 +76,7 @@ class Embedding:
 
         if self.e_method.requires_graph:
             # TODO: move connectivity check to graph
-            if not self.graph.is_connected():
+            if not self.graph.is_connected() and not self.e_method.handles_disconnected_graphs:
                 raise Exception('Graph is not connected!')
 
         fn(**kwargs)

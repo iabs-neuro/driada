@@ -33,7 +33,8 @@
       "Bash(time pytest tests/performance/test_parallel.py -v --tb=short)",
       "Bash(time pytest tests/unit/intense/test_intense_pipelines.py -v --tb=short)",
       "Bash(time pytest tests/unit/dim_reduction/test_intrinsic.py -v --tb=short)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(echo:*)"
     ],
     "deny": []
   }
