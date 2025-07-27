@@ -101,6 +101,32 @@ class TestSelectivityManifoldMapper:
         logger = logging.getLogger('test')
         mapper = SelectivityManifoldMapper(exp_with_selectivity, logger=logger)
         assert mapper.logger == logger
+        
+        # Test with device and config
+        device = "cuda:0"  # Mock device
+        config = {'param1': 'value1', 'param2': 42}
+        mapper = SelectivityManifoldMapper(exp_with_selectivity, device=device, config=config)
+        assert mapper.device == device
+        assert mapper.config == config
+    
+    def test_mapper_init_without_calcium(self, small_experiment):
+        """Test mapper initialization without calcium data."""
+        exp = small_experiment
+        # Remove calcium data
+        exp.calcium = None
+        
+        with pytest.raises(ValueError, match="must have calcium data"):
+            SelectivityManifoldMapper(exp)
+    
+    def test_mapper_init_no_stats_tables(self, small_experiment):
+        """Test mapper initialization without stats_tables."""
+        exp = small_experiment
+        # Remove stats_tables to simulate no selectivity analysis
+        if hasattr(exp, 'stats_tables'):
+            delattr(exp, 'stats_tables')
+        
+        mapper = SelectivityManifoldMapper(exp)
+        assert mapper.has_selectivity is False
     
     def test_create_embedding_all_neurons(self, exp_with_selectivity):
         """Test creating embedding with all neurons."""
@@ -158,6 +184,105 @@ class TestSelectivityManifoldMapper:
         assert stored['metadata']['n_neurons'] == len(neuron_indices)
         assert stored['metadata']['neuron_indices'] == neuron_indices
     
+    def test_create_embedding_with_spikes(self, exp_with_selectivity):
+        """Test creating embedding using spike data."""
+        mapper = SelectivityManifoldMapper(exp_with_selectivity)
+        
+        # Create embedding with spikes
+        embedding = mapper.create_embedding(
+            'pca',
+            n_components=3,
+            data_type='spikes'
+        )
+        
+        # Check storage under spikes
+        stored = exp_with_selectivity.get_embedding('pca', 'spikes')
+        assert stored['metadata']['data_type'] == 'spikes'
+        assert embedding.shape == (exp_with_selectivity.n_frames, 3)
+    
+    def test_create_embedding_invalid_data_type(self, exp_with_selectivity):
+        """Test creating embedding with invalid data type."""
+        mapper = SelectivityManifoldMapper(exp_with_selectivity)
+        
+        with pytest.raises(ValueError, match="must be 'calcium' or 'spikes'"):
+            mapper.create_embedding('pca', data_type='invalid')
+    
+    def test_create_embedding_with_downsampling(self, exp_with_selectivity):
+        """Test creating embedding with downsampling."""
+        mapper = SelectivityManifoldMapper(exp_with_selectivity)
+        
+        # Create embedding with downsampling
+        embedding = mapper.create_embedding(
+            'pca',
+            n_components=2,
+            ds=5  # Downsample by 5
+        )
+        
+        # Check that embedding has correct shape (downsampled)
+        expected_frames = exp_with_selectivity.n_frames // 5
+        assert embedding.shape[0] == expected_frames
+        
+        # Check metadata stores downsampling factor
+        stored = exp_with_selectivity.get_embedding('pca', 'calcium')
+        assert stored['metadata']['ds'] == 5
+    
+    def test_create_embedding_no_significant_neurons(self, exp_with_selectivity):
+        """Test creating embedding when no significant neurons found."""
+        mapper = SelectivityManifoldMapper(exp_with_selectivity)
+        
+        # Mock get_significant_neurons to return empty
+        original_method = exp_with_selectivity.get_significant_neurons
+        exp_with_selectivity.get_significant_neurons = lambda: {}
+        
+        try:
+            # Create embedding with significant neurons selection
+            embedding = mapper.create_embedding(
+                'pca',
+                n_components=2,
+                neuron_selection='significant'
+            )
+            
+            # Should fall back to all neurons
+            stored = exp_with_selectivity.get_embedding('pca', 'calcium')
+            assert stored['metadata']['n_neurons'] == exp_with_selectivity.n_cells
+        finally:
+            # Restore original method
+            exp_with_selectivity.get_significant_neurons = original_method
+    
+    def test_create_embedding_without_selectivity_significant(self, small_experiment):
+        """Test requesting significant neurons without selectivity analysis."""
+        exp = small_experiment
+        # Ensure no stats_tables
+        if hasattr(exp, 'stats_tables'):
+            delattr(exp, 'stats_tables')
+        
+        mapper = SelectivityManifoldMapper(exp)
+        
+        with pytest.raises(ValueError, match="Cannot select significant neurons"):
+            mapper.create_embedding(
+                'pca',
+                neuron_selection='significant'
+            )
+    
+    def test_create_embedding_method_specific_params(self, exp_with_selectivity):
+        """Test creating embedding with method-specific parameters."""
+        mapper = SelectivityManifoldMapper(exp_with_selectivity)
+        
+        # Create UMAP embedding with specific parameters
+        embedding = mapper.create_embedding(
+            'umap',
+            n_components=2,
+            n_neighbors=15,
+            min_dist=0.1,
+            custom_param='test'
+        )
+        
+        # Check that parameters were stored
+        stored = exp_with_selectivity.get_embedding('umap', 'calcium')
+        assert stored['metadata']['dr_params'].get('n_neighbors') == 15
+        assert stored['metadata']['dr_params'].get('min_dist') == 0.1
+        assert stored['metadata']['dr_params'].get('custom_param') == 'test'
+    
     def test_get_functional_organization(self, exp_with_selectivity):
         """Test functional organization analysis."""
         mapper = SelectivityManifoldMapper(exp_with_selectivity)
@@ -175,6 +300,50 @@ class TestSelectivityManifoldMapper:
         assert len(org['component_importance']) == 4
         assert np.isclose(np.sum(org['component_importance']), 1.0)
     
+    def test_get_functional_organization_with_selectivity(self, exp_with_selectivity):
+        """Test functional organization with selectivity results."""
+        mapper = SelectivityManifoldMapper(exp_with_selectivity)
+        
+        # Create embedding
+        mapper.create_embedding('pca', n_components=2)
+        
+        # Mock selectivity results for PCA components
+        exp_with_selectivity.stats_tables['calcium']['pca_comp0'] = {}
+        exp_with_selectivity.stats_tables['calcium']['pca_comp1'] = {}
+        
+        if not hasattr(exp_with_selectivity, 'significance_tables'):
+            exp_with_selectivity.significance_tables = {'calcium': {}}
+        
+        exp_with_selectivity.significance_tables['calcium']['pca_comp0'] = {
+            0: {'stage2': True},
+            1: {'stage2': True},
+            2: {'stage2': False}
+        }
+        exp_with_selectivity.significance_tables['calcium']['pca_comp1'] = {
+            1: {'stage2': True},
+            3: {'stage2': True}
+        }
+        
+        # Get organization with selectivity
+        org = mapper.get_functional_organization('pca')
+        
+        # Should have selectivity info
+        assert 'neuron_participation' in org
+        assert 'component_specialization' in org
+        assert 'functional_clusters' in org
+        assert 'n_participating_neurons' in org
+        assert 'mean_components_per_neuron' in org
+        
+        # Check neuron participation
+        assert 0 in org['neuron_participation']
+        assert 0 in org['neuron_participation'][0]  # Neuron 0 participates in component 0
+        assert 1 in org['neuron_participation']
+        assert set(org['neuron_participation'][1]) == {0, 1}  # Neuron 1 in both components
+        
+        # Check component specialization
+        assert org['component_specialization'][0]['n_selective_neurons'] == 2
+        assert org['component_specialization'][1]['n_selective_neurons'] == 2
+    
     def test_compare_embeddings(self, exp_with_selectivity):
         """Test comparing multiple embeddings."""
         mapper = SelectivityManifoldMapper(exp_with_selectivity)
@@ -186,6 +355,74 @@ class TestSelectivityManifoldMapper:
         # Test that compare method exists and validates input correctly
         with pytest.raises(ValueError, match="at least 2 embeddings"):
             mapper.compare_embeddings(['pca'])
+        
+        # Create second embedding for comparison
+        mapper.create_embedding('umap', n_components=2)
+        
+        # Now comparison should work
+        comparison = mapper.compare_embeddings(['pca', 'umap'])
+        assert 'methods' in comparison
+        assert comparison['methods'] == ['pca', 'umap']
+        assert 'n_components' in comparison
+        assert comparison['n_components']['pca'] == 3
+        assert comparison['n_components']['umap'] == 2
+    
+    def test_compare_embeddings_with_participation(self, exp_with_selectivity):
+        """Test compare embeddings with neuron participation overlap."""
+        mapper = SelectivityManifoldMapper(exp_with_selectivity)
+        
+        # Create embeddings
+        mapper.create_embedding('pca', n_components=2)
+        mapper.create_embedding('umap', n_components=2)
+        
+        # Mock selectivity results with neuron participation
+        if not hasattr(exp_with_selectivity, 'significance_tables'):
+            exp_with_selectivity.significance_tables = {'calcium': {}}
+        
+        # Setup PCA selectivity
+        exp_with_selectivity.stats_tables['calcium']['pca_comp0'] = {}
+        exp_with_selectivity.stats_tables['calcium']['pca_comp1'] = {}
+        exp_with_selectivity.significance_tables['calcium']['pca_comp0'] = {
+            0: {'stage2': True}, 1: {'stage2': True}, 2: {'stage2': True}
+        }
+        exp_with_selectivity.significance_tables['calcium']['pca_comp1'] = {
+            1: {'stage2': True}, 3: {'stage2': True}
+        }
+        
+        # Setup UMAP selectivity  
+        exp_with_selectivity.stats_tables['calcium']['umap_comp0'] = {}
+        exp_with_selectivity.stats_tables['calcium']['umap_comp1'] = {}
+        exp_with_selectivity.significance_tables['calcium']['umap_comp0'] = {
+            1: {'stage2': True}, 2: {'stage2': True}
+        }
+        exp_with_selectivity.significance_tables['calcium']['umap_comp1'] = {
+            2: {'stage2': True}, 4: {'stage2': True}
+        }
+        
+        # Compare embeddings
+        comparison = mapper.compare_embeddings(['pca', 'umap'])
+        
+        # Check participation overlap
+        assert 'participation_overlap' in comparison
+        assert 'pca_vs_umap' in comparison['participation_overlap']
+        # PCA neurons: {0, 1, 2, 3}, UMAP neurons: {1, 2, 4}
+        # Intersection: {1, 2}, Union: {0, 1, 2, 3, 4}
+        # Overlap: 2/5 = 0.4
+        assert comparison['participation_overlap']['pca_vs_umap'] == 0.4
+    
+    def test_compare_embeddings_missing_embedding(self, exp_with_selectivity):
+        """Test compare embeddings with missing embedding."""
+        mapper = SelectivityManifoldMapper(exp_with_selectivity)
+        
+        # Create only PCA embedding
+        mapper.create_embedding('pca', n_components=2)
+        
+        # Try to compare with non-existent embedding
+        # Should skip missing and return error
+        comparison = mapper.compare_embeddings(['pca', 'missing', 'umap'])
+        
+        # Should only have pca (since both missing and umap don't exist)
+        assert comparison['methods'] == ['pca']
 
 
 class TestEmbeddingSelectivity:
