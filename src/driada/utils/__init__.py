@@ -26,7 +26,7 @@ from .data import (
 # Matrix operations
 from .matrix import (
     nearestPD,
-    isPD,
+    is_positive_definite,
 )
 
 # Neural data utilities
@@ -64,13 +64,6 @@ from .gif import (
     erase_all,
     save_image_series,
     create_gif_from_image_series,
-)
-
-# Repository utilities
-from .repo import (
-    clone_org_repo,
-    reload_module,
-    import_external_repositories,
 )
 
 # Spatial analysis utilities
