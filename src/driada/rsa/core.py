@@ -3,6 +3,7 @@ Core RSA functions for computing and comparing RDMs.
 """
 
 import numpy as np
+import logging
 from typing import List, Dict, Tuple, Optional, Union
 from scipy import stats
 from scipy.spatial.distance import pdist, squareform
@@ -20,7 +21,8 @@ from .core_jit import (
 
 def compute_rdm(
     patterns: Union[np.ndarray, MVData],
-    metric: str = 'correlation'
+    metric: str = 'correlation',
+    logger: Optional[logging.Logger] = None
 ) -> np.ndarray:
     """
     Compute representational dissimilarity matrix from patterns.
@@ -28,8 +30,8 @@ def compute_rdm(
     Parameters
     ----------
     patterns : np.ndarray or MVData
-        Pattern matrix of shape (n_items, n_features) if np.ndarray
-        or MVData object (will be transposed automatically)
+        Pattern matrix of shape (n_items, n_features) if np.ndarray (will be transposed automatically)
+        or MVData object
         Each row is a pattern/item, each column is a feature
     metric : str, default 'correlation'
         Distance metric: 'correlation', 'euclidean', 'cosine', 'manhattan'
@@ -428,10 +430,24 @@ def compute_rdm_unified(
     """
     # Import here to avoid circular dependency
     from ..experiment import Experiment
+    from ..dim_reduction.embedding import Embedding
     from .integration import compute_experiment_rdm, compute_mvdata_rdm
     
+    # Handle Embedding objects
+    if isinstance(data, Embedding):
+        # Convert embedding to MVData and process
+        mvdata = data.to_mvdata()
+        if items is None:
+            # Direct pattern RDM - embedding already represents patterns
+            return compute_rdm(mvdata, metric=metric), None
+        else:
+            # Items specified - use MVData processing
+            if isinstance(items, dict):
+                raise ValueError("Trial structure not supported for Embedding objects. Use labels array instead.")
+            return compute_mvdata_rdm(mvdata, items, metric=metric, average_method=average_method)
+    
     # Handle Experiment objects
-    if isinstance(data, Experiment):
+    elif isinstance(data, Experiment):
         if items is None:
             raise ValueError("items must be specified for Experiment objects")
         return compute_experiment_rdm(
@@ -472,3 +488,108 @@ def compute_rdm_unified(
             return compute_rdm_from_timeseries_labels(
                 data, items, metric=metric, average_method=average_method
             )
+
+
+# Simplified high-level API for common use case
+def rsa_compare(
+    data1: Union[np.ndarray, MVData, 'Experiment'],
+    data2: Union[np.ndarray, MVData, 'Experiment'],
+    items: Optional[Union[str, Dict]] = None,
+    metric: str = 'correlation',
+    comparison: str = 'spearman',
+    data_type: str = 'calcium',
+    logger: Optional[logging.Logger] = None
+) -> float:
+    """
+    Compare neural representations between two datasets using RSA.
+    
+    This is a simplified API for the most common RSA use case: comparing
+    two sets of neural representations.
+    
+    Parameters
+    ----------
+    data1 : np.ndarray, MVData, or Experiment
+        First dataset (n_items, n_features) if array, MVData object, or Experiment
+    data2 : np.ndarray, MVData, or Experiment  
+        Second dataset (same n_items as data1)
+    items : str, dict, or None
+        How to define conditions (required for Experiment objects):
+        - None: For arrays/MVData, assumes data is already averaged per item
+        - str: Name of dynamic feature (e.g., 'stimulus_type')
+        - dict: Trial structure with 'trial_starts' and 'trial_labels'
+    metric : str, default 'correlation'
+        Distance metric for RDM computation
+    comparison : str, default 'spearman'
+        Method for comparing RDMs
+    data_type : str, default 'calcium'
+        For Experiment objects, which data to use ('calcium' or 'spikes')
+    logger : logging.Logger, optional
+        Logger for debugging
+        
+    Returns
+    -------
+    similarity : float
+        Similarity score between the two neural representations
+        
+    Examples
+    --------
+    >>> # Compare V1 and V2 representations (arrays)
+    >>> v1_data = np.random.randn(10, 100)  # 10 stimuli, 100 neurons
+    >>> v2_data = np.random.randn(10, 150)  # 10 stimuli, 150 neurons  
+    >>> similarity = rsa_compare(v1_data, v2_data)
+    
+    >>> # Compare two experiments
+    >>> similarity = rsa_compare(exp1, exp2, items='stimulus_type')
+    
+    >>> # Compare with trial structure
+    >>> trials = {'trial_starts': [0, 100, 200], 'trial_labels': ['A', 'B', 'A']}
+    >>> similarity = rsa_compare(exp1, exp2, items=trials)
+    """
+    # Import here to avoid circular dependency
+    from ..experiment import Experiment
+    from ..dim_reduction.embedding import Embedding
+    from .integration import rsa_between_experiments
+    
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    
+    # Handle Embedding objects
+    if isinstance(data1, Embedding) or isinstance(data2, Embedding):
+        # Convert embeddings to MVData for uniform processing
+        if isinstance(data1, Embedding):
+            data1 = data1.to_mvdata()
+        if isinstance(data2, Embedding):
+            data2 = data2.to_mvdata()
+        logger.debug("Converted Embedding objects to MVData for RSA comparison")
+    
+    # Check if both are Experiment objects
+    if isinstance(data1, Experiment) and isinstance(data2, Experiment):
+        if items is None:
+            raise ValueError("items must be specified when comparing Experiment objects")
+        logger.debug("Comparing two Experiment objects using RSA")
+        return rsa_between_experiments(
+            data1, data2, items=items, 
+            data_type=data_type,
+            metric=metric,
+            comparison_method=comparison,
+            average_method='mean'
+        )
+    
+    # Check if mixed types
+    elif isinstance(data1, Experiment) or isinstance(data2, Experiment):
+        raise ValueError("Cannot compare Experiment with non-Experiment data. Both inputs must be same type.")
+    
+    # Original behavior for arrays/MVData
+    else:
+        logger.debug("Computing RDMs for RSA comparison")
+        
+        # Compute RDMs
+        rdm1 = compute_rdm(data1, metric=metric, logger=logger)
+        rdm2 = compute_rdm(data2, metric=metric, logger=logger)
+        
+        # Compare RDMs
+        similarity = compare_rdms(rdm1, rdm2, method=comparison)
+        
+        logger.debug(f"RSA comparison complete. Similarity: {similarity:.3f}")
+        
+        return similarity

@@ -91,9 +91,124 @@ def example_1_behavioral_conditions():
     return exp, rdm, labels
 
 
-def example_2_trial_structure():
-    """Example 2: RSA with trial structure - showcasing MVData integration."""
-    print("\n=== Example 2: RSA with Trial Structure (MVData Integration) ===")
+def example_2_simplified_api():
+    """Example 2: Simplified RSA API with rsa_compare."""
+    print("\n=== Example 2: Simplified API with rsa_compare ===")
+    
+    # Generate two related neural populations
+    np.random.seed(42)
+    n_items = 20
+    n_neurons_v1 = 100
+    n_neurons_v2 = 150
+    
+    # Create base patterns
+    base_patterns = np.random.randn(n_items, 50)
+    
+    # V1: Direct representation
+    v1_data = base_patterns @ np.random.randn(50, n_neurons_v1)
+    v1_data += 0.2 * np.random.randn(n_items, n_neurons_v1)  # Add noise
+    
+    # V2: Transformed representation
+    transform = np.random.randn(50, 50)
+    v2_data = (base_patterns @ transform) @ np.random.randn(50, n_neurons_v2)
+    v2_data += 0.2 * np.random.randn(n_items, n_neurons_v2)  # Add noise
+    
+    # NEW: Use simplified rsa_compare function
+    print("Comparing V1 and V2 representations...")
+    similarity = rsa.rsa_compare(v1_data, v2_data)
+    print(f"V1-V2 similarity (Spearman): {similarity:.3f}")
+    
+    # Try different metrics
+    print("\nTrying different distance metrics:")
+    for metric in ['correlation', 'euclidean', 'cosine']:
+        sim = rsa.rsa_compare(v1_data, v2_data, metric=metric)
+        print(f"  {metric}: {sim:.3f}")
+    
+    # Try different comparison methods
+    print("\nTrying different comparison methods:")
+    for comparison in ['spearman', 'pearson', 'kendall']:
+        sim = rsa.rsa_compare(v1_data, v2_data, comparison=comparison)
+        print(f"  {comparison}: {sim:.3f}")
+    
+    # Also works with MVData
+    print("\nUsing MVData objects:")
+    mv1 = MVData(v1_data.T)  # MVData expects (n_features, n_items)
+    mv2 = MVData(v2_data.T)
+    similarity_mv = rsa.rsa_compare(mv1, mv2)
+    print(f"MVData similarity: {similarity_mv:.3f}")
+    
+    # Visualize the RDMs
+    rdm1 = rsa.compute_rdm(v1_data)
+    rdm2 = rsa.compute_rdm(v2_data)
+    
+    fig = rsa.plot_rdm_comparison(
+        [rdm1, rdm2],
+        titles=['V1 Representation', 'V2 Representation']
+    )
+    plt.savefig('rsa_example_2_simplified.png')
+    plt.close()
+    
+    return similarity
+
+
+def example_3_experiment_comparison():
+    """Example 3: Compare two experiments using simplified API."""
+    print("\n=== Example 3: Comparing Experiments with rsa_compare ===")
+    
+    # Generate two experiments
+    exp1 = driada.generate_synthetic_exp(
+        n_dfeats=1,
+        n_cfeats=3,
+        nneurons=30,
+        duration=60,
+        seed=42
+    )
+    
+    exp2 = driada.generate_synthetic_exp(
+        n_dfeats=1,
+        n_cfeats=3,
+        nneurons=30,
+        duration=60,
+        seed=43
+    )
+    
+    # Add stimulus labels
+    n_timepoints = exp1.calcium.data.shape[1]
+    stim_duration = 200
+    n_stimuli = 4
+    stimulus_labels = np.repeat(range(n_stimuli), stim_duration)
+    stimulus_labels = np.tile(stimulus_labels, n_timepoints // (stim_duration * n_stimuli) + 1)[:n_timepoints]
+    
+    exp1.dynamic_features['stimulus'] = driada.TimeSeries(stimulus_labels)
+    exp2.dynamic_features['stimulus'] = driada.TimeSeries(stimulus_labels)
+    
+    # NEW: Compare experiments directly with rsa_compare
+    print("Comparing two experiments...")
+    similarity = rsa.rsa_compare(exp1, exp2, items='stimulus')
+    print(f"Experiment similarity: {similarity:.3f}")
+    
+    # Try with trial structure
+    trial_info = {
+        'trial_starts': list(range(0, n_timepoints, stim_duration * n_stimuli)),
+        'trial_labels': ['Block_A', 'Block_B'] * (len(range(0, n_timepoints, stim_duration * n_stimuli)) // 2 + 1)
+    }
+    trial_info['trial_labels'] = trial_info['trial_labels'][:len(trial_info['trial_starts'])]
+    
+    print("\nComparing with trial structure...")
+    similarity_trials = rsa.rsa_compare(exp1, exp2, items=trial_info)
+    print(f"Trial-based similarity: {similarity_trials:.3f}")
+    
+    # Compare using spike data
+    print("\nComparing spike data...")
+    similarity_spikes = rsa.rsa_compare(exp1, exp2, items='stimulus', data_type='spikes')
+    print(f"Spike similarity: {similarity_spikes:.3f}")
+    
+    return similarity, similarity_trials, similarity_spikes
+
+
+def example_4_trial_structure():
+    """Example 4: RSA with trial structure - showcasing MVData integration."""
+    print("\n=== Example 4: RSA with Trial Structure (MVData Integration) ===")
     
     # Generate experiment
     exp = driada.generate_2d_manifold_exp(
@@ -154,9 +269,9 @@ def example_2_trial_structure():
     return exp, rdm, labels
 
 
-def example_3_compare_representations():
-    """Example 3: Compare representations - showcasing unified API flexibility."""
-    print("\n=== Example 3: Comparing Representations (Unified API) ===")
+def example_5_compare_representations():
+    """Example 5: Compare representations - showcasing unified API flexibility."""
+    print("\n=== Example 5: Comparing Representations (Unified API) ===")
     
     # Generate two populations with potentially different representations
     print("Generating two neural populations...")
@@ -223,15 +338,15 @@ def example_3_compare_representations():
         labels=list(labels1),
         titles=['Population 1', 'Population 2']
     )
-    plt.savefig('rsa_example_3.png')
+    plt.savefig('rsa_example_5.png')
     plt.close()
     
     return rdm1, rdm2, bootstrap_results['observed']
 
 
-def example_4_performance_comparison():
-    """Example 4: Performance comparison of different metrics."""
-    print("\n=== Example 4: Performance Comparison ===")
+def example_6_performance_comparison():
+    """Example 6: Performance comparison of different metrics."""
+    print("\n=== Example 6: Performance Comparison ===")
     
     # Generate data of different sizes
     sizes = [(50, 100), (100, 500)]
@@ -255,9 +370,9 @@ def example_4_performance_comparison():
     return rdm
 
 
-def example_5_mvdata_direct():
-    """Example 5: Direct MVData support in unified API."""
-    print("\n=== Example 5: Direct MVData Support ===")
+def example_7_mvdata_direct():
+    """Example 7: Direct MVData support in unified API."""
+    print("\n=== Example 7: Direct MVData Support ===")
     
     # Create MVData object with known structure
     n_features = 100
@@ -297,7 +412,7 @@ def example_5_mvdata_direct():
         title="RDM from MVData",
         show_values=True
     )
-    plt.savefig('rsa_example_5.png')
+    plt.savefig('rsa_example_7.png')
     plt.close()
     
     return mvdata, rdm
@@ -308,11 +423,11 @@ if __name__ == "__main__":
     print("DRIADA RSA Examples - Showcasing Recent Improvements")
     print("====================================================")
     print("\nKey improvements demonstrated:")
-    print("1. Unified API (compute_rdm_unified) - automatic data type detection")
-    print("2. Caching support in Experiment objects")
-    print("3. Direct MVData integration")
-    print("4. Fixed correlation_matrix implementation")
-    print("5. JIT compilation for euclidean/manhattan distances")
+    print("1. NEW: Simplified rsa_compare() API for common use case")
+    print("2. Unified API (compute_rdm_unified) - automatic data type detection")
+    print("3. Support for Experiment comparisons in rsa_compare")
+    print("4. Caching support in Experiment objects")
+    print("5. Direct MVData integration")
     print("6. Standardized visualization with plot utilities")
     
     try:
@@ -322,27 +437,39 @@ if __name__ == "__main__":
         print(f"\nExample 1 skipped due to: {e}")
     
     try:
-        # Example 2: Trial structure with MVData
-        exp2, rdm2, labels2 = example_2_trial_structure()
+        # Example 2: NEW - Simplified API demonstration
+        similarity = example_2_simplified_api()
     except Exception as e:
         print(f"\nExample 2 skipped due to: {e}")
     
     try:
-        # Example 3: Compare representations with unified API
-        rdm3a, rdm3b, sim3 = example_3_compare_representations()
+        # Example 3: NEW - Compare experiments with simplified API
+        sim_stim, sim_trial, sim_spike = example_3_experiment_comparison()
     except Exception as e:
         print(f"\nExample 3 skipped due to: {e}")
     
-    # Example 4: Performance comparison
-    rdm4 = example_4_performance_comparison()
+    try:
+        # Example 4: Trial structure with MVData
+        exp4, rdm4, labels4 = example_4_trial_structure()
+    except Exception as e:
+        print(f"\nExample 4 skipped due to: {e}")
     
-    # Example 5: Direct MVData support
-    mvdata5, rdm5 = example_5_mvdata_direct()
+    try:
+        # Example 5: Compare representations with unified API
+        rdm5a, rdm5b, sim5 = example_5_compare_representations()
+    except Exception as e:
+        print(f"\nExample 5 skipped due to: {e}")
+    
+    # Example 6: Performance comparison
+    example_6_performance_comparison()
+    
+    # Example 7: Direct MVData support
+    mvdata7, rdm7 = example_7_mvdata_direct()
     
     print("\n=== Summary of Improvements ===")
+    print("✓ NEW: rsa_compare() provides simplified API for common use case")
+    print("✓ Supports arrays, MVData, and Experiment objects seamlessly")
     print("✓ Unified API reduces code complexity")
     print("✓ Caching speeds up repeated computations")
     print("✓ MVData integration enables seamless workflow") 
-    print("✓ Fixed correlation computation ensures accuracy")
-    print("✓ JIT compilation available for performance")
     print("\nAll examples completed!")

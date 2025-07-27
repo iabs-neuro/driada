@@ -177,7 +177,7 @@ def fast_euclidean_distance(patterns):
 @conditional_njit
 def fast_manhattan_distance(patterns):
     """
-    Fast computation of Manhattan distance matrix using vectorized operations.
+    Fast computation of Manhattan distance matrix using explicit loops.
     
     Parameters
     ----------
@@ -189,13 +189,16 @@ def fast_manhattan_distance(patterns):
     rdm : np.ndarray
         Manhattan distance matrix (n_items, n_items)
     """
-    n_items = patterns.shape[0]
+    n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
     
-    # Vectorized computation
+    # Use explicit loops for JIT compatibility
     for i in range(n_items):
-        # Compute L1 distances from pattern i to all other patterns at once
-        diff = patterns - patterns[i]
-        rdm[i, :] = np.sum(np.abs(diff), axis=1)
+        for j in range(i + 1, n_items):
+            dist = 0.0
+            for k in range(n_features):
+                dist += abs(patterns[i, k] - patterns[j, k])
+            rdm[i, j] = dist
+            rdm[j, i] = dist
     
     return rdm

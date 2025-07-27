@@ -12,21 +12,18 @@ from .core import (
     compare_rdms,
     bootstrap_rdm_comparison,
     compute_rdm_unified,
+    rsa_compare,
 )
 
 from .integration import (
     compute_experiment_rdm,
     compute_mvdata_rdm,
     rsa_between_experiments,
-    rsa_between_mvdata,
-    compute_embedding_rdm,
 )
 
 from .visual import (
     plot_rdm,
     plot_rdm_comparison,
-    plot_mds_from_rdm,
-    plot_rdm_similarity_matrix,
 )
 
 __all__ = [
@@ -37,15 +34,12 @@ __all__ = [
     "compare_rdms",
     "bootstrap_rdm_comparison",
     "compute_rdm_unified",
+    "rsa_compare",  # New simplified API
     # Integration
     "compute_experiment_rdm",
     "compute_mvdata_rdm",
     "rsa_between_experiments",
-    "rsa_between_mvdata",
-    "compute_embedding_rdm",
     # Visualization
     "plot_rdm",
     "plot_rdm_comparison",
-    "plot_mds_from_rdm",
-    "plot_rdm_similarity_matrix",
 ]
