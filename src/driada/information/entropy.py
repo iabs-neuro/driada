@@ -11,9 +11,23 @@ import numpy as np
 import scipy.stats
 from .gcmi import ent_g
 
+# Import JIT versions if available
+try:
+    from .entropy_jit import entropy_d_jit, joint_entropy_dd_jit
+    _JIT_AVAILABLE = True
+except ImportError:
+    _JIT_AVAILABLE = False
+
+# Performance thresholds based on empirical measurements
+ENTROPY_D_JIT_THRESHOLD = 1000  # Use JIT for arrays smaller than this
+JOINT_ENTROPY_DD_ALWAYS_JIT = True  # Always use JIT for joint entropy
+
 
 def entropy_d(x):
     """Calculate entropy for a discrete variable.
+    
+    Automatically uses JIT-compiled version for small datasets where it's faster,
+    and regular numpy implementation for large datasets.
     
     Parameters
     ----------
@@ -25,6 +39,13 @@ def entropy_d(x):
     float
         Entropy in bits.
     """
+    x = np.asarray(x)
+    
+    # Use JIT version for small datasets if available
+    if _JIT_AVAILABLE and x.size < ENTROPY_D_JIT_THRESHOLD:
+        return entropy_d_jit(x)
+    
+    # Use numpy implementation for large datasets
     unique_x, counts_x = np.unique(x, return_counts=True)
     p_x = counts_x / len(x)
     H_x = probs_to_entropy(p_x)
@@ -50,6 +71,9 @@ def probs_to_entropy(p):
 def joint_entropy_dd(x, y):
     """Calculate joint entropy for two discrete variables.
     
+    Automatically uses JIT-compiled version which is consistently faster
+    than the histogram2d approach across all dataset sizes.
+    
     Parameters
     ----------
     x : array-like
@@ -62,6 +86,14 @@ def joint_entropy_dd(x, y):
     float
         Joint entropy H(X,Y) in bits.
     """
+    x = np.asarray(x)
+    y = np.asarray(y)
+    
+    # Use JIT version if available (always faster)
+    if _JIT_AVAILABLE and JOINT_ENTROPY_DD_ALWAYS_JIT:
+        return joint_entropy_dd_jit(x, y)
+    
+    # Fallback to histogram2d implementation
     joint_prob = np.histogram2d(x, y, bins=[np.unique(x).size, np.unique(y).size], density=True)[0]
     joint_prob /= np.sum(joint_prob)  # Normalize
     return probs_to_entropy(joint_prob.flatten())
