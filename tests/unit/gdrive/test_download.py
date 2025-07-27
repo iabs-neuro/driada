@@ -76,3 +76,28 @@ def test_download_whitelist():
 def test_erase():
     # just clears the test folder
     shutil.rmtree(TEST_DIR, ignore_errors=True)
+
+
+class TestGDriveModuleImports:
+    """Test imports for Google Drive module components."""
+    
+    def test_import_auth(self):
+        """Test importing GDrive authentication."""
+        from driada.gdrive import auth
+        assert hasattr(auth, '__file__')
+        
+    def test_import_upload(self):
+        """Test importing GDrive upload utilities."""
+        from driada.gdrive import upload
+        assert hasattr(upload, '__file__')
+        
+    def test_import_gdrive_utils(self):
+        """Test importing GDrive utilities."""
+        from driada.gdrive import gdrive_utils
+        assert hasattr(gdrive_utils, '__file__')
+        
+    def test_download_functions(self):
+        """Test main download functions are accessible."""
+        from driada.gdrive.download import download_part_of_folder, download_gdrive_data
+        assert callable(download_part_of_folder)
+        assert callable(download_gdrive_data)

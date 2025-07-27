@@ -113,3 +113,41 @@ def test_convenience_imports():
     assert Experiment is Exp2
     assert TimeSeries is TS2
     assert compute_cell_feat_significance is compute2
+
+
+def test_dim_reduction_imports():
+    """Test dimensionality reduction module imports."""
+    import driada.dim_reduction
+    import driada.dimensionality
+    
+    # Check DR methods are available
+    from driada.dim_reduction import MVData, Embedding
+    assert callable(MVData)
+    assert callable(Embedding)
+    
+    # Check dimensionality estimation functions
+    from driada.dimensionality import eff_dim
+    assert callable(eff_dim)
+
+
+def test_network_module_imports():
+    """Test network module imports."""
+    import driada.network
+    
+    # Check main class from net_base
+    from driada.network.net_base import Network
+    assert callable(Network)
+    
+    # Check submodules exist
+    assert hasattr(driada.network, 'net_base')
+    assert hasattr(driada.network, 'graph_utils')
+    assert hasattr(driada.network, 'matrix_utils')
+
+
+def test_integration_module_imports():
+    """Test integration module imports."""
+    import driada.integration
+    
+    # Check SelectivityManifoldMapper
+    from driada.integration import SelectivityManifoldMapper
+    assert callable(SelectivityManifoldMapper)

@@ -1,6 +1,7 @@
 import networkx as nx
 import numpy as np
 import scipy.sparse as sp
+import pytest
 
 from driada.network.net_base import Network
 from driada.network.graph_utils import get_giant_scc_from_graph
@@ -97,3 +98,27 @@ def test_diagonalize():
     net = Network(adj=adj, create_nx_graph=False)
     for mode in ['adj', 'trans', 'lap', 'nlap', 'rwlap']:
         net.diagonalize(mode=mode)
+
+
+class TestNetworkModuleImports:
+    """Test imports for network module components."""
+    
+    def test_import_drawing(self):
+        """Test importing network drawing utilities."""
+        from driada.network import drawing
+        assert hasattr(drawing, '__file__')
+        
+    def test_import_quantum(self):
+        """Test importing quantum network utilities."""
+        from driada.network import quantum
+        assert hasattr(quantum, '__file__')
+        
+    def test_import_spectral(self):
+        """Test importing spectral analysis utilities."""
+        from driada.network import spectral
+        assert hasattr(spectral, '__file__')
+        
+    def test_import_randomization(self):
+        """Test importing network randomization utilities."""
+        from driada.network import randomization
+        assert hasattr(randomization, '__file__')
