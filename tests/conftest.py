@@ -30,9 +30,6 @@ Example:
 
 import os
 import pytest
-import numpy as np
-from sklearn.datasets import make_swiss_roll, make_s_curve
-from driada.utils.data import create_correlated_gaussian_data
 
 
 def pytest_configure(config):
@@ -304,6 +301,8 @@ def swiss_roll_data():
     color : ndarray
         Color values for visualization
     """
+    from sklearn.datasets import make_swiss_roll
+    
     data, color = make_swiss_roll(
         n_samples=1000, 
         noise=0.1, 
@@ -323,6 +322,8 @@ def s_curve_data():
     color : ndarray
         Color values for visualization
     """
+    from sklearn.datasets import make_s_curve
+    
     data, color = make_s_curve(
         n_samples=1000, 
         noise=0.1, 
@@ -347,6 +348,8 @@ def correlated_gaussian_data(correlation_pattern):
     Uses the correlation pattern fixture and the utility function
     from driada.utils.data to create consistent test data.
     """
+    from driada.utils.data import create_correlated_gaussian_data
+    
     return create_correlated_gaussian_data(
         n_features=10,
         n_samples=1000,
@@ -358,6 +361,7 @@ def correlated_gaussian_data(correlation_pattern):
 @pytest.fixture
 def simple_timeseries():
     """Create a simple TimeSeries for unit tests."""
+    import numpy as np
     from driada.information.info_base import TimeSeries
     
     values = np.sin(np.linspace(0, 4*np.pi, 1000)) + 0.1 * np.random.randn(1000)
@@ -372,6 +376,7 @@ def simple_timeseries():
 @pytest.fixture
 def multi_timeseries():
     """Create a MultiTimeSeries for unit tests."""
+    import numpy as np
     from driada.information.info_base import TimeSeries, MultiTimeSeries
     
     n_features = 3

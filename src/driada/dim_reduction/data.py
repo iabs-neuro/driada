@@ -63,8 +63,26 @@ class MVData(object):
 
         self.data = sp.csr_matrix(new_d)
 
-    def corr_mat(self):
-        cm = correlation_matrix(self.data)
+    def corr_mat(self, axis=0):
+        """Compute correlation matrix.
+        
+        Parameters
+        ----------
+        axis : int, default 0
+            Axis along which to compute correlations:
+            - 0: correlations between rows (features)
+            - 1: correlations between columns (samples/timepoints)
+            
+        Returns
+        -------
+        np.ndarray
+            Correlation matrix
+        """
+        if axis == 0:
+            cm = correlation_matrix(self.data)
+        else:  # axis == 1
+            # Transpose to compute correlations between columns
+            cm = correlation_matrix(self.data.T)
         return cm
 
     def get_distmat(self, m_params=None):

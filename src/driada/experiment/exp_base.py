@@ -154,6 +154,9 @@ class Experiment():
         
         # for dimensionality reduction embeddings
         self.embeddings = {'calcium': {}, 'spikes': {}}
+        
+        # Cache for RDM computations
+        self._rdm_cache = {}
 
         print('Building data hashes...')
         self._build_data_hashes(mode='calcium')
@@ -787,3 +790,54 @@ class Experiment():
             raise KeyError(f"No embedding found for method '{method_name}' with data_type '{data_type}'")
         
         return self.embeddings[data_type][method_name]
+    
+    def compute_rdm(self, items, data_type='calcium', metric='correlation', 
+                    average_method='mean', use_cache=True):
+        """
+        Compute RDM with caching support.
+        
+        Parameters
+        ----------
+        items : str
+            Name of dynamic feature to use as condition labels
+        data_type : str, default 'calcium'
+            Type of data to use ('calcium' or 'spikes')
+        metric : str, default 'correlation'
+            Distance metric for RDM computation
+        average_method : str, default 'mean'
+            How to average within conditions ('mean' or 'median')
+        use_cache : bool, default True
+            Whether to use cached results
+            
+        Returns
+        -------
+        rdm : np.ndarray
+            Representational dissimilarity matrix
+        labels : np.ndarray
+            The unique labels/conditions
+        """
+        # Generate cache key
+        cache_key = (items, data_type, metric, average_method)
+        
+        # Check cache
+        if use_cache and cache_key in self._rdm_cache:
+            return self._rdm_cache[cache_key]
+        
+        # Import here to avoid circular dependency
+        from ..rsa.integration import compute_experiment_rdm
+        
+        # Compute RDM
+        result = compute_experiment_rdm(
+            self, items, data_type=data_type, 
+            metric=metric, average_method=average_method
+        )
+        
+        # Cache result
+        if use_cache:
+            self._rdm_cache[cache_key] = result
+            
+        return result
+    
+    def clear_rdm_cache(self):
+        """Clear the RDM cache."""
+        self._rdm_cache = {}

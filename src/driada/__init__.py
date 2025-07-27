@@ -12,6 +12,7 @@ from . import intense
 from . import information
 from . import experiment
 from . import utils
+from . import rsa
 
 # Key classes
 from .experiment import Experiment
@@ -51,6 +52,7 @@ __all__ = [
     "information", 
     "experiment",
     "utils",
+    "rsa",
     # Core classes
     "Experiment",
     "TimeSeries",

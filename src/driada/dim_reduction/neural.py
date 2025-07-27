@@ -1,9 +1,19 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-# import torchvision
-from torch.utils.data import Dataset, DataLoader
+import sys
+
+# Fix torch reimport issue during coverage testing
+if 'torch' in sys.modules:
+    torch = sys.modules['torch']
+    nn = sys.modules['torch.nn']
+    F = sys.modules['torch.nn.functional']
+    optim = sys.modules['torch.optim']
+    Dataset = sys.modules['torch.utils.data'].Dataset
+    DataLoader = sys.modules['torch.utils.data'].DataLoader
+else:
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import torch.optim as optim
+    from torch.utils.data import Dataset, DataLoader
 
 
 class Encoder(nn.Module):

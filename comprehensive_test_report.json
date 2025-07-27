@@ -1,1041 +1,259 @@
 {
   "summary": {
-    "total_files": 36,
-    "total_tests": 426,
-    "total_passed": 403,
-    "total_failed": 23,
-    "total_skipped": 0,
+    "total_categories": 5,
+    "total_tests": 728,
+    "total_passed": 727,
+    "total_failed": 0,
+    "total_skipped": 1,
     "total_errors": 0,
-    "total_duration": 920.8588228225708,
-    "average_coverage": 51.1150234741784,
-    "success_rate": 94.60093896713614
+    "total_duration": 322.25438499450684,
+    "best_total_coverage": 65.8,
+    "best_coverage_category": "unit_non_jit",
+    "best_module_coverage": {
+      "dim_reduction": 89.74,
+      "dimensionality": 94.23,
+      "gdrive": 42.31,
+      "integration": 62.98,
+      "intense": 98.66,
+      "experiment": 99.28,
+      "network": 83.08,
+      "utils": 89.93,
+      "information": 95.92
+    },
+    "module_coverage_details": {
+      "dim_reduction": {
+        "coverage": 89.74,
+        "category": "unit_non_jit"
+      },
+      "dimensionality": {
+        "coverage": 94.23,
+        "category": "unit_non_jit"
+      },
+      "gdrive": {
+        "coverage": 42.31,
+        "category": "unit_non_jit"
+      },
+      "integration": {
+        "coverage": 62.98,
+        "category": "integration"
+      },
+      "intense": {
+        "coverage": 98.66,
+        "category": "unit_non_jit"
+      },
+      "experiment": {
+        "coverage": 99.28,
+        "category": "unit_non_jit"
+      },
+      "network": {
+        "coverage": 83.08,
+        "category": "unit_non_jit"
+      },
+      "utils": {
+        "coverage": 89.93,
+        "category": "unit_non_jit"
+      },
+      "information": {
+        "coverage": 95.92,
+        "category": "unit_non_jit"
+      }
+    },
+    "success_rate": 99.86263736263736,
+    "modules_meeting_target": 4,
+    "modules_below_target": [
+      [
+        "dim_reduction",
+        89.74
+      ],
+      [
+        "gdrive",
+        42.31
+      ],
+      [
+        "integration",
+        62.98
+      ],
+      [
+        "network",
+        83.08
+      ],
+      [
+        "utils",
+        89.93
+      ]
+    ]
   },
-  "slow_tests": [
+  "slow_categories": [
     {
-      "file_path": "tests/unit/experiment/synthetic/test_mixed_population_optimized.py",
-      "duration": 46.92086100578308,
-      "passed": 15,
+      "category": "unit_non_jit",
+      "module": "Regular unit tests",
+      "duration": 230.84223103523254,
+      "passed": 612,
       "failed": 0,
-      "skipped": 0,
+      "skipped": 1,
       "errors": 0,
-      "coverage": 15.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/intense/test_intense.py",
-      "duration": 46.90651488304138,
-      "passed": 37,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 46.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_dr_extended.py",
-      "duration": 46.804888010025024,
-      "passed": 21,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 10.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_duplicate_behavior.py",
-      "duration": 44.89531493186951,
-      "passed": 5,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 33.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/integration/test_integration.py",
-      "duration": 44.32889699935913,
-      "passed": 7,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 86.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/gdrive/test_download.py",
-      "duration": 41.38204598426819,
-      "passed": 5,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 88.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/information/test_gcmi.py",
-      "duration": 36.80650019645691,
-      "passed": 43,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 95.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_dr.py",
-      "duration": 36.609039306640625,
-      "passed": 11,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 69.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_neuron.py",
-      "duration": 36.483421087265015,
-      "passed": 2,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 70.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_circular_manifold.py",
-      "duration": 36.057538747787476,
-      "passed": 0,
-      "failed": 3,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 4.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_parameters",
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_reproducibility",
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py",
-      "duration": 34.31841683387756,
-      "passed": 0,
-      "failed": 9,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 43.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_basic_response",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_sigma_effect",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_basic_generation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_firing_rate_modulation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_basic_generation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_multiple_environments",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_basic_experiment",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_parameter_effects"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_dr_defaults.py",
-      "duration": 33.86177206039429,
-      "passed": 13,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 44.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/intense/test_disentanglement.py",
-      "duration": 28.987192153930664,
-      "passed": 27,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 18.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_2d_spatial_manifold.py",
-      "duration": 27.644542932510376,
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 32.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/information/test_conditional_mi_and_interaction.py",
-      "duration": 27.601847887039185,
-      "passed": 21,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 89.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/integration/test_selectivity_mapper.py",
-      "duration": 26.828178882598877,
-      "passed": 13,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 84.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_exp.py",
-      "duration": 25.420374870300293,
-      "passed": 2,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 39.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_intrinsic.py",
-      "duration": 24.925014972686768,
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 4.0,
-      "failures": [
-        "tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_linear_subspace"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/intense/test_intense_pipelines_optimized.py",
-      "duration": 24.568928956985474,
-      "passed": 10,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 87.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/utils/test_spatial.py",
-      "duration": 22.52680492401123,
-      "passed": 34,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 59.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_spike_reconstruction.py",
-      "duration": 20.439023733139038,
-      "passed": 6,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 91.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_spike_reconstruction_refactor.py",
-      "duration": 19.34760594367981,
-      "passed": 7,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 41.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_ae_vae_advanced.py",
-      "duration": 19.197961807250977,
-      "passed": 4,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 85.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/information/test_entropy.py",
-      "duration": 16.285195112228394,
-      "passed": 10,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 61.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/utils/test_utils_signals.py",
-      "duration": 16.136793851852417,
-      "passed": 12,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 10.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_calcium_dynamics.py",
-      "duration": 15.549500942230225,
-      "passed": 0,
-      "failed": 2,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 24.0,
-      "failures": [
-        "tests/unit/experiment/test_calcium_dynamics.py::test_mixed_population_defaults",
-        "tests/unit/experiment/test_calcium_dynamics.py::test_parameter_documentation"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/network/test_network.py",
-      "duration": 14.209019899368286,
-      "passed": 6,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 14.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/intense/test_stats.py",
-      "duration": 12.049691200256348,
-      "passed": 15,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 34.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/visualization/test_visual_complete_mocked.py",
-      "duration": 11.880223989486694,
-      "passed": 10,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 73.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_eff_dim.py",
-      "duration": 11.87022614479065,
-      "passed": 11,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 18.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_correct_cov_spectrum.py",
-      "duration": 11.848053932189941,
-      "passed": 7,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 94.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_linear.py",
-      "duration": 11.776218175888062,
-      "passed": 26,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 9.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/test_api_imports.py",
-      "duration": 11.705261945724487,
-      "passed": 8,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 21.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_manifold_metrics.py",
-      "duration": 11.651710987091064,
-      "passed": 10,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 80.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/visualization/test_visual_utils.py",
-      "duration": 11.572904825210571,
-      "passed": 0,
-      "failed": 7,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 93.0,
-      "failures": [
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_embedding_comparison",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_trajectories",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_component_interpretation",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_embeddings_grid",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_neuron_selectivity_summary",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_component_selectivity_heatmap",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_configurable_dpi"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_eps_graph.py",
-      "duration": 11.461334705352783,
-      "passed": 5,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 11.0,
+      "coverage": {
+        "dim_reduction": 89.74,
+        "network": 83.08,
+        "integration": 7.73,
+        "experiment": 99.28,
+        "gdrive": 42.31,
+        "information": 95.92,
+        "intense": 98.66,
+        "utils": 89.93,
+        "dimensionality": 94.23,
+        "TOTAL": 65.8
+      },
       "failures": [],
       "skipped_tests": [],
       "status": "PASSED"
     }
   ],
   "timeout_tests": [],
-  "tests_with_skips": [],
-  "failing_tests": [
+  "categories_with_skips": [
     {
-      "file_path": "tests/unit/dim_reduction/test_intrinsic.py",
-      "duration": 24.925014972686768,
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
+      "category": "unit_non_jit",
+      "module": "Regular unit tests",
+      "duration": 230.84223103523254,
+      "passed": 612,
+      "failed": 0,
+      "skipped": 1,
       "errors": 0,
-      "coverage": 4.0,
-      "failures": [
-        "tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_linear_subspace"
-      ],
+      "coverage": {
+        "dim_reduction": 89.74,
+        "network": 83.08,
+        "integration": 7.73,
+        "experiment": 99.28,
+        "gdrive": 42.31,
+        "information": 95.92,
+        "intense": 98.66,
+        "utils": 89.93,
+        "dimensionality": 94.23,
+        "TOTAL": 65.8
+      },
+      "failures": [],
       "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_2d_spatial_manifold.py",
-      "duration": 27.644542932510376,
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 32.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py",
-      "duration": 34.31841683387756,
-      "passed": 0,
-      "failed": 9,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 43.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_basic_response",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_sigma_effect",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_basic_generation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_firing_rate_modulation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_basic_generation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_multiple_environments",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_basic_experiment",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_parameter_effects"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_circular_manifold.py",
-      "duration": 36.057538747787476,
-      "passed": 0,
-      "failed": 3,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 4.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_parameters",
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_reproducibility",
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_calcium_dynamics.py",
-      "duration": 15.549500942230225,
-      "passed": 0,
-      "failed": 2,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 24.0,
-      "failures": [
-        "tests/unit/experiment/test_calcium_dynamics.py::test_mixed_population_defaults",
-        "tests/unit/experiment/test_calcium_dynamics.py::test_parameter_documentation"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/visualization/test_visual_utils.py",
-      "duration": 11.572904825210571,
-      "passed": 0,
-      "failed": 7,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 93.0,
-      "failures": [
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_embedding_comparison",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_trajectories",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_component_interpretation",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_embeddings_grid",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_neuron_selectivity_summary",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_component_selectivity_heatmap",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_configurable_dpi"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
+      "status": "PASSED"
     }
   ],
+  "failing_categories": [],
   "all_results": [
     {
-      "file_path": "tests/unit/experiment/synthetic/test_mixed_population_optimized.py",
-      "duration": 46.92086100578308,
-      "passed": 15,
+      "category": "unit_non_jit",
+      "module": "Regular unit tests",
+      "duration": 230.84223103523254,
+      "passed": 612,
       "failed": 0,
-      "skipped": 0,
+      "skipped": 1,
       "errors": 0,
-      "coverage": 15.0,
+      "coverage": {
+        "dim_reduction": 89.74,
+        "network": 83.08,
+        "integration": 7.73,
+        "experiment": 99.28,
+        "gdrive": 42.31,
+        "information": 95.92,
+        "intense": 98.66,
+        "utils": 89.93,
+        "dimensionality": 94.23,
+        "TOTAL": 65.8
+      },
       "failures": [],
       "skipped_tests": [],
       "status": "PASSED"
     },
     {
-      "file_path": "tests/unit/intense/test_intense.py",
-      "duration": 46.90651488304138,
-      "passed": 37,
+      "category": "integration",
+      "module": "Integration tests",
+      "duration": 36.02672290802002,
+      "passed": 20,
       "failed": 0,
       "skipped": 0,
       "errors": 0,
-      "coverage": 46.0,
+      "coverage": {
+        "dim_reduction": 44.35,
+        "gdrive": 17.31,
+        "network": 17.86,
+        "utils": 35.07,
+        "intense": 82.55,
+        "experiment": 97.14,
+        "information": 61.22,
+        "dimensionality": 48.57,
+        "integration": 62.98,
+        "TOTAL": 29.9
+      },
       "failures": [],
       "skipped_tests": [],
       "status": "PASSED"
     },
     {
-      "file_path": "tests/unit/dim_reduction/test_dr_extended.py",
-      "duration": 46.804888010025024,
-      "passed": 21,
+      "category": "synthetic",
+      "module": "Synthetic data tests",
+      "duration": 30.544769048690796,
+      "passed": 72,
       "failed": 0,
       "skipped": 0,
       "errors": 0,
-      "coverage": 10.0,
+      "coverage": {
+        "dim_reduction": 19.87,
+        "dimensionality": 0.0,
+        "gdrive": 17.31,
+        "integration": 0.0,
+        "network": 17.86,
+        "utils": 35.07,
+        "intense": 82.55,
+        "experiment": 97.14,
+        "information": 61.22,
+        "TOTAL": 27.0
+      },
       "failures": [],
       "skipped_tests": [],
       "status": "PASSED"
     },
     {
-      "file_path": "tests/unit/experiment/test_duplicate_behavior.py",
-      "duration": 44.89531493186951,
-      "passed": 5,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 33.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/integration/test_integration.py",
-      "duration": 44.32889699935913,
-      "passed": 7,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 86.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/gdrive/test_download.py",
-      "duration": 41.38204598426819,
-      "passed": 5,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 88.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/information/test_gcmi.py",
-      "duration": 36.80650019645691,
-      "passed": 43,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 95.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_dr.py",
-      "duration": 36.609039306640625,
-      "passed": 11,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 69.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_neuron.py",
-      "duration": 36.483421087265015,
-      "passed": 2,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 70.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_circular_manifold.py",
-      "duration": 36.057538747787476,
-      "passed": 0,
-      "failed": 3,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 4.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_parameters",
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_reproducibility",
-        "tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py",
-      "duration": 34.31841683387756,
-      "passed": 0,
-      "failed": 9,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 43.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_basic_response",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_sigma_effect",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_basic_generation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_firing_rate_modulation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_basic_generation",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_multiple_environments",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_basic_experiment",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility",
-        "tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_parameter_effects"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_dr_defaults.py",
-      "duration": 33.86177206039429,
+      "category": "unit_jit",
+      "module": "JIT-compiled tests",
+      "duration": 16.17559504508972,
       "passed": 13,
       "failed": 0,
       "skipped": 0,
       "errors": 0,
-      "coverage": 44.0,
+      "coverage": {
+        "dim_reduction": 19.87,
+        "dimensionality": 0.0,
+        "gdrive": 17.31,
+        "integration": 0.0,
+        "intense": 12.08,
+        "experiment": 22.86,
+        "network": 17.86,
+        "utils": 30.0,
+        "information": 42.86,
+        "TOTAL": 8.08
+      },
       "failures": [],
       "skipped_tests": [],
       "status": "PASSED"
     },
     {
-      "file_path": "tests/unit/intense/test_disentanglement.py",
-      "duration": 28.987192153930664,
-      "passed": 27,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 18.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/synthetic/test_2d_spatial_manifold.py",
-      "duration": 27.644542932510376,
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 32.0,
-      "failures": [
-        "tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/information/test_conditional_mi_and_interaction.py",
-      "duration": 27.601847887039185,
-      "passed": 21,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 89.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/integration/test_selectivity_mapper.py",
-      "duration": 26.828178882598877,
-      "passed": 13,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 84.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_exp.py",
-      "duration": 25.420374870300293,
-      "passed": 2,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 39.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_intrinsic.py",
-      "duration": 24.925014972686768,
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 4.0,
-      "failures": [
-        "tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_linear_subspace"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/intense/test_intense_pipelines_optimized.py",
-      "duration": 24.568928956985474,
+      "category": "unit_intense_pipelines",
+      "module": "INTENSE pipeline tests",
+      "duration": 8.665066957473755,
       "passed": 10,
       "failed": 0,
       "skipped": 0,
       "errors": 0,
-      "coverage": 87.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/utils/test_spatial.py",
-      "duration": 22.52680492401123,
-      "passed": 34,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 59.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_spike_reconstruction.py",
-      "duration": 20.439023733139038,
-      "passed": 6,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 91.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_spike_reconstruction_refactor.py",
-      "duration": 19.34760594367981,
-      "passed": 7,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 41.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_ae_vae_advanced.py",
-      "duration": 19.197961807250977,
-      "passed": 4,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 85.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/information/test_entropy.py",
-      "duration": 16.285195112228394,
-      "passed": 10,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 61.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/utils/test_utils_signals.py",
-      "duration": 16.136793851852417,
-      "passed": 12,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 10.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/experiment/test_calcium_dynamics.py",
-      "duration": 15.549500942230225,
-      "passed": 0,
-      "failed": 2,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 24.0,
-      "failures": [
-        "tests/unit/experiment/test_calcium_dynamics.py::test_mixed_population_defaults",
-        "tests/unit/experiment/test_calcium_dynamics.py::test_parameter_documentation"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/network/test_network.py",
-      "duration": 14.209019899368286,
-      "passed": 6,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 14.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/intense/test_stats.py",
-      "duration": 12.049691200256348,
-      "passed": 15,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 34.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/visualization/test_visual_complete_mocked.py",
-      "duration": 11.880223989486694,
-      "passed": 10,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 73.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_eff_dim.py",
-      "duration": 11.87022614479065,
-      "passed": 11,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 18.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_correct_cov_spectrum.py",
-      "duration": 11.848053932189941,
-      "passed": 7,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 94.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_linear.py",
-      "duration": 11.776218175888062,
-      "passed": 26,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 9.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/test_api_imports.py",
-      "duration": 11.705261945724487,
-      "passed": 8,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 21.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_manifold_metrics.py",
-      "duration": 11.651710987091064,
-      "passed": 10,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 80.0,
-      "failures": [],
-      "skipped_tests": [],
-      "status": "PASSED"
-    },
-    {
-      "file_path": "tests/unit/visualization/test_visual_utils.py",
-      "duration": 11.572904825210571,
-      "passed": 0,
-      "failed": 7,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 93.0,
-      "failures": [
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_embedding_comparison",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_trajectories",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_component_interpretation",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_embeddings_grid",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_neuron_selectivity_summary",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_component_selectivity_heatmap",
-        "tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_configurable_dpi"
-      ],
-      "skipped_tests": [],
-      "status": "FAILED"
-    },
-    {
-      "file_path": "tests/unit/dim_reduction/test_eps_graph.py",
-      "duration": 11.461334705352783,
-      "passed": 5,
-      "failed": 0,
-      "skipped": 0,
-      "errors": 0,
-      "coverage": 11.0,
+      "coverage": {
+        "dim_reduction": 19.87,
+        "dimensionality": 0.0,
+        "gdrive": 17.31,
+        "integration": 0.0,
+        "network": 17.86,
+        "utils": 34.12,
+        "intense": 48.32,
+        "experiment": 90.0,
+        "information": 89.8,
+        "TOTAL": 22.35
+      },
       "failures": [],
       "skipped_tests": [],
       "status": "PASSED"

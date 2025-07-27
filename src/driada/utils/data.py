@@ -171,14 +171,42 @@ def correlation_matrix_old(a, b):
 
 def correlation_matrix(A):
     '''
-    # fast implementation.
-    A: numpy array of shape (ndims, nvars)
-
-    returns: numpy array of shape (nvars, nvars)
+    Compute Pearson correlation matrix between variables (rows).
+    
+    Parameters
+    ----------
+    A : numpy array of shape (n_variables, n_observations)
+        Data matrix where each row is a variable
+    
+    Returns
+    -------
+    numpy array of shape (n_variables, n_variables)
+        Correlation matrix
     '''
-
+    # Center the data
     am = A - np.mean(A, axis=1, keepdims=True)
-    return am @ am.T / np.sum(am**2, axis=1, keepdims=True).T
+    
+    # Compute correlation matrix
+    n = A.shape[1]
+    if n > 1:
+        # Compute covariance matrix
+        cov = (am @ am.T) / (n - 1)
+        
+        # Compute standard deviations
+        var_diag = np.diag(cov)
+        stds = np.sqrt(var_diag)
+        
+        # Normalize to get correlation
+        # Handle zero variance case
+        with np.errstate(divide='ignore', invalid='ignore'):
+            corr = cov / np.outer(stds, stds)
+            # Set diagonal to 1 for zero-variance variables
+            np.fill_diagonal(corr, 1.0)
+        
+        return corr
+    else:
+        # Single observation - correlation is undefined
+        return np.full((A.shape[0], A.shape[0]), np.nan)
 
 
 def cross_correlation_matrix(A, B):
