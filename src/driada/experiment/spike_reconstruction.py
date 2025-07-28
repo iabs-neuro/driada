@@ -89,8 +89,8 @@ def wavelet_reconstruction(
     metadata : dict
         Reconstruction metadata
     """
-    # Get calcium data as numpy array
-    calcium_data = np.asarray(calcium.data)  # Convert to numpy array
+    # Get scaled calcium data as numpy array for better spike detection
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
     
     # Set up wavelet parameters
     wvt_kwargs = WVT_EVENT_DETECTION_PARAMS.copy()
@@ -162,7 +162,7 @@ def threshold_reconstruction(
     min_spike_interval = params.get('min_spike_interval', 0.1)
     min_spike_frames = int(min_spike_interval * fps)
     
-    calcium_data = np.asarray(calcium.data)
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
     n_neurons, n_frames = calcium_data.shape
     spikes_data = np.zeros_like(calcium_data)
     

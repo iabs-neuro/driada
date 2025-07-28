@@ -25,7 +25,7 @@ def main():
     # Get calcium data
     calcium = exp.calcium
     fps = exp.fps
-    time = np.arange(calcium.shape[1]) / fps
+    time = np.arange(calcium.data.shape[1]) / fps
     
     # Reconstruct spikes using different methods
     print("\nReconstructing spikes using wavelet method...")
@@ -44,10 +44,10 @@ def main():
     
     fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
     
-    # Plot calcium signal
+    # Plot calcium signal (scaled data)
     ax = axes[0]
-    ax.plot(time, calcium.data[neuron_idx, :], 'k-', linewidth=1)
-    ax.set_ylabel('Calcium\n(ΔF/F)')
+    ax.plot(time, calcium.scdata[neuron_idx, :], 'k-', linewidth=1)
+    ax.set_ylabel('Calcium\n(scaled)')
     ax.set_title(f'Neuron {neuron_idx}: Spike Reconstruction Comparison')
     ax.grid(True, alpha=0.3)
     
@@ -71,6 +71,8 @@ def main():
     ax.legend(loc='upper right')
     
     plt.tight_layout()
+    plt.savefig('spike_reconstruction_comparison.png', dpi=150, bbox_inches='tight')
+    print("\nFigure saved as: spike_reconstruction_comparison.png")
     plt.show()
     
     # Compare spike statistics
@@ -80,7 +82,7 @@ def main():
     print(f"{'Neuron':<10} {'Wavelet':<15} {'Threshold':<15} {'Jaccard':<15}")
     print("-"*50)
     
-    for i in range(calcium.shape[0]):
+    for i in range(calcium.data.shape[0]):
         wavelet_spikes = spikes_wavelet.data[i, :].astype(bool)
         threshold_spikes = spikes_threshold.data[i, :].astype(bool)
         
