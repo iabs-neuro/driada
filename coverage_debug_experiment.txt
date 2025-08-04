@@ -1,0 +1,431 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /opt/anaconda3/envs/driada/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/nikita/PycharmProjects/driada2
+configfile: pytest.ini
+plugins: timeout-2.4.0, cov-6.2.1
+collecting ... collected 33 items
+
+tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_ignore FAILED [  3%]
+tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_warn FAILED [  6%]
+tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_raise PASSED [  9%]
+tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_in_pipelines FAILED [ 12%]
+tests/unit/experiment/test_duplicate_behavior.py::test_no_duplicates_all_behaviors PASSED [ 15%]
+tests/unit/experiment/test_spike_reconstruction.py::test_events_to_ts_array_basic PASSED [ 18%]
+tests/unit/experiment/test_spike_reconstruction.py::test_events_to_ts_array_multiple_neurons PASSED [ 21%]
+tests/unit/experiment/test_spike_reconstruction.py::test_events_to_ts_array_edge_cases PASSED [ 24%]
+tests/unit/experiment/test_spike_reconstruction.py::test_wavelet_spike_reconstruction PASSED [ 27%]
+tests/unit/experiment/test_spike_reconstruction.py::test_experiment_with_spike_reconstruction ERROR [ 30%]
+tests/unit/experiment/test_spike_reconstruction.py::test_spike_reconstruction_reproducibility FAILED [ 33%]
+tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_wavelet_method PASSED [ 36%]
+tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_threshold_method PASSED [ 39%]
+tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_custom_method PASSED [ 42%]
+tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_invalid_method PASSED [ 45%]
+tests/unit/experiment/test_spike_reconstruction_refactor.py::test_wavelet_vs_threshold_comparison PASSED [ 48%]
+tests/unit/experiment/test_spike_reconstruction_refactor.py::test_experiment_integration ERROR [ 51%]
+tests/unit/experiment/test_spike_reconstruction_refactor.py::test_parameter_propagation PASSED [ 54%]
+tests/unit/experiment/test_neuron.py::test_init PASSED                   [ 57%]
+tests/unit/experiment/test_neuron.py::test_wavelet_spike_inference PASSED [ 60%]
+tests/unit/experiment/test_wavelet_imports.py::TestWaveletModuleImports::test_import_wavelet_ridge PASSED [ 63%]
+tests/unit/experiment/test_wavelet_imports.py::TestWaveletModuleImports::test_import_wavelet_event_detection PASSED [ 66%]
+tests/unit/experiment/test_wavelet_imports.py::TestWaveletModuleImports::test_wavelet_modules_have_functions PASSED [ 69%]
+tests/unit/experiment/test_exp.py::test_creation PASSED                  [ 72%]
+tests/unit/experiment/test_exp.py::test_intense_exp PASSED               [ 75%]
+tests/unit/experiment/test_calcium_dynamics.py::test_validate_peak_rate PASSED [ 78%]
+tests/unit/experiment/test_calcium_dynamics.py::test_circular_manifold_defaults PASSED [ 81%]
+tests/unit/experiment/test_calcium_dynamics.py::test_2d_manifold_defaults PASSED [ 84%]
+tests/unit/experiment/test_calcium_dynamics.py::test_3d_manifold_defaults PASSED [ 87%]
+tests/unit/experiment/test_calcium_dynamics.py::test_mixed_population_defaults PASSED [ 90%]
+tests/unit/experiment/test_calcium_dynamics.py::test_calcium_saturation_effect PASSED [ 93%]
+tests/unit/experiment/test_calcium_dynamics.py::test_parameter_documentation PASSED [ 96%]
+tests/unit/experiment/test_calcium_dynamics.py::test_default_values_are_realistic PASSED [100%]
+
+==================================== ERRORS ====================================
+_________ ERROR at setup of test_experiment_with_spike_reconstruction __________
+tests/conftest.py:282: in spike_reconstruction_experiment
+    return generate_synthetic_exp(
+src/driada/experiment/synthetic/experiment_generators.py:262: in generate_synthetic_exp
+    exp = Experiment('Synthetic',
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+---------------------------- Captured stdout setup -----------------------------
+Generating features...
+Generating signals...
+---------------------------- Captured stderr setup -----------------------------
+
+  0%|          | 0/1 [00:00<?, ?it/s]
+100%|██████████| 1/1 [00:00<00:00, 707.30it/s]
+
+  0%|          | 0/5 [00:00<?, ?it/s]
+100%|██████████| 5/5 [00:00<00:00, 401.55it/s]
+________________ ERROR at setup of test_experiment_integration _________________
+tests/conftest.py:282: in spike_reconstruction_experiment
+    return generate_synthetic_exp(
+src/driada/experiment/synthetic/experiment_generators.py:262: in generate_synthetic_exp
+    exp = Experiment('Synthetic',
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+=================================== FAILURES ===================================
+________________________ test_duplicate_behavior_ignore ________________________
+joblib.externals.loky.process_executor._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/externals/loky/process_executor.py", line 453, in _process_worker
+    call_item = call_queue.get(block=True, timeout=timeout)
+  File "/opt/anaconda3/envs/driada/lib/python3.10/multiprocessing/queues.py", line 122, in get
+    return _ForkingPickler.loads(res)
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/__init__.py", line 11, in <module>
+    from . import intense
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/__init__.py", line 10, in <module>
+    from .intense_base import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/intense_base.py", line 7, in <module>
+    from .stats import *
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/stats.py", line 4, in <module>
+    from ..utils.data import populate_nested_dict, add_names_to_nested_dict
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/utils/__init__.py", line 70, in <module>
+    from .spatial import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/utils/spatial.py", line 26, in <module>
+    from ..information import TimeSeries, MultiTimeSeries, get_sim
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/information/__init__.py", line 9, in <module>
+    from .info_base import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/information/info_base.py", line 10, in <module>
+    from ..dim_reduction.data import MVData
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/__init__.py", line 8, in <module>
+    from .data import MVData
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/data.py", line 8, in <module>
+    from .embedding import Embedding
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/embedding.py", line 16, in <module>
+    from .neural import *
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/neural.py", line 12, in <module>
+    import torch
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/__init__.py", line 1813, in <module>
+    from torch._tensor import Tensor  # usort: skip
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/_tensor.py", line 21, in <module>
+    from torch.overrides import (
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/overrides.py", line 1758, in <module>
+    has_torch_function = _add_docstr(
+RuntimeError: function '_has_torch_function' already has a docstring
+"""
+
+The above exception was the direct cause of the following exception:
+tests/unit/experiment/test_duplicate_behavior.py:27: in test_duplicate_behavior_ignore
+    stats, significance, info = compute_me_stats(
+src/driada/intense/intense_base.py:1167: in compute_me_stats
+    random_shifts1, me_total1 = scan_pairs_router(ts_bunch1,
+src/driada/intense/intense_base.py:807: in scan_pairs_router
+    random_shifts, me_total = scan_pairs_parallel(ts_bunch1,
+src/driada/intense/intense_base.py:722: in scan_pairs_parallel
+    parallel_result = Parallel(n_jobs=n_jobs, verbose=True)(
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:2072: in __call__
+    return output if self.return_generator else list(output)
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1682: in _get_outputs
+    yield from self._retrieve()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1784: in _retrieve
+    self._raise_error_fast()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1859: in _raise_error_fast
+    error_job.get_result(self.timeout)
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:758: in get_result
+    return self._return_or_raise()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:773: in _return_or_raise
+    raise self._result
+E   joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+----------------------------- Captured stderr call -----------------------------
+[Parallel(n_jobs=2)]: Using backend LokyBackend with 2 concurrent workers.
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+_________________________ test_duplicate_behavior_warn _________________________
+joblib.externals.loky.process_executor._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/externals/loky/process_executor.py", line 453, in _process_worker
+    call_item = call_queue.get(block=True, timeout=timeout)
+  File "/opt/anaconda3/envs/driada/lib/python3.10/multiprocessing/queues.py", line 122, in get
+    return _ForkingPickler.loads(res)
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/__init__.py", line 11, in <module>
+    from . import intense
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/__init__.py", line 10, in <module>
+    from .intense_base import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/intense_base.py", line 7, in <module>
+    from .stats import *
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/stats.py", line 4, in <module>
+    from ..utils.data import populate_nested_dict, add_names_to_nested_dict
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/utils/__init__.py", line 70, in <module>
+    from .spatial import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/utils/spatial.py", line 26, in <module>
+    from ..information import TimeSeries, MultiTimeSeries, get_sim
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/information/__init__.py", line 9, in <module>
+    from .info_base import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/information/info_base.py", line 10, in <module>
+    from ..dim_reduction.data import MVData
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/__init__.py", line 8, in <module>
+    from .data import MVData
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/data.py", line 8, in <module>
+    from .embedding import Embedding
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/embedding.py", line 16, in <module>
+    from .neural import *
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/neural.py", line 12, in <module>
+    import torch
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/__init__.py", line 1813, in <module>
+    from torch._tensor import Tensor  # usort: skip
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/_tensor.py", line 21, in <module>
+    from torch.overrides import (
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/overrides.py", line 1758, in <module>
+    has_torch_function = _add_docstr(
+RuntimeError: function '_has_torch_function' already has a docstring
+"""
+
+The above exception was the direct cause of the following exception:
+tests/unit/experiment/test_duplicate_behavior.py:55: in test_duplicate_behavior_warn
+    stats, significance, info = compute_me_stats(
+src/driada/intense/intense_base.py:1167: in compute_me_stats
+    random_shifts1, me_total1 = scan_pairs_router(ts_bunch1,
+src/driada/intense/intense_base.py:807: in scan_pairs_router
+    random_shifts, me_total = scan_pairs_parallel(ts_bunch1,
+src/driada/intense/intense_base.py:722: in scan_pairs_parallel
+    parallel_result = Parallel(n_jobs=n_jobs, verbose=True)(
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:2072: in __call__
+    return output if self.return_generator else list(output)
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1682: in _get_outputs
+    yield from self._retrieve()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1784: in _retrieve
+    self._raise_error_fast()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1859: in _raise_error_fast
+    error_job.get_result(self.timeout)
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:758: in get_result
+    return self._return_or_raise()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:773: in _return_or_raise
+    raise self._result
+E   joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+----------------------------- Captured stdout call -----------------------------
+Warning: Duplicate TimeSeries objects found in ts_bunch1
+----------------------------- Captured stderr call -----------------------------
+[Parallel(n_jobs=2)]: Using backend LokyBackend with 2 concurrent workers.
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+_____________________ test_duplicate_behavior_in_pipelines _____________________
+joblib.externals.loky.process_executor._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/externals/loky/process_executor.py", line 453, in _process_worker
+    call_item = call_queue.get(block=True, timeout=timeout)
+  File "/opt/anaconda3/envs/driada/lib/python3.10/multiprocessing/queues.py", line 122, in get
+    return _ForkingPickler.loads(res)
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/__init__.py", line 11, in <module>
+    from . import intense
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/__init__.py", line 10, in <module>
+    from .intense_base import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/intense_base.py", line 7, in <module>
+    from .stats import *
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/stats.py", line 4, in <module>
+    from ..utils.data import populate_nested_dict, add_names_to_nested_dict
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/utils/__init__.py", line 70, in <module>
+    from .spatial import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/utils/spatial.py", line 26, in <module>
+    from ..information import TimeSeries, MultiTimeSeries, get_sim
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/information/__init__.py", line 9, in <module>
+    from .info_base import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/information/info_base.py", line 10, in <module>
+    from ..dim_reduction.data import MVData
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/__init__.py", line 8, in <module>
+    from .data import MVData
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/data.py", line 8, in <module>
+    from .embedding import Embedding
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/embedding.py", line 16, in <module>
+    from .neural import *
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/neural.py", line 12, in <module>
+    import torch
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/__init__.py", line 1813, in <module>
+    from torch._tensor import Tensor  # usort: skip
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/_tensor.py", line 21, in <module>
+    from torch.overrides import (
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/overrides.py", line 1758, in <module>
+    has_torch_function = _add_docstr(
+RuntimeError: function '_has_torch_function' already has a docstring
+"""
+
+The above exception was the direct cause of the following exception:
+tests/unit/experiment/test_duplicate_behavior.py:110: in test_duplicate_behavior_in_pipelines
+    stats, significance, info, results = compute_cell_feat_significance(
+src/driada/intense/pipelines.py:267: in compute_cell_feat_significance
+    computed_stats, computed_significance, info = compute_me_stats(signals,
+src/driada/intense/intense_base.py:1132: in compute_me_stats
+    optimal_delays_res = calculate_optimal_delays_parallel(ts_bunch1,
+src/driada/intense/intense_base.py:297: in calculate_optimal_delays_parallel
+    parallel_delays = Parallel(n_jobs=n_jobs, verbose=True)(
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:2072: in __call__
+    return output if self.return_generator else list(output)
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1682: in _get_outputs
+    yield from self._retrieve()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1784: in _retrieve
+    self._raise_error_fast()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1859: in _raise_error_fast
+    error_job.get_result(self.timeout)
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:758: in get_result
+    return self._return_or_raise()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:773: in _return_or_raise
+    raise self._result
+E   joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+---------------------------- Captured stdout setup -----------------------------
+Generating features...
+Generating signals...
+Generating features...
+Generating signals...
+Building neurons...
+Building data hashes...
+Final checkpoint...
+Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
+---------------------------- Captured stderr setup -----------------------------
+
+  0%|          | 0/2 [00:00<?, ?it/s]
+100%|██████████| 2/2 [00:00<00:00, 4807.23it/s]
+
+  0%|          | 0/3 [00:00<?, ?it/s]
+100%|██████████| 3/3 [00:00<00:00, 1373.08it/s]
+
+  0%|          | 0/2 [00:00<?, ?it/s]
+100%|██████████| 2/2 [00:00<00:00, 173.04it/s]
+
+  0%|          | 0/2 [00:00<?, ?it/s]
+100%|██████████| 2/2 [00:00<00:00, 952.93it/s]
+/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:74: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
+  warnings.warn('No spike data provided, spikes reconstruction from Ca2+ data disabled')
+
+  0%|          | 0/5 [00:00<?, ?it/s]
+100%|██████████| 5/5 [00:00<00:00, 280.90it/s]
+----------------------------- Captured stdout call -----------------------------
+Retrieving saved stats data...
+----------------------------- Captured stderr call -----------------------------
+[Parallel(n_jobs=2)]: Using backend LokyBackend with 2 concurrent workers.
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+__________________ test_spike_reconstruction_reproducibility ___________________
+tests/unit/experiment/test_spike_reconstruction.py:140: in test_spike_reconstruction_reproducibility
+    exp1 = generate_synthetic_exp(n_dfeats=1, n_cfeats=0, nneurons=3, seed=42, with_spikes=True)
+src/driada/experiment/synthetic/experiment_generators.py:262: in generate_synthetic_exp
+    exp = Experiment('Synthetic',
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+----------------------------- Captured stdout call -----------------------------
+Generating features...
+Generating signals...
+----------------------------- Captured stderr call -----------------------------
+
+  0%|          | 0/1 [00:00<?, ?it/s]
+100%|██████████| 1/1 [00:00<00:00, 143.42it/s]
+
+  0%|          | 0/3 [00:00<?, ?it/s]
+100%|██████████| 3/3 [00:00<00:00, 52.30it/s]
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.10.18-final-0 _______________
+
+Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------------------------
+src/driada/dim_reduction/dim_reduction.py                     55     55     12      0   0.00%   1-75
+src/driada/dimensionality/effective.py                        26     26     12      0   0.00%   1-43
+src/driada/dimensionality/intrinsic.py                        52     52     24      0   0.00%   8-180
+src/driada/dimensionality/linear.py                           54     54     16      0   0.00%   8-218
+src/driada/dimensionality/utils.py                            44     44      8      0   0.00%   1-91
+src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-18
+src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-61
+src/driada/integration/selectivity_mapper.py                 123    123     58      0   0.00%   8-388
+src/driada/network/randomization.py                          232    223     54      0   3.15%   9-105, 110-144, 148-170, 174-186, 192-340
+src/driada/utils/visual.py                                   285    271    134      0   3.34%   65-241, 275-361, 404-492, 537-623, 660-709, 742-788
+src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 177-267, 291-304, 332-391
+src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-54, 89-142, 177-227, 289-345, 381-455, 503-620
+src/driada/experiment/synthetic/mixed_selectivity.py         126    116     70      0   5.10%   48-84, 111-157, 185-217, 285-411
+src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
+src/driada/rsa/core.py                                       165    149     84      0   6.43%   45-78, 110-138, 174-225, 251-275, 320-358, 432-488, 549-595
+src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-107, 129-143, 161-174, 192-204
+src/driada/dim_reduction/manifold_metrics.py                 245    223     82      0   6.73%   39-43, 77-102, 130-164, 192-226, 257-288, 314-324, 349-399, 429-462, 493-523, 543-544, 560-569, 593-611, 635-667, 687-725, 752-779, 810-840
+src/driada/utils/spatial.py                                  214    194     74      0   6.94%   61-93, 129-160, 193-228, 253-271, 299-332, 376-415, 444-490, 518-544, 572-599, 648-720, 749-777
+src/driada/network/net_base.py                               379    336    168      0   7.86%   19-27, 32-33, 37-41, 45-55, 61-76, 95-151, 159-199, 209-266, 269-270, 274-304, 308-325, 328-338, 341-360, 363-369, 372-378, 381-387, 390-396, 407, 410-477, 482-502, 505-515, 519-530, 533-535, 538-540, 543-545, 548-550, 553-557, 560-570, 573-596
+src/driada/rsa/visual.py                                      80     71     28      0   8.33%   55-141, 172-210
+src/driada/experiment/exp_build.py                           106     92     60      0   8.43%   23-100, 119-183, 187-190, 194-198
+src/driada/network/drawing.py                                133    117     54      0   8.56%   13-54, 57-68, 72-75, 80-131, 135-157, 161-174, 179-203
+src/driada/experiment/synthetic/utils.py                       7      6      4      0   9.09%   27-34
+src/driada/gdrive/download.py                                103     89     46      0   9.40%   21-59, 73-111, 122-170, 174-193
+src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 155-176, 215-286, 308-315, 334-354
+src/driada/network/matrix_utils.py                           203    178     60      0   9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-223, 227-234, 238-249, 253-261, 266-270, 274-281, 285-292, 296-303, 307-310, 314-317
+src/driada/dim_reduction/embedding.py                        276    242     72      0   9.77%   19, 25-28, 32-36, 45-70, 73-82, 85-90, 94-100, 104-116, 120-126, 129-131, 134-138, 141-162, 165-173, 176, 179-195, 198-200, 203-208, 221-408, 418-514, 519-523, 546-553
+src/driada/dim_reduction/mvu.py                               61     53     20      0   9.88%   22-29, 40-109, 122-146
+src/driada/dim_reduction/graph.py                            174    151     46      0  10.45%   26-59, 66-79, 82-83, 86-96, 99-105, 109-140, 143-147, 152-189, 193-278, 281-286
+src/driada/network/spectral.py                                30     26      8      0  10.53%   6-8, 24-37, 41-55
+src/driada/rsa/integration.py                                 46     38     22      0  11.76%   63-108, 139-141, 188-219
+src/driada/information/entropy_jit.py                         44     38      4      0  12.50%   33-67, 86-129
+src/driada/utils/plot.py                                      38     31     18      0  12.50%   56-86, 125-141, 179-195
+src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
+src/driada/network/quantum.py                                 39     31      8      0  17.02%   7-14, 18-27, 31-33, 37-55
+src/driada/gdrive/gdrive_utils.py                             74     56     30      0  17.31%   25-28, 31, 61-107, 141-200, 204-210
+src/driada/dim_reduction/dr_base.py                           80     58     44      0  17.74%   157-173, 181-196, 205-213, 232-278
+src/driada/network/graph_utils.py                             46     36     10      0  17.86%   9-13, 18-28, 32-35, 39-43, 47-49, 53-75
+src/driada/intense/pipelines.py                              283    223    164     12  18.79%   199-202, 208-225, 232->235, 235->259, 244-250, 255, 257, 265, 301-302, 312->298, 314->298, 354-422, 533-657, 766-887, 985-1110
+src/driada/dim_reduction/data.py                             112     84     50      3  19.14%   13-18, 37, 44-45, 54, 59-64, 81-86, 103-133, 169-225, 228-233, 236-238, 241-243
+src/driada/utils/gif.py                                       38     27     14      0  21.15%   25-31, 46-55, 81-100
+src/driada/information/entropy.py                             56     41     14      0  21.43%   18-19, 42-52, 68, 89-99, 123-135, 157-167, 192-195, 218-221
+src/driada/dim_reduction/neural.py                           132    100     24      0  21.79%   13-16, 22-43, 46-54, 61-82, 85-90, 96-117, 120-127, 133-140, 143-145, 148-150, 156-163, 170-173, 176-190, 194-198, 202-203, 211-212, 215, 218-226
+src/driada/information/gcmi_jit_utils.py                     207    157     66      3  23.08%   73-79, 104, 106, 122-134, 171-177, 200-259, 286-386, 405-421, 443-456
+src/driada/information/ksg.py                                 87     58     20      2  28.97%   26-27, 31, 40, 50-68, 79->81, 93-96, 105-141, 145-164
+src/driada/utils/output.py                                    16     10      4      0  30.00%   6-8, 10-12, 16-20
+src/driada/utils/data.py                                     150     96     72      6  32.43%   34-54, 74, 76, 84-85, 97, 99, 108, 116-135, 139-141, 152-155, 159-169, 187-209, 221-223, 228-231, 238-241, 253-270, 284-315
+src/driada/experiment/neuron.py                              161    100     36      3  34.52%   35-36, 41-44, 49-50, 68, 73, 88, 99, 102-107, 110-112, 115-124, 127-130, 133-136, 144-151, 155-165, 170-183, 187-200, 204-212, 216-228, 232-255
+src/driada/information/info_base.py                          389    235    176     26  35.40%   29-45, 49, 56, 84, 87-91, 94-95, 98-102, 105-106, 146-159, 201-211, 226-239, 269-271, 283, 287, 301, 306, 311, 317-319, 322-327, 345-351, 357-360, 365-372, 399-402, 413-445, 475-478, 482-507, 510-528, 533->537, 538, 541, 544, 549, 581-584, 592, 597-626, 628->exit, 637-646, 656-661, 663->681, 670, 678, 688-691, 697-708, 741-749, 793-882, 921-937
+src/driada/information/gcmi.py                               251    143     78     12  38.30%   16-17, 26-41, 59-64, 126-127, 144-170, 193, 200, 206, 224->232, 256, 258, 264, 270, 298->313, 326-360, 379-442, 457-508
+src/driada/utils/jit.py                                       29     17      4      1  39.39%   17-25, 58-60, 68, 73-78
+src/driada/experiment/exp_base.py                            380    192    190     36  44.21%   28, 32, 38-39, 67, 70, 73->85, 77, 87, 97-109, 143->142, 164, 174, 178, 201-204, 209, 217-224, 240-262, 269, 273, 279-285, 303, 316, 327, 335->333, 338-341, 349-361, 368-379, 386-400, 415, 418, 430-433, 446, 456-457, 463-466, 475-476, 482, 495, 504-510, 524-534, 549-563, 575-592, 595, 613-618, 645-647, 660-663, 686-707, 714-715, 719-724, 727, 730, 733-734, 751-763, 786-792, 820-839, 843
+src/driada/experiment/synthetic/manifold_spatial_3d.py       108     45     46      6  56.49%   37->40, 56-57, 94-96, 146, 159->170, 178, 253-301, 364-470
+src/driada/intense/intense_base.py                           406    142    220     45  59.58%   31, 33, 36->53, 41-44, 47-50, 57, 59, 61, 90-113, 139, 142, 145, 148, 208->211, 287, 291->294, 307-311, 379-450, 527, 539, 542, 551-559, 581-596, 703, 708->712, 713-715, 876-877, 881-882, 1056, 1060, 1064, 1077->1086, 1083, 1094-1095, 1113->1126, 1120-1124, 1154, 1161->1232, 1240-1246, 1249->exit, 1256->1259, 1287->1289, 1290->1293, 1328->1333, 1387, 1390-1393, 1403, 1406-1423
+src/driada/information/info_utils.py                          41     16      8      1  61.22%   11-12, 38-62
+src/driada/experiment/synthetic/core.py                       40     14     16      3  62.50%   75-80, 89, 97, 146-161
+src/driada/experiment/synthetic/manifold_circular.py          73     22     24      7  65.98%   33->37, 190->193, 196, 200, 205, 214, 235, 285-376
+src/driada/experiment/synthetic/experiment_generators.py     276     78    146     38  66.35%   93, 110, 118, 127, 137, 153-156, 209->214, 215-216, 253, 369, 372, 375, 378, 386-389, 402->414, 421->528, 423, 428-450, 490-518, 530->566, 532, 567-587, 589->642, 592, 628, 642->808, 644, 658-660, 667-688, 707->735, 735->766, 767-768, 776->774, 782-802, 809, 856-858, 861
+src/driada/experiment/wavelet_event_detection.py             156     42     40      1  69.90%   9, 39-42, 46-109
+src/driada/experiment/synthetic/manifold_spatial_2d.py        98     20     40      7  78.99%   148->156, 164, 244, 248, 253, 263, 284, 341-440
+src/driada/intense/stats.py                                  105     17     44      7  83.89%   24-25, 44-46, 65-67, 91-92, 152-155, 181, 215, 315, 338->344, 369->367, 370->372, 372->367
+src/driada/experiment/synthetic/time_series.py                88      8     32      3  89.17%   78, 93, 150, 245-254
+src/driada/experiment/wavelet_ridge.py                        66      1      4      1  97.14%   66
+src/driada/experiment/spike_reconstruction.py                 48      0      8      0 100.00%
+src/driada/utils/neural.py                                    20      0      4      0 100.00%
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                       8004   5669   3128    223  26.12%
+Coverage HTML written to dir htmlcov
+Coverage XML written to file coverage.xml
+Coverage JSON written to file coverage.json
+=========================== short test summary info ============================
+FAILED tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_ignore - joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+FAILED tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_warn - joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+FAILED tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_in_pipelines - joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+FAILED tests/unit/experiment/test_spike_reconstruction.py::test_spike_reconstruction_reproducibility - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+ERROR tests/unit/experiment/test_spike_reconstruction.py::test_experiment_with_spike_reconstruction - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+ERROR tests/unit/experiment/test_spike_reconstruction_refactor.py::test_experiment_integration - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+=================== 4 failed, 27 passed, 2 errors in 56.84s ====================
+
+ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmpy9eg7gvi.py` failed. (See above for error)

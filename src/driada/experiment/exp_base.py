@@ -640,7 +640,7 @@ class Experiment():
         from .spike_reconstruction import reconstruct_spikes
         
         # Convert calcium to MultiTimeSeries if needed
-        if not hasattr(calcium, 'data'):
+        if isinstance(calcium, np.ndarray):
             # Create temporary MultiTimeSeries from numpy array
             from ..information.info_base import TimeSeries, MultiTimeSeries
             ts_list = [TimeSeries(calcium[i, :]) for i in range(calcium.shape[0])]

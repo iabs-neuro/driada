@@ -1,0 +1,277 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /opt/anaconda3/envs/driada/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/nikita/PycharmProjects/driada2
+configfile: pytest.ini
+plugins: timeout-2.4.0, cov-6.2.1
+collecting ... collected 145 items
+
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_basic PASSED [  0%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_with_low_rank_data PASSED [  1%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_with_identity_covariance PASSED [  2%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_with_correction_small_ratio PASSED [  2%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_different_q_values PASSED [  3%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_warning_large_ratio PASSED [  4%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_correction_edge_cases PASSED [  4%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_single_dimension PASSED [  5%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_negative_eigenvalues PASSED [  6%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_correction_with_warnings PASSED [  6%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_extreme_cases PASSED [  7%]
+tests/unit/dim_reduction/test_dr_extended.py::test_mds PASSED            [  8%]
+tests/unit/dim_reduction/test_dr_extended.py::test_lle PASSED            [  8%]
+tests/unit/dim_reduction/test_dr_extended.py::test_hlle PASSED           [  9%]
+tests/unit/dim_reduction/test_dr_extended.py::test_mvu SKIPPED (MVU
+implementation not available or incomplete)                              [ 10%]
+tests/unit/dim_reduction/test_dr_extended.py::test_vae PASSED            [ 11%]
+tests/unit/dim_reduction/test_dr_extended.py::test_dmaps_not_implemented PASSED [ 11%]
+tests/unit/dim_reduction/test_dr_extended.py::test_experiment_to_mvdata_pipeline PASSED [ 12%]
+tests/unit/dim_reduction/test_dr_extended.py::test_circular_manifold_extraction FAILED [ 13%]
+tests/unit/dim_reduction/test_dr_extended.py::test_2d_manifold_extraction FAILED [ 13%]
+tests/unit/dim_reduction/test_dr_extended.py::test_pca_performance[100-10] PASSED [ 14%]
+tests/unit/dim_reduction/test_dr_extended.py::test_pca_performance[500-50] PASSED [ 15%]
+tests/unit/dim_reduction/test_dr_extended.py::test_pca_performance[1000-100] PASSED [ 15%]
+tests/unit/dim_reduction/test_dr_extended.py::test_nonlinear_methods_performance[isomap] PASSED [ 16%]
+tests/unit/dim_reduction/test_dr_extended.py::test_nonlinear_methods_performance[le] PASSED [ 17%]
+tests/unit/dim_reduction/test_dr_extended.py::test_nonlinear_methods_performance[tsne] PASSED [ 17%]
+tests/unit/dim_reduction/test_dr_extended.py::test_linear_manifold_preservation PASSED [ 18%]
+tests/unit/dim_reduction/test_dr_extended.py::test_swiss_roll_unfolding PASSED [ 19%]
+tests/unit/dim_reduction/test_dr_extended.py::test_circle_preservation PASSED [ 20%]
+tests/unit/dim_reduction/test_dr_extended.py::test_graph_construction_methods PASSED [ 20%]
+tests/unit/dim_reduction/test_dr_extended.py::test_small_dataset PASSED  [ 21%]
+tests/unit/dim_reduction/test_dr_extended.py::test_high_dimensional_data PASSED [ 22%]
+tests/unit/dim_reduction/test_dr_extended.py::test_linear_vs_nonlinear_on_manifolds PASSED [ 22%]
+tests/unit/dim_reduction/test_disconnected_graphs.py::TestDisconnectedGraphHandling::test_drmethod_property_values PASSED [ 23%]
+tests/unit/dim_reduction/test_disconnected_graphs.py::TestDisconnectedGraphHandling::test_umap_with_disconnected_graph PASSED [ 24%]
+tests/unit/dim_reduction/test_disconnected_graphs.py::TestDisconnectedGraphHandling::test_other_methods_with_preprocessing PASSED [ 24%]
+tests/unit/dim_reduction/test_disconnected_graphs.py::TestDisconnectedGraphHandling::test_connected_graph_works_for_all PASSED [ 25%]
+tests/unit/dim_reduction/test_disconnected_graphs.py::TestDisconnectedGraphHandling::test_direct_embedding_creation PASSED [ 26%]
+tests/unit/dim_reduction/test_disconnected_graphs.py::TestDisconnectedGraphHandling::test_preprocessing_interaction PASSED [ 26%]
+tests/unit/dim_reduction/test_disconnected_graphs.py::TestDisconnectedGraphHandling::test_handles_disconnected_graphs_property PASSED [ 27%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_compute_distance_matrix PASSED [ 28%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_knn_preservation_rate PASSED [ 28%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_trustworthiness_continuity PASSED [ 29%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_geodesic_distance_correlation PASSED [ 30%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_stress PASSED    [ 31%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_circular_structure_preservation PASSED [ 31%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_procrustes_analysis PASSED [ 32%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_manifold_preservation_score PASSED [ 33%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_error_handling PASSED [ 33%]
+tests/unit/dim_reduction/test_manifold_metrics.py::test_edge_cases PASSED [ 34%]
+tests/unit/dim_reduction/test_ae_vae_advanced.py::test_vae_latent_space_regularization PASSED [ 35%]
+tests/unit/dim_reduction/test_ae_vae_advanced.py::test_ae_correlation_loss PASSED [ 35%]
+tests/unit/dim_reduction/test_ae_vae_advanced.py::test_ae_vs_vae_reconstruction_quality PASSED [ 36%]
+tests/unit/dim_reduction/test_ae_vae_advanced.py::test_vae_encoder_unconstrained PASSED [ 37%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_basic_functionality PASSED [ 37%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_linear_subspace PASSED [ 38%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_circle_manifold PASSED [ 39%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_sphere_manifold PASSED [ 40%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_swiss_roll PASSED [ 40%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_s_curve PASSED [ 41%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_different_k_values PASSED [ 42%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_noise_robustness PASSED [ 42%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_sample_size_scaling PASSED [ 43%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_edge_cases PASSED [ 44%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_graph_methods[sklearn] PASSED [ 44%]
+tests/unit/dim_reduction/test_intrinsic.py::TestNNDimension::test_graph_methods[pynndescent] PASSED [ 45%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_basic_functionality PASSED [ 46%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_linear_subspace PASSED [ 46%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_circle_manifold PASSED [ 47%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_swiss_roll PASSED [ 48%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_automatic_range_selection PASSED [ 48%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_n_bins_sensitivity PASSED [ 49%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_noise_robustness PASSED [ 50%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_sample_size_effect PASSED [ 51%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_edge_cases PASSED [ 51%]
+tests/unit/dim_reduction/test_intrinsic.py::TestCorrelationDimension::test_fractal_dimension PASSED [ 52%]
+tests/unit/dim_reduction/test_dr.py::test_corrmat PASSED                 [ 53%]
+tests/unit/dim_reduction/test_dr.py::test_proximity_graph PASSED         [ 53%]
+tests/unit/dim_reduction/test_dr.py::test_pca PASSED                     [ 54%]
+tests/unit/dim_reduction/test_dr.py::test_le PASSED                      [ 55%]
+tests/unit/dim_reduction/test_dr.py::test_auto_le PASSED                 [ 55%]
+tests/unit/dim_reduction/test_dr.py::test_umap PASSED                    [ 56%]
+tests/unit/dim_reduction/test_dr.py::test_isomap PASSED                  [ 57%]
+tests/unit/dim_reduction/test_dr.py::test_tsne PASSED                    [ 57%]
+tests/unit/dim_reduction/test_dr.py::test_auto_dmaps PASSED              [ 58%]
+tests/unit/dim_reduction/test_dr.py::test_ae_simple PASSED               [ 59%]
+tests/unit/dim_reduction/test_dr.py::test_ae_corr PASSED                 [ 60%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestDRMethodDefaults::test_drmethod_has_defaults PASSED [ 60%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMergeParamsWithDefaults::test_merge_with_no_user_params PASSED [ 61%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMergeParamsWithDefaults::test_merge_with_flat_user_params PASSED [ 62%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMergeParamsWithDefaults::test_merge_with_structured_params PASSED [ 62%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMergeParamsWithDefaults::test_invalid_method_raises_error PASSED [ 63%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMVDataSimplifiedAPI::test_simplified_api_pca PASSED [ 64%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMVDataSimplifiedAPI::test_simplified_api_graph_method PASSED [ 64%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMVDataSimplifiedAPI::test_simplified_api_tsne PASSED [ 65%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMVDataSimplifiedAPI::test_simplified_api_mds PASSED [ 66%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMVDataSimplifiedAPI::test_backward_compatibility PASSED [ 66%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestMVDataSimplifiedAPI::test_error_handling PASSED [ 67%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestParameterPropagation::test_umap_parameters PASSED [ 68%]
+tests/unit/dim_reduction/test_dr_defaults.py::TestParameterPropagation::test_graph_parameters PASSED [ 68%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimension::test_basic_functionality PASSED [ 69%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimension::test_exact_linear_subspace PASSED [ 70%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimension::test_threshold_sensitivity PASSED [ 71%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimension::test_standardization_effect PASSED [ 71%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimension::test_noisy_manifold PASSED [ 72%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimension::test_high_dimensional_data PASSED [ 73%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimension::test_edge_cases PASSED [ 73%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimension::test_known_covariance_structure PASSED [ 74%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimensionProfile::test_basic_functionality PASSED [ 75%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimensionProfile::test_default_thresholds PASSED [ 75%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimensionProfile::test_custom_thresholds PASSED [ 76%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimensionProfile::test_consistency_with_pca_dimension PASSED [ 77%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimensionProfile::test_variance_explained_consistency PASSED [ 77%]
+tests/unit/dim_reduction/test_linear.py::TestPCADimensionProfile::test_profile_visualization_data PASSED [ 78%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_basic_functionality PASSED [ 79%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_exact_rank_k_matrix PASSED [ 80%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_uniform_eigenvalues PASSED [ 80%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_exponential_eigenvalue_decay PASSED [ 81%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_comparison_with_pca_dimension PASSED [ 82%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_standardization_effect PASSED [ 82%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_manifold_data PASSED [ 83%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_edge_cases PASSED [ 84%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_entropy_interpretation PASSED [ 84%]
+tests/unit/dim_reduction/test_linear.py::TestEffectiveRank::test_numerical_stability PASSED [ 85%]
+tests/unit/dim_reduction/test_linear.py::TestIntegration::test_methods_on_same_data PASSED [ 86%]
+tests/unit/dim_reduction/test_linear.py::TestIntegration::test_manifold_comparison PASSED [ 86%]
+tests/unit/dim_reduction/test_eps_graph.py::TestEpsGraph::test_eps_graph_basic PASSED [ 87%]
+tests/unit/dim_reduction/test_eps_graph.py::TestEpsGraph::test_eps_graph_weighted PASSED [ 88%]
+tests/unit/dim_reduction/test_eps_graph.py::TestEpsGraph::test_eps_graph_too_sparse PASSED [ 88%]
+tests/unit/dim_reduction/test_eps_graph.py::TestEpsGraph::test_eps_graph_different_metrics PASSED [ 89%]
+tests/unit/dim_reduction/test_eps_graph.py::TestEpsGraph::test_eps_graph_dense_warning PASSED [ 90%]
+tests/unit/dim_reduction/test_embedding_to_mvdata.py::TestEmbeddingToMVData::test_to_mvdata_basic_conversion PASSED [ 91%]
+tests/unit/dim_reduction/test_embedding_to_mvdata.py::TestEmbeddingToMVData::test_to_mvdata_validates_coords PASSED [ 91%]
+tests/unit/dim_reduction/test_embedding_to_mvdata.py::TestEmbeddingToMVData::test_recursive_embedding_pipeline PASSED [ 92%]
+tests/unit/dim_reduction/test_embedding_to_mvdata.py::TestEmbeddingToMVData::test_different_embedding_methods PASSED [ 93%]
+tests/unit/dim_reduction/test_embedding_to_mvdata.py::TestEmbeddingToMVData::test_to_mvdata_properties PASSED [ 93%]
+tests/unit/dim_reduction/test_embedding_to_mvdata.py::TestEmbeddingToMVData::test_to_mvdata_with_neural_methods PASSED [ 94%]
+tests/unit/dim_reduction/test_embedding_to_mvdata.py::TestEmbeddingToMVData::test_mvdata_methods_on_converted PASSED [ 95%]
+tests/unit/dim_reduction/test_correct_cov_spectrum.py::TestCorrectCovSpectrum::test_basic_functionality PASSED [ 95%]
+tests/unit/dim_reduction/test_correct_cov_spectrum.py::TestCorrectCovSpectrum::test_negative_eigenvalues_handling PASSED [ 96%]
+tests/unit/dim_reduction/test_correct_cov_spectrum.py::TestCorrectCovSpectrum::test_warning_for_significant_negative_eigenvalues PASSED [ 97%]
+tests/unit/dim_reduction/test_correct_cov_spectrum.py::TestCorrectCovSpectrum::test_min_eigenvalue_parameter PASSED [ 97%]
+tests/unit/dim_reduction/test_correct_cov_spectrum.py::TestCorrectCovSpectrum::test_ensemble_size_parameter PASSED [ 98%]
+tests/unit/dim_reduction/test_correct_cov_spectrum.py::TestCorrectCovSpectrum::test_extreme_cases PASSED [ 99%]
+tests/unit/dim_reduction/test_correct_cov_spectrum.py::TestCorrectCovSpectrum::test_convergence_behavior PASSED [100%]
+
+=================================== FAILURES ===================================
+______________________ test_circular_manifold_extraction _______________________
+tests/unit/dim_reduction/test_dr_extended.py:199: in test_circular_manifold_extraction
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+----------------------------- Captured stdout call -----------------------------
+Generating circular manifold data: 50 neurons, 150s
+  Generating head direction trajectory...
+  Generating neural responses with Von Mises tuning...
+  Converting to calcium signals...
+  Done!
+_________________________ test_2d_manifold_extraction __________________________
+tests/unit/dim_reduction/test_dr_extended.py:234: in test_2d_manifold_extraction
+    exp, info = generate_2d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_2d.py:401: in generate_2d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+----------------------------- Captured stdout call -----------------------------
+Generating 2D spatial manifold data: 50 neurons, 150s
+  Generating 2D random walk trajectory...
+  Generating neural responses with place fields...
+  Converting to calcium signals...
+  Done!
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.10.18-final-0 _______________
+
+Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------------------------
+src/driada/dim_reduction/dim_reduction.py                     55     55     12      0   0.00%   1-75
+src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-18
+src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-61
+src/driada/integration/selectivity_mapper.py                 123    123     58      0   0.00%   8-388
+src/driada/intense/pipelines.py                              283    275    164      0   1.79%   191-425, 533-657, 766-887, 985-1110
+src/driada/network/randomization.py                          232    223     54      0   3.15%   9-105, 110-144, 148-170, 174-186, 192-340
+src/driada/utils/visual.py                                   285    271    134      0   3.34%   65-241, 275-361, 404-492, 537-623, 660-709, 742-788
+src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 177-267, 291-304, 332-391
+src/driada/intense/intense_base.py                           406    382    220      0   3.83%   30-61, 86-113, 138-148, 204-224, 282-311, 379-450, 518-632, 694-742, 806-833, 868, 872, 876-877, 881-882, 1050-1337, 1386-1425
+src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-54, 89-142, 177-227, 289-345, 381-455, 503-620
+src/driada/experiment/synthetic/mixed_selectivity.py         126    116     70      0   5.10%   48-84, 111-157, 185-217, 285-411
+src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
+src/driada/rsa/core.py                                       165    149     84      0   6.43%   45-78, 110-138, 174-225, 251-275, 320-358, 432-488, 549-595
+src/driada/experiment/synthetic/manifold_spatial_3d.py       108     98     46      0   6.49%   37-64, 87-103, 143-196, 253-301, 364-470
+src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-107, 129-143, 161-174, 192-204
+src/driada/utils/spatial.py                                  214    194     74      0   6.94%   61-93, 129-160, 193-228, 253-271, 299-332, 376-415, 444-490, 518-544, 572-599, 648-720, 749-777
+src/driada/rsa/visual.py                                      80     71     28      0   8.33%   55-141, 172-210
+src/driada/experiment/exp_build.py                           106     92     60      0   8.43%   23-100, 119-183, 187-190, 194-198
+src/driada/network/drawing.py                                133    117     54      0   8.56%   13-54, 57-68, 72-75, 80-131, 135-157, 161-174, 179-203
+src/driada/information/gcmi.py                               251    223     78      2   9.12%   16-17, 26-41, 59-64, 82-92, 116-133, 144-170, 190-233, 253-314, 326-360, 379-442, 457-508
+src/driada/gdrive/download.py                                103     89     46      0   9.40%   21-59, 73-111, 122-170, 174-193
+src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 155-176, 215-286, 308-315, 334-354
+src/driada/network/spectral.py                                30     26      8      0  10.53%   6-8, 24-37, 41-55
+src/driada/rsa/integration.py                                 46     38     22      0  11.76%   63-108, 139-141, 188-219
+src/driada/intense/stats.py                                  105     87     44      0  12.08%   24-25, 44-46, 65-67, 89-92, 118-126, 152-155, 176-186, 211-215, 244-252, 273-280, 314-346, 365-375, 394-399
+src/driada/information/entropy_jit.py                         44     38      4      0  12.50%   33-67, 86-129
+src/driada/utils/neural.py                                    20     17      4      0  12.50%   25-45, 49-54
+src/driada/utils/plot.py                                      38     31     18      0  12.50%   56-86, 125-141, 179-195
+src/driada/experiment/wavelet_event_detection.py             156    130     40      1  13.78%   9, 39-42, 46-109, 117-164, 168-169, 173-181, 191-209, 213-249, 255-276, 281-289
+src/driada/information/info_utils.py                          41     34      8      0  14.29%   6-19, 24-34, 38-62
+src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
+src/driada/information/ksg.py                                 87     71     20      0  14.95%   17, 22, 26-27, 31, 39-42, 50-68, 78-86, 93-96, 105-141, 145-164
+src/driada/network/quantum.py                                 39     31      8      0  17.02%   7-14, 18-27, 31-33, 37-55
+src/driada/gdrive/gdrive_utils.py                             74     56     30      0  17.31%   25-28, 31, 61-107, 141-200, 204-210
+src/driada/network/graph_utils.py                             46     36     10      0  17.86%   9-13, 18-28, 32-35, 39-43, 47-49, 53-75
+src/driada/information/info_base.py                          389    296    176      9  19.12%   29-45, 49, 56, 84, 87-91, 94-95, 98-102, 105-106, 109-111, 114-123, 146-159, 201-211, 226-239, 269-271, 283, 287, 301, 306, 311, 317-319, 322-327, 345-351, 357-360, 365-372, 397-447, 473-551, 579-684, 688-691, 697-708, 741-749, 793-882, 921-937
+src/driada/dim_reduction/mvu.py                               61     45     20      0  19.75%   40-109, 122-146
+src/driada/experiment/synthetic/experiment_generators.py     276    211    146     14  20.62%   86, 90-93, 110, 118, 127, 134-137, 150-156, 209->214, 215-216, 218-219, 253, 255, 262, 364-863
+src/driada/utils/gif.py                                       38     27     14      0  21.15%   25-31, 46-55, 81-100
+src/driada/information/entropy.py                             56     41     14      0  21.43%   18-19, 42-52, 68, 89-99, 123-135, 157-167, 192-195, 218-221
+src/driada/experiment/wavelet_ridge.py                        66     50      4      0  22.86%   26-27, 34-56, 60-66, 70, 74-85, 90-102, 106-107
+src/driada/information/gcmi_jit_utils.py                     207    157     66      3  23.08%   73-79, 104, 106, 122-134, 171-177, 200-259, 286-386, 405-421, 443-456
+src/driada/utils/data.py                                     150    102     72      5  24.77%   36, 41->40, 47, 58-62, 66-87, 92-108, 116-135, 139-141, 152-155, 159-169, 209, 221-223, 228-231, 238-241, 253-270, 284-315
+src/driada/network/net_base.py                               379    256    168     25  28.15%   20, 23, 27, 32-33, 39-41, 45-55, 62-68, 74, 104-107, 111-114, 117->120, 132->140, 142, 159-199, 210-217, 220-224, 227-228, 235-242, 246->249, 250, 254, 259, 274-304, 328-338, 343->359, 345, 347, 349, 352-355, 363-369, 372-378, 381-387, 390-396, 407, 410-477, 482-502, 505-515, 519-530, 533-535, 538-540, 543-545, 548-550, 553-557, 560-570, 573-596
+src/driada/experiment/spike_reconstruction.py                 48     34      8      2  28.57%   53, 58-62, 96-126, 160-215
+src/driada/utils/output.py                                    16     10      4      0  30.00%   6-8, 10-12, 16-20
+src/driada/experiment/exp_base.py                            380    243    190     18  31.40%   28, 32, 38-39, 70, 73->85, 77, 87, 97-109, 143->142, 164, 173-178, 184-192, 201-204, 209, 217-224, 240-262, 269, 273, 279-285, 293-296, 302-309, 315-343, 349-361, 368-379, 386-400, 414-433, 440-446, 455-466, 474-482, 491-497, 504-510, 524-534, 549-563, 575-592, 595, 608-618, 645-647, 660-663, 686-707, 714-715, 719-724, 727, 730, 733-734, 751-763, 786-792, 820-839, 843
+src/driada/network/matrix_utils.py                           203    131     60      1  33.08%   58-96, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-223, 228-232, 238-249, 253-261, 266-270, 285-292, 307-310
+src/driada/experiment/neuron.py                              161    100     36      5  33.50%   35-36, 41-44, 49-50, 63->65, 65->67, 68, 73, 88, 99, 102-107, 110-112, 115-124, 127-130, 133-136, 144-151, 155-165, 170-183, 187-200, 204-212, 216-228, 232-255
+src/driada/utils/jit.py                                       29     17      4      1  39.39%   17-25, 58-60, 68, 73-78
+src/driada/experiment/synthetic/utils.py                       7      3      4      1  45.45%   28-30
+src/driada/dim_reduction/graph.py                            174     82     46      8  50.00%   52, 67, 70, 72->exit, 89, 96, 99-105, 112, 138, 143-147, 193-278, 281-286
+src/driada/experiment/synthetic/core.py                       40     18     16      4  50.00%   38-47, 75-80, 89, 97, 146-161
+src/driada/dim_reduction/data.py                             112     41     50     11  59.26%   13-18, 37, 44-45, 59-64, 85, 109-124, 128, 181-183, 189, 194, 197, 203, 229, 236-238, 241-243
+src/driada/dim_reduction/manifold_metrics.py                 245     95     82     16  59.33%   40, 135, 162, 193, 197, 224, 269-270, 278, 286, 321->324, 390->399, 430, 442->450, 446->450, 452-454, 493->502, 543-544, 560-569, 593-611, 635-667, 687-725, 752-779, 810-840
+src/driada/experiment/synthetic/time_series.py                88     17     32      6  75.83%   63->96, 66-78, 93, 150, 186->189, 194, 245-254
+src/driada/experiment/synthetic/manifold_circular.py          73      9     24      9  79.38%   33->37, 109->112, 190->193, 195->199, 199->201, 204->206, 213->215, 234->237, 328-334, 354-376
+src/driada/dim_reduction/dr_base.py                           80     11     44      8  79.84%   164-168, 171, 190-194, 251->253, 253->255, 256, 267, 276
+src/driada/dim_reduction/embedding.py                        276     35     72     13  85.63%   17-19, 25-28, 32-36, 49, 66-67, 80, 85->88, 113-114, 126, 156, 232->238, 251, 276-286, 350-351, 369->295, 383-384, 402->405, 440, 510, 519-523
+src/driada/dim_reduction/neural.py                           132     13     24      9  85.90%   12-16, 36, 41, 75, 80, 110, 115, 219, 224
+src/driada/dimensionality/intrinsic.py                        52      5     24      5  86.84%   70, 73, 88, 164, 170
+src/driada/experiment/synthetic/manifold_spatial_2d.py        98      6     40     10  86.96%   37->40, 135->138, 148->156, 164, 238->241, 243->247, 247->249, 252->254, 262->264, 283->286, 415-440
+src/driada/dimensionality/effective.py                        26      2     12      2  89.47%   12, 28
+src/driada/dimensionality/linear.py                           54      3     16      3  91.43%   57, 62, 154
+src/driada/dimensionality/utils.py                            44      2      8      0  96.15%   10-11
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                       8004   5737   3128    191  24.52%
+Coverage HTML written to dir htmlcov
+Coverage XML written to file coverage.xml
+Coverage JSON written to file coverage.json
+=========================== short test summary info ============================
+FAILED tests/unit/dim_reduction/test_dr_extended.py::test_circular_manifold_extraction - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/dim_reduction/test_dr_extended.py::test_2d_manifold_extraction - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+============= 2 failed, 142 passed, 1 skipped in 66.38s (0:01:06) ==============
+
+ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmp6g2rqffh.py` failed. (See above for error)

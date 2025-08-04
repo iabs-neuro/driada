@@ -8,6 +8,17 @@ from .stats import *
 from ..information.info_base import TimeSeries, MultiTimeSeries, get_1d_mi, get_multi_mi, get_mi, get_sim
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables
 
+# Configure joblib backend to avoid PyTorch forking issues
+import os
+try:
+    import torch
+    # If PyTorch is available, use threading backend to avoid forking issues
+    # This prevents "function '_has_torch_function' already has a docstring" errors
+    JOBLIB_BACKEND = 'threading'
+except ImportError:
+    # Default to loky if PyTorch not available
+    JOBLIB_BACKEND = 'loky'
+
 
 def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False):
     """
@@ -294,7 +305,7 @@ def calculate_optimal_delays_parallel(ts_bunch1, ts_bunch2, metric,
     split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs)
     split_ts_bunch1 = [np.array(ts_bunch1)[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_delays = Parallel(n_jobs=n_jobs, verbose=True)(
+    parallel_delays = Parallel(n_jobs=n_jobs, backend=JOBLIB_BACKEND, verbose=True)(
         delayed(calculate_optimal_delays)(small_ts_bunch,
                                           ts_bunch2,
                                           metric,
@@ -719,7 +730,7 @@ def scan_pairs_parallel(ts_bunch1,
     split_optimal_delays = [optimal_delays[idxs] for idxs in split_ts_bunch1_inds]
     split_mask = [mask[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_result = Parallel(n_jobs=n_jobs, verbose=True)(
+    parallel_result = Parallel(n_jobs=n_jobs, backend=JOBLIB_BACKEND, verbose=True)(
         delayed(scan_pairs)(small_ts_bunch,
                             ts_bunch2,
                             metric,

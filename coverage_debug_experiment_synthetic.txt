@@ -1,0 +1,562 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /opt/anaconda3/envs/driada/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/nikita/PycharmProjects/driada2
+configfile: pytest.ini
+plugins: timeout-2.4.0, cov-6.2.1
+collecting ... collected 72 items
+
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_basic_generation PASSED [  1%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_custom_bounds PASSED [  2%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_step_size_effect PASSED [  4%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_momentum_effect PASSED [  5%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_reproducibility PASSED [  6%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGaussianPlaceField::test_basic_response PASSED [  8%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGaussianPlaceField::test_sigma_effect PASSED [  9%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldNeurons::test_basic_generation PASSED [ 11%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldNeurons::test_grid_arrangement PASSED [ 12%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldNeurons::test_random_arrangement PASSED [ 13%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldNeurons::test_firing_rate_modulation PASSED [ 15%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldData::test_basic_generation PASSED [ 16%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_return_info_false FAILED [ 18%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_return_info_true FAILED [ 19%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_basic_experiment FAILED [ 20%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility FAILED [ 22%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_parameter_effects FAILED [ 23%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_basic_generation_fast PASSED [ 25%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_different_manifold_types_fast[2d_spatial] PASSED [ 26%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_different_manifold_types_fast[circular] PASSED [ 27%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_different_manifold_types_fast[3d_spatial] PASSED [ 29%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_feature_selective_params_fast PASSED [ 30%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_correlation_effects_minimal PASSED [ 31%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_calcium_signal_properties PASSED [ 33%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_edge_cases PASSED [ 34%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_feature_configuration PASSED [ 36%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_manifold_fraction PASSED [ 37%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_manifold_type PASSED [ 38%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_neuron_count PASSED [ 40%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestIntegrationWithINTENSE::test_mixed_population_with_intense_minimal FAILED [ 41%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestPerformanceBenchmarks::test_generation_under_1s PASSED [ 43%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestPerformanceBenchmarks::test_multiple_generations_under_5s PASSED [ 44%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_basic PASSED [ 45%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_reproducibility PASSED [ 47%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_step_sizes PASSED [ 48%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_wrapping PASSED [ 50%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_tuning_basic PASSED [ 51%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_circular_symmetry PASSED [ 52%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_kappa_effect PASSED [ 54%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_basic PASSED [ 55%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_coverage PASSED [ 56%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_tuning PASSED [ 58%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_noise PASSED [ 59%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_basic PASSED [ 61%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_calcium FAILED [ 62%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_basic FAILED [ 63%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_extra_features FAILED [ 65%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_parameters FAILED [ 66%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_reproducibility FAILED [ 68%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[10-20] FAILED [ 69%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[100-60] FAILED [ 70%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[200-30] FAILED [ 72%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_edge_cases FAILED [ 73%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_edge_cases PASSED [ 75%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_integration_with_intense FAILED [ 76%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection FAILED [ 77%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_basic_generation PASSED [ 79%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_custom_bounds PASSED [ 80%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_step_size_effect PASSED [ 81%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_momentum_effect PASSED [ 83%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_reproducibility PASSED [ 84%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_basic_response PASSED [ 86%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_sigma_effect PASSED [ 87%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_basic_generation PASSED [ 88%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_grid_arrangement PASSED [ 90%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_random_arrangement PASSED [ 91%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_firing_rate_modulation PASSED [ 93%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_basic_generation PASSED [ 94%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_basic_experiment FAILED [ 95%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility FAILED [ 97%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_parameter_effects FAILED [ 98%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_default_neuron_count FAILED [100%]
+
+=================================== FAILURES ===================================
+_______________ TestGenerate2DManifoldExp.test_return_info_false _______________
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py:222: in test_return_info_false
+    exp = generate_2d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_2d.py:401: in generate_2d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+_______________ TestGenerate2DManifoldExp.test_return_info_true ________________
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py:233: in test_return_info_true
+    exp, info = generate_2d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_2d.py:401: in generate_2d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+_______________ TestGenerate2DManifoldExp.test_basic_experiment ________________
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py:273: in test_basic_experiment
+    exp, info = generate_2d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_2d.py:401: in generate_2d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+________ TestGenerate2DManifoldExp.test_intense_analysis_compatibility _________
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py:297: in test_intense_analysis_compatibility
+    exp = generate_2d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_2d.py:401: in generate_2d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+_______________ TestGenerate2DManifoldExp.test_parameter_effects _______________
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py:370: in test_parameter_effects
+    exp_wide, _ = generate_2d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_2d.py:401: in generate_2d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+____ TestIntegrationWithINTENSE.test_mixed_population_with_intense_minimal _____
+joblib.externals.loky.process_executor._RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/externals/loky/process_executor.py", line 453, in _process_worker
+    call_item = call_queue.get(block=True, timeout=timeout)
+  File "/opt/anaconda3/envs/driada/lib/python3.10/multiprocessing/queues.py", line 122, in get
+    return _ForkingPickler.loads(res)
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/__init__.py", line 11, in <module>
+    from . import intense
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/__init__.py", line 10, in <module>
+    from .intense_base import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/intense_base.py", line 7, in <module>
+    from .stats import *
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/intense/stats.py", line 4, in <module>
+    from ..utils.data import populate_nested_dict, add_names_to_nested_dict
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/utils/__init__.py", line 70, in <module>
+    from .spatial import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/utils/spatial.py", line 26, in <module>
+    from ..information import TimeSeries, MultiTimeSeries, get_sim
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/information/__init__.py", line 9, in <module>
+    from .info_base import (
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/information/info_base.py", line 10, in <module>
+    from ..dim_reduction.data import MVData
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/__init__.py", line 8, in <module>
+    from .data import MVData
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/data.py", line 8, in <module>
+    from .embedding import Embedding
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/embedding.py", line 16, in <module>
+    from .neural import *
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/neural.py", line 12, in <module>
+    import torch
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/__init__.py", line 1813, in <module>
+    from torch._tensor import Tensor  # usort: skip
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/_tensor.py", line 21, in <module>
+    from torch.overrides import (
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/torch/overrides.py", line 1758, in <module>
+    has_torch_function = _add_docstr(
+RuntimeError: function '_has_torch_function' already has a docstring
+"""
+
+The above exception was the direct cause of the following exception:
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py:262: in test_mixed_population_with_intense_minimal
+    result = compute_cell_feat_significance(
+src/driada/intense/pipelines.py:267: in compute_cell_feat_significance
+    computed_stats, computed_significance, info = compute_me_stats(signals,
+src/driada/intense/intense_base.py:1167: in compute_me_stats
+    random_shifts1, me_total1 = scan_pairs_router(ts_bunch1,
+src/driada/intense/intense_base.py:807: in scan_pairs_router
+    random_shifts, me_total = scan_pairs_parallel(ts_bunch1,
+src/driada/intense/intense_base.py:722: in scan_pairs_parallel
+    parallel_result = Parallel(n_jobs=n_jobs, verbose=True)(
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:2072: in __call__
+    return output if self.return_generator else list(output)
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1682: in _get_outputs
+    yield from self._retrieve()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1784: in _retrieve
+    self._raise_error_fast()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:1859: in _raise_error_fast
+    error_job.get_result(self.timeout)
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:758: in get_result
+    return self._return_or_raise()
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/parallel.py:773: in _return_or_raise
+    raise self._result
+E   joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+----------------------------- Captured stdout call -----------------------------
+Using pregenerated features...
+Generating signals...
+Using pregenerated features...
+Generating signals...
+Building neurons...
+Building data hashes...
+Final checkpoint...
+Experiment "MixedPopulation" constructed successfully with 5 neurons and 9 features
+Downsampling constant is too high: some behaviour acts may be skipped. Current minimal behaviour time interval is set to 0.25 sec, downsampling 5 will create time gaps of 0.5 sec
+Retrieving saved stats data...
+----------------------------- Captured stderr call -----------------------------
+
+  0%|          | 0/1 [00:00<?, ?it/s]
+100%|██████████| 1/1 [00:00<00:00, 1741.82it/s]
+
+  0%|          | 0/2 [00:00<?, ?it/s]
+100%|██████████| 2/2 [00:00<00:00, 1507.39it/s]
+/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:74: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
+  warnings.warn('No spike data provided, spikes reconstruction from Ca2+ data disabled')
+
+  0%|          | 0/5 [00:00<?, ?it/s]
+100%|██████████| 5/5 [00:00<00:00, 504.69it/s]
+[Parallel(n_jobs=3)]: Using backend LokyBackend with 3 concurrent workers.
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/joblib/_memmapping_reducer.py:28: UserWarning: The NumPy module was reloaded (imported a second time). This can in some cases result in small but subtle issues and is discouraged.
+  import numpy as np
+_________________ test_generate_circular_manifold_data_calcium _________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:228: in test_generate_circular_manifold_data_calcium
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+__________________ test_generate_circular_manifold_exp_basic ___________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:295: in test_generate_circular_manifold_exp_basic
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+______________ test_generate_circular_manifold_exp_extra_features ______________
+tests/unit/experiment/synthetic/test_circular_manifold.py:316: in test_generate_circular_manifold_exp_extra_features
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+________________ test_generate_circular_manifold_exp_parameters ________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:344: in test_generate_circular_manifold_exp_parameters
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+----------------------------- Captured stderr call -----------------------------
+/Users/nikita/PycharmProjects/driada2/src/driada/experiment/synthetic/manifold_circular.py:107: UserWarning: generate_circular_manifold_neurons: peak_rate=3.0 Hz exceeds recommended maximum of 2.0 Hz for calcium imaging. High firing rates can cause calcium signal saturation due to slow indicator dynamics (decay time ~2s). Consider using peak_rate <= 2.0 Hz for more realistic calcium traces.
+  validate_peak_rate(peak_rate, context="generate_circular_manifold_neurons")
+_____________ test_generate_circular_manifold_exp_reproducibility ______________
+tests/unit/experiment/synthetic/test_circular_manifold.py:362: in test_generate_circular_manifold_exp_reproducibility
+    exp1, info1 = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+__________________________ test_various_sizes[10-20] ___________________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:390: in test_various_sizes
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+__________________________ test_various_sizes[100-60] __________________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:390: in test_various_sizes
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+__________________________ test_various_sizes[200-30] __________________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:390: in test_various_sizes
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+_______________________________ test_edge_cases ________________________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:404: in test_edge_cases
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+________________________ test_integration_with_intense _________________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:447: in test_integration_with_intense
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+______________________ test_linear_vs_circular_detection _______________________
+tests/unit/experiment/synthetic/test_circular_manifold.py:486: in test_linear_vs_circular_detection
+    exp, info = generate_circular_manifold_exp(
+src/driada/experiment/synthetic/manifold_circular.py:340: in generate_circular_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+_______________ TestGenerate3DManifoldExp.test_basic_experiment ________________
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py:246: in test_basic_experiment
+    exp, info = generate_3d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_3d.py:431: in generate_3d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+________ TestGenerate3DManifoldExp.test_intense_analysis_compatibility _________
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py:271: in test_intense_analysis_compatibility
+    exp = generate_3d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_3d.py:431: in generate_3d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+_______________ TestGenerate3DManifoldExp.test_parameter_effects _______________
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py:343: in test_parameter_effects
+    exp_wide, _ = generate_3d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_3d.py:431: in generate_3d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+_____________ TestGenerate3DManifoldExp.test_default_neuron_count ______________
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py:375: in test_default_neuron_count
+    exp, info = generate_3d_manifold_exp(
+src/driada/experiment/synthetic/manifold_spatial_3d.py:431: in generate_3d_manifold_exp
+    exp = Experiment(
+src/driada/experiment/exp_base.py:83: in __init__
+    spikes = self._reconstruct_spikes(calcium, reconstruct_spikes, static_features.get('fps'), spike_kwargs)
+src/driada/experiment/exp_base.py:652: in _reconstruct_spikes
+    spikes_mts, metadata = reconstruct_spikes(
+src/driada/experiment/spike_reconstruction.py:56: in reconstruct_spikes
+    return wavelet_reconstruction(calcium, fps, params)
+src/driada/experiment/spike_reconstruction.py:93: in wavelet_reconstruction
+    calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+E   AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.10.18-final-0 _______________
+
+Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------------------------
+src/driada/dim_reduction/dim_reduction.py                     55     55     12      0   0.00%   1-75
+src/driada/dimensionality/effective.py                        26     26     12      0   0.00%   1-43
+src/driada/dimensionality/intrinsic.py                        52     52     24      0   0.00%   8-180
+src/driada/dimensionality/linear.py                           54     54     16      0   0.00%   8-218
+src/driada/dimensionality/utils.py                            44     44      8      0   0.00%   1-91
+src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-18
+src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-61
+src/driada/integration/selectivity_mapper.py                 123    123     58      0   0.00%   8-388
+src/driada/network/randomization.py                          232    223     54      0   3.15%   9-105, 110-144, 148-170, 174-186, 192-340
+src/driada/utils/visual.py                                   285    271    134      0   3.34%   65-241, 275-361, 404-492, 537-623, 660-709, 742-788
+src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 177-267, 291-304, 332-391
+src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-54, 89-142, 177-227, 289-345, 381-455, 503-620
+src/driada/experiment/synthetic/mixed_selectivity.py         126    116     70      0   5.10%   48-84, 111-157, 185-217, 285-411
+src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
+src/driada/rsa/core.py                                       165    149     84      0   6.43%   45-78, 110-138, 174-225, 251-275, 320-358, 432-488, 549-595
+src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-107, 129-143, 161-174, 192-204
+src/driada/dim_reduction/manifold_metrics.py                 245    223     82      0   6.73%   39-43, 77-102, 130-164, 192-226, 257-288, 314-324, 349-399, 429-462, 493-523, 543-544, 560-569, 593-611, 635-667, 687-725, 752-779, 810-840
+src/driada/utils/spatial.py                                  214    194     74      0   6.94%   61-93, 129-160, 193-228, 253-271, 299-332, 376-415, 444-490, 518-544, 572-599, 648-720, 749-777
+src/driada/network/net_base.py                               379    336    168      0   7.86%   19-27, 32-33, 37-41, 45-55, 61-76, 95-151, 159-199, 209-266, 269-270, 274-304, 308-325, 328-338, 341-360, 363-369, 372-378, 381-387, 390-396, 407, 410-477, 482-502, 505-515, 519-530, 533-535, 538-540, 543-545, 548-550, 553-557, 560-570, 573-596
+src/driada/rsa/visual.py                                      80     71     28      0   8.33%   55-141, 172-210
+src/driada/experiment/exp_build.py                           106     92     60      0   8.43%   23-100, 119-183, 187-190, 194-198
+src/driada/network/drawing.py                                133    117     54      0   8.56%   13-54, 57-68, 72-75, 80-131, 135-157, 161-174, 179-203
+src/driada/information/gcmi.py                               251    223     78      2   9.12%   16-17, 26-41, 59-64, 82-92, 116-133, 144-170, 190-233, 253-314, 326-360, 379-442, 457-508
+src/driada/gdrive/download.py                                103     89     46      0   9.40%   21-59, 73-111, 122-170, 174-193
+src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 155-176, 215-286, 308-315, 334-354
+src/driada/network/matrix_utils.py                           203    178     60      0   9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-223, 227-234, 238-249, 253-261, 266-270, 274-281, 285-292, 296-303, 307-310, 314-317
+src/driada/dim_reduction/embedding.py                        276    242     72      0   9.77%   19, 25-28, 32-36, 45-70, 73-82, 85-90, 94-100, 104-116, 120-126, 129-131, 134-138, 141-162, 165-173, 176, 179-195, 198-200, 203-208, 221-408, 418-514, 519-523, 546-553
+src/driada/dim_reduction/mvu.py                               61     53     20      0   9.88%   22-29, 40-109, 122-146
+src/driada/dim_reduction/graph.py                            174    151     46      0  10.45%   26-59, 66-79, 82-83, 86-96, 99-105, 109-140, 143-147, 152-189, 193-278, 281-286
+src/driada/network/spectral.py                                30     26      8      0  10.53%   6-8, 24-37, 41-55
+src/driada/rsa/integration.py                                 46     38     22      0  11.76%   63-108, 139-141, 188-219
+src/driada/information/entropy_jit.py                         44     38      4      0  12.50%   33-67, 86-129
+src/driada/utils/neural.py                                    20     17      4      0  12.50%   25-45, 49-54
+src/driada/utils/plot.py                                      38     31     18      0  12.50%   56-86, 125-141, 179-195
+src/driada/intense/pipelines.py                              283    243    164     10  12.53%   199-202, 206-208, 214, 217-225, 232->235, 235->259, 244-250, 255, 257, 261, 265, 295-425, 533-657, 766-887, 985-1110
+src/driada/experiment/wavelet_event_detection.py             156    130     40      1  13.78%   9, 39-42, 46-109, 117-164, 168-169, 173-181, 191-209, 213-249, 255-276, 281-289
+src/driada/information/info_utils.py                          41     34      8      0  14.29%   6-19, 24-34, 38-62
+src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
+src/driada/information/ksg.py                                 87     71     20      0  14.95%   17, 22, 26-27, 31, 39-42, 50-68, 78-86, 93-96, 105-141, 145-164
+src/driada/utils/data.py                                     150    118     72      1  15.77%   34-54, 66-87, 92-108, 116-135, 139-141, 152-155, 159-169, 187-209, 221-223, 228-231, 238-241, 253-270, 284-315
+src/driada/network/quantum.py                                 39     31      8      0  17.02%   7-14, 18-27, 31-33, 37-55
+src/driada/gdrive/gdrive_utils.py                             74     56     30      0  17.31%   25-28, 31, 61-107, 141-200, 204-210
+src/driada/dim_reduction/dr_base.py                           80     58     44      0  17.74%   157-173, 181-196, 205-213, 232-278
+src/driada/network/graph_utils.py                             46     36     10      0  17.86%   9-13, 18-28, 32-35, 39-43, 47-49, 53-75
+src/driada/intense/intense_base.py                           406    320    220     27  18.05%   31, 33, 37-50, 57, 59, 61, 90-113, 139, 142, 145, 148, 204-224, 282-311, 379-450, 518-632, 703, 708->712, 713-715, 737-742, 821-833, 868, 872, 876-877, 881-882, 1056, 1060, 1064, 1078-1083, 1087, 1089, 1094-1095, 1100-1124, 1131-1147, 1154, 1164, 1182-1337, 1386-1425
+src/driada/information/info_base.py                          389    296    176      9  19.12%   29-45, 49, 56, 84, 87-91, 94-95, 98-102, 105-106, 109-111, 114-123, 146-159, 201-211, 226-239, 269-271, 283, 287, 301, 306, 311, 317-319, 322-327, 345-351, 357-360, 365-372, 397-447, 473-551, 579-684, 688-691, 697-708, 741-749, 793-882, 921-937
+src/driada/dim_reduction/data.py                             112     84     50      3  19.14%   13-18, 37, 44-45, 54, 59-64, 81-86, 103-133, 169-225, 228-233, 236-238, 241-243
+src/driada/intense/stats.py                                  105     79     44      1  19.46%   24-25, 44-46, 65-67, 89-92, 118-126, 152-155, 181, 211-215, 244-252, 273-280, 314-346, 365-375, 394-399
+src/driada/utils/gif.py                                       38     27     14      0  21.15%   25-31, 46-55, 81-100
+src/driada/information/entropy.py                             56     41     14      0  21.43%   18-19, 42-52, 68, 89-99, 123-135, 157-167, 192-195, 218-221
+src/driada/dim_reduction/neural.py                           132    100     24      0  21.79%   13-16, 22-43, 46-54, 61-82, 85-90, 96-117, 120-127, 133-140, 143-145, 148-150, 156-163, 170-173, 176-190, 194-198, 202-203, 211-212, 215, 218-226
+src/driada/experiment/wavelet_ridge.py                        66     50      4      0  22.86%   26-27, 34-56, 60-66, 70, 74-85, 90-102, 106-107
+src/driada/information/gcmi_jit_utils.py                     207    157     66      3  23.08%   73-79, 104, 106, 122-134, 171-177, 200-259, 286-386, 405-421, 443-456
+src/driada/experiment/spike_reconstruction.py                 48     34      8      2  28.57%   53, 58-62, 96-126, 160-215
+src/driada/utils/output.py                                    16     10      4      0  30.00%   6-8, 10-12, 16-20
+src/driada/experiment/neuron.py                              161    102     36      5  32.49%   35-36, 41-44, 49-50, 64, 66, 68, 73, 88, 99, 102-107, 110-112, 115-124, 127-130, 133-136, 144-151, 155-165, 170-183, 187-200, 204-212, 216-228, 232-255
+src/driada/utils/jit.py                                       29     17      4      1  39.39%   17-25, 58-60, 68, 73-78
+src/driada/experiment/exp_base.py                            380    203    190     30  41.23%   28, 32, 38-39, 70, 73->85, 77, 87, 97-109, 143->142, 164, 174, 177->exit, 201-204, 209, 217-224, 240-262, 269, 273, 279-285, 303, 305, 316, 327, 335->333, 338-341, 349-361, 368-379, 386-400, 415, 418, 430-433, 440-446, 455-466, 474-482, 495, 504-510, 524-534, 549-563, 575-592, 595, 608-618, 645-647, 660-663, 686-707, 714-715, 719-724, 727, 730, 733-734, 751-763, 786-792, 820-839, 843
+src/driada/experiment/synthetic/experiment_generators.py     276     89    146     32  61.37%   93-110, 118, 127, 132->139, 137, 148->159, 153-156, 209-279, 364->368, 375, 378, 386-389, 392->402, 402->414, 423, 490->525, 530->566, 532, 548->538, 562->552, 567-587, 589->642, 592, 599->603, 615->621, 628, 644, 658-660, 667-688, 782-802, 856-858
+src/driada/experiment/synthetic/core.py                       40     13     16      3  64.29%   45->47, 75-80, 97, 146-161
+src/driada/experiment/synthetic/utils.py                       7      1      4      1  81.82%   30
+src/driada/experiment/synthetic/manifold_circular.py          73     10     24      5  82.47%   196, 200, 205, 214, 235, 354-376
+src/driada/experiment/synthetic/manifold_spatial_2d.py        98     10     40      9  84.78%   37->40, 135->138, 148->156, 238->241, 244, 248, 253, 263, 284, 415-440
+src/driada/experiment/synthetic/manifold_spatial_3d.py       108     10     46      9  86.36%   37->40, 145->148, 159->170, 253->256, 259, 263, 268, 278, 299, 445-470
+src/driada/experiment/synthetic/time_series.py                88      8     32      4  88.33%   78, 93, 150, 186->189, 245-254
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                       8004   6272   3128    158  18.63%
+Coverage HTML written to dir htmlcov
+Coverage XML written to file coverage.xml
+Coverage JSON written to file coverage.json
+=========================== short test summary info ============================
+FAILED tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_return_info_false - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_return_info_true - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_basic_experiment - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_parameter_effects - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestIntegrationWithINTENSE::test_mixed_population_with_intense_minimal - joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_calcium - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_basic - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_extra_features - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_parameters - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_reproducibility - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[10-20] - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[100-60] - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[200-30] - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_edge_cases - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_integration_with_intense - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_basic_experiment - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_parameter_effects - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+FAILED tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_default_neuron_count - AttributeError: 'numpy.ndarray' object has no attribute 'scdata'. Did you mean: 'data'?
+======================== 21 failed, 51 passed in 11.12s ========================
+
+ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmph60trjg9.py` failed. (See above for error)
