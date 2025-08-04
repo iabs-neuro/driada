@@ -205,7 +205,8 @@ def remove_duplicates(coo):
     # coo[i,j] = val1, coo[i,j] = val2 ==> val1 = val2
 
     dok = sp.dok_matrix((coo.shape), dtype=coo.dtype)
-    dok._update(zip(zip(coo.row, coo.col), coo.data))
+    for i, j, v in zip(coo.row, coo.col, coo.data):
+        dok[i, j] = v
     return dok.tocoo()
 
 

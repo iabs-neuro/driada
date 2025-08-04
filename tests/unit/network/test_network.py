@@ -100,6 +100,112 @@ def test_diagonalize():
         net.diagonalize(mode=mode)
 
 
+def test_assign_random_weights():
+    """Test random weight assignment to adjacency matrix."""
+    from driada.network.matrix_utils import assign_random_weights
+    
+    # Create a simple adjacency matrix
+    A = np.array([[0, 1, 1],
+                  [1, 0, 1],
+                  [1, 1, 0]])
+    
+    # Assign random weights
+    W = assign_random_weights(A)
+    
+    # Check properties
+    assert W.shape == A.shape
+    assert np.allclose(W, W.T)  # Should be symmetric
+    assert np.all(W[A == 0] == 0)  # Zero entries should remain zero
+    assert np.all(W[A != 0] > 0)  # Non-zero entries should be positive
+
+
+def test_matrix_utils_edge_cases():
+    """Test edge cases in matrix utility functions."""
+    from driada.network.matrix_utils import (
+        symmetric_component, 
+        non_symmetric_component,
+        remove_duplicates,
+        adj_input_to_csr_sparse_matrix,
+        remove_selfloops_from_adj,
+        get_norm_laplacian,
+    )
+    
+    # Test symmetric component
+    A = sp.csr_matrix([[0, 1, 0],
+                       [1, 0, 2],
+                       [3, 0, 0]])
+    
+    symm_unweighted = symmetric_component(A, is_weighted=False)
+    expected_unweighted = np.array([[0, 1, 0],
+                                    [1, 0, 0],
+                                    [0, 0, 0]])
+    assert np.allclose(symm_unweighted, expected_unweighted)
+    
+    symm_weighted = symmetric_component(A, is_weighted=True)
+    assert np.allclose(symm_weighted, expected_unweighted)
+    
+    # Test non-symmetric component
+    non_symm = non_symmetric_component(A, is_weighted=True)
+    expected = np.array([[0, 0, 0],
+                         [0, 0, 2],
+                         [3, 0, 0]])
+    assert np.allclose(non_symm, expected)
+    
+    # Test remove duplicates
+    row = np.array([0, 0, 1, 1, 2])
+    col = np.array([1, 1, 0, 2, 1])
+    data = np.array([1, 2, 3, 4, 5])
+    coo = sp.coo_matrix((data, (row, col)), shape=(3, 3))
+    result = remove_duplicates(coo)
+    assert result.nnz == 4  # Should have 4 unique entries
+    
+    # Test adj_input_to_csr with numpy array
+    arr = np.array([[0, 1], [1, 0]])
+    result = adj_input_to_csr_sparse_matrix(arr)
+    assert isinstance(result, sp.csr_array)
+    
+    # Test adj_input_to_csr with COO matrix
+    coo = sp.coo_matrix(arr)
+    result = adj_input_to_csr_sparse_matrix(coo)
+    assert isinstance(result, sp.csr_array)
+    
+    # Test adj_input_to_csr with invalid format
+    lil = sp.lil_matrix(arr)
+    with pytest.raises(Exception, match="Wrong input parsed"):
+        adj_input_to_csr_sparse_matrix(lil)
+    
+    # Test remove self-loops
+    A_loops = sp.csr_matrix([[1, 1, 0],
+                             [1, 2, 1],
+                             [0, 1, 3]])
+    result = remove_selfloops_from_adj(A_loops)
+    assert result.diagonal().sum() == 0
+    
+    # Test normalized Laplacian with non-symmetric matrix
+    A_nonsym = sp.csr_matrix([[0, 1, 0],
+                              [0, 0, 1],
+                              [1, 0, 0]])
+    with pytest.raises(Exception, match="non-hermitian"):
+        get_norm_laplacian(A_nonsym)
+
+
+def test_turn_to_partially_directed_weighted():
+    """Test turn_to_partially_directed with weighted option."""
+    mat = np.array([[0, 2.5, 0],
+                    [2.5, 0, 1.5],
+                    [0, 1.5, 0]])
+    
+    # Test with weighted=1
+    result = turn_to_partially_directed(mat, directed=0.0, weighted=1)
+    # Result is a sparse matrix, convert to dense for comparison
+    assert sp.issparse(result)
+    assert np.allclose(result.toarray(), mat)
+    
+    # Test with non-ndarray input
+    with pytest.raises(Exception, match="Wrong input parsed"):
+        turn_to_partially_directed([1, 2, 3], directed=0.0)
+
+
 class TestNetworkModuleImports:
     """Test imports for network module components."""
     
