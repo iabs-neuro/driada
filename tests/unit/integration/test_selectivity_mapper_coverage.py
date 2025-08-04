@@ -29,7 +29,11 @@ class TestSelectivityMapperCoverage:
         # Mock methods
         exp.get_significant_neurons = Mock(return_value={0: {'features': ['feat1']}, 5: {'features': ['feat2']}})
         exp.store_embedding = Mock()
-        exp.get_embedding = Mock()
+        # get_embedding should return a dictionary with 'data' and 'metadata'
+        exp.get_embedding = Mock(return_value={
+            'data': np.random.randn(100, 2),  # 100 timepoints, 2 components
+            'metadata': {'neuron_indices': list(range(20))}
+        })
         
         return exp
     
@@ -56,7 +60,7 @@ class TestSelectivityMapperCoverage:
         """Test mapper initialization without stats_tables."""
         from driada.integration import SelectivityManifoldMapper
         
-        exp = Mock()
+        exp = Mock(spec=['calcium', 'n_cells'])  # Only these attributes exist
         exp.calcium = Mock()
         exp.n_cells = 10
         # No stats_tables attribute
@@ -86,9 +90,12 @@ class TestSelectivityMapperCoverage:
     def test_create_embedding_with_spikes(self, mock_mapper):
         """Test creating embedding using spike data."""
         with patch('driada.integration.selectivity_mapper.MVData') as mock_mvdata:
-            # Mock the embedding object
+            # Mock the embedding object with correct number of frames
             mock_embedding = Mock()
-            mock_embedding.coords = np.random.randn(3, 100).T  # Transposed
+            # coords should be (n_components, n_timepoints) since code will transpose
+            coords = np.random.randn(3, 1000)  # 3 components, 1000 frames
+            mock_embedding.coords = coords
+            mock_embedding.shape = coords.shape  # Set shape attribute
             
             mock_mvdata_instance = Mock()
             mock_mvdata_instance.get_embedding = Mock(return_value=mock_embedding)
@@ -116,9 +123,12 @@ class TestSelectivityMapperCoverage:
     def test_create_embedding_with_downsampling(self, mock_mapper):
         """Test creating embedding with downsampling."""
         with patch('driada.integration.selectivity_mapper.MVData') as mock_mvdata:
-            # Mock the embedding object
+            # Mock the embedding object with correct downsampled frames
             mock_embedding = Mock()
-            mock_embedding.coords = np.random.randn(2, 200).T  # Downsampled
+            # coords should be (n_components, n_timepoints) since code will transpose
+            coords = np.random.randn(2, 200)  # 2 components, 200 frames
+            mock_embedding.coords = coords
+            mock_embedding.shape = coords.shape
             
             mock_mvdata_instance = Mock()
             mock_mvdata_instance.get_embedding = Mock(return_value=mock_embedding)
@@ -145,7 +155,10 @@ class TestSelectivityMapperCoverage:
         with patch('driada.integration.selectivity_mapper.MVData') as mock_mvdata:
             # Mock the embedding object
             mock_embedding = Mock()
-            mock_embedding.coords = np.random.randn(2, 1000).T
+            # coords should be (n_components, n_timepoints) since code will transpose
+            coords = np.random.randn(2, 1000)  # 2 components, 1000 frames
+            mock_embedding.coords = coords
+            mock_embedding.shape = coords.shape
             
             mock_mvdata_instance = Mock()
             mock_mvdata_instance.get_embedding = Mock(return_value=mock_embedding)
@@ -179,7 +192,10 @@ class TestSelectivityMapperCoverage:
         with patch('driada.integration.selectivity_mapper.MVData') as mock_mvdata:
             # Mock the embedding object
             mock_embedding = Mock()
-            mock_embedding.coords = np.random.randn(2, 1000).T
+            # coords should be (n_components, n_timepoints) since code will transpose
+            coords = np.random.randn(2, 1000)  # 2 components, 1000 frames
+            mock_embedding.coords = coords
+            mock_embedding.shape = coords.shape
             
             mock_mvdata_instance = Mock()
             mock_mvdata_instance.get_embedding = Mock(return_value=mock_embedding)
@@ -281,13 +297,51 @@ class TestSelectivityMapperCoverage:
         assert org['component_specialization'][1]['n_selective_neurons'] == 2
     
     def test_compare_embeddings_not_enough(self, mock_mapper):
-        """Test compare embeddings with insufficient embeddings."""
-        with pytest.raises(ValueError, match="Need at least 2 embeddings"):
+        """Test compare embeddings with no valid embeddings."""
+        # Mock get_functional_organization to raise KeyError for all
+        mock_mapper.get_functional_organization = Mock(side_effect=KeyError("No embedding found"))
+        
+        with pytest.raises(ValueError, match="No valid embeddings found"):
             mock_mapper.compare_embeddings(['pca'])
+    
+    def test_compare_embeddings_single_embedding(self, mock_mapper):
+        """Test compare embeddings with only one valid embedding."""
+        # Mock get_functional_organization to return data for one embedding
+        mock_mapper.get_functional_organization = Mock(return_value={
+            'n_components': 2,
+            'n_participating_neurons': 5,
+            'mean_components_per_neuron': 1.5,
+            'functional_clusters': []
+        })
+        
+        # Should return comparison with just one embedding
+        comparison = mock_mapper.compare_embeddings(['pca'])
+        assert comparison['methods'] == ['pca']
+        assert comparison['n_components']['pca'] == 2
     
     def test_compare_embeddings_missing_embedding(self, mock_mapper):
         """Test compare embeddings with missing embedding."""
         # Mock get_functional_organization to raise KeyError for missing
+        def side_effect(method, data_type):
+            if method == 'missing' or method == 'umap':
+                raise KeyError("No embedding found")
+            return {
+                'n_components': 2,
+                'n_participating_neurons': 5,
+                'mean_components_per_neuron': 1.5,
+                'functional_clusters': []
+            }
+        
+        mock_mapper.get_functional_organization = Mock(side_effect=side_effect)
+        
+        # Should return stats for the single valid embedding
+        comparison = mock_mapper.compare_embeddings(['pca', 'missing', 'umap'])
+        assert comparison['methods'] == ['pca']
+        assert comparison['n_components']['pca'] == 2
+    
+    def test_compare_embeddings_skip_one_missing(self, mock_mapper):
+        """Test compare embeddings skips one missing but keeps two valid."""
+        # Mock get_functional_organization to raise KeyError for missing only
         def side_effect(method, data_type):
             if method == 'missing':
                 raise KeyError("No embedding found")
@@ -300,7 +354,7 @@ class TestSelectivityMapperCoverage:
         
         mock_mapper.get_functional_organization = Mock(side_effect=side_effect)
         
-        # Should skip missing embedding
+        # Should skip missing embedding and compare pca vs umap
         comparison = mock_mapper.compare_embeddings(['pca', 'missing', 'umap'])
         
         # Should only have pca and umap

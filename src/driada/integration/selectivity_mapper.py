@@ -68,7 +68,7 @@ class SelectivityManifoldMapper:
             raise ValueError("Experiment must have calcium data")
         
         # Check if selectivity analysis has been performed
-        self.has_selectivity = hasattr(experiment, 'stats_tables') and experiment.stats_tables
+        self.has_selectivity = hasattr(experiment, 'stats_tables') and bool(experiment.stats_tables)
         
         if self.logger:
             self.logger.info(
@@ -356,8 +356,12 @@ class SelectivityManifoldMapper:
             except KeyError:
                 self.logger.warning(f"No embedding found for method '{method}'")
         
-        if len(organizations) < 2:
-            raise ValueError("Need at least 2 embeddings to compare")
+        if len(organizations) == 0:
+            raise ValueError("No valid embeddings found to compare")
+        
+        if len(organizations) == 1:
+            # Special case: only one embedding exists, return its stats without comparison
+            self.logger.info("Only one embedding found, returning individual statistics")
         
         comparison = {
             'methods': list(organizations.keys()),

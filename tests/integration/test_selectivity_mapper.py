@@ -352,9 +352,11 @@ class TestSelectivityManifoldMapper:
         # This method requires at least 2 embeddings to compare
         mapper.create_embedding('pca', n_components=3)
         
-        # Test that compare method exists and validates input correctly
-        with pytest.raises(ValueError, match="at least 2 embeddings"):
-            mapper.compare_embeddings(['pca'])
+        # Test that compare method exists and handles single embedding
+        # When only one embedding exists, it should return stats without comparison
+        single_comparison = mapper.compare_embeddings(['pca'])
+        assert single_comparison['methods'] == ['pca']
+        assert 'n_components' in single_comparison
         
         # Create second embedding for comparison
         mapper.create_embedding('umap', n_components=2)

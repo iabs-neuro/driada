@@ -643,7 +643,8 @@ class Experiment():
         if isinstance(calcium, np.ndarray):
             # Create temporary MultiTimeSeries from numpy array
             from ..information.info_base import TimeSeries, MultiTimeSeries
-            ts_list = [TimeSeries(calcium[i, :]) for i in range(calcium.shape[0])]
+            # Calcium data is always continuous, so explicitly set discrete=False
+            ts_list = [TimeSeries(calcium[i, :], discrete=False) for i in range(calcium.shape[0])]
             calcium_mts = MultiTimeSeries(ts_list)
         else:
             calcium_mts = calcium
