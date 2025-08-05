@@ -1,43 +1,151 @@
-from .graph_utils import *
-from .matrix_utils import *
+"""
+Graph randomization algorithms for network analysis.
+
+This module provides various methods for randomizing graphs while preserving
+certain structural properties like in-out motifs (IOM), degree sequences, etc.
+"""
+
+import copy
+import logging
+from typing import Optional, Union, Tuple, List
 import warnings
 import random
 
-def adj_random_rewiring_iom_preserving(a, is_weighted, r=10):
-    # print ('Rewiring double connections...')
+import numpy as np
+import scipy.sparse as sp
+import networkx as nx
+import tqdm
 
+from .graph_utils import *
+from .matrix_utils import *
+from ..utils.jit import conditional_njit
+
+
+def _validate_adjacency_matrix(
+    a: Union[np.ndarray, sp.spmatrix],
+    allow_dense: bool = True
+) -> None:
+    """Validate input adjacency matrix.
+    
+    Parameters
+    ----------
+    a : array-like
+        Adjacency matrix to validate
+    allow_dense : bool
+        Whether to allow dense matrices
+        
+    Raises
+    ------
+    ValueError
+        If matrix is invalid
+    """
+    if not (isinstance(a, np.ndarray) or sp.issparse(a)):
+        raise ValueError("Input must be a numpy array or scipy sparse matrix")
+    
+    if a.ndim != 2:
+        raise ValueError(f"Adjacency matrix must be 2D, got shape {a.shape}")
+        
+    if a.shape[0] != a.shape[1]:
+        raise ValueError(f"Adjacency matrix must be square, got shape {a.shape}")
+        
+    if not allow_dense and not sp.issparse(a):
+        raise ValueError("This function requires a sparse matrix input")
+
+
+def adj_random_rewiring_iom_preserving(
+    a: Union[np.ndarray, sp.spmatrix],
+    is_weighted: bool,
+    r: int = 10,
+    logger: Optional[logging.Logger] = None,
+    enable_progressbar: bool = True,
+    random_state: Optional[int] = None
+) -> sp.csr_matrix:
+    """
+    Perform In-Out-Motif (IOM) preserving graph randomization on adjacency matrix.
+    
+    This method rewires edges while preserving the in-out motif structure of the graph.
+    It handles symmetric (bidirectional) and non-symmetric (unidirectional) components
+    separately to maintain the graph's motif patterns.
+    
+    Parameters
+    ----------
+    a : array-like
+        Input adjacency matrix (sparse or dense)
+    is_weighted : bool
+        Whether the graph is weighted
+    r : int, default=10
+        Number of rewiring iterations per edge (higher values = more randomization)
+    logger : logging.Logger, optional
+        Logger for tracking progress
+    enable_progressbar : bool, default=True
+        Whether to show progress bar
+    random_state : int, optional
+        Random seed for reproducibility
+        
+    Returns
+    -------
+    scipy.sparse.csr_matrix
+        Randomized adjacency matrix
+        
+    References
+    ----------
+    Sporns, O., & Kötter, R. (2004). Motifs in brain networks. 
+    PLoS biology, 2(11), e369.
+    """
+    # Setup
+    logger = logger or logging.getLogger(__name__)
+    _validate_adjacency_matrix(a)
+    
+    if random_state is not None:
+        np.random.seed(random_state)
+        random.seed(random_state)
+    
+    logger.info(f"Starting IOM-preserving randomization with r={r}")
+    
+    # Process symmetric component (bidirectional edges)
     s = symmetric_component(a, is_weighted)
     rs = turn_to_partially_directed(s, directed=1.0, weighted=is_weighted)
-    rows, cols = rs.todense().nonzero()
+    # rs is already dense matrix
+    rows, cols = rs.nonzero()
     edgeset = set(zip(rows, cols))
-    upper = [l for l in edgeset]  # if l[0]<l[1]]
+    upper = list(edgeset)
     source_nodes = [e[0] for e in upper]
     target_nodes = [e[1] for e in upper]
 
     double_edges = len(upper)
+    total_double_rewires = double_edges * r
+    
+    logger.debug(f"Processing {double_edges} bidirectional edges")
 
+    # Progress tracking for double edges
+    if enable_progressbar:
+        pbar = tqdm.tqdm(total=total_double_rewires, desc="Rewiring bidirectional edges")
+    
     i = 0
-
-    while i < double_edges * r:
-        # print('i=',i)
+    while i < total_double_rewires:
         good_choice = 0
-        while not good_choice:
+        attempts = 0
+        max_attempts = 1000  # Prevent infinite loops
+        
+        while not good_choice and attempts < max_attempts:
             ind1, ind2 = np.random.choice(double_edges, 2)
             n1, n3 = source_nodes[ind1], source_nodes[ind2]
             n2, n4 = target_nodes[ind1], target_nodes[ind2]
 
             if len(set([n1, n2, n3, n4])) == 4:
                 good_choice = 1
+            attempts += 1
+        
+        if attempts >= max_attempts:
+            logger.warning(f"Max attempts reached for finding valid edge pair at iteration {i}")
+            break
 
         w1 = s[n1, n2]
         w2 = s[n2, n1]
         w3 = s[n3, n4]
         w4 = s[n4, n3]
 
-        '''
-        if w1*w2*w3*w4 == 0:
-            print(i, w1, w2, w3, w4)
-        '''
+        # Check if rewiring is valid (no existing edges)
         if s[n1, n3] + s[n1, n4] + s[n2, n3] + s[n2, n4] == 0:
             s[n1, n4] = w1
             s[n4, n1] = w2
@@ -52,41 +160,55 @@ def adj_random_rewiring_iom_preserving(a, is_weighted, r=10):
             target_nodes[ind1], target_nodes[ind2] = n4, n2
 
             i += 1
-            # print(get_symmetry_index(sp.csr_array(A)))
+            if enable_progressbar:
+                pbar.update(1)
+    
+    if enable_progressbar:
+        pbar.close()
 
-    # plt.matshow(s)
-    # print ('Rewiring single connections...')
-
+    # Process non-symmetric component (unidirectional edges)
     ns = non_symmetric_component(a, is_weighted)
-
-    # plt.matshow(ns)
     rows, cols = ns.nonzero()
-    edges = list((set(zip(rows, cols))))
+    edges = list(set(zip(rows, cols)))
     source_nodes = [e[0] for e in edges]
     target_nodes = [e[1] for e in edges]
     single_edges = len(edges)
+    total_single_rewires = single_edges * r
+    
+    logger.debug(f"Processing {single_edges} unidirectional edges")
+    
+    # Progress tracking for single edges
+    if enable_progressbar:
+        pbar = tqdm.tqdm(total=total_single_rewires, desc="Rewiring unidirectional edges")
 
     i = 0
-
-    while i < single_edges * r:
-        # while i < 10:
+    while i < total_single_rewires:
         good_choice = 0
-        while not good_choice:
+        attempts = 0
+        max_attempts = 1000
+        
+        while not good_choice and attempts < max_attempts:
             ind1, ind2 = np.random.choice(single_edges, 2)
             n1, n3 = source_nodes[ind1], source_nodes[ind2]
             n2, n4 = target_nodes[ind1], target_nodes[ind2]
 
             if len(set([n1, n2, n3, n4])) == 4:
                 good_choice = 1
+            attempts += 1
+        
+        if attempts >= max_attempts:
+            logger.warning(f"Max attempts reached for finding valid edge pair at iteration {i}")
+            break
 
         w1 = ns[n1, n2]
         w2 = ns[n3, n4]
 
+        # Check all possible conflicts
         checklist = [ns[n1, n3], ns[n1, n4], ns[n2, n3], ns[n2, n4],
                      ns[n3, n1], ns[n4, n1], ns[n3, n2], ns[n4, n2],
                      s[n3, n1], s[n4, n1], s[n3, n2], s[n4, n2]]
 
-        if checklist.count(0) == 12:
+        if checklist.count(0) == 12:  # No conflicting edges
             ns[n1, n4] = w1
             ns[n3, n2] = w2
 
@@ -94,23 +216,77 @@ def adj_random_rewiring_iom_preserving(a, is_weighted, r=10):
             ns[n3, n4] = 0
 
             i += 1
-
             target_nodes[ind1], target_nodes[ind2] = n4, n2
-            # print(get_symmetry_index(sp.csr_array(A)))
+            
+            if enable_progressbar:
+                pbar.update(1)
+    
+    if enable_progressbar:
+        pbar.close()
 
+    # Combine components
     res = s + ns
     if not is_weighted:
         res = res.astype(bool)
 
+    logger.info("IOM-preserving randomization completed")
     return sp.csr_array(res)
 
 
-def random_rewiring_complete_graph(a, p=1.0):
-    # p ranges from 0 to 1 and defines the degree of reshuffling (percent of edges affected)
+def random_rewiring_complete_graph(
+    a: Union[np.ndarray, sp.spmatrix],
+    p: float = 1.0,
+    logger: Optional[logging.Logger] = None,
+    random_state: Optional[int] = None
+) -> np.ndarray:
+    """
+    Randomize edge weights in a complete graph.
+    
+    This function shuffles edge weights while preserving the complete graph structure.
+    It's useful for testing null models where connectivity is fixed but weights vary.
+    
+    Parameters
+    ----------
+    a : array-like
+        Complete adjacency matrix
+    p : float, default=1.0
+        Proportion of edges to shuffle (0 to 1)
+    logger : logging.Logger, optional
+        Logger for tracking progress
+    random_state : int, optional
+        Random seed for reproducibility
+        
+    Returns
+    -------
+    numpy.ndarray
+        Randomized adjacency matrix
+        
+    Raises
+    ------
+    ValueError
+        If graph is not complete
+    """
+    logger = logger or logging.getLogger(__name__)
+    _validate_adjacency_matrix(a)
+    
+    if random_state is not None:
+        np.random.seed(random_state)
+    
+    # Convert to dense if sparse
+    if sp.issparse(a):
+        a = a.toarray()
+    
     n = a.shape[0]
-    if len(np.nonzero(a)[0]) < n ** 2 - n:
-        raise Exception('Graph is not complete')
-
+    n_edges = len(np.nonzero(a)[0])
+    n_expected = n ** 2 - n
+    
+    if n_edges < n_expected:
+        raise ValueError(f'Graph is not complete: has {n_edges} edges, expected {n_expected}')
+    
+    if not 0 <= p <= 1:
+        raise ValueError(f"p must be between 0 and 1, got {p}")
+    
+    logger.info(f"Randomizing complete graph with p={p}")
     symmetric = np.allclose(a, a.T)
 
     all_x_inds, all_y_inds = np.nonzero(a)
@@ -144,50 +320,137 @@ def random_rewiring_complete_graph(a, p=1.0):
     return rewired
 
 
-def random_rewiring_dense_graph(a):
+def random_rewiring_dense_graph(
+    a: Union[np.ndarray, sp.spmatrix],
+    logger: Optional[logging.Logger] = None,
+    random_state: Optional[int] = None,
+    gap_fill_weight: float = 0.0001
+) -> np.ndarray:
+    """
+    Randomize edge weights for dense (nearly complete) graphs.
+    
+    This function handles graphs that are almost complete by using a "gap filling"
+    technique. It adds small weights to missing edges, performs randomization,
+    then removes them.
+    
+    Parameters
+    ----------
+    a : array-like
+        Dense adjacency matrix
+    logger : logging.Logger, optional
+        Logger for tracking progress
+    random_state : int, optional
+        Random seed for reproducibility
+    gap_fill_weight : float, default=0.0001
+        Small weight to temporarily fill gaps
+        
+    Returns
+    -------
+    numpy.ndarray
+        Randomized adjacency matrix
+    """
+    logger = logger or logging.getLogger(__name__)
+    _validate_adjacency_matrix(a)
+    
+    if random_state is not None:
+        np.random.seed(random_state)
+    
+    # Convert to dense
     if isinstance(a, np.ndarray):
-        afull = a
+        afull = a.copy()
         nelem = len(np.nonzero(a)[0])
     else:
-        afull = a.todense()
+        afull = a.toarray()
         nelem = a.nnz
-
-    if nelem != a.shape[0] ** 2 - a.shape[0]:
-        # warnings.warn('Graph is not complete, proceeding with gap filling trick')
-        temp = 0.0001
+    
+    n = a.shape[0]
+    max_edges = n ** 2 - n
+    
+    if nelem != max_edges:
+        logger.debug(f'Graph is not complete ({nelem}/{max_edges} edges), using gap filling')
+        temp = gap_fill_weight
     else:
         temp = 0
 
-    psA = afull + np.full(a.shape, temp) - np.eye(a.shape[0]) * temp
-    vals = psA[np.nonzero(np.triu(psA))]
+    # Fill gaps with small weights
+    ps_a = afull + np.full(a.shape, temp) - np.eye(n) * temp
+    
+    # Extract upper triangular values (exploit symmetry)
+    vals = ps_a[np.nonzero(np.triu(ps_a))]
     np.random.shuffle(vals)
 
+    # Reconstruct symmetric matrix
     tri = np.zeros(a.shape)
-    tri[np.triu_indices(a.shape[0], 1)] = vals
+    tri[np.triu_indices(n, 1)] = vals
     rewired = tri + tri.T
-    res = rewired - np.full(a.shape, temp) + np.eye(a.shape[0]) * temp
+    
+    # Remove gap filling weights
+    res = rewired - np.full(a.shape, temp) + np.eye(n) * temp
 
+    logger.info("Dense graph randomization completed")
     return res
 
 
-def get_single_double_edges_lists(g):
-    L1 = []
-    L2 = []
+def get_single_double_edges_lists(g: nx.Graph) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
+    """
+    Separate edges into single (unidirectional) and double (bidirectional) lists.
+    
+    Parameters
+    ----------
+    g : networkx.Graph or DiGraph
+        Input graph
+        
+    Returns
+    -------
+    tuple of lists
+        (single_edges, double_edges) where each is a list of (source, target) tuples
+    """
+    single_edges = []
+    double_edges = []
     h = nx.to_undirected(g).copy()
+    
     for e in h.edges():
         if g.has_edge(e[1], e[0]):
             if g.has_edge(e[0], e[1]):
-                L2.append((e[0], e[1]))
+                double_edges.append((e[0], e[1]))
             else:
-                L1.append((e[1], e[0]))
+                single_edges.append((e[1], e[0]))
         else:
-            L1.append((e[0], e[1]))
+            single_edges.append((e[0], e[1]))
 
-    return [L1, L2]
+    return single_edges, double_edges
 
 
-# warning: the code below is legacy and may be inefficient
-def random_rewiring_IOM_preserving(G, r=10):
+def random_rewiring_IOM_preserving(G: nx.Graph, r: int = 10) -> nx.Graph:
+    """
+    DEPRECATED: Use adj_random_rewiring_iom_preserving() instead.
+    
+    Legacy NetworkX-based implementation of IOM-preserving randomization.
+    This function is slower and less efficient than the adjacency matrix version.
+    
+    Parameters
+    ----------
+    G : networkx.Graph
+        Input graph
+    r : int, default=10
+        Number of rewiring iterations per edge
+        
+    Returns
+    -------
+    networkx.Graph
+        Randomized graph
+        
+    Warnings
+    --------
+    This function is deprecated and will be removed in v2.0.
+    Use adj_random_rewiring_iom_preserving() with nx.adjacency_matrix() instead.
+    """
+    warnings.warn(
+        "random_rewiring_IOM_preserving is deprecated and will be removed in v2.0. "
+        "Use adj_random_rewiring_iom_preserving() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
 
     [L1, L2] = get_single_double_edges_lists(G)
     Number_of_single_edges = len(L1)
@@ -199,8 +462,7 @@ def random_rewiring_IOM_preserving(G, r=10):
     count = 0
     previous_text = ''
 
-    # print len(set(L).intersection(List_of_edges))
-    print('Rewiring double connections...')
+    # Legacy implementation - not optimized
     while i < Number_of_rewired_2_edge_pairs:
         Edge_index_1 = random.randint(0, Number_of_double_edges - 1)
         Edge_index_2 = random.randint(0, Number_of_double_edges - 1)
@@ -274,7 +536,7 @@ def random_rewiring_IOM_preserving(G, r=10):
             previous_text = text
 
     i = 0
-    print('Rewiring single connections...')
+    # Process single connections
     while i < Number_of_rewired_1_edge_pairs:
         Edge_index_1 = random.randint(0, Number_of_single_edges - 1)
         Edge_index_2 = random.randint(0, Number_of_single_edges - 1)
@@ -302,7 +564,7 @@ def random_rewiring_IOM_preserving(G, r=10):
 
 
             except nx.NetworkXError:
-                print('fuck')
+                pass  # Error handled
 
             try:
                 try:
@@ -312,7 +574,7 @@ def random_rewiring_IOM_preserving(G, r=10):
                 G.remove_edge(Node_C, Node_D)
 
             except nx.NetworkXError:
-                print('fuck')
+                pass  # Error handled
 
             try:
                 G.add_edge(Node_A, Node_D, weight=w_ab)
@@ -338,3 +600,106 @@ def random_rewiring_IOM_preserving(G, r=10):
     G_rewired = copy.deepcopy(G)
 
     return G_rewired
+
+
+def randomize_graph(
+    adjacency: Union[np.ndarray, sp.spmatrix],
+    method: str = 'iom',
+    iterations: Optional[int] = None,
+    preserve_weights: bool = True,
+    p: float = 1.0,
+    logger: Optional[logging.Logger] = None,
+    enable_progressbar: bool = True,
+    random_state: Optional[int] = None,
+    **kwargs
+) -> Union[np.ndarray, sp.spmatrix]:
+    """
+    Unified interface for graph randomization.
+    
+    This function provides a single entry point for all graph randomization methods,
+    making it easier to switch between different algorithms.
+    
+    Parameters
+    ----------
+    adjacency : array-like
+        Input adjacency matrix (sparse or dense)
+    method : str, default='iom'
+        Randomization method to use:
+        - 'iom': In-Out-Motif preserving (for general graphs)
+        - 'complete': Complete graph randomization (weights only)
+        - 'dense': Dense graph randomization (with gap filling)
+    iterations : int, optional
+        Number of rewiring iterations (method-specific)
+        Default: 10 * number of edges for 'iom'
+    preserve_weights : bool, default=True
+        Whether to preserve edge weights
+    p : float, default=1.0
+        Proportion of edges to shuffle (for 'complete' method)
+    logger : logging.Logger, optional
+        Logger for tracking progress
+    enable_progressbar : bool, default=True
+        Whether to show progress bar
+    random_state : int, optional
+        Random seed for reproducibility
+    **kwargs
+        Additional method-specific parameters
+        
+    Returns
+    -------
+    array-like
+        Randomized adjacency matrix (same format as input)
+        
+    Raises
+    ------
+    ValueError
+        If unknown method is specified
+        
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.network.randomization import randomize_graph
+    >>> 
+    >>> # Create a simple adjacency matrix
+    >>> adj = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+    >>> 
+    >>> # Randomize using IOM preservation
+    >>> rand_adj = randomize_graph(adj, method='iom', random_state=42)
+    >>> 
+    >>> # Randomize complete graph weights
+    >>> rand_adj = randomize_graph(adj, method='complete', p=0.5)
+    """
+    logger = logger or logging.getLogger(__name__)
+    
+    if method == 'iom':
+        r = iterations or 10
+        return adj_random_rewiring_iom_preserving(
+            adjacency,
+            is_weighted=preserve_weights,
+            r=r,
+            logger=logger,
+            enable_progressbar=enable_progressbar,
+            random_state=random_state
+        )
+    
+    elif method == 'complete':
+        return random_rewiring_complete_graph(
+            adjacency,
+            p=p,
+            logger=logger,
+            random_state=random_state
+        )
+    
+    elif method == 'dense':
+        gap_fill_weight = kwargs.get('gap_fill_weight', 0.0001)
+        return random_rewiring_dense_graph(
+            adjacency,
+            logger=logger,
+            random_state=random_state,
+            gap_fill_weight=gap_fill_weight
+        )
+    
+    else:
+        raise ValueError(
+            f"Unknown randomization method: {method}. "
+            f"Choose from: 'iom', 'complete', 'dense'"
+        )

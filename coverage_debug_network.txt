@@ -4,20 +4,49 @@ cachedir: .pytest_cache
 rootdir: /Users/nikita/PycharmProjects/driada2
 configfile: pytest.ini
 plugins: timeout-2.4.0, cov-6.2.1
-collecting ... collected 13 items
+collecting ... collected 42 items
 
-tests/unit/network/test_network.py::test_init_from_adj PASSED            [  7%]
-tests/unit/network/test_network.py::test_init_from_graph PASSED          [ 15%]
-tests/unit/network/test_network.py::test_remove_isolates PASSED          [ 23%]
-tests/unit/network/test_network.py::test_take_giant_cс PASSED            [ 30%]
-tests/unit/network/test_network.py::test_take_giant_scc PASSED           [ 38%]
-tests/unit/network/test_network.py::test_diagonalize PASSED              [ 46%]
-tests/unit/network/test_network.py::test_assign_random_weights PASSED    [ 53%]
-tests/unit/network/test_network.py::test_matrix_utils_edge_cases PASSED  [ 61%]
-tests/unit/network/test_network.py::test_turn_to_partially_directed_weighted PASSED [ 69%]
-tests/unit/network/test_network.py::TestNetworkModuleImports::test_import_drawing PASSED [ 76%]
-tests/unit/network/test_network.py::TestNetworkModuleImports::test_import_quantum PASSED [ 84%]
-tests/unit/network/test_network.py::TestNetworkModuleImports::test_import_spectral PASSED [ 92%]
+tests/unit/network/test_randomization.py::TestValidation::test_validate_adjacency_matrix_valid PASSED [  2%]
+tests/unit/network/test_randomization.py::TestValidation::test_validate_adjacency_matrix_invalid PASSED [  4%]
+tests/unit/network/test_randomization.py::TestIOMPreserving::test_iom_basic PASSED [  7%]
+tests/unit/network/test_randomization.py::TestIOMPreserving::test_iom_preserves_degree_sequence PASSED [  9%]
+tests/unit/network/test_randomization.py::TestIOMPreserving::test_iom_weighted PASSED [ 11%]
+tests/unit/network/test_randomization.py::TestIOMPreserving::test_iom_with_logging PASSED [ 14%]
+tests/unit/network/test_randomization.py::TestIOMPreserving::test_iom_progress_bar PASSED [ 16%]
+tests/unit/network/test_randomization.py::TestIOMPreserving::test_iom_reproducibility PASSED [ 19%]
+tests/unit/network/test_randomization.py::TestIOMPreserving::test_iom_small_graph_warning PASSED [ 21%]
+tests/unit/network/test_randomization.py::TestCompleteGraphRandomization::test_complete_basic PASSED [ 23%]
+tests/unit/network/test_randomization.py::TestCompleteGraphRandomization::test_complete_partial_shuffle PASSED [ 26%]
+tests/unit/network/test_randomization.py::TestCompleteGraphRandomization::test_complete_symmetry_preserved PASSED [ 28%]
+tests/unit/network/test_randomization.py::TestCompleteGraphRandomization::test_complete_invalid_input PASSED [ 30%]
+tests/unit/network/test_randomization.py::TestCompleteGraphRandomization::test_complete_invalid_p PASSED [ 33%]
+tests/unit/network/test_randomization.py::TestCompleteGraphRandomization::test_complete_sparse_input PASSED [ 35%]
+tests/unit/network/test_randomization.py::TestDenseGraphRandomization::test_dense_basic PASSED [ 38%]
+tests/unit/network/test_randomization.py::TestDenseGraphRandomization::test_dense_complete_graph PASSED [ 40%]
+tests/unit/network/test_randomization.py::TestDenseGraphRandomization::test_dense_gap_filling PASSED [ 42%]
+tests/unit/network/test_randomization.py::TestDenseGraphRandomization::test_dense_sparse_input PASSED [ 45%]
+tests/unit/network/test_randomization.py::TestHelperFunctions::test_get_single_double_edges_lists PASSED [ 47%]
+tests/unit/network/test_randomization.py::TestHelperFunctions::test_legacy_function_deprecation PASSED [ 50%]
+tests/unit/network/test_randomization.py::TestUnifiedAPI::test_unified_iom PASSED [ 52%]
+tests/unit/network/test_randomization.py::TestUnifiedAPI::test_unified_complete PASSED [ 54%]
+tests/unit/network/test_randomization.py::TestUnifiedAPI::test_unified_dense PASSED [ 57%]
+tests/unit/network/test_randomization.py::TestUnifiedAPI::test_unified_invalid_method PASSED [ 59%]
+tests/unit/network/test_randomization.py::TestUnifiedAPI::test_unified_logging PASSED [ 61%]
+tests/unit/network/test_randomization.py::TestEdgeCases::test_empty_graph PASSED [ 64%]
+tests/unit/network/test_randomization.py::TestEdgeCases::test_single_edge_graph PASSED [ 66%]
+tests/unit/network/test_randomization.py::TestEdgeCases::test_self_loops_ignored PASSED [ 69%]
+tests/unit/network/test_network.py::test_init_from_adj PASSED            [ 71%]
+tests/unit/network/test_network.py::test_init_from_graph PASSED          [ 73%]
+tests/unit/network/test_network.py::test_remove_isolates PASSED          [ 76%]
+tests/unit/network/test_network.py::test_take_giant_cс PASSED            [ 78%]
+tests/unit/network/test_network.py::test_take_giant_scc PASSED           [ 80%]
+tests/unit/network/test_network.py::test_diagonalize PASSED              [ 83%]
+tests/unit/network/test_network.py::test_assign_random_weights PASSED    [ 85%]
+tests/unit/network/test_network.py::test_matrix_utils_edge_cases PASSED  [ 88%]
+tests/unit/network/test_network.py::test_turn_to_partially_directed_weighted PASSED [ 90%]
+tests/unit/network/test_network.py::TestNetworkModuleImports::test_import_drawing PASSED [ 92%]
+tests/unit/network/test_network.py::TestNetworkModuleImports::test_import_quantum PASSED [ 95%]
+tests/unit/network/test_network.py::TestNetworkModuleImports::test_import_spectral PASSED [ 97%]
 tests/unit/network/test_network.py::TestNetworkModuleImports::test_import_randomization PASSED [100%]
 
 ================================ tests coverage ================================
@@ -25,21 +54,19 @@ ______________ coverage: platform darwin, python 3.10.18-final-0 _______________
 
 Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
 -------------------------------------------------------------------------------------------------------
-src/driada/dim_reduction/dim_reduction.py                     55     55     12      0   0.00%   1-75
 src/driada/dimensionality/effective.py                        26     26     12      0   0.00%   1-43
 src/driada/dimensionality/intrinsic.py                        52     52     24      0   0.00%   8-180
 src/driada/dimensionality/linear.py                           54     54     16      0   0.00%   8-218
 src/driada/dimensionality/utils.py                            44     44      8      0   0.00%   1-91
 src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-18
 src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-61
-src/driada/integration/selectivity_mapper.py                 123    123     58      0   0.00%   8-388
+src/driada/integration/selectivity_mapper.py                 125    125     60      0   0.00%   8-392
 src/driada/intense/pipelines.py                              283    275    164      0   1.79%   191-425, 533-657, 766-887, 985-1110
 src/driada/experiment/synthetic/experiment_generators.py     276    263    146      0   3.08%   81-179, 209-279, 364-863
-src/driada/network/randomization.py                          232    223     54      0   3.15%   9-105, 110-144, 148-170, 174-186, 192-340
 src/driada/utils/visual.py                                   285    271    134      0   3.34%   65-241, 275-361, 404-492, 537-623, 660-709, 742-788
 src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 177-267, 291-304, 332-391
-src/driada/intense/intense_base.py                           406    382    220      0   3.83%   30-61, 86-113, 138-148, 204-224, 282-311, 379-450, 518-632, 694-742, 806-833, 868, 872, 876-877, 881-882, 1050-1337, 1386-1425
 src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-54, 89-142, 177-227, 289-345, 381-455, 503-620
+src/driada/intense/intense_base.py                           412    384    220      0   4.43%   18-20, 41-72, 97-124, 149-159, 215-235, 293-322, 390-461, 529-643, 705-753, 817-844, 879, 883, 887-888, 892-893, 1061-1348, 1397-1436
 src/driada/experiment/synthetic/mixed_selectivity.py         126    116     70      0   5.10%   48-84, 111-157, 185-217, 285-411
 src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
 src/driada/rsa/core.py                                       165    149     84      0   6.43%   45-78, 110-138, 174-225, 251-275, 320-358, 432-488, 549-595
@@ -56,7 +83,7 @@ src/driada/rsa/visual.py                                      80     71     28  
 src/driada/experiment/exp_build.py                           106     92     60      0   8.43%   23-100, 119-183, 187-190, 194-198
 src/driada/network/drawing.py                                133    117     54      0   8.56%   13-54, 57-68, 72-75, 80-131, 135-157, 161-174, 179-203
 src/driada/experiment/synthetic/utils.py                       7      6      4      0   9.09%   27-34
-src/driada/experiment/exp_base.py                            380    328    190      0   9.12%   21-39, 57-170, 173-178, 184-192, 199-226, 232-236, 240-262, 268-285, 293-296, 302-309, 315-343, 349-361, 368-379, 386-400, 414-433, 440-446, 455-466, 474-482, 491-497, 504-510, 524-534, 549-563, 575-592, 595, 608-618, 640-663, 686-707, 714-715, 719-724, 727, 730, 733-734, 751-763, 786-792, 820-839, 843
+src/driada/experiment/exp_base.py                            380    328    190      0   9.12%   21-39, 57-170, 173-178, 184-192, 199-226, 232-236, 240-262, 268-285, 293-296, 302-309, 315-343, 349-361, 368-379, 386-400, 414-433, 440-446, 455-466, 474-482, 491-497, 504-510, 524-534, 549-563, 575-592, 595, 608-618, 640-664, 687-708, 715-716, 720-725, 728, 731, 734-735, 752-764, 787-793, 821-840, 844
 src/driada/gdrive/download.py                                103     89     46      0   9.40%   21-59, 73-111, 122-170, 174-193
 src/driada/dim_reduction/embedding.py                        276    243     72      0   9.48%   17-19, 25-28, 32-36, 45-70, 73-82, 85-90, 94-100, 104-116, 120-126, 129-131, 134-138, 141-162, 165-173, 176, 179-195, 198-200, 203-208, 221-408, 418-514, 519-523, 546-553
 src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 155-176, 215-286, 308-315, 334-354
@@ -75,6 +102,7 @@ src/driada/utils/plot.py                                      38     31     18  
 src/driada/experiment/wavelet_event_detection.py             156    130     40      1  13.78%   9, 39-42, 46-109, 117-164, 168-169, 173-181, 191-209, 213-249, 255-276, 281-289
 src/driada/information/info_utils.py                          41     34      8      0  14.29%   6-19, 24-34, 38-62
 src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
+src/driada/dim_reduction/sequences.py                         22     17     12      0  14.71%   67-101
 src/driada/information/ksg.py                                 87     71     20      0  14.95%   17, 22, 26-27, 31, 39-42, 50-68, 78-86, 93-96, 105-141, 145-164
 src/driada/experiment/spike_reconstruction.py                 48     39      8      0  16.07%   49-62, 93-126, 160-215
 src/driada/network/quantum.py                                 39     31      8      0  17.02%   7-14, 18-27, 31-33, 37-55
@@ -89,11 +117,12 @@ src/driada/utils/output.py                                    16     10      4  
 src/driada/utils/jit.py                                       29     17      4      1  39.39%   17-25, 58-60, 68, 73-78
 src/driada/network/graph_utils.py                             46     22     10      1  44.64%   26, 47-49, 53-75
 src/driada/network/net_base.py                               379    179    168     36  50.09%   20, 23, 27, 32-33, 39-41, 45-55, 63, 66, 74, 103->109, 106->109, 110->116, 113->116, 117->120, 160-162, 179, 188, 193, 210-217, 220-224, 242, 246->249, 254, 259, 269-270, 274-304, 328-338, 352-355, 363-369, 372-378, 381-387, 390-396, 407, 410->413, 415, 425, 427, 431-432, 435, 440, 446, 454-455, 462-463, 471-472, 477, 482-502, 505-515, 519-530, 533-535, 538-540, 543-545, 548-550, 553-557, 560-570, 573-596
+src/driada/network/randomization.py                          312    100     94      5  70.20%   308, 315-316, 417, 467-536, 541-598
 src/driada/network/matrix_utils.py                           203      8     60      0  96.20%   253-261
 -------------------------------------------------------------------------------------------------------
-TOTAL                                                       8004   6776   3128     40  12.25%
+TOTAL                                                       8059   6619   3170     45  14.69%
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-============================== 13 passed in 5.44s ==============================
+============================= 42 passed in 10.49s ==============================
 
