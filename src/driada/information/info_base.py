@@ -320,8 +320,17 @@ class MultiTimeSeries(MVData):
 
     def _compute_entropy(self, ds=1):
         if self.discrete:
-            # All components are discrete - use joint discrete entropy
-            self.entropy[ds] = entropy_d(self.int_data[:, ::ds])
+            # All components are discrete - compute joint entropy
+            if self.n_dim == 1:
+                # Single variable - use regular discrete entropy
+                self.entropy[ds] = entropy_d(self.int_data[0, ::ds])
+            elif self.n_dim == 2:
+                # Two variables - use joint_entropy_dd
+                from .entropy import joint_entropy_dd
+                self.entropy[ds] = joint_entropy_dd(self.int_data[0, ::ds], self.int_data[1, ::ds])
+            else:
+                # Multiple discrete variables not yet supported
+                raise NotImplementedError(f"Joint entropy for {self.n_dim} discrete variables is not yet implemented")
         else:
             # All continuous - use existing continuous entropy
             self.entropy[ds] = ent_g(self.data[:, ::ds])
@@ -342,15 +351,24 @@ class MultiTimeSeries(MVData):
         MultiTimeSeries
             New MultiTimeSeries object with all components filtered
         """
-        from ..signals.neural_filtering import filter_neural_signals
+        from ..utils.signals import filter_signals
+        
+        if method == 'none':
+            # Return a copy without filtering
+            return MultiTimeSeries(self.data.copy(), labels=self.labels.copy() if self.labels is not None else None,
+                                  rescale_rows=False, data_name=self.data_name, 
+                                  discrete=self.discrete, shuffle_mask=self.shuffle_mask.copy())
+        
+        if self.discrete:
+            warnings.warn("Filtering discrete MultiTimeSeries may produce unexpected results")
         
         # Apply filtering to all time series at once
-        filtered_data = filter_neural_signals(self.data, method=method, **kwargs)
+        filtered_data = filter_signals(self.data, method=method, **kwargs)
         
         # Create new MultiTimeSeries from filtered data
-        return MultiTimeSeries(filtered_data, labels=self.labels, 
-                              rescale_rows=self.rescale_rows, 
-                              data_name=self.data_name, discrete=self.discrete)
+        return MultiTimeSeries(filtered_data, labels=self.labels.copy() if self.labels is not None else None,
+                              rescale_rows=False, data_name=self.data_name, 
+                              discrete=self.discrete, shuffle_mask=self.shuffle_mask.copy())
 
 
 def get_stats_function(sname):
@@ -478,7 +496,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
                 raise Exception('Multidimensional inputs must be provided as MultiTimeSeries')
         return ts
 
-    def multi_single_mi(mts, ts, ds=1, k=5, estimator='gcmi'):
+    def multi_single_mi(mts, ts, shift=0, ds=1, k=5, estimator='gcmi'):
         if estimator == 'ksg':
             raise NotImplementedError('KSG estimator is not supported for dim>1 yet')
 
@@ -492,11 +510,11 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
                     return 0.0
 
         if ts.discrete:
-            ny1 = np.roll(mts.copula_normal_data[:, ::ds], shift)
+            ny1 = mts.copula_normal_data[:, ::ds]
+            ny2 = np.roll(ts.int_data[::ds], shift)
             # Ensure ny1 is contiguous for better performance with Numba
             if not ny1.flags['C_CONTIGUOUS']:
                 ny1 = np.ascontiguousarray(ny1)
-            ny2 = ts.int_data[::ds]
             mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
 
         else:
@@ -506,12 +524,12 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
 
         return mi
 
-    def multi_multi_mi(mts1, mts2, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
+    def multi_multi_mi(mts1, mts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=False):
         if estimator == 'ksg':
             raise NotImplementedError('KSG estimator is not supported for dim>1 yet')
 
         if check_for_coincidence:
-            if np.allclose(ts1.data, ts2.data) and shift == 0:  # and not (ts1.discrete and ts2.discrete):
+            if np.allclose(mts1.data, mts2.data) and shift == 0:  # and not (mts1.discrete and mts2.discrete):
                 warnings.warn('MI computation of a MultiTimeSeries with itself is meaningless, 0 will be returned forcefully')
                 # raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
                 return 0.0
@@ -535,18 +553,18 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincidence=Fal
                        check_for_coincidence=check_for_coincidence)
 
     if isinstance(ts1, MultiTimeSeries) and isinstance(ts2, TimeSeries):
-        mi = multi_single_mi(ts1, ts2, ds=ds, k=k, estimator=estimator)
+        mi = multi_single_mi(ts1, ts2, shift=shift, ds=ds, k=k, estimator=estimator)
 
     if isinstance(ts2, MultiTimeSeries) and isinstance(ts1, TimeSeries):
-        mi = multi_single_mi(ts2, ts1, ds=ds, k=k, estimator=estimator)
+        mi = multi_single_mi(ts2, ts1, shift=shift, ds=ds, k=k, estimator=estimator)
 
     if isinstance(ts1, MultiTimeSeries) and isinstance(ts2, MultiTimeSeries):
-        mi = multi_multi_mi(ts1, ts2, ds=ds, k=k, estimator=estimator,
+        mi = multi_multi_mi(ts1, ts2, shift=shift, ds=ds, k=k, estimator=estimator,
                             check_for_coincidence=check_for_coincidence)
         #raise NotImplementedError('MI computation between two MultiTimeSeries is not supported yet')
 
     if mi < 0:
-        mi = 0
+        mi = 0.0
 
     return mi
 
@@ -600,7 +618,7 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator='gcmi', check_for_coincide
             y = np.roll(y, shift)
 
         if not ts1.discrete and not ts2.discrete:
-            mi = nonparam_mi_cc_mod(ts1.data, y, k=k,
+            mi = nonparam_mi_cc(ts1.data[::ds], y[::ds], k=k,
                                     precomputed_tree_x=ts1.get_kdtree(),
                                     precomputed_tree_y=ts2.get_kdtree())
 
@@ -703,7 +721,7 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator='gcmi'):
         raise ValueError('Multidimensional MI only implemented for continuous data!')
 
     if mi < 0:
-        mi = 0
+        mi = 0.0
 
     return mi
 
@@ -878,6 +896,15 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
         H_z = entropy_d(ts3.int_data[::ds])
         #print('entropies:', H_xz, H_yz, H_xyz, H_z)
         cmi = H_xz + H_yz - H_xyz - H_z
+        
+        # Ensure CMI >= 0 due to information theory constraint
+        # Small negative values are due to numerical precision and estimation noise
+        if cmi < 0:
+            if abs(cmi) < 0.01:
+                cmi = 0.0
+            else:
+                raise ValueError(f"Conditional MI is significantly negative ({cmi:.4f}). "
+                               "This indicates numerical issues in entropy estimation.")
 
     return cmi
 
