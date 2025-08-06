@@ -1,0 +1,175 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /opt/anaconda3/envs/driada/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/nikita/PycharmProjects/driada2
+configfile: pytest.ini
+plugins: timeout-2.4.0, cov-6.2.1
+collecting ... collected 89 items
+
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_redundant PASSED [  1%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_redundant_verbose PASSED [  2%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_synergistic PASSED [  3%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_undistinguishable PASSED [  4%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_zero_mi PASSED [  5%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_dominant_feature PASSED [  6%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_downsampling PASSED [  7%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_discrete PASSED [  8%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_basic[medium] PASSED [ 10%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_cell_bunch[medium] PASSED [ 11%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_with_significance[small] PASSED [ 12%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_multifeature[small] PASSED [ 13%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_empty_neurons[small] PASSED [ 14%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_error_handling[small] PASSED [ 15%]
+tests/unit/intense/test_disentanglement.py::test_create_multifeature_map_valid[small] PASSED [ 16%]
+tests/unit/intense/test_disentanglement.py::test_create_multifeature_map_invalid[small] PASSED [ 17%]
+tests/unit/intense/test_disentanglement.py::test_create_multifeature_map_empty[small] PASSED [ 19%]
+tests/unit/intense/test_disentanglement.py::test_get_disentanglement_summary_basic PASSED [ 20%]
+tests/unit/intense/test_disentanglement.py::test_get_disentanglement_summary_with_significance PASSED [ 21%]
+tests/unit/intense/test_disentanglement.py::test_get_disentanglement_summary_empty PASSED [ 22%]
+tests/unit/intense/test_disentanglement.py::test_get_disentanglement_summary_redundant PASSED [ 23%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_short_timeseries PASSED [ 24%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_identical_timeseries PASSED [ 25%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_constant_timeseries PASSED [ 26%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_mixed_discrete_continuous PASSED [ 28%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_pair_high_downsampling PASSED [ 29%]
+tests/unit/intense/test_disentanglement.py::test_default_multifeature_map PASSED [ 30%]
+tests/unit/intense/test_stats.py::test_chebyshev_ineq PASSED             [ 31%]
+tests/unit/intense/test_stats.py::test_get_lognormal_p PASSED            [ 32%]
+tests/unit/intense/test_stats.py::test_get_gamma_p PASSED                [ 33%]
+tests/unit/intense/test_stats.py::test_get_distribution_function PASSED  [ 34%]
+tests/unit/intense/test_stats.py::test_get_mi_distr_pvalue PASSED        [ 35%]
+tests/unit/intense/test_stats.py::test_get_mask PASSED                   [ 37%]
+tests/unit/intense/test_stats.py::test_stats_not_empty PASSED            [ 38%]
+tests/unit/intense/test_stats.py::test_criterion1 PASSED                 [ 39%]
+tests/unit/intense/test_stats.py::test_criterion2 PASSED                 [ 40%]
+tests/unit/intense/test_stats.py::test_get_all_nonempty_pvals PASSED     [ 41%]
+tests/unit/intense/test_stats.py::test_get_table_of_stats PASSED         [ 42%]
+tests/unit/intense/test_stats.py::test_merge_stage_stats PASSED          [ 43%]
+tests/unit/intense/test_stats.py::test_merge_stage_significance PASSED   [ 44%]
+tests/unit/intense/test_stats.py::test_edge_cases_and_numerical_stability PASSED [ 46%]
+tests/unit/intense/test_stats.py::test_distribution_fitting_edge_cases PASSED [ 47%]
+tests/unit/intense/test_intense.py::test_stage1 PASSED                   [ 48%]
+tests/unit/intense/test_intense.py::test_two_stage PASSED                [ 49%]
+tests/unit/intense/test_intense.py::test_mixed_dimensions PASSED         [ 50%]
+tests/unit/intense/test_intense.py::test_mirror PASSED                   [ 51%]
+tests/unit/intense/test_intense.py::test_two_stage_corr PASSED           [ 52%]
+tests/unit/intense/test_intense.py::test_two_stage_avsignal PASSED       [ 53%]
+tests/unit/intense/test_intense.py::test_calculate_optimal_delays PASSED [ 55%]
+tests/unit/intense/test_intense.py::test_validate_time_series_bunches_empty PASSED [ 56%]
+tests/unit/intense/test_intense.py::test_validate_metric PASSED          [ 57%]
+tests/unit/intense/test_intense.py::test_validate_common_parameters PASSED [ 58%]
+tests/unit/intense/test_intense.py::test_multicomp_correction PASSED     [ 59%]
+tests/unit/intense/test_intense.py::test_intense_results PASSED          [ 60%]
+tests/unit/intense/test_intense.py::test_stats_functions PASSED          [ 61%]
+tests/unit/intense/test_intense.py::test_get_table_of_stats PASSED       [ 62%]
+tests/unit/intense/test_intense.py::test_merge_stage_stats PASSED        [ 64%]
+tests/unit/intense/test_intense.py::test_merge_stage_significance PASSED [ 65%]
+tests/unit/intense/test_intense.py::test_scan_pairs PASSED               [ 66%]
+tests/unit/intense/test_intense.py::test_scan_pairs_router PASSED        [ 67%]
+tests/unit/intense/test_intense.py::test_intenseresults_save_load PASSED [ 68%]
+tests/unit/intense/test_intense.py::test_validate_common_parameters_edge_cases PASSED [ 69%]
+tests/unit/intense/test_intense.py::test_validate_metric_scipy_functions PASSED [ 70%]
+tests/unit/intense/test_intense.py::test_get_mi_distr_pvalue_edge_cases PASSED [ 71%]
+tests/unit/intense/test_intense.py::test_validate_time_series_bunches_mixed_dimensions PASSED [ 73%]
+tests/unit/intense/test_intense.py::test_get_multicomp_correction_fdr PASSED [ 74%]
+tests/unit/intense/test_intense.py::test_compute_cell_feat_significance_integration PASSED [ 75%]
+tests/unit/intense/test_intense.py::test_stats_not_empty_stage2 PASSED   [ 76%]
+tests/unit/intense/test_intense.py::test_parallel_mi_equality PASSED     [ 77%]
+tests/unit/intense/test_intense.py::test_parallel_router PASSED          [ 78%]
+tests/unit/intense/test_intense.py::test_optimal_delays_parallel PASSED  [ 79%]
+tests/unit/intense/test_intense.py::test_criterion1_edge_cases PASSED    [ 80%]
+tests/unit/intense/test_intense.py::test_criterion2_edge_cases PASSED    [ 82%]
+tests/unit/intense/test_intense.py::test_compute_me_stats_stage2_only PASSED [ 83%]
+tests/unit/intense/test_intense.py::test_correlation_detection_scaled[scaled_correlated_ts0] PASSED [ 84%]
+tests/unit/intense/test_intense.py::test_correlation_detection_scaled[scaled_correlated_ts1] PASSED [ 85%]
+tests/unit/intense/test_intense.py::test_correlation_detection_scaled[scaled_correlated_ts2] PASSED [ 86%]
+tests/unit/intense/test_intense.py::test_get_calcium_feature_me_profile_cbunch_fbunch PASSED [ 87%]
+tests/unit/intense/test_intense.py::test_intense_handles_no_significant_neurons PASSED [ 88%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_with_disentanglement_fast PASSED [ 89%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_continuous_fast[small] PASSED [ 91%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_feat_feat_significance_fast[small] PASSED [ 92%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_cell_significance_fast[small] PASSED [ 93%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_mixed_selectivity_generation_fast PASSED [ 94%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_disentanglement_minimal PASSED [ 95%]
+tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_empty_cell_bunch PASSED [ 96%]
+tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_single_neuron PASSED [ 97%]
+tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_single_feature PASSED [ 98%]
+tests/unit/intense/test_intense_pipelines_optimized.py::TestPerformanceBenchmarks::test_all_functions_under_5s PASSED [100%]
+
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.10.18-final-0 _______________
+
+Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------------------------
+src/driada/dimensionality/effective.py                        26     26     12      0   0.00%   1-43
+src/driada/dimensionality/intrinsic.py                        52     52     24      0   0.00%   8-180
+src/driada/dimensionality/linear.py                           54     54     16      0   0.00%   8-218
+src/driada/dimensionality/utils.py                            44     44      8      0   0.00%   1-91
+src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-18
+src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-61
+src/driada/integration/selectivity_mapper.py                 125    125     60      0   0.00%   8-392
+src/driada/utils/visual.py                                   285    271    134      0   3.34%   65-241, 275-361, 404-492, 537-623, 660-709, 742-788
+src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-54, 89-142, 177-227, 289-345, 381-455, 503-620
+src/driada/network/randomization.py                          312    293     94      0   4.68%   42-52, 96-233, 269-320, 352-391, 408-421, 448-602, 671-702
+src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
+src/driada/rsa/core.py                                       165    149     84      0   6.43%   45-78, 110-138, 174-225, 251-275, 320-358, 432-488, 549-595
+src/driada/experiment/synthetic/manifold_spatial_3d.py       108     98     46      0   6.49%   37-64, 87-103, 143-196, 253-301, 364-470
+src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-107, 129-143, 161-174, 192-204
+src/driada/dim_reduction/manifold_metrics.py                 245    223     82      0   6.73%   39-43, 77-102, 130-164, 192-226, 257-288, 314-324, 349-399, 429-462, 493-523, 543-544, 560-569, 593-611, 635-667, 687-725, 752-779, 810-840
+src/driada/utils/spatial.py                                  214    194     74      0   6.94%   61-93, 129-160, 193-228, 253-271, 299-332, 376-415, 444-490, 518-544, 572-599, 648-720, 749-777
+src/driada/experiment/synthetic/manifold_spatial_2d.py        98     88     40      0   7.25%   37-64, 86-93, 133-182, 238-286, 341-440
+src/driada/network/net_base.py                               379    336    168      0   7.86%   19-27, 32-33, 37-41, 45-55, 61-76, 95-151, 159-199, 209-266, 269-270, 274-304, 308-325, 328-338, 341-360, 363-369, 372-378, 381-387, 390-396, 407, 410-477, 482-502, 505-515, 519-530, 533-535, 538-540, 543-545, 548-550, 553-557, 560-570, 573-596
+src/driada/rsa/visual.py                                      80     71     28      0   8.33%   55-141, 172-210
+src/driada/experiment/exp_build.py                           106     92     60      0   8.43%   23-100, 119-183, 187-190, 194-198
+src/driada/network/drawing.py                                133    117     54      0   8.56%   13-54, 57-68, 72-75, 80-131, 135-157, 161-174, 179-203
+src/driada/experiment/synthetic/utils.py                       7      6      4      0   9.09%   27-34
+src/driada/gdrive/download.py                                103     89     46      0   9.40%   21-59, 73-111, 122-170, 174-193
+src/driada/dim_reduction/embedding.py                        276    243     72      0   9.48%   17-19, 25-28, 32-36, 45-70, 73-82, 85-90, 94-100, 104-116, 120-126, 129-131, 134-138, 141-162, 165-173, 176, 179-195, 198-200, 203-208, 221-408, 418-514, 519-523, 546-553
+src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 155-176, 215-286, 308-315, 334-354
+src/driada/network/matrix_utils.py                           203    178     60      0   9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-223, 227-234, 238-249, 253-261, 266-270, 274-281, 285-292, 296-303, 307-310, 314-317
+src/driada/dim_reduction/mvu.py                               61     53     20      0   9.88%   22-29, 40-109, 122-146
+src/driada/experiment/synthetic/manifold_circular.py          73     63     24      0  10.31%   33-45, 68-69, 107-139, 190-237, 285-376
+src/driada/dim_reduction/graph.py                            174    151     46      0  10.45%   26-59, 66-79, 82-83, 86-96, 99-105, 109-140, 143-147, 152-189, 193-278, 281-286
+src/driada/network/spectral.py                                30     26      8      0  10.53%   6-8, 24-37, 41-55
+src/driada/rsa/integration.py                                 46     38     22      0  11.76%   63-108, 139-141, 188-219
+src/driada/utils/neural.py                                    20     17      4      0  12.50%   25-45, 49-54
+src/driada/utils/plot.py                                      38     31     18      0  12.50%   56-86, 125-141, 179-195
+src/driada/experiment/wavelet_event_detection.py             156    130     40      1  13.78%   9, 39-42, 46-109, 117-164, 168-169, 173-181, 191-209, 213-249, 255-276, 281-289
+src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
+src/driada/dim_reduction/sequences.py                         22     17     12      0  14.71%   67-101
+src/driada/experiment/spike_reconstruction.py                 48     39      8      0  16.07%   49-62, 93-126, 160-215
+src/driada/network/quantum.py                                 39     31      8      0  17.02%   7-14, 18-27, 31-33, 37-55
+src/driada/gdrive/gdrive_utils.py                             74     56     30      0  17.31%   25-28, 31, 61-107, 141-200, 204-210
+src/driada/dim_reduction/dr_base.py                           80     58     44      0  17.74%   157-173, 181-196, 205-213, 232-278
+src/driada/network/graph_utils.py                             46     36     10      0  17.86%   9-13, 18-28, 32-35, 39-43, 47-49, 53-75
+src/driada/dim_reduction/data.py                             112     84     50      3  19.14%   13-18, 37, 44-45, 54, 59-64, 81-86, 103-133, 169-225, 228-233, 236-238, 241-243
+src/driada/dim_reduction/neural.py                           132    101     24      1  20.51%   12-16, 22-43, 46-54, 61-82, 85-90, 96-117, 120-127, 133-140, 143-145, 148-150, 156-163, 170-173, 176-190, 194-198, 202-203, 211-212, 215, 218-226
+src/driada/utils/gif.py                                       38     27     14      0  21.15%   25-31, 46-55, 81-100
+src/driada/experiment/wavelet_ridge.py                        66     50      4      0  22.86%   26-27, 34-56, 60-66, 70, 74-85, 90-102, 106-107
+src/driada/experiment/synthetic/experiment_generators.py     276    204    146      9  23.46%   90-93, 110, 118, 127, 134-137, 150-156, 209->214, 262, 364-863
+src/driada/information/ksg.py                                 87     58     20      2  28.97%   26-27, 31, 40, 50-68, 79->81, 93-96, 105-141, 145-164
+src/driada/utils/output.py                                    16     10      4      0  30.00%   6-8, 10-12, 16-20
+src/driada/experiment/neuron.py                              161    100     36      5  33.50%   35-36, 41-44, 49-50, 63->65, 65->67, 68, 73, 88, 99, 102-107, 110-112, 115-124, 127-130, 133-136, 144-151, 155-165, 170-183, 187-200, 204-212, 216-228, 232-255
+src/driada/utils/jit.py                                       29     17      4      1  39.39%   17-25, 58-60, 68, 73-78
+src/driada/experiment/exp_base.py                            380    186    190     34  46.32%   28, 32, 38-39, 67, 70, 73->85, 76-83, 87, 97-109, 143->142, 164, 174, 201-204, 209, 217-224, 240-262, 269, 273, 279-285, 327, 335->333, 338-341, 349-361, 368-379, 386-400, 415, 418, 430-433, 446, 456-457, 463-466, 475-476, 482, 495, 504-510, 524-534, 549-563, 575-592, 595, 613-618, 640-664, 694, 701, 715-716, 720-725, 728, 731, 734-735, 752-764, 787-793, 821-840, 844
+src/driada/experiment/synthetic/core.py                       40     19     16      3  46.43%   37-47, 75-80, 89, 97, 146-161
+src/driada/intense/pipelines.py                              283    132    164     28  48.55%   199-202, 208-225, 232->235, 244-250, 255, 257, 265, 302, 306->312, 314->298, 355, 379->383, 414-419, 543-545, 554-555, 564-565, 626->614, 628->632, 634, 635->614, 649-655, 777-778, 783-795, 849->841, 851->855, 857, 858->841, 872-885, 985-1110
+src/driada/information/gcmi_jit_utils.py                     207     81     66      8  55.68%   46, 73-79, 104, 106, 122-134, 171-177, 200-259, 287, 299-304, 360->385, 406, 443-456
+src/driada/information/entropy_jit.py                         44     17      4      1  58.33%   33-67, 102
+src/driada/information/info_base.py                          401    142    186     34  60.14%   42-45, 49, 84, 87-91, 94-95, 98-102, 105-106, 146-159, 201-211, 226-239, 269-271, 283, 287, 301, 306, 311, 317-319, 322-336, 354-369, 377-378, 388, 417-420, 434-436, 442-448, 455-457, 460-463, 493-496, 509-510, 513-518, 533-535, 599-602, 610, 615-644, 646->exit, 667-671, 678, 681->699, 696, 706-709, 715-726, 762, 812, 854->849, 879, 903-906, 948-964
+src/driada/utils/data.py                                     150     54     72     13  62.61%   36, 41->40, 47, 74, 76, 97, 99, 121, 125-130, 139-141, 152-155, 159-169, 187-209, 221-223, 228-231, 238-241, 264, 267, 301-306
+src/driada/intense/disentanglement.py                        148     44     72      7  67.73%   114, 117, 120, 195, 204-265, 379->378, 383
+src/driada/information/gcmi.py                               251     53     78     26  72.95%   16-17, 26-41, 59-64, 126-127, 146, 164->170, 193, 200, 206, 224->232, 256, 258, 264, 270, 298->313, 326-360, 392, 403, 408, 432->441, 460, 462, 464, 466, 473, 478-479, 482-483, 487
+src/driada/intense/intense_base.py                           412     80    220     34  77.53%   18-20, 52-55, 61, 68, 70, 72, 120-121, 220, 298, 303, 394, 441-448, 538, 550, 562-570, 592-607, 714, 1067, 1071, 1075, 1094, 1111-1135, 1143, 1175, 1210, 1240-1241, 1260->exit, 1268, 1299, 1301->1304, 1340-1341, 1404, 1417, 1426->1436, 1431-1434
+src/driada/experiment/synthetic/mixed_selectivity.py         126     14     70     23  81.12%   48->51, 56, 69, 74, 77, 111->114, 120, 134->118, 189, 200, 285->288, 293, 301, 307->302, 313->341, 315, 324, 325->322, 336, 345, 378->377, 382->374, 403
+src/driada/information/entropy.py                             56      6     14      4  85.71%   18-19, 46, 97-99, 131->128, 163->160
+src/driada/experiment/synthetic/time_series.py                88      5     32      7  90.00%   74, 78, 93, 150, 186->189, 194, 245->249
+src/driada/information/info_utils.py                          41      1      8      1  95.92%   48
+src/driada/intense/stats.py                                  105      0     44      2  98.66%   338->344, 370->372
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                       8071   5442   3180    247  29.78%
+Coverage HTML written to dir htmlcov
+Coverage XML written to file coverage.xml
+Coverage JSON written to file coverage.json
+============================= 89 passed in 14.64s ==============================
+

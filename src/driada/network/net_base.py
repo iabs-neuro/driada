@@ -8,6 +8,8 @@ from scipy import linalg as la
 from scipy.sparse.linalg import eigs
 from sklearn.neighbors import NearestNeighbors
 from scipy.stats import entropy
+import logging
+from typing import Optional
 
 UNDIR_MATRIX_TYPES = ['adj', 'trans', 'lap', 'nlap', 'rwlap']
 DIR_MATRIX_TYPES = ['adj', 'lap_out', 'lap_in']
@@ -35,15 +37,15 @@ def check_adjacency(a):
 
 def check_directed(directed, real_world):
     if real_world:
-        if int(directed) not in [0, 1]:
+        if directed not in [0, 1, 0.0, 1.0]:
             raise Exception('Fractional direction is not valid for a real network')
     elif directed < 0 or directed > 1:
-        raise Exception('Wrong "directed" parameter value:', directed)
+        raise Exception(f'Wrong "directed" parameter value: {directed}')
 
 
 def check_weights_and_directions(a, weighted, directed):
-    is_directed = not np.allclose(a.data, a.T.data)
-    is_weighted = not np.allclose(a.data, a.astype(bool).astype(int).data)
+    is_directed = not np.allclose(a.toarray(), a.toarray().T)
+    is_weighted = not np.allclose(a.toarray(), a.astype(bool).astype(int).toarray())
 
     symm_text = 'asymmetric' if is_directed else 'symmetric'
     if is_directed != bool(directed):
@@ -90,26 +92,28 @@ class Network:
                  verbose=False,
                  create_nx_graph=True,
                  node_attrs=None,
+                 logger: Optional[logging.Logger] = None,
                  **network_args):
 
         self.name = name
         self.verbose = verbose
         self.network_params = network_args
         self.create_nx_graph = create_nx_graph
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
 
         self.init_method = select_construction_pipeline(adj, graph)
 
         self.directed = network_args.get('directed')
         if self.directed is None:
             if self.init_method == 'adj':
-                self.directed = not np.allclose(adj.data, adj.T.data)
+                self.directed = not np.allclose(adj.toarray(), adj.toarray().T)
             elif self.init_method == 'graph':
                 self.directed = nx.is_directed(graph)
 
         self.weighted = network_args.get('weighted')
         if self.weighted is None:
             if self.init_method == 'adj':
-                self.weighted = not np.allclose(adj.data, adj.astype(bool).astype(int).data)
+                self.weighted = not np.allclose(adj.toarray(), adj.toarray().astype(bool).astype(int))
             elif self.init_method == 'graph':
                 self.weighted = nx.is_weighted(graph)
 
@@ -277,13 +281,14 @@ class Network:
             else:
                 g = nx.Graph(self.graph)
 
-            new_graph = random_rewiring_IOM_preserving(g, r=10)
+            new_graph = random_rewiring_IOM_preserving(g, r=2)
             rand_adj = nx.adjacency_matrix(new_graph)
 
         elif rmode == 'adj_iom':
             rand_adj = adj_random_rewiring_iom_preserving(self.adj,
                                                           is_weighted=self.weighted,
-                                                          r=10)
+                                                          r=2,
+                                                          enable_progressbar=False)
 
         elif rmode == 'complete':
             rand_adj = random_rewiring_complete_graph(self.adj)
@@ -294,12 +299,12 @@ class Network:
         else:
             raise ValueError('Unknown randomization method')
 
-        rand_net = Network(sp.csr_matrix(rand_adj),
-                           self.network_params,
+        rand_net = Network(adj=sp.csr_matrix(rand_adj),
                            name=self.name + f' {rmode} rand',
                            pos=self.pos,
                            real_world=False,
-                           verbose=False)
+                           verbose=False,
+                           **self.network_params)
 
         return rand_net
 
@@ -322,7 +327,7 @@ class Network:
         if min_in != max_in:
             self.scaled_indeg = np.array([1.0 * (deg - min_in) / (max_in - min_in) for deg in self.indeg])
         else:
-            self.scaled_outdeg = np.ones(len(self.indeg))
+            self.scaled_indeg = np.ones(len(self.indeg))
 
     def get_degree_distr(self, mode='all'):
         if mode == 'all':
@@ -334,6 +339,9 @@ class Network:
         else:
             raise ValueError('Wrong mode for degree distribution.')
 
+        if max(deg) == min(deg):
+            # All nodes have same degree
+            return np.array([1.0])
         hist, bins = np.histogram(deg, bins=max(deg) - min(deg), density=True)
         return hist
 
@@ -396,15 +404,19 @@ class Network:
         return zvals
 
     def partial_diagonalize(self, spectrum_params):
-        '''
-        noise = self.spectrum_params['noise']
-        neigs = self.spectrum_params['neigs']
-        if noise == 0:
-            R = np.zeros((n, n))
-        else:
-            R = np.multiply(matrix.todense(), np.random.normal(loc=0.0, scale=noise, size=(n, n)))
-        '''
-        raise Exception('this method is under construction')
+        """Partial diagonalization for large matrices.
+        
+        Parameters
+        ----------
+        spectrum_params : dict
+            Parameters including 'neigs' (number of eigenvalues)
+            
+        Returns
+        -------
+        eigenvalues, eigenvectors : array-like
+            Partial spectrum and eigenvectors
+        """
+        raise NotImplementedError('Partial diagonalization is not yet implemented')
 
     def diagonalize(self, mode='lap', verbose=None):
         if verbose is None:
@@ -422,14 +434,14 @@ class Network:
         n = self.n
 
         if n != np.count_nonzero(outdeg) and verbose:
-            print(n - np.count_nonzero(outdeg), 'nodes without out-edges')
+            self.logger.warning(f'{n - np.count_nonzero(outdeg)} nodes without out-edges')
         if n != np.count_nonzero(indeg) and verbose:
-            print(n - np.count_nonzero(indeg), 'nodes without in-edges')
+            self.logger.warning(f'{n - np.count_nonzero(indeg)} nodes without in-edges')
 
         nz = np.count_nonzero(deg)
         if nz != n and self.n_cc == 1:
-            print('Graph has', str(n - nz), 'isolated nodes!')
-            raise Exception('Graph is not connected!')
+            self.logger.error(f'Graph has {n - nz} isolated nodes!')
+            raise Exception(f'Graph has {n - nz} isolated nodes!')
 
         if not self.weighted and not self.directed and not np.allclose(outdeg, indeg):
             raise Exception('out- and in- degrees do not coincide in boolean')
@@ -484,6 +496,9 @@ class Network:
         if len(seigs) != len(spectrum) and self.verbose:
             print('WARNING:', len(spectrum) - len(seigs), 'repeated eigenvalues discarded')
 
+        if len(seigs) < 3:
+            raise ValueError(f'Cannot compute z-values: need at least 3 eigenvalues, got {len(seigs)}')
+            
         if self.verbose:
             print('Computing nearest neighbours...')
 
@@ -564,8 +579,8 @@ class Network:
         mean_inv_r_sq = np.mean(np.array(rvals))
 
         if self.verbose:
-            print('mean cos phi complex:', mean_cos_phi)
-            print('mean 1/r^2 real:', mean_inv_r_sq)
+            self.logger.info(f'mean cos phi complex: {mean_cos_phi}')
+            self.logger.info(f'mean 1/r^2 real: {mean_inv_r_sq}')
 
         return mean_inv_r_sq, mean_cos_phi
 
@@ -574,8 +589,8 @@ class Network:
             raise Exception('LEM embedding is not implemented for directed graphs')
 
         A = self.adj
-        A = A.asfptype()
-        print('Performing spectral decomposition...')
+        A = A.astype(float)
+        self.logger.info('Performing spectral decomposition...')
         K = A.shape[0]
         NL = get_norm_laplacian(A)
         DH = get_inv_sqrt_diag_matrix(A)
@@ -587,10 +602,13 @@ class Network:
         if np.count_nonzero(eigvals == 1.0) > 1:
             raise Exception('Error while LEM embedding construction: graph is not connected!')
         else:
-            vecs = eigvecs.T[1:]
-            vec_norms = np.array([np.real(sum([x * x for x in v])) for v in vecs])
-            vecs = vecs / vec_norms[:, np.newaxis]
+            # Select the eigenvectors (skip the constant eigenvector)
+            vecs = eigvecs[:, 1:dim+1]  # shape: (n_nodes, dim)
+            # Normalize eigenvectors
+            vec_norms = np.sqrt(np.sum(np.abs(vecs)**2, axis=0))
+            vecs = vecs / vec_norms
+            # Apply D^{-1/2} transformation
             # explanation: https://jlmelville.github.io/smallvis/spectral.html
-            vecs = DH.dot(sp.csr_array(vecs, dtype=float))
-
-            self.lem_emb = vecs
+            vecs = DH.dot(vecs)  # DH is (n_nodes, n_nodes), vecs is (n_nodes, dim)
+            
+            self.lem_emb = vecs.T  # Store as (dim, n_nodes) for backward compatibility

@@ -1,0 +1,618 @@
+{
+  "summary": {
+    "overall_coverage": 73.47826086956522,
+    "total_statements": 1150,
+    "total_covered": 845,
+    "modules_at_target": 0,
+    "total_modules": 1,
+    "tests_passed": 85,
+    "tests_failed": 0
+  },
+  "module_coverage": {
+    "network": {
+      "files": [
+        {
+          "path": "driada.driada.network.drawing",
+          "file": "driada/network/drawing.py",
+          "statements": 133,
+          "covered": 16,
+          "coverage_pct": 8.56,
+          "tested_by": "network"
+        },
+        {
+          "path": "driada.driada.network.quantum",
+          "file": "driada/network/quantum.py",
+          "statements": 39,
+          "covered": 8,
+          "coverage_pct": 17.02,
+          "tested_by": "network"
+        },
+        {
+          "path": "driada.driada.network.graph_utils",
+          "file": "driada/network/graph_utils.py",
+          "statements": 48,
+          "covered": 26,
+          "coverage_pct": 48.33,
+          "tested_by": "network"
+        },
+        {
+          "path": "driada.driada.network.spectral",
+          "file": "driada/network/spectral.py",
+          "statements": 30,
+          "covered": 19,
+          "coverage_pct": 60.53,
+          "tested_by": "network"
+        },
+        {
+          "path": "driada.driada.network.randomization",
+          "file": "driada/network/randomization.py",
+          "statements": 312,
+          "covered": 212,
+          "coverage_pct": 70.2,
+          "tested_by": "network"
+        },
+        {
+          "path": "driada.driada.network.net_base",
+          "file": "driada/network/net_base.py",
+          "statements": 385,
+          "covered": 369,
+          "coverage_pct": 93.36,
+          "tested_by": "network"
+        },
+        {
+          "path": "driada.driada.network.matrix_utils",
+          "file": "driada/network/matrix_utils.py",
+          "statements": 203,
+          "covered": 195,
+          "coverage_pct": 96.2,
+          "tested_by": "network"
+        }
+      ],
+      "file_count": 7,
+      "total_statements": 1150,
+      "total_covered": 845,
+      "simple_average": 56.31428571428571,
+      "weighted_average": 72.44573913043479,
+      "true_coverage": 73.47826086956522
+    }
+  },
+  "aggregated_file_coverage": {
+    "driada.driada.dimensionality.effective": 0.0,
+    "driada.driada.dimensionality.intrinsic": 0.0,
+    "driada.driada.dimensionality.linear": 0.0,
+    "driada.driada.dimensionality.utils": 0.0,
+    "driada.driada.gdrive.auth": 0.0,
+    "driada.driada.gdrive.upload": 0.0,
+    "driada.driada.integration.selectivity_mapper": 0.0,
+    "driada.driada.intense.pipelines": 1.79,
+    "driada.driada.experiment.synthetic.experiment_generators": 3.08,
+    "driada.driada.utils.visual": 3.34,
+    "driada.driada.intense.disentanglement": 3.64,
+    "driada.driada.intense.visual": 3.92,
+    "driada.driada.intense.intense_base": 4.43,
+    "driada.driada.experiment.synthetic.mixed_selectivity": 5.1,
+    "driada.driada.utils.naming": 5.26,
+    "driada.driada.rsa.core": 6.43,
+    "driada.driada.experiment.synthetic.manifold_spatial_3d": 6.49,
+    "driada.driada.rsa.core_jit": 6.54,
+    "driada.driada.dim_reduction.manifold_metrics": 6.73,
+    "driada.driada.utils.spatial": 6.94,
+    "driada.driada.experiment.synthetic.manifold_spatial_2d": 7.25,
+    "driada.driada.information.gcmi": 7.29,
+    "driada.driada.information.gcmi_jit_utils": 7.69,
+    "driada.driada.information.info_base": 8.01,
+    "driada.driada.experiment.synthetic.time_series": 8.33,
+    "driada.driada.rsa.visual": 8.33,
+    "driada.driada.experiment.exp_build": 8.43,
+    "driada.driada.network.drawing": 8.56,
+    "driada.driada.experiment.synthetic.utils": 9.09,
+    "driada.driada.experiment.exp_base": 9.12,
+    "driada.driada.gdrive.download": 9.4,
+    "driada.driada.dim_reduction.embedding": 9.48,
+    "driada.driada.utils.signals": 9.48,
+    "driada.driada.dim_reduction.mvu": 9.88,
+    "driada.driada.experiment.synthetic.manifold_circular": 10.31,
+    "driada.driada.utils.data": 10.36,
+    "driada.driada.dim_reduction.graph": 10.45,
+    "driada.driada.dim_reduction.data": 10.49,
+    "driada.driada.rsa.integration": 11.76,
+    "driada.driada.intense.stats": 12.08,
+    "driada.driada.experiment.synthetic.core": 12.5,
+    "driada.driada.information.entropy_jit": 12.5,
+    "driada.driada.utils.neural": 12.5,
+    "driada.driada.utils.plot": 12.5,
+    "driada.driada.experiment.wavelet_event_detection": 13.78,
+    "driada.driada.information.info_utils": 14.29,
+    "driada.driada.utils.matrix": 14.29,
+    "driada.driada.dim_reduction.sequences": 14.71,
+    "driada.driada.information.ksg": 14.95,
+    "driada.driada.experiment.spike_reconstruction": 16.07,
+    "driada.driada.network.quantum": 17.02,
+    "driada.driada.gdrive.gdrive_utils": 17.31,
+    "driada.driada.dim_reduction.dr_base": 17.74,
+    "driada.driada.experiment.neuron": 17.77,
+    "driada.driada.dim_reduction.neural": 20.51,
+    "driada.driada.utils.gif": 21.15,
+    "driada.driada.information.entropy": 21.43,
+    "driada.driada.experiment.wavelet_ridge": 22.86,
+    "driada.driada.utils.output": 30.0,
+    "driada.driada.utils.jit": 39.39,
+    "driada.driada.network.graph_utils": 48.33,
+    "driada.driada.network.spectral": 60.53,
+    "driada.driada.network.randomization": 70.2,
+    "driada.driada.network.net_base": 93.36,
+    "driada.driada.network.matrix_utils": 96.2
+  },
+  "detailed_results": {
+    "network": {
+      "module": "network",
+      "passed": true,
+      "test_files": 2,
+      "coverage_data": {
+        "driada.driada.dimensionality.effective": {
+          "file_path": "driada/dimensionality/effective.py",
+          "statements": 26,
+          "missed": 26,
+          "covered": 0,
+          "coverage_pct": 0.0
+        },
+        "driada.driada.dimensionality.intrinsic": {
+          "file_path": "driada/dimensionality/intrinsic.py",
+          "statements": 52,
+          "missed": 52,
+          "covered": 0,
+          "coverage_pct": 0.0
+        },
+        "driada.driada.dimensionality.linear": {
+          "file_path": "driada/dimensionality/linear.py",
+          "statements": 54,
+          "missed": 54,
+          "covered": 0,
+          "coverage_pct": 0.0
+        },
+        "driada.driada.dimensionality.utils": {
+          "file_path": "driada/dimensionality/utils.py",
+          "statements": 44,
+          "missed": 44,
+          "covered": 0,
+          "coverage_pct": 0.0
+        },
+        "driada.driada.gdrive.auth": {
+          "file_path": "driada/gdrive/auth.py",
+          "statements": 13,
+          "missed": 13,
+          "covered": 0,
+          "coverage_pct": 0.0
+        },
+        "driada.driada.gdrive.upload": {
+          "file_path": "driada/gdrive/upload.py",
+          "statements": 37,
+          "missed": 37,
+          "covered": 0,
+          "coverage_pct": 0.0
+        },
+        "driada.driada.integration.selectivity_mapper": {
+          "file_path": "driada/integration/selectivity_mapper.py",
+          "statements": 125,
+          "missed": 125,
+          "covered": 0,
+          "coverage_pct": 0.0
+        },
+        "driada.driada.intense.pipelines": {
+          "file_path": "driada/intense/pipelines.py",
+          "statements": 283,
+          "missed": 275,
+          "covered": 8,
+          "coverage_pct": 1.79
+        },
+        "driada.driada.experiment.synthetic.experiment_generators": {
+          "file_path": "driada/experiment/synthetic/experiment_generators.py",
+          "statements": 276,
+          "missed": 263,
+          "covered": 13,
+          "coverage_pct": 3.08
+        },
+        "driada.driada.utils.visual": {
+          "file_path": "driada/utils/visual.py",
+          "statements": 285,
+          "missed": 271,
+          "covered": 14,
+          "coverage_pct": 3.34
+        },
+        "driada.driada.intense.disentanglement": {
+          "file_path": "driada/intense/disentanglement.py",
+          "statements": 148,
+          "missed": 140,
+          "covered": 8,
+          "coverage_pct": 3.64
+        },
+        "driada.driada.intense.visual": {
+          "file_path": "driada/intense/visual.py",
+          "statements": 236,
+          "missed": 224,
+          "covered": 12,
+          "coverage_pct": 3.92
+        },
+        "driada.driada.intense.intense_base": {
+          "file_path": "driada/intense/intense_base.py",
+          "statements": 412,
+          "missed": 384,
+          "covered": 28,
+          "coverage_pct": 4.43
+        },
+        "driada.driada.experiment.synthetic.mixed_selectivity": {
+          "file_path": "driada/experiment/synthetic/mixed_selectivity.py",
+          "statements": 126,
+          "missed": 116,
+          "covered": 10,
+          "coverage_pct": 5.1
+        },
+        "driada.driada.utils.naming": {
+          "file_path": "driada/utils/naming.py",
+          "statements": 13,
+          "missed": 12,
+          "covered": 1,
+          "coverage_pct": 5.26
+        },
+        "driada.driada.rsa.core": {
+          "file_path": "driada/rsa/core.py",
+          "statements": 165,
+          "missed": 149,
+          "covered": 16,
+          "coverage_pct": 6.43
+        },
+        "driada.driada.experiment.synthetic.manifold_spatial_3d": {
+          "file_path": "driada/experiment/synthetic/manifold_spatial_3d.py",
+          "statements": 108,
+          "missed": 98,
+          "covered": 10,
+          "coverage_pct": 6.49
+        },
+        "driada.driada.rsa.core_jit": {
+          "file_path": "driada/rsa/core_jit.py",
+          "statements": 95,
+          "missed": 85,
+          "covered": 10,
+          "coverage_pct": 6.54
+        },
+        "driada.driada.dim_reduction.manifold_metrics": {
+          "file_path": "driada/dim_reduction/manifold_metrics.py",
+          "statements": 245,
+          "missed": 223,
+          "covered": 22,
+          "coverage_pct": 6.73
+        },
+        "driada.driada.utils.spatial": {
+          "file_path": "driada/utils/spatial.py",
+          "statements": 214,
+          "missed": 194,
+          "covered": 20,
+          "coverage_pct": 6.94
+        },
+        "driada.driada.experiment.synthetic.manifold_spatial_2d": {
+          "file_path": "driada/experiment/synthetic/manifold_spatial_2d.py",
+          "statements": 98,
+          "missed": 88,
+          "covered": 10,
+          "coverage_pct": 7.25
+        },
+        "driada.driada.information.gcmi": {
+          "file_path": "driada/information/gcmi.py",
+          "statements": 251,
+          "missed": 227,
+          "covered": 24,
+          "coverage_pct": 7.29
+        },
+        "driada.driada.information.gcmi_jit_utils": {
+          "file_path": "driada/information/gcmi_jit_utils.py",
+          "statements": 207,
+          "missed": 186,
+          "covered": 21,
+          "coverage_pct": 7.69
+        },
+        "driada.driada.information.info_base": {
+          "file_path": "driada/information/info_base.py",
+          "statements": 401,
+          "missed": 354,
+          "covered": 47,
+          "coverage_pct": 8.01
+        },
+        "driada.driada.experiment.synthetic.time_series": {
+          "file_path": "driada/experiment/synthetic/time_series.py",
+          "statements": 88,
+          "missed": 78,
+          "covered": 10,
+          "coverage_pct": 8.33
+        },
+        "driada.driada.rsa.visual": {
+          "file_path": "driada/rsa/visual.py",
+          "statements": 80,
+          "missed": 71,
+          "covered": 9,
+          "coverage_pct": 8.33
+        },
+        "driada.driada.experiment.exp_build": {
+          "file_path": "driada/experiment/exp_build.py",
+          "statements": 106,
+          "missed": 92,
+          "covered": 14,
+          "coverage_pct": 8.43
+        },
+        "driada.driada.network.drawing": {
+          "file_path": "driada/network/drawing.py",
+          "statements": 133,
+          "missed": 117,
+          "covered": 16,
+          "coverage_pct": 8.56
+        },
+        "driada.driada.experiment.synthetic.utils": {
+          "file_path": "driada/experiment/synthetic/utils.py",
+          "statements": 7,
+          "missed": 6,
+          "covered": 1,
+          "coverage_pct": 9.09
+        },
+        "driada.driada.experiment.exp_base": {
+          "file_path": "driada/experiment/exp_base.py",
+          "statements": 380,
+          "missed": 328,
+          "covered": 52,
+          "coverage_pct": 9.12
+        },
+        "driada.driada.gdrive.download": {
+          "file_path": "driada/gdrive/download.py",
+          "statements": 103,
+          "missed": 89,
+          "covered": 14,
+          "coverage_pct": 9.4
+        },
+        "driada.driada.dim_reduction.embedding": {
+          "file_path": "driada/dim_reduction/embedding.py",
+          "statements": 276,
+          "missed": 243,
+          "covered": 33,
+          "coverage_pct": 9.48
+        },
+        "driada.driada.utils.signals": {
+          "file_path": "driada/utils/signals.py",
+          "statements": 82,
+          "missed": 71,
+          "covered": 11,
+          "coverage_pct": 9.48
+        },
+        "driada.driada.dim_reduction.mvu": {
+          "file_path": "driada/dim_reduction/mvu.py",
+          "statements": 61,
+          "missed": 53,
+          "covered": 8,
+          "coverage_pct": 9.88
+        },
+        "driada.driada.experiment.synthetic.manifold_circular": {
+          "file_path": "driada/experiment/synthetic/manifold_circular.py",
+          "statements": 73,
+          "missed": 63,
+          "covered": 10,
+          "coverage_pct": 10.31
+        },
+        "driada.driada.utils.data": {
+          "file_path": "driada/utils/data.py",
+          "statements": 150,
+          "missed": 127,
+          "covered": 23,
+          "coverage_pct": 10.36
+        },
+        "driada.driada.dim_reduction.graph": {
+          "file_path": "driada/dim_reduction/graph.py",
+          "statements": 174,
+          "missed": 151,
+          "covered": 23,
+          "coverage_pct": 10.45
+        },
+        "driada.driada.dim_reduction.data": {
+          "file_path": "driada/dim_reduction/data.py",
+          "statements": 112,
+          "missed": 95,
+          "covered": 17,
+          "coverage_pct": 10.49
+        },
+        "driada.driada.rsa.integration": {
+          "file_path": "driada/rsa/integration.py",
+          "statements": 46,
+          "missed": 38,
+          "covered": 8,
+          "coverage_pct": 11.76
+        },
+        "driada.driada.intense.stats": {
+          "file_path": "driada/intense/stats.py",
+          "statements": 105,
+          "missed": 87,
+          "covered": 18,
+          "coverage_pct": 12.08
+        },
+        "driada.driada.experiment.synthetic.core": {
+          "file_path": "driada/experiment/synthetic/core.py",
+          "statements": 40,
+          "missed": 33,
+          "covered": 7,
+          "coverage_pct": 12.5
+        },
+        "driada.driada.information.entropy_jit": {
+          "file_path": "driada/information/entropy_jit.py",
+          "statements": 44,
+          "missed": 38,
+          "covered": 6,
+          "coverage_pct": 12.5
+        },
+        "driada.driada.utils.neural": {
+          "file_path": "driada/utils/neural.py",
+          "statements": 20,
+          "missed": 17,
+          "covered": 3,
+          "coverage_pct": 12.5
+        },
+        "driada.driada.utils.plot": {
+          "file_path": "driada/utils/plot.py",
+          "statements": 38,
+          "missed": 31,
+          "covered": 7,
+          "coverage_pct": 12.5
+        },
+        "driada.driada.experiment.wavelet_event_detection": {
+          "file_path": "driada/experiment/wavelet_event_detection.py",
+          "statements": 156,
+          "missed": 130,
+          "covered": 26,
+          "coverage_pct": 13.78
+        },
+        "driada.driada.information.info_utils": {
+          "file_path": "driada/information/info_utils.py",
+          "statements": 41,
+          "missed": 34,
+          "covered": 7,
+          "coverage_pct": 14.29
+        },
+        "driada.driada.utils.matrix": {
+          "file_path": "driada/utils/matrix.py",
+          "statements": 24,
+          "missed": 20,
+          "covered": 4,
+          "coverage_pct": 14.29
+        },
+        "driada.driada.dim_reduction.sequences": {
+          "file_path": "driada/dim_reduction/sequences.py",
+          "statements": 22,
+          "missed": 17,
+          "covered": 5,
+          "coverage_pct": 14.71
+        },
+        "driada.driada.information.ksg": {
+          "file_path": "driada/information/ksg.py",
+          "statements": 87,
+          "missed": 71,
+          "covered": 16,
+          "coverage_pct": 14.95
+        },
+        "driada.driada.experiment.spike_reconstruction": {
+          "file_path": "driada/experiment/spike_reconstruction.py",
+          "statements": 48,
+          "missed": 39,
+          "covered": 9,
+          "coverage_pct": 16.07
+        },
+        "driada.driada.network.quantum": {
+          "file_path": "driada/network/quantum.py",
+          "statements": 39,
+          "missed": 31,
+          "covered": 8,
+          "coverage_pct": 17.02
+        },
+        "driada.driada.gdrive.gdrive_utils": {
+          "file_path": "driada/gdrive/gdrive_utils.py",
+          "statements": 74,
+          "missed": 56,
+          "covered": 18,
+          "coverage_pct": 17.31
+        },
+        "driada.driada.dim_reduction.dr_base": {
+          "file_path": "driada/dim_reduction/dr_base.py",
+          "statements": 80,
+          "missed": 58,
+          "covered": 22,
+          "coverage_pct": 17.74
+        },
+        "driada.driada.experiment.neuron": {
+          "file_path": "driada/experiment/neuron.py",
+          "statements": 161,
+          "missed": 126,
+          "covered": 35,
+          "coverage_pct": 17.77
+        },
+        "driada.driada.dim_reduction.neural": {
+          "file_path": "driada/dim_reduction/neural.py",
+          "statements": 132,
+          "missed": 101,
+          "covered": 31,
+          "coverage_pct": 20.51
+        },
+        "driada.driada.utils.gif": {
+          "file_path": "driada/utils/gif.py",
+          "statements": 38,
+          "missed": 27,
+          "covered": 11,
+          "coverage_pct": 21.15
+        },
+        "driada.driada.information.entropy": {
+          "file_path": "driada/information/entropy.py",
+          "statements": 56,
+          "missed": 41,
+          "covered": 15,
+          "coverage_pct": 21.43
+        },
+        "driada.driada.experiment.wavelet_ridge": {
+          "file_path": "driada/experiment/wavelet_ridge.py",
+          "statements": 66,
+          "missed": 50,
+          "covered": 16,
+          "coverage_pct": 22.86
+        },
+        "driada.driada.utils.output": {
+          "file_path": "driada/utils/output.py",
+          "statements": 16,
+          "missed": 10,
+          "covered": 6,
+          "coverage_pct": 30.0
+        },
+        "driada.driada.utils.jit": {
+          "file_path": "driada/utils/jit.py",
+          "statements": 29,
+          "missed": 17,
+          "covered": 12,
+          "coverage_pct": 39.39
+        },
+        "driada.driada.network.graph_utils": {
+          "file_path": "driada/network/graph_utils.py",
+          "statements": 48,
+          "missed": 22,
+          "covered": 26,
+          "coverage_pct": 48.33
+        },
+        "driada.driada.network.spectral": {
+          "file_path": "driada/network/spectral.py",
+          "statements": 30,
+          "missed": 11,
+          "covered": 19,
+          "coverage_pct": 60.53
+        },
+        "driada.driada.network.randomization": {
+          "file_path": "driada/network/randomization.py",
+          "statements": 312,
+          "missed": 100,
+          "covered": 212,
+          "coverage_pct": 70.2
+        },
+        "driada.driada.network.net_base": {
+          "file_path": "driada/network/net_base.py",
+          "statements": 385,
+          "missed": 16,
+          "covered": 369,
+          "coverage_pct": 93.36
+        },
+        "driada.driada.network.matrix_utils": {
+          "file_path": "driada/network/matrix_utils.py",
+          "statements": 203,
+          "missed": 8,
+          "covered": 195,
+          "coverage_pct": 96.2
+        }
+      },
+      "test_counts": {
+        "passed": 85,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "returncode": 0,
+      "debug_output": "coverage_debug_network.txt"
+    }
+  }
+}

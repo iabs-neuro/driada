@@ -6,7 +6,10 @@ from .randomization import *
 
 def get_giant_cc_from_graph(G):
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
-    connected_components = sorted(nx.connected_components(G), key=len, reverse=True)
+    if nx.is_directed(G):
+        connected_components = sorted(nx.weakly_connected_components(G), key=len, reverse=True)
+    else:
+        connected_components = sorted(nx.connected_components(G), key=len, reverse=True)
     # print([len(c) for c in connected_components])
     gcc = connected_components[0]
 
