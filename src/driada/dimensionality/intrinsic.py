@@ -10,7 +10,7 @@ from sklearn.neighbors import NearestNeighbors
 import pynndescent
 
 
-def nn_dimension(data, k=2, graph_method='sklearn'):
+def nn_dimension(data=None, k=2, graph_method='sklearn', precomputed_graph=None):
     """
     Estimate intrinsic dimension using the k-NN algorithm.
     
@@ -20,8 +20,9 @@ def nn_dimension(data, k=2, graph_method='sklearn'):
     
     Parameters
     ----------
-    data : array-like of shape (n_samples, n_features)
+    data : array-like of shape (n_samples, n_features), optional
         The input data matrix where rows are samples and columns are features.
+        Either data or precomputed_graph must be provided.
     
     k : int, default=2
         The number of nearest neighbors to consider. k=2 gives the TWO-NN algorithm.
@@ -31,6 +32,14 @@ def nn_dimension(data, k=2, graph_method='sklearn'):
         Method to use for nearest neighbor graph construction:
         - 'sklearn': Uses scikit-learn's NearestNeighbors (exact)
         - 'pynndescent': Uses PyNNDescent (approximate, faster for large datasets)
+        Only used if data is provided.
+    
+    precomputed_graph : tuple of (indices, distances), optional
+        Precomputed k-NN graph as a tuple of:
+        - indices: array of shape (n_samples, k+1) with neighbor indices
+        - distances: array of shape (n_samples, k+1) with neighbor distances
+        The first column (index 0) should contain self-references with distance 0.
+        Either data or precomputed_graph must be provided.
     
     Returns
     -------
@@ -63,30 +72,59 @@ def nn_dimension(data, k=2, graph_method='sklearn'):
     >>> d_est = nn_dimension(data, k=2)
     >>> print(f"Estimated dimension: {d_est:.2f}")  # Should be close to 2
     """
-    data = np.asarray(data)
-    n_samples = len(data)
+    # Validate inputs
+    if data is None and precomputed_graph is None:
+        raise ValueError("Either data or precomputed_graph must be provided")
+    
+    if data is not None and precomputed_graph is not None:
+        raise ValueError("Provide either data or precomputed_graph, not both")
     
     if k < 2:
         raise ValueError("k must be at least 2")
     
-    if n_samples <= k:
-        raise ValueError(f"Number of samples ({n_samples}) must be greater than k ({k})")
-    
-    # Compute nearest neighbor distances
-    if graph_method == 'sklearn':
-        nbrs = NearestNeighbors(n_neighbors=k+1, metric='euclidean')
-        nbrs.fit(data)
-        distances, indices = nbrs.kneighbors(data)
-    elif graph_method == 'pynndescent':
-        index = pynndescent.NNDescent(
-            data,
-            metric='euclidean',
-            n_neighbors=k+1
-        )
-        indices, distances = index.neighbor_graph
+    # Get nearest neighbor distances
+    if precomputed_graph is not None:
+        # Use precomputed graph
+        indices, distances = precomputed_graph
+        indices = np.asarray(indices)
+        distances = np.asarray(distances)
+        n_samples = len(indices)
+        
+        # Validate precomputed graph
+        if indices.shape != distances.shape:
+            raise ValueError("Indices and distances must have the same shape")
+        
+        if indices.shape[1] < k + 1:
+            raise ValueError(f"Precomputed graph must have at least k+1={k+1} neighbors, "
+                           f"but has {indices.shape[1]}")
+        
+        # Ensure we have enough columns
+        distances = distances[:, :k+1]
+        indices = indices[:, :k+1]
+        
     else:
-        raise ValueError(f"Unknown graph construction method: {graph_method}. "
-                        "Choose from 'sklearn' or 'pynndescent'.")
+        # Compute from data
+        data = np.asarray(data)
+        n_samples = len(data)
+        
+        if n_samples <= k:
+            raise ValueError(f"Number of samples ({n_samples}) must be greater than k ({k})")
+        
+        # Compute nearest neighbor distances
+        if graph_method == 'sklearn':
+            nbrs = NearestNeighbors(n_neighbors=k+1, metric='euclidean')
+            nbrs.fit(data)
+            distances, indices = nbrs.kneighbors(data)
+        elif graph_method == 'pynndescent':
+            index = pynndescent.NNDescent(
+                data,
+                metric='euclidean',
+                n_neighbors=k+1
+            )
+            indices, distances = index.neighbor_graph
+        else:
+            raise ValueError(f"Unknown graph construction method: {graph_method}. "
+                            "Choose from 'sklearn' or 'pynndescent'.")
     
     # Compute ratios of successive nearest neighbor distances
     # distances[:, 0] is the distance to self (0), so we start from index 1
@@ -176,5 +214,176 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     # Linear regression to find slope (dimension)
     coeffs = np.polyfit(log_r, log_C, 1)
     dimension = coeffs[0]
+    
+    return dimension
+
+
+def geodesic_dimension(data=None, graph=None, k=15, mode='full', factor=2, dim_step=0.1):
+    """
+    Estimate intrinsic dimension using geodesic distances (De Granata et al. 2016).
+    
+    This method estimates the intrinsic dimensionality by analyzing the distribution
+    of geodesic distances computed as shortest paths on a k-nearest neighbor graph.
+    The method focuses on the behavior of the distance distribution around its maximum.
+    
+    Warning
+    -------
+    This method is sensitive to the k parameter. Small k values (k < 15) often lead
+    to underestimation due to disconnected or sparse graphs that poorly approximate
+    geodesic distances. For reliable estimates, use k ≥ 15-25, with larger values
+    needed for complex manifolds like Swiss rolls or S-curves.
+    
+    Parameters
+    ----------
+    data : array-like of shape (n_samples, n_features), optional
+        The input data matrix. Either data or graph must be provided.
+    
+    graph : sparse matrix of shape (n_samples, n_samples), optional
+        Precomputed graph adjacency matrix with edge weights as distances.
+        If provided, data is ignored. Either data or graph must be provided.
+    
+    k : int, default=15
+        Number of nearest neighbors for graph construction (if data provided).
+    
+    mode : {'full', 'fast'}, default='full'
+        Computation mode:
+        - 'full': Use all pairwise geodesic distances
+        - 'fast': Use a random subset (1/factor of points)
+    
+    factor : int, default=2
+        Subsampling factor for 'fast' mode. Uses n/factor random points.
+    
+    dim_step : float, default=0.1
+        Step size for dimension grid search. Smaller values give more precise
+        estimates but take longer to compute.
+    
+    Returns
+    -------
+    dimension : float
+        The estimated intrinsic dimension of the dataset/manifold.
+    
+    Notes
+    -----
+    This method implements the approach from:
+    Granata, D., Carnevale, V. (2016). Accurate Estimation of the Intrinsic 
+    Dimension Using Graph Distances: Unraveling the Geometric Complexity of 
+    Datasets. Scientific Reports, 6, 31377.
+    
+    The method is particularly robust for complex manifold geometries and can
+    handle small sample sizes effectively.
+    
+    References
+    ----------
+    [1] Granata, D., Carnevale, V. (2016). Accurate Estimation of the Intrinsic
+        Dimension Using Graph Distances: Unraveling the Geometric Complexity of
+        Datasets. Scientific Reports, 6, 31377.
+        https://doi.org/10.1038/srep31377
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.dimensionality.intrinsic import geodesic_dimension
+    >>> # Generate 2D Swiss roll
+    >>> from sklearn.datasets import make_swiss_roll
+    >>> data, _ = make_swiss_roll(n_samples=1000, noise=0.05)
+    >>> d_est = geodesic_dimension(data, k=15)
+    >>> print(f"Estimated dimension: {d_est:.2f}")  # Should be close to 2
+    """
+    import scipy.sparse as sp
+    from scipy.sparse.csgraph import shortest_path
+    from scipy.optimize import curve_fit
+    from sklearn.neighbors import kneighbors_graph
+    
+    if data is None and graph is None:
+        raise ValueError("Either data or graph must be provided")
+    
+    if data is not None and graph is not None:
+        raise ValueError("Provide either data or graph, not both")
+    
+    # Construct graph if data provided
+    if data is not None:
+        data = np.asarray(data)
+        n_samples = len(data)
+        
+        # Build k-NN graph with distances
+        graph = kneighbors_graph(data, n_neighbors=k, mode='distance', 
+                                 include_self=False)
+        # Make symmetric by taking minimum distance
+        graph = graph + graph.T
+        graph = sp.csr_matrix(graph)
+        
+    else:
+        # Use provided graph
+        graph = sp.csr_matrix(graph)
+        n_samples = graph.shape[0]
+        
+    # Subsample for fast mode
+    if mode == 'fast':
+        indices = np.random.permutation(n_samples)[:n_samples // factor]
+        dm = graph[indices, :][:, indices]
+    else:
+        dm = graph
+    
+    # Compute shortest paths (geodesic distances)
+    spmatrix = shortest_path(dm, method='D', directed=False)
+    all_dists = spmatrix.flatten()
+    all_dists = all_dists[all_dists != 0]  # Remove self-distances
+    
+    # Check for disconnected graph
+    n_infinite = np.sum(np.isinf(all_dists))
+    if n_infinite > 0:
+        import warnings
+        warnings.warn(f"Graph appears to be disconnected. Found {n_infinite} infinite distances. "
+                     f"These will be excluded from analysis.", RuntimeWarning)
+    
+    all_dists = all_dists[np.isfinite(all_dists)]  # Remove infinite distances
+    
+    # Check if we have enough finite distances
+    if len(all_dists) < 100:
+        raise ValueError(f"Not enough finite distances for analysis. Got {len(all_dists)} distances. "
+                         "Graph may be too disconnected.")
+    
+    # Analyze distance distribution
+    nbins = 500
+    hist, bin_edges = np.histogram(all_dists, bins=nbins, density=True)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    
+    # Find maximum of distribution
+    dmax_idx = np.argmax(hist)
+    dmax = bin_centers[dmax_idx]
+    
+    # Normalize distances by maximum
+    hist_norm, bin_edges_norm = np.histogram(all_dists / dmax, bins=nbins, density=True)
+    bin_centers_norm = (bin_edges_norm[:-1] + bin_edges_norm[1:]) / 2
+    
+    # Analyze left side of distribution near maximum
+    std_norm = np.std(all_dists / dmax)
+    mask = (bin_centers_norm > 1 - 2 * std_norm) & (bin_centers_norm <= 1) & (hist_norm > 1e-6)
+    x_left = bin_centers_norm[mask]
+    y_left = np.log(hist_norm[mask] / np.max(hist_norm))  # Natural log, not log10
+    
+    # Fit dimension by minimizing error against theoretical distribution
+    def theoretical_dist(x, D):
+        """Theoretical distribution for D-dimensional hypersphere.
+        
+        Based on Granata & Carnevale 2016 paper, the distribution of geodesic
+        distances near the maximum follows: D * log(sin(x * pi/2))
+        where x is the normalized distance and D is the intrinsic dimension.
+        """
+        # Original paper uses D * log(sin(x * pi/2)) with natural logarithm
+        return D * np.log(np.sin(x * np.pi / 2))
+    
+    # Grid search for best dimension
+    dimensions = np.arange(1.0, 26.0, dim_step)
+    errors = []
+    
+    for D in dimensions:
+        y_theory = theoretical_dist(x_left, D)
+        error = np.linalg.norm(y_theory - y_left) / np.sqrt(len(y_left))
+        errors.append(error)
+    
+    # Find dimension with minimum error
+    best_idx = np.argmin(errors)
+    dimension = dimensions[best_idx]
     
     return dimension

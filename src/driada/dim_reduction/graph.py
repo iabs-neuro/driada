@@ -52,9 +52,14 @@ class ProximityGraph(Network):
                 raise Exception(f'more than {self.max_deleted_nodes * 100} % of nodes discarded during gc creation!')
             else:
                 self.lost_nodes = lost_nodes
-                connected = [i for i in range(self.n) if i not in self.lost_nodes]
+                connected = [i for i in range(original_n) if i not in self.lost_nodes]
                 self.bin_adj = self.bin_adj[connected, :].tocsc()[:, connected].tocsr()
                 self.neigh_distmat = self.neigh_distmat[connected, :].tocsc()[:, connected].tocsr()
+                
+                # Update k-NN arrays if they exist
+                if hasattr(self, 'knn_indices') and hasattr(self, 'knn_distances'):
+                    self.knn_indices = self.knn_indices[connected]
+                    self.knn_distances = self.knn_distances[connected]
 
         self._checkpoint()
 
@@ -103,7 +108,12 @@ class ProximityGraph(Network):
                                                 return_dists=True)
 
         self.adj = sp.csr_matrix(adj)
-        #print('WARNING: distmat is not yet implemented in this branch')
+        self.bin_adj = (self.adj > 0).astype(int)
+        self.neigh_distmat = sp.csr_matrix(dists) if dists is not None else sp.csr_matrix(self.adj.shape)
+        
+        # Initialize k-NN attributes to None (not directly available for UMAP)
+        self.knn_indices = None
+        self.knn_distances = None
 
     def create_knn_graph_(self):
         if self.metric in named_distances:
@@ -120,6 +130,10 @@ class ProximityGraph(Network):
                                       pruning_degree_multiplier=1.5)
 
         neighs, dists = index.neighbor_graph
+        
+        # Save the k-NN graph for potential use in intrinsic dimension estimation
+        self.knn_indices = neighs
+        self.knn_distances = dists
 
         neigh_cols = neighs[:, 1:].flatten()
         dist_vals = dists[:, 1:].flatten()
@@ -145,7 +159,12 @@ class ProximityGraph(Network):
         A = A.astype(bool, casting='unsafe', copy=True)
         A = A + A.T
         self.adj = A
-        #print('WARNING: distmat is not yet implemented in this branch')
+        self.bin_adj = A.copy()
+        self.neigh_distmat = sp.csr_matrix(A.shape)
+        
+        # Initialize k-NN attributes to None (not available for this method)
+        self.knn_indices = None
+        self.knn_distances = None
     
     def create_eps_graph_(self):
         """Create epsilon-ball graph where edges connect points within distance eps."""
@@ -187,6 +206,10 @@ class ProximityGraph(Network):
         else:
             # For unweighted graphs, create sparse zero matrix for distances
             self.neigh_distmat = sp.csr_matrix(A.shape)
+        
+        # Initialize k-NN attributes to None (not available for epsilon-ball graphs)
+        self.knn_indices = None
+        self.knn_distances = None
 
     def calculate_indim(self, mode, factor=2):
 
@@ -284,3 +307,137 @@ class ProximityGraph(Network):
             diagsums.append(np.trace(mat, offset=i, dtype=None, out=None) / (self.n - i))
 
         return diagsums
+    
+    def get_int_dim(self, method='geodesic', force_recompute=False, logger=None, **kwargs):
+        """
+        Estimate intrinsic dimension using graph-based methods.
+        
+        This method estimates the intrinsic dimensionality using either
+        geodesic distances on the graph or k-NN method with precomputed
+        k-NN information. Results are cached to avoid recomputation.
+        
+        Parameters
+        ----------
+        method : {'geodesic', 'nn'}, default='geodesic'
+            The method to use for intrinsic dimension estimation:
+            - 'geodesic': Uses geodesic distances (shortest paths) on the graph
+            - 'nn': k-nearest neighbor based estimation using saved k-NN data
+        
+        force_recompute : bool, default=False
+            If True, recompute the dimension even if it has been computed before.
+            If False, return cached result if available.
+        
+        logger : logging.Logger, optional
+            Logger instance for logging messages. If None, creates a default logger.
+        
+        **kwargs : dict
+            Additional parameters passed to the dimension estimation method:
+            - For 'geodesic': mode ('full'/'fast'), factor (subsampling factor)
+        
+        Returns
+        -------
+        dimension : float
+            The estimated intrinsic dimension of the dataset/manifold.
+        
+        Raises
+        ------
+        ValueError
+            If an unknown method is specified or required data is not available.
+        
+        Examples
+        --------
+        >>> import numpy as np
+        >>> from driada.dim_reduction.graph import ProximityGraph
+        >>> # Generate Swiss roll data
+        >>> from sklearn.datasets import make_swiss_roll
+        >>> data, _ = make_swiss_roll(n_samples=500)
+        >>> # Create proximity graph
+        >>> m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        >>> g_params = {'g_method_name': 'knn', 'nn': 15, 'weighted': True, 
+        ...             'dist_to_aff': 'hk', 'max_deleted_nodes': 0.5}
+        >>> graph = ProximityGraph(data.T, m_params, g_params)
+        >>> # Estimate dimension using geodesic method
+        >>> dim_geo = graph.get_int_dim(method='geodesic')
+        >>> # Get cached result (fast)
+        >>> dim_geo_cached = graph.get_int_dim(method='geodesic')
+        >>> # Force recomputation
+        >>> dim_geo_new = graph.get_int_dim(method='geodesic', force_recompute=True)
+        >>> # Or using nn method (only if k-NN graph was used)
+        >>> dim_nn = graph.get_int_dim(method='nn')
+        >>> # Access all computed dimensions
+        >>> print(graph.intrinsic_dimensions)
+        """
+        import logging
+        from ..dimensionality import geodesic_dimension, nn_dimension
+        
+        # Setup logger
+        if logger is None:
+            logger = logging.getLogger(f"{self.__class__.__name__}.get_int_dim")
+        
+        # Initialize cache if not exists
+        if not hasattr(self, 'intrinsic_dimensions'):
+            self.intrinsic_dimensions = {}
+        
+        # Validate method
+        valid_methods = {'geodesic', 'nn'}
+        if method not in valid_methods:
+            raise ValueError(f"Unknown method: {method}. Choose from {valid_methods}")
+        
+        # Create cache key for method with parameters
+        cache_key = method
+        if method == 'geodesic':
+            mode = kwargs.get('mode', 'full')
+            factor = kwargs.get('factor', 2)
+            cache_key = f"{method}_{mode}_f{factor}"
+        
+        # Check cache unless force_recompute
+        if not force_recompute and cache_key in self.intrinsic_dimensions:
+            logger.info(f"Returning cached intrinsic dimension for {cache_key}: "
+                       f"{self.intrinsic_dimensions[cache_key]:.3f}")
+            return self.intrinsic_dimensions[cache_key]
+        
+        logger.info(f"Computing intrinsic dimension using {method} method")
+        
+        if method == 'geodesic':
+            # Extract parameters
+            mode = kwargs.get('mode', 'full')
+            factor = kwargs.get('factor', 2)
+            
+            # Use the adjacency matrix with distances if available
+            if hasattr(self, 'neigh_distmat') and self.neigh_distmat is not None:
+                # Use distance matrix if available
+                graph_for_geodesic = self.neigh_distmat
+            else:
+                # Fall back to binary adjacency
+                graph_for_geodesic = self.adj
+            
+            logger.debug(f"Using graph with shape {graph_for_geodesic.shape}, "
+                        f"nnz={graph_for_geodesic.nnz}, mode={mode}, factor={factor}")
+            
+            dimension = geodesic_dimension(graph=graph_for_geodesic, 
+                                         mode=mode, factor=factor)
+        
+        elif method == 'nn':
+            # Use k-NN method with saved k-NN data
+            # Check if we have saved k-NN data
+            if (hasattr(self, 'knn_indices') and self.knn_indices is not None and 
+                hasattr(self, 'knn_distances') and self.knn_distances is not None):
+                
+                # Use the k value from graph construction
+                k = self.nn if hasattr(self, 'nn') else self.knn_indices.shape[1] - 1
+                
+                logger.debug(f"Using saved k-NN data with k={k}")
+                
+                # Use precomputed graph
+                dimension = nn_dimension(precomputed_graph=(self.knn_indices, self.knn_distances), k=k)
+            else:
+                raise ValueError(f"nn method requires k-NN graph data which is not available. "
+                               f"The graph was created with method '{self.g_method_name}' which "
+                               f"does not provide k-NN neighbor information.")
+        
+        # Cache the result
+        self.intrinsic_dimensions[cache_key] = dimension
+        
+        logger.info(f"Estimated intrinsic dimension: {dimension:.3f}")
+        
+        return dimension
