@@ -6,7 +6,7 @@ import pickle
 
 from ..information.info_base import TimeSeries
 from ..information.info_base import MultiTimeSeries
-from .neuron import DEFAULT_MIN_BEHAVIOUR_TIME, Neuron
+from .neuron import DEFAULT_MIN_BEHAVIOUR_TIME, DEFAULT_T_OFF, DEFAULT_FPS, MIN_CA_SHIFT, Neuron
 from .wavelet_event_detection import WVT_EVENT_DETECTION_PARAMS, extract_wvt_events, events_to_ts_array, ridges_to_containers
 from ..utils.data import get_hash, populate_nested_dict
 from ..information.info_base import get_1d_mi
@@ -18,25 +18,57 @@ DEFAULT_SIGNIFICANCE = dict(zip(SIGNIFICANCE_VARS, [None for _ in SIGNIFICANCE_V
 
 
 def check_dynamic_features(dynamic_features):
+    """Validate that all dynamic features have the same length.
+    
+    Parameters
+    ----------
+    dynamic_features : dict
+        Dictionary of feature_name: feature_data pairs
+        
+    Raises
+    ------
+    ValueError
+        If features have different lengths
+    TypeError
+        If feature type is not supported
+    """
+    if not dynamic_features:
+        return  # Handle empty features gracefully
+    
     dfeat_lengths = {}
-    for feat_id in dynamic_features:
-        current_ts = dynamic_features[feat_id]
+    for feat_id, current_ts in dynamic_features.items():
+        # Only accept specific types - reject everything else
         if isinstance(current_ts, TimeSeries):
             len_ts = len(current_ts.data)
+        elif isinstance(current_ts, MultiTimeSeries):
+            # MultiTimeSeries inherits from MVData which has n_points attribute
+            len_ts = current_ts.n_points
         elif isinstance(current_ts, np.ndarray):
-            # Handle raw numpy arrays
-            len_ts = current_ts.shape[-1] if current_ts.ndim > 1 else len(current_ts)
-        elif hasattr(current_ts, 'data') and hasattr(current_ts.data, 'shape'):  # MultiTimeSeries or similar
-            len_ts = current_ts.data.shape[1]  # MultiTimeSeries data is (n_features, n_timepoints)
+            # Handle raw numpy arrays - last dimension is time
+            if current_ts.ndim == 0:
+                raise TypeError(
+                    f"Feature '{feat_id}' is a scalar numpy array. "
+                    f"Expected TimeSeries, MultiTimeSeries, or numpy array with at least 1 dimension."
+                )
+            len_ts = current_ts.shape[-1]
         else:
-            len_ts = len(current_ts)
+            # Reject all other types
+            raise TypeError(
+                f"Feature '{feat_id}' has unsupported type: {type(current_ts).__name__}. "
+                f"Expected TimeSeries, MultiTimeSeries, or numpy array only."
+            )
 
         dfeat_lengths[feat_id] = len_ts
 
-    #TODO: add fix for 0 features
-    if len(set(dfeat_lengths.values())) != 1:
-        print(dfeat_lengths)
-        raise ValueError('Dynamic features have different lengths!')
+    # Check all features have same length
+    unique_lengths = set(dfeat_lengths.values())
+    if len(unique_lengths) != 1:
+        # Create informative error message
+        length_info = [f"  {feat}: {length} timepoints" 
+                      for feat, length in dfeat_lengths.items()]
+        raise ValueError(
+            f"Dynamic features have different lengths:\n" + "\n".join(length_info)
+        )
 
 
 class Experiment():
@@ -67,7 +99,7 @@ class Experiment():
             setattr(self, idx, exp_identificators[idx])
 
         if calcium is None:
-            raise AttributeError('No calcium data provided')
+            raise ValueError('Calcium data is required. Please provide a numpy array with shape (n_neurons, n_timepoints).')
 
         if reconstruct_spikes is None:
             if spikes is None:
@@ -111,17 +143,13 @@ class Experiment():
         self.n_cells = calcium.shape[0]
         self.n_frames = calcium.shape[1]
 
-        # Store raw calcium and spikes arrays temporarily
-        self._calcium_raw = calcium
-        self._spikes_raw = spikes if spikes is not None else np.zeros(calcium.shape)
-        
         self.neurons = []
         
         print('Building neurons...')
         for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True):
             cell = Neuron(str(i),
-                          self._calcium_raw[i, :],
-                          self._spikes_raw[i, :],
+                          calcium[i, :],
+                          spikes[i, :] if spikes is not None else None,
                           default_t_rise=static_features.get('t_rise_sec'),
                           default_t_off=static_features.get('t_off_sec'),
                           fps=static_features.get('fps'),
@@ -139,13 +167,41 @@ class Experiment():
         self.spikes = MultiTimeSeries(spikes_ts_list)
 
         self.dynamic_features = dynamic_features
+        
+        # Protected attributes that should not be overwritten
+        protected_attrs = {
+            'neurons', 'calcium', 'spikes', 'n_cells', 'n_frames',
+            'stats_tables', 'significance_tables', 'embeddings',
+            '_rdm_cache', '_data_hashes', 'signature', 'exp_identificators'
+        }
+        
+        # Check for protected attributes in dynamic features and remove them
+        conflicting_features = []
+        for feat_id in dynamic_features:
+            if isinstance(feat_id, str) and feat_id in protected_attrs:
+                conflicting_features.append(feat_id)
+        
+        if conflicting_features:
+            raise ValueError(
+                f"Dynamic feature names conflict with protected attributes: {conflicting_features}. "
+                f"Protected attributes are: {sorted(protected_attrs)}"
+            )
+        
+        # Set dynamic features as attributes
         for feat_id in dynamic_features:
             if isinstance(feat_id, str):
+                if hasattr(self, feat_id):
+                    warnings.warn(f"Feature name '{feat_id}' overwrites existing attribute.")
                 setattr(self, feat_id, dynamic_features[feat_id])
             # Skip tuples (multifeatures) as they can't be attribute names
 
         for sfeat_name in static_features:
-            setattr(self, sfeat_name, static_features[sfeat_name])
+            if sfeat_name in protected_attrs:
+                warnings.warn(f"Static feature name '{sfeat_name}' conflicts with protected attribute. "
+                            f"Access via attribute name with underscore: _{sfeat_name}")
+                setattr(self, f"_{sfeat_name}", static_features[sfeat_name])
+            else:
+                setattr(self, sfeat_name, static_features[sfeat_name])
 
         # for selectivity data from INTENSE
         self.stats_tables = {}
@@ -229,8 +285,18 @@ class Experiment():
         '''
         Builds a unique hash-based representation of calcium-feature pair data for all cell-feature pairs..
         '''
-        default_data_hashes = {dfeat: dict(zip(range(self.n_cells), [None for _ in range(self.n_cells)])) for dfeat in self.dynamic_features.keys()}
-        self._data_hashes = {'calcium': default_data_hashes, 'spikes': default_data_hashes}
+        # Create default hashes structure for this mode only
+        if not hasattr(self, '_data_hashes'):
+            self._data_hashes = {}
+        
+        # Create independent dictionary for each mode to avoid aliasing
+        mode_hashes = {
+            dfeat: dict(zip(range(self.n_cells), [None for _ in range(self.n_cells)])) 
+            for dfeat in self.dynamic_features.keys()
+        }
+        self._data_hashes[mode] = mode_hashes
+        
+        # Populate hashes for this mode
         for feat_id in self.dynamic_features:
             for cell_id in range(self.n_cells):
                 self._data_hashes[mode][feat_id][cell_id] = self._build_pair_hash(cell_id, feat_id, mode=mode)
@@ -251,7 +317,22 @@ class Experiment():
             current_ts = dynamic_features[feat_id]
             if isinstance(current_ts, TimeSeries):
                 f_ts = TimeSeries(current_ts.data[~bad_frames_mask], discrete=current_ts.discrete)
+            elif isinstance(current_ts, MultiTimeSeries):
+                # Handle MultiTimeSeries by trimming each component
+                filtered_components = []
+                for i in range(current_ts.n_dim):
+                    component_data = current_ts.data[i, ~bad_frames_mask]
+                    filtered_components.append(TimeSeries(component_data, discrete=current_ts.discrete))
+                f_ts = MultiTimeSeries(filtered_components)
+            elif isinstance(current_ts, np.ndarray):
+                # Handle raw arrays
+                if current_ts.ndim == 1:
+                    f_ts = TimeSeries(current_ts[~bad_frames_mask])
+                else:
+                    # Multi-dimensional array
+                    f_ts = current_ts[:, ~bad_frames_mask]
             else:
+                # Fallback for other types
                 f_ts = TimeSeries(current_ts[~bad_frames_mask])
 
             f_dynamic_features[feat_id] = f_ts
@@ -265,8 +346,22 @@ class Experiment():
         '''
         Check build for common errors
         '''
+        # Check minimal length for proper shuffle mask creation
+        t_off_sec = getattr(self, 't_off_sec', DEFAULT_T_OFF)
+        fps = getattr(self, 'fps', DEFAULT_FPS)
+        t_off_frames = t_off_sec * fps
+        min_required_frames = int(t_off_frames * MIN_CA_SHIFT * 2) + 10  # Need space for both ends + some valid positions
+        
+        if self.n_frames < min_required_frames:
+            raise ValueError(
+                f'Signal too short: {self.n_frames} frames. '
+                f'Minimum {min_required_frames} frames required for proper shuffle mask creation '
+                f'(based on t_off={t_off_sec}s, fps={fps}Hz).'
+            )
+        
         if self.n_cells > self.n_frames:
-            raise UserWarning('Number of cells > number of time frames, looks like the data is transposed')
+            raise ValueError(f'Number of cells ({self.n_cells}) > number of time frames ({self.n_frames}). '
+                           f'Data appears to be transposed. Expected shape: (n_neurons, n_timepoints).')
 
         for dfeat in ['calcium', 'spikes']:
             if self.n_frames not in getattr(self, dfeat).shape:
@@ -511,20 +606,37 @@ class Experiment():
 
     def get_multicell_shuffled_calcium(self, cbunch=None, method='roll_based', no_ts=True, **kwargs):
         '''
+        Get shuffled calcium data for multiple cells.
 
         Args:
-            cbunch:
-            method:
+            cbunch: int, list, or None
+                Cell indices. If None, all cells are used.
+            method: str
+                Shuffling method: 'roll_based', 'waveform_based', or 'chunks_based'
+            no_ts: bool
+                If True, intermediate TimeSeries objects are not created, which speeds up shuffling
             **kwargs:
-            no_ts: if True, intermediate TimeSeries objects are nor created, which speeds up shuffling
+                Additional parameters passed to the shuffling method
 
         Returns:
+            np.ndarray
+                Shuffled calcium data with shape (n_cells, n_frames)
 
         '''
+        # Validate method
+        valid_methods = ['roll_based', 'waveform_based', 'chunks_based']
+        if method not in valid_methods:
+            raise ValueError(f"Invalid shuffling method '{method}'. Must be one of: {valid_methods}")
+        
         cell_list = self._process_cbunch(cbunch)
+        
+        # Validate cell indices
+        if any(idx < 0 or idx >= self.n_cells for idx in cell_list):
+            raise ValueError(f"Invalid cell indices. Must be between 0 and {self.n_cells-1}")
+        
         agg_sh_data = np.zeros((len(cell_list), self.n_frames))
-        for i in cell_list:
-            cell = self.neurons[i]
+        for i, cell_idx in enumerate(cell_list):
+            cell = self.neurons[cell_idx]
             sh_data = cell.get_shuffled_calcium(method=method, **kwargs, no_ts=no_ts)
             if no_ts:
                 agg_sh_data[i, :] = sh_data[:]
@@ -535,26 +647,42 @@ class Experiment():
 
     def get_multicell_shuffled_spikes(self, cbunch=None, method='isi_based', no_ts=True, **kwargs):
         '''
+        Get shuffled spike data for multiple cells.
 
         Args:
-            cbunch:
-            method:
+            cbunch: int, list, or None
+                Cell indices. If None, all cells are used.
+            method: str
+                Shuffling method: 'isi_based' is the only supported method for spikes
+            no_ts: bool
+                If True, intermediate TimeSeries objects are not created, which speeds up shuffling
             **kwargs:
-            no_ts: if True, intermediate TimeSeries objects are nor created, which speeds up shuffling
+                Additional parameters passed to the shuffling method
 
         Returns:
+            np.ndarray
+                Shuffled spike data with shape (n_cells, n_frames)
 
         '''
         # Check if spikes data is meaningful (not all zeros)
-        if np.allclose(self.spikes.data, 0):
+        if not np.any(self.spikes.data):
             raise AttributeError('Unable to shuffle spikes without meaningful spikes data')
 
+        # Validate method
+        valid_methods = ['isi_based']
+        if method not in valid_methods:
+            raise ValueError(f"Invalid spike shuffling method '{method}'. Must be one of: {valid_methods}")
+
         cell_list = self._process_cbunch(cbunch)
+        
+        # Validate cell indices
+        if any(idx < 0 or idx >= self.n_cells for idx in cell_list):
+            raise ValueError(f"Invalid cell indices. Must be between 0 and {self.n_cells-1}")
 
         agg_sh_data = np.zeros((len(cell_list), self.n_frames))
-        for i in cell_list:
-            cell = self.neurons[i]
-            sh_data = cell.get_shuffled_spikes(method=method, **kwargs)
+        for i, cell_idx in enumerate(cell_list):
+            cell = self.neurons[cell_idx]
+            sh_data = cell.get_shuffled_spikes(method=method, **kwargs, no_ts=no_ts)
             if no_ts:
                 agg_sh_data[i, :] = sh_data[:]
             else:
@@ -600,22 +728,89 @@ class Experiment():
 
     def get_feature_entropy(self, feat_id, ds=1):
         '''
-        Calculates entropy of a single dynamic feature or a multifeature (e.g. ['x','y']).
-        Currently only 2-combinations of features are correctly supported,
-        for 3 and more variables calculations will be distorted (correct estimation of multivariate
-        entropy for non-gaussian variables is non-trivial).
+        Calculates entropy of a single dynamic feature or joint entropy of multiple features.
+        
+        Parameters
+        ----------
+        feat_id : str or tuple
+            - str: Name of a single feature (TimeSeries or MultiTimeSeries)
+            - tuple: Names of exactly 2 features for joint entropy calculation
+        ds : int
+            Downsampling factor
+            
+        Returns
+        -------
+        float
+            Entropy value in bits (or nats for continuous variables)
+            
+        Notes
+        -----
+        - Single features use their native get_entropy() method
+        - Tuples calculate joint entropy for exactly 2 variables  
+        - Joint entropy of 3+ variables is not supported (use MultiTimeSeries instead)
+        - Continuous variables may return negative entropy values
         '''
         if isinstance(feat_id, str):
+            # Single feature - use its get_entropy method
             fts = self.dynamic_features[feat_id]
+            
+            # Check for continuous components and warn
+            if isinstance(fts, TimeSeries) and not fts.discrete:
+                warnings.warn(
+                    f"Feature '{feat_id}' is continuous. Entropy may be negative. "
+                    "Consider using mutual information or other measures for continuous variables."
+                )
+            elif isinstance(fts, MultiTimeSeries):
+                # MultiTimeSeries with continuous components
+                if not fts.discrete:
+                    warnings.warn(
+                        f"Feature '{feat_id}' contains continuous components. "
+                        "Differential entropy may be negative and depends on the scale/units."
+                    )
+            
             return fts.get_entropy(ds=ds)
-
+            
+        elif isinstance(feat_id, (tuple, list)):
+            # Joint entropy of multiple features
+            if len(feat_id) != 2:
+                raise ValueError(
+                    f"Joint entropy is only supported for exactly 2 variables, got {len(feat_id)}. "
+                    f"For {len(feat_id)} variables, create a MultiTimeSeries instead."
+                )
+            
+            # Get the two features
+            feat1_name, feat2_name = feat_id
+            feat1 = self.dynamic_features[feat1_name]
+            feat2 = self.dynamic_features[feat2_name]
+            
+            # Check for continuous components
+            has_continuous = False
+            if isinstance(feat1, TimeSeries) and not feat1.discrete:
+                has_continuous = True
+            elif isinstance(feat1, MultiTimeSeries) and not feat1.discrete:
+                has_continuous = True
+            if isinstance(feat2, TimeSeries) and not feat2.discrete:
+                has_continuous = True
+            elif isinstance(feat2, MultiTimeSeries) and not feat2.discrete:
+                has_continuous = True
+                
+            if has_continuous:
+                warnings.warn(
+                    "One or both features contain continuous components. "
+                    "Joint differential entropy may be negative and is scale-dependent."
+                )
+            
+            # For joint entropy of 2 variables, use H(X,Y) = H(X) + H(Y) - MI(X,Y)
+            h_x = feat1.get_entropy(ds=ds)
+            h_y = feat2.get_entropy(ds=ds)
+            mi_xy = get_1d_mi(feat1, feat2, ds=ds)
+            
+            return h_x + h_y - mi_xy
+            
         else:
-            ordered_fnames = tuple(sorted(list(feat_id)))
-            tslist = [self.dynamic_features[dfeat] for dfeat in ordered_fnames]
-            single_entropies = [fts.get_entropy(ds=ds) for fts in tslist]
-            fpairs = list(combinations(tslist, 2))
-            MIs = [get_1d_mi(ts1, ts2, ds=ds) for (ts1,ts2) in fpairs]
-            return sum(single_entropies) - sum(MIs)
+            raise TypeError(
+                f"feat_id must be str or tuple of 2 feature names, got {type(feat_id)}"
+            )
 
     def _reconstruct_spikes(self, calcium, method, fps, spike_kwargs=None):
         """

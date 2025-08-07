@@ -142,10 +142,33 @@ def rescale(data):
 
 
 def get_hash(data):
-    # Prepare the object hash
-    hash_id = hashlib.md5()
-    hash_id.update(repr(data).encode('utf-8'))
-    return hash_id.hexdigest()
+    """Create a hash of numpy array or other data.
+    
+    Parameters
+    ----------
+    data : np.ndarray or other
+        Data to hash. For arrays, uses the raw bytes.
+        For other types, converts to string first.
+        
+    Returns
+    -------
+    str
+        Hexadecimal hash string
+    """
+    if isinstance(data, np.ndarray):
+        # For numpy arrays, use the raw bytes for consistent hashing
+        # Include shape and dtype in the hash to distinguish reshaped arrays
+        hash_id = hashlib.sha256()
+        hash_id.update(data.shape.__repr__().encode('utf-8'))
+        hash_id.update(data.dtype.str.encode('utf-8'))
+        hash_id.update(data.tobytes())
+        return hash_id.hexdigest()
+    else:
+        # For other data types, convert to string
+        # This is less ideal but provides a fallback
+        hash_id = hashlib.sha256()
+        hash_id.update(str(data).encode('utf-8'))
+        return hash_id.hexdigest()
 
 
 def phase_synchrony(vec1, vec2):
