@@ -14,7 +14,8 @@ import numpy as np
 from driada.intense.pipelines import (
     compute_cell_feat_significance,
     compute_feat_feat_significance,
-    compute_cell_cell_significance
+    compute_cell_cell_significance,
+    compute_embedding_selectivity
 )
 from driada.information.info_base import TimeSeries
 from driada.experiment.synthetic import (
@@ -29,7 +30,6 @@ from driada.experiment.synthetic import (
 FAST_PARAMS = {
     'mode': 'stage1',
     'n_shuffles_stage1': 5,
-    'verbose': False,
     'ds': 5,  # Aggressive downsampling
     'enable_parallelization': False,  # Disable for small tests
     'seed': 42
@@ -220,3 +220,278 @@ class TestPerformanceBenchmarks:
             **FAST_PARAMS
         )
         assert time.time() - start < 5.0
+
+
+# Additional comprehensive tests for better coverage
+
+def test_compute_cell_cell_significance_comprehensive(small_experiment):
+    """Comprehensive test for cell-cell significance with all code paths."""
+    exp = small_experiment
+    
+    # Ensure each neuron has unique calcium data to avoid self-comparison issues
+    np.random.seed(42)
+    for i in range(exp.n_cells):
+        # Add unique noise pattern to each neuron
+        noise = np.random.randn(len(exp.neurons[i].ca.data)) * 0.1 * (i + 1)
+        exp.neurons[i].ca = TimeSeries(
+            exp.neurons[i].ca.data + noise,
+            discrete=False
+        )
+    
+    # Test with calcium data
+    sim_mat, sig_mat, pval_mat, cell_ids, info = compute_cell_cell_significance(
+        exp,
+        cell_bunch=None,  # Test with all neurons
+        data_type='calcium',
+        verbose=True,  # Test verbose output
+        **FAST_PARAMS
+    )
+    
+    n_cells = exp.n_cells
+    assert sim_mat.shape == (n_cells, n_cells)
+    assert sig_mat.shape == (n_cells, n_cells)
+    assert pval_mat.shape == (n_cells, n_cells)
+    assert len(cell_ids) == n_cells
+    
+    # Check diagonal is zero
+    assert np.allclose(np.diag(sim_mat), 0)
+    assert np.allclose(np.diag(sig_mat), 0)
+    assert np.allclose(np.diag(pval_mat), 1)
+    
+    # Check symmetry
+    assert np.allclose(sim_mat, sim_mat.T)
+    assert np.allclose(sig_mat, sig_mat.T)
+    assert np.allclose(pval_mat, pval_mat.T)
+
+
+def test_compute_cell_cell_significance_with_spikes(small_experiment):
+    """Test cell-cell significance with spike data."""
+    exp = small_experiment
+    
+    # Add spike data to neurons
+    for i in range(exp.n_cells):
+        neuron = exp.neurons[i]
+        # Create synthetic spike data
+        spike_data = (neuron.ca.data > np.percentile(neuron.ca.data, 80)).astype(int)
+        neuron.sp = TimeSeries(spike_data, discrete=True)
+    
+    # Test with spike data
+    sim_mat, sig_mat, pval_mat, cell_ids, info = compute_cell_cell_significance(
+        exp,
+        cell_bunch=[0, 1, 2],
+        data_type='spikes',
+        **FAST_PARAMS
+    )
+    
+    assert sim_mat.shape == (3, 3)
+    assert np.allclose(np.diag(sim_mat), 0)
+
+
+def test_compute_cell_cell_significance_error_cases(small_experiment):
+    """Test error handling in cell-cell significance."""
+    exp = small_experiment
+    
+    # Test invalid data type
+    with pytest.raises(ValueError, match='"data_type" can be either'):
+        compute_cell_cell_significance(
+            exp,
+            data_type='invalid',
+            **FAST_PARAMS
+        )
+    
+    # Test with no spike data
+    for i in range(exp.n_cells):
+        neuron = exp.neurons[i]
+        neuron.sp = None
+    
+    with pytest.raises(ValueError, match="Some neurons have no spike data"):
+        compute_cell_cell_significance(
+            exp,
+            data_type='spikes',
+            **FAST_PARAMS
+        )
+
+
+def test_compute_embedding_selectivity_basic(small_experiment):
+    """Test compute_embedding_selectivity with basic embeddings."""
+    exp = small_experiment
+    
+    # Create and store a simple PCA embedding
+    from sklearn.decomposition import PCA
+    
+    # Get neural data
+    neural_data = np.array([exp.neurons[i].ca.data for i in range(exp.n_cells)]).T
+    
+    # Compute PCA
+    pca = PCA(n_components=2)
+    embedding = pca.fit_transform(neural_data)
+    
+    # Store embedding
+    exp.store_embedding(
+        embedding,
+        method_name='pca',
+        data_type='calcium',
+        metadata={'method': 'PCA', 'n_components': 2}
+    )
+    
+    # Test embedding selectivity
+    results = compute_embedding_selectivity(
+        exp,
+        embedding_methods=['pca'],
+        cell_bunch=[0, 1, 2],
+        verbose=True,  # Test verbose output
+        **FAST_PARAMS
+    )
+    
+    assert 'pca' in results
+    pca_results = results['pca']
+    assert 'stats' in pca_results
+    assert 'significance' in pca_results
+    assert 'significant_neurons' in pca_results
+    assert 'component_selectivity' in pca_results
+    assert pca_results['n_components'] == 2
+
+
+def test_compute_embedding_selectivity_multiple_methods(small_experiment):
+    """Test embedding selectivity with multiple methods."""
+    exp = small_experiment
+    
+    # Get neural data
+    neural_data = np.array([exp.neurons[i].ca.data for i in range(exp.n_cells)]).T
+    
+    # Store multiple embeddings
+    from sklearn.decomposition import PCA
+    from sklearn.manifold import TSNE
+    
+    # PCA
+    pca = PCA(n_components=2)
+    pca_embedding = pca.fit_transform(neural_data)
+    exp.store_embedding(pca_embedding, method_name='pca', data_type='calcium')
+    
+    # t-SNE
+    tsne = TSNE(n_components=2, random_state=42, perplexity=2)  # Small perplexity for small data
+    tsne_embedding = tsne.fit_transform(neural_data)
+    exp.store_embedding(tsne_embedding, method_name='tsne', data_type='calcium')
+    
+    # Test with all embeddings
+    results = compute_embedding_selectivity(
+        exp,
+        embedding_methods=None,  # Test with None (all methods)
+        **FAST_PARAMS
+    )
+    
+    assert 'pca' in results
+    assert 'tsne' in results
+    
+    # Test specific method
+    results_single = compute_embedding_selectivity(
+        exp,
+        embedding_methods='pca',  # Test with string input
+        **FAST_PARAMS
+    )
+    
+    assert len(results_single) == 1
+    assert 'pca' in results_single
+
+
+def test_compute_embedding_selectivity_error_cases(small_experiment):
+    """Test error handling in embedding selectivity."""
+    exp = small_experiment
+    
+    # Test with no embeddings - should raise KeyError per actual implementation
+    with pytest.raises(KeyError, match="No embedding found"):
+        compute_embedding_selectivity(
+            exp,
+            embedding_methods=['nonexistent'],
+            **FAST_PARAMS
+        )
+
+
+def test_compute_feat_feat_significance_edge_cases(small_experiment):
+    """Test edge cases in feat-feat significance."""
+    exp = small_experiment
+    
+    # Test with empty feature list
+    sim_mat, sig_mat, pval_mat, feat_ids, info = compute_feat_feat_significance(
+        exp,
+        feat_bunch=[],  # Empty list
+        verbose=True,  # Test verbose path
+        **FAST_PARAMS
+    )
+    
+    assert sim_mat.shape == (0, 0)
+    assert sig_mat.shape == (0, 0)
+    assert pval_mat.shape == (0, 0)
+    assert len(feat_ids) == 0
+    
+    # Test with multifeatures
+    multifeature = ('d_feat_0', 'd_feat_1')  # Assuming these exist
+    sim_mat2, sig_mat2, pval_mat2, feat_ids2, info2 = compute_feat_feat_significance(
+        exp,
+        feat_bunch=['d_feat_0', multifeature],
+        verbose=True,
+        **FAST_PARAMS
+    )
+    
+    assert len(feat_ids2) == 2
+    assert 'd_feat_0' in feat_ids2
+    assert multifeature in feat_ids2
+
+
+def test_compute_cell_feat_significance_error_paths(small_experiment):
+    """Test error handling paths in cell-feat significance."""
+    exp = small_experiment
+    
+    # Test with invalid data type
+    with pytest.raises(ValueError, match='"data_type" can be either'):
+        compute_cell_feat_significance(
+            exp,
+            data_type='invalid',
+            **FAST_PARAMS
+        )
+    
+    # Test with non-existent feature
+    with pytest.raises(ValueError, match="Feature .* not found in experiment"):
+        compute_cell_feat_significance(
+            exp,
+            feat_bunch=['nonexistent_feature'],
+            allow_mixed_dimensions=True,
+            **FAST_PARAMS
+        )
+    
+    # Test mixed dimensions with multifeatures
+    result = compute_cell_feat_significance(
+        exp,
+        cell_bunch=[0, 1],
+        feat_bunch=['d_feat_0', ('d_feat_0', 'd_feat_1')],
+        allow_mixed_dimensions=True,
+        verbose=True,  # Test verbose paths
+        **FAST_PARAMS
+    )
+    
+    assert len(result) == 4
+
+
+def test_cell_cell_with_identical_spike_data(small_experiment):
+    """Test warning when all neurons have identical spike data."""
+    exp = small_experiment
+    
+    # Create identical spike data for all neurons
+    identical_spikes = TimeSeries(np.zeros(exp.n_frames, dtype=int), discrete=True)
+    for i in range(exp.n_cells):
+        neuron = exp.neurons[i]
+        neuron.sp = identical_spikes
+    
+    # Should generate a warning
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        
+        compute_cell_cell_significance(
+            exp,
+            data_type='spikes',
+            **FAST_PARAMS
+        )
+        
+        assert len(w) == 1
+        assert "identical spike data" in str(w[0].message)

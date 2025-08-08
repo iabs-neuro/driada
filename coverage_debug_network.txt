@@ -167,5 +167,5 @@ TOTAL                                                       8303   6674   3314  
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-============================= 85 passed in 12.36s ==============================
+============================= 85 passed in 12.60s ==============================
 

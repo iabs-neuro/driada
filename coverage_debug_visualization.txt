@@ -100,7 +100,7 @@ TOTAL                                                       8303   6970   3314  
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-============================== 18 passed in 8.29s ==============================
+============================== 18 passed in 7.87s ==============================
 
 /opt/anaconda3/envs/driada/lib/python3.10/site-packages/coverage/inorout.py:509: CoverageWarning: Module driada.visualization was never imported. (module-not-imported)
   self.warn(f"Module {pkg} was never imported.", slug="module-not-imported")

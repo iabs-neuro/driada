@@ -183,15 +183,15 @@ src/driada/experiment/synthetic/manifold_spatial_2d.py        98     54     40  
 src/driada/utils/signals.py                                   82     29     34      6  57.76%   88->93, 216, 233, 237, 241-286, 309
 src/driada/experiment/synthetic/core.py                       40     14     16      5  58.93%   37->exit, 45->47, 75-80, 89, 97, 146-161
 src/driada/utils/naming.py                                    13      3      6      1  68.42%   24-27
-src/driada/utils/spatial.py                                  214     15     74     11  89.58%   62, 152->160, 213, 318, 463-468, 485-488, 540, 587, 595, 754->759, 769->773, 773->777
+src/driada/utils/spatial.py                                  214     14     74     11  89.93%   62, 152->160, 213, 317->321, 463-468, 485-488, 540, 587, 595, 754->759, 769->773, 773->777
 src/driada/utils/gif.py                                       38      0     14      0 100.00%
 src/driada/utils/matrix.py                                    24      0      4      0 100.00%
 src/driada/utils/output.py                                    16      0      4      0 100.00%
 src/driada/utils/plot.py                                      38      0     18      0 100.00%
 -------------------------------------------------------------------------------------------------------
-TOTAL                                                       8303   6806   3314     68  14.71%
+TOTAL                                                       8303   6805   3314     68  14.72%
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-============================= 111 passed in 17.65s =============================
+============================= 111 passed in 17.82s =============================
 
