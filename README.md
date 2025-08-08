@@ -2,7 +2,7 @@
 
 **Dimensionality Reduction for Integrated Activity Data** - A unified framework bridging single-neuron selectivity analysis with population-level dimensionality reduction for biological and artificial neural systems.
 
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://img.shields.io/pypi/v/driada.svg)](https://pypi.org/project/driada/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml/badge.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
