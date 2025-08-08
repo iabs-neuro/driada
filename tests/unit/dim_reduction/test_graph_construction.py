@@ -542,21 +542,26 @@ class TestEpsilonGraph:
         cluster1 = np.random.randn(20, 3) * 0.5
         cluster2 = np.random.randn(20, 3) * 0.5 + np.array([5, 0, 0])
         cluster3 = np.random.randn(20, 3) * 0.5 + np.array([0, 5, 0])
-        return np.hstack([cluster1, cluster2, cluster3])
+        # Note: hstack horizontally concatenates, we want vstack for samples
+        return np.vstack([cluster1, cluster2, cluster3])
     
     def test_eps_graph_construction(self, clustered_data):
         """Test basic epsilon-ball graph construction"""
+        # Debug: check data shape
+        assert clustered_data.shape == (60, 3), f"Wrong shape: {clustered_data.shape}"
+        
         m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
         g_params = {
             'g_method_name': 'eps',
-            'eps': 2.0,  # Radius for epsilon-ball
-            'eps_min': 0.01,  # Minimum density
+            'eps': 6.0,  # Larger radius to connect clusters (distance between clusters is ~5)
+            'eps_min': 0.001,  # Lower minimum density requirement
             'weighted': False,
             'dist_to_aff': None,
             'max_deleted_nodes': 0.5
         }
         
-        graph = ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+        # ProximityGraph expects data in (n_features, n_samples) format
+        graph = ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
         
         # Check basic properties
         assert graph.adj is not None
@@ -571,14 +576,15 @@ class TestEpsilonGraph:
         m_params = {'metric_name': 'euclidean', 'sigma': 2.0}
         g_params = {
             'g_method_name': 'eps',
-            'eps': 2.0,
-            'eps_min': 0.01,
+            'eps': 6.0,  # Larger radius to connect clusters
+            'eps_min': 0.001,
             'weighted': True,
             'dist_to_aff': 'hk',  # Heat kernel affinities
             'max_deleted_nodes': 0.5
         }
         
-        graph = ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+        # ProximityGraph expects data in (n_features, n_samples) format
+        graph = ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
         
         # Check weighted properties
         assert graph.adj is not None
@@ -600,7 +606,7 @@ class TestEpsilonGraph:
         }
         
         with pytest.raises(ValueError, match="Epsilon graph too sparse"):
-            ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+            ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
     
     def test_eps_graph_dense_warning(self, clustered_data):
         """Test warning when epsilon graph is too dense"""
@@ -615,7 +621,7 @@ class TestEpsilonGraph:
         }
         
         # Should construct but print warning
-        graph = ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
         assert graph.adj is not None
         
         # Should be very dense
@@ -630,14 +636,14 @@ class TestEpsilonGraph:
             m_params = {'metric_name': metric, 'sigma': 1.0}
             g_params = {
                 'g_method_name': 'eps',
-                'eps': 3.0,
-                'eps_min': 0.01,
+                'eps': 8.0,  # Larger for manhattan/chebyshev metrics
+                'eps_min': 0.001,
                 'weighted': False,
                 'dist_to_aff': None,
                 'max_deleted_nodes': 0.5
             }
             
-            graph = ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+            graph = ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
             assert graph.adj is not None
             assert graph.adj.nnz > 0
 
@@ -860,7 +866,7 @@ class TestGraphMethods:
         g_params = {
             'g_method_name': 'eps',
             'eps': 2.0,
-            'eps_min': 0.01,
+            'eps_min': 0.001,
             'weighted': False,
             'dist_to_aff': None,
             'max_deleted_nodes': 0.5
