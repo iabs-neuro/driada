@@ -32,38 +32,19 @@ class BatchCoverageRunnerV2:
         self.test_root = Path("tests")
         self.project_root = Path.cwd()
         
-        # Module file mappings for distributed files
+        # Module file mappings - MUST follow folder structure exactly
         self.module_file_mappings = {
-            "visualization": [
-                "driada/visualization/",
-                "driada/utils/visual.py",
-                "driada/intense/visual.py", 
-                "driada/utils/plot.py",
-                "driada/rsa/visual.py",
-                "driada/utils/gif.py",
-            ],
             "intense": [
                 "driada/intense/",
-                "!driada/intense/visual.py",  # Belongs to visualization
             ],
             "experiment": [
                 "driada/experiment/",
-                "driada/utils/spatial.py",
-                "driada/utils/signals.py",
             ],
             "utils": [
                 "driada/utils/",
-                "!driada/utils/visual.py",
-                "!driada/utils/plot.py", 
-                "!driada/utils/gif.py",
-                "!driada/utils/spatial.py",
-                "!driada/utils/signals.py",
             ],
             "integration": [
                 "driada/integration/",
-            ],
-            "dimensionality": [
-                "driada/dimensionality/",
             ],
             "information": [
                 "driada/information/",
@@ -73,13 +54,13 @@ class BatchCoverageRunnerV2:
             ],
             "rsa": [
                 "driada/rsa/",
-                "!driada/rsa/visual.py",  # Belongs to visualization
             ],
             "gdrive": [
                 "driada/gdrive/",
             ],
             "dim_reduction": [
                 "driada/dim_reduction/",
+                "driada/dimensionality/",  # Include dimensionality module files
             ],
         }
         
@@ -242,12 +223,12 @@ sys.exit(pytest.main([
             if in_coverage and line.strip():
                 # Match lines with coverage data
                 # Example: src/driada/network/net_base.py    379    179    168     36  50.09%
-                match = re.match(r'\s*(?:src/)?(driada/[\w/]+\.py)\s+(\d+)\s+(\d+)(?:\s+\d+\s+\d+)?\s+([\d.]+)%', line)
+                match = re.match(r'\s*(src/)?(driada/[\w/]+\.py)\s+(\d+)\s+(\d+)(?:\s+\d+\s+\d+)?\s+([\d.]+)%', line)
                 if match:
-                    file_path = match.group(1)
-                    statements = int(match.group(2))
-                    missed = int(match.group(3))
-                    coverage_pct = float(match.group(4))
+                    file_path = match.group(2)  # Group 2 is now the driada/... path
+                    statements = int(match.group(3))
+                    missed = int(match.group(4))
+                    coverage_pct = float(match.group(5))
                     
                     module_path = "driada." + file_path.replace('/', '.').replace('.py', '')
                     
@@ -356,6 +337,9 @@ sys.exit(pytest.main([
         # Calculate coverage for each module
         module_coverage = {}
         for module_name in results.keys():
+            # Skip experiment/synthetic as it's a duplicate of experiment
+            if module_name == "experiment/synthetic":
+                continue
             coverage = self.calculate_module_coverage(module_name, aggregated_data)
             if coverage:
                 module_coverage[module_name] = coverage

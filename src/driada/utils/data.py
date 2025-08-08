@@ -259,7 +259,7 @@ def to_numpy_array(data):
         return data
 
     if ssp.issparse(data):
-        return data.A
+        return data.toarray()
     else:
         return np.array(data)
 

@@ -57,11 +57,20 @@ class MVData(object):
 
     def median_filter(self, window):
         from scipy.signal import medfilt
-        d = self.data.todense()
-
+        
+        # Handle both sparse and dense data
+        if sp.issparse(self.data):
+            d = self.data.todense()
+        else:
+            d = self.data
+        
         new_d = medfilt(d, window)
-
-        self.data = sp.csr_matrix(new_d)
+        
+        # Convert back to the original format
+        if sp.issparse(self.data):
+            self.data = sp.csr_matrix(new_d)
+        else:
+            self.data = new_d
 
     def corr_mat(self, axis=0):
         """Compute correlation matrix.

@@ -544,6 +544,24 @@ def circular_distance(angles1: np.ndarray, angles2: np.ndarray) -> np.ndarray:
     return np.abs(np.arctan2(np.sin(diff), np.cos(diff)))
 
 
+def circular_diff(angles: np.ndarray) -> np.ndarray:
+    """Compute differences between consecutive angles, handling wrapping
+    
+    Parameters:
+    -----------
+    angles : np.ndarray
+        Array of angles in radians
+        
+    Returns:
+    --------
+    np.ndarray
+        Wrapped differences in [-pi, pi]
+    """
+    diffs = np.diff(angles)
+    # Wrap differences to [-pi, pi]
+    return np.arctan2(np.sin(diffs), np.cos(diffs))
+
+
 def extract_angles_from_embedding(embedding: np.ndarray) -> np.ndarray:
     """Extract angular information from 2D embedding
     
@@ -636,17 +654,15 @@ def compute_temporal_consistency(
         # Extract angles from embedding
         reconstructed_angles = extract_angles_from_embedding(embedding)
         
-        # Compute temporal derivatives
-        true_velocity = np.diff(true_variable)
-        reconstructed_velocity = np.diff(reconstructed_angles)
-        
-        # Handle circular wrapping
-        true_velocity = np.arctan2(np.sin(true_velocity), np.cos(true_velocity))
-        reconstructed_velocity = np.arctan2(np.sin(reconstructed_velocity), np.cos(reconstructed_velocity))
+        true_velocity = circular_diff(true_variable)
+        reconstructed_velocity = circular_diff(reconstructed_angles)
         
         # Compute correlation
-        correlation = np.corrcoef(true_velocity, reconstructed_velocity)[0, 1]
-        return correlation if not np.isnan(correlation) else 0.0
+        if len(true_velocity) > 1:
+            correlation = np.corrcoef(true_velocity, reconstructed_velocity)[0, 1]
+            return correlation if not np.isnan(correlation) else 0.0
+        else:
+            return 0.0
         
     elif manifold_type == 'spatial':
         # Use Procrustes analysis for optimal alignment
@@ -725,13 +741,68 @@ def train_simple_decoder(embedding: np.ndarray, true_variable: np.ndarray, manif
     return decoder
 
 
+def compute_embedding_quality(
+    embedding: np.ndarray, 
+    true_variable: np.ndarray, 
+    manifold_type: str = 'circular',
+    train_fraction: float = 0.8
+) -> dict:
+    """Compute embedding quality metrics without using decoders
+    
+    This function directly measures how well the embedding preserves the
+    structure of the manifold by extracting angles (for circular) or
+    using Procrustes alignment (for spatial).
+    
+    Parameters:
+    -----------
+    embedding : np.ndarray
+        Low-dimensional embedding
+    true_variable : np.ndarray
+        Ground truth variable (angles or positions)
+    manifold_type : str
+        Type of manifold ('circular' or 'spatial')
+    train_fraction : float
+        Fraction of data to use for training set
+        
+    Returns:
+    --------
+    dict
+        Dictionary containing reconstruction errors for train/test splits
+    """
+    n_samples = embedding.shape[0]
+    n_train = int(n_samples * train_fraction)
+    
+    # Split data
+    train_embedding = embedding[:n_train]
+    test_embedding = embedding[n_train:]
+    train_variable = true_variable[:n_train]
+    test_variable = true_variable[n_train:]
+    
+    # Compute reconstruction errors directly
+    train_error = compute_reconstruction_error(
+        train_embedding, train_variable, manifold_type
+    )
+    test_error = compute_reconstruction_error(
+        test_embedding, test_variable, manifold_type
+    )
+    
+    return {
+        'train_error': train_error,
+        'test_error': test_error,
+        'generalization_gap': test_error - train_error
+    }
+
+
 def compute_decoding_accuracy(
     embedding: np.ndarray, 
     true_variable: np.ndarray, 
     manifold_type: str = 'circular',
     train_fraction: float = 0.8
 ) -> dict:
-    """Compute decoding accuracy using train/test split
+    """Compute decoding accuracy using simple linear decoder
+    
+    This function trains a decoder to map from the embedding space to
+    the true variables and measures how well it generalizes.
     
     Parameters:
     -----------
@@ -761,15 +832,14 @@ def compute_decoding_accuracy(
     # Train decoder
     decoder = train_simple_decoder(train_embedding, train_variable, manifold_type)
     
-    # Compute training error
+    # Compute training error using decoder predictions
     train_predictions = decoder(train_embedding)
-    train_error = compute_reconstruction_error(
-        train_embedding, train_variable, manifold_type
-    ) if manifold_type == 'circular' else np.mean(
-        np.linalg.norm(train_predictions - train_variable, axis=1)
-    )
+    if manifold_type == 'circular':
+        train_error = np.mean(circular_distance(train_predictions, train_variable))
+    else:
+        train_error = np.mean(np.linalg.norm(train_predictions - train_variable, axis=1))
     
-    # Compute testing error
+    # Compute testing error using decoder predictions
     test_predictions = decoder(test_embedding)
     if manifold_type == 'circular':
         test_error = np.mean(circular_distance(test_predictions, test_variable))
@@ -817,6 +887,8 @@ def manifold_reconstruction_score(
     # Compute metrics
     reconstruction_error = compute_reconstruction_error(embedding, true_variable, manifold_type)
     temporal_consistency = compute_temporal_consistency(embedding, true_variable, manifold_type)
+    
+    # Use decoder-based accuracy for consistency
     decoding_results = compute_decoding_accuracy(embedding, true_variable, manifold_type)
     
     # Normalize reconstruction error (lower is better, so invert)

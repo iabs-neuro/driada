@@ -19,6 +19,14 @@ def load_exp_from_aligned_data(data_source,
                                static_features=None,
                                verbose=True,
                                reconstruct_spikes='wavelet'):
+    
+    # Validate inputs
+    if not isinstance(data, dict):
+        raise TypeError(f"data must be a dictionary, got {type(data).__name__}")
+    if not data:
+        raise ValueError("data dictionary cannot be empty")
+    if not isinstance(exp_params, dict):
+        raise TypeError(f"exp_params must be a dictionary, got {type(exp_params).__name__}")
 
     expname = construct_session_name(data_source, exp_params)
     adata = copy.deepcopy(data)
@@ -39,7 +47,13 @@ def load_exp_from_aligned_data(data_source,
     dyn_features = adata.copy()
 
     def is_garbage(vals):
-        return len(set(vals)) == 1 or np.sum(np.isnan(vals)).astype(int) == len(vals)
+        """Check if values are constant or all NaN."""
+        if len(vals) == 0:
+            return True
+        # Convert to numpy array for consistent handling
+        arr = np.asarray(vals)
+        # Check if all NaN or all same value (ignoring NaN)
+        return np.all(np.isnan(arr)) or (len(np.unique(arr[~np.isnan(arr)])) <= 1)
 
     if len(force_continuous) != 0:
         feat_is_continuous = {f: f in force_continuous for f in dyn_features.keys()}
@@ -54,7 +68,7 @@ def load_exp_from_aligned_data(data_source,
             print(f"'{f}'", 'discrete' if ts.discrete else 'continuous')
 
     # check for constant features
-    constfeats = set(dyn_features.keys() - set(filt_dyn_features.keys()))
+    constfeats = set(dyn_features.keys()) - set(filt_dyn_features.keys())
 
     if len(constfeats) != 0 and verbose:
         print(f'features {constfeats} dropped as constant or empty')
@@ -65,13 +79,23 @@ def load_exp_from_aligned_data(data_source,
         print()
 
     if len(force_continuous) != 0:
-        if set(auto_continuous) != (set(force_continuous) & set(dyn_features.keys())):
-            print('Warning: auto determined continuous features do not coincide with force_continuous list! Automatic labelling will be overridden')
-            for fn, ts in filt_dyn_features.items():
-                if len(set(ts.data)) > 2 and not(fn in force_continuous):
-                    filt_dyn_features[fn] = TimeSeries(ts.data.astype(bool).astype(int), discrete=True)
-                    if verbose:
-                        print(f'feature {fn} converted to integer')
+        # Check if auto-determined continuous features match force_continuous
+        force_continuous_in_data = set(force_continuous) & set(dyn_features.keys())
+        if set(auto_continuous) != force_continuous_in_data:
+            if verbose:
+                print('Warning: auto determined continuous features do not coincide with force_continuous list! Automatic labelling will be overridden')
+            # Re-create time series with corrected discrete/continuous labels
+            for fn in filt_dyn_features.keys():
+                if fn in force_continuous:
+                    # Force this feature to be continuous
+                    if filt_dyn_features[fn].discrete:
+                        filt_dyn_features[fn] = TimeSeries(filt_dyn_features[fn].data, discrete=False)
+                        if verbose:
+                            print(f"Feature '{fn}' forced to be continuous")
+                else:
+                    # Not in force_continuous - let auto-detection stand
+                    # This preserves multi-valued discrete features
+                    pass
 
     signature = f'Exp {expname}'
 
@@ -93,7 +117,8 @@ def load_exp_from_aligned_data(data_source,
                      static_features,
                      filt_dyn_features,
                      reconstruct_spikes=reconstruct_spikes,
-                     bad_frames_mask=np.array([True if _ in bad_frames else False for _ in range(calcium.shape[1])])
+                     # bad_frames_mask: True = bad frame to remove, False = good frame to keep
+                     bad_frames_mask=np.array([i in bad_frames for i in range(calcium.shape[1])])
                      )
 
 
@@ -116,9 +141,9 @@ def load_experiment(data_source,
                     save_to_pickle=False,
                     verbose=True):
 
-    os.makedirs(root, exist_ok=True)
-    if not os.path.isdir(root):
+    if os.path.exists(root) and not os.path.isdir(root):
         raise ValueError('Root must be a folder!')
+    os.makedirs(root, exist_ok=True)
 
     if exp_path is None:
         expname = construct_session_name(data_source, exp_params)

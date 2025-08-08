@@ -14,6 +14,14 @@ from driada.dim_reduction.manifold_metrics import (
     circular_structure_preservation,
     procrustes_analysis,
     manifold_preservation_score,
+    circular_distance,
+    extract_angles_from_embedding,
+    compute_reconstruction_error,
+    compute_temporal_consistency,
+    train_simple_decoder,
+    compute_embedding_quality,
+    compute_decoding_accuracy,
+    manifold_reconstruction_score,
 )
 
 
@@ -262,3 +270,651 @@ def test_edge_cases():
     # Metrics should handle this gracefully
     score = manifold_preservation_score(X_identical, Y_random, k_neighbors=3)
     assert 'overall_score' in score
+
+
+def test_compute_distance_matrix_invalid_shape():
+    """Test distance matrix computation with invalid input"""
+    # 1D array should raise error
+    X_1d = np.array([1, 2, 3, 4])
+    with pytest.raises(ValueError, match="X must be 2D array"):
+        compute_distance_matrix(X_1d)
+    
+    # 3D array should also raise error
+    X_3d = np.random.randn(5, 5, 5)
+    with pytest.raises(ValueError, match="X must be 2D array"):
+        compute_distance_matrix(X_3d)
+
+
+def test_compute_distance_matrix_metrics():
+    """Test distance matrix with different metrics"""
+    X = np.array([[0, 0], [1, 0], [0, 1], [1, 1]])
+    
+    # Test Manhattan distance
+    D_manhattan = compute_distance_matrix(X, metric='cityblock')
+    assert np.isclose(D_manhattan[0, 1], 1.0)  # (0,0) to (1,0)
+    assert np.isclose(D_manhattan[0, 3], 2.0)  # (0,0) to (1,1) - Manhattan distance
+    
+    # Test Chebyshev distance
+    D_chebyshev = compute_distance_matrix(X, metric='chebyshev')
+    assert np.isclose(D_chebyshev[0, 1], 1.0)
+    assert np.isclose(D_chebyshev[0, 3], 1.0)  # Max of |1-0| and |1-0|
+
+
+def test_trustworthiness_edge_cases():
+    """Test trustworthiness with edge cases"""
+    # Test with k=n-1 (maximum k)
+    np.random.seed(42)
+    X_high = np.random.randn(10, 5)
+    X_low = np.random.randn(10, 2)
+    
+    trust = trustworthiness(X_high, X_low, k=9)
+    assert 0 <= trust <= 1
+    
+    # Test with very small k
+    trust_small_k = trustworthiness(X_high, X_low, k=1)
+    assert 0 <= trust_small_k <= 1
+
+
+def test_continuity_edge_cases():
+    """Test continuity with edge cases"""
+    # Similar to trustworthiness tests
+    np.random.seed(42)
+    X_high = np.random.randn(10, 5)
+    X_low = np.random.randn(10, 2)
+    
+    cont = continuity(X_high, X_low, k=9)
+    assert isinstance(cont, float)
+    assert -1 <= cont <= 1  # Continuity can be negative for very poor embeddings
+    
+    # Test with k=1
+    cont_small_k = continuity(X_high, X_low, k=1)
+    assert isinstance(cont_small_k, float)
+    assert -1 <= cont_small_k <= 1
+
+
+def test_geodesic_distance_correlation_disconnected():
+    """Test geodesic correlation with disconnected graph"""
+    # Create two disconnected clusters
+    np.random.seed(42)
+    cluster1 = np.random.randn(20, 3)
+    cluster2 = np.random.randn(20, 3) + 100  # Far away
+    X = np.vstack([cluster1, cluster2])
+    
+    # Random low-dimensional embedding
+    Y = np.random.randn(40, 2)
+    
+    # Should handle disconnected components gracefully
+    corr = geodesic_distance_correlation(X, Y, k_neighbors=5)
+    assert isinstance(corr, float)
+    assert -1 <= corr <= 1
+
+
+def test_geodesic_distance_correlation_pearson():
+    """Test geodesic correlation with Pearson method"""
+    np.random.seed(42)
+    X = np.random.randn(50, 5)
+    Y = np.random.randn(50, 2)
+    
+    # Test Pearson correlation
+    corr_pearson = geodesic_distance_correlation(X, Y, k_neighbors=10, method='pearson')
+    assert isinstance(corr_pearson, float)
+    assert -1 <= corr_pearson <= 1
+    
+    # Compare with Spearman
+    corr_spearman = geodesic_distance_correlation(X, Y, k_neighbors=10, method='spearman')
+    # They should be different but both valid
+    assert corr_pearson != corr_spearman
+
+
+def test_stress_unnormalized():
+    """Test unnormalized stress computation"""
+    np.random.seed(42)
+    X = np.random.randn(30, 5)
+    Y = np.random.randn(30, 2)
+    
+    # Unnormalized stress
+    stress_unnorm = stress(X, Y, normalized=False)
+    assert stress_unnorm > 0
+    
+    # Should be larger than normalized
+    stress_norm = stress(X, Y, normalized=True)
+    assert stress_unnorm > stress_norm
+
+
+def test_circular_structure_no_true_angles():
+    """Test circular structure preservation without ground truth angles"""
+    # Generate noisy circle
+    n_points = 50
+    theta = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
+    circle = np.column_stack([np.cos(theta), np.sin(theta)])
+    circle += 0.1 * np.random.randn(n_points, 2)
+    
+    # Test without true angles
+    metrics = circular_structure_preservation(circle, k_neighbors=5)
+    
+    # Should only have distance_cv and consecutive_preservation
+    assert 'distance_cv' in metrics
+    assert 'consecutive_preservation' in metrics
+    assert 'circular_correlation' not in metrics
+
+
+def test_procrustes_analysis_no_scaling():
+    """Test Procrustes analysis without scaling"""
+    np.random.seed(42)
+    X = np.random.randn(30, 2)
+    
+    # Create rotated version
+    angle = np.pi / 6
+    R = np.array([[np.cos(angle), -np.sin(angle)],
+                  [np.sin(angle), np.cos(angle)]])
+    Y = X @ R
+    
+    # Align without scaling
+    Y_aligned, disparity = procrustes_analysis(X, Y, scaling=False)
+    
+    # Should be perfectly aligned (no noise)
+    assert disparity < 1e-10
+
+
+def test_procrustes_analysis_no_reflection():
+    """Test Procrustes analysis without allowing reflection"""
+    np.random.seed(42)
+    X = np.random.randn(30, 2)
+    
+    # Create reflected and rotated version
+    Y = X.copy()
+    Y[:, 0] = -Y[:, 0]  # Reflect in y-axis
+    
+    # Align without reflection
+    Y_aligned, disparity = procrustes_analysis(X, Y, reflection=False)
+    
+    # Should not be perfectly aligned since reflection is not allowed
+    assert disparity > 1.0
+
+
+def test_procrustes_analysis_mismatched_shapes():
+    """Test Procrustes analysis with mismatched shapes"""
+    X = np.random.randn(30, 2)
+    Y = np.random.randn(25, 2)  # Different number of points
+    
+    with pytest.raises(ValueError, match="X and Y must have the same shape"):
+        procrustes_analysis(X, Y)
+
+
+def test_manifold_preservation_score_custom_weights():
+    """Test manifold preservation score with custom weights"""
+    np.random.seed(42)
+    X = np.random.randn(100, 10)
+    Y = np.random.randn(100, 2)
+    
+    # Custom weights emphasizing k-NN preservation
+    weights = {
+        'knn_preservation': 0.5,
+        'trustworthiness': 0.2,
+        'continuity': 0.2,
+        'geodesic_correlation': 0.1
+    }
+    
+    scores = manifold_preservation_score(X, Y, k_neighbors=10, weights=weights)
+    
+    # Check overall score is weighted correctly
+    expected_overall = sum(
+        scores[key] * weights[key] for key in weights.keys()
+    )
+    assert np.isclose(scores['overall_score'], expected_overall)
+
+
+def test_manifold_preservation_score_nan_geodesic():
+    """Test manifold preservation score handles NaN in geodesic correlation"""
+    # Create data that might produce NaN geodesic correlation
+    X = np.ones((10, 5))  # All identical points
+    Y = np.random.randn(10, 2)
+    
+    scores = manifold_preservation_score(X, Y, k_neighbors=3)
+    
+    # Should handle NaN gracefully
+    assert scores['geodesic_correlation'] == 0.0
+    assert not np.isnan(scores['overall_score'])
+
+
+def test_circular_distance():
+    """Test circular distance computation"""
+    # Test identical angles
+    angles1 = np.array([0, np.pi/2, np.pi, -np.pi/2])
+    angles2 = angles1.copy()
+    distances = circular_distance(angles1, angles2)
+    assert np.allclose(distances, 0)
+    
+    # Test opposite angles
+    angles1 = np.array([0, 0, 0])
+    angles2 = np.array([np.pi, -np.pi, np.pi])
+    distances = circular_distance(angles1, angles2)
+    assert np.allclose(distances, np.pi)
+    
+    # Test wraparound
+    angles1 = np.array([0.1])
+    angles2 = np.array([2*np.pi + 0.1])
+    distances = circular_distance(angles1, angles2)
+    assert distances[0] < 0.01  # Should be close to 0
+
+
+def test_extract_angles_from_embedding():
+    """Test angle extraction from 2D embedding"""
+    # Create points on a circle
+    n_points = 8
+    theta_true = np.linspace(0, 2*np.pi, n_points, endpoint=False)
+    embedding = np.column_stack([np.cos(theta_true), np.sin(theta_true)])
+    
+    # Extract angles
+    angles = extract_angles_from_embedding(embedding)
+    
+    # Should recover the original angles (modulo 2π)
+    diffs = circular_distance(angles, theta_true)
+    assert np.all(diffs < 0.01)
+    
+    # Test with non-2D embedding
+    embedding_3d = np.random.randn(10, 3)
+    with pytest.raises(ValueError, match="Embedding must be 2D"):
+        extract_angles_from_embedding(embedding_3d)
+
+
+def test_compute_reconstruction_error_circular():
+    """Test reconstruction error for circular manifolds"""
+    # Perfect circle reconstruction
+    n_points = 100
+    true_angles = np.linspace(0, 2*np.pi, n_points, endpoint=False)
+    embedding = np.column_stack([np.cos(true_angles), np.sin(true_angles)])
+    
+    error = compute_reconstruction_error(embedding, true_angles, manifold_type='circular')
+    assert error < 0.01  # Should be very small
+    
+    # Noisy reconstruction
+    noisy_embedding = embedding + 0.1 * np.random.randn(n_points, 2)
+    error_noisy = compute_reconstruction_error(noisy_embedding, true_angles, manifold_type='circular')
+    assert error_noisy > error
+    assert error_noisy < np.pi  # Should still be reasonable
+
+
+def test_compute_reconstruction_error_spatial():
+    """Test reconstruction error for spatial manifolds"""
+    # Create 2D spatial data
+    np.random.seed(42)
+    true_positions = np.random.randn(50, 2)
+    
+    # Perfect reconstruction
+    error = compute_reconstruction_error(true_positions, true_positions, manifold_type='spatial')
+    assert error < 1e-10
+    
+    # Noisy reconstruction
+    noisy_positions = true_positions + 0.1 * np.random.randn(50, 2)
+    error_noisy = compute_reconstruction_error(noisy_positions, true_positions, manifold_type='spatial')
+    assert error_noisy > 0
+    assert error_noisy < 1.0  # Reasonable error
+
+
+def test_compute_reconstruction_error_invalid_type():
+    """Test reconstruction error with invalid manifold type"""
+    embedding = np.random.randn(10, 2)
+    true_var = np.random.randn(10)
+    
+    with pytest.raises(ValueError, match="Unknown manifold type"):
+        compute_reconstruction_error(embedding, true_var, manifold_type='invalid')
+
+
+def test_compute_temporal_consistency_circular():
+    """Test temporal consistency for circular manifolds"""
+    # The issue: extract_angles_from_embedding returns angles in [-pi, pi]
+    # but our true_angles might be in [0, 2*pi] or beyond
+    # The velocities should still match if we use consistent angle ranges
+    
+    n_points = 100
+    np.random.seed(42)  # For reproducibility
+    
+    # Create angles with varying velocity (more realistic)
+    # This avoids the constant velocity issue that causes correlation problems
+    t = np.linspace(0, 4*np.pi, n_points)
+    # Add sinusoidal variation to create varying angular velocity
+    true_angles = t + 0.3 * np.sin(2*t)
+    # Wrap to [-pi, pi]
+    true_angles = np.arctan2(np.sin(true_angles), np.cos(true_angles))
+    
+    # Create embedding with some offset from origin (more realistic)
+    # This tests the centering operation in extract_angles_from_embedding
+    offset = np.array([0.5, 0.3])
+    embedding = np.column_stack([np.cos(true_angles), np.sin(true_angles)]) + offset
+    
+    consistency = compute_temporal_consistency(embedding, true_angles, manifold_type='circular')
+    
+    # Should be very high for perfect reconstruction
+    assert consistency > 0.95
+    
+    # Add small noise
+    noisy_angles = true_angles + 0.1 * np.random.randn(n_points)
+    noisy_embedding = np.column_stack([np.cos(noisy_angles), np.sin(noisy_angles)]) + offset
+    consistency_noisy = compute_temporal_consistency(noisy_embedding, true_angles, manifold_type='circular')
+    assert 0.3 < consistency_noisy < consistency  # More realistic range for noisy data
+    
+    # Random angles should have low consistency
+    random_angles = np.random.uniform(-np.pi, np.pi, n_points)
+    random_embedding = np.column_stack([np.cos(random_angles), np.sin(random_angles)]) + offset
+    consistency_random = compute_temporal_consistency(random_embedding, true_angles, manifold_type='circular')
+    assert consistency_random < 0.2  # Should be very low
+
+
+def test_compute_temporal_consistency_spatial():
+    """Test temporal consistency for spatial manifolds"""
+    # Create smooth trajectory with varying speed
+    n_points = 100
+    t = np.linspace(0, 4*np.pi, n_points)
+    # Varying radius creates varying speed
+    r = 1 + 0.3 * np.sin(t/2)
+    true_positions = np.column_stack([r * np.cos(t), r * np.sin(t)])
+    
+    # Test with identical trajectory
+    consistency = compute_temporal_consistency(true_positions, true_positions, manifold_type='spatial')
+    assert consistency > 0.99
+    
+    # Test with noisy trajectory
+    noisy_positions = true_positions + 0.02 * np.random.randn(n_points, 2)
+    consistency_noisy = compute_temporal_consistency(noisy_positions, true_positions, manifold_type='spatial')
+    assert 0.6 < consistency_noisy < 0.99  # More realistic for noisy data
+    
+    # Test with random positions - should have low consistency
+    random_positions = np.random.randn(n_points, 2)
+    consistency_random = compute_temporal_consistency(random_positions, true_positions, manifold_type='spatial')
+    assert consistency_random < 0.5
+
+
+def test_compute_temporal_consistency_invalid_type():
+    """Test temporal consistency with invalid manifold type"""
+    embedding = np.random.randn(10, 2)
+    true_var = np.random.randn(10)
+    
+    with pytest.raises(ValueError, match="Unknown manifold type"):
+        compute_temporal_consistency(embedding, true_var, manifold_type='invalid')
+
+
+def test_train_simple_decoder_circular():
+    """Test training decoder for circular variables"""
+    # Generate circular data
+    n_points = 200
+    true_angles = np.random.uniform(0, 2*np.pi, n_points)
+    
+    # Create embedding with some structure
+    embedding = np.column_stack([
+        np.cos(true_angles) + 0.1 * np.random.randn(n_points),
+        np.sin(true_angles) + 0.1 * np.random.randn(n_points)
+    ])
+    
+    # Train decoder
+    decoder = train_simple_decoder(embedding, true_angles, manifold_type='circular')
+    
+    # Test on training data
+    pred_angles = decoder(embedding)
+    errors = circular_distance(pred_angles, true_angles)
+    assert np.mean(errors) < 0.5  # Should fit reasonably well
+    
+    # Test on new data
+    test_angles = np.random.uniform(0, 2*np.pi, 50)
+    test_embedding = np.column_stack([np.cos(test_angles), np.sin(test_angles)])
+    test_pred = decoder(test_embedding)
+    assert test_pred.shape == test_angles.shape
+
+
+def test_train_simple_decoder_spatial():
+    """Test training decoder for spatial variables"""
+    # Generate spatial data
+    np.random.seed(42)
+    n_points = 200
+    true_positions = np.random.randn(n_points, 2)
+    
+    # Create embedding (higher dimensional)
+    embedding = np.random.randn(n_points, 10)
+    # Add some structure
+    embedding[:, :2] = true_positions + 0.1 * np.random.randn(n_points, 2)
+    
+    # Train decoder
+    decoder = train_simple_decoder(embedding, true_positions, manifold_type='spatial')
+    
+    # Test on training data
+    pred_positions = decoder(embedding)
+    errors = np.linalg.norm(pred_positions - true_positions, axis=1)
+    assert np.mean(errors) < 1.0
+
+
+def test_train_simple_decoder_mismatched_shapes():
+    """Test decoder training with mismatched shapes"""
+    embedding = np.random.randn(100, 5)
+    true_var = np.random.randn(50)  # Different number of samples
+    
+    with pytest.raises(ValueError, match="must have same number of timepoints"):
+        train_simple_decoder(embedding, true_var)
+
+
+def test_train_simple_decoder_invalid_type():
+    """Test decoder training with invalid manifold type"""
+    embedding = np.random.randn(100, 5)
+    true_var = np.random.randn(100)
+    
+    with pytest.raises(ValueError, match="Unknown manifold type"):
+        train_simple_decoder(embedding, true_var, manifold_type='invalid')
+
+
+def test_compute_decoding_accuracy_circular():
+    """Test decoding accuracy computation for circular manifolds"""
+    # Generate data with clear structure
+    n_points = 200
+    true_angles = np.linspace(0, 4*np.pi, n_points) % (2*np.pi)
+    embedding = np.column_stack([
+        np.cos(true_angles) + 0.05 * np.random.randn(n_points),
+        np.sin(true_angles) + 0.05 * np.random.randn(n_points)
+    ])
+    
+    # Compute accuracy using the consistent decoder-based function
+    results = compute_decoding_accuracy(
+        embedding, true_angles, 
+        manifold_type='circular',
+        train_fraction=0.7
+    )
+    
+    # Check results structure
+    assert 'train_error' in results
+    assert 'test_error' in results
+    assert 'generalization_gap' in results
+    
+    # Should have reasonable errors for decoder
+    assert results['train_error'] < 0.5
+    assert results['test_error'] < 1.0
+    # Generalization gap can be negative if test performs better
+    assert -0.5 < results['generalization_gap'] < 1.0
+
+
+def test_compute_decoding_accuracy_spatial():
+    """Test decoding accuracy computation for spatial manifolds"""
+    # Generate spatial data
+    np.random.seed(42)
+    n_points = 200
+    true_positions = np.random.randn(n_points, 2)
+    
+    # Create structured embedding
+    embedding = np.random.randn(n_points, 10)
+    embedding[:, :2] = true_positions + 0.1 * np.random.randn(n_points, 2)
+    
+    # Compute accuracy
+    results = compute_decoding_accuracy(
+        embedding, true_positions,
+        manifold_type='spatial',
+        train_fraction=0.8
+    )
+    
+    # Check reasonable performance
+    assert results['train_error'] < 1.0
+    assert results['test_error'] < 2.0
+
+
+def test_manifold_reconstruction_score_circular():
+    """Test comprehensive reconstruction score for circular manifolds"""
+    # Generate smooth circular trajectory with varying velocity
+    n_points = 200
+    np.random.seed(42)
+    t = np.linspace(0, 4*np.pi, n_points)
+    # Add variation to avoid constant velocity issues
+    true_angles = t + 0.2 * np.sin(3*t)
+    true_angles = np.arctan2(np.sin(true_angles), np.cos(true_angles))
+    
+    # Good reconstruction - small noise but preserve structure
+    # Add offset to test centering
+    offset = np.array([0.3, 0.2])
+    good_embedding = np.column_stack([
+        np.cos(true_angles) + 0.01 * np.random.randn(n_points),
+        np.sin(true_angles) + 0.01 * np.random.randn(n_points)
+    ]) + offset
+    
+    # Bad reconstruction - large noise and distortion
+    bad_angles = true_angles + 0.5 * np.random.randn(n_points)
+    bad_embedding = np.column_stack([
+        np.cos(bad_angles) + 0.2 * np.random.randn(n_points),
+        np.sin(bad_angles) + 0.2 * np.random.randn(n_points)
+    ])
+    bad_embedding = bad_embedding * 0.5 + 0.5 * np.random.randn(n_points, 2)
+    
+    # Compute scores
+    scores_good = manifold_reconstruction_score(
+        good_embedding, true_angles, manifold_type='circular'
+    )
+    scores_bad = manifold_reconstruction_score(
+        bad_embedding, true_angles, manifold_type='circular'
+    )
+    
+    # Good should be better
+    assert scores_good['overall_reconstruction_score'] > scores_bad['overall_reconstruction_score']
+    assert scores_good['reconstruction_error'] < scores_bad['reconstruction_error']
+    # Temporal consistency might be close to 0 for bad, but good should be positive
+    assert scores_good['temporal_consistency'] > 0.5
+    assert scores_good['temporal_consistency'] > scores_bad['temporal_consistency']
+    
+    # Check all metrics present
+    expected_keys = [
+        'reconstruction_error', 'temporal_consistency',
+        'decoding_train_error', 'decoding_test_error',
+        'generalization_gap', 'overall_reconstruction_score'
+    ]
+    for key in expected_keys:
+        assert key in scores_good
+        assert key in scores_bad
+
+
+def test_manifold_reconstruction_score_spatial():
+    """Test comprehensive reconstruction score for spatial manifolds"""
+    # Generate smooth trajectory
+    n_points = 200
+    t = np.linspace(0, 2*np.pi, n_points)
+    true_positions = np.column_stack([np.cos(t), np.sin(t)])
+    
+    # Test with good and bad reconstructions
+    good_reconstruction = true_positions + 0.05 * np.random.randn(n_points, 2)
+    bad_reconstruction = np.random.randn(n_points, 2)
+    
+    scores_good = manifold_reconstruction_score(
+        good_reconstruction, true_positions, manifold_type='spatial'
+    )
+    scores_bad = manifold_reconstruction_score(
+        bad_reconstruction, true_positions, manifold_type='spatial'
+    )
+    
+    # Good should outperform bad
+    assert scores_good['overall_reconstruction_score'] > scores_bad['overall_reconstruction_score']
+
+
+def test_manifold_reconstruction_score_custom_weights():
+    """Test reconstruction score with custom weights"""
+    n_points = 100
+    true_angles = np.random.uniform(0, 2*np.pi, n_points)
+    embedding = np.column_stack([np.cos(true_angles), np.sin(true_angles)])
+    
+    # Custom weights
+    weights = {
+        'reconstruction_error': 0.5,
+        'temporal_consistency': 0.3,
+        'decoding_accuracy': 0.2
+    }
+    
+    scores = manifold_reconstruction_score(
+        embedding, true_angles, 
+        manifold_type='circular',
+        weights=weights
+    )
+    
+    # Score should be positive
+    assert scores['overall_reconstruction_score'] > 0
+    assert scores['overall_reconstruction_score'] <= 1
+
+
+def test_compute_embedding_quality_circular():
+    """Test embedding quality computation for circular manifolds"""
+    # Generate circular data
+    n_points = 200
+    np.random.seed(42)
+    # Use angles that avoid boundary discontinuity issues
+    # Create a smooth circular trajectory that wraps properly
+    t = np.linspace(0, 8*np.pi, n_points)
+    true_angles = np.arctan2(np.sin(t), np.cos(t))  # Properly wrapped to [-pi, pi]
+    
+    # Good embedding with offset to test centering
+    offset = np.array([0.2, 0.3])
+    good_embedding = np.column_stack([
+        np.cos(true_angles) + 0.02 * np.random.randn(n_points),
+        np.sin(true_angles) + 0.02 * np.random.randn(n_points)
+    ]) + offset
+    
+    # Test embedding quality (no decoder)
+    results = compute_embedding_quality(
+        good_embedding, true_angles,
+        manifold_type='circular',
+        train_fraction=0.7
+    )
+    
+    # Check structure
+    assert 'train_error' in results
+    assert 'test_error' in results
+    assert 'generalization_gap' in results
+    
+    # Should have low reconstruction errors
+    assert results['train_error'] < 0.1  # Good reconstruction
+    assert results['test_error'] < 0.1
+    # Gap should be small for direct reconstruction
+    assert abs(results['generalization_gap']) < 0.06
+
+
+def test_compute_embedding_quality_vs_decoding_accuracy():
+    """Test that embedding quality and decoding accuracy measure different things"""
+    n_points = 200
+    true_angles = np.linspace(0, 2*np.pi, n_points)
+    
+    # Create embedding with some structure but not perfect circle
+    t = np.linspace(0, 2*np.pi, n_points)
+    embedding = np.column_stack([
+        np.cos(t) * (1 + 0.2 * np.sin(3*t)),  # Distorted circle
+        np.sin(t) * (1 + 0.2 * np.sin(3*t))
+    ])
+    embedding += 0.05 * np.random.randn(n_points, 2)
+    
+    # Compare both methods
+    quality_results = compute_embedding_quality(
+        embedding, true_angles,
+        manifold_type='circular'
+    )
+    
+    decoder_results = compute_decoding_accuracy(
+        embedding, true_angles,
+        manifold_type='circular'
+    )
+    
+    # Embedding quality measures direct angle extraction error
+    # Decoder accuracy measures how well a linear model can map embedding to angles
+    # They should be different
+    assert quality_results['train_error'] != decoder_results['train_error']
+    
+    # Both should have reasonable errors
+    assert quality_results['train_error'] < 1.0
+    assert decoder_results['train_error'] < 1.0

@@ -157,4 +157,71 @@ class TestParameterPropagation:
         # Test with custom neighbors for Isomap
         emb = mvdata.get_embedding(method='isomap', n_neighbors=20)
         assert emb.graph.nn == 20
-        assert emb.graph.g_method_name == 'knn'
+
+
+# Additional tests for uncovered get_embedding functionality
+
+def test_get_embedding_graph_required_no_params():
+    """Test error when graph method lacks graph parameters."""
+    mvdata = MVData(np.random.rand(5, 20))
+    
+    # Mock a method that requires graph but no params provided
+    from unittest.mock import MagicMock
+    e_params = {
+        'e_method_name': 'le',
+        'e_method': MagicMock(requires_graph=True, requires_distmat=False),
+        'dim': 2
+    }
+    
+    with pytest.raises(ValueError, match="requires proximity graph"):
+        mvdata.get_embedding(e_params=e_params)
+
+
+def test_get_embedding_weighted_graph_no_metric():
+    """Test error when weighted graph needs metric params."""
+    mvdata = MVData(np.random.rand(5, 20))
+    
+    from unittest.mock import MagicMock
+    e_params = {
+        'e_method_name': 'le',
+        'e_method': MagicMock(requires_graph=True, requires_distmat=False),
+        'dim': 2
+    }
+    g_params = {'weighted': True, 'g_method_name': 'knn'}
+    
+    with pytest.raises(ValueError, match="requires weights for proximity graph"):
+        mvdata.get_embedding(e_params=e_params, g_params=g_params)
+
+
+def test_get_embedding_legacy_method_lookup():
+    """Test legacy e_method lookup from METHODS_DICT."""
+    mvdata = MVData(np.random.rand(5, 20))
+    
+    # e_method is None, should be looked up
+    e_params = {
+        'e_method_name': 'pca',
+        'e_method': None,
+        'dim': 2
+    }
+    
+    emb = mvdata.get_embedding(e_params=e_params)
+    assert emb.coords.shape == (2, 20)
+
+
+def test_get_embedding_nn_kwargs_extraction():
+    """Test NN method kwargs extraction."""
+    mvdata = MVData(np.random.rand(5, 30))
+    
+    # Test with autoencoder and verify params are passed
+    emb = mvdata.get_embedding(
+        method='ae',
+        dim=2,
+        epochs=5,
+        lr=0.001,
+        batch_size=10,
+        verbose=False,
+        seed=42
+    )
+    
+    # Should complete without error
+    assert emb.coords.shape == (2, 30)

@@ -51,6 +51,8 @@ class Neuron():
 
     @staticmethod
     def calcium_preprocessing(ca):
+        # Ensure we're working with float array to avoid dtype casting issues
+        ca = ca.astype(np.float64)
         ca[np.where(ca < 0)[0]] = 0
         #ca = ca + np.abs(min(ca))
         ca += np.random.random(size=len(ca))*1e-8
@@ -152,10 +154,7 @@ class Neuron():
 
 
     def get_shuffled_calcium(self, method = 'roll_based', no_ts=True, **kwargs):
-        try:
-            fn = getattr(self, f'_shuffle_calcium_data_{method}')
-        except AttributeError():
-            raise UserWarning('Unknown calcium data shuffling method')
+        fn = getattr(self, f'_shuffle_calcium_data_{method}')
 
         sh_ca = fn(**kwargs)
         sh_ca = Neuron.calcium_preprocessing(sh_ca)
@@ -191,11 +190,11 @@ class Neuron():
 
         shuf_ca = np.zeros(self.n_frames)
         ca = self.ca.data
-        chunks = np.concatenate(np.split(ca[:-len(ca)%n], n), ca[-(len(ca)%n):])
-        inds = np.arange(n)
+        chunks = np.array_split(ca, n)
+        inds = np.arange(len(chunks))
         np.random.shuffle(inds)
 
-        shuf_ca[:] = np.concatenate(tuple(np.array(chunks)[inds]))
+        shuf_ca[:] = np.concatenate([chunks[i] for i in inds])
 
         return shuf_ca
 
@@ -216,10 +215,7 @@ class Neuron():
         if self.sp is None:
             raise AttributeError('Unable to shuffle spikes without spikes data')
 
-        try:
-            fn = getattr(self, f'_shuffle_spikes_data_{method}')
-        except AttributeError():
-            raise UserWarning('Unknown calcium data shuffling method')
+        fn = getattr(self, f'_shuffle_spikes_data_{method}')
 
         sh_data = fn(**kwargs)
         if not no_ts:

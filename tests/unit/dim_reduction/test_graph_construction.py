@@ -529,3 +529,346 @@ class TestIntrinsicDimension:
         # Check k-NN arrays were properly filtered
         if hasattr(graph, 'knn_indices') and graph.knn_indices is not None:
             assert len(graph.knn_indices) == graph.n
+
+
+class TestEpsilonGraph:
+    """Test epsilon-ball graph construction"""
+    
+    @pytest.fixture
+    def clustered_data(self):
+        """Create clustered data for epsilon graph testing"""
+        np.random.seed(42)
+        # Create 3 well-separated clusters
+        cluster1 = np.random.randn(20, 3) * 0.5
+        cluster2 = np.random.randn(20, 3) * 0.5 + np.array([5, 0, 0])
+        cluster3 = np.random.randn(20, 3) * 0.5 + np.array([0, 5, 0])
+        return np.hstack([cluster1, cluster2, cluster3])
+    
+    def test_eps_graph_construction(self, clustered_data):
+        """Test basic epsilon-ball graph construction"""
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'eps',
+            'eps': 2.0,  # Radius for epsilon-ball
+            'eps_min': 0.01,  # Minimum density
+            'weighted': False,
+            'dist_to_aff': None,
+            'max_deleted_nodes': 0.5
+        }
+        
+        graph = ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+        
+        # Check basic properties
+        assert graph.adj is not None
+        assert graph.adj.shape == (graph.n, graph.n)
+        assert graph.adj.nnz > 0
+        
+        # Should be symmetric
+        assert np.allclose(graph.adj.toarray(), graph.adj.toarray().T)
+    
+    def test_eps_graph_weighted(self, clustered_data):
+        """Test weighted epsilon-ball graph"""
+        m_params = {'metric_name': 'euclidean', 'sigma': 2.0}
+        g_params = {
+            'g_method_name': 'eps',
+            'eps': 2.0,
+            'eps_min': 0.01,
+            'weighted': True,
+            'dist_to_aff': 'hk',  # Heat kernel affinities
+            'max_deleted_nodes': 0.5
+        }
+        
+        graph = ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+        
+        # Check weighted properties
+        assert graph.adj is not None
+        assert not np.all(np.isin(graph.adj.data, [0, 1]))  # Should have weights
+        
+        # Weights should be positive
+        assert np.all(graph.adj.data > 0)
+    
+    def test_eps_graph_too_sparse_error(self, clustered_data):
+        """Test error when epsilon graph is too sparse"""
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'eps',
+            'eps': 0.1,  # Very small radius
+            'eps_min': 0.1,  # High minimum density requirement
+            'weighted': False,
+            'dist_to_aff': None,
+            'max_deleted_nodes': 0.5
+        }
+        
+        with pytest.raises(ValueError, match="Epsilon graph too sparse"):
+            ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+    
+    def test_eps_graph_dense_warning(self, clustered_data):
+        """Test warning when epsilon graph is too dense"""
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'eps',
+            'eps': 100.0,  # Very large radius
+            'eps_min': 0.01,
+            'weighted': False,
+            'dist_to_aff': None,
+            'max_deleted_nodes': 0.5
+        }
+        
+        # Should construct but print warning
+        graph = ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+        assert graph.adj is not None
+        
+        # Should be very dense
+        nnz_ratio = graph.adj.nnz / (graph.n * (graph.n - 1))
+        assert nnz_ratio > 0.5
+    
+    def test_eps_graph_different_metrics(self, clustered_data):
+        """Test epsilon graph with different distance metrics"""
+        metrics = ['manhattan', 'chebyshev']
+        
+        for metric in metrics:
+            m_params = {'metric_name': metric, 'sigma': 1.0}
+            g_params = {
+                'g_method_name': 'eps',
+                'eps': 3.0,
+                'eps_min': 0.01,
+                'weighted': False,
+                'dist_to_aff': None,
+                'max_deleted_nodes': 0.5
+            }
+            
+            graph = ProximityGraph(clustered_data, m_params, g_params, create_nx_graph=False)
+            assert graph.adj is not None
+            assert graph.adj.nnz > 0
+
+
+class TestGraphMethods:
+    """Test various graph methods"""
+    
+    @pytest.fixture
+    def sample_graph(self):
+        """Create a sample graph for testing methods"""
+        np.random.seed(42)
+        data = np.random.randn(3, 30)
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'knn',
+            'nn': 5,
+            'weighted': True,
+            'dist_to_aff': 'hk',
+            'max_deleted_nodes': 0.5
+        }
+        return ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+    
+    def test_scaling_method(self, sample_graph):
+        """Test the scaling method"""
+        # Get diagonal sums
+        diagsums = sample_graph.scaling()
+        
+        # Should return list of diagonal sums
+        assert isinstance(diagsums, list)
+        assert len(diagsums) == sample_graph.n - 1
+        
+        # Values should be non-negative (trace of adjacency powers)
+        assert all(d >= 0 for d in diagsums)
+    
+    def test_calculate_indim_fast_mode(self):
+        """Test internal dimension calculation in fast mode"""
+        # Create data with known intrinsic dimension
+        np.random.seed(42)
+        # 2D manifold in 5D space
+        n_points = 100
+        basis = np.random.randn(5, 2)
+        basis = np.linalg.qr(basis)[0]  # Orthonormalize
+        coeffs = np.random.randn(n_points, 2)
+        data = (coeffs @ basis.T).T
+        
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'knn',
+            'nn': 10,
+            'weighted': True,
+            'dist_to_aff': 'hk',
+            'max_deleted_nodes': 0.5
+        }
+        
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        
+        # Calculate dimension in fast mode
+        dmin, dpr = graph.calculate_indim(mode='fast', factor=2)
+        
+        # Should return reasonable estimates
+        assert isinstance(dmin, float)
+        assert isinstance(dpr, float)
+        assert 0 < dmin < 10
+        assert 0 < dpr < 10
+    
+    def test_calculate_indim_full_mode(self):
+        """Test internal dimension calculation in full mode"""
+        # Small dataset for full mode
+        np.random.seed(42)
+        data = np.random.randn(3, 50)
+        
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'knn',
+            'nn': 5,
+            'weighted': True,
+            'dist_to_aff': 'hk',
+            'max_deleted_nodes': 0.5
+        }
+        
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        
+        # Calculate dimension in full mode
+        dmin, dpr = graph.calculate_indim(mode='full')
+        
+        # Should return estimates
+        assert isinstance(dmin, float)
+        assert isinstance(dpr, float)
+    
+    def test_calculate_indim_wrong_method_error(self):
+        """Test error for wrong graph method in calculate_indim"""
+        np.random.seed(42)
+        data = np.random.randn(3, 30)
+        
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'auto_knn',  # This method doesn't support indim calculation
+            'nn': 5,
+            'weighted': False,
+            'dist_to_aff': None,
+            'max_deleted_nodes': 0.5
+        }
+        
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        
+        with pytest.raises(Exception, match="Distance matrix construction missed"):
+            graph.calculate_indim(mode='fast')
+    
+    def test_custom_metric_function(self):
+        """Test graph construction with custom metric function"""
+        # Define custom metric
+        def custom_metric(x, y):
+            return np.sum(np.abs(x - y) ** 1.5) ** (1/1.5)
+        
+        np.random.seed(42)
+        data = np.random.randn(3, 20)
+        
+        m_params = {'metric_name': 'custom_metric', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'knn',
+            'nn': 3,
+            'weighted': False,
+            'dist_to_aff': None,
+            'max_deleted_nodes': 0.5
+        }
+        
+        # Add custom metric to globals for the test
+        import driada.dim_reduction.graph as graph_module
+        original_globals = graph_module.__dict__.copy()
+        graph_module.__dict__['custom_metric'] = custom_metric
+        
+        try:
+            graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+            assert graph.adj is not None
+            assert graph.adj.nnz > 0
+        finally:
+            # Restore original globals
+            graph_module.__dict__.update(original_globals)
+    
+    def test_get_int_dim_with_logger(self):
+        """Test intrinsic dimension estimation with custom logger"""
+        import logging
+        
+        # Create logger
+        logger = logging.getLogger('test_logger')
+        logger.setLevel(logging.INFO)
+        
+        np.random.seed(42)
+        data = np.random.randn(3, 50)
+        
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'knn',
+            'nn': 10,
+            'weighted': True,
+            'dist_to_aff': 'hk',
+            'max_deleted_nodes': 0.5
+        }
+        
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        
+        # Test with logger
+        dim = graph.get_int_dim(method='geodesic', logger=logger)
+        assert isinstance(dim, float)
+    
+    def test_lost_nodes_handling_with_knn_arrays(self):
+        """Test that k-NN arrays are properly filtered when nodes are lost"""
+        # Create disconnected data
+        np.random.seed(42)
+        cluster1 = np.random.randn(3, 15)
+        cluster2 = np.random.randn(3, 15) + 100
+        data = np.hstack([cluster1, cluster2])
+        
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'knn',
+            'nn': 3,
+            'weighted': True,
+            'dist_to_aff': 'hk',
+            'max_deleted_nodes': 0.6
+        }
+        
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        
+        # Should have lost nodes
+        assert hasattr(graph, 'lost_nodes')
+        assert len(graph.lost_nodes) > 0
+        
+        # k-NN arrays should be filtered
+        assert graph.knn_indices.shape[0] == graph.n
+        assert graph.knn_distances.shape[0] == graph.n
+    
+    def test_knn_indices_distances_none_for_non_knn_methods(self):
+        """Test that k-NN arrays are None for methods that don't compute them"""
+        np.random.seed(42)
+        data = np.random.randn(3, 30)
+        
+        # Test with auto_knn method
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'auto_knn',
+            'nn': 5,
+            'weighted': False,
+            'dist_to_aff': None,
+            'max_deleted_nodes': 0.5
+        }
+        
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        
+        # Should not have k-NN arrays
+        assert graph.knn_indices is None
+        assert graph.knn_distances is None
+    
+    def test_neigh_distmat_initialization_for_eps_graph(self):
+        """Test neighbor distance matrix initialization for epsilon graphs"""
+        np.random.seed(42)
+        data = np.random.randn(3, 30)
+        
+        m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+        g_params = {
+            'g_method_name': 'eps',
+            'eps': 2.0,
+            'eps_min': 0.01,
+            'weighted': False,
+            'dist_to_aff': None,
+            'max_deleted_nodes': 0.5
+        }
+        
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        
+        # Should have neighbor distance matrix initialized
+        assert graph.neigh_distmat is not None
+        assert sp.issparse(graph.neigh_distmat)
+        assert graph.neigh_distmat.shape == graph.adj.shape
