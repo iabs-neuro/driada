@@ -5,6 +5,8 @@
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://img.shields.io/pypi/v/driada.svg)](https://pypi.org/project/driada/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Tests](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml/badge.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/iabs-neuro/driada/branch/main/graph/badge.svg)](https://codecov.io/gh/iabs-neuro/driada)
 
 ## 🎯 Vision
 
