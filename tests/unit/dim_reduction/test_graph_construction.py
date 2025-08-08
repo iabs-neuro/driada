@@ -754,14 +754,18 @@ class TestGraphMethods:
     
     def test_custom_metric_function(self):
         """Test graph construction with custom metric function"""
-        # Define custom metric
+        from numba import njit
+        
+        # Define custom metric - must be numba compiled for pynndescent
+        @njit
         def custom_metric(x, y):
             return np.sum(np.abs(x - y) ** 1.5) ** (1/1.5)
         
         np.random.seed(42)
         data = np.random.randn(3, 20)
         
-        m_params = {'metric_name': 'custom_metric', 'sigma': 1.0}
+        # Pass the callable metric function directly
+        m_params = {'metric_name': custom_metric, 'sigma': 1.0}
         g_params = {
             'g_method_name': 'knn',
             'nn': 3,
@@ -770,18 +774,10 @@ class TestGraphMethods:
             'max_deleted_nodes': 0.5
         }
         
-        # Add custom metric to globals for the test
-        import driada.dim_reduction.graph as graph_module
-        original_globals = graph_module.__dict__.copy()
-        graph_module.__dict__['custom_metric'] = custom_metric
-        
-        try:
-            graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
-            assert graph.adj is not None
-            assert graph.adj.nnz > 0
-        finally:
-            # Restore original globals
-            graph_module.__dict__.update(original_globals)
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        assert graph.adj is not None
+        assert graph.adj.nnz > 0
+        assert graph.metric is custom_metric
     
     def test_get_int_dim_with_logger(self):
         """Test intrinsic dimension estimation with custom logger"""

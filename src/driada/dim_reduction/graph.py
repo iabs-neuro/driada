@@ -57,8 +57,9 @@ class ProximityGraph(Network):
                 self.neigh_distmat = self.neigh_distmat[connected, :].tocsc()[:, connected].tocsr()
                 
                 # Update k-NN arrays if they exist
-                if hasattr(self, 'knn_indices') and hasattr(self, 'knn_distances'):
+                if hasattr(self, 'knn_indices') and self.knn_indices is not None:
                     self.knn_indices = self.knn_indices[connected]
+                if hasattr(self, 'knn_distances') and self.knn_distances is not None:
                     self.knn_distances = self.knn_distances[connected]
 
         self._checkpoint()
@@ -116,10 +117,21 @@ class ProximityGraph(Network):
         self.knn_distances = None
 
     def create_knn_graph_(self):
-        if self.metric in named_distances:
+        if callable(self.metric):
+            # Custom metric function passed directly
+            curr_metric = self.metric
+        elif self.metric in named_distances:
+            # Built-in metric name
             curr_metric = self.metric
         else:
-            curr_metric = globals()[self.metric]
+            # Try to find custom metric in globals (backward compatibility)
+            try:
+                curr_metric = globals()[self.metric]
+                if not callable(curr_metric):
+                    raise ValueError(f"Global '{self.metric}' is not a callable metric function")
+            except KeyError:
+                raise ValueError(f"Unknown metric '{self.metric}'. Must be one of {list(named_distances.keys())}, "
+                               f"a callable function, or a global function name.")
 
         N = self.data.shape[1]
         index = pynndescent.NNDescent(self.data.T,
@@ -231,20 +243,20 @@ class ProximityGraph(Network):
         def func2(x, a):
             return -a / 2. * (x - max(x)) ** 2
 
-        if self.g_method not in ['w_knn', 'w_auto_knn']:
-            raise Exception('Distance matrix construction missed!')
+        if self.g_method_name not in ['knn']:
+            raise Exception('Distance matrix construction missed! Only knn graph method is supported for intrinsic dimension calculation.')
 
         print('Calculating graph internal dimension...')
 
         if mode == 'fast':
-            distmat = sp.csr_matrix(self.sqdist_matrix)
-            distmat.data = np.sqrt(self.sqdist_matrix.data)
+            # Use neigh_distmat which contains the distances
+            distmat = self.neigh_distmat.copy()
             indices = list(npr.permutation(npr.choice(self.n, size=self.n // factor, replace=False)))
             dm = distmat[indices, :][:, indices]
 
         elif mode == 'full':
-            dm = self.sqdist_matrix
-            dm.data = np.sqrt(self.sqdist_matrix.data)
+            # Use neigh_distmat for full mode too
+            dm = self.neigh_distmat.copy()
 
         print('Shortest path computation started, distance matrix size: ', dm.shape)
         spmatrix = shortest_path(dm, method='D', directed=False)
@@ -267,8 +279,10 @@ class ProximityGraph(Network):
         res = []
         # print(distr_x)
         # print(distr_y)
-        left_distr_x = distr_x[(distr_x > 1 - 2. * std) & (distr_x <= 1) & (distr_y > 1e-6)]
-        left_distr_y = np.log10(distr_y[(distr_x[:] > 1 - 2. * std) & (distr_x[:] <= 1)])  # & (distr_y[:]>1e-6)])
+        # Create consistent mask for both x and y
+        mask = (distr_x > 1 - 2. * std) & (distr_x <= 1) & (distr_y > 1e-6)
+        left_distr_x = distr_x[mask]
+        left_distr_y = np.log10(distr_y[mask])
 
         for D in [0.1 * x for x in range(10, 260)]:
             y = func(left_distr_x, D - 1)
@@ -301,7 +315,9 @@ class ProximityGraph(Network):
         return Dmin, Dpr
 
     def scaling(self):
-        mat = self.adj.astype(bool).A.astype(int)
+        # Convert sparse matrix to dense for trace calculation
+        # .A is deprecated, use .toarray() instead
+        mat = self.adj.astype(bool).toarray().astype(int)
         diagsums = []
         for i in range(self.n - 1):
             diagsums.append(np.trace(mat, offset=i, dtype=None, out=None) / (self.n - i))

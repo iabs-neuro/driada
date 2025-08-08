@@ -1,6 +1,6 @@
 from pynndescent.distances import named_distances
 import sys
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Callable, Union
 
 class DRMethod(object):
     """Dimensionality reduction method configuration.
@@ -149,28 +149,48 @@ EMBEDDING_CONSTRUCTION_METHODS = ['pca',
 # TODO: implement random projections
 
 
-def m_param_filter(para):
+def m_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     '''
     This function prunes parameters that are excessive for
-    chosen distance matrix construction method
+    chosen distance matrix construction method.
+    
+    Parameters
+    ----------
+    para : dict
+        Dictionary with metric parameters including:
+        - metric_name: str or callable - name of metric or custom metric function
+        - sigma: float or None - bandwidth parameter
+        - p: float - parameter for minkowski metric
+        - Other metric-specific parameters
+    
+    Returns
+    -------
+    dict
+        Filtered parameters appropriate for the chosen metric
     '''
     name = para['metric_name']
     appr_keys = ['metric_name']
 
-    if not (para['sigma'] is None):
+    if para.get('sigma') is not None:
         appr_keys.append('sigma')
 
-    if name not in named_distances:
+    # Handle different metric types
+    if callable(name):
+        # Custom metric function - pass through
+        pass
+    elif name not in named_distances:
         if name == 'hyperbolic':
-            # para['metric_name'] = globals()[name]
+            # Special case for hyperbolic metric
             pass
         else:
-            raise Exception('this custom metric is not implemented!')
+            raise ValueError(f'Unknown metric "{name}". Metric must be one of {list(named_distances.keys())}, '
+                           f'"hyperbolic", or a callable custom metric function.')
 
-    if name == 'minkowski':
+    # Add metric-specific parameters
+    if name == 'minkowski' and 'p' in para:
         appr_keys.append('p')
 
-    return {key: para[key] for key in appr_keys}
+    return {key: para[key] for key in appr_keys if key in para}
 
 
 def g_param_filter(para):
