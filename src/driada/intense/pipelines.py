@@ -412,11 +412,16 @@ def compute_cell_feat_significance(exp,
         
         if verbose:
             print(f"\nDisentanglement analysis complete!")
-            print(f"Total mixed selectivity pairs analyzed: {summary['overall_stats']['total_neuron_pairs']}")
-            print(f"Redundancy rate: {summary['overall_stats']['redundancy_rate']:.1f}%")
-            print(f"Independence rate: {summary['overall_stats']['independence_rate']:.1f}%")
-            if 'true_mixed_selectivity_rate' in summary['overall_stats']:
-                print(f"True mixed selectivity rate: {summary['overall_stats']['true_mixed_selectivity_rate']:.1f}%")
+            if summary.get('overall_stats'):
+                print(f"Total mixed selectivity pairs analyzed: {summary['overall_stats']['total_neuron_pairs']}")
+                if 'redundancy_rate' in summary['overall_stats']:
+                    print(f"Redundancy rate: {summary['overall_stats']['redundancy_rate']:.1f}%")
+                if 'independence_rate' in summary['overall_stats']:
+                    print(f"Independence rate: {summary['overall_stats']['independence_rate']:.1f}%")
+                if 'true_mixed_selectivity_rate' in summary['overall_stats']:
+                    print(f"True mixed selectivity rate: {summary['overall_stats']['true_mixed_selectivity_rate']:.1f}%")
+            else:
+                print("No mixed selectivity pairs found in the selected neurons.")
         
         # Return with disentanglement results
         return computed_stats, computed_significance, info, intense_res, disentanglement_results

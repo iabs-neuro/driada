@@ -112,10 +112,14 @@ def generate_mixed_selective_signal(features, weights, duration, sampling_rate,
         np.random.seed(seed)
         
     length = int(duration * sampling_rate)
-    combined_activation = np.zeros(length)
     
-    # Combine feature activations
-    for feat, weight in zip(features, weights):
+    # Create stronger mixed selectivity signals using OR logic
+    # Key insight: For detectability, we need clear differences between
+    # active and inactive states for each feature
+    
+    # First, determine when each feature drives the neuron
+    feature_activations = []
+    for feat_idx, (feat, weight) in enumerate(zip(features, weights)):
         if weight == 0:
             continue
             
@@ -123,36 +127,61 @@ def generate_mixed_selective_signal(features, weights, duration, sampling_rate,
         unique_vals = np.unique(feat)
         if len(unique_vals) == 2 and set(unique_vals).issubset({0, 1}):
             # Already binary
-            binary_activation = feat.astype(float)
+            binary_activation = feat.astype(int)
         else:
             # Use ROI-based discretization for continuous
-            binary_activation = discretize_via_roi(feat, seed=seed)
-            binary_activation = binary_activation.astype(float)
-            
-        # Weight the activation
-        combined_activation += weight * binary_activation
-        if seed is not None:
-            seed += 1
+            binary_activation = discretize_via_roi(feat, seed=seed + feat_idx if seed else None)
+            binary_activation = binary_activation.astype(int)
+        
+        # Store weighted activation
+        feature_activations.append((binary_activation, weight))
     
-    # Threshold to get final binary activation
-    threshold = np.random.uniform(0.3, 0.7)  # Flexible threshold
-    final_activation = (combined_activation >= threshold).astype(int)
+    # Generate events using OR logic but with feature-specific contributions
+    # This ensures neurons respond differently to different features
+    all_events = np.zeros(length)
     
-    # Add stochasticity
-    mod_activation = delete_one_islands(final_activation, skip_prob)
+    # Pre-generate random numbers for efficiency
+    rand_vals = np.random.rand(length)
     
-    # Generate Poisson events
-    poisson_series = apply_poisson_to_binary_series(mod_activation,
-                                                    rate_0 / sampling_rate,
-                                                    rate_1 / sampling_rate)
+    for t in range(length):
+        # Calculate contribution from each active feature
+        # Use OR logic: if any feature is active, neuron can fire
+        # But the firing probability depends on WHICH features are active
+        total_contribution = 0
+        active_features = []
+        
+        for activation, weight in feature_activations:
+            if activation[t] > 0:
+                active_features.append(weight)
+        
+        if active_features:
+            # Combine contributions - use sum but cap at 1.0
+            # This makes different feature combinations produce different rates
+            total_contribution = min(sum(active_features), 1.0)
+            firing_rate = rate_0 + total_contribution * (rate_1 - rate_0)
+        else:
+            # Baseline state
+            firing_rate = rate_0
+        
+        # Generate spike event
+        if rand_vals[t] < firing_rate / sampling_rate:
+            all_events[t] = 1
     
-    # Generate calcium signal
-    calcium_signal = generate_pseudo_calcium_signal(duration=duration,
-                                                    events=poisson_series,
-                                                    sampling_rate=sampling_rate,
-                                                    amplitude_range=ampl_range,
-                                                    decay_time=decay_time,
-                                                    noise_std=noise_std)
+    # Apply skip probability if needed
+    if skip_prob > 0:
+        all_events = delete_one_islands(all_events.astype(int), skip_prob).astype(float)
+    
+    # Generate calcium signal with stronger response
+    # Use larger amplitude range for better detectability
+    enhanced_ampl_range = (ampl_range[0] * 1.5, ampl_range[1] * 1.5)
+    calcium_signal = generate_pseudo_calcium_signal(
+        duration=duration,
+        events=all_events,
+        sampling_rate=sampling_rate,
+        amplitude_range=enhanced_ampl_range,
+        decay_time=decay_time,
+        noise_std=noise_std
+    )
     
     return calcium_signal
 
@@ -293,7 +322,7 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
         print(f'Generating {n_discrete_feats} discrete features...')
     for i in range(n_discrete_feats):
         binary_series = generate_binary_time_series(length, avg_islands=10, 
-                                                   avg_duration=int(5 * fps))
+                                                   avg_duration=int(0.5 * fps))  # 0.5 seconds per island instead of 5!
         features_dict[f'd_feat_{i}'] = binary_series
     
     # Generate continuous features

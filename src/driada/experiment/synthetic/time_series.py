@@ -31,68 +31,52 @@ def generate_binary_time_series(length, avg_islands, avg_duration):
         Binary time series.
     """
     series = np.zeros(length, dtype=int)
-    islands_count = 0
-    current_state = 0  # 0 for off, 1 for on
+    
+    # Calculate expected total active time and inactive time
+    total_active_time = avg_islands * avg_duration
+    total_inactive_time = length - total_active_time
+    
+    # If we can't fit the requested islands, adjust
+    if total_active_time > length:
+        # Reduce number of islands to fit
+        avg_islands = max(1, length // avg_duration)
+        total_active_time = avg_islands * avg_duration
+        total_inactive_time = length - total_active_time
+    
+    # Calculate average gap between islands
+    # We have avg_islands active periods and avg_islands+1 potential gaps
+    # But often starts with active, so effectively avg_islands gaps
+    avg_gap = total_inactive_time / avg_islands if avg_islands > 0 else length
+    
     position = 0
-
-    while position < length:
+    island_count = 0
+    
+    # Randomly decide if we start with on or off
+    current_state = np.random.randint(0, 2)
+    
+    while position < length and island_count < avg_islands:
         if current_state == 0:
-            # When off, decide how long to stay off based on desired number of islands
-            # Lower avg_islands means longer off periods to ensure fewer islands
-            off_duration = max(1, int(np.random.exponential(length / (avg_islands * 2))))
-            duration = min(off_duration, length - position)
+            # Off state: use exponential distribution around average gap
+            duration = max(1, int(np.random.exponential(avg_gap)))
         else:
-            # When on, stay on for the average duration +/- some randomness
-            duration = max(1, int(np.random.normal(avg_duration, avg_duration / 2)))
-            islands_count += 1
-
+            # On state: use normal distribution around average duration
+            duration = max(1, int(np.random.normal(avg_duration, avg_duration / 3)))
+            island_count += 1
+        
         # Ensure we don't go past the series length
         duration = min(duration, length - position)
-
+        
         # Fill the series with the current state
         series[position:position + duration] = current_state
-
+        
         # Switch state
         current_state = 1 - current_state
         position += duration
-
-    # Adjust series to match the desired number of islands
-    actual_islands = sum(1 for value, group in itertools.groupby(series) if value == 1)
-    max_iterations = 1000  # Prevent infinite loops
-    iterations = 0
-    while actual_islands != avg_islands and iterations < max_iterations:
-        if actual_islands < avg_islands:
-            # If we have too few islands, turn on a random '0' to create a new island
-            zero_positions = np.where(series == 0)[0]
-            if len(zero_positions) > 0:
-                turn_on = np.random.choice(zero_positions)
-                series[turn_on] = 1
-                # Recalculate actual islands since changing one bit might not create a new island
-                new_islands = sum(1 for value, group in itertools.groupby(series) if value == 1)
-                if new_islands == actual_islands:
-                    # No change, break to avoid infinite loop
-                    break
-                actual_islands = new_islands
-            else:
-                # No zeros left, can't add more islands
-                break
-        else:
-            # If we have too many islands, turn off a random '1' to merge islands
-            one_positions = np.where(series == 1)[0]
-            if len(one_positions) > 1:
-                turn_off = np.random.choice(one_positions)
-                series[turn_off] = 0
-                # Recalculate actual islands since changing one bit might not merge islands
-                new_islands = sum(1 for value, group in itertools.groupby(series) if value == 1)
-                if new_islands == actual_islands:
-                    # No change, break to avoid infinite loop
-                    break
-                actual_islands = new_islands
-            else:
-                # Not enough ones, can't reduce islands
-                break
-        iterations += 1
-
+    
+    # Fill any remaining time with zeros
+    if position < length:
+        series[position:] = 0
+    
     return series
 
 
@@ -196,7 +180,7 @@ def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
     return fbm_series
 
 
-def select_signal_roi(values, seed=42):
+def select_signal_roi(values, seed=42, target_fraction=0.15):
     """
     Select a region of interest (ROI) from signal values.
     
@@ -212,18 +196,32 @@ def select_signal_roi(values, seed=42):
     tuple
         (center, lower_border, upper_border) of the ROI.
     """
-    mean = np.mean(values)
-    std = np.std(values)
-
     np.random.seed(seed)
-    # Select random location within mean ± 2*std
-    loc = np.random.uniform(mean - 1.5 * std, mean + 1.5 * std)
-
-    # Define borders
-    lower_border = loc - 0.5 * std
-    upper_border = loc + 0.5 * std
-
-    return loc, lower_border, upper_border
+    
+    # Sort values to find percentiles
+    sorted_values = np.sort(values)
+    n = len(sorted_values)
+    
+    # Find window size that captures target_fraction of data
+    window_size = int(target_fraction * n)
+    
+    # Choose a random starting position for the window
+    # Ensure we don't go out of bounds
+    max_start = n - window_size
+    start_idx = np.random.randint(0, max_start + 1)
+    end_idx = start_idx + window_size
+    
+    # Get the boundaries
+    lower_border = sorted_values[start_idx]
+    upper_border = sorted_values[end_idx - 1]
+    center = (lower_border + upper_border) / 2
+    
+    # Add small epsilon to avoid boundary issues
+    epsilon = 1e-10
+    lower_border -= epsilon
+    upper_border += epsilon
+    
+    return center, lower_border, upper_border
 
 
 def discretize_via_roi(continuous_signal, seed=None):

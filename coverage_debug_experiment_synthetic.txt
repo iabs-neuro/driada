@@ -1,0 +1,175 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /opt/anaconda3/envs/driada/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/nikita/PycharmProjects/driada2
+configfile: pytest.ini
+plugins: timeout-2.4.0, cov-6.2.1
+collecting ... collected 89 items
+
+tests/unit/experiment/synthetic/test_time_series.py::TestBinaryTimeSeries::test_generate_binary_time_series_basic PASSED [  1%]
+tests/unit/experiment/synthetic/test_time_series.py::TestBinaryTimeSeries::test_generate_binary_time_series_edge_cases PASSED [  2%]
+tests/unit/experiment/synthetic/test_time_series.py::TestBinaryTimeSeries::test_generate_binary_time_series_reproducibility PASSED [  3%]
+tests/unit/experiment/synthetic/test_time_series.py::TestBinaryTimeSeries::test_realistic_parameters PASSED [  4%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestMultiselectivityPatterns::test_basic_pattern_generation PASSED [  5%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestMultiselectivityPatterns::test_weight_modes PASSED [  6%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestMultiselectivityPatterns::test_no_selectivity PASSED [  7%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestMixedSelectiveSignal::test_signal_generation_basic PASSED [  8%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestMixedSelectiveSignal::test_signal_with_continuous_features PASSED [ 10%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestSyntheticDataMixedSelectivity::test_data_generation_with_known_selectivity PASSED [ 11%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_basic_generation PASSED [ 12%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_detectability_of_mixed_selectivity PASSED [ 13%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_multifeature_generation PASSED [ 14%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_parameter_sensitivity PASSED [ 15%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestIntegrationWithAnalysisPipeline::test_full_pipeline_with_mixed_selectivity PASSED [ 16%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::test_generation_performance PASSED [ 17%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::test_edge_cases PASSED [ 19%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_basic_generation PASSED [ 20%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_custom_bounds PASSED [ 21%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_step_size_effect PASSED [ 22%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_momentum_effect PASSED [ 23%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_reproducibility PASSED [ 24%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGaussianPlaceField::test_basic_response PASSED [ 25%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGaussianPlaceField::test_sigma_effect PASSED [ 26%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldNeurons::test_basic_generation PASSED [ 28%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldNeurons::test_grid_arrangement PASSED [ 29%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldNeurons::test_random_arrangement PASSED [ 30%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldNeurons::test_firing_rate_modulation PASSED [ 31%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldData::test_basic_generation PASSED [ 32%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_return_info_false PASSED [ 33%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_return_info_true PASSED [ 34%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_basic_experiment PASSED [ 35%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility PASSED [ 37%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_parameter_effects PASSED [ 38%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_basic_generation_fast PASSED [ 39%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_different_manifold_types_fast[2d_spatial] PASSED [ 40%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_different_manifold_types_fast[circular] PASSED [ 41%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_different_manifold_types_fast[3d_spatial] PASSED [ 42%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_feature_selective_params_fast PASSED [ 43%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_correlation_effects_minimal PASSED [ 44%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_calcium_signal_properties PASSED [ 46%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_edge_cases PASSED [ 47%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_feature_configuration PASSED [ 48%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_manifold_fraction PASSED [ 49%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_manifold_type PASSED [ 50%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_neuron_count PASSED [ 51%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestIntegrationWithINTENSE::test_mixed_population_with_intense_minimal PASSED [ 52%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestPerformanceBenchmarks::test_generation_under_1s PASSED [ 53%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestPerformanceBenchmarks::test_multiple_generations_under_5s PASSED [ 55%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_basic PASSED [ 56%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_reproducibility PASSED [ 57%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_step_sizes PASSED [ 58%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_wrapping PASSED [ 59%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_tuning_basic PASSED [ 60%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_circular_symmetry PASSED [ 61%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_kappa_effect PASSED [ 62%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_basic PASSED [ 64%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_coverage PASSED [ 65%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_tuning PASSED [ 66%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_noise PASSED [ 67%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_basic PASSED [ 68%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_calcium PASSED [ 69%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_basic PASSED [ 70%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_extra_features PASSED [ 71%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_parameters PASSED [ 73%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_reproducibility PASSED [ 74%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[10-20] PASSED [ 75%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[100-60] PASSED [ 76%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[200-30] PASSED [ 77%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_edge_cases PASSED [ 78%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_edge_cases PASSED [ 79%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_integration_with_intense PASSED [ 80%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection PASSED [ 82%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_basic_generation PASSED [ 83%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_custom_bounds PASSED [ 84%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_step_size_effect PASSED [ 85%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_momentum_effect PASSED [ 86%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_reproducibility PASSED [ 87%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_basic_response PASSED [ 88%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGaussianPlaceField3D::test_sigma_effect PASSED [ 89%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_basic_generation PASSED [ 91%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_grid_arrangement PASSED [ 92%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_random_arrangement PASSED [ 93%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_firing_rate_modulation PASSED [ 94%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_basic_generation PASSED [ 95%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_basic_experiment PASSED [ 96%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility PASSED [ 97%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_parameter_effects PASSED [ 98%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_default_neuron_count PASSED [100%]
+
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.10.18-final-0 _______________
+
+Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------------------------
+src/driada/dimensionality/effective.py                        26     26     12      0   0.00%   1-43
+src/driada/dimensionality/intrinsic.py                       120    120     48      0   0.00%   8-389
+src/driada/dimensionality/linear.py                           54     54     16      0   0.00%   8-218
+src/driada/dimensionality/utils.py                            44     44      8      0   0.00%   1-91
+src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-18
+src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-61
+src/driada/integration/selectivity_mapper.py                 125    125     60      0   0.00%   8-392
+src/driada/utils/visual.py                                   285    271    134      0   3.34%   65-241, 275-361, 404-492, 537-623, 660-709, 742-788
+src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-54, 89-142, 177-227, 289-345, 381-455, 503-620
+src/driada/network/randomization.py                          312    293     94      0   4.68%   42-52, 96-233, 269-320, 352-391, 408-421, 448-602, 671-702
+src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
+src/driada/rsa/core.py                                       165    149     84      0   6.43%   45-78, 110-138, 174-225, 251-275, 320-358, 432-488, 549-595
+src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-107, 129-143, 161-174, 192-204
+src/driada/dim_reduction/manifold_metrics.py                 260    236     86      0   6.94%   39-43, 77-102, 130-164, 192-226, 257-288, 314-324, 349-399, 429-462, 493-523, 543-544, 560-562, 578-587, 611-629, 653-683, 703-741, 772-789, 823-849, 880-912
+src/driada/utils/spatial.py                                  214    194     74      0   6.94%   61-93, 129-160, 193-228, 253-271, 299-332, 376-415, 444-490, 518-544, 572-599, 648-720, 749-777
+src/driada/experiment/exp_build.py                           119    105     72      0   7.33%   24-125, 144-208, 212-215, 219-223
+src/driada/dim_reduction/graph.py                            232    208     72      0   7.89%   26-65, 72-85, 88-89, 92-102, 105-117, 120-166, 169-179, 183-224, 228-315, 320-325, 386-459
+src/driada/network/net_base.py                               385    340    172      0   8.08%   21-29, 34-35, 39-43, 47-57, 63-78, 98-155, 163-203, 213-270, 273-274, 278-309, 313-330, 333-346, 349-368, 371-377, 380-386, 389-395, 398-404, 422-489, 494-517, 520-530, 534-545, 548-550, 553-555, 558-560, 563-565, 568-572, 575-585, 588-614
+src/driada/rsa/visual.py                                      80     71     28      0   8.33%   55-141, 172-210
+src/driada/network/drawing.py                                133    117     54      0   8.56%   13-54, 57-68, 72-75, 80-131, 135-157, 161-174, 179-203
+src/driada/gdrive/download.py                                103     89     46      0   9.40%   21-59, 73-111, 122-170, 174-193
+src/driada/dim_reduction/embedding.py                        276    243     72      0   9.48%   17-19, 25-28, 32-36, 45-70, 73-82, 85-90, 94-100, 104-116, 120-126, 129-131, 134-138, 141-162, 165-173, 176, 179-195, 198-200, 203-208, 221-408, 418-514, 519-523, 546-553
+src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 155-176, 215-286, 308-315, 334-354
+src/driada/network/matrix_utils.py                           203    178     60      0   9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-223, 227-234, 238-249, 253-261, 266-270, 274-281, 285-292, 296-303, 307-310, 314-317
+src/driada/dim_reduction/mvu.py                               61     53     20      0   9.88%   22-29, 40-109, 122-146
+src/driada/network/spectral.py                                30     26      8      0  10.53%   6-8, 24-37, 41-55
+src/driada/rsa/integration.py                                 46     38     22      0  11.76%   63-108, 139-141, 188-219
+src/driada/information/entropy_jit.py                         44     38      4      0  12.50%   33-67, 86-129
+src/driada/utils/neural.py                                    20     17      4      0  12.50%   25-45, 49-54
+src/driada/utils/plot.py                                      38     31     18      0  12.50%   56-86, 125-141, 179-195
+src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
+src/driada/dim_reduction/sequences.py                         22     17     12      0  14.71%   67-101
+src/driada/network/graph_utils.py                             48     38     12      0  16.67%   9-16, 21-31, 35-38, 42-46, 50-52, 56-78
+src/driada/network/quantum.py                                 39     31      8      0  17.02%   7-14, 18-27, 31-33, 37-55
+src/driada/dim_reduction/dr_base.py                           82     60     46      0  17.19%   171-193, 201-216, 225-233, 252-298
+src/driada/gdrive/gdrive_utils.py                             74     56     30      0  17.31%   25-28, 31, 61-107, 141-200, 204-210
+src/driada/dim_reduction/data.py                             116     88     54      3  18.24%   13-18, 37, 44-45, 54, 59-73, 90-95, 112-142, 178-234, 237-242, 245-247, 250-252
+src/driada/dim_reduction/neural.py                           132    101     24      1  20.51%   12-16, 22-43, 46-54, 61-82, 85-90, 96-117, 120-127, 133-140, 143-145, 148-150, 156-163, 170-173, 176-190, 194-198, 202-203, 211-212, 215, 218-226
+src/driada/utils/gif.py                                       38     27     14      0  21.15%   25-31, 46-55, 81-100
+src/driada/information/entropy.py                             56     41     14      0  21.43%   18-19, 42-52, 68, 89-99, 123-135, 157-167, 192-195, 218-221
+src/driada/information/gcmi_jit_utils.py                     207    157     66      3  23.08%   73-79, 104, 106, 122-134, 171-177, 200-259, 286-386, 405-421, 443-456
+src/driada/information/ksg.py                                 87     58     20      2  28.97%   26-27, 31, 40, 50-68, 79->81, 93-96, 105-141, 145-164
+src/driada/utils/output.py                                    16     10      4      0  30.00%   6-8, 10-12, 16-20
+src/driada/utils/data.py                                     156     97     74      7  33.91%   34-54, 74, 76, 97, 99, 108, 116-135, 139-141, 169-171, 175-178, 182-192, 210-232, 244-246, 251-254, 261-264, 276-293, 307-338
+src/driada/experiment/neuron.py                              156     93     36      2  36.98%   35-36, 41-44, 49-50, 70, 90, 101, 104-109, 112-114, 117-126, 129-132, 135-138, 146-153, 157-164, 169-182, 186-199, 203-211, 215-224, 228-251
+src/driada/intense/pipelines.py                              287    167    170     24  37.64%   199-202, 208, 214, 217-225, 232->235, 235->259, 244-250, 255, 257, 265, 301-302, 312->298, 314->298, 355, 379->383, 414-424, 541->543, 548-550, 559-560, 569-570, 631->619, 633->637, 639, 640->619, 654-660, 771-892, 990-1115
+src/driada/utils/jit.py                                       29     17      4      1  39.39%   17-25, 58-60, 68, 73-78
+src/driada/information/info_base.py                          401    219    186     27  41.40%   29-45, 49, 56, 84, 87-91, 94-95, 98-102, 105-106, 146-159, 201-211, 226-239, 269-271, 283, 287, 301, 306, 311, 324-330, 354-369, 375-378, 383-390, 417-420, 431-463, 493-496, 509-510, 513-518, 528-546, 556, 562, 599-602, 610, 615-644, 646->exit, 667-671, 674-679, 681->699, 687->689, 696, 706-709, 715-726, 762, 811-909, 948-964
+src/driada/experiment/spike_reconstruction.py                 48     25      8      2  44.64%   53, 58-62, 160-215
+src/driada/information/gcmi.py                               251    126     78     14  44.68%   16-17, 26-41, 59-64, 126-127, 146, 164->170, 193, 200, 206, 224->232, 256, 258, 264, 270, 298->313, 326-360, 379-442, 457-508
+src/driada/intense/disentanglement.py                        148     78     72      9  45.00%   59-122, 178, 190-198, 217-222, 229, 248-265, 291-304, 366->391, 374->391, 381
+src/driada/experiment/exp_base.py                            443    218    244     40  45.85%   36, 46-56, 67-69, 102, 105->117, 109, 119, 129-141, 182, 185, 192->191, 194, 200-202, 230, 260, 265, 273-280, 306-343, 356, 363, 368, 374-380, 398, 411, 422, 430->428, 433-436, 444-456, 463-474, 481-495, 510, 513, 525-528, 541, 551-552, 558-561, 570-571, 577, 590, 599-605, 627-646, 668-691, 703-720, 723, 765->771, 773-811, 845, 889, 910-911, 915-920, 923, 926, 929-930, 947-959, 982-988, 1016-1035, 1039
+src/driada/intense/intense_base.py                           412    178    220     43  52.06%   18-20, 42, 44, 52-55, 58-61, 68, 70, 72, 101-124, 150, 153, 156, 159, 220, 293-322, 390-461, 538, 541, 550, 553, 562-570, 592-607, 714, 719->723, 724-726, 887-888, 892-893, 1067, 1071, 1075, 1094, 1098, 1100, 1111-1135, 1143, 1165, 1172->1243, 1175, 1210, 1240-1241, 1251-1257, 1260->exit, 1268, 1299, 1340-1341, 1401-1404, 1417-1434
+src/driada/experiment/synthetic/experiment_generators.py     276     89    146     32  61.37%   93-110, 118, 127, 132->139, 137, 148->159, 153-156, 209-279, 364->368, 375, 378, 386-389, 392->402, 402->414, 423, 490->525, 530->566, 532, 548->538, 562->552, 567-587, 589->642, 592, 599->603, 615->621, 628, 644, 658-660, 667-688, 782-802, 856-858
+src/driada/experiment/synthetic/core.py                       40     13     16      3  64.29%   45->47, 75-80, 97, 146-161
+src/driada/experiment/wavelet_event_detection.py             156     42     40      1  69.90%   9, 39-42, 46-109
+src/driada/experiment/synthetic/utils.py                       7      1      4      1  81.82%   30
+src/driada/intense/stats.py                                  105     17     44      7  83.89%   24-25, 44-46, 65-67, 91-92, 121, 152-155, 181, 315, 338->344, 369->367, 370->372, 372->367
+src/driada/experiment/synthetic/mixed_selectivity.py         137     10     80     17  87.56%   48->51, 69, 111->114, 124, 218, 314->317, 322, 330, 336->331, 344, 353, 354->351, 365, 374, 407->406, 411->403, 432
+src/driada/experiment/synthetic/manifold_circular.py          73      6     24      6  87.63%   196, 200, 205, 214, 235, 376
+src/driada/experiment/synthetic/manifold_spatial_2d.py        98      5     40      9  89.86%   37->40, 135->138, 148->156, 238->241, 244, 248, 253, 263, 284
+src/driada/experiment/synthetic/manifold_spatial_3d.py       108      5     46      9  90.91%   37->40, 145->148, 159->170, 253->256, 259, 263, 268, 278, 299
+src/driada/information/info_utils.py                          41      1      8      1  95.92%   48
+src/driada/experiment/synthetic/time_series.py                79      1     24      3  96.12%   134, 170->173, 243->247
+src/driada/experiment/wavelet_ridge.py                        66      1      4      1  97.14%   66
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                       8309   5621   3322    268  29.32%
+Coverage HTML written to dir htmlcov
+Coverage XML written to file coverage.xml
+Coverage JSON written to file coverage.json
+============================= 89 passed in 24.34s ==============================
+
