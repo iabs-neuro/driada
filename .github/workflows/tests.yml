@@ -80,3 +80,4 @@ jobs:
           coverage.xml
           htmlcov/
           batch_coverage_results_v2.json
+        include-hidden-files: true
