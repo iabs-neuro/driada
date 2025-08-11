@@ -1,12 +1,12 @@
 {
   "summary": {
-    "overall_coverage": 83.31929233361416,
+    "overall_coverage": 83.3313274762306,
     "total_statements": 8309,
-    "total_covered": 6923,
+    "total_covered": 6924,
     "modules_at_target": 3,
     "total_modules": 9,
-    "tests_passed": 1127,
-    "tests_failed": 0
+    "tests_passed": 1126,
+    "tests_failed": 1
   },
   "module_coverage": {
     "dim_reduction": {
@@ -543,8 +543,8 @@
           "path": "driada.driada.utils.spatial",
           "file": "driada/utils/spatial.py",
           "statements": 214,
-          "covered": 199,
-          "coverage_pct": 89.58,
+          "covered": 200,
+          "coverage_pct": 89.93,
           "tested_by": "utils"
         },
         {
@@ -614,10 +614,10 @@
       ],
       "file_count": 11,
       "total_statements": 915,
-      "total_covered": 743,
-      "simple_average": 81.42454545454545,
-      "weighted_average": 77.17619672131147,
-      "true_coverage": 81.20218579234972
+      "total_covered": 744,
+      "simple_average": 81.45636363636363,
+      "weighted_average": 77.25805464480874,
+      "true_coverage": 81.31147540983606
     }
   },
   "aggregated_file_coverage": {
@@ -635,7 +635,7 @@
     "driada.driada.rsa.core": 89.96,
     "driada.driada.experiment.synthetic.manifold_spatial_3d": 90.91,
     "driada.driada.rsa.core_jit": 41.83,
-    "driada.driada.utils.spatial": 89.58,
+    "driada.driada.utils.spatial": 89.93,
     "driada.driada.experiment.exp_build": 82.2,
     "driada.driada.rsa.visual": 8.33,
     "driada.driada.network.drawing": 8.56,
@@ -2570,7 +2570,7 @@
     },
     "information": {
       "module": "information",
-      "passed": true,
+      "passed": false,
       "test_files": 11,
       "coverage_data": {
         "driada.driada.dimensionality.effective": {
@@ -3030,12 +3030,12 @@
         }
       },
       "test_counts": {
-        "passed": 252,
-        "failed": 0,
+        "passed": 251,
+        "failed": 1,
         "skipped": 0,
         "errors": 0
       },
-      "returncode": 0,
+      "returncode": 1,
       "debug_output": "coverage_debug_information.txt"
     },
     "integration": {
@@ -5346,9 +5346,9 @@
         "driada.driada.utils.spatial": {
           "file_path": "driada/utils/spatial.py",
           "statements": 214,
-          "missed": 15,
-          "covered": 199,
-          "coverage_pct": 89.58
+          "missed": 14,
+          "covered": 200,
+          "coverage_pct": 89.93
         },
         "driada.driada.utils.gif": {
           "file_path": "driada/utils/gif.py",
