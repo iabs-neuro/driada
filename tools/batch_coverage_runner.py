@@ -175,7 +175,12 @@ sys.exit(pytest.main([
             script_path = f.name
             
         try:
-            cmd = ["conda", "run", "-n", "driada", "python", script_path]
+            # Check if we're in a conda environment
+            if os.environ.get('CONDA_DEFAULT_ENV') == 'driada':
+                cmd = ["conda", "run", "-n", "driada", "python", script_path]
+            else:
+                # Use system python (for CI environments)
+                cmd = [sys.executable, script_path]
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             output = result.stdout + result.stderr
