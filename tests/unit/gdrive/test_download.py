@@ -2,10 +2,33 @@ import os
 import pytest
 from driada.gdrive.download import *
 import shutil
+import requests
+import urllib3
+import http.client
 
 
 TEST_LINK = "https://drive.google.com/drive/folders/1rqV0A3Y-miX8QccmkiGEI5r-5K4RdjCj?usp=sharing"
 TEST_DIR = os.path.join(os.getcwd(), 'test dir')
+
+
+def skip_on_network_error(func):
+    """Decorator to skip tests on network-related errors."""
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except (requests.exceptions.SSLError, 
+                requests.exceptions.ConnectionError,
+                urllib3.exceptions.SSLError,
+                urllib3.exceptions.MaxRetryError,
+                http.client.RemoteDisconnected,
+                OSError) as e:
+            # Check if it's a network-related error
+            error_msg = str(e).lower()
+            if any(keyword in error_msg for keyword in ['ssl', 'connection', 'network', 'remote end closed']):
+                pytest.skip(f"Skipping test due to network error: {type(e).__name__}")
+            else:
+                raise
+    return wrapper
 
 
 @pytest.fixture(autouse=True, scope='function')
@@ -20,6 +43,7 @@ def cleanup_test_dir():
     shutil.rmtree(TEST_DIR, ignore_errors=True)
 
 
+@skip_on_network_error
 def test_download():
     print(TEST_DIR)
 
@@ -35,6 +59,7 @@ def test_download():
     assert len(os.listdir(TEST_DIR)) == 5
 
 
+@skip_on_network_error
 def test_download_redflag():
     print(TEST_DIR)
 
@@ -50,6 +75,7 @@ def test_download_redflag():
     assert len(os.listdir(TEST_DIR)) == 4
 
 
+@skip_on_network_error
 def test_download_extension():
     print(TEST_DIR)
 
@@ -65,6 +91,7 @@ def test_download_extension():
     assert sorted(os.listdir(TEST_DIR)) == sorted(['test.txt', 'test2.txt'])
 
 
+@skip_on_network_error
 def test_download_whitelist():
     print(TEST_DIR)
 
