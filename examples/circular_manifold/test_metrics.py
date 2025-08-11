@@ -2,7 +2,7 @@
 import numpy as np
 from driada.dim_reduction.manifold_metrics import (
     extract_angles_from_embedding,
-    compute_temporal_consistency,
+    compute_embedding_alignment_metrics,
     compute_embedding_quality,
     circular_diff
 )
@@ -76,9 +76,11 @@ extracted_complex = np.exp(1j * extracted_angles)
 circular_corr = np.abs(np.mean(true_complex * np.conj(extracted_complex)))
 print(f"\nDirect circular correlation: {circular_corr:.3f}")
 
-# Temporal consistency
-temporal_score = compute_temporal_consistency(embedding, true_angles, 'circular')
-print(f"Temporal consistency score: {temporal_score:.3f}")
+# Alignment metrics (replaces temporal consistency)
+alignment_metrics = compute_embedding_alignment_metrics(embedding, true_angles, 'circular')
+print(f"Velocity correlation: {alignment_metrics['velocity_correlation']:.3f}")
+if 'variance_ratio' in alignment_metrics:
+    print(f"Variance ratio: {alignment_metrics['variance_ratio']:.3f}")
 
 # Embedding quality
 quality = compute_embedding_quality(embedding, true_angles, 'circular')
