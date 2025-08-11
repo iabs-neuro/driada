@@ -17,7 +17,8 @@ from driada.dim_reduction.manifold_metrics import (
     circular_distance,
     extract_angles_from_embedding,
     compute_reconstruction_error,
-    compute_temporal_consistency,
+    compute_temporal_consistency,  # Deprecated
+    compute_embedding_alignment_metrics,
     train_simple_decoder,
     compute_embedding_quality,
     compute_decoding_accuracy,
@@ -561,8 +562,9 @@ def test_compute_reconstruction_error_invalid_type():
         compute_reconstruction_error(embedding, true_var, manifold_type='invalid')
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_compute_temporal_consistency_circular():
-    """Test temporal consistency for circular manifolds"""
+    """Test temporal consistency for circular manifolds (DEPRECATED)"""
     # The issue: extract_angles_from_embedding returns angles in [-pi, pi]
     # but our true_angles might be in [0, 2*pi] or beyond
     # The velocities should still match if we use consistent angle ranges
@@ -601,8 +603,9 @@ def test_compute_temporal_consistency_circular():
     assert consistency_random < 0.2  # Should be very low
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_compute_temporal_consistency_spatial():
-    """Test temporal consistency for spatial manifolds"""
+    """Test temporal consistency for spatial manifolds (DEPRECATED)"""
     # Create smooth trajectory with varying speed
     n_points = 100
     t = np.linspace(0, 4*np.pi, n_points)
@@ -625,8 +628,9 @@ def test_compute_temporal_consistency_spatial():
     assert consistency_random < 0.5
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_compute_temporal_consistency_invalid_type():
-    """Test temporal consistency with invalid manifold type"""
+    """Test temporal consistency with invalid manifold type (DEPRECATED)"""
     embedding = np.random.randn(10, 2)
     true_var = np.random.randn(10)
     
@@ -752,6 +756,7 @@ def test_compute_decoding_accuracy_spatial():
     assert results['test_error'] < 2.0
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_manifold_reconstruction_score_circular():
     """Test comprehensive reconstruction score for circular manifolds"""
     # Generate smooth circular trajectory with varying velocity
@@ -789,13 +794,14 @@ def test_manifold_reconstruction_score_circular():
     # Good should be better
     assert scores_good['overall_reconstruction_score'] > scores_bad['overall_reconstruction_score']
     assert scores_good['reconstruction_error'] < scores_bad['reconstruction_error']
-    # Temporal consistency might be close to 0 for bad, but good should be positive
-    assert scores_good['temporal_consistency'] > 0.5
-    assert scores_good['temporal_consistency'] > scores_bad['temporal_consistency']
+    # Correlation should be better for good reconstruction
+    assert scores_good['correlation'] > 0.5
+    assert scores_good['correlation'] > scores_bad['correlation']
     
     # Check all metrics present
     expected_keys = [
-        'reconstruction_error', 'temporal_consistency',
+        'reconstruction_error', 'correlation',
+        'rotation_offset', 'is_reflected',
         'decoding_train_error', 'decoding_test_error',
         'generalization_gap', 'overall_reconstruction_score'
     ]
@@ -826,6 +832,7 @@ def test_manifold_reconstruction_score_spatial():
     assert scores_good['overall_reconstruction_score'] > scores_bad['overall_reconstruction_score']
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_manifold_reconstruction_score_custom_weights():
     """Test reconstruction score with custom weights"""
     n_points = 100
@@ -884,6 +891,56 @@ def test_compute_embedding_quality_circular():
     assert results['test_error'] < 0.1
     # Gap should be small for direct reconstruction
     assert abs(results['generalization_gap']) < 0.06
+
+
+def test_compute_embedding_alignment_metrics():
+    """Test the new alignment metrics function"""
+    # Generate circular data with known rotation
+    n_points = 100
+    true_angles = np.linspace(0, 2*np.pi, n_points, endpoint=False)
+    rotation_offset = np.pi / 4
+    
+    # Create rotated and reflected embedding
+    rotated_angles = true_angles + rotation_offset
+    embedding = np.column_stack([
+        np.cos(-rotated_angles),  # Reflected (negative)
+        np.sin(-rotated_angles)
+    ])
+    
+    # Test with all transformations allowed
+    metrics_all = compute_embedding_alignment_metrics(
+        embedding, true_angles, 'circular',
+        allow_rotation=True,
+        allow_reflection=True
+    )
+    
+    # Should find good alignment
+    assert metrics_all['correlation'] > 0.95
+    assert metrics_all['error'] < 0.1
+    assert metrics_all['is_reflected'] == True
+    assert abs(metrics_all['rotation_offset'] - rotation_offset) < 0.1
+    
+    # Test without rotation allowed
+    metrics_no_rot = compute_embedding_alignment_metrics(
+        embedding, true_angles, 'circular',
+        allow_rotation=False,
+        allow_reflection=True
+    )
+    
+    # Should be worse without rotation
+    assert metrics_no_rot['error'] > metrics_all['error']
+    assert metrics_no_rot['rotation_offset'] == 0.0
+    
+    # Test without reflection allowed  
+    metrics_no_refl = compute_embedding_alignment_metrics(
+        embedding, true_angles, 'circular',
+        allow_rotation=True,
+        allow_reflection=False
+    )
+    
+    # Should be worse without reflection
+    assert metrics_no_refl['error'] > metrics_all['error']
+    assert metrics_no_refl['is_reflected'] == False
 
 
 def test_compute_embedding_quality_vs_decoding_accuracy():

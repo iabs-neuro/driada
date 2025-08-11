@@ -587,43 +587,196 @@ def extract_angles_from_embedding(embedding: np.ndarray) -> np.ndarray:
     return angles
 
 
+def find_optimal_circular_alignment(
+    true_angles: np.ndarray,
+    reconstructed_angles: np.ndarray,
+    allow_rotation: bool = True,
+    allow_reflection: bool = True
+) -> Tuple[float, float, bool]:
+    """Find optimal rotation and reflection to align circular data.
+    
+    Parameters
+    ----------
+    true_angles : np.ndarray
+        Ground truth angles in radians
+    reconstructed_angles : np.ndarray
+        Reconstructed angles in radians
+    allow_rotation : bool
+        Whether to allow arbitrary rotation offset
+    allow_reflection : bool
+        Whether to allow reflection (chirality flip)
+        
+    Returns
+    -------
+    optimal_offset : float
+        Optimal rotation offset in radians
+    min_error : float
+        Minimum mean circular distance after alignment
+    is_reflected : bool
+        Whether reflection was applied
+    """
+    def compute_mean_circular_distance(angles1, angles2, offset=0):
+        """Compute mean circular distance with optional offset."""
+        diff = angles1 - (angles2 + offset)
+        return np.mean(np.abs(np.arctan2(np.sin(diff), np.cos(diff))))
+    
+    best_offset = 0.0
+    best_error = np.inf
+    best_reflected = False
+    
+    # Try both orientations if allowed
+    orientations = [False]
+    if allow_reflection:
+        orientations.append(True)
+    
+    for reflected in orientations:
+        test_angles = -reconstructed_angles if reflected else reconstructed_angles
+        
+        if allow_rotation:
+            # Find optimal rotation offset
+            # Use optimization or grid search
+            offsets = np.linspace(0, 2*np.pi, 360, endpoint=False)
+            errors = [compute_mean_circular_distance(true_angles, test_angles, offset) 
+                     for offset in offsets]
+            min_idx = np.argmin(errors)
+            offset = offsets[min_idx]
+            error = errors[min_idx]
+        else:
+            offset = 0.0
+            error = compute_mean_circular_distance(true_angles, test_angles)
+        
+        if error < best_error:
+            best_error = error
+            best_offset = offset
+            best_reflected = reflected
+    
+    return best_offset, best_error, best_reflected
+
+
+def compute_circular_correlation(
+    angles1: np.ndarray,
+    angles2: np.ndarray,
+    offset: float = 0.0
+) -> float:
+    """Compute circular correlation coefficient.
+    
+    Parameters
+    ----------
+    angles1, angles2 : np.ndarray
+        Arrays of angles in radians
+    offset : float
+        Rotation offset to apply to angles2
+        
+    Returns
+    -------
+    float
+        Circular correlation coefficient in [-1, 1]
+    """
+    # Convert to unit complex numbers
+    z1 = np.exp(1j * angles1)
+    z2 = np.exp(1j * (angles2 + offset))
+    
+    # Compute circular correlation
+    n = len(z1)
+    mean_z1 = np.mean(z1)
+    mean_z2 = np.mean(z2)
+    
+    # Centered complex numbers
+    z1_centered = z1 - mean_z1
+    z2_centered = z2 - mean_z2
+    
+    # Circular correlation
+    numerator = np.abs(np.sum(z1_centered * np.conj(z2_centered)))
+    denominator = np.sqrt(np.sum(np.abs(z1_centered)**2) * np.sum(np.abs(z2_centered)**2))
+    
+    if denominator > 0:
+        return numerator / denominator
+    else:
+        return 0.0
+
+
 def compute_reconstruction_error(
     embedding: np.ndarray, 
     true_variable: np.ndarray, 
-    manifold_type: str = 'circular'
-) -> float:
-    """Compute reconstruction error between embedding and ground truth
+    manifold_type: str = 'circular',
+    allow_rotation: bool = True,
+    allow_reflection: bool = True,
+    allow_scaling: bool = True
+) -> dict:
+    """Compute reconstruction error between embedding and ground truth.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     embedding : np.ndarray
         Low-dimensional embedding
     true_variable : np.ndarray
         Ground truth variable (angles or positions)
     manifold_type : str
         Type of manifold ('circular' or 'spatial')
+    allow_rotation : bool
+        Whether to allow rotation/translation
+    allow_reflection : bool
+        Whether to allow reflection
+    allow_scaling : bool
+        Whether to allow scaling
         
-    Returns:
-    --------
-    float
-        Reconstruction error
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - error: reconstruction error
+        - correlation: correlation after alignment
+        - rotation_offset: optimal rotation (for circular)
+        - is_reflected: whether reflection was applied
+        - scale_factor: optimal scale (if applicable)
     """
     if manifold_type == 'circular':
         # Extract angles from embedding
         reconstructed_angles = extract_angles_from_embedding(embedding)
         
-        # Compute circular distance
-        distances = circular_distance(reconstructed_angles, true_variable)
-        return np.mean(distances)
+        # Find optimal alignment
+        offset, error, reflected = find_optimal_circular_alignment(
+            true_variable, reconstructed_angles, 
+            allow_rotation=allow_rotation,
+            allow_reflection=allow_reflection
+        )
+        
+        # Apply optimal transformation
+        aligned_angles = reconstructed_angles
+        if reflected:
+            aligned_angles = -aligned_angles
+        aligned_angles = aligned_angles + offset
+        
+        # Compute correlation after alignment
+        correlation = compute_circular_correlation(true_variable, aligned_angles)
+        
+        return {
+            'error': error,
+            'correlation': correlation,
+            'rotation_offset': offset,
+            'is_reflected': reflected,
+            'scale_factor': 1.0  # No scaling for circular data
+        }
         
     elif manifold_type == 'spatial':
-        # For spatial manifolds, we need to align the embedding with true positions
-        # Use Procrustes analysis for optimal alignment
-        aligned_embedding, _ = procrustes_analysis(true_variable, embedding)
+        # For spatial manifolds, use Procrustes analysis
+        aligned_embedding, disparity = procrustes_analysis(
+            true_variable, embedding,
+            scaling=allow_scaling,
+            reflection=allow_reflection
+        )
         
-        # Compute distances
-        distances = np.linalg.norm(aligned_embedding - true_variable, axis=1)
-        return np.mean(distances)
+        # Compute error and correlation
+        error = np.mean(np.linalg.norm(aligned_embedding - true_variable, axis=1))
+        correlation = np.corrcoef(aligned_embedding.flatten(), true_variable.flatten())[0, 1]
+        
+        return {
+            'error': error,
+            'correlation': correlation,
+            'rotation_offset': 0.0,  # Not applicable for spatial
+            'is_reflected': False,  # TODO: detect from Procrustes
+            'scale_factor': 1.0  # TODO: extract from Procrustes
+        }
     
     else:
         raise ValueError(f"Unknown manifold type: {manifold_type}")
@@ -634,10 +787,14 @@ def compute_temporal_consistency(
     true_variable: np.ndarray, 
     manifold_type: str = 'circular'
 ) -> float:
-    """Compute temporal consistency between embedding and ground truth
+    """[DEPRECATED] Use compute_embedding_alignment_metrics instead.
     
-    Parameters:
-    -----------
+    This function is deprecated because it doesn't properly handle arbitrary
+    rotations and reflections in circular data. Use compute_embedding_alignment_metrics
+    which properly accounts for all allowed transformations.
+    
+    Parameters
+    ----------
     embedding : np.ndarray
         Low-dimensional embedding
     true_variable : np.ndarray
@@ -645,42 +802,98 @@ def compute_temporal_consistency(
     manifold_type : str
         Type of manifold ('circular' or 'spatial')
         
-    Returns:
-    --------
+    Returns
+    -------
     float
         Temporal consistency score (correlation)
     """
+    import warnings
+    warnings.warn(
+        "compute_temporal_consistency is deprecated and will be removed in a future version. "
+        "Use compute_embedding_alignment_metrics instead, which properly handles "
+        "rotation and reflection transformations.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
+    # Call the new function and extract velocity correlation
+    metrics = compute_embedding_alignment_metrics(
+        embedding, true_variable, manifold_type,
+        allow_rotation=True,
+        allow_reflection=True,
+        allow_scaling=True
+    )
+    
+    # Return velocity correlation if available, otherwise correlation
+    return metrics.get('velocity_correlation', metrics.get('correlation', 0.0))
+
+
+def compute_embedding_alignment_metrics(
+    embedding: np.ndarray,
+    true_variable: np.ndarray,
+    manifold_type: str = 'circular',
+    allow_rotation: bool = True,
+    allow_reflection: bool = True,
+    allow_scaling: bool = True
+) -> dict:
+    """Compute comprehensive metrics after optimal alignment.
+    
+    This function replaces the deprecated compute_temporal_consistency with a more
+    general approach that properly handles transformations.
+    
+    Parameters
+    ----------
+    embedding : np.ndarray
+        Low-dimensional embedding
+    true_variable : np.ndarray
+        Ground truth variable
+    manifold_type : str
+        Type of manifold ('circular' or 'spatial')
+    allow_rotation : bool
+        Whether to allow rotation/translation
+    allow_reflection : bool
+        Whether to allow reflection
+    allow_scaling : bool
+        Whether to allow scaling
+        
+    Returns
+    -------
+    dict
+        Dictionary containing all alignment metrics
+    """
+    # Get reconstruction metrics with alignment
+    metrics = compute_reconstruction_error(
+        embedding, true_variable, manifold_type,
+        allow_rotation=allow_rotation,
+        allow_reflection=allow_reflection,
+        allow_scaling=allow_scaling
+    )
+    
     if manifold_type == 'circular':
-        # Extract angles from embedding
+        # Add circular-specific metrics
         reconstructed_angles = extract_angles_from_embedding(embedding)
         
-        true_velocity = circular_diff(true_variable)
-        reconstructed_velocity = circular_diff(reconstructed_angles)
+        # Apply optimal transformation
+        if metrics['is_reflected']:
+            reconstructed_angles = -reconstructed_angles
+        reconstructed_angles = reconstructed_angles + metrics['rotation_offset']
         
-        # Compute correlation
-        if len(true_velocity) > 1:
-            correlation = np.corrcoef(true_velocity, reconstructed_velocity)[0, 1]
-            return correlation if not np.isnan(correlation) else 0.0
+        # Compute velocity correlation
+        true_vel = circular_diff(true_variable)
+        recon_vel = circular_diff(reconstructed_angles)
+        
+        if len(true_vel) > 1:
+            vel_corr = np.corrcoef(true_vel, recon_vel)[0, 1]
+            metrics['velocity_correlation'] = vel_corr if not np.isnan(vel_corr) else 0.0
         else:
-            return 0.0
+            metrics['velocity_correlation'] = 0.0
+            
+        # Add circular variance preservation
+        true_var = 1 - np.abs(np.mean(np.exp(1j * true_variable)))
+        recon_var = 1 - np.abs(np.mean(np.exp(1j * reconstructed_angles)))
+        metrics['variance_ratio'] = recon_var / true_var if true_var > 0 else 1.0
         
-    elif manifold_type == 'spatial':
-        # Use Procrustes analysis for optimal alignment
-        aligned_embedding, _ = procrustes_analysis(true_variable, embedding)
-        
-        # Compute velocity vectors
-        true_velocity = np.diff(true_variable, axis=0)
-        reconstructed_velocity = np.diff(aligned_embedding, axis=0)
-        
-        # Compute correlation of velocity magnitudes
-        true_speed = np.linalg.norm(true_velocity, axis=1)
-        reconstructed_speed = np.linalg.norm(reconstructed_velocity, axis=1)
-        
-        correlation = np.corrcoef(true_speed, reconstructed_speed)[0, 1]
-        return correlation if not np.isnan(correlation) else 0.0
-    
-    else:
-        raise ValueError(f"Unknown manifold type: {manifold_type}")
+    return metrics
 
 
 def train_simple_decoder(embedding: np.ndarray, true_variable: np.ndarray, manifold_type: str = 'circular'):
@@ -745,7 +958,10 @@ def compute_embedding_quality(
     embedding: np.ndarray, 
     true_variable: np.ndarray, 
     manifold_type: str = 'circular',
-    train_fraction: float = 0.8
+    train_fraction: float = 0.8,
+    allow_rotation: bool = True,
+    allow_reflection: bool = True,
+    allow_scaling: bool = True
 ) -> dict:
     """Compute embedding quality metrics without using decoders
     
@@ -778,13 +994,22 @@ def compute_embedding_quality(
     train_variable = true_variable[:n_train]
     test_variable = true_variable[n_train:]
     
-    # Compute reconstruction errors directly
-    train_error = compute_reconstruction_error(
-        train_embedding, train_variable, manifold_type
+    # Compute reconstruction errors with alignment
+    train_metrics = compute_reconstruction_error(
+        train_embedding, train_variable, manifold_type,
+        allow_rotation=allow_rotation,
+        allow_reflection=allow_reflection,
+        allow_scaling=allow_scaling
     )
-    test_error = compute_reconstruction_error(
-        test_embedding, test_variable, manifold_type
+    test_metrics = compute_reconstruction_error(
+        test_embedding, test_variable, manifold_type,
+        allow_rotation=allow_rotation,
+        allow_reflection=allow_reflection,
+        allow_scaling=allow_scaling
     )
+    
+    train_error = train_metrics['error']
+    test_error = test_metrics['error']
     
     return {
         'train_error': train_error,
@@ -857,7 +1082,10 @@ def manifold_reconstruction_score(
     embedding: np.ndarray,
     true_variable: np.ndarray,
     manifold_type: str = 'circular',
-    weights: Optional[dict] = None
+    weights: Optional[dict] = None,
+    allow_rotation: bool = True,
+    allow_reflection: bool = True,
+    allow_scaling: bool = True
 ) -> dict:
     """Compute comprehensive manifold reconstruction score
     
@@ -880,13 +1108,20 @@ def manifold_reconstruction_score(
     if weights is None:
         weights = {
             'reconstruction_error': 0.4,
-            'temporal_consistency': 0.3,
+            'correlation': 0.3,
             'decoding_accuracy': 0.3
         }
     
-    # Compute metrics
-    reconstruction_error = compute_reconstruction_error(embedding, true_variable, manifold_type)
-    temporal_consistency = compute_temporal_consistency(embedding, true_variable, manifold_type)
+    # Compute metrics with proper alignment
+    alignment_metrics = compute_embedding_alignment_metrics(
+        embedding, true_variable, manifold_type,
+        allow_rotation=allow_rotation,
+        allow_reflection=allow_reflection,
+        allow_scaling=allow_scaling
+    )
+    
+    reconstruction_error = alignment_metrics['error']
+    correlation = alignment_metrics['correlation']
     
     # Use decoder-based accuracy for consistency
     decoding_results = compute_decoding_accuracy(embedding, true_variable, manifold_type)
@@ -899,19 +1134,21 @@ def manifold_reconstruction_score(
     max_decode_error = np.pi if manifold_type == 'circular' else 1.0
     normalized_decode = 1.0 - min(decoding_results['test_error'] / max_decode_error, 1.0)
     
-    # Ensure temporal consistency is positive
-    temporal_consistency = max(temporal_consistency, 0.0)
+    # Ensure correlation is positive for scoring
+    correlation_score = max(correlation, 0.0)
     
     # Compute weighted score
     overall_score = (
         weights['reconstruction_error'] * normalized_error +
-        weights['temporal_consistency'] * temporal_consistency +
+        weights['correlation'] * correlation_score +
         weights['decoding_accuracy'] * normalized_decode
     )
     
     return {
         'reconstruction_error': reconstruction_error,
-        'temporal_consistency': temporal_consistency,
+        'correlation': correlation,
+        'rotation_offset': alignment_metrics.get('rotation_offset', 0.0),
+        'is_reflected': alignment_metrics.get('is_reflected', False),
         'decoding_train_error': decoding_results['train_error'],
         'decoding_test_error': decoding_results['test_error'],
         'generalization_gap': decoding_results['generalization_gap'],

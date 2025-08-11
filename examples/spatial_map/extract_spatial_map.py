@@ -346,7 +346,7 @@ def main():
     )
     
     # Extract data
-    neural_data = exp.calcium.data  # Shape: (n_neurons, n_timepoints)
+    neural_data = exp.calcium.scdata  # Shape: (n_neurons, n_timepoints) - scaled data for equal neuron contributions
     positions = info['positions']  # True positions
     place_centers = info['place_field_centers']
     

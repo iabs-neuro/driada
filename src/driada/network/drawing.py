@@ -169,9 +169,9 @@ def show_mat(net, dtype=None, mode='adj', ax=None):
         fig, ax = plt.subplots(figsize=(10, 10))
 
     if not dtype is None:
-        ax.matshow(mat.astype(dtype).A)
+        ax.matshow(mat.astype(dtype).toarray())
     else:
-        ax.matshow(mat.A)
+        ax.matshow(mat.toarray())
         
         
 def plot_lem_embedding(net, ndim, colors=None):
@@ -184,7 +184,7 @@ def plot_lem_embedding(net, ndim, colors=None):
         colors = range(net.lem_emb.shape[1])
 
     psize = 10
-    data = net.lem_emb.A
+    data = net.lem_emb.toarray()
     pairs = list(combinations(np.arange(ndim), 2))
     npics = len(pairs)
     pics_in_a_row = np.ceil(np.sqrt(npics))

@@ -25,6 +25,16 @@ from driada.dimensionality import (
     eff_dim, nn_dimension, correlation_dimension,
     pca_dimension, pca_dimension_profile, effective_rank
 )
+from driada.dim_reduction.manifold_metrics import (
+    compute_embedding_quality,
+    compute_decoding_accuracy,
+    manifold_reconstruction_score,
+    compute_reconstruction_error,
+    compute_embedding_alignment_metrics
+)
+from driada.dim_reduction import MVData
+from driada import MultiTimeSeries
+import os
 
 
 def estimate_dimensionality(neural_data, methods=None):
@@ -143,10 +153,10 @@ def extract_manifold_isomap(neural_data, n_components=2, n_neighbors=10):
     return embedding
 
 
-def extract_manifold_umap(neural_data, n_components=2, n_neighbors=15):
+def extract_manifold_umap(neural_data, n_components=2, n_neighbors=15, min_dist=0.3):
     """Extract manifold using UMAP (Uniform Manifold Approximation)."""
     reducer = umap.UMAP(n_components=n_components, n_neighbors=n_neighbors, 
-                        min_dist=0.1, random_state=42)
+                        min_dist=min_dist, random_state=42)
     embedding = reducer.fit_transform(neural_data.T)
     return embedding
 
@@ -170,25 +180,6 @@ def compute_circular_coordinates(embedding):
     
     return angles
 
-
-def evaluate_reconstruction(true_angles, reconstructed_angles):
-    """Evaluate how well the reconstruction preserves circular structure."""
-    # Handle circular distance
-    diff = np.abs(true_angles - reconstructed_angles)
-    circular_diff = np.minimum(diff, 2*np.pi - diff)
-    
-    # Compute circular correlation
-    # Using complex representation for circular data
-    true_complex = np.exp(1j * true_angles)
-    recon_complex = np.exp(1j * reconstructed_angles)
-    
-    # Circular correlation coefficient
-    r = np.abs(np.mean(true_complex * np.conj(recon_complex)))
-    
-    # Mean circular error
-    mean_error = np.mean(circular_diff)
-    
-    return r, mean_error
 
 
 def visualize_manifold_extraction(embeddings, true_angles, method_names):
@@ -214,19 +205,87 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
             cbar = plt.colorbar(scatter, ax=ax)
             cbar.set_label('True head direction (rad)')
         
-        # Extract angles and evaluate
-        recon_angles = compute_circular_coordinates(embedding)
-        r, error = evaluate_reconstruction(true_angles, recon_angles)
+        # Evaluate using manifold metrics API to get optimal alignment
+        alignment_metrics = compute_embedding_alignment_metrics(embedding, true_angles, 'circular')
+        error = alignment_metrics['error']
+        correlation = alignment_metrics['correlation']
+        rotation_offset = alignment_metrics['rotation_offset']
+        is_reflected = alignment_metrics['is_reflected']
         
-        # Plot true vs reconstructed angles
+        # Extract angles and apply optimal transformation
+        recon_angles = compute_circular_coordinates(embedding)
+        
+        # Apply the optimal transformation found by the metrics
+        if is_reflected:
+            recon_angles = -recon_angles
+        recon_angles = recon_angles + rotation_offset
+        
+        # Plot true vs reconstructed angles with proper wrapping
         ax = axes[1, i]
-        ax.scatter(true_angles, recon_angles, alpha=0.5, s=10)
-        ax.plot([0, 2*np.pi], [0, 2*np.pi], 'r--', alpha=0.5)
+        
+        # Wrap angles to [0, 2π] for visualization
+        true_wrapped = np.mod(true_angles, 2*np.pi)
+        recon_wrapped = np.mod(recon_angles, 2*np.pi)
+        
+        # Handle wraparound by plotting points near boundaries twice
+        # This creates continuous visualization across the circular boundary
+        threshold = 0.5  # radians from boundary
+        
+        # Find points near 0/2π boundary
+        near_zero_true = true_wrapped < threshold
+        near_2pi_true = true_wrapped > (2*np.pi - threshold)
+        near_zero_recon = recon_wrapped < threshold
+        near_2pi_recon = recon_wrapped > (2*np.pi - threshold)
+        
+        # Main scatter plot
+        ax.scatter(true_wrapped, recon_wrapped, alpha=0.5, s=10, color='blue')
+        
+        # Plot wrapped copies for continuity
+        # Points with true angle near 0 and recon near 2π
+        mask1 = near_zero_true & near_2pi_recon
+        if np.any(mask1):
+            ax.scatter(true_wrapped[mask1], recon_wrapped[mask1] - 2*np.pi, 
+                      alpha=0.5, s=10, color='blue')
+        
+        # Points with true angle near 2π and recon near 0
+        mask2 = near_2pi_true & near_zero_recon
+        if np.any(mask2):
+            ax.scatter(true_wrapped[mask2], recon_wrapped[mask2] + 2*np.pi, 
+                      alpha=0.5, s=10, color='blue')
+            
+        # Points with true angle near 0, show at 2π too
+        mask3 = near_zero_true & near_zero_recon
+        if np.any(mask3):
+            ax.scatter(true_wrapped[mask3] + 2*np.pi, recon_wrapped[mask3] + 2*np.pi, 
+                      alpha=0.5, s=10, color='blue')
+        
+        # Points with true angle near 2π, show at 0 too  
+        mask4 = near_2pi_true & near_2pi_recon
+        if np.any(mask4):
+            ax.scatter(true_wrapped[mask4] - 2*np.pi, recon_wrapped[mask4] - 2*np.pi, 
+                      alpha=0.5, s=10, color='blue')
+        
+        # Reference lines
+        ax.plot([0, 2*np.pi], [0, 2*np.pi], 'r--', alpha=0.5, label='y=x')
+        # Continuation lines for wraparound
+        # When x goes from 2π to 0, y should also go from 2π to 0
+        ax.plot([2*np.pi, 2*np.pi], [2*np.pi, 2*np.pi+0.5], 'r--', alpha=0.5)
+        ax.plot([0, 0], [-0.5, 0], 'r--', alpha=0.5)
+        # And vice versa
+        ax.plot([2*np.pi, 2*np.pi+0.5], [2*np.pi, 2*np.pi], 'r--', alpha=0.5)
+        ax.plot([-0.5, 0], [0, 0], 'r--', alpha=0.5)
+        
         ax.set_xlabel('True angle (rad)')
         ax.set_ylabel('Reconstructed angle (rad)')
-        ax.set_title(f'r = {r:.3f}, error = {error:.3f} rad')
-        ax.set_xlim([0, 2*np.pi])
-        ax.set_ylim([0, 2*np.pi])
+        ax.set_title(f'r = {correlation:.3f}, error = {error:.3f} rad')
+        ax.set_xlim([-0.5, 2*np.pi + 0.5])
+        ax.set_ylim([-0.5, 2*np.pi + 0.5])
+        
+        # Add grid lines at 0 and 2π
+        ax.axvline(0, color='gray', alpha=0.3, linestyle=':')
+        ax.axvline(2*np.pi, color='gray', alpha=0.3, linestyle=':')
+        ax.axhline(0, color='gray', alpha=0.3, linestyle=':')
+        ax.axhline(2*np.pi, color='gray', alpha=0.3, linestyle=':')
     
     plt.tight_layout()
     return fig
@@ -238,6 +297,9 @@ def main():
     print("CIRCULAR MANIFOLD EXTRACTION FROM HEAD DIRECTION CELLS")
     print("=" * 70)
     
+    # Create output directory for results
+    os.makedirs('circular_manifold_results', exist_ok=True)
+    
     print("\n1. Generating head direction cell population...")
     
     # Generate synthetic head direction cells
@@ -246,11 +308,12 @@ def main():
         duration=300,  # 5 minutes
         kappa=4.0,     # Tuning width
         seed=42,
-        verbose=True
+        verbose=True,
+        return_info=True
     )
     
     # Extract neural activity and true head directions
-    neural_data = exp.calcium  # Shape: (n_neurons, n_timepoints)
+    neural_data = exp.calcium.scdata  # Shape: (n_neurons, n_timepoints) - scaled data
     true_angles = info['head_direction']  # Ground truth angles
     
     print(f"\nGenerated {neural_data.shape[0]} neurons, {neural_data.shape[1]} timepoints")
@@ -260,8 +323,7 @@ def main():
     print("\n2. Estimating intrinsic dimensionality of neural population...")
     print("-" * 50)
     
-    dim_methods = ['participation_ratio', 'renyi_q1', 'renyi_q2', 
-                   'var_explained_90', 'corrected_pr']
+    dim_methods = ['pca_90', 'pca_95', 'effective_rank', 'participation_ratio']
     dim_estimates = estimate_dimensionality(neural_data, methods=dim_methods)
     
     print("Dimensionality estimates:")
@@ -274,38 +336,45 @@ def main():
     # Plot eigenspectrum
     print("\n3. Plotting eigenvalue spectrum...")
     eigen_fig = plot_eigenspectrum(neural_data)
-    plt.savefig('circular_manifold_eigenspectrum.png', dpi=150, bbox_inches='tight')
+    plt.savefig('circular_manifold_results/eigenspectrum.png', dpi=150, bbox_inches='tight')
     
-    # Apply different dimensionality reduction methods
-    print("\n4. Applying dimensionality reduction methods...")
+    # Apply dimensionality reduction using MVData
+    print("\n4. Applying dimensionality reduction methods using MVData...")
     print("-" * 50)
     
-    methods = ['PCA', 'Isomap', 'UMAP']
-    embeddings = []
+    # Create MVData object from calcium data with downsampling
+    # This helps with computational efficiency and smooths the data
+    downsampling = 10
+    mvdata = MVData(neural_data, downsampling=downsampling)
+    
+    # Downsample true angles to match
+    true_angles_ds = true_angles[::downsampling]
+    
+    # Dictionary to store embeddings
+    embeddings_dict = {}
     
     # PCA
     print("- PCA...")
-    pca_embedding, explained_var = extract_manifold_pca(neural_data)
-    embeddings.append(pca_embedding)
-    print(f"  First 2 PCs explain {100*sum(explained_var[:2]):.1f}% of variance")
+    pca_embedding = mvdata.get_embedding(method='pca', dim=2)
+    embeddings_dict['PCA'] = pca_embedding.coords.T  # Transpose to get (n_samples, n_components)
+    print(f"  First 2 PCs explain {100*sum(pca_embedding.reducer_.explained_variance_ratio_):.1f}% of variance")
     
     # Isomap
     print("- Isomap...")
-    isomap_embedding = extract_manifold_isomap(neural_data, n_neighbors=50)
-    embeddings.append(isomap_embedding)
+    isomap_embedding = mvdata.get_embedding(method='isomap', dim=2, n_neighbors=50)
+    embeddings_dict['Isomap'] = isomap_embedding.coords.T
     
-    # UMAP
+    # UMAP with increased parameters for better global structure
     print("- UMAP...")
-    umap_embedding = extract_manifold_umap(neural_data, n_neighbors=50)
-    embeddings.append(umap_embedding)
+    umap_embedding = mvdata.get_embedding(method='umap', n_components=2, n_neighbors=100, min_dist=0.5)
+    embeddings_dict['UMAP'] = umap_embedding.coords.T
     
     # Visualize results
     print("\n5. Visualizing extracted manifolds...")
     from driada.utils.visual import plot_embedding_comparison, DEFAULT_DPI
     
-    # Prepare embeddings dict and features
-    embeddings_dict = {method: emb for method, emb in zip(methods, embeddings)}
-    features = {'angle': true_angles}
+    # Prepare features for visualization
+    features = {'angle': true_angles_ds}
     feature_names = {'angle': 'True head direction (rad)'}
     
     # Create embedding comparison using visual utility
@@ -316,21 +385,22 @@ def main():
         with_trajectory=False,
         compute_metrics=True,
         figsize=(15, 5),
-        save_path='circular_manifold_extraction.png',
+        save_path='circular_manifold_results/embedding_comparison.png',
         dpi=DEFAULT_DPI
     )
     
     # Keep the custom reconstruction analysis
-    fig2 = visualize_manifold_extraction(embeddings, true_angles, methods)
-    plt.savefig('circular_manifold_reconstruction.png', dpi=DEFAULT_DPI, bbox_inches='tight')
+    embeddings_list = [embeddings_dict[method] for method in ['PCA', 'Isomap', 'UMAP']]
+    fig2 = visualize_manifold_extraction(embeddings_list, true_angles_ds, ['PCA', 'Isomap', 'UMAP'])
+    plt.savefig('circular_manifold_results/reconstruction_analysis.png', dpi=DEFAULT_DPI, bbox_inches='tight')
     
     # Additional analysis: temporal continuity
     print("\n6. Analyzing temporal continuity of extracted manifolds...")
     from driada.utils.visual import plot_trajectories
     
     # Use only first 1000 timepoints for trajectory visualization
-    traj_len = min(1000, embeddings[0].shape[0])
-    trajectories_dict = {method: emb[:traj_len] for method, emb in zip(methods, embeddings)}
+    traj_len = min(1000, embeddings_dict['PCA'].shape[0])
+    trajectories_dict = {method: emb[:traj_len] for method, emb in embeddings_dict.items()}
     
     fig3 = plot_trajectories(
         embeddings=trajectories_dict,
@@ -340,7 +410,7 @@ def main():
             'alpha': 0.5
         },
         figsize=(15, 5),
-        save_path='circular_manifold_trajectories.png',
+        save_path='circular_manifold_results/trajectories.png',
         dpi=DEFAULT_DPI
     )
     
@@ -350,21 +420,23 @@ def main():
     print(f"{'Method':10s} | {'Correlation':12s} | {'Mean Error':12s} | {'Quality':8s}")
     print("-" * 60)
     
-    for i, method in enumerate(methods):
-        recon_angles = compute_circular_coordinates(embeddings[i])
-        r, error = evaluate_reconstruction(true_angles, recon_angles)
+    for method, embedding in embeddings_dict.items():
+        # Use manifold metrics API  
+        alignment_metrics = compute_embedding_alignment_metrics(embedding, true_angles_ds, 'circular')
+        r = alignment_metrics['correlation']
+        error = alignment_metrics['error']
         
         # Quality assessment
-        if r > 0.95:
-            quality = "Excellent"
-        elif r > 0.85:
-            quality = "Good"
-        elif r > 0.70:
-            quality = "Fair"
+        if abs(r) > 0.95:
+            quality_str = "Excellent"
+        elif abs(r) > 0.85:
+            quality_str = "Good"
+        elif abs(r) > 0.70:
+            quality_str = "Fair"
         else:
-            quality = "Poor"
+            quality_str = "Poor"
         
-        print(f"{method:10s} | {r:12.3f} | {error:9.3f} rad | {quality:8s}")
+        print(f"{method:10s} | {r:12.3f} | {error:9.3f} rad | {quality_str:8s}")
     
     print("\n" + "="*70)
     print("CONCLUSIONS:")
@@ -374,11 +446,11 @@ def main():
     print("- Higher n_neighbors helps preserve global structure")
     print("="*70)
     
-    print("\nResults saved to:")
-    print("- circular_manifold_eigenspectrum.png")
-    print("- circular_manifold_extraction.png")
-    print("- circular_manifold_reconstruction.png")
-    print("- circular_manifold_trajectories.png")
+    print("\nResults saved to circular_manifold_results/:")
+    print("- eigenspectrum.png")
+    print("- embedding_comparison.png")
+    print("- reconstruction_analysis.png")
+    print("- trajectories.png")
     
     plt.show()
 

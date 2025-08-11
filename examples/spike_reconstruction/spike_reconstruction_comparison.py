@@ -25,7 +25,7 @@ def main():
     # Get calcium data
     calcium = exp.calcium
     fps = exp.fps
-    time = np.arange(calcium.data.shape[1]) / fps
+    time = np.arange(calcium.scdata.shape[1]) / fps
     
     # Reconstruct spikes using different methods
     print("\nReconstructing spikes using wavelet method...")
@@ -82,7 +82,7 @@ def main():
     print(f"{'Neuron':<10} {'Wavelet':<15} {'Threshold':<15} {'Jaccard':<15}")
     print("-"*50)
     
-    for i in range(calcium.data.shape[0]):
+    for i in range(calcium.scdata.shape[0]):
         wavelet_spikes = spikes_wavelet.data[i, :].astype(bool)
         threshold_spikes = spikes_threshold.data[i, :].astype(bool)
         

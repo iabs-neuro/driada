@@ -413,7 +413,8 @@ def compute_manifold_quality_metrics(exp, methods: List[str], k_neighbors: int =
     
     # Get calcium data as high-dimensional representation
     # exp.calcium is a MultiTimeSeries object with shape (n_neurons, n_timepoints)
-    X_high = exp.calcium.data.T  # (n_timepoints, n_neurons)
+    # Use scdata for scaled data that equalizes neuron contributions
+    X_high = exp.calcium.scdata.T  # (n_timepoints, n_neurons)
     
     # Downsample for computational efficiency (same as used in analysis)
     ds = 5
@@ -435,7 +436,7 @@ def compute_manifold_quality_metrics(exp, methods: List[str], k_neighbors: int =
             ds_used = embedding_dict.get('metadata', {}).get('ds', 1)
             if ds_used != ds:
                 # Re-downsample the embedding if needed
-                if ds_used == 1 and X_low.shape[0] == exp.calcium.data.shape[1]:
+                if ds_used == 1 and X_low.shape[0] == exp.calcium.scdata.shape[1]:
                     X_low = X_low[::ds]
             
             # Ensure same dimensions

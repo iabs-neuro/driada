@@ -267,7 +267,7 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
     
     # Test with true spatial neurons
     print("  Computing spatial decoding with TRUE spatial neurons...")
-    calcium_true_spatial = exp.calcium.data[true_spatial_neurons, ::ds] if ds > 1 else exp.calcium.data[true_spatial_neurons]
+    calcium_true_spatial = exp.calcium.scdata[true_spatial_neurons, ::ds] if ds > 1 else exp.calcium.scdata[true_spatial_neurons]
     
     # Simple spatial decoding test with regularized decoder
     from sklearn.model_selection import train_test_split
@@ -292,7 +292,7 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
     
     # Test with true non-spatial neurons
     print("  Computing spatial decoding with TRUE non-spatial neurons...")
-    calcium_true_nonspatial = exp.calcium.data[true_nonspatial_neurons, ::ds] if ds > 1 else exp.calcium.data[true_nonspatial_neurons]
+    calcium_true_nonspatial = exp.calcium.scdata[true_nonspatial_neurons, ::ds] if ds > 1 else exp.calcium.scdata[true_nonspatial_neurons]
     
     X_train, X_test, y_train, y_test = train_test_split(
         calcium_true_nonspatial.T, true_positions, test_size=0.5, random_state=42
@@ -320,17 +320,17 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
     else:
         print("  ✅ Non-spatial neurons show minimal spatial decoding (as expected)")
 
-    print(f"  Calcium data shape: {exp.calcium.data.shape}")
+    print(f"  Calcium data shape: {exp.calcium.scdata.shape}")
     print(f"  Downsampled positions shape: {true_positions.shape}")
     
     # 5. Create scenarios to demonstrate benefit
     print("\n4. Creating test scenarios...")
     
     # Get all neurons
-    calcium_all = exp.calcium.data[:, ::ds]
+    calcium_all = exp.calcium.scdata[:, ::ds]  # Use scaled data for equal neuron contributions
     
     # Get spatial neurons (detected by INTENSE)
-    calcium_spatial = exp.calcium.data[spatial_neurons, ::ds]
+    calcium_spatial = exp.calcium.scdata[spatial_neurons, ::ds]
     
     # Get non-selective neurons (neither spatial nor detected for other features)
     all_neurons = set(range(exp.n_cells))
@@ -345,12 +345,12 @@ def main(quick_test=False, seed=42, enable_visualizations=True,
             # Feature might not have been tested
             pass
     non_selective_neurons = list(all_neurons - selective_neurons)
-    calcium_non_selective = exp.calcium.data[non_selective_neurons, ::ds] if non_selective_neurons else None
+    calcium_non_selective = exp.calcium.scdata[non_selective_neurons, ::ds] if non_selective_neurons else None
     
     # Get random half of all neurons
     np.random.seed(seed)  # For reproducibility
     random_half_idx = np.random.choice(exp.n_cells, size=exp.n_cells//2, replace=False)
-    calcium_random_half = exp.calcium.data[random_half_idx, ::ds]
+    calcium_random_half = exp.calcium.scdata[random_half_idx, ::ds]
     
     print(f"  All neurons: {calcium_all.shape[0]} neurons")
     print(f"  Spatial neurons (INTENSE): {calcium_spatial.shape[0]} neurons")

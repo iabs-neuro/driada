@@ -244,7 +244,7 @@ def extract_population_structure(exp, neural_data=None, ds=5):
         # exp.calcium is already a MultiTimeSeries which inherits from MVData
         # We can downsample it if needed
         if ds > 1:
-            neural_data = exp.calcium.data[:, ::ds]
+            neural_data = exp.calcium.scdata[:, ::ds]  # Use scaled data for equal neuron contributions
             from driada import MultiTimeSeries
             mvdata = MultiTimeSeries(neural_data, discrete=False)
         else:

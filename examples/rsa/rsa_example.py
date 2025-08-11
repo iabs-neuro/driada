@@ -173,7 +173,7 @@ def example_3_experiment_comparison():
     )
     
     # Add stimulus labels
-    n_timepoints = exp1.calcium.data.shape[1]
+    n_timepoints = exp1.calcium.scdata.shape[1]
     stim_duration = 200
     n_stimuli = 4
     stimulus_labels = np.repeat(range(n_stimuli), stim_duration)
@@ -227,7 +227,7 @@ def example_4_trial_structure():
     
     # NEW: Convert to MVData first to show integration
     print("Converting neural data to MVData object...")
-    mvdata = MVData(exp.calcium.data)
+    mvdata = MVData(exp.calcium.scdata)  # Use scaled data for equal neuron contributions
     
     # NEW: Use unified API with MVData - it handles trial structure
     print("Computing RDM from MVData with trial structure...")
@@ -301,13 +301,13 @@ def example_5_compare_representations():
     # NEW: Use unified API for both - it detects numpy arrays automatically
     print("Computing RDMs using unified API...")
     rdm1, labels1 = rsa.compute_rdm_unified(
-        exp1.calcium.data,
+        exp1.calcium.scdata,  # Use scaled data
         items=stimulus_labels,
         metric='correlation'
     )
     
     rdm2, labels2 = rsa.compute_rdm_unified(
-        exp2.calcium.data,
+        exp2.calcium.scdata,  # Use scaled data
         items=stimulus_labels,
         metric='correlation'
     )
@@ -321,8 +321,8 @@ def example_5_compare_representations():
     # Bootstrap test
     print("\nRunning bootstrap significance test...")
     bootstrap_results = rsa.bootstrap_rdm_comparison(
-        exp1.calcium.data,
-        exp2.calcium.data,
+        exp1.calcium.scdata,  # Use scaled data
+        exp2.calcium.scdata,  # Use scaled data
         stimulus_labels,
         stimulus_labels,
         n_bootstrap=100,  # Use more for real analysis
