@@ -1,17 +1,27 @@
 import os
-
+import pytest
 from driada.gdrive.download import *
 import shutil
-import os
 
 
 TEST_LINK = "https://drive.google.com/drive/folders/1rqV0A3Y-miX8QccmkiGEI5r-5K4RdjCj?usp=sharing"
 TEST_DIR = os.path.join(os.getcwd(), 'test dir')
 
 
+@pytest.fixture(autouse=True, scope='function')
+def cleanup_test_dir():
+    """Fixture to clean up test directory before and after each test."""
+    # Clean up before test
+    shutil.rmtree(TEST_DIR, ignore_errors=True)
+    
+    yield  # Run the test
+    
+    # Clean up after test
+    shutil.rmtree(TEST_DIR, ignore_errors=True)
+
+
 def test_download():
     print(TEST_DIR)
-    shutil.rmtree(TEST_DIR, ignore_errors=True)
 
     return_code, filenames, load_log = download_part_of_folder(
                                                 TEST_DIR,  # path for downloaded data
@@ -27,7 +37,6 @@ def test_download():
 
 def test_download_redflag():
     print(TEST_DIR)
-    shutil.rmtree(TEST_DIR, ignore_errors=True)
 
     return_code, filenames, load_log = download_part_of_folder(
                                                 TEST_DIR,  # path for downloaded data
@@ -43,7 +52,6 @@ def test_download_redflag():
 
 def test_download_extension():
     print(TEST_DIR)
-    shutil.rmtree(TEST_DIR, ignore_errors=True)
 
     return_code, filenames, load_log = download_part_of_folder(
                                                 TEST_DIR,  # path for downloaded data
@@ -59,7 +67,6 @@ def test_download_extension():
 
 def test_download_whitelist():
     print(TEST_DIR)
-    shutil.rmtree(TEST_DIR, ignore_errors=True)
 
     return_code, filenames, load_log = download_part_of_folder(
                                                 TEST_DIR,  # path for downloaded data
@@ -71,11 +78,6 @@ def test_download_whitelist():
                                             )
 
     assert sorted(os.listdir(TEST_DIR)) == sorted(['test.txt', 'test2.txt', 'white.xlsx'])
-
-
-def test_erase():
-    # just clears the test folder
-    shutil.rmtree(TEST_DIR, ignore_errors=True)
 
 
 class TestGDriveModuleImports:
