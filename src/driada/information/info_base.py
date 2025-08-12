@@ -8,10 +8,11 @@ from .info_utils import binary_mi_score
 from ..utils.data import correlation_matrix
 from .entropy import entropy_d, joint_entropy_dd, joint_entropy_cd, joint_entropy_cdd
 from ..dim_reduction.data import MVData
+from .time_series_types import analyze_time_series_type, is_discrete_time_series, TimeSeriesType
 
 import numpy as np
 import warnings
-from typing import Optional
+from typing import Optional, Literal
 from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import entropy, differential_entropy
 
@@ -26,36 +27,163 @@ DEFAULT_NN = 5
 class TimeSeries():
     @staticmethod
     def define_ts_type(ts):
-        if len(ts) < 100:
-            warnings.warn('Time series is too short for accurate type (discrete/continuous) determination')
-
-        unique_vals = np.unique(ts)
-        sc1 = len(unique_vals) / len(ts)
-        hist = np.histogram(ts, bins=len(ts))[0]
-        ent = entropy(hist)
-        maxent = entropy(np.ones(len(ts)))
-        sc2 = ent / maxent
-
-        # TODO: refactor thresholds
-        if sc1 > 0.70 and sc2 > 0.70:
-            return False  # both scores are high - the variable is most probably continuous
-        elif sc1 < 0.25 and sc2 < 0.25:
-            return True  # both scores are low - the variable is most probably discrete
-        else:
-            raise ValueError(f'Unable to determine time series type automatically: score 1 = {sc1}, score 2 = {sc2}')
+        """Legacy method for backward compatibility. Use is_discrete_time_series instead."""
+        warnings.warn(
+            'TimeSeries.define_ts_type is deprecated. '
+            'Use driada.information.time_series_types.is_discrete_time_series instead.',
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # Use new detection system but handle errors gracefully for backward compatibility
+        try:
+            return is_discrete_time_series(ts)
+        except:
+            # Fallback to legacy logic if new system fails
+            if len(ts) < 100:
+                warnings.warn('Time series is too short for accurate type determination')
+            
+            unique_vals = np.unique(ts)
+            sc1 = len(unique_vals) / len(ts)
+            if sc1 < 0.25:
+                return True  # Likely discrete
+            elif sc1 > 0.7:
+                return False  # Likely continuous
+            else:
+                # Ambiguous - default to continuous
+                warnings.warn(f'Ambiguous time series type (uniqueness ratio: {sc1:.2f}). Defaulting to continuous.')
+                return False
 
     # TODO: complete this function
     def _check_input(self):
         pass
+    
+    def _create_type_from_string(self, type_str):
+        """Create TimeSeriesType from string shortcut."""
+        type_str = type_str.lower()
+        
+        # Map string to primary type and subtype
+        type_map = {
+            'binary': ('discrete', 'binary'),
+            'categorical': ('discrete', 'categorical'),
+            'count': ('discrete', 'count'),
+            'timeline': ('discrete', 'timeline'),
+            'linear': ('continuous', 'linear'),
+            'circular': ('continuous', 'circular'),
+            'ambiguous': ('ambiguous', None),  # Primary type with no subtype
+        }
+        
+        if type_str not in type_map:
+            raise ValueError(
+                f"Unknown type string '{type_str}'. Must be one of: {', '.join(type_map.keys())}"
+            )
+        
+        primary_type, subtype = type_map[type_str]
+        
+        # Create appropriate metadata
+        n_unique = len(np.unique(self.data))
+        n_samples = len(self.data)
+        
+        # Special handling for circular
+        is_circular = (subtype == 'circular')
+        circular_period = None
+        if is_circular:
+            # Try to guess period from data range
+            data_range = np.ptp(self.data)
+            if 6 < data_range < 7:  # Likely radians
+                circular_period = 2 * np.pi
+            elif 350 < data_range < 370:  # Likely degrees
+                circular_period = 360
+            
+        return TimeSeriesType(
+            primary_type=primary_type,
+            subtype=subtype,
+            confidence=1.0,  # User specified
+            is_circular=is_circular,
+            circular_period=circular_period,
+            periodicity=None,
+            metadata={
+                'n_unique': n_unique,
+                'n_samples': n_samples,
+                'user_specified': True
+            }
+        )
 
-    def __init__(self, data, discrete=None, shuffle_mask=None):
+    def __init__(self, data, discrete=None, ts_type=None, shuffle_mask=None, name=None):
+        """
+        Initialize TimeSeries object.
+        
+        Parameters
+        ----------
+        data : array-like
+            Time series data
+        discrete : bool, optional
+            Legacy parameter for backward compatibility. If provided, overrides auto-detection.
+        ts_type : TimeSeriesType or str, optional
+            Full type specification or a string matching existing subtypes:
+            - 'binary': discrete binary data
+            - 'categorical': discrete categorical data  
+            - 'count': discrete monotonic count data
+            - 'timeline': discrete regularly spaced values
+            - 'linear': continuous linear data
+            - 'circular': continuous circular/angular data
+            - 'ambiguous': ambiguous discrete data
+        shuffle_mask : array-like, optional
+            Mask for valid shuffling positions
+        name : str, optional
+            Name of the time series (used for context in type detection)
+        """
         self.data = to_numpy_array(data)
+        self.name = name
 
-        if discrete is None:
-            #warnings.warn('Time series type not specified and will be inferred automatically')
-            self.discrete = TimeSeries.define_ts_type(self.data)
-        else:
+        # Handle type specification
+        if isinstance(ts_type, str):
+            # String shortcut provided - create type from it
+            self.type_info = self._create_type_from_string(ts_type)
+            if self.type_info.is_ambiguous:
+                warnings.warn(
+                    f"Time series type is ambiguous (confidence: {self.type_info.confidence:.2f}). "
+                    "Defaulting to continuous behavior. Consider specifying type explicitly."
+                )
+                self.discrete = False
+            else:
+                self.discrete = self.type_info.is_discrete
+        elif ts_type is not None:
+            # User provided full type specification
+            self.type_info = ts_type
+            if ts_type.is_ambiguous:
+                warnings.warn(
+                    f"Time series type is ambiguous (confidence: {ts_type.confidence:.2f}). "
+                    "Defaulting to continuous behavior. Consider specifying type explicitly."
+                )
+                self.discrete = False
+            else:
+                self.discrete = ts_type.is_discrete
+        elif discrete is not None:
+            # Legacy discrete parameter - create minimal type info
             self.discrete = discrete
+            n_unique = len(np.unique(self.data))
+            self.type_info = TimeSeriesType(
+                primary_type='discrete' if discrete else 'continuous',
+                subtype='binary' if discrete and n_unique == 2 else None,
+                confidence=1.0,  # User specified
+                is_circular=False,
+                circular_period=None,
+                periodicity=None,
+                metadata={'n_unique': n_unique, 'n_samples': len(self.data)}
+            )
+        else:
+            # Auto-detect using new comprehensive system
+            self.type_info = analyze_time_series_type(self.data, name=self.name)
+            if self.type_info.is_ambiguous:
+                warnings.warn(
+                    f"Time series type is ambiguous (confidence: {self.type_info.confidence:.2f}). "
+                    f"Detected scores: discrete={self.type_info.metadata.get('discrete_score', 'N/A'):.2f}, "
+                    f"continuous={self.type_info.metadata.get('continuous_score', 'N/A'):.2f}. "
+                    "Defaulting to continuous behavior. Consider specifying type explicitly."
+                )
+                self.discrete = False
+            else:
+                self.discrete = self.type_info.is_discrete
 
         scaler = MinMaxScaler()
         self.scdata = scaler.fit_transform(self.data.reshape(-1, 1)).reshape(1, -1)[0]
@@ -64,7 +192,8 @@ class TimeSeries():
 
         if self.discrete:
             self.int_data = np.round(self.data).astype(int)
-            if len(set(self.data.astype(int))) == 2:
+            # Use type info for binary detection
+            if self.type_info.subtype == 'binary' or len(set(self.data.astype(int))) == 2:
                 self.is_binary = True
                 self.bool_data = self.int_data.astype(bool)
             else:
