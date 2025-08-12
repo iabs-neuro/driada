@@ -321,8 +321,14 @@ def generate_synthetic_exp_with_mixed_selectivity(n_discrete_feats=4, n_continuo
     if verbose:
         print(f'Generating {n_discrete_feats} discrete features...')
     for i in range(n_discrete_feats):
-        binary_series = generate_binary_time_series(length, avg_islands=10, 
-                                                   avg_duration=int(0.5 * fps))  # 0.5 seconds per island instead of 5!
+        # Calculate avg_islands to achieve ~5% active time
+        target_active_fraction = 0.05  # 5% active time
+        avg_duration_frames = int(0.5 * fps)  # 0.5 seconds per island
+        total_active_frames = int(length * target_active_fraction)
+        avg_islands = max(1, int(total_active_frames / avg_duration_frames))
+        
+        binary_series = generate_binary_time_series(length, avg_islands=avg_islands, 
+                                                   avg_duration=avg_duration_frames)
         features_dict[f'd_feat_{i}'] = binary_series
     
     # Generate continuous features
