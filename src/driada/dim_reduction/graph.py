@@ -22,7 +22,7 @@ class ProximityGraph(Network):
     Graph built on data points which represents the underlying manifold
     """
 
-    def __init__(self, d, m_params, g_params, create_nx_graph=False):
+    def __init__(self, d, m_params, g_params, create_nx_graph=False, verbose=False):
         self.all_metric_params = m_param_filter(m_params)
         self.metric = m_params["metric_name"]
         self.metric_args = {
@@ -36,6 +36,7 @@ class ProximityGraph(Network):
             setattr(self, key, g_params[key])
 
         self.data = d
+        self.verbose = verbose
 
         self.construct_adjacency()
         # TODO: add graph_preprocessing to changeable graph params
@@ -51,7 +52,8 @@ class ProximityGraph(Network):
         original_n = self.data.shape[1]  # Data is (features, samples)
         lost_nodes = set(range(original_n)) - set(list(node_mapping.keys()))
         if len(lost_nodes) > 0:
-            print(f"{len(lost_nodes)} nodes lost after giant component creation!")
+            if self.verbose:
+                print(f"{len(lost_nodes)} nodes lost after giant component creation!")
 
             if len(lost_nodes) >= self.max_deleted_nodes * original_n:
                 raise Exception(
@@ -107,7 +109,8 @@ class ProximityGraph(Network):
             self.neigh_distmat = check_symmetric(
                 self.neigh_distmat, raise_exception=True
             )
-            print("Adjacency symmetry confirmed")
+            if self.verbose:
+                print("Adjacency symmetry confirmed")
 
         else:
             raise Exception(
@@ -240,10 +243,11 @@ class ProximityGraph(Network):
                 f"Consider increasing eps parameter."
             )
         if nnz_ratio > 0.5:
-            print(
-                f"WARNING: Epsilon graph is dense (density={nnz_ratio:.4f}). "
-                f"Consider decreasing eps parameter."
-            )
+            if self.verbose:
+                print(
+                    f"WARNING: Epsilon graph is dense (density={nnz_ratio:.4f}). "
+                    f"Consider decreasing eps parameter."
+                )
 
         self.adj = A
         self.bin_adj = A.copy()
@@ -270,7 +274,7 @@ class ProximityGraph(Network):
         self.knn_indices = None
         self.knn_distances = None
 
-    def calculate_indim(self, mode, factor=2):
+    def calculate_indim(self, mode, factor=2, verbose=None):
 
         def normalizing_const(dim):
             if dim == 0:
@@ -295,7 +299,10 @@ class ProximityGraph(Network):
                 "Distance matrix construction missed! Only knn graph method is supported for intrinsic dimension calculation."
             )
 
-        print("Calculating graph internal dimension...")
+        if verbose is None:
+            verbose = self.verbose
+        if verbose:
+            print("Calculating graph internal dimension...")
 
         if mode == "fast":
             # Use neigh_distmat which contains the distances
@@ -311,7 +318,8 @@ class ProximityGraph(Network):
             # Use neigh_distmat for full mode too
             dm = self.neigh_distmat.copy()
 
-        print("Shortest path computation started, distance matrix size: ", dm.shape)
+        if verbose:
+            print("Shortest path computation started, distance matrix size: ", dm.shape)
         spmatrix = shortest_path(dm, method="D", directed=False)
         all_dists = spmatrix.flatten()
         all_dists = all_dists[all_dists != 0]
@@ -347,7 +355,8 @@ class ProximityGraph(Network):
             plt.plot(np.linspace(0, len(res) / 10.0, num=len(res)), res)
 
         Dmin = 0.1 * (np.argmax(-np.array(res)) + 1)
-        print("Dmin = ", Dmin)
+        if verbose:
+            print("Dmin = ", Dmin)
         fit = curve_fit(func2, left_distr_x, left_distr_y)
         # print(fit)
         a = fit[0][0]
@@ -367,9 +376,11 @@ class ProximityGraph(Network):
 
         alpha = 2.0
         R = np.sqrt(2 * a)
-        print("R = ", R)
+        if verbose:
+            print("R = ", R)
         Dpr = 1 - alpha**2 / (2 * np.log(np.cos(alpha * np.pi / 2.0 / R)))
-        print("D_calc = ", Dpr)
+        if verbose:
+            print("D_calc = ", Dpr)
 
         return Dmin, Dpr
 

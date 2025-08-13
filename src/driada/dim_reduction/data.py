@@ -9,12 +9,13 @@ from .graph import ProximityGraph
 
 
 # TODO: refactor this
-def check_data_for_errors(d):
+def check_data_for_errors(d, verbose=True):
     sums = np.sum(np.abs(d), axis=0)
     if len(sums.nonzero()[1]) != d.shape[1]:
         bad_points = np.where(sums == 0)[1]
-        print("zero points:", bad_points)
-        print(d.todense()[:, bad_points[0]])
+        if verbose:
+            print("zero points:", bad_points)
+            print(d.todense()[:, bad_points[0]])
         raise Exception("Data contains zero points!")
 
 
@@ -31,6 +32,7 @@ class MVData(object):
         rescale_rows=False,
         data_name=None,
         downsampling=None,
+        verbose=False,
     ):
 
         if downsampling is None:
@@ -49,6 +51,7 @@ class MVData(object):
         self.data_name = data_name
         self.n_dim = self.data.shape[0]
         self.n_points = self.data.shape[1]
+        self.verbose = verbose
 
         if labels is None:
             self.labels = np.zeros(self.n_points)
@@ -262,7 +265,11 @@ class MVData(object):
                     nn_kwargs[param] = e_params[param]
             emb.build(kwargs=nn_kwargs)
         else:
-            emb.build(kwargs=kwargs)
+            # Extract verbose for non-neural network methods
+            build_kwargs = kwargs or {}
+            if 'verbose' in e_params:
+                build_kwargs['verbose'] = e_params['verbose']
+            emb.build(kwargs=build_kwargs)
 
         return emb
 
@@ -270,7 +277,7 @@ class MVData(object):
         if g_params["g_method_name"] not in GRAPH_CONSTRUCTION_METHODS:
             raise Exception("Unknown graph construction method!")
 
-        graph = ProximityGraph(self.data, m_params, g_params)
+        graph = ProximityGraph(self.data, m_params, g_params, verbose=self.verbose)
         # print('Graph succesfully constructed')
         return graph
 
