@@ -114,7 +114,6 @@ def compute_rdm_from_timeseries_labels(
     """
     # Get unique labels (conditions)
     unique_labels = np.unique(labels)
-    n_conditions = len(unique_labels)
 
     # Use JIT-compiled averaging if available and using mean
     if is_jit_enabled() and average_method == "mean":

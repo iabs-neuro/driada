@@ -326,7 +326,7 @@ class ProximityGraph(Network):
         hist = np.histogram(all_dists / dmax, bins=nbins, density=True)
         distr_x = hist[1][:-1] + dx / 2
         distr_y = hist[0] / max(hist[0][0:nbins])
-        avg = np.mean(all_dists)
+        # avg = np.mean(all_dists)  # Not currently used but might be useful for future analysis
         std = np.std(all_dists / dmax)
 
         res = []
@@ -357,7 +357,7 @@ class ProximityGraph(Network):
         if plot:
             fig = plt.figure(1, figsize=(12, 10))
             ax = fig.add_subplot(111)
-            plt.hist(
+            ax.hist(
                 all_dists / dmax,
                 bins=nbins,
                 histtype="stepfilled",

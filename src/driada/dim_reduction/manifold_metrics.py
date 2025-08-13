@@ -659,7 +659,6 @@ def compute_circular_correlation(
     z2 = np.exp(1j * (angles2 + offset))
 
     # Compute circular correlation
-    n = len(z1)
     mean_z1 = np.mean(z1)
     mean_z2 = np.mean(z2)
 

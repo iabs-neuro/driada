@@ -179,8 +179,8 @@ class Neuron:
     def _shuffle_calcium_data_waveform_based(self, **kwargs):
 
         shuf_ca = np.zeros(self.n_frames)
-        opt_t_off, noise_amplitude = self.get_t_off(), self.get_noise_ampl()
-
+        opt_t_off = self.get_t_off()
+        # noise_amplitude = self.get_noise_ampl()  # For future use with noise addition
         # noise = np.random.normal(loc = 0, scale = noise_amplitude, size = len(self.ca))
 
         conv = Neuron.get_restored_calcium(self.sp.data, 5, opt_t_off)

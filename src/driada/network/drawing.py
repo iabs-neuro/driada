@@ -134,10 +134,10 @@ def draw_eigenvectors(
             "cmap": mpl.colormaps[cmap],
         }
 
-        nodes = nx.draw_networkx_nodes(net.graph, pos, ax=ax, **options)
+        nx.draw_networkx_nodes(net.graph, pos, ax=ax, **options)
 
         if draw_edges:
-            edges = nx.draw_networkx_edges(net.graph, pos, **edge_options)
+            nx.draw_networkx_edges(net.graph, pos, **edge_options)
         # pc, = mpl.collections.PatchCollection(nodes, cmap = options['cmap'])
         # pc.set_array(edge_colors)
 
@@ -169,10 +169,10 @@ def draw_net(net, colors=None, nodesize=None, ax=None):
     }
     edge_options = {}
 
-    nodes = nx.draw_networkx_nodes(
+    nx.draw_networkx_nodes(
         net.graph, pos, node_color=colors, ax=ax, **node_options
     )
-    edges = nx.draw_networkx_edges(net.graph, pos, ax=ax, **edge_options)
+    nx.draw_networkx_edges(net.graph, pos, ax=ax, **edge_options)
 
     plt.show()
 
@@ -217,7 +217,7 @@ def plot_lem_embedding(net, ndim, colors=None):
         i1, i2 = pairs[i]
         scatter = ax.scatter(data[i1, :], data[i2, :], c=colors, s=psize)
 
-        legend = ax.legend(
+        ax.legend(
             *scatter.legend_elements(), loc="upper left", title="Classes"
         )
 

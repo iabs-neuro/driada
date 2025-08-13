@@ -256,7 +256,7 @@ class Embedding:
                 # For dense matrices, convert to sparse first
                 P_sparse = csr_matrix(P)
                 eigenvalues, eigenvectors = eigsh(P_sparse, k=dim+1, which='LM', tol=1e-6)
-        except Exception as e:
+        except Exception:
             # Fallback to dense computation
             P_dense = P.toarray() if hasattr(P, 'toarray') else P
             eigenvalues_all, eigenvectors_all = np.linalg.eig(P_dense)
