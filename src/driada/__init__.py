@@ -1,7 +1,7 @@
 """
 DRIADA - Dimensionality Reduction for Integrated Activity Data
 
-A library for single neuron and population-level analysis of inner workings 
+A library for single neuron and population-level analysis of inner workings
 of intelligent systems, from brain neural recordings in vivo to RNNs.
 """
 
@@ -49,7 +49,7 @@ __all__ = [
     "__version__",
     # Modules
     "intense",
-    "information", 
+    "information",
     "experiment",
     "utils",
     "rsa",
@@ -59,7 +59,7 @@ __all__ = [
     "MultiTimeSeries",
     # INTENSE pipelines
     "compute_cell_feat_significance",
-    "compute_feat_feat_significance", 
+    "compute_feat_feat_significance",
     "compute_cell_cell_significance",
     # Information theory
     "get_mi",

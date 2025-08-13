@@ -11,13 +11,13 @@ from .linear import pca_dimension, pca_dimension_profile, effective_rank
 
 __all__ = [
     # Effective dimensionality
-    'eff_dim',
+    "eff_dim",
     # Intrinsic dimensionality
-    'nn_dimension',
-    'correlation_dimension',
-    'geodesic_dimension',
+    "nn_dimension",
+    "correlation_dimension",
+    "geodesic_dimension",
     # Linear dimensionality
-    'pca_dimension',
-    'pca_dimension_profile',
-    'effective_rank',
+    "pca_dimension",
+    "pca_dimension_profile",
+    "effective_rank",
 ]

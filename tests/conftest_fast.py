@@ -17,7 +17,7 @@ def fast_test_mode():
 @pytest.fixture
 def fast_test_params(fast_test_mode):
     """Optimized test parameters for speed.
-    
+
     Key optimizations:
     - Reduced shuffles: 10 for stage1, 50 for stage2 (from 100/1000)
     - Smaller data: 1000 timepoints (from 10000)
@@ -30,18 +30,15 @@ def fast_test_params(fast_test_mode):
             # Minimal viable shuffles for statistical validity
             "n_shuffles_stage1": 10,
             "n_shuffles_stage2": 50,
-            
             # Reduced data sizes
             "n_neurons": 3,
             "n_features": 2,
             "time_series_length": 1000,
             "experiment_duration": 5,
-            
             # Performance settings
             "enable_parallelization": True,
             "verbose": False,
             "ds": 2,  # Downsampling for faster computation
-            
             # Test-specific overrides
             "correlated_ts_length": 2000,  # Reduced from 10000
             "slow_test_threshold": 5.0,  # Tests over 5s are slow
@@ -67,7 +64,7 @@ def fast_test_params(fast_test_mode):
 def cached_test_data():
     """Cache commonly used test data across sessions."""
     cache = {}
-    
+
     @lru_cache(maxsize=32)
     def get_correlated_signals(n, T, seed=42):
         """Generate and cache correlated signals."""
@@ -77,18 +74,18 @@ def cached_test_data():
             C = np.eye(n)
             # Add specific correlations
             if n > 1:
-                C[1, n-1] = C[n-1, 1] = 0.9
+                C[1, n - 1] = C[n - 1, 1] = 0.9
             if n > 2:
-                C[2, n-2] = C[n-2, 2] = 0.8
+                C[2, n - 2] = C[n - 2, 2] = 0.8
             if n > 5:
-                C[5, n-5] = C[n-5, 5] = 0.7
-                
+                C[5, n - 5] = C[n - 5, 5] = 0.7
+
             signals = np.random.multivariate_normal(
-                np.zeros(n), C, size=T, check_valid='raise'
+                np.zeros(n), C, size=T, check_valid="raise"
             ).T
             cache[key] = signals
         return cache[key]
-    
+
     return get_correlated_signals
 
 
@@ -97,18 +94,18 @@ def numba_precompile():
     """Precompile numba functions to avoid JIT overhead in tests."""
     from driada.information.gcmi import ent_g, mi_gg, mi_model_gd, demean
     from driada.information.info_utils import py_fast_digamma_arr
-    
+
     # Trigger compilation with small data
     dummy_data = np.random.randn(2, 10)
     dummy_discrete = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
-    
+
     # Compile all JIT functions
     _ = demean(dummy_data)
     _ = ent_g(dummy_data)
     _ = mi_gg(dummy_data, dummy_data)
     _ = mi_model_gd(dummy_data, dummy_discrete, 2)
     _ = py_fast_digamma_arr(np.array([1.0, 2.0, 3.0]))
-    
+
     return True
 
 
@@ -117,16 +114,17 @@ def setup_test_environment(numba_precompile):
     """Automatically setup test environment."""
     # Ensure numba functions are precompiled
     assert numba_precompile
-    
+
     # Set numpy random seed for reproducibility
     np.random.seed(42)
-    
+
     # Disable warnings during tests
     import warnings
+
     warnings.filterwarnings("ignore", category=UserWarning)
-    
+
     yield
-    
+
     # Cleanup if needed
     warnings.resetwarnings()
 
@@ -134,10 +132,14 @@ def setup_test_environment(numba_precompile):
 def pytest_configure(config):
     """Configure pytest with optimized settings."""
     # Add custom markers
-    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
-    config.addinivalue_line("markers", "performance: marks tests that measure performance")
-    
+    config.addinivalue_line(
+        "markers", "performance: marks tests that measure performance"
+    )
+
     # Set parallel execution by default
-    if not hasattr(config.option, 'numprocesses'):
+    if not hasattr(config.option, "numprocesses"):
         config.option.numprocesses = "auto"

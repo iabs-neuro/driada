@@ -5,19 +5,19 @@ intensive RSA operations.
 """
 
 import numpy as np
-from ..utils.jit import conditional_njit, prange
+from ..utils.jit import conditional_njit
 
 
 @conditional_njit
 def fast_correlation_distance(patterns):
     """
     Fast computation of correlation distance matrix using numba-compatible operations.
-    
+
     Parameters
     ----------
     patterns : np.ndarray
         Pattern matrix of shape (n_items, n_features)
-        
+
     Returns
     -------
     rdm : np.ndarray
@@ -25,8 +25,7 @@ def fast_correlation_distance(patterns):
     """
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
-    
-    
+
     # Standardize patterns (mean=0, std=1) - manual computation for numba
     patterns_std = np.zeros_like(patterns)
     for i in range(n_items):
@@ -35,7 +34,7 @@ def fast_correlation_distance(patterns):
         for j in range(n_features):
             mean += patterns[i, j]
         mean /= n_features
-        
+
         # Compute std with ddof=1 (sample std) to match numpy.corrcoef
         var = 0.0
         for j in range(n_features):
@@ -46,7 +45,7 @@ def fast_correlation_distance(patterns):
             std = np.sqrt(var / (n_features - 1))
         else:
             std = 0.0
-        
+
         # Standardize
         if std > 0:
             for j in range(n_features):
@@ -55,7 +54,7 @@ def fast_correlation_distance(patterns):
             # If std is 0, all values are the same, set to 0
             for j in range(n_features):
                 patterns_std[i, j] = 0.0
-    
+
     # Compute correlation distances
     for i in range(n_items):
         for j in range(i + 1, n_items):
@@ -63,13 +62,13 @@ def fast_correlation_distance(patterns):
             # Check if either pattern is all zeros (standardized)
             pattern_i_is_zero = True
             pattern_j_is_zero = True
-            
+
             for k in range(n_features):
                 if patterns_std[i, k] != 0.0:
                     pattern_i_is_zero = False
                 if patterns_std[j, k] != 0.0:
                     pattern_j_is_zero = False
-            
+
             if pattern_i_is_zero or pattern_j_is_zero:
                 # If either pattern has zero variance, correlation is undefined
                 # Set distance to 0 if patterns are identical, else 1
@@ -85,25 +84,25 @@ def fast_correlation_distance(patterns):
                 corr = 0.0
                 for k in range(n_features):
                     corr += patterns_std[i, k] * patterns_std[j, k]
-                
+
                 # Normalize by (n-1) to match numpy.corrcoef
                 if n_features > 1:
-                    corr /= (n_features - 1)
+                    corr /= n_features - 1
                 else:
                     corr = 0.0
-                
+
                 # Clip to [-1, 1] to handle numerical errors
                 if corr > 1.0:
                     corr = 1.0
                 elif corr < -1.0:
                     corr = -1.0
-                
+
                 # Distance = 1 - correlation
                 dist = 1.0 - corr
-            
+
             rdm[i, j] = dist
             rdm[j, i] = dist
-    
+
     return rdm
 
 
@@ -111,7 +110,7 @@ def fast_correlation_distance(patterns):
 def fast_average_patterns(data, labels, unique_labels):
     """
     Fast averaging of patterns within conditions.
-    
+
     Parameters
     ----------
     data : np.ndarray
@@ -120,7 +119,7 @@ def fast_average_patterns(data, labels, unique_labels):
         Label for each timepoint
     unique_labels : np.ndarray
         Unique condition labels
-        
+
     Returns
     -------
     patterns : np.ndarray
@@ -129,7 +128,7 @@ def fast_average_patterns(data, labels, unique_labels):
     n_features, n_timepoints = data.shape
     n_conditions = len(unique_labels)
     patterns = np.zeros((n_conditions, n_features))
-    
+
     for c in range(n_conditions):
         label = unique_labels[c]
         count = 0
@@ -139,7 +138,7 @@ def fast_average_patterns(data, labels, unique_labels):
                 count += 1
         if count > 0:
             patterns[c] /= count
-    
+
     return patterns
 
 
@@ -147,12 +146,12 @@ def fast_average_patterns(data, labels, unique_labels):
 def fast_euclidean_distance(patterns):
     """
     Fast computation of Euclidean distance matrix using numba-compatible operations.
-    
+
     Parameters
     ----------
     patterns : np.ndarray
         Pattern matrix of shape (n_items, n_features)
-        
+
     Returns
     -------
     rdm : np.ndarray
@@ -160,7 +159,7 @@ def fast_euclidean_distance(patterns):
     """
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
-    
+
     for i in range(n_items):
         for j in range(i + 1, n_items):
             dist = 0.0
@@ -170,7 +169,7 @@ def fast_euclidean_distance(patterns):
             dist = np.sqrt(dist)
             rdm[i, j] = dist
             rdm[j, i] = dist
-    
+
     return rdm
 
 
@@ -178,12 +177,12 @@ def fast_euclidean_distance(patterns):
 def fast_manhattan_distance(patterns):
     """
     Fast computation of Manhattan distance matrix using explicit loops.
-    
+
     Parameters
     ----------
     patterns : np.ndarray
         Pattern matrix of shape (n_items, n_features)
-        
+
     Returns
     -------
     rdm : np.ndarray
@@ -191,7 +190,7 @@ def fast_manhattan_distance(patterns):
     """
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
-    
+
     # Use explicit loops for JIT compatibility
     for i in range(n_items):
         for j in range(i + 1, n_items):
@@ -200,5 +199,5 @@ def fast_manhattan_distance(patterns):
                 dist += abs(patterns[i, k] - patterns[j, k])
             rdm[i, j] = dist
             rdm[j, i] = dist
-    
+
     return rdm

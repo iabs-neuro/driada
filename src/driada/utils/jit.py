@@ -4,50 +4,55 @@ Provides conditional JIT compilation based on environment settings.
 """
 
 import os
-from functools import wraps
-from typing import Callable
 
 # Check if Numba should be disabled
-DRIADA_DISABLE_NUMBA = os.getenv('DRIADA_DISABLE_NUMBA', 'False').lower() in ('true', '1', 'yes')
+DRIADA_DISABLE_NUMBA = os.getenv("DRIADA_DISABLE_NUMBA", "False").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 # Try to import numba
 try:
     from numba import njit, prange
+
     NUMBA_AVAILABLE = True
 except ImportError:
     NUMBA_AVAILABLE = False
+
     # Define dummy decorators
     def njit(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator if not args else args[0]
-    
+
     prange = range
 
 
 def conditional_njit(*args, **kwargs):
     """
     Conditionally apply numba JIT compilation based on environment settings.
-    
+
     If DRIADA_DISABLE_NUMBA environment variable is set to true, or if numba
     is not available, this returns the original function without JIT compilation.
-    
+
     Parameters
     ----------
     *args, **kwargs
         Arguments passed to numba.njit
-        
+
     Returns
     -------
     decorator or function
         JIT-compiled function if enabled, otherwise original function
-        
+
     Examples
     --------
     >>> @conditional_njit
     ... def fast_computation(x):
     ...     return x ** 2
-    
+
     >>> # With parallel=True
     >>> @conditional_njit(parallel=True)
     ... def parallel_computation(x):
@@ -57,6 +62,7 @@ def conditional_njit(*args, **kwargs):
         # Return identity decorator
         def decorator(func):
             return func
+
         return decorator if not args else args[0]
     else:
         # Use actual njit
@@ -75,4 +81,5 @@ def jit_info():
     print(f"JIT enabled: {is_jit_enabled()}")
     if NUMBA_AVAILABLE:
         import numba
+
         print(f"Numba version: {numba.__version__}")

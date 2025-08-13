@@ -4,7 +4,7 @@ import scipy.sparse as sp
 
 
 def _plain_bfs(adj, source):
-    '''
+    """
     adapted from networkx.algorithms.components.connected._plain_bfs
 
     Args:
@@ -13,7 +13,7 @@ def _plain_bfs(adj, source):
 
     Returns:
 
-    '''
+    """
 
     n = adj.shape[0]
     seen = {source}
@@ -46,14 +46,14 @@ def get_ccs_from_adj(adj):
 
 
 def get_sccs_from_adj(adj):
-    '''
+    """
         adapted from networkx.algorithms.components.strongly_connected.strongly_connected_components
     Args:
         adj:
 
     Returns:
 
-    '''
+    """
 
     all_nodes = range(adj.shape[0])
     preorder = {}
@@ -127,7 +127,7 @@ def assign_random_weights(A):
 # TODO: refactor to sparse format
 def turn_to_partially_directed(mat, directed=0.0, weighted=0):
     if not isinstance(mat, np.ndarray):
-        raise Exception('Wrong input parsed to turn_to_directed function!')
+        raise Exception("Wrong input parsed to turn_to_directed function!")
 
     A = copy.deepcopy(mat)
 
@@ -159,7 +159,7 @@ def turn_to_partially_directed(mat, directed=0.0, weighted=0):
     l_ydata = [u[0] for u in upper[indices_where_lower_is_removed]]
     A[l_xdata, l_ydata] = 0
 
-    '''
+    """
     for i in range(double_edges):
         toss = random.random()
         if toss < directed: # this means double edge will be reduced to single randomly
@@ -168,9 +168,9 @@ def turn_to_partially_directed(mat, directed=0.0, weighted=0):
                 A[upper_right[i]] = 0#A[upper_right[i][::-1]] + 0#.1*np.random.random()
             else:
                 A[upper_right[i][::-1]] = 0#A[upper_right[i]] + 0#.1*np.random.random()
-    '''
+    """
 
-    #a = sp.csr_array(A)
+    # a = sp.csr_array(A)
     # get_symmetry_index(a)
     return A
 
@@ -213,12 +213,14 @@ def remove_duplicates(coo):
 def adj_input_to_csr_sparse_matrix(a):
     if isinstance(a, np.ndarray):
         adj = sp.csr_array(a)
-    elif a.format in ['csr', 'csc']:
+    elif a.format in ["csr", "csc"]:
         adj = a
-    elif a.format == 'coo':
+    elif a.format == "coo":
         adj = remove_duplicates(a)
     else:
-        raise Exception('Wrong input parsed to preprocess_adj_matrix function:', type(a))
+        raise Exception(
+            "Wrong input parsed to preprocess_adj_matrix function:", type(a)
+        )
 
     return sp.csr_array(adj)
 
@@ -256,16 +258,16 @@ def sausage_index(A, nn):
         sausage_edges += sum(np.diag(A, k=i))
 
     si = sausage_edges / (np.sum(A) / 2)
-    print('sausage edges:', sausage_edges)
-    print('other edges:', np.sum(A) / 2 - sausage_edges)
-    print('sausage index=', si)
+    print("sausage edges:", sausage_edges)
+    print("other edges:", np.sum(A) / 2 - sausage_edges)
+    print("sausage index=", si)
 
 
-#TODO: create separate branches for np and sparse matrices for further functions
+# TODO: create separate branches for np and sparse matrices for further functions
 def get_laplacian(A):
     A = A.astype(float)
     out_degrees = np.array(A.sum(axis=0)).ravel()
-    D = sp.spdiags(out_degrees, [0], A.shape[0], A.shape[0], format='csr')
+    D = sp.spdiags(out_degrees, [0], A.shape[0], A.shape[0], format="csr")
     L = D - A
     return L
 
@@ -277,13 +279,15 @@ def get_inv_sqrt_diag_matrix(a):
     diags_sqrt = 1.0 / np.sqrt(out_degrees)
 
     diags_sqrt[np.isinf(diags_sqrt)] = 0
-    DH = sp.spdiags(diags_sqrt, [0], n, n, format='csr')
+    DH = sp.spdiags(diags_sqrt, [0], n, n, format="csr")
     return DH
 
 
 def get_norm_laplacian(a):
     if get_symmetry_index(a) != 1:
-        raise Exception('Cannot construct normalized laplacian matrix from a non-hermitian adjacency matrix')
+        raise Exception(
+            "Cannot construct normalized laplacian matrix from a non-hermitian adjacency matrix"
+        )
 
     n = a.shape[0]
     A = sp.csr_array(a)
@@ -299,7 +303,7 @@ def get_inv_diag_matrix(a):
     invdiags = 1.0 / out_degrees
 
     invdiags[np.isinf(invdiags)] = 0
-    Dinv = sp.spdiags(invdiags, [0], n, n, format='csr')
+    Dinv = sp.spdiags(invdiags, [0], n, n, format="csr")
     return Dinv
 
 

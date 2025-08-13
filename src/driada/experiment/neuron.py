@@ -5,16 +5,17 @@ from scipy.optimize import minimize
 from ..information.info_base import TimeSeries
 from .wavelet_event_detection import *
 
-DEFAULT_T_RISE = 0.25 #sec
-DEFAULT_T_OFF = 2.0 #sec
+DEFAULT_T_RISE = 0.25  # sec
+DEFAULT_T_OFF = 2.0  # sec
 
-DEFAULT_FPS = 20.0 #frames per sec
-DEFAULT_MIN_BEHAVIOUR_TIME = 0.25 #sec
+DEFAULT_FPS = 20.0  # frames per sec
+DEFAULT_MIN_BEHAVIOUR_TIME = 0.25  # sec
 
 MIN_CA_SHIFT = 5  # MIN_SHIFT*t_off is the minimal random signal shift for a given cell
 
-#TODO: add numba decorators where possible
-class Neuron():
+
+# TODO: add numba decorators where possible
+class Neuron:
     """
     Class for representing all information about a single neuron.
 
@@ -32,9 +33,8 @@ class Neuron():
     @staticmethod
     @njit()
     def spike_form(t, t_rise, t_off):
-        form = (1-np.exp(-t/t_rise))*np.exp(-t/t_off)
-        return form/max(form)
-
+        form = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
+        return form / max(form)
 
     @staticmethod
     def get_restored_calcium(sp, t_rise, t_off):
@@ -47,20 +47,27 @@ class Neuron():
     def ca_mse_error(t_off, ca, spk, t_rise):
         # TODO: fix for new spike format
         re_ca = Neuron.get_restored_calcium(spk, t_rise, t_off)
-        return np.sqrt(np.sum(np.abs(ca - re_ca[:len(ca)])**2)/len(ca))
+        return np.sqrt(np.sum(np.abs(ca - re_ca[: len(ca)]) ** 2) / len(ca))
 
     @staticmethod
     def calcium_preprocessing(ca):
         # Ensure we're working with float array to avoid dtype casting issues
         ca = ca.astype(np.float64)
         ca[np.where(ca < 0)[0]] = 0
-        #ca = ca + np.abs(min(ca))
-        ca += np.random.random(size=len(ca))*1e-8
+        # ca = ca + np.abs(min(ca))
+        ca += np.random.random(size=len(ca)) * 1e-8
         return ca
 
-    def __init__(self, cell_id, ca, sp,
-                 default_t_rise=DEFAULT_T_RISE, default_t_off=DEFAULT_T_OFF, fps=DEFAULT_FPS,
-                 fit_individual_t_off=False):
+    def __init__(
+        self,
+        cell_id,
+        ca,
+        sp,
+        default_t_rise=DEFAULT_T_RISE,
+        default_t_off=DEFAULT_T_OFF,
+        fps=DEFAULT_FPS,
+        fit_individual_t_off=False,
+    ):
 
         if default_t_rise is None:
             default_t_rise = DEFAULT_T_RISE
@@ -77,14 +84,16 @@ class Neuron():
             self.sp = TimeSeries(sp.astype(int), discrete=True)
         self.n_frames = len(self.ca.data)
 
-        self.sp_count = np.sum(self.sp.data.astype(bool).astype(int)) if self.sp is not None else 0
+        self.sp_count = (
+            np.sum(self.sp.data.astype(bool).astype(int)) if self.sp is not None else 0
+        )
         self.t_off = None
         self.noise_ampl = None
         self.mad = None
         self.snr = None
 
-        self.default_t_off = default_t_off*fps
-        self.default_t_rise = default_t_rise*fps
+        self.default_t_off = default_t_off * fps
+        self.default_t_rise = default_t_rise * fps
 
         if fit_individual_t_off:
             t_off = self.get_t_off()
@@ -95,10 +104,10 @@ class Neuron():
         self.ca.shuffle_mask = np.ones(self.n_frames).astype(bool)
         min_shift = int(t_off * MIN_CA_SHIFT)
         self.ca.shuffle_mask[:min_shift] = False
-        self.ca.shuffle_mask[self.n_frames - min_shift:] = False
+        self.ca.shuffle_mask[self.n_frames - min_shift :] = False
 
     def reconstruct_spikes(self, **kwargs):
-        raise AttributeError('Spike reconstruction not implemented')
+        raise AttributeError("Spike reconstruction not implemented")
 
     def get_mad(self):
         if self.mad is None:
@@ -117,11 +126,11 @@ class Neuron():
         spk_inds = np.nonzero(self.sp.data)[0]
         mad = median_abs_deviation(self.ca.data)
         if len(spk_inds) > 0:
-            sn = np.mean(self.ca.data[spk_inds])/mad
+            sn = np.mean(self.ca.data[spk_inds]) / mad
             if np.isnan(sn):
-                raise ValueError('Error in snr calculation')
+                raise ValueError("Error in snr calculation")
         else:
-            raise ValueError('No spikes found!')
+            raise ValueError("No spikes found!")
 
         return sn, mad
 
@@ -137,24 +146,28 @@ class Neuron():
 
         return self.noise_ampl
 
-
     def _fit_t_off(self):
 
-        #TODO: fit for an arbitrary kernel form.
-        #TODO: add nonlinear summation fit if needed
+        # TODO: fit for an arbitrary kernel form.
+        # TODO: add nonlinear summation fit if needed
 
-        res = minimize(Neuron.ca_mse_error, (np.array([self.default_t_off])), args=(self.ca.data, self.sp.data, self.default_t_rise))
+        res = minimize(
+            Neuron.ca_mse_error,
+            (np.array([self.default_t_off])),
+            args=(self.ca.data, self.sp.data, self.default_t_rise),
+        )
         opt_t_off = res.x[0]
         noise_amplitude = res.fun
 
-        if opt_t_off > self.default_t_off*5:
-            print(f'Calculated t_off={int(opt_t_off)} for neuron {self.cell_id} is suspiciously high, check signal quality. t_off has been automatically lowered to {self.default_t_off*5}')
+        if opt_t_off > self.default_t_off * 5:
+            print(
+                f"Calculated t_off={int(opt_t_off)} for neuron {self.cell_id} is suspiciously high, check signal quality. t_off has been automatically lowered to {self.default_t_off*5}"
+            )
 
-        return min(opt_t_off, self.default_t_off*5), noise_amplitude
+        return min(opt_t_off, self.default_t_off * 5), noise_amplitude
 
-
-    def get_shuffled_calcium(self, method = 'roll_based', no_ts=True, **kwargs):
-        fn = getattr(self, f'_shuffle_calcium_data_{method}')
+    def get_shuffled_calcium(self, method="roll_based", no_ts=True, **kwargs):
+        fn = getattr(self, f"_shuffle_calcium_data_{method}")
 
         sh_ca = fn(**kwargs)
         sh_ca = Neuron.calcium_preprocessing(sh_ca)
@@ -163,30 +176,28 @@ class Neuron():
 
         return sh_ca
 
-
     def _shuffle_calcium_data_waveform_based(self, **kwargs):
 
         shuf_ca = np.zeros(self.n_frames)
         opt_t_off, noise_amplitude = self.get_t_off(), self.get_noise_ampl()
 
-        #noise = np.random.normal(loc = 0, scale = noise_amplitude, size = len(self.ca))
+        # noise = np.random.normal(loc = 0, scale = noise_amplitude, size = len(self.ca))
 
         conv = Neuron.get_restored_calcium(self.sp.data, 5, opt_t_off)
-        background = self.ca.data - conv[:len(self.ca.data)]
+        background = self.ca.data - conv[: len(self.ca.data)]
 
         pspk = self._shuffle_spikes_data_isi_based()
         psconv = Neuron.get_restored_calcium(pspk, 5, opt_t_off)
 
-        #shuf_ca = conv[:len(self.ca.data)] + noise
-        shuf_ca = psconv[:len(self.ca.data)] + background
+        # shuf_ca = conv[:len(self.ca.data)] + noise
+        shuf_ca = psconv[: len(self.ca.data)] + background
         return shuf_ca
 
-
     def _shuffle_calcium_data_chunks_based(self, **kwargs):
-        if 'n' not in kwargs:
+        if "n" not in kwargs:
             n = 100
         else:
-            n = kwargs['n']
+            n = kwargs["n"]
 
         shuf_ca = np.zeros(self.n_frames)
         ca = self.ca.data
@@ -198,24 +209,22 @@ class Neuron():
 
         return shuf_ca
 
-
     def _shuffle_calcium_data_roll_based(self, **kwargs):
         opt_t_off = self.get_t_off()
-        if 'shift' in kwargs:
-            shift = kwargs['shift']
+        if "shift" in kwargs:
+            shift = kwargs["shift"]
         else:
-            shift = np.random.randint(3*opt_t_off, self.n_frames - 3*opt_t_off)
+            shift = np.random.randint(3 * opt_t_off, self.n_frames - 3 * opt_t_off)
 
         shuf_ca = np.roll(self.ca.data, shift)
 
         return shuf_ca
 
-
-    def get_shuffled_spikes(self, method = 'isi_based', no_ts=True, **kwargs):
+    def get_shuffled_spikes(self, method="isi_based", no_ts=True, **kwargs):
         if self.sp is None:
-            raise AttributeError('Unable to shuffle spikes without spikes data')
+            raise AttributeError("Unable to shuffle spikes without spikes data")
 
-        fn = getattr(self, f'_shuffle_spikes_data_{method}')
+        fn = getattr(self, f"_shuffle_spikes_data_{method}")
 
         sh_data = fn(**kwargs)
         if not no_ts:
@@ -223,14 +232,15 @@ class Neuron():
         else:
             return sh_data
 
-
     def _shuffle_spikes_data_isi_based(self):
         nfr = self.n_frames
 
         pseudo_spikes = np.zeros(nfr)
         event_inds = np.where(self.sp.data != 0)[0]
 
-        if len(event_inds) == 0: #if no events were detected, there is nothing to shuffle
+        if (
+            len(event_inds) == 0
+        ):  # if no events were detected, there is nothing to shuffle
             return self.sp.data
 
         event_vals = self.sp.data[event_inds]
@@ -241,8 +251,9 @@ class Neuron():
         np.random.shuffle(rng)
         disordered_interspike_intervals = interspike_intervals[rng]
 
-        pseudo_event_inds = np.cumsum(np.insert(disordered_interspike_intervals,
-                                                0, first_random_pos))
+        pseudo_event_inds = np.cumsum(
+            np.insert(disordered_interspike_intervals, 0, first_random_pos)
+        )
 
         pseudo_event_vals = event_vals
         np.random.shuffle(event_vals)

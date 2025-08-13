@@ -1,23 +1,23 @@
 from numba.experimental import jitclass
 import numpy as np
-from numba import int32, float32, boolean    # import the types
+from numba import float32, boolean  # import the types
 from numba import types, typed, njit
 
 
 spec = [
-    ('indices', types.ListType(types.float64)),
-    ('ampls', types.ListType(types.float64)),
-    ('birth_scale', float32),
-    ('scales', types.ListType(types.float64)),
-    ('wvt_times', types.ListType(types.float64)),
-    ('terminated', boolean),
-    ('end_scale', float32),
-    ('length', float32),
-    ('max_scale', float32),
-    ('max_ampl', float32),
-    ('start', float32),
-    ('end', float32),
-    ('duration', float32),
+    ("indices", types.ListType(types.float64)),
+    ("ampls", types.ListType(types.float64)),
+    ("birth_scale", float32),
+    ("scales", types.ListType(types.float64)),
+    ("wvt_times", types.ListType(types.float64)),
+    ("terminated", boolean),
+    ("end_scale", float32),
+    ("length", float32),
+    ("max_scale", float32),
+    ("max_ampl", float32),
+    ("start", float32),
+    ("end", float32),
+    ("duration", float32),
 ]
 
 
@@ -55,7 +55,6 @@ class Ridge(object):
         self.end = -1
         self.duration = -1
 
-
     def extend(self, index, ampl, scale, wvt_time):
         if not self.terminated:
             self.scales.append(scale)
@@ -63,12 +62,10 @@ class Ridge(object):
             self.indices.append(index)
             self.wvt_times.append(wvt_time)
         else:
-            raise ValueError('Ridge is terminated')
-
+            raise ValueError("Ridge is terminated")
 
     def tip(self):
         return self.indices[-1]
-
 
     def terminate(self):
         if self.terminated:
@@ -81,7 +78,7 @@ class Ridge(object):
             self.max_ampl = max(self.ampls)
             self.start = self.indices[0]
             self.end = self.indices[-1]
-            self.duration = np.abs(self.end-self.start)
+            self.duration = np.abs(self.end - self.start)
             self.terminated = True
 
 
@@ -103,5 +100,8 @@ class RidgeInfoContainer(object):
 
 
 def ridges_to_containers(ridges):
-    rcs = [RidgeInfoContainer(ridge.indices, ridge.ampls, ridge.scales, ridge.wvt_times) for ridge in ridges]
+    rcs = [
+        RidgeInfoContainer(ridge.indices, ridge.ampls, ridge.scales, ridge.wvt_times)
+        for ridge in ridges
+    ]
     return rcs

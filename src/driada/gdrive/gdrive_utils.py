@@ -1,9 +1,9 @@
 import requests
 import regex
-import os
 from bs4 import BeautifulSoup
 from itertools import islice
 import json
+
 
 class GoogleDriveFile(object):
     """Represent Google Drive file objects structure.
@@ -75,9 +75,7 @@ def parse_google_drive_file(folder, content, use_cookies=True):
             try:
                 encoded_data = next(islice(regex_iter, 1, None)).group(1)
             except StopIteration:
-                raise RuntimeError(
-                    "Couldn't find the folder encoded JS string"
-                )
+                raise RuntimeError("Couldn't find the folder encoded JS string")
             break
 
     if encoded_data is None:
@@ -108,11 +106,7 @@ def parse_google_drive_file(folder, content, use_cookies=True):
 
 
 def download_and_parse_google_drive_link(
-        folder,
-        quiet=False,
-        use_cookies=True,
-        remaining_ok=False,
-        name_part=''
+    folder, quiet=False, use_cookies=True, remaining_ok=False, name_part=""
 ):
     """Get folder structure of Google Drive folder URL.
 
@@ -201,13 +195,13 @@ def download_and_parse_google_drive_link(
 
 
 def id_from_link(link):
-    if 'http' not in link:
-        raise ValueError('Wrong link format')
+    if "http" not in link:
+        raise ValueError("Wrong link format")
 
-    if 'id=' in link:
-        return link.split('id=')[-1].split('&')[0]
+    if "id=" in link:
+        return link.split("id=")[-1].split("&")[0]
     else:
-        return link.split('folders/')[-1].split('?')[0]
+        return link.split("folders/")[-1].split("?")[0]
 
 
 folders_url = "https://drive.google.com/drive/folders/"
@@ -218,5 +212,3 @@ string_regex = regex.compile(r"'((?:[^'\\]|\\.)*)'")
 MAX_NUMBER_FILES = 50
 
 client = requests.session()
-
-

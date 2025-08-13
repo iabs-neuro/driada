@@ -1,4 +1,3 @@
-
 from scipy.sparse.linalg import eigs
 import umap.umap_ as umap
 from pydiffmap import diffusion_map as dm
@@ -6,12 +5,14 @@ from scipy.sparse.csgraph import shortest_path
 
 from sklearn.decomposition import PCA
 from sklearn.manifold import spectral_embedding, Isomap, LocallyLinearEmbedding, TSNE
+
 # from sklearn.cluster.spectral import discretize
 
 # warnings.filterwarnings("ignore")
 
 from .dr_base import *
 from .graph import ProximityGraph
+
 try:
     from .neural import *
 except ImportError:
@@ -21,10 +22,11 @@ from .mvu import *
 
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix
 
+
 def norm_cross_corr(a, b):
     a = (a - np.mean(a)) / (np.std(a) * len(a))
     b = (b - np.mean(b)) / (np.std(b))
-    c = np.correlate(a, b, 'full')
+    c = np.correlate(a, b, "full")
     return c
 
 
@@ -37,16 +39,16 @@ def remove_outliers(data, thr_percentile):
 
 
 class Embedding:
-    '''
+    """
     Low-dimensional representation of data
-    '''
+    """
 
     def __init__(self, init_data, init_distmat, labels, params, g=None):
         if g is not None:
             if isinstance(g, ProximityGraph):
                 self.graph = g
             else:
-                raise Exception('Wrong graph type!')
+                raise Exception("Wrong graph type!")
 
         self.all_params = e_param_filter(params)
         for key in params:
@@ -63,7 +65,7 @@ class Embedding:
 
         try:
             self.nclasses = len(set(self.labels))
-        except:
+        except (TypeError, AttributeError):
             self.nclasses = np.unique(self.labels)
 
         if self.e_method.nn_based:
@@ -72,18 +74,21 @@ class Embedding:
     def build(self, kwargs=None):
         if kwargs is None:
             kwargs = dict()
-        fn = getattr(self, 'create_' + self.e_method_name + '_embedding_')
+        fn = getattr(self, "create_" + self.e_method_name + "_embedding_")
 
         if self.e_method.requires_graph:
             # TODO: move connectivity check to graph
-            if not self.graph.is_connected() and not self.e_method.handles_disconnected_graphs:
-                raise Exception('Graph is not connected!')
+            if (
+                not self.graph.is_connected()
+                and not self.e_method.handles_disconnected_graphs
+            ):
+                raise Exception("Graph is not connected!")
 
         fn(**kwargs)
 
     def create_pca_embedding_(self, verbose=True):
         if verbose:
-            print('Calculating PCA embedding...')
+            print("Calculating PCA embedding...")
 
         pca = PCA(n_components=self.dim)
         self.coords = pca.fit_transform(self.init_data.T).T
@@ -92,37 +97,54 @@ class Embedding:
 
     def create_isomap_embedding_(self):
         A = self.graph.adj
-        map = Isomap(n_components=self.dim, n_neighbors=self.graph.nn,
-                     metric='precomputed')
+        map = Isomap(
+            n_components=self.dim, n_neighbors=self.graph.nn, metric="precomputed"
+        )
         # self.coords = sp.csr_matrix(map.fit_transform(self.graph.data.A.T).T)
-        spmatrix = shortest_path(A.todense(), method='D', directed=False)
+        spmatrix = shortest_path(A.todense(), method="D", directed=False)
         self.coords = map.fit_transform(spmatrix).T
         self.reducer_ = map
 
     def create_mds_embedding_(self):
         """Create MDS (Multi-Dimensional Scaling) embedding."""
         from sklearn.manifold import MDS
-        
+
         # MDS typically uses a distance matrix
-        if hasattr(self, 'init_distmat') and self.init_distmat is not None:
+        if hasattr(self, "init_distmat") and self.init_distmat is not None:
             # Use provided distance matrix
-            mds = MDS(n_components=self.dim, dissimilarity='precomputed', random_state=42)
+            mds = MDS(
+                n_components=self.dim, dissimilarity="precomputed", random_state=42
+            )
             self.coords = mds.fit_transform(self.init_distmat).T
         else:
             # Compute from data
             mds = MDS(n_components=self.dim, random_state=42)
             self.coords = mds.fit_transform(self.init_data.T).T
-        
+
         self.reducer_ = mds
 
-
     def create_mvu_embedding_(self):
-        mvu = MaximumVarianceUnfolding(equation="berkley", solver=cp.SCS, solver_tol=1e-2,
-                                       eig_tol=1.0e-10, solver_iters=2500,
-                                       warm_start=False, seed=None)
+        try:
+            import cvxpy as cp
+        except ImportError:
+            raise ImportError(
+                "cvxpy is required for MVU but not installed. "
+                "Install it with: pip install cvxpy or conda install -c conda-forge cvxpy"
+            )
+            
+        mvu = MaximumVarianceUnfolding(
+            equation="berkley",
+            solver=cp.SCS,
+            solver_tol=1e-2,
+            eig_tol=1.0e-10,
+            solver_iters=2500,
+            warm_start=False,
+            seed=None,
+        )
 
-        self.coords = mvu.fit_transform(self.graph.data.T, self.dim,
-                                                      self.graph.nn, dropout_rate=0)
+        self.coords = mvu.fit_transform(
+            self.graph.data.T, self.dim, self.graph.nn
+        ).T
         self.reducer_ = mvu
 
     def create_lle_embedding_(self):
@@ -131,9 +153,9 @@ class Embedding:
         self.reducer_ = lle
 
     def create_hlle_embedding_(self):
-        hlle = LocallyLinearEmbedding(n_components=self.dim,
-                                      n_neighbors=self.graph.nn,
-                                      method='hessian')
+        hlle = LocallyLinearEmbedding(
+            n_components=self.dim, n_neighbors=self.graph.nn, method="hessian"
+        )
         self.coords = hlle.fit_transform(self.graph.data.T).T
         self.reducer_ = hlle
 
@@ -143,17 +165,17 @@ class Embedding:
         n = self.graph.n
 
         DH = get_inv_sqrt_diag_matrix(A)
-        P = self.graph.get_matrix('trans')
+        P = self.graph.get_matrix("trans")
 
         start_v = np.ones(n)
         # LR mode is much more stable, this is why we use P matrix largest eigenvalues
-        eigvals, eigvecs = eigs(P, k=dim + 1, which='LR', v0=start_v, maxiter=n * 1000)
+        eigvals, eigvecs = eigs(P, k=dim + 1, which="LR", v0=start_v, maxiter=n * 1000)
         # eigvals, vecs = eigs(nL, k = dim2 + 1, which = 'SM')
 
         eigvals = np.asarray([np.round(np.real(x), 6) for x in eigvals])
 
         if np.count_nonzero(eigvals == 1.0) > 1:
-            raise Exception('Graph is not connected, LE will result in errors!')
+            raise Exception("Graph is not connected, LE will result in errors!")
         else:
             vecs = np.real(eigvecs.T[1:])
             vec_norms = np.array([np.real(sum([x * x for x in v])) for v in vecs])
@@ -167,27 +189,121 @@ class Embedding:
 
         A = A.asfptype()
         # Convert to numpy array instead of matrix to avoid sklearn compatibility issues
-        vecs = spectral_embedding(np.asarray(A.todense()), n_components=dim, eigen_solver=None,
-                                  random_state=None, eigen_tol=0.0, norm_laplacian=True, drop_first=True).T
+        vecs = spectral_embedding(
+            np.asarray(A.todense()),
+            n_components=dim,
+            eigen_solver=None,
+            random_state=None,
+            eigen_tol=0.0,
+            norm_laplacian=True,
+            drop_first=True,
+        ).T
 
         self.coords = vecs
 
     def create_dmaps_embedding_(self):
-        raise Exception('not so easy to implement properly (https://sci-hub.se/10.1016/j.acha.2015.01.001)')
+        """Create diffusion maps embedding.
+        
+        This implements the standard diffusion maps algorithm with fixed bandwidth.
+        
+        Future enhancement: Variable bandwidth diffusion maps
+        - Berry & Harlim (2016): "Variable bandwidth diffusion kernels"
+        - DOI: https://doi.org/10.1016/j.acha.2015.01.001
+        - Would allow adaptive kernel bandwidth based on local density
+        
+        References:
+        - Coifman & Lafon (2006): Diffusion maps
+        - DOI: https://doi.org/10.1016/j.acha.2006.04.006
+        """
+        import numpy as np
+        from scipy.sparse import csr_matrix, diags
+        from scipy.sparse.linalg import eigsh
+        
+        # Get parameters
+        dim = self.dim
+        alpha = self.dm_alpha if hasattr(self, "dm_alpha") else 0.5
+        t = self.dm_t if hasattr(self, "dm_t") else 1  # Diffusion time parameter
+        
+        # Get affinity matrix from graph
+        W = self.graph.adj.astype(float)
+        
+        # Ensure the matrix is symmetric
+        W = (W + W.T) / 2
+        
+        # Apply alpha normalization (anisotropic diffusion)
+        # First compute the degree matrix
+        D = np.asarray(W.sum(axis=1)).flatten()
+        D_alpha = D ** alpha
+        
+        # Normalize by D^alpha from both sides
+        D_alpha_inv = 1.0 / (D_alpha + 1e-10)  # Avoid division by zero
+        W_alpha = diags(D_alpha_inv) @ W @ diags(D_alpha_inv)
+        
+        # Compute new degree matrix for normalized kernel
+        D_alpha_norm = np.asarray(W_alpha.sum(axis=1)).flatten()
+        D_alpha_norm_inv = 1.0 / (D_alpha_norm + 1e-10)
+        
+        # Create Markov transition matrix
+        P = diags(D_alpha_norm_inv) @ W_alpha
+        
+        # Compute eigendecomposition
+        # We need the largest eigenvalues (close to 1)
+        try:
+            # For sparse matrices, use eigsh
+            if hasattr(P, 'toarray'):
+                eigenvalues, eigenvectors = eigsh(P, k=dim+1, which='LM', tol=1e-6)
+            else:
+                # For dense matrices, convert to sparse first
+                P_sparse = csr_matrix(P)
+                eigenvalues, eigenvectors = eigsh(P_sparse, k=dim+1, which='LM', tol=1e-6)
+        except Exception as e:
+            # Fallback to dense computation
+            P_dense = P.toarray() if hasattr(P, 'toarray') else P
+            eigenvalues_all, eigenvectors_all = np.linalg.eig(P_dense)
+            # Sort by magnitude
+            idx = np.abs(eigenvalues_all).argsort()[::-1]
+            eigenvalues = eigenvalues_all[idx[:dim+1]]
+            eigenvectors = eigenvectors_all[:, idx[:dim+1]]
+        
+        # Sort eigenvalues/vectors in descending order
+        idx = eigenvalues.argsort()[::-1]
+        eigenvalues = eigenvalues[idx]
+        eigenvectors = eigenvectors[:, idx]
+        
+        # Remove the first eigenvector (constant, eigenvalue=1)
+        eigenvalues = eigenvalues[1:dim+1]
+        eigenvectors = eigenvectors[:, 1:dim+1]
+        
+        # Apply diffusion time scaling: lambda^t
+        eigenvalues_t = eigenvalues ** t
+        
+        # Scale eigenvectors by eigenvalues^t
+        # For very small t or when eigenvalues are close to 1, this preserves more variance
+        self.coords = (eigenvectors * eigenvalues_t).T
+        
+        # Store additional info
+        self.reducer_ = {
+            'eigenvalues': eigenvalues,
+            'eigenvectors': eigenvectors,
+            'alpha': alpha,
+            't': t
+        }
 
     def create_auto_dmaps_embedding_(self):
         dim = self.dim
         nn = self.graph.nn
         metric = self.graph.metric
         metric_args = self.graph.metric_args
-        alpha = self.dm_alpha if hasattr(self, 'dm_alpha') else 1
+        alpha = self.dm_alpha if hasattr(self, "dm_alpha") else 1
 
-        mydmap = dm.DiffusionMap.from_sklearn(n_evecs=dim,
-                                              k=nn,
-                                              epsilon='bgh',
-                                              metric=metric,
-                                              metric_params=metric_args,
-                                              alpha=alpha)
+        mydmap = dm.DiffusionMap.from_sklearn(
+            n_evecs=dim,
+            k=nn,
+            epsilon="bgh",
+            metric=metric,
+            metric_params=metric_args,
+            alpha=alpha,
+        )
 
         dmap = mydmap.fit_transform(self.init_data.T)
 
@@ -201,20 +317,34 @@ class Embedding:
 
     def create_umap_embedding_(self):
         min_dist = self.min_dist
-        reducer = umap.UMAP(n_neighbors=self.graph.nn, n_components=self.dim,
-                            min_dist=min_dist)
+        reducer = umap.UMAP(
+            n_neighbors=self.graph.nn, n_components=self.dim, min_dist=min_dist
+        )
 
         self.coords = reducer.fit_transform(self.graph.data.T).T
         self.reducer_ = reducer
 
-    def create_ae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
-                             enc_kwargs=None, dec_kwargs=None,
-                             feature_dropout=0.2, train_size=0.8, inter_dim=100,
-                             verbose=True,
-                             add_corr_loss=False, corr_hyperweight=0,
-                             add_mi_loss=False, mi_hyperweight=0, minimize_mi_data=None,
-                             log_every=1,
-                             device=None):
+    def create_ae_embedding_(
+        self,
+        continue_learning=0,
+        epochs=50,
+        lr=1e-3,
+        seed=42,
+        batch_size=32,
+        enc_kwargs=None,
+        dec_kwargs=None,
+        feature_dropout=0.2,
+        train_size=0.8,
+        inter_dim=100,
+        verbose=True,
+        add_corr_loss=False,
+        corr_hyperweight=0,
+        add_mi_loss=False,
+        mi_hyperweight=0,
+        minimize_mi_data=None,
+        log_every=1,
+        device=None,
+    ):
 
         # ---------------------------------------------------------------------------
 
@@ -223,8 +353,12 @@ class Embedding:
         torch.backends.cudnn.deterministic = True
 
         # TODO: add train_test_split
-        train_dataset = NeuroDataset(self.init_data[:, :int(train_size * self.init_data.shape[1])])
-        test_dataset = NeuroDataset(self.init_data[:, int(train_size * self.init_data.shape[1]):])
+        train_dataset = NeuroDataset(
+            self.init_data[:, : int(train_size * self.init_data.shape[1])]
+        )
+        test_dataset = NeuroDataset(
+            self.init_data[:, int(train_size * self.init_data.shape[1]) :]
+        )
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -233,7 +367,7 @@ class Embedding:
             #  use gpu if available
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             if verbose:
-                print('device:', device)
+                print("device:", device)
 
         if not continue_learning:
             # create a model from `AE` autoencoder class
@@ -243,8 +377,14 @@ class Embedding:
                 enc_kwargs = {}
             if dec_kwargs is None:
                 dec_kwargs = {}
-            model = AE(orig_dim=self.init_data.shape[0], inter_dim=inter_dim, code_dim=self.dim,
-                       enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs, device=device)
+            model = AE(
+                orig_dim=self.init_data.shape[0],
+                inter_dim=inter_dim,
+                code_dim=self.dim,
+                enc_kwargs=enc_kwargs,
+                dec_kwargs=dec_kwargs,
+                device=device,
+            )
 
             model = model.to(device)
         else:
@@ -257,12 +397,14 @@ class Embedding:
         criterion = nn.MSELoss()
 
         def correlation_loss(data):
-            #print('corr')
+            # print('corr')
             corr = torch.corrcoef(data)
-            #print(corr)
+            # print(corr)
             nv = corr.shape[0]
-            closs = torch.abs((torch.sum(torch.abs(corr)) - 1*nv)/(nv**2 - nv))  # average pairwise correlation amplitude
-            #print(closs)
+            closs = torch.abs(
+                (torch.sum(torch.abs(corr)) - 1 * nv) / (nv**2 - nv)
+            )  # average pairwise correlation amplitude
+            # print(closs)
             return closs
 
         def data_orthogonality_loss(data, ortdata):
@@ -272,17 +414,18 @@ class Embedding:
             # temporal workaround instead of MINE MI estimation
 
             # print('ortho')
-            #print(ortdata)
+            # print(ortdata)
             n1, n2 = data.shape[0], ortdata.shape[1]
             fulldata = torch.cat((data, ortdata), dim=0)
             corr = torch.corrcoef(fulldata)
-            #print(corr)
-            #print(corr[n1:, :n1])
-            nvar = n1*n2
+            # print(corr)
+            # print(corr[n1:, :n1])
+            nvar = n1 * n2
             closs = torch.abs(
-                (torch.sum(torch.abs(corr))) / nvar)  # average pairwise correlation amplitude
-            #print(closs)
-            #print()
+                (torch.sum(torch.abs(corr))) / nvar
+            )  # average pairwise correlation amplitude
+            # print(closs)
+            # print()
             return closs
 
         # ---------------------------------------------------------------------------
@@ -301,11 +444,14 @@ class Embedding:
                 optimizer.zero_grad()
 
                 # compute reconstructions
-                noisy_batch_features = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
+                noisy_batch_features = (
+                    f_dropout(torch.ones(batch_features.shape).to(device))
+                    * batch_features
+                )
                 outputs = model(noisy_batch_features.float())
                 code = model.encoder(noisy_batch_features.float()).T
 
-                '''
+                """
                 # ==================== MINE experiment ========================
 
                 from torch_mist.estimators import mine
@@ -342,13 +488,17 @@ class Embedding:
 
                 print(f"Mutual information estimated value: {estimated_mi} nats")
                 # ==================== MINE experiment ========================
-                '''
+                """
                 # compute training reconstruction loss
                 train_loss = criterion(outputs, batch_features.float())
 
                 if add_mi_loss:
-                    ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
-                    train_loss += mi_hyperweight * data_orthogonality_loss(code, ortdata)
+                    ortdata = (
+                        torch.tensor(minimize_mi_data[:, indices]).float().to(device)
+                    )
+                    train_loss += mi_hyperweight * data_orthogonality_loss(
+                        code, ortdata
+                    )
 
                 if add_corr_loss:
                     train_loss += corr_hyperweight * correlation_loss(code)
@@ -373,15 +523,24 @@ class Embedding:
                 for batch_features, _, indices in test_loader:
                     batch_features = batch_features.to(device)
                     # compute reconstructions
-                    noisy_batch_features = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
+                    noisy_batch_features = (
+                        f_dropout(torch.ones(batch_features.shape).to(device))
+                        * batch_features
+                    )
                     outputs = model(noisy_batch_features.float())
 
                     # compute test reconstruction loss
                     test_loss = criterion(outputs, batch_features.float())
 
                     if add_mi_loss:
-                        ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
-                        train_loss += mi_hyperweight * data_orthogonality_loss(code, ortdata)
+                        ortdata = (
+                            torch.tensor(minimize_mi_data[:, indices])
+                            .float()
+                            .to(device)
+                        )
+                        train_loss += mi_hyperweight * data_orthogonality_loss(
+                            code, ortdata
+                        )
 
                     if add_corr_loss:
                         code = model.encoder(noisy_batch_features.float()).T
@@ -396,11 +555,13 @@ class Embedding:
                     best_test_epoch = epoch + 1
                     best_test_model = model
                 if verbose:
-                    print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
+                    print(
+                        f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}"
+                    )
 
         if verbose:
             if best_test_epoch != epochs + 1:
-                print(f'best model: epoch {best_test_epoch}')
+                print(f"best model: epoch {best_test_epoch}")
 
         self.nnmodel = best_test_model
         input_ = torch.tensor(self.init_data.T).float().to(device)
@@ -409,11 +570,25 @@ class Embedding:
 
     # -------------------------------------
 
-    def create_vae_embedding_(self, continue_learning=0, epochs=50, lr=1e-3, seed=42, batch_size=32,
-                              enc_kwargs=None, dec_kwargs=None, feature_dropout=0.2, kld_weight=1,
-                              train_size=0.8, inter_dim=128, verbose=True, log_every=10, **kwargs):
+    def create_vae_embedding_(
+        self,
+        continue_learning=0,
+        epochs=50,
+        lr=1e-3,
+        seed=42,
+        batch_size=32,
+        enc_kwargs=None,
+        dec_kwargs=None,
+        feature_dropout=0.2,
+        kld_weight=1,
+        train_size=0.8,
+        inter_dim=128,
+        verbose=True,
+        log_every=10,
+        **kwargs,
+    ):
 
-    # TODO: add best model mechanism as above
+        # TODO: add best model mechanism as above
         # ---------------------------------------------------------------------------
         torch.manual_seed(seed)
         torch.backends.cudnn.benchmark = False
@@ -421,8 +596,12 @@ class Embedding:
 
         # TODO: add train_test_split
         # TODO: move out data loading for autoencoders
-        train_dataset = NeuroDataset(self.init_data[:, :int(train_size * self.init_data.shape[1])])
-        test_dataset = NeuroDataset(self.init_data[:, int(train_size * self.init_data.shape[1]):])
+        train_dataset = NeuroDataset(
+            self.init_data[:, : int(train_size * self.init_data.shape[1])]
+        )
+        test_dataset = NeuroDataset(
+            self.init_data[:, int(train_size * self.init_data.shape[1]) :]
+        )
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -433,8 +612,14 @@ class Embedding:
         if not continue_learning:
             # create a model from `VAE` autoencoder class
             # load it to the specified device, either gpu or cpu
-            model = VAE(orig_dim=len(self.init_data), inter_dim=inter_dim, code_dim=self.dim,
-                        enc_kwargs=enc_kwargs, dec_kwargs=dec_kwargs, device=device)
+            model = VAE(
+                orig_dim=len(self.init_data),
+                inter_dim=inter_dim,
+                code_dim=self.dim,
+                enc_kwargs=enc_kwargs,
+                dec_kwargs=dec_kwargs,
+                device=device,
+            )
             model = model.to(device)
         else:
             model = self.nnmodel
@@ -444,7 +629,7 @@ class Embedding:
         optimizer = optim.Adam(model.parameters(), lr=lr)
 
         # BCE error loss
-        #criterion = nn.BCELoss(reduction='sum')
+        # criterion = nn.BCELoss(reduction='sum')
         criterion = nn.MSELoss()
 
         # ---------------------------------------------------------------------------
@@ -461,15 +646,19 @@ class Embedding:
                 optimizer.zero_grad()
 
                 # compute reconstructions
-                data = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
+                data = (
+                    f_dropout(torch.ones(batch_features.shape).to(device))
+                    * batch_features
+                )
                 data = data.to(device).float()  # Ensure float32
                 reconstruction, mu, logvar = model(data)
 
                 # compute training reconstruction loss
                 mse_loss = criterion(reconstruction, data)
                 kld_loss = -0.5 * torch.sum(
-                    1 + logvar - mu.pow(2) - logvar.exp())  # * train_dataset.__len__()/batch_size
-                train_loss = mse_loss + kld_weight*kld_loss
+                    1 + logvar - mu.pow(2) - logvar.exp()
+                )  # * train_dataset.__len__()/batch_size
+                train_loss = mse_loss + kld_weight * kld_loss
 
                 # compute accumulated gradients
                 train_loss.backward()
@@ -492,22 +681,32 @@ class Embedding:
             if (epoch + 1) % log_every == 0:
                 # compute loss on test part
                 tloss = 0
-                for batch_features, _, _ in test_loader:  # NeuroDataset returns 3 values
-                    data = f_dropout(torch.ones(batch_features.shape).to(device)) * batch_features
+                for (
+                    batch_features,
+                    _,
+                    _,
+                ) in test_loader:  # NeuroDataset returns 3 values
+                    data = (
+                        f_dropout(torch.ones(batch_features.shape).to(device))
+                        * batch_features
+                    )
                     data = data.to(device).float()  # Ensure float32
                     reconstruction, mu, logvar = model(data)
 
                     # compute training reconstruction loss
                     mse_loss = criterion(reconstruction, data)
                     kld_loss = -0.5 * torch.sum(
-                        1 + logvar - mu.pow(2) - logvar.exp())  # * train_dataset.__len__()/batch_size
+                        1 + logvar - mu.pow(2) - logvar.exp()
+                    )  # * train_dataset.__len__()/batch_size
                     test_loss = mse_loss + kld_weight * kld_loss
                     tloss += test_loss.item()
 
                 # compute the epoch training loss
                 tloss = tloss / len(test_loader)
                 if verbose:
-                    print(f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}")
+                    print(
+                        f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}"
+                    )
 
         self.nnmodel = model
         input_ = torch.tensor(self.init_data.T).float().to(device)
@@ -516,24 +715,24 @@ class Embedding:
         # -------------------------------------
 
     def continue_learning(self, add_epochs, kwargs={}):
-        if self.all_params['e_method_name'] not in ['ae', 'vae']:
-            raise Exception('This is not a DL-based method!')
+        if self.all_params["e_method_name"] not in ["ae", "vae"]:
+            raise Exception("This is not a DL-based method!")
 
-        fn = getattr(self, 'create_' + self.all_params['e_method_name'] + '_embedding_')
+        fn = getattr(self, "create_" + self.all_params["e_method_name"] + "_embedding_")
         fn(continue_learning=1, epochs=add_epochs, kwargs=kwargs)
-    
+
     def to_mvdata(self):
         """Convert embedding coordinates to MVData for further processing.
-        
+
         This allows embeddings to be used as input for additional dimensionality
         reduction or analysis steps, enabling recursive embedding pipelines.
-        
+
         Returns
         -------
         MVData
             An MVData object containing the embedding coordinates as data,
             with the same labels as the original data.
-            
+
         Examples
         --------
         >>> mvdata = MVData(high_dim_data)
@@ -544,10 +743,10 @@ class Embedding:
         """
         # Import here to avoid circular dependency
         from .data import MVData
-        
+
         if self.coords is None:
             raise ValueError("Embedding has not been built yet. Call build() first.")
-        
+
         # Create MVData with embedding coordinates
         # coords shape is (embedding_dim, n_points), which matches MVData format
         return MVData(
@@ -555,6 +754,5 @@ class Embedding:
             labels=self.labels,
             distmat=None,  # Distance matrix would need to be recomputed for embedding space
             rescale_rows=False,  # Embeddings are already scaled appropriately
-            data_name=f"{self.e_method_name}_embedding"
+            data_name=f"{self.e_method_name}_embedding",
         )
-

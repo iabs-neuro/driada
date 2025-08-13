@@ -37,7 +37,9 @@
       "Bash(echo:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:docs.codecov.com)",
-      "Bash(CONDA_DEFAULT_ENV=\"\" python test_env_detection.py)"
+      "Bash(CONDA_DEFAULT_ENV=\"\" python test_env_detection.py)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(ruff check:*)"
     ],
     "deny": []
   }

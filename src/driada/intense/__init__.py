@@ -1,8 +1,8 @@
 """
 INTENSE: Information-Theoretic Evaluation of Neuronal Selectivity
 
-A framework for analyzing neuronal selectivity to behavioral and environmental 
-variables using information theory, particularly mutual information analysis 
+A framework for analyzing neuronal selectivity to behavioral and environmental
+variables using information theory, particularly mutual information analysis
 with rigorous statistical testing.
 """
 
@@ -67,7 +67,7 @@ __all__ = [
     # Core computation
     "calculate_optimal_delays",
     "calculate_optimal_delays_parallel",
-    "get_calcium_feature_me_profile", 
+    "get_calcium_feature_me_profile",
     "scan_pairs",
     "scan_pairs_parallel",
     "scan_pairs_router",

@@ -22,17 +22,17 @@ def q_entropy(spectrum, t, q=1):
     # https://journals.aps.org/prx/abstract/10.1103/PhysRevX.6.041062
 
     if q <= 0:
-        raise Exception('q must be >0')
+        raise Exception("q must be >0")
     else:
         Z = np.sum(np.exp(-t * spectrum))
         if q != 1:
             eigenvalues = np.exp(-t * q * spectrum)
-            S = 1/(1-q) * np.log(Z**(-q) * np.sum(eigenvalues))
+            S = 1 / (1 - q) * np.log(Z ** (-q) * np.sum(eigenvalues))
         else:
             S = spectral_entropy(spectrum, t, verbose=0)
 
     if np.imag(S) != 0:
-        raise Exception(f'Imaginary entropy detected: t={t}, q={q}, S={S}!')
+        raise Exception(f"Imaginary entropy detected: t={t}, q={q}, S={S}!")
 
     return S
 
@@ -43,13 +43,13 @@ def spectral_entropy(spectrum, t, verbose=0):
     S = -np.real(np.sum(np.multiply(norm_eigenvalues, np.log2(norm_eigenvalues))))
 
     if verbose:
-        print('initial eigenvalues:')
+        print("initial eigenvalues:")
         print(spectrum)
-        print('exp eigenvalues:')
+        print("exp eigenvalues:")
         print(eigenvalues)
-        print('norm exp eigenvalues:')
+        print("norm exp eigenvalues:")
         print(norm_eigenvalues)
-        print('logs:')
+        print("logs:")
         print(np.log2(norm_eigenvalues))
 
     return S

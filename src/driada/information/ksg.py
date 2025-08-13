@@ -10,7 +10,8 @@ from .info_utils import py_fast_digamma
 DEFAULT_NN = 5
 # UTILITY FUNCTIONS
 
-#TODO: add automatic alpha selection for LNC correction from https://github.com/BiuBiuBiLL/NPEET_LNC
+# TODO: add automatic alpha selection for LNC correction from https://github.com/BiuBiuBiLL/NPEET_LNC
+
 
 def add_noise(x, ampl=1e-10):
     # small noise to break degeneracy, see doc.
@@ -23,7 +24,9 @@ def query_neighbors(tree, x, k):
 
 
 def _count_neighbors_single(tree, x, radii, ind):
-    dists, indices = tree.query(x[ind:ind + 1], k=DEFAULT_NN, distance_upper_bound=radii[ind])
+    dists, indices = tree.query(
+        x[ind : ind + 1], k=DEFAULT_NN, distance_upper_bound=radii[ind]
+    )
     return len(np.unique(indices[0])) - 2
 
 
@@ -37,9 +40,9 @@ def count_neighbors(tree, x, radii):
 
 def build_tree(points, lf=5):
     if points.shape[1] >= 20:
-        return BallTree(points, metric='chebyshev')
+        return BallTree(points, metric="chebyshev")
 
-    return KDTree(points, metric='chebyshev', leaf_size=lf)
+    return KDTree(points, metric="chebyshev", leaf_size=lf)
     # return KDTree(points, leafsize = lf)
     # return KDTree(points, copy_data=True, leafsize = 5)
 
@@ -56,7 +59,7 @@ def avgdigamma(points, dvec, lf=30, tree=None):
 
     zero_inds = np.where(num_points == 0)[0]
     if 1.0 * len(zero_inds) / len(num_points) > 0.01:
-        raise Exception('No neighbours in more than 1% points, check input!')
+        raise Exception("No neighbours in more than 1% points, check input!")
     else:
         if len(zero_inds) != 0:
             num_points[zero_inds] = 0.5
@@ -70,10 +73,10 @@ def avgdigamma(points, dvec, lf=30, tree=None):
 
 # CONTINUOUS ESTIMATORS
 
+
 def nonparam_entropy_c(x, k=DEFAULT_NN, base=np.e):
-    """ The classic K-L k-nearest neighbor continuous entropy estimator.
-    """
-    #assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
+    """The classic K-L k-nearest neighbor continuous entropy estimator."""
+    # assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
     # xs_columns = np.expand_dims(xs, axis=0).T
     x = np.asarray(x)
     if len(x.shape) == 1:
@@ -87,8 +90,8 @@ def nonparam_entropy_c(x, k=DEFAULT_NN, base=np.e):
 
 
 def nonparam_cond_entropy_cc(x, y, k=DEFAULT_NN, base=np.e):
-    """ The classic K-L k-nearest neighbor continuous entropy estimator for the
-        entropy of X conditioned on Y.
+    """The classic K-L k-nearest neighbor continuous entropy estimator for the
+    entropy of X conditioned on Y.
     """
     xy = np.c_[x, y]
     entropy_union_xy = nonparam_entropy_c(xy, k=k, base=base)
@@ -96,8 +99,17 @@ def nonparam_cond_entropy_cc(x, y, k=DEFAULT_NN, base=np.e):
     return entropy_union_xy - entropy_y
 
 
-def nonparam_mi_cc(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
-                   lf=5, precomputed_tree_x=None, precomputed_tree_y=None):
+def nonparam_mi_cc(
+    x,
+    y,
+    z=None,
+    k=DEFAULT_NN,
+    base=np.e,
+    alpha=0,
+    lf=5,
+    precomputed_tree_x=None,
+    precomputed_tree_y=None,
+):
     """
     Mutual information of x and y (conditioned on z if z is not None)
     """
@@ -135,8 +147,12 @@ def nonparam_mi_cc(x, y, z=None, k=DEFAULT_NN, base=np.e, alpha=0,
     else:
         xz = np.c_[x, z]
         yz = np.c_[y, z]
-        a, b, c, d = avgdigamma(xz, dvec), avgdigamma(
-            yz, dvec), avgdigamma(z, dvec), py_fast_digamma(k)
+        a, b, c, d = (
+            avgdigamma(xz, dvec),
+            avgdigamma(yz, dvec),
+            avgdigamma(z, dvec),
+            py_fast_digamma(k),
+        )
 
     return (-a - b + c + d) / log(base)
 

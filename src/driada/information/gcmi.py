@@ -1,22 +1,28 @@
 import numpy as np
-import numba as nb
 from numba import njit
 import warnings
-from scipy.special import ndtri, psi, digamma
+from scipy.special import ndtri, psi
 
 from .info_utils import py_fast_digamma_arr
 
 # Import JIT versions if available
 try:
     from .gcmi_jit_utils import (
-        ctransform_jit, ctransform_2d_jit, copnorm_jit, copnorm_2d_jit,
-        mi_gg_jit, cmi_ggg_jit, gcmi_cc_jit
+        ctransform_jit,
+        ctransform_2d_jit,
+        copnorm_jit,
+        copnorm_2d_jit,
+        mi_gg_jit,
+        cmi_ggg_jit,
+        gcmi_cc_jit,
     )
+
     _JIT_AVAILABLE = True
 except ImportError:
     _JIT_AVAILABLE = False
 
-#TODO: credits to original GCMI: https://github.com/robince/gcmi
+# TODO: credits to original GCMI: https://github.com/robince/gcmi
+
 
 def ctransform(x):
     """Copula transformation (empirical CDF)
@@ -24,7 +30,7 @@ def ctransform(x):
     axis of x. Data is ranked and scaled within [0 1] (open interval).
     """
     x = np.atleast_2d(x)
-    
+
     # Use JIT version for suitable inputs
     if _JIT_AVAILABLE and x.flags.c_contiguous and x.dtype in (np.float32, np.float64):
         if x.shape[0] == 1:
@@ -33,7 +39,7 @@ def ctransform(x):
         else:
             # 2D case
             return ctransform_2d_jit(x)
-    
+
     # Fallback to original implementation
     xi = np.argsort(x)
     xr = np.argsort(xi)
@@ -48,7 +54,7 @@ def copnorm(x):
     CDF value as the input. Operates along the last axis.
     """
     x = np.atleast_2d(x)
-    
+
     # Use JIT version for suitable inputs
     if _JIT_AVAILABLE and x.flags.c_contiguous and x.dtype in (np.float32, np.float64):
         if x.shape[0] == 1:
@@ -57,7 +63,7 @@ def copnorm(x):
         else:
             # 2D case
             return copnorm_2d_jit(x)
-    
+
     # Fallback to original implementation
     # cx = sp.stats.norm.ppf(ctransform(x))
     cx = ndtri(ctransform(x))
@@ -67,12 +73,12 @@ def copnorm(x):
 @njit
 def demean(x):
     """Demean each row of a 2D array.
-    
+
     Parameters
     ----------
     x : ndarray
         2D array where each row is demeaned independently.
-        
+
     Returns
     -------
     ndarray
@@ -95,18 +101,18 @@ def demean(x):
 @njit
 def regularized_cholesky(C, regularization=1e-12):
     """Compute Cholesky decomposition with regularization for numerical stability.
-    
+
     Adds diagonal regularization to prevent issues with near-singular
     covariance matrices. Uses adaptive regularization for severely ill-conditioned
     matrices based on determinant check.
-    
+
     Parameters
     ----------
     C : ndarray
         Covariance matrix to decompose.
     regularization : float, optional
         Base regularization parameter added to diagonal (default: 1e-12).
-        
+
     Returns
     -------
     ndarray
@@ -115,19 +121,19 @@ def regularized_cholesky(C, regularization=1e-12):
     # Check matrix conditioning using determinant
     det_C = np.linalg.det(C)
     trace_C = np.trace(C)
-    
+
     # Adaptive regularization based on determinant relative to trace
     # For near-singular matrices, det << trace^n where n is matrix size
     n = C.shape[0]
     expected_det_scale = (trace_C / n) ** n
-    
+
     if det_C > 0 and det_C < expected_det_scale * 1e-8:  # Severely ill-conditioned
         # Use stronger regularization proportional to trace
         adaptive_reg = trace_C * 1e-8 / n  # Scale by matrix size
         reg = max(regularization, adaptive_reg)
     else:
         reg = regularization
-    
+
     # Apply regularization
     C_reg = C + np.eye(C.shape[0]) * reg
     return np.linalg.cholesky(C_reg)
@@ -162,7 +168,12 @@ def ent_g(x, biascorrect=True):
 
     ln2 = np.log(2)
     if biascorrect:
-        psiterms = py_fast_digamma_arr((Ntrl - np.arange(1, Nvarx + 1, dtype=np.float64)) / 2.0) / 2.0
+        psiterms = (
+            py_fast_digamma_arr(
+                (Ntrl - np.arange(1, Nvarx + 1, dtype=np.float64)) / 2.0
+            )
+            / 2.0
+        )
         dterm = (ln2 - np.log(Ntrl - 1.0)) / 2.0
         HX = HX - Nvarx * dterm - psiterms.sum()
 
@@ -190,7 +201,9 @@ def mi_gg(x, y, biascorrect=True, demeaned=False, max_dim=3):
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
     if x.ndim > max_dim or y.ndim > max_dim:
-        raise ValueError(f"x and y must be at most {max_dim}d to prevent undersampling issues")
+        raise ValueError(
+            f"x and y must be at most {max_dim}d to prevent undersampling issues"
+        )
     Ntrl = x.shape[1]
     Nvarx = x.shape[0]
     Nvary = y.shape[0]
@@ -256,10 +269,10 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
         raise ValueError("x must be at most 2d")
     if y.ndim > 1:
         raise ValueError("only univariate discrete variables supported")
-    '''
+    """
     if not np.issubdtype(y.dtype, np.integer):
         raise ValueError("y should be an integer array")
-    '''
+    """
     if int(Ym) != Ym:
         raise ValueError("Ym should be an integer")
 
@@ -268,10 +281,10 @@ def mi_model_gd(x, y, Ym, biascorrect=True, demeaned=False):
 
     if y.size != Ntrl:
         raise ValueError("number of trials do not match")
-    '''
+    """
     if not demeaned:
         x = x - x.mean(axis=1)[:,np.newaxis]
-    '''
+    """
     # class-conditional entropies
     Ntrl_y = np.zeros(Ym)
     Hcond = np.zeros(Ym)
@@ -333,14 +346,18 @@ def gcmi_cc(x, y):
 
     if y.shape[1] != Ntrl:
         raise ValueError("number of trials do not match")
-    
+
     # Use JIT version if available and suitable
-    if (_JIT_AVAILABLE and 
-        x.flags.c_contiguous and y.flags.c_contiguous and
-        x.dtype in (np.float32, np.float64) and y.dtype in (np.float32, np.float64)):
+    if (
+        _JIT_AVAILABLE
+        and x.flags.c_contiguous
+        and y.flags.c_contiguous
+        and x.dtype in (np.float32, np.float64)
+        and y.dtype in (np.float32, np.float64)
+    ):
         return gcmi_cc_jit(x, y)
 
-    '''
+    """
     # check for repeated values
     for xi in range(Nvarx):
         if (np.unique(x[xi,:]).size / float(Ntrl)) < 0.9:
@@ -350,7 +367,7 @@ def gcmi_cc(x, y):
         if (np.unique(y[yi,:]).size / float(Ntrl)) < 0.9:
             warnings.warn("Input y has more than 10% repeated values")
             break
-    '''
+    """
 
     # copula normalization
     cx = copnorm(x)
@@ -358,6 +375,7 @@ def gcmi_cc(x, y):
     # parametric Gaussian MI
     I = mi_gg(cx, cy, True, True)
     return I
+
 
 # TODO: integrate into numba everything below this line
 def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
@@ -379,15 +397,19 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
     z = np.atleast_2d(z)
-    
+
     # Use JIT version if available and suitable
-    if (_JIT_AVAILABLE and 
-        x.flags.c_contiguous and y.flags.c_contiguous and z.flags.c_contiguous and
-        x.dtype in (np.float32, np.float64) and 
-        y.dtype in (np.float32, np.float64) and 
-        z.dtype in (np.float32, np.float64)):
+    if (
+        _JIT_AVAILABLE
+        and x.flags.c_contiguous
+        and y.flags.c_contiguous
+        and z.flags.c_contiguous
+        and x.dtype in (np.float32, np.float64)
+        and y.dtype in (np.float32, np.float64)
+        and z.dtype in (np.float32, np.float64)
+    ):
         return cmi_ggg_jit(x, y, z, biascorrect, demeaned)
-    
+
     if x.ndim > 2 or y.ndim > 2 or z.ndim > 2:
         raise ValueError("x, y and z must be at most 2d")
     Ntrl = x.shape[1]
@@ -403,18 +425,18 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
         raise ValueError("number of trials do not match")
 
     # joint variable
-    xyz = np.vstack((x,y,z))
+    xyz = np.vstack((x, y, z))
     if not demeaned:
-        xyz = xyz - xyz.mean(axis=1)[:,np.newaxis]
-    Cxyz = np.dot(xyz,xyz.T) / float(Ntrl - 1)
+        xyz = xyz - xyz.mean(axis=1)[:, np.newaxis]
+    Cxyz = np.dot(xyz, xyz.T) / float(Ntrl - 1)
     # submatrices of joint covariance
-    Cz = Cxyz[Nvarxy:,Nvarxy:]
-    Cyz = Cxyz[Nvarx:,Nvarx:]
-    Cxz = np.zeros((Nvarxz,Nvarxz))
-    Cxz[:Nvarx,:Nvarx] = Cxyz[:Nvarx,:Nvarx]
-    Cxz[:Nvarx,Nvarx:] = Cxyz[:Nvarx,Nvarxy:]
-    Cxz[Nvarx:,:Nvarx] = Cxyz[Nvarxy:,:Nvarx]
-    Cxz[Nvarx:,Nvarx:] = Cxyz[Nvarxy:,Nvarxy:]
+    Cz = Cxyz[Nvarxy:, Nvarxy:]
+    Cyz = Cxyz[Nvarx:, Nvarx:]
+    Cxz = np.zeros((Nvarxz, Nvarxz))
+    Cxz[:Nvarx, :Nvarx] = Cxyz[:Nvarx, :Nvarx]
+    Cxz[:Nvarx, Nvarx:] = Cxyz[:Nvarx, Nvarxy:]
+    Cxz[Nvarx:, :Nvarx] = Cxyz[Nvarxy:, :Nvarx]
+    Cxz[Nvarx:, Nvarx:] = Cxyz[Nvarxy:, Nvarxy:]
 
     chCz = regularized_cholesky(Cz)
     chCxz = regularized_cholesky(Cxz)
@@ -423,26 +445,26 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
 
     # entropies in nats
     # normalizations cancel for cmi
-    HZ = np.sum(np.log(np.diagonal(chCz))) # + 0.5*Nvarz*(np.log(2*np.pi)+1.0)
-    HXZ = np.sum(np.log(np.diagonal(chCxz))) # + 0.5*Nvarxz*(np.log(2*np.pi)+1.0)
-    HYZ = np.sum(np.log(np.diagonal(chCyz))) # + 0.5*Nvaryz*(np.log(2*np.pi)+1.0)
-    HXYZ = np.sum(np.log(np.diagonal(chCxyz))) # + 0.5*Nvarxyz*(np.log(2*np.pi)+1.0)
+    HZ = np.sum(np.log(np.diagonal(chCz)))  # + 0.5*Nvarz*(np.log(2*np.pi)+1.0)
+    HXZ = np.sum(np.log(np.diagonal(chCxz)))  # + 0.5*Nvarxz*(np.log(2*np.pi)+1.0)
+    HYZ = np.sum(np.log(np.diagonal(chCyz)))  # + 0.5*Nvaryz*(np.log(2*np.pi)+1.0)
+    HXYZ = np.sum(np.log(np.diagonal(chCxyz)))  # + 0.5*Nvarxyz*(np.log(2*np.pi)+1.0)
 
     ln2 = np.log(2)
     if biascorrect:
-        psiterms = psi((Ntrl - np.arange(1,Nvarxyz+1)).astype(float)/2.0) / 2.0
-        dterm = (ln2 - np.log(Ntrl-1.0)) / 2.0
-        HZ = HZ - Nvarz*dterm - psiterms[:Nvarz].sum()
-        HXZ = HXZ - Nvarxz*dterm - psiterms[:Nvarxz].sum()
-        HYZ = HYZ - Nvaryz*dterm - psiterms[:Nvaryz].sum()
-        HXYZ = HXYZ - Nvarxyz*dterm - psiterms[:Nvarxyz].sum()
+        psiterms = psi((Ntrl - np.arange(1, Nvarxyz + 1)).astype(float) / 2.0) / 2.0
+        dterm = (ln2 - np.log(Ntrl - 1.0)) / 2.0
+        HZ = HZ - Nvarz * dterm - psiterms[:Nvarz].sum()
+        HXZ = HXZ - Nvarxz * dterm - psiterms[:Nvarxz].sum()
+        HYZ = HYZ - Nvaryz * dterm - psiterms[:Nvaryz].sum()
+        HXYZ = HXYZ - Nvarxyz * dterm - psiterms[:Nvarxyz].sum()
 
     # MI in bits
     I = (HXZ + HYZ - HXYZ - HZ) / ln2
     return I
 
 
-def gccmi_ccd(x,y,z,Zm):
+def gccmi_ccd(x, y, z, Zm):
     """Gaussian-Copula CMI between 2 continuous variables conditioned on a discrete variable.
 
     I = gccmi_ccd(x,y,z,Zm) returns the CMI between two (possibly multidimensional)
@@ -474,16 +496,16 @@ def gccmi_ccd(x,y,z,Zm):
 
     # check for repeated values
     for xi in range(Nvarx):
-        if (np.unique(x[xi,:]).size / float(Ntrl)) < 0.9:
+        if (np.unique(x[xi, :]).size / float(Ntrl)) < 0.9:
             warnings.warn("Input x has more than 10% repeated values")
             break
     for yi in range(Nvary):
-        if (np.unique(y[yi,:]).size / float(Ntrl)) < 0.9:
+        if (np.unique(y[yi, :]).size / float(Ntrl)) < 0.9:
             warnings.warn("Input y has more than 10% repeated values")
             break
 
     # check values of discrete variable
-    if z.min()!=0 or z.max()!=(Zm-1):
+    if z.min() != 0 or z.max() != (Zm - 1):
         raise ValueError("values of discrete variable z are out of bounds")
 
     # calculate gcmi for each z value
@@ -492,17 +514,17 @@ def gccmi_ccd(x,y,z,Zm):
     cx = []
     cy = []
     for zi in range(Zm):
-        idx = z==zi
-        thsx = copnorm(x[:,idx])
-        thsy = copnorm(y[:,idx])
+        idx = z == zi
+        thsx = copnorm(x[:, idx])
+        thsy = copnorm(y[:, idx])
         Pz[zi] = idx.sum()
         cx.append(thsx)
         cy.append(thsy)
-        Icond[zi] = mi_gg(thsx,thsy,True,True)
+        Icond[zi] = mi_gg(thsx, thsy, True, True)
 
     Pz = Pz / float(Ntrl)
 
     # conditional mutual information
-    CMI = np.sum(Pz*Icond)
-    #I = mi_gg(np.hstack(cx),np.hstack(cy),True,False)
+    CMI = np.sum(Pz * Icond)
+    # I = mi_gg(np.hstack(cx),np.hstack(cy),True,False)
     return CMI

@@ -1,32 +1,34 @@
 """
 Core RSA functions for computing and comparing RDMs.
 """
+from __future__ import annotations
 
 import numpy as np
 import logging
-from typing import List, Dict, Tuple, Optional, Union
+from typing import Dict, Tuple, Optional, Union, TYPE_CHECKING
 from scipy import stats
 from scipy.spatial.distance import pdist, squareform
 
 from ..dim_reduction.data import MVData
-from ..utils.data import correlation_matrix
 from ..utils.jit import is_jit_enabled
 from .core_jit import (
-    fast_correlation_distance,
-    fast_euclidean_distance, 
+    fast_euclidean_distance,
     fast_manhattan_distance,
-    fast_average_patterns
+    fast_average_patterns,
 )
+
+if TYPE_CHECKING:
+    from ..experiment import Experiment
 
 
 def compute_rdm(
     patterns: Union[np.ndarray, MVData],
-    metric: str = 'correlation',
-    logger: Optional[logging.Logger] = None
+    metric: str = "correlation",
+    logger: Optional[logging.Logger] = None,
 ) -> np.ndarray:
     """
     Compute representational dissimilarity matrix from patterns.
-    
+
     Parameters
     ----------
     patterns : np.ndarray or MVData
@@ -35,7 +37,7 @@ def compute_rdm(
         Each row is a pattern/item, each column is a feature
     metric : str, default 'correlation'
         Distance metric: 'correlation', 'euclidean', 'cosine', 'manhattan'
-        
+
     Returns
     -------
     rdm : np.ndarray
@@ -47,13 +49,17 @@ def compute_rdm(
         mvdata = MVData(patterns.T)
     else:
         mvdata = patterns
-    
+
     # Check if we can use JIT-compiled functions for raw numpy arrays
-    if isinstance(patterns, np.ndarray) and is_jit_enabled() and metric in ['euclidean', 'manhattan']:
+    if (
+        isinstance(patterns, np.ndarray)
+        and is_jit_enabled()
+        and metric in ["euclidean", "manhattan"]
+    ):
         # Use JIT only for euclidean and manhattan where it's simpler
-        if metric == 'euclidean':
+        if metric == "euclidean":
             rdm = fast_euclidean_distance(patterns)
-        elif metric == 'manhattan':
+        elif metric == "manhattan":
             rdm = fast_manhattan_distance(patterns)
     elif isinstance(patterns, np.ndarray):
         # Use scipy for numpy arrays
@@ -61,32 +67,32 @@ def compute_rdm(
         rdm = squareform(distances)
     else:
         # Use MVData's built-in methods
-        if metric == 'correlation':
+        if metric == "correlation":
             # We need correlation between items (columns), so use axis=1
             corr_mat = mvdata.corr_mat(axis=1)
             rdm = 1 - corr_mat
         else:
             # get_distmat computes distances between columns (items)
             rdm = mvdata.get_distmat(metric)
-    
+
     # Ensure diagonal is zero
     np.fill_diagonal(rdm, 0)
-    
+
     # Ensure no negative values due to numerical errors
     rdm = np.maximum(rdm, 0)
-    
+
     return rdm
 
 
 def compute_rdm_from_timeseries_labels(
     data: np.ndarray,
     labels: np.ndarray,
-    metric: str = 'correlation',
-    average_method: str = 'mean'
+    metric: str = "correlation",
+    average_method: str = "mean",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute RDM from time series data using behavioral variable labels.
-    
+
     Parameters
     ----------
     data : np.ndarray
@@ -98,7 +104,7 @@ def compute_rdm_from_timeseries_labels(
         Distance metric for RDM computation
     average_method : str, default 'mean'
         How to average within conditions: 'mean' or 'median'
-        
+
     Returns
     -------
     rdm : np.ndarray
@@ -109,9 +115,9 @@ def compute_rdm_from_timeseries_labels(
     # Get unique labels (conditions)
     unique_labels = np.unique(labels)
     n_conditions = len(unique_labels)
-    
+
     # Use JIT-compiled averaging if available and using mean
-    if is_jit_enabled() and average_method == 'mean':
+    if is_jit_enabled() and average_method == "mean":
         pattern_matrix = fast_average_patterns(data, labels, unique_labels)
     else:
         # Extract patterns for each condition
@@ -119,22 +125,22 @@ def compute_rdm_from_timeseries_labels(
         for label in unique_labels:
             mask = labels == label
             condition_data = data[:, mask]
-            
-            if average_method == 'mean':
+
+            if average_method == "mean":
                 pattern = np.mean(condition_data, axis=1)
-            elif average_method == 'median':
+            elif average_method == "median":
                 pattern = np.median(condition_data, axis=1)
             else:
                 raise ValueError(f"Unknown average method: {average_method}")
-                
+
             patterns.append(pattern)
-        
+
         # Stack into pattern matrix (n_conditions, n_features)
         pattern_matrix = np.array(patterns)
-    
+
     # Compute RDM
     rdm = compute_rdm(pattern_matrix, metric=metric)
-    
+
     return rdm, unique_labels
 
 
@@ -143,12 +149,12 @@ def compute_rdm_from_trials(
     trial_starts: np.ndarray,
     trial_labels: np.ndarray,
     trial_duration: Optional[int] = None,
-    metric: str = 'correlation',
-    average_method: str = 'mean'
+    metric: str = "correlation",
+    average_method: str = "mean",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute RDM from time series data using explicit trial structure.
-    
+
     Parameters
     ----------
     data : np.ndarray
@@ -163,7 +169,7 @@ def compute_rdm_from_trials(
         Distance metric for RDM computation
     average_method : str, default 'mean'
         How to average within trial: 'mean' or 'median'
-        
+
     Returns
     -------
     rdm : np.ndarray
@@ -173,11 +179,11 @@ def compute_rdm_from_trials(
     """
     n_timepoints = data.shape[1]
     n_trials = len(trial_starts)
-    
+
     # Extract data for each trial
     trial_patterns = []
     trial_labels_list = []
-    
+
     for i, (start, label) in enumerate(zip(trial_starts, trial_labels)):
         # Determine trial end
         if trial_duration is not None:
@@ -188,51 +194,51 @@ def compute_rdm_from_trials(
                 end = trial_starts[i + 1]
             else:
                 end = n_timepoints
-        
+
         # Extract trial data
         trial_data = data[:, start:end]
-        
+
         if trial_data.shape[1] > 0:  # Only process non-empty trials
-            if average_method == 'mean':
+            if average_method == "mean":
                 pattern = np.mean(trial_data, axis=1)
-            elif average_method == 'median':
+            elif average_method == "median":
                 pattern = np.median(trial_data, axis=1)
             else:
                 raise ValueError(f"Unknown average method: {average_method}")
-            
+
             trial_patterns.append(pattern)
             trial_labels_list.append(label)
-    
+
     # Get unique labels and average patterns for each condition
     unique_labels = np.unique(trial_labels_list)
     condition_patterns = []
-    
+
     for label in unique_labels:
         # Find all patterns for this label
-        label_patterns = [pattern for pattern, l in zip(trial_patterns, trial_labels_list) if l == label]
-        
+        label_patterns = [
+            pattern
+            for pattern, l in zip(trial_patterns, trial_labels_list)
+            if l == label
+        ]
+
         # Average across repetitions of the same condition
         if len(label_patterns) > 0:
             avg_pattern = np.mean(label_patterns, axis=0)
             condition_patterns.append(avg_pattern)
-    
+
     # Stack into pattern matrix
     pattern_matrix = np.array(condition_patterns)
-    
+
     # Compute RDM
     rdm = compute_rdm(pattern_matrix, metric=metric)
-    
+
     return rdm, unique_labels
 
 
-def compare_rdms(
-    rdm1: np.ndarray,
-    rdm2: np.ndarray,
-    method: str = 'spearman'
-) -> float:
+def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -> float:
     """
     Compare two representational dissimilarity matrices.
-    
+
     Parameters
     ----------
     rdm1 : np.ndarray
@@ -241,7 +247,7 @@ def compare_rdms(
         Second RDM (same shape as rdm1)
     method : str, default 'spearman'
         Comparison method: 'spearman', 'pearson', 'kendall', 'cosine'
-        
+
     Returns
     -------
     similarity : float
@@ -249,21 +255,23 @@ def compare_rdms(
     """
     # Ensure RDMs are same shape
     if rdm1.shape != rdm2.shape:
-        raise ValueError(f"RDMs must have the same shape. Got {rdm1.shape} and {rdm2.shape}")
-    
+        raise ValueError(
+            f"RDMs must have the same shape. Got {rdm1.shape} and {rdm2.shape}"
+        )
+
     # Extract upper triangular parts (excluding diagonal)
     mask = np.triu(np.ones_like(rdm1, dtype=bool), k=1)
     rdm1_vec = rdm1[mask]
     rdm2_vec = rdm2[mask]
-    
+
     # Compute similarity
-    if method == 'spearman':
+    if method == "spearman":
         similarity, _ = stats.spearmanr(rdm1_vec, rdm2_vec)
-    elif method == 'pearson':
+    elif method == "pearson":
         similarity, _ = stats.pearsonr(rdm1_vec, rdm2_vec)
-    elif method == 'kendall':
+    elif method == "kendall":
         similarity, _ = stats.kendalltau(rdm1_vec, rdm2_vec)
-    elif method == 'cosine':
+    elif method == "cosine":
         # Cosine similarity
         dot_product = np.dot(rdm1_vec, rdm2_vec)
         norm1 = np.linalg.norm(rdm1_vec)
@@ -271,7 +279,7 @@ def compare_rdms(
         similarity = dot_product / (norm1 * norm2) if norm1 * norm2 > 0 else 0
     else:
         raise ValueError(f"Unknown comparison method: {method}")
-    
+
     return similarity
 
 
@@ -280,14 +288,14 @@ def bootstrap_rdm_comparison(
     data2: np.ndarray,
     labels1: np.ndarray,
     labels2: np.ndarray,
-    metric: str = 'correlation',
-    comparison_method: str = 'spearman',
+    metric: str = "correlation",
+    comparison_method: str = "spearman",
     n_bootstrap: int = 1000,
-    random_state: Optional[int] = None
+    random_state: Optional[int] = None,
 ) -> Dict[str, Union[float, np.ndarray]]:
     """
     Bootstrap test for RDM similarity between two datasets.
-    
+
     Parameters
     ----------
     data1 : np.ndarray
@@ -306,7 +314,7 @@ def bootstrap_rdm_comparison(
         Number of bootstrap iterations
     random_state : int, optional
         Random seed for reproducibility
-        
+
     Returns
     -------
     results : dict
@@ -319,20 +327,20 @@ def bootstrap_rdm_comparison(
     """
     if random_state is not None:
         np.random.seed(random_state)
-    
+
     # Compute observed RDM similarity
     rdm1, _ = compute_rdm_from_timeseries_labels(data1, labels1, metric=metric)
     rdm2, _ = compute_rdm_from_timeseries_labels(data2, labels2, metric=metric)
     observed_similarity = compare_rdms(rdm1, rdm2, method=comparison_method)
-    
+
     # Bootstrap
     bootstrap_similarities = []
     n_timepoints = data1.shape[1]
-    
+
     for _ in range(n_bootstrap):
         # Resample timepoints with replacement
         idx = np.random.choice(n_timepoints, size=n_timepoints, replace=True)
-        
+
         # Compute RDMs on resampled data
         rdm1_boot, _ = compute_rdm_from_timeseries_labels(
             data1[:, idx], labels1[idx], metric=metric
@@ -340,47 +348,49 @@ def bootstrap_rdm_comparison(
         rdm2_boot, _ = compute_rdm_from_timeseries_labels(
             data2[:, idx], labels2[idx], metric=metric
         )
-        
+
         # Compare
         sim_boot = compare_rdms(rdm1_boot, rdm2_boot, method=comparison_method)
         bootstrap_similarities.append(sim_boot)
-    
+
     bootstrap_similarities = np.array(bootstrap_similarities)
-    
+
     # Compute p-value (two-tailed)
-    p_value = np.mean(np.abs(bootstrap_similarities - np.mean(bootstrap_similarities)) >= 
-                      np.abs(observed_similarity - np.mean(bootstrap_similarities)))
-    
+    p_value = np.mean(
+        np.abs(bootstrap_similarities - np.mean(bootstrap_similarities))
+        >= np.abs(observed_similarity - np.mean(bootstrap_similarities))
+    )
+
     # Compute confidence intervals
     ci_lower = np.percentile(bootstrap_similarities, 2.5)
     ci_upper = np.percentile(bootstrap_similarities, 97.5)
-    
+
     return {
-        'observed': observed_similarity,
-        'bootstrap_distribution': bootstrap_similarities,
-        'p_value': p_value,
-        'ci_lower': ci_lower,
-        'ci_upper': ci_upper,
-        'mean': np.mean(bootstrap_similarities),
-        'std': np.std(bootstrap_similarities)
+        "observed": observed_similarity,
+        "bootstrap_distribution": bootstrap_similarities,
+        "p_value": p_value,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+        "mean": np.mean(bootstrap_similarities),
+        "std": np.std(bootstrap_similarities),
     }
 
 
 # Unified API function
 def compute_rdm_unified(
-    data: Union[np.ndarray, MVData, 'Experiment'],
+    data: Union[np.ndarray, MVData, Experiment],
     items: Optional[Union[np.ndarray, str, Dict]] = None,
-    data_type: str = 'calcium',
-    metric: str = 'correlation',
-    average_method: str = 'mean',
-    trial_duration: Optional[int] = None
+    data_type: str = "calcium",
+    metric: str = "correlation",
+    average_method: str = "mean",
+    trial_duration: Optional[int] = None,
 ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     """
     Unified RDM computation with automatic data type detection.
-    
+
     This function intelligently dispatches to the appropriate RDM computation
     method based on the input data type and items specification.
-    
+
     Parameters
     ----------
     data : np.ndarray, MVData, or Experiment
@@ -402,28 +412,28 @@ def compute_rdm_unified(
         How to average within conditions ('mean' or 'median')
     trial_duration : int, optional
         For trial structure, fixed duration for each trial
-        
+
     Returns
     -------
     rdm : np.ndarray
         Representational dissimilarity matrix
     labels : np.ndarray or None
         The unique labels/conditions if items were specified
-        
+
     Examples
     --------
     # Direct pattern RDM (pre-averaged data)
     >>> patterns = np.random.randn(10, 50)  # 10 items, 50 features
     >>> rdm, _ = compute_rdm_unified(patterns)
-    
+
     # From time series with labels
     >>> data = np.random.randn(100, 1000)  # 100 features, 1000 timepoints
     >>> labels = np.repeat([0, 1, 2, 3], 250)
     >>> rdm, unique_labels = compute_rdm_unified(data, labels)
-    
+
     # From Experiment with behavioral variable
     >>> rdm, labels = compute_rdm_unified(exp, items='stimulus_type')
-    
+
     # From Experiment with trial structure
     >>> trial_info = {'trial_starts': [0, 100, 200], 'trial_labels': ['A', 'B', 'A']}
     >>> rdm, labels = compute_rdm_unified(exp, items=trial_info)
@@ -432,7 +442,7 @@ def compute_rdm_unified(
     from ..experiment import Experiment
     from ..dim_reduction.embedding import Embedding
     from .integration import compute_experiment_rdm, compute_mvdata_rdm
-    
+
     # Handle Embedding objects
     if isinstance(data, Embedding):
         # Convert embedding to MVData and process
@@ -443,18 +453,25 @@ def compute_rdm_unified(
         else:
             # Items specified - use MVData processing
             if isinstance(items, dict):
-                raise ValueError("Trial structure not supported for Embedding objects. Use labels array instead.")
-            return compute_mvdata_rdm(mvdata, items, metric=metric, average_method=average_method)
-    
+                raise ValueError(
+                    "Trial structure not supported for Embedding objects. Use labels array instead."
+                )
+            return compute_mvdata_rdm(
+                mvdata, items, metric=metric, average_method=average_method
+            )
+
     # Handle Experiment objects
     elif isinstance(data, Experiment):
         if items is None:
             raise ValueError("items must be specified for Experiment objects")
         return compute_experiment_rdm(
-            data, items, data_type=data_type, 
-            metric=metric, average_method=average_method
+            data,
+            items,
+            data_type=data_type,
+            metric=metric,
+            average_method=average_method,
         )
-    
+
     # Handle MVData objects
     elif isinstance(data, MVData):
         if items is None:
@@ -464,10 +481,14 @@ def compute_rdm_unified(
         else:
             if isinstance(items, dict):
                 # Trial structure not directly supported for MVData
-                raise ValueError("Trial structure not supported for MVData. Use labels array instead.")
+                raise ValueError(
+                    "Trial structure not supported for MVData. Use labels array instead."
+                )
             # Items should be labels array
-            return compute_mvdata_rdm(data, items, metric=metric, average_method=average_method)
-    
+            return compute_mvdata_rdm(
+                data, items, metric=metric, average_method=average_method
+            )
+
     # Handle numpy arrays
     else:
         if items is None:
@@ -476,12 +497,12 @@ def compute_rdm_unified(
         elif isinstance(items, dict):
             # Trial structure
             return compute_rdm_from_trials(
-                data, 
-                trial_starts=items['trial_starts'],
-                trial_labels=items['trial_labels'],
-                trial_duration=items.get('trial_duration', trial_duration),
+                data,
+                trial_starts=items["trial_starts"],
+                trial_labels=items["trial_labels"],
+                trial_duration=items.get("trial_duration", trial_duration),
                 metric=metric,
-                average_method=average_method
+                average_method=average_method,
             )
         else:
             # Labels array
@@ -492,25 +513,25 @@ def compute_rdm_unified(
 
 # Simplified high-level API for common use case
 def rsa_compare(
-    data1: Union[np.ndarray, MVData, 'Experiment'],
-    data2: Union[np.ndarray, MVData, 'Experiment'],
+    data1: Union[np.ndarray, MVData, Experiment],
+    data2: Union[np.ndarray, MVData, Experiment],
     items: Optional[Union[str, Dict]] = None,
-    metric: str = 'correlation',
-    comparison: str = 'spearman',
-    data_type: str = 'calcium',
-    logger: Optional[logging.Logger] = None
+    metric: str = "correlation",
+    comparison: str = "spearman",
+    data_type: str = "calcium",
+    logger: Optional[logging.Logger] = None,
 ) -> float:
     """
     Compare neural representations between two datasets using RSA.
-    
+
     This is a simplified API for the most common RSA use case: comparing
     two sets of neural representations.
-    
+
     Parameters
     ----------
     data1 : np.ndarray, MVData, or Experiment
         First dataset (n_items, n_features) if array, MVData object, or Experiment
-    data2 : np.ndarray, MVData, or Experiment  
+    data2 : np.ndarray, MVData, or Experiment
         Second dataset (same n_items as data1)
     items : str, dict, or None
         How to define conditions (required for Experiment objects):
@@ -525,22 +546,22 @@ def rsa_compare(
         For Experiment objects, which data to use ('calcium' or 'spikes')
     logger : logging.Logger, optional
         Logger for debugging
-        
+
     Returns
     -------
     similarity : float
         Similarity score between the two neural representations
-        
+
     Examples
     --------
     >>> # Compare V1 and V2 representations (arrays)
     >>> v1_data = np.random.randn(10, 100)  # 10 stimuli, 100 neurons
-    >>> v2_data = np.random.randn(10, 150)  # 10 stimuli, 150 neurons  
+    >>> v2_data = np.random.randn(10, 150)  # 10 stimuli, 150 neurons
     >>> similarity = rsa_compare(v1_data, v2_data)
-    
+
     >>> # Compare two experiments
     >>> similarity = rsa_compare(exp1, exp2, items='stimulus_type')
-    
+
     >>> # Compare with trial structure
     >>> trials = {'trial_starts': [0, 100, 200], 'trial_labels': ['A', 'B', 'A']}
     >>> similarity = rsa_compare(exp1, exp2, items=trials)
@@ -549,10 +570,10 @@ def rsa_compare(
     from ..experiment import Experiment
     from ..dim_reduction.embedding import Embedding
     from .integration import rsa_between_experiments
-    
+
     if logger is None:
         logger = logging.getLogger(__name__)
-    
+
     # Handle Embedding objects
     if isinstance(data1, Embedding) or isinstance(data2, Embedding):
         # Convert embeddings to MVData for uniform processing
@@ -561,35 +582,41 @@ def rsa_compare(
         if isinstance(data2, Embedding):
             data2 = data2.to_mvdata()
         logger.debug("Converted Embedding objects to MVData for RSA comparison")
-    
+
     # Check if both are Experiment objects
     if isinstance(data1, Experiment) and isinstance(data2, Experiment):
         if items is None:
-            raise ValueError("items must be specified when comparing Experiment objects")
+            raise ValueError(
+                "items must be specified when comparing Experiment objects"
+            )
         logger.debug("Comparing two Experiment objects using RSA")
         return rsa_between_experiments(
-            data1, data2, items=items, 
+            data1,
+            data2,
+            items=items,
             data_type=data_type,
             metric=metric,
             comparison_method=comparison,
-            average_method='mean'
+            average_method="mean",
         )
-    
+
     # Check if mixed types
     elif isinstance(data1, Experiment) or isinstance(data2, Experiment):
-        raise ValueError("Cannot compare Experiment with non-Experiment data. Both inputs must be same type.")
-    
+        raise ValueError(
+            "Cannot compare Experiment with non-Experiment data. Both inputs must be same type."
+        )
+
     # Original behavior for arrays/MVData
     else:
         logger.debug("Computing RDMs for RSA comparison")
-        
+
         # Compute RDMs
         rdm1 = compute_rdm(data1, metric=metric, logger=logger)
         rdm2 = compute_rdm(data2, metric=metric, logger=logger)
-        
+
         # Compare RDMs
         similarity = compare_rdms(rdm1, rdm2, method=comparison)
-        
+
         logger.debug(f"RSA comparison complete. Similarity: {similarity:.3f}")
-        
+
         return similarity

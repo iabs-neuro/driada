@@ -14,13 +14,13 @@ from .embedding import Embedding
 def dr_sequence(
     data: MVData,
     steps: List[Union[Tuple[str, Dict[str, Any]], str]],
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
 ) -> Embedding:
     """Perform sequential dimensionality reduction.
-    
+
     Applies multiple dimensionality reduction steps in sequence, where each
     step operates on the output of the previous step.
-    
+
     Parameters
     ----------
     data : MVData
@@ -31,12 +31,12 @@ def dr_sequence(
         - A string method name (uses default parameters)
     logger : logging.Logger, optional
         Logger for tracking progress
-        
+
     Returns
     -------
     Embedding
         Final embedding after all reduction steps
-        
+
     Examples
     --------
     >>> # Simple two-step reduction
@@ -47,13 +47,13 @@ def dr_sequence(
     ...         ('umap', {'dim': 2, 'n_neighbors': 30})
     ...     ]
     ... )
-    
+
     >>> # Using default parameters
     >>> embedding = dr_sequence(
     ...     mvdata,
     ...     steps=['pca', 'tsne']
     ... )
-    
+
     >>> # Three-step reduction with mixed format
     >>> embedding = dr_sequence(
     ...     mvdata,
@@ -66,12 +66,12 @@ def dr_sequence(
     """
     if not steps:
         raise ValueError("At least one reduction step must be provided")
-    
+
     if logger is None:
         logger = logging.getLogger(__name__)
-    
+
     current_data = data
-    
+
     for i, step in enumerate(steps):
         # Parse step format
         if isinstance(step, str):
@@ -84,18 +84,18 @@ def dr_sequence(
                 f"Invalid step format: {step}. "
                 "Expected method name string or (method, params) tuple."
             )
-        
+
         # Log progress
         logger.info(
             f"Step {i+1}/{len(steps)}: {method} "
             f"from dim {current_data.n_dim} to dim {params.get('dim', 2)}"
         )
-        
+
         # Apply reduction
         embedding = current_data.get_embedding(method=method, **params)
-        
+
         # Convert to MVData for next step (if not last)
         if i < len(steps) - 1:
             current_data = embedding.to_mvdata()
-    
+
     return embedding

@@ -8,27 +8,26 @@ generation functions, including firing rate validation and calcium signal genera
 import numpy as np
 import warnings
 from ..exp_base import *
-from ...information.info_base import TimeSeries, MultiTimeSeries, aggregate_multiple_ts
 
 
 def validate_peak_rate(peak_rate, context=""):
     """
     Validate that peak firing rate is within physiologically realistic range.
-    
+
     Parameters
     ----------
     peak_rate : float
         Peak firing rate in Hz.
     context : str, optional
         Context string for more informative warning message.
-        
+
     Notes
     -----
     Typical firing rates for neurons:
     - Cortical pyramidal cells: 0.1-2 Hz (sparse firing)
     - Hippocampal place cells: 0.5-5 Hz (with brief peaks up to 20 Hz)
     - Fast-spiking interneurons: 5-50 Hz
-    
+
     For calcium imaging with GCaMP indicators:
     - Decay time ~1-2 seconds limits temporal resolution
     - Firing rates >2 Hz can cause signal saturation
@@ -47,14 +46,15 @@ def validate_peak_rate(peak_rate, context=""):
         warnings.warn(warning_msg, UserWarning, stacklevel=2)
 
 
-def generate_pseudo_calcium_signal(events=None,
-                                   duration=600,
-                                   sampling_rate=20.0,
-                                   event_rate=0.2,
-                                   amplitude_range=(0.5,2),
-                                   decay_time=2,
-                                   noise_std=0.1):
-
+def generate_pseudo_calcium_signal(
+    events=None,
+    duration=600,
+    sampling_rate=20.0,
+    event_rate=0.2,
+    amplitude_range=(0.5, 2),
+    decay_time=2,
+    noise_std=0.1,
+):
     """
     Generate a pseudo-calcium imaging signal with noise.
 
@@ -77,14 +77,18 @@ def generate_pseudo_calcium_signal(events=None,
         # Generate calcium events
         num_events = np.random.poisson(event_rate * duration)
         event_times = np.random.uniform(0, duration, num_events)
-        event_amplitudes = np.random.uniform(amplitude_range[0], amplitude_range[1], num_events)
+        event_amplitudes = np.random.uniform(
+            amplitude_range[0], amplitude_range[1], num_events
+        )
 
     else:
         num_samples = len(events)
-        event_times = np.where(events>0)[0]
+        event_times = np.where(events > 0)[0]
         # Use amplitude_range to modulate event amplitudes instead of using binary values
         if len(event_times) > 0:
-            event_amplitudes = np.random.uniform(amplitude_range[0], amplitude_range[1], len(event_times))
+            event_amplitudes = np.random.uniform(
+                amplitude_range[0], amplitude_range[1], len(event_times)
+            )
         else:
             event_amplitudes = np.array([])
 
@@ -98,7 +102,9 @@ def generate_pseudo_calcium_signal(events=None,
         else:
             event_index = int(t)
 
-        decay = np.exp(-np.arange(num_samples - event_index) / (decay_time * sampling_rate))
+        decay = np.exp(
+            -np.arange(num_samples - event_index) / (decay_time * sampling_rate)
+        )
         signal[event_index:] += a * decay
 
     # Add Gaussian noise
@@ -108,17 +114,19 @@ def generate_pseudo_calcium_signal(events=None,
     return signal
 
 
-def generate_pseudo_calcium_multisignal(n,
-                                        events=None,
-                                        duration=600,
-                                        sampling_rate=20,
-                                        event_rate=0.2,
-                                        amplitude_range=(0.5,2),
-                                        decay_time=2,
-                                        noise_std=0.1):
+def generate_pseudo_calcium_multisignal(
+    n,
+    events=None,
+    duration=600,
+    sampling_rate=20,
+    event_rate=0.2,
+    amplitude_range=(0.5, 2),
+    decay_time=2,
+    noise_std=0.1,
+):
     """
     Generate multiple pseudo calcium signals.
-    
+
     Parameters
     ----------
     n : int
@@ -137,7 +145,7 @@ def generate_pseudo_calcium_multisignal(n,
         Time constant for the decay of calcium events in seconds.
     noise_std : float
         Standard deviation of the Gaussian noise.
-        
+
     Returns
     -------
     ndarray
@@ -149,13 +157,15 @@ def generate_pseudo_calcium_multisignal(n,
         if events is not None:
             local_events = events[i, :]
 
-        sig = generate_pseudo_calcium_signal(events=local_events,
-                                             duration=duration,
-                                             sampling_rate=sampling_rate,
-                                             event_rate=event_rate,
-                                             amplitude_range=amplitude_range,
-                                             decay_time=decay_time,
-                                             noise_std=noise_std)
+        sig = generate_pseudo_calcium_signal(
+            events=local_events,
+            duration=duration,
+            sampling_rate=sampling_rate,
+            event_rate=event_rate,
+            amplitude_range=amplitude_range,
+            decay_time=decay_time,
+            noise_std=noise_std,
+        )
         sigs.append(sig)
 
     return np.vstack(sigs)

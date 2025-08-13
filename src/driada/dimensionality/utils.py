@@ -1,5 +1,3 @@
-from scipy.spatial.distance import pdist, cdist
-from scipy.sparse.csgraph import shortest_path
 from scipy.stats import pearsonr, norm
 from scipy.linalg import eigh
 import numpy as np
@@ -7,14 +5,16 @@ import warnings
 
 
 def res_var_metric(all_dists, emb_dists):
-    m = 1 - (pearsonr(all_dists, emb_dists)[0])**2
+    m = 1 - (pearsonr(all_dists, emb_dists)[0]) ** 2
     return m
 
 
-def correct_cov_spectrum(N, T, cmat, correction_iters=10, ensemble_size=1, min_eigenvalue=1e-10):
+def correct_cov_spectrum(
+    N, T, cmat, correction_iters=10, ensemble_size=1, min_eigenvalue=1e-10
+):
     """
     Correct the spectrum of a covariance/correlation matrix.
-    
+
     Parameters
     ----------
     N : int
@@ -29,14 +29,14 @@ def correct_cov_spectrum(N, T, cmat, correction_iters=10, ensemble_size=1, min_e
         Size of the ensemble for phase 1. Default is 1.
     min_eigenvalue : float, optional
         Minimum eigenvalue threshold to avoid numerical issues. Default is 1e-10.
-        
+
     Returns
     -------
     corrected_eigs : list
         List of eigenvalue arrays for each iteration.
     """
     eigs = eigh(cmat, eigvals_only=True)
-    
+
     # Check for negative eigenvalues and clip them
     if np.any(eigs < 0):
         neg_fraction = np.sum(eigs < 0) / len(eigs)
@@ -58,30 +58,30 @@ def correct_cov_spectrum(N, T, cmat, correction_iters=10, ensemble_size=1, min_e
 
         # phase 1
         for j in range(ensemble_size):
-            M = norm.rvs(size=(N,T))
+            M = norm.rvs(size=(N, T))
             # Ensure eigenvalues are non-negative before taking sqrt
             iter_eigs = np.maximum(iter_eigs, min_eigenvalue)
             L = np.diag(np.sqrt(iter_eigs))
-            M2 = L@M@M.T@L/T
+            M2 = L @ M @ M.T @ L / T
             ps_eigs = eigh(M2)[0]
             # Clip ps_eigs to avoid division issues
             ps_eigs = np.maximum(ps_eigs, min_eigenvalue)
-            all_ratios[j,:] = np.divide(ps_eigs, iter_eigs)
+            all_ratios[j, :] = np.divide(ps_eigs, iter_eigs)
 
         s1 = np.sum(all_ratios, axis=0)
         s2 = np.sum(np.square(all_ratios), axis=0)
         S = np.diag(np.divide(s1, s2))
 
-        iter_eigs = eigh(np.diag(init_eigs)@S, eigvals_only=True)
+        iter_eigs = eigh(np.diag(init_eigs) @ S, eigvals_only=True)
 
         # phase 2
-        M = norm.rvs(size=(N,T))
+        M = norm.rvs(size=(N, T))
         # Ensure eigenvalues are non-negative before taking sqrt
         iter_eigs = np.maximum(iter_eigs, min_eigenvalue)
         L = np.diag(np.sqrt(iter_eigs))
-        W = L@M@M.T@L/T
+        W = L @ M @ M.T @ L / T
         _, V = eigh(W)
-        upd_eigs = np.diagonal(V@np.diag(init_eigs)@V.T)
+        upd_eigs = np.diagonal(V @ np.diag(init_eigs) @ V.T)
         # Ensure updated eigenvalues are non-negative
         upd_eigs = np.maximum(upd_eigs, min_eigenvalue)
 

@@ -1,12 +1,9 @@
 import numpy as np
 
 
-def generate_pseudo_calcium_signal(duration,
-                                   sampling_rate,
-                                   event_rate,
-                                   amplitude_range,
-                                   decay_time,
-                                   noise_std):
+def generate_pseudo_calcium_signal(
+    duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std
+):
     """
     Generate a pseudo-calcium imaging signal with noise.
 
@@ -30,12 +27,16 @@ def generate_pseudo_calcium_signal(duration,
     # Generate calcium events
     num_events = np.random.poisson(event_rate * duration)
     event_times = np.random.uniform(0, duration, num_events)
-    event_amplitudes = np.random.uniform(amplitude_range[0], amplitude_range[1], num_events)
+    event_amplitudes = np.random.uniform(
+        amplitude_range[0], amplitude_range[1], num_events
+    )
 
     # Add calcium events to the signal
     for t, a in zip(event_times, event_amplitudes):
         event_index = int(t * sampling_rate)
-        decay = np.exp(-np.arange(num_samples - event_index) / (decay_time * sampling_rate))
+        decay = np.exp(
+            -np.arange(num_samples - event_index) / (decay_time * sampling_rate)
+        )
         signal[event_index:] += a * decay
 
     # Add Gaussian noise
@@ -45,10 +46,14 @@ def generate_pseudo_calcium_signal(duration,
     return signal
 
 
-def generate_pseudo_calcium_multisignal(n, duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std):
+def generate_pseudo_calcium_multisignal(
+    n, duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std
+):
     sigs = []
     for i in range(n):
-        sig = generate_pseudo_calcium_signal(duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std)
+        sig = generate_pseudo_calcium_signal(
+            duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std
+        )
         sigs.append(sig)
 
     return np.vstack(sigs)

@@ -15,64 +15,64 @@ from driada.information.info_base import (
     conditional_mi,
     interaction_information,
     TimeSeries,
-    MultiTimeSeries
+    MultiTimeSeries,
 )
 
 
 class TestGetStatsFunction:
     """Test get_stats_function utility."""
-    
+
     def test_get_valid_function(self):
         """Test getting valid scipy.stats functions."""
         # Get pearsonr
-        func = get_stats_function('pearsonr')
+        func = get_stats_function("pearsonr")
         assert func is scipy.stats.pearsonr
-        
+
         # Get spearmanr
-        func = get_stats_function('spearmanr')
+        func = get_stats_function("spearmanr")
         assert func is scipy.stats.spearmanr
-    
+
     def test_get_invalid_function(self):
         """Test error for invalid function name."""
         with pytest.raises(ValueError, match="Metric 'invalid_func' not found"):
-            get_stats_function('invalid_func')
+            get_stats_function("invalid_func")
 
 
 class TestCalcSignalRatio:
     """Test calc_signal_ratio function."""
-    
+
     def test_basic_ratio(self):
         """Test basic signal ratio calculation."""
         binary = np.array([0, 1, 0, 1, 1, 0, 0, 1])
         continuous = np.array([1, 10, 2, 8, 9, 1, 2, 10])
-        
+
         ratio = calc_signal_ratio(binary, continuous)
         # avg_on = mean([10, 8, 9, 10]) = 9.25
         # avg_off = mean([1, 2, 1, 2]) = 1.5
         # ratio = 9.25 / 1.5 ≈ 6.17
         assert 6 < ratio < 6.5
-    
+
     def test_zero_off_state(self):
         """Test when off state average is zero."""
         binary = np.array([0, 1, 0, 1])
         continuous = np.array([0, 5, 0, 3])
-        
+
         ratio = calc_signal_ratio(binary, continuous)
         assert np.isinf(ratio)
-    
+
     def test_both_zero(self):
         """Test when both states have zero average."""
         binary = np.array([0, 1, 0, 1])
         continuous = np.array([0, 0, 0, 0])
-        
+
         ratio = calc_signal_ratio(binary, continuous)
         assert np.isnan(ratio)
-    
+
     def test_all_ones(self):
         """Test when binary signal is all ones."""
         binary = np.ones(10, dtype=int)
         continuous = np.random.rand(10) + 1
-        
+
         ratio = calc_signal_ratio(binary, continuous)
         # No off state, so returns NaN
         assert np.isnan(ratio)
@@ -80,7 +80,7 @@ class TestCalcSignalRatio:
 
 class TestGetSim:
     """Test get_sim similarity function."""
-    
+
     def test_correlation_metric(self):
         """Test similarity with correlation metric."""
         np.random.seed(42)
@@ -89,65 +89,65 @@ class TestGetSim:
         noise = np.random.randn(200) * 0.5
         y_data = x.data + noise
         y = TimeSeries(y_data, discrete=False)
-        
+
         # Use pearsonr as metric
-        sim = get_sim(x, y, metric='pearsonr')
+        sim = get_sim(x, y, metric="pearsonr")
         # Should return correlation value
         assert isinstance(sim, (float, np.floating))
         assert 0.5 < sim < 0.95  # Positive correlation
-    
+
     def test_shift_parameter(self):
         """Test similarity with shift."""
         np.random.seed(42)
         # Create identical series with shift
-        data = np.sin(np.linspace(0, 4*np.pi, 100))
+        data = np.sin(np.linspace(0, 4 * np.pi, 100))
         x = TimeSeries(data, discrete=False)
         y = TimeSeries(data, discrete=False)
-        
+
         # No shift - should be perfectly correlated
-        sim0 = get_sim(x, y, metric='pearsonr', shift=0)
+        sim0 = get_sim(x, y, metric="pearsonr", shift=0)
         assert sim0 > 0.99
-        
+
         # With shift - correlation should decrease
-        sim5 = get_sim(x, y, metric='pearsonr', shift=5)
+        sim5 = get_sim(x, y, metric="pearsonr", shift=5)
         assert sim5 < sim0
-    
+
     def test_downsampling(self):
         """Test similarity with downsampling."""
         np.random.seed(42)
         x = TimeSeries(np.random.randn(1000), discrete=False)
         y = TimeSeries(np.random.randn(1000), discrete=False)
-        
+
         # Calculate with different downsampling
-        sim1 = get_sim(x, y, metric='pearsonr', ds=1)
-        sim10 = get_sim(x, y, metric='pearsonr', ds=10)
-        
+        sim1 = get_sim(x, y, metric="pearsonr", ds=1)
+        sim10 = get_sim(x, y, metric="pearsonr", ds=10)
+
         # Both should return float values
         assert isinstance(sim1, (float, np.floating))
         assert isinstance(sim10, (float, np.floating))
-    
+
     def test_numpy_array_input(self):
         """Test with numpy array inputs."""
         x = np.random.randn(100)
         y = np.random.randn(100)
-        
-        sim = get_sim(x, y, metric='spearmanr')
+
+        sim = get_sim(x, y, metric="spearmanr")
         assert isinstance(sim, (float, np.floating))
 
 
 class TestGetMI:
     """Test get_mi mutual information function."""
-    
+
     def test_independent_variables(self):
         """Test MI for independent variables."""
         np.random.seed(42)
         x = TimeSeries(np.random.randn(500), discrete=False)
         y = TimeSeries(np.random.randn(500), discrete=False)
-        
-        mi = get_mi(x, y, estimator='ksg')
+
+        mi = get_mi(x, y, estimator="ksg")
         # Should be close to zero
         assert -0.2 < mi < 0.2
-    
+
     def test_dependent_variables(self):
         """Test MI for dependent variables."""
         np.random.seed(42)
@@ -155,11 +155,11 @@ class TestGetMI:
         x = TimeSeries(x_data, discrete=False)
         # Create dependent variable
         y = TimeSeries(x_data + 0.5 * np.random.randn(500), discrete=False)
-        
-        mi = get_mi(x, y, estimator='ksg')
+
+        mi = get_mi(x, y, estimator="ksg")
         # Should be positive
         assert mi > 0.3
-    
+
     def test_shift_parameter(self):
         """Test MI with shift parameter."""
         np.random.seed(42)
@@ -167,155 +167,161 @@ class TestGetMI:
         data = np.cumsum(np.random.randn(500))
         x = TimeSeries(data[:-10], discrete=False)
         y = TimeSeries(data[10:], discrete=False)
-        
+
         # MI with no shift
-        mi0 = get_mi(x, y, shift=0, estimator='ksg')
+        mi0 = get_mi(x, y, shift=0, estimator="ksg")
         # MI with shift that aligns them
-        mi10 = get_mi(x, y, shift=-10, estimator='ksg')
-        
+        mi10 = get_mi(x, y, shift=-10, estimator="ksg")
+
         # Both should be reasonable values
         assert isinstance(mi0, float)
         assert isinstance(mi10, float)
-    
+
     def test_gcmi_estimator(self):
         """Test MI with GCMI estimator."""
         np.random.seed(42)
         x = TimeSeries(np.random.randn(300), discrete=False)
         y = TimeSeries(x.data + np.random.randn(300), discrete=False)
-        
-        mi = get_mi(x, y, estimator='gcmi')
+
+        mi = get_mi(x, y, estimator="gcmi")
         assert mi > 0
-    
+
     def test_mi_multidimensional_error(self):
         """Test error for multidimensional numpy array."""
         data1 = np.random.randn(3, 100)
         data2 = np.random.randn(100)
-        
+
         with pytest.raises(Exception, match="Multidimensional inputs"):
             get_mi(data1, data2)
-    
+
     def test_mi_multi_single(self):
         """Test MI between MultiTimeSeries and TimeSeries."""
         # Create MultiTimeSeries
         mts_data = np.random.randn(3, 200)
         mts = MultiTimeSeries(mts_data, discrete=False)
-        
+
         # Create correlated TimeSeries
         ts_data = 0.5 * mts_data[0] + 0.3 * mts_data[1] + 0.2 * np.random.randn(200)
         ts = TimeSeries(ts_data, discrete=False)
-        
+
         # Test MI calculation
         mi = get_mi(mts, ts)
         assert isinstance(mi, float)
         assert mi > 0
-        
+
         # Test reverse order
         mi_rev = get_mi(ts, mts)
         assert isinstance(mi_rev, float)
         assert mi_rev > 0
-    
+
     def test_mi_multi_single_discrete(self):
         """Test MI between MultiTimeSeries and discrete TimeSeries."""
         # Create continuous MultiTimeSeries
         mts_data = np.random.randn(2, 200)
         mts = MultiTimeSeries(mts_data, discrete=False)
-        
+
         # Create discrete TimeSeries dependent on mts
         discrete_data = (mts_data[0] > 0).astype(int)
         ts = TimeSeries(discrete_data, discrete=True)
-        
+
         # Test MI calculation
         mi = get_mi(mts, ts)
         assert isinstance(mi, float)
         assert mi > 0
-    
+
     def test_mi_multi_multi(self):
         """Test MI between two MultiTimeSeries."""
         # Create first MultiTimeSeries
         mts1_data = np.random.randn(2, 200)
         mts1 = MultiTimeSeries(mts1_data, discrete=False)
-        
+
         # Create second MultiTimeSeries correlated with first
-        mts2_data = np.vstack([
-            mts1_data[0] + 0.5 * np.random.randn(200),
-            mts1_data[1] + 0.5 * np.random.randn(200)
-        ])
+        mts2_data = np.vstack(
+            [
+                mts1_data[0] + 0.5 * np.random.randn(200),
+                mts1_data[1] + 0.5 * np.random.randn(200),
+            ]
+        )
         mts2 = MultiTimeSeries(mts2_data, discrete=False)
-        
+
         # Test MI calculation
         mi = get_mi(mts1, mts2)
         assert isinstance(mi, float)
         assert mi > 0
-    
+
     def test_mi_multi_single_ksg_error(self):
         """Test error when using KSG estimator for multi-dimensional data."""
         mts = MultiTimeSeries(np.random.randn(2, 100), discrete=False)
         ts = TimeSeries(np.random.randn(100), discrete=False)
-        
+
         # This should work with gcmi (default)
-        mi_gcmi = get_mi(mts, ts, estimator='gcmi')
+        mi_gcmi = get_mi(mts, ts, estimator="gcmi")
         assert isinstance(mi_gcmi, float)
-        
+
         # But should fail with ksg
-        with pytest.raises(NotImplementedError, match="KSG estimator is not supported for dim>1"):
-            get_mi(mts, ts, estimator='ksg')
-    
+        with pytest.raises(
+            NotImplementedError, match="KSG estimator is not supported for dim>1"
+        ):
+            get_mi(mts, ts, estimator="ksg")
+
     def test_mi_multi_single_coincidence_warning(self):
         """Test warning when MultiTimeSeries contains identical data as TimeSeries."""
         # Create data where one row of MultiTimeSeries matches TimeSeries exactly
         data = np.random.randn(100)
-        mts_data = np.vstack([
-            data,  # Identical to ts
-            np.random.randn(100)
-        ])
-        
+        mts_data = np.vstack([data, np.random.randn(100)])  # Identical to ts
+
         mts = MultiTimeSeries(mts_data, discrete=False)
         ts = TimeSeries(data.copy(), discrete=False)  # Copy to avoid same object
-        
+
         # This should trigger the warning and return 0
-        with pytest.warns(UserWarning, match="MI computation between MultiTimeSeries containing identical data"):
+        with pytest.warns(
+            UserWarning,
+            match="MI computation between MultiTimeSeries containing identical data",
+        ):
             mi = get_mi(mts, ts, shift=0)
             assert mi == 0.0
-    
+
     def test_mi_multi_single_with_shift(self):
         """Test MI between MultiTimeSeries and TimeSeries with shift."""
         # Create MultiTimeSeries
         mts = MultiTimeSeries(np.random.randn(2, 200), discrete=False)
         ts = TimeSeries(np.random.randn(200), discrete=False)
-        
+
         # Test with different shifts
         mi_no_shift = get_mi(mts, ts, shift=0)
         mi_shift5 = get_mi(mts, ts, shift=5)
         mi_shift_neg5 = get_mi(mts, ts, shift=-5)
-        
+
         assert isinstance(mi_no_shift, float)
         assert isinstance(mi_shift5, float)
         assert isinstance(mi_shift_neg5, float)
-    
+
     def test_mi_multi_multi_with_shift(self):
         """Test MI between two MultiTimeSeries with shift."""
         # Create correlated MultiTimeSeries
         base_data = np.random.randn(2, 200)
         mts1 = MultiTimeSeries(base_data, discrete=False)
-        mts2 = MultiTimeSeries(base_data + 0.5 * np.random.randn(2, 200), discrete=False)
-        
+        mts2 = MultiTimeSeries(
+            base_data + 0.5 * np.random.randn(2, 200), discrete=False
+        )
+
         # Test with shift
         mi_no_shift = get_mi(mts1, mts2, shift=0)
         mi_shift10 = get_mi(mts1, mts2, shift=10)
-        
+
         assert isinstance(mi_no_shift, float)
         assert isinstance(mi_shift10, float)
         assert mi_no_shift > 0  # Should be correlated
-    
+
     def test_mi_multi_single_discrete_with_shift(self):
         """Test MI between MultiTimeSeries and discrete TimeSeries with shift."""
         # Create MultiTimeSeries
         mts = MultiTimeSeries(np.random.randn(2, 200), discrete=False)
-        
+
         # Create discrete TimeSeries dependent on mts
         discrete_data = (mts.data[0] > 0).astype(int)
         ts = TimeSeries(discrete_data, discrete=True)
-        
+
         # Test with shift
         mi_shift = get_mi(mts, ts, shift=5)
         assert isinstance(mi_shift, float)
@@ -323,32 +329,32 @@ class TestGetMI:
 
 class TestGet1DMI:
     """Test get_1d_mi function."""
-    
+
     def test_basic_1d_mi(self):
         """Test basic 1D mutual information."""
         np.random.seed(42)
         # Create correlated 1D time series
         ts1 = TimeSeries(np.random.randn(400), discrete=False)
         ts2 = TimeSeries(ts1.data + 0.5 * np.random.randn(400), discrete=False)
-        
+
         mi = get_1d_mi(ts1, ts2)
         assert mi > 0
-    
+
     def test_coincidence_check(self):
         """Test coincidence checking."""
         # Create identical time series
         data = np.random.randn(200)
         ts1 = TimeSeries(data, discrete=False)
         ts2 = TimeSeries(data.copy(), discrete=False)  # Copy to avoid same object
-        
+
         # With coincidence check (default) should raise error
         with pytest.raises(ValueError, match="MI computation of a TimeSeries"):
             mi = get_1d_mi(ts1, ts2, check_for_coincidence=True)
-        
+
         # Without coincidence check - should compute high MI
         mi = get_1d_mi(ts1, ts2, check_for_coincidence=False)
         assert mi > 1  # Should be high for identical series
-    
+
     def test_1d_mi_discrete_discrete(self):
         """Test MI between two discrete time series."""
         # Create correlated discrete data
@@ -358,59 +364,59 @@ class TestGet1DMI:
         flip_idx = np.random.choice(200, 40, replace=False)
         ts2_data[flip_idx] = (ts2_data[flip_idx] + 1) % 3
         ts2 = TimeSeries(ts2_data, discrete=True)
-        
+
         mi = get_1d_mi(ts1, ts2)
         assert isinstance(mi, float)
         assert mi > 0  # Should show correlation
-    
+
     def test_1d_mi_discrete_continuous(self):
         """Test MI between discrete and continuous time series."""
         # Create discrete signal
         discrete_data = np.random.randint(0, 2, 200)
         ts1 = TimeSeries(discrete_data, discrete=True)
-        
+
         # Create continuous signal dependent on discrete
-        continuous_data = np.where(discrete_data == 0, 
-                                  np.random.normal(0, 1, 200),
-                                  np.random.normal(5, 1, 200))
+        continuous_data = np.where(
+            discrete_data == 0, np.random.normal(0, 1, 200), np.random.normal(5, 1, 200)
+        )
         ts2 = TimeSeries(continuous_data, discrete=False)
-        
+
         mi = get_1d_mi(ts1, ts2)
         assert isinstance(mi, float)
         assert mi > 0  # Should show dependency
-    
+
     def test_1d_mi_continuous_discrete(self):
         """Test MI between continuous and discrete time series."""
         # Create continuous signal
         continuous_data = np.random.randn(200)
         ts1 = TimeSeries(continuous_data, discrete=False)
-        
+
         # Create discrete signal dependent on continuous
         discrete_data = (continuous_data > 0).astype(int)
         ts2 = TimeSeries(discrete_data, discrete=True)
-        
+
         mi = get_1d_mi(ts1, ts2)
         assert isinstance(mi, float)
         assert mi > 0  # Should show dependency
-    
+
     def test_1d_mi_discrete_with_shift(self):
         """Test MI between discrete time series with shift."""
         # Create autocorrelated discrete signal
         data = np.random.randint(0, 3, 210)
         ts1 = TimeSeries(data[:200], discrete=True)
         ts2 = TimeSeries(data[10:210], discrete=True)  # Shifted version
-        
+
         # Without shift, should have low MI
         mi_no_shift = get_1d_mi(ts1, ts2, shift=0)
         # With correct shift, should have high MI
         mi_shift = get_1d_mi(ts1, ts2, shift=-10)
-        
+
         assert mi_shift > mi_no_shift
 
 
 class TestGetTDMI:
     """Test get_tdmi time-delayed mutual information."""
-    
+
     def test_autocorrelated_series(self):
         """Test TDMI for autocorrelated series."""
         np.random.seed(42)
@@ -420,24 +426,24 @@ class TestGetTDMI:
         data = np.zeros(1000)
         data[0] = noise[0]
         for i in range(1, 1000):
-            data[i] = ar_coef * data[i-1] + noise[i]
-        
+            data[i] = ar_coef * data[i - 1] + noise[i]
+
         # Calculate TDMI
         tdmi_values = get_tdmi(data, min_shift=1, max_shift=11)
-        
+
         assert len(tdmi_values) == 10
         # First value (shift=1) should be highest
         assert tdmi_values[0] == max(tdmi_values)
         # Should decrease with lag
         assert tdmi_values[0] > tdmi_values[5]
-    
+
     def test_random_series(self):
         """Test TDMI for random series."""
         np.random.seed(42)
         data = np.random.randn(500)
-        
+
         tdmi_values = get_tdmi(data, min_shift=1, max_shift=6)
-        
+
         assert len(tdmi_values) == 5
         # All values should be near zero
         assert all(abs(v) < 0.2 for v in tdmi_values)
@@ -445,7 +451,7 @@ class TestGetTDMI:
 
 class TestGetMultiMI:
     """Test get_multi_mi function."""
-    
+
     def test_multiple_predictors(self):
         """Test MI with multiple predictor time series."""
         np.random.seed(42)
@@ -453,43 +459,48 @@ class TestGetMultiMI:
         ts1 = TimeSeries(np.random.randn(300), discrete=False)
         ts2 = TimeSeries(np.random.randn(300), discrete=False)
         ts3 = TimeSeries(np.random.randn(300), discrete=False)
-        
+
         # Target is combination of all
-        target_data = 0.5 * ts1.data + 0.3 * ts2.data + 0.2 * ts3.data + 0.5 * np.random.randn(300)
+        target_data = (
+            0.5 * ts1.data
+            + 0.3 * ts2.data
+            + 0.2 * ts3.data
+            + 0.5 * np.random.randn(300)
+        )
         target = TimeSeries(target_data, discrete=False)
-        
+
         # Calculate multi MI
         mi = get_multi_mi([ts1, ts2, ts3], target)
-        
+
         # Should be positive (predictors contain info about target)
         assert mi > 0
-    
+
     def test_single_predictor(self):
         """Test multi MI with single predictor."""
         np.random.seed(42)
         ts1 = TimeSeries(np.random.randn(200), discrete=False)
         ts2 = TimeSeries(ts1.data + np.random.randn(200), discrete=False)
-        
+
         # Single predictor in list
         mi_multi = get_multi_mi([ts1], ts2)
         # Compare with regular MI
         mi_single = get_mi(ts1, ts2)
-        
+
         # Should be similar
         assert abs(mi_multi - mi_single) < 0.1
 
 
 class TestAggregateMultipleTS:
     """Test aggregate_multiple_ts function."""
-    
+
     def test_basic_aggregation(self):
         """Test basic time series aggregation."""
         ts1 = TimeSeries(np.array([1, 2, 3, 4, 5]), discrete=False)
         ts2 = TimeSeries(np.array([2, 3, 4, 5, 6]), discrete=False)
         ts3 = TimeSeries(np.array([3, 4, 5, 6, 7]), discrete=False)
-        
+
         result = aggregate_multiple_ts(ts1, ts2, ts3)
-        
+
         # Should return MultiTimeSeries with shape (3, 5)
         assert isinstance(result, MultiTimeSeries)
         assert result.data.shape == (3, 5)
@@ -497,15 +508,15 @@ class TestAggregateMultipleTS:
         assert np.allclose(result.data[0], ts1.data, atol=0.1)
         assert np.allclose(result.data[1], ts2.data, atol=0.1)
         assert np.allclose(result.data[2], ts3.data, atol=0.1)
-    
+
     def test_with_noise(self):
         """Test aggregation with noise."""
         np.random.seed(42)
         ts1 = TimeSeries(np.ones(100), discrete=False)
         ts2 = TimeSeries(np.ones(100) * 2, discrete=False)
-        
+
         result = aggregate_multiple_ts(ts1, ts2, noise=0.1)
-        
+
         # Should have added noise
         assert isinstance(result, MultiTimeSeries)
         assert result.data.shape == (2, 100)
@@ -513,21 +524,21 @@ class TestAggregateMultipleTS:
         assert not np.array_equal(result.data[0], ts1.data)
         # But should be close
         assert np.abs(result.data[0] - ts1.data).max() < 0.5
-    
+
     def test_different_types(self):
         """Test with TimeSeries objects."""
         ts1 = TimeSeries(np.random.randn(50), discrete=False)
         ts2 = TimeSeries(np.random.randn(50), discrete=False)
-        
+
         result = aggregate_multiple_ts(ts1, ts2)
-        
+
         assert isinstance(result, MultiTimeSeries)
         assert result.data.shape == (2, 50)
 
 
 class TestConditionalMI:
     """Test conditional_mi function."""
-    
+
     def test_chain_dependency(self):
         """Test CMI for chain dependency X -> Z -> Y."""
         np.random.seed(42)
@@ -535,15 +546,15 @@ class TestConditionalMI:
         x_data = np.random.randn(500)
         z_data = x_data + 0.5 * np.random.randn(500)
         y_data = z_data + 0.5 * np.random.randn(500)
-        
+
         ts_x = TimeSeries(x_data, discrete=False)
         ts_y = TimeSeries(y_data, discrete=False)
         ts_z = TimeSeries(z_data, discrete=False)
-        
+
         # I(X;Y|Z) should be small (X and Y are conditionally independent given Z)
         cmi = conditional_mi(ts_x, ts_y, ts_z)
         assert -0.2 < cmi < 0.2
-    
+
     def test_common_cause(self):
         """Test CMI for common cause Z -> X, Z -> Y."""
         np.random.seed(42)
@@ -551,11 +562,11 @@ class TestConditionalMI:
         z_data = np.random.randn(500)
         x_data = z_data + np.random.randn(500)
         y_data = z_data + np.random.randn(500)
-        
+
         ts_x = TimeSeries(x_data, discrete=False)
         ts_y = TimeSeries(y_data, discrete=False)
         ts_z = TimeSeries(z_data, discrete=False)
-        
+
         # I(X;Y|Z) should be small
         cmi = conditional_mi(ts_x, ts_y, ts_z)
         assert -0.2 < cmi < 0.2
@@ -563,7 +574,7 @@ class TestConditionalMI:
 
 class TestInteractionInformation:
     """Test interaction_information function."""
-    
+
     def test_redundant_information(self):
         """Test interaction information for redundant variables."""
         np.random.seed(42)
@@ -572,16 +583,16 @@ class TestInteractionInformation:
         z_data = np.random.randn(400)
         x_data = z_data + 0.5 * np.random.randn(400)
         y_data = z_data + 0.5 * np.random.randn(400)
-        
+
         ts_x = TimeSeries(x_data, discrete=False)
         ts_y = TimeSeries(y_data, discrete=False)
         ts_z = TimeSeries(z_data, discrete=False)
-        
+
         # Interaction information
         ii = interaction_information(ts_x, ts_y, ts_z)
         # Should be negative for redundancy
         assert ii < 0
-    
+
     def test_synergistic_information(self):
         """Test interaction information for synergy."""
         np.random.seed(42)
@@ -594,11 +605,11 @@ class TestInteractionInformation:
         x_cont = x_data + 0.1 * np.random.randn(400)
         y_cont = y_data + 0.1 * np.random.randn(400)
         z_cont = z_data + 0.1 * np.random.randn(400)
-        
+
         ts_x = TimeSeries(x_cont, discrete=False)
         ts_y = TimeSeries(y_cont, discrete=False)
         ts_z = TimeSeries(z_cont, discrete=False)
-        
+
         # Interaction information
         ii = interaction_information(ts_x, ts_y, ts_z)
         # For synergy, this could be positive
@@ -607,7 +618,7 @@ class TestInteractionInformation:
 
 class TestGetSimAdditional:
     """Test get_sim similarity function with different metrics."""
-    
+
     def test_sim_discrete_continuous_av(self):
         """Test 'av' metric for binary-continuous similarity."""
         # Binary signal
@@ -620,93 +631,98 @@ class TestGetSimAdditional:
             else:
                 continuous_data.append(np.random.normal(2, 1))
         continuous = TimeSeries(np.array(continuous_data), discrete=False)
-        
+
         # Test av metric
-        sim = get_sim(binary, continuous, metric='av')
+        sim = get_sim(binary, continuous, metric="av")
         assert sim > 1  # Should show signal ratio > 1
-        
+
         # Test reverse order
-        sim_rev = get_sim(continuous, binary, metric='av')
+        sim_rev = get_sim(continuous, binary, metric="av")
         assert sim_rev > 1
-    
+
     def test_sim_discrete_continuous_error(self):
         """Test error for unsupported metrics with mixed types."""
         binary = TimeSeries(np.array([0, 1, 0, 1]), discrete=True)
         continuous = TimeSeries(np.random.randn(4), discrete=False)
-        
+
         with pytest.raises(ValueError, match="Only 'av' and 'mi' metrics"):
-            get_sim(binary, continuous, metric='pearsonr')
-    
+            get_sim(binary, continuous, metric="pearsonr")
+
     def test_sim_discrete_discrete_error(self):
         """Test error for discrete-discrete similarity."""
         ts1 = TimeSeries(np.array([0, 1, 0, 1]), discrete=True)
         ts2 = TimeSeries(np.array([1, 0, 1, 0]), discrete=True)
-        
+
         with pytest.raises(ValueError, match="not supported for two discrete"):
-            get_sim(ts1, ts2, metric='pearsonr')
-    
+            get_sim(ts1, ts2, metric="pearsonr")
+
     def test_sim_multidimensional_error(self):
         """Test error for multidimensional data with non-MI metrics."""
         mts1 = MultiTimeSeries(np.random.randn(2, 100), discrete=False)
         mts2 = MultiTimeSeries(np.random.randn(2, 100), discrete=False)
-        
+
         with pytest.raises(Exception, match="Metrics except 'mi'"):
-            get_sim(mts1, mts2, metric='pearsonr')
-    
+            get_sim(mts1, mts2, metric="pearsonr")
+
     def test_sim_fast_pearsonr(self):
         """Test fast Pearson correlation metric."""
         # Create correlated time series
         x = np.random.randn(200)
         y = x + 0.5 * np.random.randn(200)
-        
+
         ts1 = TimeSeries(x, discrete=False)
         ts2 = TimeSeries(y, discrete=False)
-        
-        sim = get_sim(ts1, ts2, metric='fast_pearsonr')
+
+        sim = get_sim(ts1, ts2, metric="fast_pearsonr")
         assert 0.5 < sim < 0.9  # Should show positive correlation
-    
+
     def test_sim_spearmanr(self):
         """Test Spearman correlation metric."""
         # Create monotonically related data
         x = np.random.randn(150)
         y = x**3 + np.random.randn(150) * 0.1
-        
+
         ts1 = TimeSeries(x, discrete=False)
         ts2 = TimeSeries(y, discrete=False)
-        
-        sim = get_sim(ts1, ts2, metric='spearmanr')
+
+        sim = get_sim(ts1, ts2, metric="spearmanr")
         assert 0.8 < sim < 1.0  # Should show strong monotonic relationship
-    
+
     def test_sim_av_non_binary_error(self):
         """Test error when using 'av' metric with non-binary discrete data."""
         # Non-binary discrete signal
         discrete = TimeSeries(np.array([0, 1, 2, 3, 2, 1] * 20), discrete=True)
         continuous = TimeSeries(np.random.randn(120), discrete=False)
-        
+
         with pytest.raises(ValueError, match="Discrete ts must be binary"):
-            get_sim(discrete, continuous, metric='av')
+            get_sim(discrete, continuous, metric="av")
 
 
 class TestGetMultiMI:
     """Test get_multi_mi function."""
-    
+
     def test_multi_mi_basic(self):
         """Test multi MI with multiple predictors."""
         # Create predictors
         ts1 = TimeSeries(np.random.randn(200), discrete=False)
         ts2 = TimeSeries(np.random.randn(200), discrete=False)
         ts3 = TimeSeries(np.random.randn(200), discrete=False)
-        
+
         # Target is influenced by all predictors
-        target_data = 0.5 * ts1.data + 0.3 * ts2.data + 0.2 * ts3.data + 0.5 * np.random.randn(200)
+        target_data = (
+            0.5 * ts1.data
+            + 0.3 * ts2.data
+            + 0.2 * ts3.data
+            + 0.5 * np.random.randn(200)
+        )
         target = TimeSeries(target_data, discrete=False)
-        
+
         # Compute multi MI
         mi = get_multi_mi([ts1, ts2, ts3], target)
-        
+
         assert isinstance(mi, float)
         assert mi > 0  # Should show positive MI
-    
+
     def test_multi_mi_with_shift(self):
         """Test multi MI with time shift."""
         # Create time-lagged predictors
@@ -714,81 +730,79 @@ class TestGetMultiMI:
         ts1 = TimeSeries(base_signal[:200], discrete=False)
         ts2 = TimeSeries(base_signal[5:205], discrete=False)
         target = TimeSeries(base_signal[10:210], discrete=False)
-        
+
         # MI with shift
         mi_shift = get_multi_mi([ts1, ts2], target, shift=5)
         mi_no_shift = get_multi_mi([ts1, ts2], target, shift=0)
-        
+
         assert isinstance(mi_shift, float)
         assert isinstance(mi_no_shift, float)
 
 
 class TestConditionalMIAdditional:
     """Additional tests for conditional MI edge cases."""
-    
+
     def test_cmi_discrete_error(self):
         """Test error when ts1 is discrete."""
         ts1 = TimeSeries(np.random.randint(0, 3, 100), discrete=True)
         ts2 = TimeSeries(np.random.randn(100), discrete=False)
         ts3 = TimeSeries(np.random.randn(100), discrete=False)
-        
+
         with pytest.raises(ValueError, match="continuous X only"):
             conditional_mi(ts1, ts2, ts3)
-    
+
     def test_cmi_cdc_case(self):
         """Test CDC case: continuous X, discrete Y, continuous Z."""
         # Continuous X
         x_data = np.random.randn(200)
         ts_x = TimeSeries(x_data, discrete=False)
-        
+
         # Discrete Y dependent on X
         y_data = (x_data > 0).astype(int)
         ts_y = TimeSeries(y_data, discrete=True)
-        
+
         # Continuous Z
         z_data = x_data + np.random.randn(200)
         ts_z = TimeSeries(z_data, discrete=False)
-        
+
         cmi = conditional_mi(ts_x, ts_y, ts_z)
         assert isinstance(cmi, float)
         assert cmi >= 0
-    
+
     def test_cmi_cdd_case(self):
         """Test CDD case: continuous X, discrete Y and Z."""
         # Continuous X
         ts_x = TimeSeries(np.random.randn(200), discrete=False)
-        
+
         # Discrete Y and Z
         ts_y = TimeSeries(np.random.randint(0, 2, 200), discrete=True)
         ts_z = TimeSeries(np.random.randint(0, 3, 200), discrete=True)
-        
+
         cmi = conditional_mi(ts_x, ts_y, ts_z)
         assert isinstance(cmi, float)
         assert cmi >= 0
 
 
-
-
 class TestGetTDMI:
     """Test time-delayed mutual information."""
-    
+
     def test_tdmi_basic(self):
         """Test basic TDMI functionality."""
         # Create autocorrelated signal
         signal = np.cumsum(np.random.randn(500))
-        
+
         tdmi = get_tdmi(signal, min_shift=1, max_shift=6)
-        
+
         assert len(tdmi) == 5  # max_shift is exclusive
         assert all(isinstance(v, float) for v in tdmi)
         # First lag should have highest MI for autocorrelated signal
         assert tdmi[0] == max(tdmi)
-    
+
     def test_tdmi_with_nn_parameter(self):
         """Test TDMI with custom nn parameter."""
         signal = np.sin(np.linspace(0, 10, 300))
-        
+
         tdmi = get_tdmi(signal, min_shift=1, max_shift=4, nn=10)
-        
+
         assert len(tdmi) == 3
         assert all(isinstance(v, float) for v in tdmi)

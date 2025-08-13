@@ -1,26 +1,25 @@
 import sys
 
 # Fix torch reimport issue during coverage testing
-if 'torch' in sys.modules:
-    torch = sys.modules['torch']
-    nn = sys.modules['torch.nn']
-    F = sys.modules['torch.nn.functional']
-    optim = sys.modules['torch.optim']
-    Dataset = sys.modules['torch.utils.data'].Dataset
-    DataLoader = sys.modules['torch.utils.data'].DataLoader
+if "torch" in sys.modules:
+    torch = sys.modules["torch"]
+    nn = sys.modules["torch.nn"]
+    F = sys.modules["torch.nn.functional"]
+    optim = sys.modules["torch.optim"]
+    Dataset = sys.modules["torch.utils.data"].Dataset
+    DataLoader = sys.modules["torch.utils.data"].DataLoader
 else:
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
-    import torch.optim as optim
-    from torch.utils.data import Dataset, DataLoader
+    from torch.utils.data import Dataset
 
 
 class Encoder(nn.Module):
 
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
         super().__init__()
-        dropout = kwargs.get('dropout', None)
+        dropout = kwargs.get("dropout", None)
 
         self.encoder_hidden_layer = nn.Linear(
             in_features=orig_dim, out_features=inter_dim
@@ -33,7 +32,7 @@ class Encoder(nn.Module):
             if 0 <= dropout < 1:
                 self.dropout = nn.Dropout(p=dropout)
             else:
-                raise ValueError('Dropout rate should be in the range 0<=dropout<1')
+                raise ValueError("Dropout rate should be in the range 0<=dropout<1")
         else:
             self.dropout = nn.Dropout(0.0)
 
@@ -44,7 +43,9 @@ class Encoder(nn.Module):
 
     def forward(self, features):
         activation = self.encoder_hidden_layer(features)
-        activation = self.dropout(torch.ones(activation.shape).to(self._device)) * activation
+        activation = (
+            self.dropout(torch.ones(activation.shape).to(self._device)) * activation
+        )
         activation = F.leaky_relu(activation)
         # activation = torch.relu(activation)
         code = self.encoder_output_layer(activation)
@@ -56,10 +57,10 @@ class Encoder(nn.Module):
 
 class VAEEncoder(nn.Module):
     """Special encoder for VAE that doesn't use sigmoid activation"""
-    
+
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
         super().__init__()
-        dropout = kwargs.get('dropout', None)
+        dropout = kwargs.get("dropout", None)
 
         self.encoder_hidden_layer = nn.Linear(
             in_features=orig_dim, out_features=inter_dim
@@ -72,7 +73,7 @@ class VAEEncoder(nn.Module):
             if 0 <= dropout < 1:
                 self.dropout = nn.Dropout(p=dropout)
             else:
-                raise ValueError('Dropout rate should be in the range 0<=dropout<1')
+                raise ValueError("Dropout rate should be in the range 0<=dropout<1")
         else:
             self.dropout = nn.Dropout(0.0)
 
@@ -83,7 +84,9 @@ class VAEEncoder(nn.Module):
 
     def forward(self, features):
         activation = self.encoder_hidden_layer(features)
-        activation = self.dropout(torch.ones(activation.shape).to(self._device)) * activation
+        activation = (
+            self.dropout(torch.ones(activation.shape).to(self._device)) * activation
+        )
         activation = F.leaky_relu(activation)
         # No sigmoid activation for VAE! The output represents mean and log variance
         code = self.encoder_output_layer(activation)
@@ -94,7 +97,7 @@ class Decoder(nn.Module):
 
     def __init__(self, code_dim, inter_dim, orig_dim, kwargs, device=None):
         super().__init__()
-        dropout = kwargs.get('dropout', None)
+        dropout = kwargs.get("dropout", None)
 
         self.decoder_hidden_layer = nn.Linear(
             in_features=code_dim, out_features=inter_dim
@@ -107,7 +110,7 @@ class Decoder(nn.Module):
             if 0 <= dropout < 1:
                 self.dropout = nn.Dropout(p=dropout)
             else:
-                raise ValueError('Dropout rate should be in the range 0<=dropout<1')
+                raise ValueError("Dropout rate should be in the range 0<=dropout<1")
         else:
             self.dropout = nn.Dropout(0.0)
 
@@ -118,7 +121,9 @@ class Decoder(nn.Module):
 
     def forward(self, features):
         activation = self.decoder_hidden_layer(features)
-        activation = self.dropout(torch.ones(activation.shape).to(self._device)) * activation
+        activation = (
+            self.dropout(torch.ones(activation.shape).to(self._device)) * activation
+        )
         # activation = torch.relu(activation)
         activation = F.leaky_relu(activation)
         activation = self.decoder_output_layer(activation)
@@ -132,8 +137,20 @@ class AE(nn.Module):
     def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs, dec_kwargs, device):
         super(AE, self).__init__()
 
-        self.encoder = Encoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=enc_kwargs, device=device)
-        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=dec_kwargs, device=device)
+        self.encoder = Encoder(
+            orig_dim=orig_dim,
+            inter_dim=inter_dim,
+            code_dim=code_dim,
+            kwargs=enc_kwargs,
+            device=device,
+        )
+        self.decoder = Decoder(
+            orig_dim=orig_dim,
+            inter_dim=inter_dim,
+            code_dim=code_dim,
+            kwargs=dec_kwargs,
+            device=device,
+        )
         self.orig_dim = orig_dim
         self.inter_dim = inter_dim
         self.code_dim = code_dim
@@ -152,12 +169,32 @@ class AE(nn.Module):
 
 class VAE(nn.Module):
 
-    def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs=None, dec_kwargs=None, device=None):
+    def __init__(
+        self,
+        orig_dim,
+        inter_dim,
+        code_dim,
+        enc_kwargs=None,
+        dec_kwargs=None,
+        device=None,
+    ):
         super(VAE, self).__init__()
 
         # Use VAEEncoder instead of regular Encoder
-        self.encoder = VAEEncoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=2 * code_dim, kwargs=enc_kwargs or {}, device=device)
-        self.decoder = Decoder(orig_dim=orig_dim, inter_dim=inter_dim, code_dim=code_dim, kwargs=dec_kwargs or {}, device=device)
+        self.encoder = VAEEncoder(
+            orig_dim=orig_dim,
+            inter_dim=inter_dim,
+            code_dim=2 * code_dim,
+            kwargs=enc_kwargs or {},
+            device=device,
+        )
+        self.decoder = Decoder(
+            orig_dim=orig_dim,
+            inter_dim=inter_dim,
+            code_dim=code_dim,
+            kwargs=dec_kwargs or {},
+            device=device,
+        )
         self.orig_dim = orig_dim
         self.inter_dim = inter_dim
         self.code_dim = code_dim
@@ -198,7 +235,7 @@ class VAE(nn.Module):
         return reconstructed, mu, log_var
 
     def get_code_embedding(self, input_):
-        #encoder = self.encoder
+        # encoder = self.encoder
         embedding, mu, log_var = self.get_code(input_)
         return embedding.detach().cpu().numpy().T
 
@@ -218,7 +255,7 @@ class NeuroDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        sample = {'vector': self.data[idx].reshape(-1, 1), 'target': 0}
+        sample = {"vector": self.data[idx].reshape(-1, 1), "target": 0}
 
         if self.transform:
             sample = self.transform(sample)

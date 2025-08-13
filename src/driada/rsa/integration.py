@@ -3,28 +3,27 @@ Integration of RSA with DRIADA's data structures.
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Dict, Union, Tuple
 from ..experiment import Experiment
 from ..dim_reduction.data import MVData
 from .core import (
-    compute_rdm, 
     compute_rdm_from_timeseries_labels,
     compute_rdm_from_trials,
-    compare_rdms, 
-    bootstrap_rdm_comparison
+    compare_rdms,
+    bootstrap_rdm_comparison,
 )
 
 
 def compute_experiment_rdm(
     experiment: Experiment,
     items: Union[str, Dict[str, np.ndarray]],
-    data_type: str = 'calcium',
-    metric: str = 'correlation',
-    average_method: str = 'mean'
+    data_type: str = "calcium",
+    metric: str = "correlation",
+    average_method: str = "mean",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute RDM from Experiment object using specified item definition.
-    
+
     Parameters
     ----------
     experiment : Experiment
@@ -39,19 +38,19 @@ def compute_experiment_rdm(
         Distance metric for RDM computation
     average_method : str, default 'mean'
         How to average within conditions ('mean' or 'median')
-        
+
     Returns
     -------
     rdm : np.ndarray
         Representational dissimilarity matrix
     labels : np.ndarray
         The unique labels/conditions in the order they appear in RDM
-    
+
     Examples
     --------
     # Option 1: Use behavioral variable as conditions
     rdm, labels = compute_experiment_rdm(exp, items='stimulus_type')
-    
+
     # Option 2: Use explicit trial structure
     trial_info = {
         'trial_starts': [0, 100, 200, 300],
@@ -60,63 +59,71 @@ def compute_experiment_rdm(
     rdm, labels = compute_experiment_rdm(exp, items=trial_info)
     """
     # Get neural data
-    if data_type == 'calcium':
-        if not hasattr(experiment, 'calcium') or experiment.calcium is None:
+    if data_type == "calcium":
+        if not hasattr(experiment, "calcium") or experiment.calcium is None:
             raise ValueError("Experiment has no calcium data")
         data = experiment.calcium.data
-    elif data_type == 'spikes':
-        if not hasattr(experiment, 'spikes') or experiment.spikes is None:
+    elif data_type == "spikes":
+        if not hasattr(experiment, "spikes") or experiment.spikes is None:
             raise ValueError("Experiment has no spike data")
         data = experiment.spikes.data
     else:
         raise ValueError(f"Unknown data type: {data_type}")
-    
+
     # Process based on items type
     if isinstance(items, str):
         # Option 2: Use behavioral variable as conditions
         if items not in experiment.dynamic_features:
-            raise ValueError(f"Feature '{items}' not found in experiment dynamic features")
-        
+            raise ValueError(
+                f"Feature '{items}' not found in experiment dynamic features"
+            )
+
         # Get labels from dynamic feature
         feature_data = experiment.dynamic_features[items]
-        if hasattr(feature_data, 'data'):
+        if hasattr(feature_data, "data"):
             labels = feature_data.data
         else:
             labels = np.array(feature_data)
-        
+
         return compute_rdm_from_timeseries_labels(
             data, labels, metric=metric, average_method=average_method
         )
-        
+
     elif isinstance(items, dict):
         # Option 3: Use explicit trial structure
-        if 'trial_starts' not in items or 'trial_labels' not in items:
-            raise ValueError("Trial structure dict must contain 'trial_starts' and 'trial_labels'")
-        
-        trial_starts = np.array(items['trial_starts'])
-        trial_labels = np.array(items['trial_labels'])
-        trial_duration = items.get('trial_duration', None)
-        
+        if "trial_starts" not in items or "trial_labels" not in items:
+            raise ValueError(
+                "Trial structure dict must contain 'trial_starts' and 'trial_labels'"
+            )
+
+        trial_starts = np.array(items["trial_starts"])
+        trial_labels = np.array(items["trial_labels"])
+        trial_duration = items.get("trial_duration", None)
+
         return compute_rdm_from_trials(
-            data, trial_starts, trial_labels, 
+            data,
+            trial_starts,
+            trial_labels,
             trial_duration=trial_duration,
-            metric=metric, 
-            average_method=average_method
+            metric=metric,
+            average_method=average_method,
         )
-        
+
     else:
-        raise ValueError("items must be a string (feature name) or dict (trial structure)")
+        raise ValueError(
+            "items must be a string (feature name) or dict (trial structure)"
+        )
 
 
 def compute_mvdata_rdm(
     mvdata: MVData,
     labels: np.ndarray,
-    metric: str = 'correlation',
-    average_method: str = 'mean'
+    metric: str = "correlation",
+    average_method: str = "mean",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute RDM from MVData object with condition labels.
-    
+
     Parameters
     ----------
     mvdata : MVData
@@ -127,7 +134,7 @@ def compute_mvdata_rdm(
         Distance metric for RDM computation
     average_method : str, default 'mean'
         How to average within conditions
-        
+
     Returns
     -------
     rdm : np.ndarray
@@ -137,7 +144,7 @@ def compute_mvdata_rdm(
     """
     # MVData stores data as (n_features, n_timepoints)
     data = mvdata.data
-    
+
     return compute_rdm_from_timeseries_labels(
         data, labels, metric=metric, average_method=average_method
     )
@@ -147,16 +154,16 @@ def rsa_between_experiments(
     exp1: Experiment,
     exp2: Experiment,
     items: Union[str, Dict[str, np.ndarray]],
-    data_type: str = 'calcium',
-    metric: str = 'correlation',
-    comparison_method: str = 'spearman',
-    average_method: str = 'mean',
+    data_type: str = "calcium",
+    metric: str = "correlation",
+    comparison_method: str = "spearman",
+    average_method: str = "mean",
     bootstrap: bool = False,
-    n_bootstrap: int = 1000
+    n_bootstrap: int = 1000,
 ) -> Union[float, Dict]:
     """
     Perform RSA between two experiments.
-    
+
     Parameters
     ----------
     exp1 : Experiment
@@ -177,7 +184,7 @@ def rsa_between_experiments(
         Whether to perform bootstrap significance testing
     n_bootstrap : int, default 1000
         Number of bootstrap iterations
-        
+
     Returns
     -------
     similarity : float or dict
@@ -191,33 +198,36 @@ def rsa_between_experiments(
     rdm2, labels2 = compute_experiment_rdm(
         exp2, items, data_type, metric, average_method
     )
-    
+
     # Ensure same labels
     if not np.array_equal(labels1, labels2):
-        raise ValueError("Experiments must have the same condition labels for comparison")
-    
+        raise ValueError(
+            "Experiments must have the same condition labels for comparison"
+        )
+
     if bootstrap:
         # Get the raw data and labels for bootstrap
-        data1 = exp1.calcium.data if data_type == 'calcium' else exp1.spikes.data
-        data2 = exp2.calcium.data if data_type == 'calcium' else exp2.spikes.data
-        
+        data1 = exp1.calcium.data if data_type == "calcium" else exp1.spikes.data
+        data2 = exp2.calcium.data if data_type == "calcium" else exp2.spikes.data
+
         if isinstance(items, str):
             labels = exp1.dynamic_features[items].data
         else:
             # For trial structure, create continuous labels
             # This is a simplification - proper implementation would handle trials
-            raise NotImplementedError("Bootstrap not yet implemented for trial structure")
-        
+            raise NotImplementedError(
+                "Bootstrap not yet implemented for trial structure"
+            )
+
         return bootstrap_rdm_comparison(
-            data1, data2, labels, labels,
+            data1,
+            data2,
+            labels,
+            labels,
             metric=metric,
             comparison_method=comparison_method,
-            n_bootstrap=n_bootstrap
+            n_bootstrap=n_bootstrap,
         )
     else:
         # Simple comparison
         return compare_rdms(rdm1, rdm2, method=comparison_method)
-
-
-
-

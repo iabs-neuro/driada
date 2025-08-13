@@ -73,7 +73,7 @@ __all__ = [
     "Experiment",
     # Loading/saving
     "load_experiment",
-    "load_exp_from_aligned_data", 
+    "load_exp_from_aligned_data",
     "save_exp_to_pickle",
     "load_exp_from_pickle",
     # Synthetic data
@@ -97,7 +97,7 @@ __all__ = [
     "generate_2d_random_walk",
     "gaussian_place_field",
     "generate_2d_manifold_neurons",
-    "generate_2d_manifold_data", 
+    "generate_2d_manifold_data",
     "generate_2d_manifold_exp",
     # 3D spatial manifold functions
     "generate_3d_random_walk",

@@ -1,7 +1,7 @@
 """
 Representational Similarity Analysis (RSA) for DRIADA.
 
-This module provides tools for computing and comparing representational 
+This module provides tools for computing and comparing representational
 dissimilarity matrices (RDMs) from neural population data.
 """
 
