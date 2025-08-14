@@ -376,6 +376,7 @@ class MultiTimeSeries(MVData):
         downsampling=None,
         discrete=None,
         shuffle_mask=None,
+        allow_zero_columns=False,
     ):
         # Handle both numpy array and list of TimeSeries inputs
         if isinstance(data_or_tslist, np.ndarray):
@@ -419,6 +420,7 @@ class MultiTimeSeries(MVData):
             rescale_rows=rescale_rows,
             data_name=data_name,
             downsampling=downsampling,
+            allow_zero_columns=allow_zero_columns,
         )
 
         # Additional MultiTimeSeries specific attributes

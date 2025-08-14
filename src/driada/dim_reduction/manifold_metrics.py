@@ -17,7 +17,7 @@ from sklearn.neighbors import NearestNeighbors
 from scipy.spatial.distance import pdist, squareform
 from scipy.stats import spearmanr
 from scipy.linalg import orthogonal_procrustes
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 
 def compute_distance_matrix(X: np.ndarray, metric: str = "euclidean") -> np.ndarray:
@@ -387,7 +387,7 @@ def circular_structure_preservation(
 
 def procrustes_analysis(
     X: np.ndarray, Y: np.ndarray, scaling: bool = True, reflection: bool = True
-) -> Tuple[np.ndarray, float]:
+) -> Tuple[np.ndarray, float, Dict[str, Any]]:
     """
     Perform Procrustes analysis to find optimal alignment.
 
@@ -408,6 +408,11 @@ def procrustes_analysis(
         Aligned version of Y
     disparity : float
         Procrustes distance after alignment
+    transform_info : dict
+        Dictionary containing transformation parameters:
+        - 'scale_factor': float, the scaling factor applied
+        - 'is_reflected': bool, whether reflection was detected
+        - 'rotation_matrix': np.ndarray, the rotation matrix R
     """
     if X.shape != Y.shape:
         raise ValueError("X and Y must have the same shape")
@@ -422,6 +427,10 @@ def procrustes_analysis(
     # Apply transformation
     Y_aligned = Y_centered @ R
 
+    # Track transformation parameters
+    scale_factor = 1.0
+    is_reflected = np.linalg.det(R) < 0
+    
     if scaling:
         # Compute optimal scaling
         norm_X = np.linalg.norm(X_centered)
@@ -432,7 +441,7 @@ def procrustes_analysis(
 
     if not reflection:
         # Check if R includes reflection
-        if np.linalg.det(R) < 0:
+        if is_reflected:
             # Remove reflection by flipping one axis
             Y_aligned[:, -1] *= -1
 
@@ -441,8 +450,14 @@ def procrustes_analysis(
 
     # Return aligned points (with original center)
     Y_aligned += np.mean(X, axis=0)
+    
+    transform_info = {
+        'scale_factor': scale_factor,
+        'is_reflected': is_reflected,
+        'rotation_matrix': R
+    }
 
-    return Y_aligned, disparity
+    return Y_aligned, disparity, transform_info
 
 
 def manifold_preservation_score(
@@ -744,7 +759,7 @@ def compute_reconstruction_error(
 
     elif manifold_type == "spatial":
         # For spatial manifolds, use Procrustes analysis
-        aligned_embedding, disparity = procrustes_analysis(
+        aligned_embedding, disparity, transform_info = procrustes_analysis(
             true_variable, embedding, scaling=allow_scaling, reflection=allow_reflection
         )
 
@@ -758,8 +773,8 @@ def compute_reconstruction_error(
             "error": error,
             "correlation": correlation,
             "rotation_offset": 0.0,  # Not applicable for spatial
-            "is_reflected": False,  # TODO: detect from Procrustes
-            "scale_factor": 1.0,  # TODO: extract from Procrustes
+            "is_reflected": transform_info['is_reflected'],
+            "scale_factor": transform_info['scale_factor'],
         }
 
     else:

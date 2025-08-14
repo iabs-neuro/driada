@@ -259,12 +259,50 @@ def cross_correlation_matrix(A, B):
     )
 
 
-# TODO: review this function
-def norm_cross_corr(a, b):
-    a = (a - np.mean(a)) / (np.std(a) * len(a))
-    b = (b - np.mean(b)) / (np.std(b))
-    c = np.correlate(a, b, "full")
-    return c
+def norm_cross_corr(a, b, mode='full'):
+    """Compute normalized cross-correlation between two signals.
+    
+    This function computes the cross-correlation between two signals after
+    normalizing them to have zero mean and unit variance. This is useful
+    for finding similarity between signals regardless of their amplitude
+    and offset.
+    
+    Parameters
+    ----------
+    a : array_like
+        First signal
+    b : array_like
+        Second signal
+    mode : {'full', 'valid', 'same'}, optional
+        Mode parameter for np.correlate. Default is 'full'.
+        - 'full': returns correlation at all lags
+        - 'valid': returns only correlations without zero-padding
+        - 'same': returns correlation of same length as larger input
+        
+    Returns
+    -------
+    np.ndarray
+        Normalized cross-correlation values
+        
+    Notes
+    -----
+    The normalization ensures that the correlation values are in the range [-1, 1],
+    where 1 indicates perfect correlation, -1 indicates perfect anti-correlation,
+    and 0 indicates no correlation.
+    """
+    # Convert to numpy arrays
+    a = np.asarray(a)
+    b = np.asarray(b)
+    
+    # Normalize signals
+    a_norm = (a - np.mean(a)) / (np.std(a) + 1e-10)  # Add small epsilon to avoid division by zero
+    b_norm = (b - np.mean(b)) / (np.std(b) + 1e-10)
+    
+    # Compute cross-correlation
+    # Divide by length to get proper normalized correlation coefficients
+    correlation = np.correlate(a_norm, b_norm, mode=mode) / len(a)
+    
+    return correlation
 
 
 def to_numpy_array(data):

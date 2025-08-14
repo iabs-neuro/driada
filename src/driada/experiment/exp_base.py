@@ -121,6 +121,7 @@ class Experiment:
         reconstruct_spikes = kwargs.get("reconstruct_spikes", "wavelet")
         bad_frames_mask = kwargs.get("bad_frames_mask", None)
         spike_kwargs = kwargs.get("spike_kwargs", None)
+        self.verbose = kwargs.get("verbose", True)
 
         check_dynamic_features(dynamic_features)
         self.exp_identificators = exp_identificators
@@ -188,8 +189,9 @@ class Experiment:
 
         self.neurons = []
 
-        print("Building neurons...")
-        for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True):
+        if self.verbose:
+            print("Building neurons...")
+        for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True, disable=not self.verbose):
             cell = Neuron(
                 str(i),
                 calcium[i, :],
@@ -216,7 +218,8 @@ class Experiment:
         # Create MultiTimeSeries from the TimeSeries objects in neurons
         # This preserves the individual shuffle masks created by each Neuron
         self.calcium = MultiTimeSeries(calcium_ts_list)
-        self.spikes = MultiTimeSeries(spikes_ts_list)
+        # Allow zero columns for spikes since many neurons might not spike
+        self.spikes = MultiTimeSeries(spikes_ts_list, allow_zero_columns=True)
 
         self.dynamic_features = dynamic_features
 
@@ -279,18 +282,21 @@ class Experiment:
         # Cache for RDM computations
         self._rdm_cache = {}
 
-        print("Building data hashes...")
+        if self.verbose:
+            print("Building data hashes...")
         self._build_data_hashes(mode="calcium")
         if reconstruct_spikes is not None or spikes is not None:
             self._build_data_hashes(mode="spikes")
 
-        print("Final checkpoint...")
+        if self.verbose:
+            print("Final checkpoint...")
         self._checkpoint()
         # self._load_precomputed_data(**kwargs)
 
-        print(
-            f'Experiment "{self.signature}" constructed successfully with {self.n_cells} neurons and {len(self.dynamic_features)} features'
-        )
+        if self.verbose:
+            print(
+                f'Experiment "{self.signature}" constructed successfully with {self.n_cells} neurons and {len(self.dynamic_features)} features'
+            )
 
     def check_ds(self, ds):
         if not hasattr(self, "fps"):
@@ -298,11 +304,12 @@ class Experiment:
 
         time_step = 1.0 / self.fps
         if time_step * ds > DEFAULT_MIN_BEHAVIOUR_TIME:
-            print(
-                "Downsampling constant is too high: some behaviour acts may be skipped. "
-                f"Current minimal behaviour time interval is set to {DEFAULT_MIN_BEHAVIOUR_TIME} sec, "
-                f"downsampling {ds} will create time gaps of {time_step*ds} sec"
-            )
+            if self.verbose:
+                print(
+                    "Downsampling constant is too high: some behaviour acts may be skipped. "
+                    f"Current minimal behaviour time interval is set to {DEFAULT_MIN_BEHAVIOUR_TIME} sec, "
+                    f"downsampling {ds} will create time gaps of {time_step*ds} sec"
+                )
 
     def _set_selectivity_tables(self, mode, fbunch=None, cbunch=None):
         # neuron-feature pair statistics
@@ -583,7 +590,8 @@ class Experiment:
         if not isinstance(feat_id, str):
             ordered_fnames = tuple(sorted(list(feat_id)))
             if ordered_fnames not in self.stats_tables[mode]:
-                print(f"Multifeature {feat_id} is new, it will be added to stats table")
+                if self.verbose:
+                    print(f"Multifeature {feat_id} is new, it will be added to stats table")
                 self.stats_tables[mode][ordered_fnames] = {
                     cell_id: DEFAULT_STATS.copy() for cell_id in range(self.n_cells)
                 }
@@ -626,10 +634,11 @@ class Experiment:
             return True
 
         else:
-            print(
-                f"Looks like the data for the pair (cell {cell_id}, feature {feat_id}) "
-                "has been changed since the last calculation)"
-            )
+            if self.verbose:
+                print(
+                    f"Looks like the data for the pair (cell {cell_id}, feature {feat_id}) "
+                    "has been changed since the last calculation)"
+                )
 
             return False
 
@@ -678,7 +687,8 @@ class Experiment:
 
         else:
             if not force_update:
-                print('To forcefully update the stats, set "force_update=True"')
+                if self.verbose:
+                    print('To forcefully update the stats, set "force_update=True"')
             else:
                 self._update_stats_and_significance(
                     stats, mode, cell_id, feat_id, stage2_only=stage2_only
@@ -715,7 +725,8 @@ class Experiment:
         if self._check_stats_relevance(cell_id, feat_id):
             stats = self.stats_tables[mode][feat_id][cell_id]
         else:
-            print("Consider recalculating stats")
+            if self.verbose:
+                print("Consider recalculating stats")
 
         return stats
 
@@ -728,29 +739,33 @@ class Experiment:
         if self._check_stats_relevance(cell_id, feat_id):
             sig = self.significance_tables[mode][feat_id][cell_id]
         else:
-            print("Consider recalculating stats")
+            if self.verbose:
+                print("Consider recalculating stats")
 
         return sig
 
     def get_multicell_shuffled_calcium(
-        self, cbunch=None, method="roll_based", no_ts=True, **kwargs
+        self, cbunch=None, method="roll_based", return_array=True, **kwargs
     ):
         """
         Get shuffled calcium data for multiple cells.
 
-        Args:
-            cbunch: int, list, or None
-                Cell indices. If None, all cells are used.
-            method: str
-                Shuffling method: 'roll_based', 'waveform_based', or 'chunks_based'
-            no_ts: bool
-                If True, intermediate TimeSeries objects are not created, which speeds up shuffling
-            **kwargs:
-                Additional parameters passed to the shuffling method
+        Parameters
+        ----------
+        cbunch : int, list, or None
+            Cell indices. If None, all cells are used.
+        method : {'roll_based', 'waveform_based', 'chunks_based'}, default='roll_based'
+            Shuffling method to use
+        return_array : bool, default=True
+            If True, return numpy array. If False, return MultiTimeSeries object.
+        **kwargs
+            Additional parameters passed to the shuffling method
 
-        Returns:
-            np.ndarray
-                Shuffled calcium data with shape (n_cells, n_frames)
+        Returns
+        -------
+        np.ndarray or MultiTimeSeries
+            If return_array=True: Shuffled calcium data with shape (n_cells, n_frames)
+            If return_array=False: MultiTimeSeries object containing shuffled data
 
         """
         # Validate method
@@ -768,36 +783,47 @@ class Experiment:
                 f"Invalid cell indices. Must be between 0 and {self.n_cells-1}"
             )
 
-        agg_sh_data = np.zeros((len(cell_list), self.n_frames))
-        for i, cell_idx in enumerate(cell_list):
-            cell = self.neurons[cell_idx]
-            sh_data = cell.get_shuffled_calcium(method=method, **kwargs, no_ts=no_ts)
-            if no_ts:
-                agg_sh_data[i, :] = sh_data[:]
-            else:
-                agg_sh_data[i, :] = sh_data.data[:]
-
-        return agg_sh_data
+        if return_array:
+            agg_sh_data = np.zeros((len(cell_list), self.n_frames))
+            for i, cell_idx in enumerate(cell_list):
+                cell = self.neurons[cell_idx]
+                sh_data = cell.get_shuffled_calcium(method=method, return_array=True, **kwargs)
+                agg_sh_data[i, :] = sh_data
+            return agg_sh_data
+        else:
+            # Return MultiTimeSeries object
+            ts_list = []
+            for cell_idx in cell_list:
+                cell = self.neurons[cell_idx]
+                sh_ts = cell.get_shuffled_calcium(method=method, return_array=False, **kwargs)
+                ts_list.append(sh_ts)
+            
+            # Create MultiTimeSeries from list of TimeSeries
+            from ..information.info_base import MultiTimeSeries
+            return MultiTimeSeries(ts_list)
 
     def get_multicell_shuffled_spikes(
-        self, cbunch=None, method="isi_based", no_ts=True, **kwargs
+        self, cbunch=None, method="isi_based", return_array=True, **kwargs
     ):
         """
         Get shuffled spike data for multiple cells.
 
-        Args:
-            cbunch: int, list, or None
-                Cell indices. If None, all cells are used.
-            method: str
-                Shuffling method: 'isi_based' is the only supported method for spikes
-            no_ts: bool
-                If True, intermediate TimeSeries objects are not created, which speeds up shuffling
-            **kwargs:
-                Additional parameters passed to the shuffling method
+        Parameters
+        ----------
+        cbunch : int, list, or None
+            Cell indices. If None, all cells are used.
+        method : {'isi_based'}, default='isi_based'
+            Shuffling method. Currently only 'isi_based' is supported for spikes.
+        return_array : bool, default=True
+            If True, return numpy array. If False, return MultiTimeSeries object.
+        **kwargs
+            Additional parameters passed to the shuffling method
 
-        Returns:
-            np.ndarray
-                Shuffled spike data with shape (n_cells, n_frames)
+        Returns
+        -------
+        np.ndarray or MultiTimeSeries
+            If return_array=True: Shuffled spike data with shape (n_cells, n_frames)
+            If return_array=False: MultiTimeSeries object containing shuffled spike data
 
         """
         # Check if spikes data is meaningful (not all zeros)
@@ -821,16 +847,24 @@ class Experiment:
                 f"Invalid cell indices. Must be between 0 and {self.n_cells-1}"
             )
 
-        agg_sh_data = np.zeros((len(cell_list), self.n_frames))
-        for i, cell_idx in enumerate(cell_list):
-            cell = self.neurons[cell_idx]
-            sh_data = cell.get_shuffled_spikes(method=method, **kwargs, no_ts=no_ts)
-            if no_ts:
-                agg_sh_data[i, :] = sh_data[:]
-            else:
-                agg_sh_data[i, :] = sh_data.data[:]
-
-        return agg_sh_data
+        if return_array:
+            agg_sh_data = np.zeros((len(cell_list), self.n_frames))
+            for i, cell_idx in enumerate(cell_list):
+                cell = self.neurons[cell_idx]
+                sh_data = cell.get_shuffled_spikes(method=method, return_array=True, **kwargs)
+                agg_sh_data[i, :] = sh_data
+            return agg_sh_data
+        else:
+            # Return MultiTimeSeries object
+            ts_list = []
+            for cell_idx in cell_list:
+                cell = self.neurons[cell_idx]
+                sh_ts = cell.get_shuffled_spikes(method=method, return_array=False, **kwargs)
+                ts_list.append(sh_ts)
+            
+            # Create MultiTimeSeries from list of TimeSeries
+            from ..information.info_base import MultiTimeSeries
+            return MultiTimeSeries(ts_list)
 
     def get_stats_slice(
         self,

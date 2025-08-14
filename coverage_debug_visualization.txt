@@ -1,0 +1,108 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /opt/anaconda3/envs/driada/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/nikita/PycharmProjects/driada2
+configfile: pytest.ini
+plugins: timeout-2.4.0, cov-6.2.1
+collecting ... collected 18 items
+
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_plot_pc_activity PASSED [  5%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_plot_neuron_feature_density_continuous PASSED [ 11%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_plot_neuron_feature_density_binary PASSED [ 16%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_plot_neuron_feature_pair PASSED [ 22%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_plot_disentanglement_heatmap PASSED [ 27%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_plot_disentanglement_summary PASSED [ 33%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_plot_selectivity_heatmap PASSED [ 38%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_edge_cases PASSED [ 44%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestVisualFunctionsCompletelyMocked::test_spikes_with_binary_raises_error PASSED [ 50%]
+tests/unit/visualization/test_visual_complete_mocked.py::TestPerformanceWithCompleteMocking::test_all_functions_are_fast PASSED [ 55%]
+tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_default_dpi PASSED [ 61%]
+tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_embedding_comparison PASSED [ 66%]
+tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_trajectories PASSED [ 72%]
+tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_component_interpretation PASSED [ 77%]
+tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_embeddings_grid PASSED [ 83%]
+tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_neuron_selectivity_summary PASSED [ 88%]
+tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_plot_component_selectivity_heatmap PASSED [ 94%]
+tests/unit/visualization/test_visual_utils.py::TestVisualUtils::test_configurable_dpi PASSED [100%]
+
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.10.18-final-0 _______________
+
+Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
+-------------------------------------------------------------------------------------------------------
+src/driada/dimensionality/effective.py                        26     26     12      0   0.00%   1-43
+src/driada/dimensionality/intrinsic.py                       120    120     48      0   0.00%   8-389
+src/driada/dimensionality/linear.py                           54     54     16      0   0.00%   8-218
+src/driada/dimensionality/utils.py                            44     44      8      0   0.00%   1-91
+src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-18
+src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-61
+src/driada/integration/selectivity_mapper.py                 125    125     60      0   0.00%   8-392
+src/driada/intense/pipelines.py                              287    279    170      0   1.75%   191-430, 538-662, 771-892, 990-1115
+src/driada/experiment/synthetic/experiment_generators.py     276    263    146      0   3.08%   81-179, 209-279, 364-863
+src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 177-267, 291-304, 332-391
+src/driada/intense/intense_base.py                           412    384    220      0   4.43%   18-20, 41-72, 97-124, 149-159, 215-235, 293-322, 390-461, 529-643, 705-753, 817-844, 879, 883, 887-888, 892-893, 1061-1348, 1397-1436
+src/driada/experiment/synthetic/mixed_selectivity.py         137    127     80      0   4.61%   48-84, 111-186, 214-246, 314-440
+src/driada/network/randomization.py                          312    293     94      0   4.68%   42-52, 96-233, 269-320, 352-391, 408-421, 448-602, 671-702
+src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
+src/driada/rsa/core.py                                       165    149     84      0   6.43%   45-78, 110-138, 174-225, 251-275, 320-358, 432-488, 549-595
+src/driada/experiment/synthetic/manifold_spatial_3d.py       108     98     46      0   6.49%   37-64, 87-103, 143-196, 253-301, 364-470
+src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-107, 129-143, 161-174, 192-204
+src/driada/dim_reduction/manifold_metrics.py                 311    284     98      0   6.60%   39-43, 77-102, 130-164, 192-226, 257-288, 314-324, 349-399, 429-462, 493-523, 543-544, 560-562, 578-587, 618-653, 676-695, 733-782, 810-828, 865-896, 916-954, 988-1014, 1048-1074, 1108-1147
+src/driada/utils/spatial.py                                  214    194     74      0   6.94%   61-93, 129-160, 193-228, 253-271, 299-332, 376-415, 444-490, 518-544, 572-599, 648-720, 749-777
+src/driada/experiment/synthetic/manifold_spatial_2d.py        98     88     40      0   7.25%   37-64, 86-93, 133-182, 238-286, 341-440
+src/driada/information/gcmi.py                               251    227     78      0   7.29%   16-17, 26-41, 50-64, 82-92, 116-133, 144-170, 190-233, 253-314, 326-360, 379-442, 457-508
+src/driada/experiment/exp_build.py                           119    105     72      0   7.33%   24-125, 144-208, 212-215, 219-223
+src/driada/experiment/exp_base.py                            443    391    244      0   7.57%   35-69, 89-226, 229-234, 240-248, 255-282, 289-302, 306-343, 350-380, 388-391, 397-404, 410-438, 444-456, 463-474, 481-495, 509-528, 535-541, 550-561, 569-577, 586-592, 599-605, 627-646, 668-691, 703-720, 723, 753-811, 835-859, 882-903, 910-911, 915-920, 923, 926, 929-930, 947-959, 982-988, 1016-1035, 1039
+src/driada/information/info_base.py                          439    390    204      0   7.62%   31-54, 58, 62-97, 135-213, 216-220, 223-224, 227-231, 234-235, 238-240, 243-252, 275-288, 330-340, 353-420, 425, 428-443, 446-448, 451-465, 483-498, 504-507, 512-519, 544-594, 620-698, 726-831, 835-838, 844-855, 888-896, 940-1038, 1077-1093
+src/driada/information/gcmi_jit_utils.py                     207    186     66      0   7.69%   26-54, 73-79, 99-134, 153-154, 171-177, 200-259, 286-386, 405-421, 443-456
+src/driada/dim_reduction/graph.py                            232    208     72      0   7.89%   26-65, 72-85, 88-89, 92-102, 105-117, 120-166, 169-179, 183-224, 228-315, 320-325, 386-459
+src/driada/network/net_base.py                               385    340    172      0   8.08%   21-29, 34-35, 39-43, 47-57, 63-78, 98-155, 163-203, 213-270, 273-274, 278-309, 313-330, 333-346, 349-368, 371-377, 380-386, 389-395, 398-404, 422-489, 494-517, 520-530, 534-545, 548-550, 553-555, 558-560, 563-565, 568-572, 575-585, 588-614
+src/driada/rsa/visual.py                                      80     71     28      0   8.33%   55-141, 172-210
+src/driada/network/drawing.py                                133    117     54      0   8.56%   13-54, 57-68, 72-75, 80-131, 135-157, 161-174, 179-203
+src/driada/experiment/synthetic/utils.py                       7      6      4      0   9.09%   27-34
+src/driada/gdrive/download.py                                103     89     46      0   9.40%   21-59, 73-111, 122-170, 174-193
+src/driada/dim_reduction/embedding.py                        276    243     72      0   9.48%   17-19, 25-28, 32-36, 45-70, 73-82, 85-90, 94-100, 104-116, 120-126, 129-131, 134-138, 141-162, 165-173, 176, 179-195, 198-200, 203-208, 221-408, 418-514, 519-523, 546-553
+src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 155-176, 215-286, 308-315, 334-354
+src/driada/network/matrix_utils.py                           203    178     60      0   9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-223, 227-234, 238-249, 253-261, 266-270, 274-281, 285-292, 296-303, 307-310, 314-317
+src/driada/information/time_series_types.py                  231    198    116      0   9.51%   32, 36, 40, 44, 75-116, 129-194, 203-236, 245-305, 311-404, 414-440, 451-455, 467-481, 505-509
+src/driada/experiment/synthetic/time_series.py                79     69     24      0   9.71%   33-80, 101-113, 133-147, 170-180, 199-224, 243-252
+src/driada/dim_reduction/mvu.py                               61     53     20      0   9.88%   22-29, 40-109, 122-146
+src/driada/dim_reduction/data.py                             116     99     54      0  10.00%   13-18, 34-56, 59-73, 90-95, 112-142, 178-234, 237-242, 245-247, 250-252
+src/driada/experiment/synthetic/manifold_circular.py          73     63     24      0  10.31%   33-45, 68-69, 107-139, 190-237, 285-376
+src/driada/network/spectral.py                                30     26      8      0  10.53%   6-8, 24-37, 41-55
+src/driada/utils/data.py                                     156    130     74      0  11.30%   34-54, 58-62, 66-87, 92-108, 116-135, 158-171, 175-178, 182-192, 210-232, 244-246, 251-254, 258-264, 276-293, 307-338
+src/driada/rsa/integration.py                                 46     38     22      0  11.76%   63-108, 139-141, 188-219
+src/driada/intense/stats.py                                  105     87     44      0  12.08%   24-25, 44-46, 65-67, 89-92, 118-126, 152-155, 176-186, 211-215, 244-252, 273-280, 314-346, 365-375, 394-399
+src/driada/experiment/synthetic/core.py                       40     33     16      0  12.50%   37-47, 73-108, 146-161
+src/driada/information/entropy_jit.py                         44     38      4      0  12.50%   33-67, 86-129
+src/driada/utils/neural.py                                    20     17      4      0  12.50%   25-45, 49-54
+src/driada/utils/plot.py                                      38     31     18      0  12.50%   56-86, 125-141, 179-195
+src/driada/experiment/wavelet_event_detection.py             156    130     40      1  13.78%   9, 39-42, 46-109, 117-164, 168-169, 173-181, 191-209, 213-249, 255-276, 281-289
+src/driada/information/info_utils.py                          41     34      8      0  14.29%   6-19, 24-34, 38-62
+src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
+src/driada/dim_reduction/sequences.py                         22     17     12      0  14.71%   67-101
+src/driada/information/ksg.py                                 87     71     20      0  14.95%   17, 22, 26-27, 31, 39-42, 50-68, 78-86, 93-96, 105-141, 145-164
+src/driada/experiment/spike_reconstruction.py                 48     39      8      0  16.07%   49-62, 93-126, 160-215
+src/driada/network/graph_utils.py                             48     38     12      0  16.67%   9-16, 21-31, 35-38, 42-46, 50-52, 56-78
+src/driada/network/quantum.py                                 39     31      8      0  17.02%   7-14, 18-27, 31-33, 37-55
+src/driada/dim_reduction/dr_base.py                           82     60     46      0  17.19%   171-193, 201-216, 225-233, 252-298
+src/driada/gdrive/gdrive_utils.py                             74     56     30      0  17.31%   25-28, 31, 61-107, 141-200, 204-210
+src/driada/experiment/neuron.py                              156    121     36      0  18.23%   35-36, 41-44, 49-50, 55-59, 65-98, 101, 104-109, 112-114, 117-126, 129-132, 135-138, 146-153, 157-164, 169-182, 186-199, 203-211, 215-224, 228-251
+src/driada/dim_reduction/neural.py                           132    101     24      1  20.51%   12-16, 22-43, 46-54, 61-82, 85-90, 96-117, 120-127, 133-140, 143-145, 148-150, 156-163, 170-173, 176-190, 194-198, 202-203, 211-212, 215, 218-226
+src/driada/utils/gif.py                                       38     27     14      0  21.15%   25-31, 46-55, 81-100
+src/driada/information/entropy.py                             56     41     14      0  21.43%   18-19, 42-52, 68, 89-99, 123-135, 157-167, 192-195, 218-221
+src/driada/experiment/wavelet_ridge.py                        66     50      4      0  22.86%   26-27, 34-56, 60-66, 70, 74-85, 90-102, 106-107
+src/driada/utils/output.py                                    16     10      4      0  30.00%   6-8, 10-12, 16-20
+src/driada/utils/jit.py                                       29     17      4      1  39.39%   17-25, 58-60, 68, 73-78
+src/driada/utils/visual.py                                   285     52    134     47  74.46%   65->68, 72->76, 80->87, 87->90, 104, 128->142, 137-140, 162->174, 172, 196->195, 201->195, 275->278, 280->283, 287, 303, 321->320, 325->320, 359, 404->407, 409->412, 416, 423, 447-450, 476->414, 490, 537->541, 544, 548, 551->550, 555-556, 562->565, 567, 569, 581, 586-588, 600-605, 614-616, 621, 660->677, 690-691, 707, 746-748, 750->753, 755, 759-780, 786
+src/driada/intense/visual.py                                 236     24     70     21  83.99%   34->37, 37->44, 109-110, 120, 190-197, 204-206, 211->214, 219, 221->224, 299->307, 325->329, 329->331, 382-384, 435->434, 449, 521-524, 535-538, 544, 548->550, 550->557
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                       8629   7258   3468     71  12.38%
+Coverage HTML written to dir htmlcov
+Coverage XML written to file coverage.xml
+Coverage JSON written to file coverage.json
+============================== 18 passed in 4.66s ==============================
+
+/opt/anaconda3/envs/driada/lib/python3.10/site-packages/coverage/inorout.py:509: CoverageWarning: Module driada.visualization was never imported. (module-not-imported)
+  self.warn(f"Module {pkg} was never imported.", slug="module-not-imported")
+

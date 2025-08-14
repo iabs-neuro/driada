@@ -170,7 +170,6 @@ class Network:
         # each network object has out- and in-degree sequences from its initialization
         self.get_node_degrees()
 
-        # TODO: remove lem_emb
         self.lem_emb = None
 
     def _preprocess_graph_and_data(

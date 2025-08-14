@@ -108,7 +108,7 @@ def wavelet_reconstruction(
         TimeSeries(spikes_data[i, :], discrete=True)
         for i in range(spikes_data.shape[0])
     ]
-    spikes = MultiTimeSeries(spike_ts_list)
+    spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
 
     # Prepare metadata
     metadata = {
@@ -189,7 +189,7 @@ def threshold_reconstruction(
     spike_ts_list = [
         TimeSeries(spikes_data[i, :], discrete=True) for i in range(n_neurons)
     ]
-    spikes = MultiTimeSeries(spike_ts_list)
+    spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
 
     # Prepare metadata
     metadata = {

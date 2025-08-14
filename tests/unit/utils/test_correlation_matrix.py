@@ -1,7 +1,8 @@
-"""Tests for correlation_matrix function."""
+"""Tests for correlation_matrix and norm_cross_corr functions."""
 
 import numpy as np
-from driada.utils.data import correlation_matrix
+import pytest
+from driada.utils.data import correlation_matrix, norm_cross_corr
 
 
 class TestCorrelationMatrix:
@@ -96,3 +97,94 @@ class TestCorrelationMatrix:
         assert corr[1, 1] == 1.0
         assert 0 < corr[0, 1] < 1  # Positive but not perfect correlation
         assert corr[0, 1] == corr[1, 0]  # Symmetric
+
+
+class TestNormCrossCorr:
+    """Test norm_cross_corr function."""
+    
+    def test_perfect_correlation_same_signal(self):
+        """Test perfect correlation with identical signals."""
+        signal = np.sin(np.linspace(0, 2*np.pi, 100))
+        result = norm_cross_corr(signal, signal, mode='valid')
+        assert np.isclose(result[0], 1.0, atol=1e-10)
+    
+    def test_perfect_anticorrelation(self):
+        """Test perfect anti-correlation with inverted signals."""
+        signal1 = np.sin(np.linspace(0, 2*np.pi, 100))
+        signal2 = -signal1
+        result = norm_cross_corr(signal1, signal2, mode='valid')
+        assert np.isclose(result[0], -1.0, atol=1e-10)
+    
+    def test_no_correlation_random(self):
+        """Test low correlation between random signals."""
+        np.random.seed(42)
+        signal1 = np.random.randn(100)
+        signal2 = np.random.randn(100)
+        result = norm_cross_corr(signal1, signal2, mode='valid')
+        # Random signals should have low correlation
+        assert abs(result[0]) < 0.3
+    
+    def test_shifted_signal_detection(self):
+        """Test detection of shifted signals."""
+        signal = np.sin(np.linspace(0, 4*np.pi, 200))
+        shift = 20
+        signal_shifted = np.roll(signal, shift)
+        result = norm_cross_corr(signal, signal_shifted, mode='full')
+        
+        # Find peak correlation
+        max_idx = np.argmax(np.abs(result))
+        peak_lag = max_idx - len(signal) + 1
+        
+        # Should find peak near the shift amount
+        assert abs(peak_lag - (-shift)) < 5  # Within 5 samples
+        assert np.abs(result[max_idx]) > 0.9  # Strong correlation at peak
+    
+    def test_amplitude_offset_invariance(self):
+        """Test invariance to amplitude scaling and offset."""
+        signal1 = np.sin(np.linspace(0, 2*np.pi, 100))
+        # Scale and offset
+        signal2 = 5 * signal1 + 10
+        result = norm_cross_corr(signal1, signal2, mode='valid')
+        assert np.isclose(result[0], 1.0, atol=1e-10)
+    
+    def test_constant_signals_edge_case(self):
+        """Test handling of constant signals (zero variance)."""
+        const1 = np.ones(100)
+        const2 = np.ones(100) * 2
+        result = norm_cross_corr(const1, const2, mode='valid')
+        # Should handle zero variance gracefully
+        assert np.isfinite(result[0])
+        assert abs(result[0]) < 1e-6  # Should be close to 0
+    
+    def test_different_modes(self):
+        """Test different correlation modes."""
+        signal1 = np.array([1, 2, 3, 4, 5])
+        signal2 = np.array([2, 3, 4])
+        
+        # Full mode
+        result_full = norm_cross_corr(signal1, signal2, mode='full')
+        assert len(result_full) == len(signal1) + len(signal2) - 1
+        
+        # Valid mode
+        result_valid = norm_cross_corr(signal1, signal2, mode='valid')
+        assert len(result_valid) == len(signal1) - len(signal2) + 1
+        
+        # Same mode
+        result_same = norm_cross_corr(signal1, signal2, mode='same')
+        assert len(result_same) == len(signal1)
+    
+    def test_empty_signals(self):
+        """Test handling of empty signals."""
+        empty = np.array([])
+        signal = np.array([1, 2, 3])
+        
+        with pytest.raises(ValueError):
+            norm_cross_corr(empty, signal)
+    
+    def test_single_value_signals(self):
+        """Test signals with single value."""
+        signal1 = np.array([5])
+        signal2 = np.array([3])
+        result = norm_cross_corr(signal1, signal2, mode='valid')
+        assert len(result) == 1
+        assert np.isfinite(result[0])

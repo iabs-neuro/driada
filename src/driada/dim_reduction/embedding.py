@@ -5,6 +5,7 @@ from scipy.sparse.csgraph import shortest_path
 
 from sklearn.decomposition import PCA
 from sklearn.manifold import spectral_embedding, Isomap, LocallyLinearEmbedding, TSNE
+from sklearn.model_selection import train_test_split
 
 # from sklearn.cluster.spectral import discretize
 
@@ -21,13 +22,7 @@ except ImportError:
 from .mvu import *
 
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix
-
-
-def norm_cross_corr(a, b):
-    a = (a - np.mean(a)) / (np.std(a) * len(a))
-    b = (b - np.mean(b)) / (np.std(b))
-    c = np.correlate(a, b, "full")
-    return c
+from ..utils.data import norm_cross_corr
 
 
 def remove_outliers(data, thr_percentile):
@@ -77,7 +72,6 @@ class Embedding:
         fn = getattr(self, "create_" + self.e_method_name + "_embedding_")
 
         if self.e_method.requires_graph:
-            # TODO: move connectivity check to graph
             if (
                 not self.graph.is_connected()
                 and not self.e_method.handles_disconnected_graphs
@@ -352,13 +346,21 @@ class Embedding:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
-        # TODO: add train_test_split
-        train_dataset = NeuroDataset(
-            self.init_data[:, : int(train_size * self.init_data.shape[1])]
+        # Split data into train and test sets
+        data_T = self.init_data.T  # Transpose to (n_samples, n_features)
+        indices = np.arange(data_T.shape[0])
+        
+        # Use sklearn's train_test_split without shuffling to preserve temporal order
+        train_indices, test_indices = train_test_split(
+            indices, 
+            train_size=train_size, 
+            random_state=seed,
+            shuffle=False
         )
-        test_dataset = NeuroDataset(
-            self.init_data[:, int(train_size * self.init_data.shape[1]) :]
-        )
+        
+        # Create datasets with the split indices
+        train_dataset = NeuroDataset(self.init_data[:, train_indices])
+        test_dataset = NeuroDataset(self.init_data[:, test_indices])
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -594,14 +596,22 @@ class Embedding:
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
 
-        # TODO: add train_test_split
+        # Split data into train and test sets
         # TODO: move out data loading for autoencoders
-        train_dataset = NeuroDataset(
-            self.init_data[:, : int(train_size * self.init_data.shape[1])]
+        data_T = self.init_data.T  # Transpose to (n_samples, n_features)
+        indices = np.arange(data_T.shape[0])
+        
+        # Use sklearn's train_test_split without shuffling to preserve temporal order
+        train_indices, test_indices = train_test_split(
+            indices, 
+            train_size=train_size, 
+            random_state=seed,
+            shuffle=False
         )
-        test_dataset = NeuroDataset(
-            self.init_data[:, int(train_size * self.init_data.shape[1]) :]
-        )
+        
+        # Create datasets with the split indices
+        train_dataset = NeuroDataset(self.init_data[:, train_indices])
+        test_dataset = NeuroDataset(self.init_data[:, test_indices])
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
@@ -634,6 +644,10 @@ class Embedding:
 
         # ---------------------------------------------------------------------------
         f_dropout = nn.Dropout(feature_dropout)
+        
+        best_test_epoch = -1
+        best_test_loss = 1e10
+        best_test_model = None
 
         for epoch in range(epochs):
             loss = 0
@@ -701,13 +715,29 @@ class Embedding:
                     test_loss = mse_loss + kld_weight * kld_loss
                     tloss += test_loss.item()
 
-                # compute the epoch training loss
+                # compute the epoch test loss
                 tloss = tloss / len(test_loader)
+                
+                # Track best model
+                if tloss < best_test_loss:
+                    best_test_loss = tloss
+                    best_test_epoch = epoch + 1
+                    # Deep copy the model state
+                    best_test_model = model.state_dict().copy()
+                    
                 if verbose:
                     print(
                         f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}"
                     )
-
+        
+        if verbose:
+            if best_test_epoch != epochs:
+                print(f"best model: epoch {best_test_epoch}")
+        
+        # Load best model weights
+        if best_test_model is not None:
+            model.load_state_dict(best_test_model)
+            
         self.nnmodel = model
         input_ = torch.tensor(self.init_data.T).float().to(device)
         self.coords = model.get_code_embedding(input_)

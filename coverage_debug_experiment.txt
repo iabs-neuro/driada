@@ -1,0 +1,36 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.7, pytest-7.4.4, pluggy-1.6.0 -- /opt/anaconda3/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/nikita/PycharmProjects/driada2
+configfile: pytest.ini
+plugins: cov-6.2.1, anyio-4.2.0
+collecting ... collected 142 items / 1 error
+
+==================================== ERRORS ====================================
+_____ ERROR collecting tests/unit/experiment/test_spike_reconstruction.py ______
+ImportError while importing test module '/Users/nikita/PycharmProjects/driada2/tests/unit/experiment/test_spike_reconstruction.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/anaconda3/lib/python3.12/site-packages/_pytest/python.py:617: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+/opt/anaconda3/lib/python3.12/site-packages/_pytest/pathlib.py:567: in import_path
+    importlib.import_module(module_name)
+/opt/anaconda3/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1387: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1360: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:935: in _load_unlocked
+    ???
+/opt/anaconda3/lib/python3.12/site-packages/_pytest/assertion/rewrite.py:186: in exec_module
+    exec(co, module.__dict__)
+tests/unit/experiment/test_spike_reconstruction.py:6: in <module>
+    from driada.experiment.exp_base import WVT_EVENT_DETECTION_PARAMS
+E   ImportError: cannot import name 'WVT_EVENT_DETECTION_PARAMS' from 'driada.experiment.exp_base' (/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py)
+=========================== short test summary info ============================
+ERROR tests/unit/experiment/test_spike_reconstruction.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+=============================== 1 error in 6.45s ===============================

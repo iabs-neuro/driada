@@ -8,20 +8,73 @@ from .embedding import Embedding
 from .graph import ProximityGraph
 
 
-# TODO: refactor this
 def check_data_for_errors(d, verbose=True):
-    sums = np.sum(np.abs(d), axis=0)
-    if len(sums.nonzero()[1]) != d.shape[1]:
-        bad_points = np.where(sums == 0)[1]
+    """Check data matrix for zero columns which can cause issues in DR methods.
+    
+    Parameters
+    ----------
+    d : np.ndarray or scipy.sparse matrix
+        Data matrix with shape (n_features, n_samples)
+    verbose : bool, default=True
+        Whether to print information about zero points
+        
+    Raises
+    ------
+    ValueError
+        If data contains columns with all zeros
+    """
+    # Handle both dense and sparse matrices
+    if sp.issparse(d):
+        # For sparse matrices, use efficient column sum
+        sums = np.asarray(np.abs(d).sum(axis=0)).flatten()
+    else:
+        # For dense arrays
+        sums = np.sum(np.abs(d), axis=0)
+    
+    # Find zero columns
+    zero_cols = np.where(sums == 0)[0]
+    
+    if len(zero_cols) > 0:
         if verbose:
-            print("zero points:", bad_points)
-            print(d.todense()[:, bad_points[0]])
-        raise Exception("Data contains zero points!")
+            print(f"Found {len(zero_cols)} zero columns at indices: {zero_cols[:10]}")
+            if len(zero_cols) > 10:
+                print(f"... and {len(zero_cols) - 10} more")
+            # Show first zero column if sparse
+            if sp.issparse(d):
+                print(f"Example zero column (index {zero_cols[0]}): {d[:, zero_cols[0]].toarray().flatten()}")
+            else:
+                print(f"Example zero column (index {zero_cols[0]}): {d[:, zero_cols[0]]}")
+        
+        raise ValueError(
+            f"Data contains {len(zero_cols)} zero columns (all values are 0). "
+            f"This can cause issues in dimensionality reduction. "
+            f"Consider removing these columns or adding small noise."
+        )
 
 
 class MVData(object):
     """
     Main class for multivariate data storage & processing
+    
+    Parameters
+    ----------
+    data : array-like
+        Data matrix with shape (n_features, n_samples)
+    labels : array-like, optional
+        Labels for each sample
+    distmat : array-like, optional
+        Precomputed distance matrix
+    rescale_rows : bool, default=False
+        Whether to rescale each row to [0, 1]
+    data_name : str, optional
+        Name for the dataset
+    downsampling : int, optional
+        Downsampling factor
+    verbose : bool, default=False
+        Whether to print progress messages
+    allow_zero_columns : bool, default=False
+        Whether to allow columns with all zero values. If False, raises ValueError
+        when zero columns are detected.
     """
 
     def __init__(
@@ -33,6 +86,7 @@ class MVData(object):
         data_name=None,
         downsampling=None,
         verbose=False,
+        allow_zero_columns=False,
     ):
 
         if downsampling is None:
@@ -41,6 +95,10 @@ class MVData(object):
             self.ds = int(downsampling)
 
         self.data = to_numpy_array(data)[:, :: self.ds]
+        
+        # Check for zero columns that could cause issues
+        if not allow_zero_columns:
+            check_data_for_errors(self.data, verbose=verbose)
 
         # TODO: add support for various preprocessing methods (wvt, med_filt, etc.)
         self.rescale_rows = rescale_rows

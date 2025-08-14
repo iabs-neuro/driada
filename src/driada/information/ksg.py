@@ -1,4 +1,16 @@
-# TODO: Credit to Greg Ver Steeg (http://www.isi.edu/~gregv/npeet.html)
+"""K-nearest neighbor estimators for mutual information and entropy.
+
+This module implements the Kraskov-Stögbauer-Grassberger (KSG) estimator
+and related k-NN based information theoretic measures.
+
+Credits:
+    Original implementation by Greg Ver Steeg
+    http://www.isi.edu/~gregv/npeet.html
+    
+References:
+    Kraskov, A., Stögbauer, H., & Grassberger, P. (2004).
+    Estimating mutual information. Physical Review E, 69(6), 066138.
+"""
 
 import numpy as np
 import numpy.linalg as la

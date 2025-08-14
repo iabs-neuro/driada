@@ -157,8 +157,47 @@ def test_check_data_for_errors_sparse():
     # Create sparse matrix with zero column
     data = sp.csr_matrix([[1, 0, 2], [3, 0, 4], [5, 0, 6]])
 
-    with pytest.raises(Exception, match="Data contains zero points\!"):
+    with pytest.raises(ValueError, match="Data contains 1 zero columns"):
         check_data_for_errors(data)
+
+
+def test_check_data_for_errors_dense():
+    """Test check_data_for_errors with dense array containing zero columns."""
+    # Create dense array with zero columns
+    data = np.array([[1, 0, 2, 0], [3, 0, 4, 0], [5, 0, 6, 0]])
+    
+    with pytest.raises(ValueError, match="Data contains 2 zero columns"):
+        check_data_for_errors(data)
+
+
+def test_check_data_for_errors_valid_data():
+    """Test check_data_for_errors with valid data (no zero columns)."""
+    # Valid data - no zero columns
+    data = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    
+    # Should not raise any exception
+    check_data_for_errors(data)  # No exception means success
+
+
+def test_check_data_for_errors_verbose():
+    """Test check_data_for_errors verbose output."""
+    # Create data with many zero columns
+    data = np.zeros((3, 20))
+    data[:, [0, 5, 10, 15]] = 1  # Only 4 non-zero columns
+    
+    # Test verbose output with capsys
+    with pytest.raises(ValueError, match="Data contains 16 zero columns"):
+        check_data_for_errors(data, verbose=True)
+
+
+def test_mvdata_with_zero_columns():
+    """Test MVData initialization with data containing zero columns."""
+    # Create data with zero columns
+    data = np.array([[1, 0, 2], [3, 0, 4], [5, 0, 6]])
+    
+    # Should raise ValueError due to zero column
+    with pytest.raises(ValueError, match="Data contains 1 zero columns"):
+        MVData(data)
 
 
 def test_mvdata_downsampling():
