@@ -1,3 +1,19 @@
+"""Gaussian Copula Mutual Information (GCMI) implementation.
+
+This module implements mutual information and conditional mutual information
+estimators using the Gaussian copula approach.
+
+Credits:
+    Based on the original GCMI implementation by Robin Ince:
+    https://github.com/robince/gcmi
+    
+    Reference:
+    Ince, R.A.A., Giordano, B.L., Kayser, C., Rousselet, G.A., Gross, J. and 
+    Schyns, P.G. (2017). A statistical framework for neuroimaging data analysis 
+    based on mutual information estimated via a gaussian copula. Human Brain 
+    Mapping, 38(3), 1541-1573.
+"""
+
 import numpy as np
 from numba import njit
 import warnings
@@ -20,8 +36,6 @@ try:
     _JIT_AVAILABLE = True
 except ImportError:
     _JIT_AVAILABLE = False
-
-# TODO: credits to original GCMI: https://github.com/robince/gcmi
 
 
 def ctransform(x):

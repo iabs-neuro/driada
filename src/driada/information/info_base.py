@@ -61,9 +61,44 @@ class TimeSeries:
                 )
                 return False
 
-    # TODO: complete this function
     def _check_input(self):
-        pass
+        """Validate time series data.
+        
+        Checks for:
+        - Valid data type and shape
+        - No NaN or infinite values
+        - Minimum length requirements
+        - Data consistency
+        
+        Raises
+        ------
+        ValueError
+            If data validation fails
+        """
+        # Check data is numpy array
+        if not isinstance(self.data, np.ndarray):
+            raise ValueError("Time series data must be a numpy array")
+            
+        # Check 1D
+        if self.data.ndim != 1:
+            raise ValueError(f"Time series must be 1D, got shape {self.data.shape}")
+            
+        # Check length
+        if len(self.data) < 2:
+            raise ValueError("Time series must have at least 2 points")
+            
+        # Check for NaN or infinite values
+        if np.any(np.isnan(self.data)):
+            raise ValueError("Time series contains NaN values")
+        if np.any(np.isinf(self.data)):
+            raise ValueError("Time series contains infinite values")
+            
+        # Check shuffle mask if provided
+        if hasattr(self, 'shuffle_mask') and self.shuffle_mask is not None:
+            if len(self.shuffle_mask) != len(self.data):
+                raise ValueError("Shuffle mask must have same length as data")
+            if not np.all((self.shuffle_mask == 0) | (self.shuffle_mask == 1)):
+                raise ValueError("Shuffle mask must contain only 0s and 1s")
 
     def _create_type_from_string(self, type_str):
         """Create TimeSeriesType from string shortcut."""
@@ -142,6 +177,10 @@ class TimeSeries:
         """
         self.data = to_numpy_array(data)
         self.name = name
+        self.shuffle_mask = shuffle_mask
+        
+        # Validate input data
+        self._check_input()
 
         # Handle type specification
         if isinstance(ts_type, str):

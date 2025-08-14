@@ -414,8 +414,16 @@ def generate_synthetic_exp_with_mixed_selectivity(
                     mf_name = f"multi{multi_idx}"
                     multifeatures_to_create.append((mf_name, (feat1, feat2)))
                 else:  # 'tuple' convention (deprecated)
-                    # Tuple key for the multifeature
-                    # TODO: this need fixing
+                    # DEPRECATED: Tuple convention will be removed in v2.0
+                    # Use name_convention='str' instead
+                    # The tuple key is duplicated here for backward compatibility
+                    import warnings
+                    warnings.warn(
+                        "Tuple convention for multifeatures is deprecated and will be removed in v2.0. "
+                        "Use name_convention='str' instead.",
+                        DeprecationWarning,
+                        stacklevel=2
+                    )
                     multifeatures_to_create.append(((feat1, feat2), (feat1, feat2)))
 
                 multi_idx += 1

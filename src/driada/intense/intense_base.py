@@ -659,7 +659,9 @@ def scan_pairs(
 
         np.random.seed(seed)
 
-        # TODO: deprecate this branch, it is unnecessary with MultiTimeSeries
+        # DEPRECATED: This joint_distr branch is deprecated and will be removed in v2.0
+        # Use MultiTimeSeries for joint distribution handling instead
+        # TODO: Remove this entire branch in v2.0
         if joint_distr:
             if metric != "mi":
                 raise ValueError("joint_distr mode works with metric = 'mi' only")
