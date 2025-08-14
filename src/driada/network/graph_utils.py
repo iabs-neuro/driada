@@ -2,8 +2,6 @@ import networkx as nx
 import numpy as np
 from copy import deepcopy
 
-from .randomization import *
-
 
 def get_giant_cc_from_graph(G):
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph

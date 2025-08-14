@@ -2,8 +2,19 @@ from sklearn.feature_selection import mutual_info_classif, mutual_info_regressio
 from sklearn.metrics.cluster import mutual_info_score
 import scipy
 
-from .ksg import *
-from .gcmi import *
+from .ksg import (
+    build_tree,
+    nonparam_entropy_c,
+    nonparam_mi_cc,
+)
+from .gcmi import (
+    copnorm,
+    ent_g,
+    mi_gg,
+    mi_model_gd,
+    cmi_ggg,
+    gccmi_ccd,
+)
 from .info_utils import binary_mi_score
 from ..utils.data import correlation_matrix
 from .entropy import entropy_d, joint_entropy_dd, joint_entropy_cd, joint_entropy_cdd

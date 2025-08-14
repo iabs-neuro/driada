@@ -5,8 +5,6 @@ import os
 from os import listdir, remove
 from os.path import isfile, join, splitext
 
-from .plot import *
-
 
 def erase_all(path, signature="", ext=".png"):
     """Delete all files in a directory matching signature and extension.

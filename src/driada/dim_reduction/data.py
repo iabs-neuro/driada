@@ -2,7 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
 
-from .dr_base import *
+from .dr_base import (
+    METHODS_DICT,
+    EMBEDDING_CONSTRUCTION_METHODS,
+    GRAPH_CONSTRUCTION_METHODS,
+    merge_params_with_defaults,
+)
 from ..utils.data import correlation_matrix, to_numpy_array, rescale
 from .embedding import Embedding
 from .graph import ProximityGraph
@@ -249,8 +254,6 @@ class MVData(object):
         # Handle new simplified API
         if method is not None:
             # Merge with defaults
-            from .dr_base import merge_params_with_defaults
-
             params = merge_params_with_defaults(method, method_kwargs)
             e_params = params["e_params"]
             g_params = params["g_params"]

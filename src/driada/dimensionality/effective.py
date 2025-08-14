@@ -1,4 +1,5 @@
-from .utils import *
+from .utils import correct_cov_spectrum, eigh
+import numpy as np
 from scipy.stats import entropy
 import warnings
 from ..utils.data import correlation_matrix

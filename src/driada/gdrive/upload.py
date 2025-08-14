@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 from pydrive2.drive import GoogleDrive
 
-from .gdrive_utils import *
+from .gdrive_utils import id_from_link
 from .download import retrieve_relevant_ids
 
 

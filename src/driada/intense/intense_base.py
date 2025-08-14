@@ -3,9 +3,17 @@ import tqdm
 from joblib import Parallel, delayed
 import multiprocessing
 
-from .stats import *
+from .stats import (
+    populate_nested_dict,
+    get_table_of_stats,
+    criterion1,
+    criterion2,
+    get_all_nonempty_pvals,
+    merge_stage_stats,
+    merge_stage_significance,
+)
 from ..information.info_base import TimeSeries, MultiTimeSeries, get_multi_mi, get_sim
-from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables
+from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables, add_names_to_nested_dict
 
 # Configure joblib backend to avoid PyTorch forking issues
 try:

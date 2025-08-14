@@ -16,8 +16,11 @@ import scipy.sparse as sp
 import networkx as nx
 import tqdm
 
-from .graph_utils import *
-from .matrix_utils import *
+from .matrix_utils import (
+    symmetric_component,
+    turn_to_partially_directed,
+    non_symmetric_component,
+)
 
 
 def _validate_adjacency_matrix(

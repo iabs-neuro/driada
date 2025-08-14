@@ -1,7 +1,8 @@
-from ..utils.plot import *
-from .matrix_utils import *
+from ..utils.plot import create_default_figure
+from .matrix_utils import get_laplacian, get_norm_laplacian
 import numpy as np
 import networkx as nx
+import matplotlib.pyplot as plt
 from itertools import combinations
 from matplotlib import cm
 import matplotlib as mpl

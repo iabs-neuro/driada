@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from scipy.stats import *
+from scipy.stats import lognorm, gamma, rankdata
 from ..utils.data import populate_nested_dict
 
 
