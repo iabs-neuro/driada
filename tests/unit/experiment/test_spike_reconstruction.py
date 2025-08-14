@@ -3,8 +3,8 @@
 import pytest
 import numpy as np
 from driada.experiment.synthetic import generate_synthetic_exp
-from driada.experiment.exp_base import WVT_EVENT_DETECTION_PARAMS
 from driada.experiment.wavelet_event_detection import (
+    WVT_EVENT_DETECTION_PARAMS,
     extract_wvt_events,
     events_to_ts_array,
 )

@@ -293,7 +293,9 @@ class TimeSeries:
 
     def _compute_kdtree_query(self, k=DEFAULT_NN):
         tree = self.get_kdtree()
-        return tree.query(self.data, k=k + 1)
+        # Reshape data for query - KDTree expects 2D
+        d = self.data.reshape(self.data.shape[0], -1)
+        return tree.query(d, k=k + 1)
 
     def get_entropy(self, ds=1):
         if ds not in self.entropy.keys():
@@ -462,6 +464,9 @@ class MultiTimeSeries(MVData):
             # Store provided shuffle_mask for later use
             self._provided_shuffle_mask = shuffle_mask
 
+        # Store allow_zero_columns for later use (e.g., in filter method)
+        self.allow_zero_columns = allow_zero_columns
+        
         # Initialize MVData parent class
         super().__init__(
             data,
@@ -601,6 +606,7 @@ class MultiTimeSeries(MVData):
                 data_name=self.data_name,
                 discrete=self.discrete,
                 shuffle_mask=self.shuffle_mask.copy(),
+                allow_zero_columns=self.allow_zero_columns,  # Inherit from original
             )
 
         if self.discrete:
@@ -619,6 +625,7 @@ class MultiTimeSeries(MVData):
             data_name=self.data_name,
             discrete=self.discrete,
             shuffle_mask=self.shuffle_mask.copy(),
+            allow_zero_columns=self.allow_zero_columns,  # Inherit from original
         )
 
 

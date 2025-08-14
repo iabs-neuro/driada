@@ -220,7 +220,7 @@ class TestTimeSeriesKDTree:
 
     def test_get_kdtree_query(self):
         """Test KDTree query caching."""
-        data = np.random.randn(150).reshape(-1, 1)  # Need 2D for KDTree
+        data = np.random.randn(150)  # TimeSeries expects 1D data
         ts = TimeSeries(data)
 
         # Initially None
@@ -237,7 +237,7 @@ class TestTimeSeriesKDTree:
 
     def test_compute_kdtree_query(self):
         """Test _compute_kdtree_query method."""
-        data = np.random.randn(100).reshape(-1, 1)  # Need 2D for KDTree
+        data = np.random.randn(100)  # TimeSeries expects 1D data
         ts = TimeSeries(data)
 
         # This should create the tree if needed

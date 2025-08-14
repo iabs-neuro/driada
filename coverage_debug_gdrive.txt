@@ -1,104 +1,63 @@
 ============================= test session starts ==============================
-platform darwin -- Python 3.12.7, pytest-7.4.4, pluggy-1.6.0 -- /opt/anaconda3/bin/python
+platform darwin -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /opt/anaconda3/envs/driada/bin/python
 cachedir: .pytest_cache
 rootdir: /Users/nikita/PycharmProjects/driada2
 configfile: pytest.ini
-plugins: cov-6.2.1, anyio-4.2.0
+plugins: timeout-2.4.0, cov-6.2.1
 collecting ... collected 8 items
 
-tests/unit/gdrive/test_download.py::test_download FAILED                 [ 12%]
-tests/unit/gdrive/test_download.py::test_download_redflag FAILED         [ 25%]
-tests/unit/gdrive/test_download.py::test_download_extension FAILED       [ 37%]
-tests/unit/gdrive/test_download.py::test_download_whitelist FAILED       [ 50%]
+tests/unit/gdrive/test_download.py::test_download PASSED                 [ 12%]
+tests/unit/gdrive/test_download.py::test_download_redflag PASSED         [ 25%]
+tests/unit/gdrive/test_download.py::test_download_extension PASSED       [ 37%]
+tests/unit/gdrive/test_download.py::test_download_whitelist PASSED       [ 50%]
 tests/unit/gdrive/test_download.py::TestGDriveModuleImports::test_import_auth PASSED [ 62%]
 tests/unit/gdrive/test_download.py::TestGDriveModuleImports::test_import_upload PASSED [ 75%]
 tests/unit/gdrive/test_download.py::TestGDriveModuleImports::test_import_gdrive_utils PASSED [ 87%]
 tests/unit/gdrive/test_download.py::TestGDriveModuleImports::test_download_functions PASSED [100%]
 
-=================================== FAILURES ===================================
-________________________________ test_download _________________________________
-tests/unit/gdrive/test_download.py:19: in wrapper
-    return func(*args, **kwargs)
-tests/unit/gdrive/test_download.py:57: in test_download
-    return_code, filenames, load_log = download_part_of_folder(
-src/driada/gdrive/download.py:86: in download_part_of_folder
-    os.makedirs(output, exist_ok=True)
-E   NameError: name 'os' is not defined. Did you forget to import 'os'
------------------------------ Captured stdout call -----------------------------
-/Users/nikita/PycharmProjects/driada2/test dir
-____________________________ test_download_redflag _____________________________
-tests/unit/gdrive/test_download.py:19: in wrapper
-    return func(*args, **kwargs)
-tests/unit/gdrive/test_download.py:73: in test_download_redflag
-    return_code, filenames, load_log = download_part_of_folder(
-src/driada/gdrive/download.py:86: in download_part_of_folder
-    os.makedirs(output, exist_ok=True)
-E   NameError: name 'os' is not defined. Did you forget to import 'os'
------------------------------ Captured stdout call -----------------------------
-/Users/nikita/PycharmProjects/driada2/test dir
-___________________________ test_download_extension ____________________________
-tests/unit/gdrive/test_download.py:19: in wrapper
-    return func(*args, **kwargs)
-tests/unit/gdrive/test_download.py:89: in test_download_extension
-    return_code, filenames, load_log = download_part_of_folder(
-src/driada/gdrive/download.py:86: in download_part_of_folder
-    os.makedirs(output, exist_ok=True)
-E   NameError: name 'os' is not defined. Did you forget to import 'os'
------------------------------ Captured stdout call -----------------------------
-/Users/nikita/PycharmProjects/driada2/test dir
-___________________________ test_download_whitelist ____________________________
-tests/unit/gdrive/test_download.py:19: in wrapper
-    return func(*args, **kwargs)
-tests/unit/gdrive/test_download.py:105: in test_download_whitelist
-    return_code, filenames, load_log = download_part_of_folder(
-src/driada/gdrive/download.py:86: in download_part_of_folder
-    os.makedirs(output, exist_ok=True)
-E   NameError: name 'os' is not defined. Did you forget to import 'os'
------------------------------ Captured stdout call -----------------------------
-/Users/nikita/PycharmProjects/driada2/test dir
 ================================ tests coverage ================================
-_______________ coverage: platform darwin, python 3.12.7-final-0 _______________
+______________ coverage: platform darwin, python 3.10.18-final-0 _______________
 
 Name                                                       Stmts   Miss Branch BrPart  Cover   Missing
 ------------------------------------------------------------------------------------------------------
-src/driada/dimensionality/effective.py                        26     26     12      0  0.00%   1-47
+src/driada/dimensionality/effective.py                        27     27     12      0  0.00%   1-48
 src/driada/dimensionality/intrinsic.py                       119    119     48      0  0.00%   8-403
 src/driada/dimensionality/linear.py                           54     54     16      0  0.00%   8-218
 src/driada/dimensionality/utils.py                            42     42      8      0  0.00%   1-91
 src/driada/integration/selectivity_mapper.py                 123    123     60      0  0.00%   8-428
+src/driada/network/drawing.py                                134    134     54      0  0.00%   1-225
+src/driada/network/quantum.py                                 40     40      8      0  0.00%   1-69
 src/driada/intense/pipelines.py                              287    279    170      0  1.75%   192-467, 577-701, 812-938, 1038-1173
 src/driada/utils/visual.py                                   283    271    134      0  2.88%   63-270, 304-405, 448-546, 591-681, 718-778, 811-858
 src/driada/experiment/synthetic/experiment_generators.py     276    263    146      0  3.08%   100-216, 254-338, 433-1037
 src/driada/intense/disentanglement.py                        148    140     72      0  3.64%   59-122, 183-280, 304-319, 348-406
 src/driada/intense/visual.py                                 236    224     70      0  3.92%   30-66, 112-174, 218-292, 364-424, 466-549, 605-754
-src/driada/intense/intense_base.py                           410    384    220      0  4.13%   17-19, 40-85, 112-140, 167-177, 240-262, 321-353, 430-510, 579-722, 786-841, 907-938, 974, 978, 982-983, 987-988, 1157-1482, 1531-1572
-src/driada/network/randomization.py                          311    293     94      0  4.44%   40-50, 94-250, 286-339, 371-412, 431-444, 471-640, 709-737
-src/driada/experiment/synthetic/mixed_selectivity.py         141    131     80      0  4.52%   56-92, 128-205, 243-281, 361-508
+src/driada/intense/intense_base.py                           410    384    220      0  4.13%   25-27, 48-93, 120-148, 175-185, 248-270, 329-361, 438-518, 587-732, 796-851, 917-948, 984, 988, 992-993, 997-998, 1167-1492, 1541-1582
+src/driada/network/randomization.py                          310    293     94      0  4.21%   43-53, 97-253, 289-342, 374-415, 434-447, 474-643, 712-740
+src/driada/experiment/synthetic/mixed_selectivity.py         143    133     80      0  4.48%   56-92, 128-205, 243-281, 361-516
 src/driada/utils/naming.py                                    13     12      6      0  5.26%   2-27
-src/driada/rsa/core.py                                       164    149     84      0  6.05%   43-80, 112-140, 176-231, 253-279, 324-364, 438-505, 566-618
+src/driada/rsa/core.py                                       164    148     84      0  6.45%   47-84, 116-143, 179-234, 256-282, 327-367, 441-508, 569-621
 src/driada/experiment/synthetic/manifold_spatial_3d.py       108     98     46      0  6.49%   39-66, 89-105, 152-207, 275-328, 402-496
 src/driada/rsa/core_jit.py                                    95     85     58      0  6.54%   26-106, 128-142, 160-173, 191-203
-src/driada/dim_reduction/manifold_metrics.py                 311    284     98      0  6.60%   39-43, 77-102, 126-160, 184-218, 249-280, 302-312, 335-385, 412-445, 476-503, 524-525, 541-543, 559-568, 600-637, 658-679, 717-767, 793-814, 851-886, 908-948, 982-1012, 1046-1074, 1108-1153
+src/driada/dim_reduction/manifold_metrics.py                 313    286     98      0  6.57%   39-43, 77-102, 126-160, 184-218, 249-280, 302-312, 335-385, 417-460, 491-518, 539-540, 556-558, 574-583, 615-652, 673-693, 731-781, 807-828, 865-900, 922-962, 996-1026, 1060-1088, 1122-1167
 src/driada/rsa/visual.py                                      78     71     28      0  6.60%   53-155, 186-224
 src/driada/utils/spatial.py                                  213    194     74      0  6.62%   60-93, 129-162, 195-232, 256-274, 300-336, 380-421, 450-494, 522-548, 576-603, 652-725, 754-780
-src/driada/information/gcmi.py                               250    227     78      0  7.01%   21-22, 32-47, 56-70, 88-98, 122-139, 150-181, 201-246, 266-327, 339-377, 397-464, 479-530
+src/driada/experiment/exp_base.py                            464    414    268      0  6.83%   57-92, 120-297, 302-308, 316-326, 333-360, 367-380, 388-431, 438-479, 489-492, 498-505, 511-541, 547-559, 566-580, 587-605, 619-643, 652-660, 679-693, 705-713, 724-731, 738-745, 772-803, 830-867, 881-900, 905, 937-995, 1019-1044, 1069-1095, 1101-1102, 1105-1110, 1113, 1116, 1119-1120, 1142-1154, 1177-1185, 1219-1241, 1245
+src/driada/information/gcmi.py                               250    227     78      0  7.01%   37-38, 46-61, 70-84, 102-112, 136-153, 164-195, 215-260, 280-341, 353-391, 411-478, 493-544
+src/driada/dim_reduction/graph.py                            242    218     90      0  7.23%   26-76, 83-96, 99-100, 103-116, 121-139, 142-200, 203-215, 219-275, 279-385, 390-397, 460-546
 src/driada/experiment/synthetic/manifold_spatial_2d.py        98     88     40      0  7.25%   39-66, 88-95, 142-193, 260-313, 380-471
-src/driada/experiment/exp_base.py                            441    391    244      0  7.30%   57-92, 120-291, 296-301, 309-319, 326-353, 360-373, 381-424, 431-472, 482-485, 491-498, 504-534, 540-552, 559-573, 580-597, 611-634, 643-651, 670-683, 695-703, 714-720, 727-733, 757-780, 804-833, 847-866, 871, 903-961, 985-1010, 1035-1061, 1067-1068, 1071-1076, 1079, 1082, 1085-1086, 1108-1120, 1143-1151, 1185-1207, 1211
+src/driada/information/info_base.py                          455    406    220      0  7.26%   46-73, 90-112, 116-151, 189-274, 277-281, 284-285, 288-292, 295-296, 299-301, 304-313, 336-354, 397-409, 432-523, 528, 531-548, 551-553, 556-575, 593-615, 626-629, 634-641, 669-744, 770-876, 906-1021, 1025-1030, 1036-1047, 1080-1090, 1134-1240, 1279-1295
 src/driada/experiment/exp_build.py                           119    105     72      0  7.33%   26-143, 164-233, 237-240, 244-250
 src/driada/information/gcmi_jit_utils.py                     206    186     66      0  7.35%   25-53, 72-78, 98-143, 164-165, 182-188, 211-270, 297-397, 416-432, 454-467
-src/driada/information/info_base.py                          439    390    204      0  7.62%   35-62, 66, 70-105, 143-224, 227-231, 234-235, 238-242, 245-246, 249-251, 254-263, 286-304, 347-359, 381-471, 476, 479-496, 499-501, 504-523, 541-563, 574-577, 582-589, 617-692, 718-824, 854-969, 973-978, 984-995, 1028-1038, 1082-1188, 1227-1243
-src/driada/dim_reduction/graph.py                            232    208     72      0  7.89%   26-74, 81-94, 97-98, 101-113, 118-136, 139-197, 200-212, 216-271, 275-374, 379-386, 449-535
-src/driada/network/net_base.py                               385    340    172      0  8.08%   21-33, 40-41, 45-49, 53-65, 73-92, 114-174, 180-228, 235-301, 304-305, 309-341, 345-368, 371-384, 387-406, 409-415, 418-424, 427-433, 436-442, 460-533, 538-567, 570-582, 586-599, 602-604, 607-609, 612-614, 617-619, 622-626, 629-639, 642-670
-src/driada/dim_reduction/embedding.py                        313    280     74      0  8.53%   18-20, 27-30, 34-38, 47-72, 75-87, 90-95, 99-106, 110-124, 127-148, 151-153, 156-160, 163-184, 187-202, 218-285, 293-311, 314-316, 319-325, 351-569, 593-713, 718-722, 745-752
-src/driada/network/drawing.py                                133    117     54      0  8.56%   13-58, 62-73, 77-80, 93-149, 153-177, 181-194, 199-224
+src/driada/dim_reduction/embedding.py                        328    294     82      0  8.29%   19-21, 29-33, 42-67, 70-81, 84-89, 93-100, 104-118, 121-142, 145-147, 150-154, 157-178, 181-196, 212-279, 287-305, 308-310, 313-319, 345-571, 595-743, 748-752, 775-782
+src/driada/network/net_base.py                               387    340    172      0  8.41%   44-56, 63-64, 68-72, 76-88, 96-115, 137-196, 202-250, 257-323, 326-327, 331-363, 367-390, 393-406, 409-428, 431-437, 440-446, 449-455, 458-464, 482-555, 560-589, 592-604, 608-621, 624-626, 629-631, 634-636, 639-641, 644-648, 651-661, 664-692
+src/driada/dim_reduction/data.py                             128    111     66      0  8.76%   32-53, 97-124, 127-141, 158-163, 180-212, 255-335, 338-343, 346-348, 351-353
 src/driada/experiment/synthetic/utils.py                       7      6      4      0  9.09%   28-37
-src/driada/gdrive/download.py                                102     88     46      0  9.46%   22-71, 88-130, 143-204, 208-233
 src/driada/utils/signals.py                                   82     71     34      0  9.48%   81-98, 156-177, 218-289, 313-320, 339-359
 src/driada/network/matrix_utils.py                           203    178     60      0  9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-225, 229-236, 240-251, 255-263, 268-272, 276-283, 287-296, 300-307, 311-314, 318-321
 src/driada/information/time_series_types.py                  231    198    116      0  9.51%   35, 39, 43, 47, 78-133, 152-219, 226-259, 266-348, 356-449, 461-487, 498-502, 514-536, 559-563
-src/driada/utils/data.py                                     155    133     74      0  9.61%   34-52, 56-60, 64-85, 90-106, 112-141, 145-147, 164-177, 181-184, 188-198, 216-238, 250-252, 264-267, 271-277, 289-306, 320-351
+src/driada/utils/data.py                                     157    135     74      0  9.52%   34-52, 56-60, 64-85, 90-106, 112-141, 145-147, 164-177, 181-184, 188-198, 216-238, 250-252, 294-305, 309-315, 327-344, 358-389
 src/driada/experiment/synthetic/time_series.py                79     69     24      0  9.71%   33-80, 101-117, 137-151, 174-184, 203-228, 247-258
-src/driada/dim_reduction/data.py                             116     99     54      0 10.00%   13-18, 36-58, 61-75, 92-97, 114-146, 189-267, 270-275, 278-280, 283-285
 src/driada/experiment/synthetic/manifold_circular.py          73     63     24      0 10.31%   33-45, 68-69, 113-145, 204-255, 312-402
 src/driada/network/spectral.py                                30     26      8      0 10.53%   6-8, 24-37, 41-55
 src/driada/experiment/synthetic/core.py                       39     33     16      0 10.91%   36-46, 73-114, 154-171
@@ -112,29 +71,25 @@ src/driada/experiment/wavelet_event_detection.py             154    130     40  
 src/driada/information/info_utils.py                          41     34      8      0 14.29%   7-38, 43-71, 75-99
 src/driada/utils/matrix.py                                    24     20      4      0 14.29%   17-45, 50-54
 src/driada/dim_reduction/sequences.py                         22     17     12      0 14.71%   67-101
-src/driada/information/ksg.py                                 87     71     20      0 14.95%   18, 23, 27-30, 34, 42-45, 53-71, 81-89, 96-99, 117-157, 161-180
+src/driada/information/ksg.py                                 87     71     20      0 14.95%   30, 35, 39-42, 46, 54-57, 65-83, 93-101, 108-111, 129-169, 173-192
+src/driada/network/graph_utils.py                             47     38     12      0 15.25%   8-17, 22-34, 38-41, 45-49, 53-55, 59-81
 src/driada/experiment/spike_reconstruction.py                 48     39      8      0 16.07%   49-62, 91-122, 154-206
 src/driada/dim_reduction/dr_base.py                           82     61     46      0 16.41%   191-215, 223-238, 247-256, 277-339
-src/driada/gdrive/gdrive_utils.py                             73     56     30      0 16.50%   25-28, 31, 61-105, 135-194, 198-204
-src/driada/network/graph_utils.py                             48     38     12      0 16.67%   10-19, 24-36, 40-43, 47-51, 55-57, 61-83
 src/driada/gdrive/upload.py                                   37     29     10      0 17.02%   11-15, 28-69
-src/driada/network/quantum.py                                 39     31      8      0 17.02%   8-27, 31-40, 44-46, 50-68
-src/driada/experiment/neuron.py                              156    121     36      0 18.23%   36-37, 41-44, 49-50, 55-59, 72-107, 110, 113-118, 121-123, 126-135, 138-141, 144-147, 154-167, 170-177, 181-194, 197-210, 213-221, 224-233, 236-262
-src/driada/utils/gif.py                                       37     27     14      0 19.61%   23-31, 46-55, 83-110
+src/driada/experiment/neuron.py                              172    135     38      0 17.62%   74-75, 79-82, 105-106, 128-131, 144-179, 196-215, 220-225, 228-230, 233-242, 245-248, 251-254, 261-276, 295-302, 306-319, 322-335, 338-354, 378-387, 390-424
+src/driada/utils/gif.py                                       36     27     14      0 18.00%   21-29, 44-53, 81-108
 src/driada/information/entropy.py                             55     41     14      0 20.29%   18-19, 42-52, 68, 89-101, 125-139, 161-173, 198-201, 224-227
 src/driada/dim_reduction/neural.py                           131    100     24      1 20.65%   12-15, 21-42, 45-55, 62-83, 86-93, 99-120, 123-132, 138-157, 160-162, 165-167, 181-200, 207-210, 213-227, 231-235, 239-240, 248-249, 252, 255-263
 src/driada/experiment/wavelet_ridge.py                        66     50      4      0 22.86%   26-27, 34-56, 59-65, 68, 71-82, 87-99, 103-107
 src/driada/gdrive/auth.py                                     13     10      0      0 23.08%   5-9, 13-19
-src/driada/utils/output.py                                    16     10      4      0 30.00%   7-9, 12-14, 18-22
 src/driada/utils/jit.py                                       27     17      4      1 35.48%   20-30, 63-66, 74, 79-85
+src/driada/gdrive/download.py                                103     62     46      6 39.60%   34, 43, 64, 75-76, 98-119, 136, 151-212, 216-241
+src/driada/gdrive/gdrive_utils.py                             73     35     30      3 41.75%   31, 64, 68->81, 77-78, 82, 135-194, 198-204
+src/driada/utils/output.py                                    16      4      4      0 60.00%   18-22
 ------------------------------------------------------------------------------------------------------
-TOTAL                                                       8646   7709   3472      3  7.76%
+TOTAL                                                       8747   7777   3552     12  8.10%
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-=========================== short test summary info ============================
-FAILED tests/unit/gdrive/test_download.py::test_download - NameError: name 'o...
-FAILED tests/unit/gdrive/test_download.py::test_download_redflag - NameError:...
-FAILED tests/unit/gdrive/test_download.py::test_download_extension - NameErro...
-FAILED tests/unit/gdrive/test_download.py::test_download_whitelist - NameErro...
-========================= 4 failed, 4 passed in 11.64s =========================
+========================= 8 passed in 62.63s (0:01:02) =========================
+

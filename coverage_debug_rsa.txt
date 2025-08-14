@@ -8,7 +8,7 @@ collecting ... collected 32 items
 
 tests/unit/rsa/test_rsa_core.py::TestComputeRDM::test_compute_rdm_basic PASSED [  3%]
 tests/unit/rsa/test_rsa_core.py::TestComputeRDM::test_compute_rdm_with_mvdata PASSED [  6%]
-tests/unit/rsa/test_rsa_core.py::TestComputeRDM::test_compute_rdm_euclidean PASSED [  9%]
+tests/unit/rsa/test_rsa_core.py::TestComputeRDM::test_compute_rdm_euclidean FAILED [  9%]
 tests/unit/rsa/test_rsa_core.py::TestComputeRDM::test_compute_rdm_from_timeseries_labels PASSED [ 12%]
 tests/unit/rsa/test_rsa_core.py::TestComputeRDM::test_compute_rdm_from_trials PASSED [ 15%]
 tests/unit/rsa/test_rsa_core.py::TestCompareRDMs::test_compare_rdms_identical PASSED [ 18%]
@@ -19,8 +19,8 @@ tests/unit/rsa/test_rsa_core.py::TestUnifiedAPI::test_unified_with_numpy_pattern
 tests/unit/rsa/test_rsa_core.py::TestUnifiedAPI::test_unified_with_numpy_timeseries PASSED [ 34%]
 tests/unit/rsa/test_rsa_core.py::TestUnifiedAPI::test_unified_with_mvdata PASSED [ 37%]
 tests/unit/rsa/test_rsa_core.py::TestUnifiedAPI::test_unified_with_trial_structure PASSED [ 40%]
-tests/unit/rsa/test_rsa_core.py::TestJITFunctions::test_jit_euclidean_distance PASSED [ 43%]
-tests/unit/rsa/test_rsa_core.py::TestJITFunctions::test_jit_manhattan_distance PASSED [ 46%]
+tests/unit/rsa/test_rsa_core.py::TestJITFunctions::test_jit_euclidean_distance FAILED [ 43%]
+tests/unit/rsa/test_rsa_core.py::TestJITFunctions::test_jit_manhattan_distance FAILED [ 46%]
 tests/unit/rsa/test_rsa_core.py::TestJITFunctions::test_jit_average_patterns PASSED [ 50%]
 tests/unit/rsa/test_rsa_core.py::TestMVDataMetrics::test_mvdata_euclidean_metric PASSED [ 53%]
 tests/unit/rsa/test_rsa_core.py::TestMVDataMetrics::test_mvdata_cosine_metric PASSED [ 56%]
@@ -39,81 +39,117 @@ tests/unit/rsa/test_rsa_core.py::TestRSACompare::test_rsa_compare_mixed_types_er
 tests/unit/rsa/test_rsa_core.py::TestRSACompare::test_rsa_compare_different_metrics PASSED [ 96%]
 tests/unit/rsa/test_rsa_core.py::TestRSACompare::test_rsa_compare_different_comparisons PASSED [100%]
 
+=================================== FAILURES ===================================
+__________________ TestComputeRDM.test_compute_rdm_euclidean ___________________
+tests/unit/rsa/test_rsa_core.py:82: in test_compute_rdm_euclidean
+    rdm = core.compute_rdm(patterns, metric="euclidean")
+src/driada/rsa/core.py:49: in compute_rdm
+    mvdata = MVData(patterns.T)
+src/driada/dim_reduction/data.py:106: in __init__
+    check_data_for_errors(self.data, verbose=verbose)
+src/driada/dim_reduction/data.py:53: in check_data_for_errors
+    raise ValueError(
+E   ValueError: Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
+_________________ TestJITFunctions.test_jit_euclidean_distance _________________
+tests/unit/rsa/test_rsa_core.py:296: in test_jit_euclidean_distance
+    rdm = core.compute_rdm(patterns, metric="euclidean")
+src/driada/rsa/core.py:49: in compute_rdm
+    mvdata = MVData(patterns.T)
+src/driada/dim_reduction/data.py:106: in __init__
+    check_data_for_errors(self.data, verbose=verbose)
+src/driada/dim_reduction/data.py:53: in check_data_for_errors
+    raise ValueError(
+E   ValueError: Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
+_________________ TestJITFunctions.test_jit_manhattan_distance _________________
+tests/unit/rsa/test_rsa_core.py:321: in test_jit_manhattan_distance
+    rdm = core.compute_rdm(patterns, metric="manhattan")
+src/driada/rsa/core.py:49: in compute_rdm
+    mvdata = MVData(patterns.T)
+src/driada/dim_reduction/data.py:106: in __init__
+    check_data_for_errors(self.data, verbose=verbose)
+src/driada/dim_reduction/data.py:53: in check_data_for_errors
+    raise ValueError(
+E   ValueError: Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
 ================================ tests coverage ================================
 ______________ coverage: platform darwin, python 3.10.18-final-0 _______________
 
 Name                                                       Stmts   Miss Branch BrPart   Cover   Missing
 -------------------------------------------------------------------------------------------------------
-src/driada/dimensionality/effective.py                        26     26     12      0   0.00%   1-43
-src/driada/dimensionality/intrinsic.py                       120    120     48      0   0.00%   8-389
+src/driada/dimensionality/effective.py                        27     27     12      0   0.00%   1-48
+src/driada/dimensionality/intrinsic.py                       119    119     48      0   0.00%   8-403
 src/driada/dimensionality/linear.py                           54     54     16      0   0.00%   8-218
-src/driada/dimensionality/utils.py                            44     44      8      0   0.00%   1-91
-src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-18
-src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-61
-src/driada/integration/selectivity_mapper.py                 125    125     60      0   0.00%   8-392
-src/driada/intense/pipelines.py                              287    279    170      0   1.75%   191-430, 538-662, 771-892, 990-1115
-src/driada/utils/visual.py                                   285    271    134      0   3.34%   65-241, 275-361, 404-492, 537-623, 660-709, 742-788
-src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 177-267, 291-304, 332-391
-src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-54, 89-142, 177-227, 289-345, 381-455, 503-620
-src/driada/intense/intense_base.py                           412    384    220      0   4.43%   18-20, 41-72, 97-124, 149-159, 215-235, 293-322, 390-461, 529-643, 705-753, 817-844, 879, 883, 887-888, 892-893, 1061-1348, 1397-1436
-src/driada/experiment/synthetic/mixed_selectivity.py         137    127     80      0   4.61%   48-84, 111-186, 214-246, 314-440
-src/driada/network/randomization.py                          312    293     94      0   4.68%   42-52, 96-233, 269-320, 352-391, 408-421, 448-602, 671-702
+src/driada/dimensionality/utils.py                            42     42      8      0   0.00%   1-91
+src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-19
+src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-69
+src/driada/integration/selectivity_mapper.py                 123    123     60      0   0.00%   8-428
+src/driada/network/drawing.py                                134    134     54      0   0.00%   1-225
+src/driada/network/quantum.py                                 40     40      8      0   0.00%   1-69
+src/driada/intense/pipelines.py                              287    279    170      0   1.75%   192-467, 577-701, 812-938, 1038-1173
+src/driada/utils/visual.py                                   283    271    134      0   2.88%   63-270, 304-405, 448-546, 591-681, 718-778, 811-858
+src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 183-280, 304-319, 348-406
+src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-66, 112-174, 218-292, 364-424, 466-549, 605-754
+src/driada/intense/intense_base.py                           410    384    220      0   4.13%   25-27, 48-93, 120-148, 175-185, 248-270, 329-361, 438-518, 587-732, 796-851, 917-948, 984, 988, 992-993, 997-998, 1167-1492, 1541-1582
+src/driada/network/randomization.py                          310    293     94      0   4.21%   43-53, 97-253, 289-342, 374-415, 434-447, 474-643, 712-740
+src/driada/experiment/synthetic/mixed_selectivity.py         143    133     80      0   4.48%   56-92, 128-205, 243-281, 361-516
 src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
-src/driada/experiment/synthetic/manifold_spatial_3d.py       108     98     46      0   6.49%   37-64, 87-103, 143-196, 253-301, 364-470
-src/driada/dim_reduction/manifold_metrics.py                 311    284     98      0   6.60%   39-43, 77-102, 130-164, 192-226, 257-288, 314-324, 349-399, 429-462, 493-523, 543-544, 560-562, 578-587, 618-653, 676-695, 733-782, 810-828, 865-896, 916-954, 988-1014, 1048-1074, 1108-1147
-src/driada/utils/spatial.py                                  214    194     74      0   6.94%   61-93, 129-160, 193-228, 253-271, 299-332, 376-415, 444-490, 518-544, 572-599, 648-720, 749-777
-src/driada/experiment/synthetic/manifold_spatial_2d.py        98     88     40      0   7.25%   37-64, 86-93, 133-182, 238-286, 341-440
-src/driada/experiment/exp_build.py                           119    105     72      0   7.33%   24-125, 144-208, 212-215, 219-223
-src/driada/dim_reduction/graph.py                            232    208     72      0   7.89%   26-65, 72-85, 88-89, 92-102, 105-117, 120-166, 169-179, 183-224, 228-315, 320-325, 386-459
-src/driada/network/net_base.py                               385    340    172      0   8.08%   21-29, 34-35, 39-43, 47-57, 63-78, 98-155, 163-203, 213-270, 273-274, 278-309, 313-330, 333-346, 349-368, 371-377, 380-386, 389-395, 398-404, 422-489, 494-517, 520-530, 534-545, 548-550, 553-555, 558-560, 563-565, 568-572, 575-585, 588-614
-src/driada/rsa/visual.py                                      80     71     28      0   8.33%   55-141, 172-210
-src/driada/network/drawing.py                                133    117     54      0   8.56%   13-54, 57-68, 72-75, 80-131, 135-157, 161-174, 179-203
-src/driada/experiment/synthetic/utils.py                       7      6      4      0   9.09%   27-34
-src/driada/information/gcmi.py                               251    223     78      2   9.12%   16-17, 26-41, 59-64, 82-92, 116-133, 144-170, 190-233, 253-314, 326-360, 379-442, 457-508
-src/driada/gdrive/download.py                                103     89     46      0   9.40%   21-59, 73-111, 122-170, 174-193
-src/driada/dim_reduction/embedding.py                        276    243     72      0   9.48%   17-19, 25-28, 32-36, 45-70, 73-82, 85-90, 94-100, 104-116, 120-126, 129-131, 134-138, 141-162, 165-173, 176, 179-195, 198-200, 203-208, 221-408, 418-514, 519-523, 546-553
-src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 155-176, 215-286, 308-315, 334-354
-src/driada/network/matrix_utils.py                           203    178     60      0   9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-223, 227-234, 238-249, 253-261, 266-270, 274-281, 285-292, 296-303, 307-310, 314-317
-src/driada/dim_reduction/mvu.py                               61     53     20      0   9.88%   22-29, 40-109, 122-146
-src/driada/experiment/synthetic/manifold_circular.py          73     63     24      0  10.31%   33-45, 68-69, 107-139, 190-237, 285-376
+src/driada/experiment/synthetic/manifold_spatial_3d.py       108     98     46      0   6.49%   39-66, 89-105, 152-207, 275-328, 402-496
+src/driada/dim_reduction/manifold_metrics.py                 313    286     98      0   6.57%   39-43, 77-102, 126-160, 184-218, 249-280, 302-312, 335-385, 417-460, 491-518, 539-540, 556-558, 574-583, 615-652, 673-693, 731-781, 807-828, 865-900, 922-962, 996-1026, 1060-1088, 1122-1167
+src/driada/rsa/visual.py                                      78     71     28      0   6.60%   53-155, 186-224
+src/driada/utils/spatial.py                                  213    194     74      0   6.62%   60-93, 129-162, 195-232, 256-274, 300-336, 380-421, 450-494, 522-548, 576-603, 652-725, 754-780
+src/driada/dim_reduction/graph.py                            242    218     90      0   7.23%   26-76, 83-96, 99-100, 103-116, 121-139, 142-200, 203-215, 219-275, 279-385, 390-397, 460-546
+src/driada/experiment/synthetic/manifold_spatial_2d.py        98     88     40      0   7.25%   39-66, 88-95, 142-193, 260-313, 380-471
+src/driada/experiment/exp_build.py                           119    105     72      0   7.33%   26-143, 164-233, 237-240, 244-250
+src/driada/dim_reduction/embedding.py                        328    294     82      0   8.29%   19-21, 29-33, 42-67, 70-81, 84-89, 93-100, 104-118, 121-142, 145-147, 150-154, 157-178, 181-196, 212-279, 287-305, 308-310, 313-319, 345-571, 595-743, 748-752, 775-782
+src/driada/network/net_base.py                               387    340    172      0   8.41%   44-56, 63-64, 68-72, 76-88, 96-115, 137-196, 202-250, 257-323, 326-327, 331-363, 367-390, 393-406, 409-428, 431-437, 440-446, 449-455, 458-464, 482-555, 560-589, 592-604, 608-621, 624-626, 629-631, 634-636, 639-641, 644-648, 651-661, 664-692
+src/driada/information/gcmi.py                               250    223     78      2   8.84%   37-38, 46-61, 79-84, 102-112, 136-153, 164-195, 215-260, 280-341, 353-391, 411-478, 493-544
+src/driada/experiment/synthetic/utils.py                       7      6      4      0   9.09%   28-37
+src/driada/gdrive/download.py                                103     89     46      0   9.40%   30-79, 94-138, 151-212, 216-241
+src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 156-177, 218-289, 313-320, 339-359
+src/driada/network/matrix_utils.py                           203    178     60      0   9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-225, 229-236, 240-251, 255-263, 268-272, 276-283, 287-296, 300-307, 311-314, 318-321
+src/driada/experiment/synthetic/manifold_circular.py          73     63     24      0  10.31%   33-45, 68-69, 113-145, 204-255, 312-402
 src/driada/network/spectral.py                                30     26      8      0  10.53%   6-8, 24-37, 41-55
-src/driada/intense/stats.py                                  105     87     44      0  12.08%   24-25, 44-46, 65-67, 89-92, 118-126, 152-155, 176-186, 211-215, 244-252, 273-280, 314-346, 365-375, 394-399
-src/driada/information/entropy_jit.py                         44     38      4      0  12.50%   33-67, 86-129
-src/driada/utils/neural.py                                    20     17      4      0  12.50%   25-45, 49-54
-src/driada/utils/plot.py                                      38     31     18      0  12.50%   56-86, 125-141, 179-195
-src/driada/experiment/wavelet_event_detection.py             156    130     40      1  13.78%   9, 39-42, 46-109, 117-164, 168-169, 173-181, 191-209, 213-249, 255-276, 281-289
-src/driada/information/info_utils.py                          41     34      8      0  14.29%   6-19, 24-34, 38-62
+src/driada/utils/plot.py                                      37     31     18      0  10.91%   55-80, 119-135, 173-186
+src/driada/dim_reduction/mvu.py                               68     58     22      0  11.11%   8-10, 37-50, 61-146, 158-184
+src/driada/intense/stats.py                                  104     87     44      0  11.49%   23-24, 43-45, 64-66, 88-91, 117-125, 151-154, 175-187, 212-216, 245-253, 274-281, 317-353, 372-382, 401-406
+src/driada/information/entropy_jit.py                         44     38      4      0  12.50%   32-66, 85-128
+src/driada/utils/neural.py                                    20     17      4      0  12.50%   22-46, 52-59
+src/driada/experiment/wavelet_event_detection.py             154    130     40      1  12.89%   8, 37-40, 46-123, 131-189, 195-201, 211-225, 242-262, 266-309, 324-345, 350-358
+src/driada/information/info_utils.py                          41     34      8      0  14.29%   7-38, 43-71, 75-99
 src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
 src/driada/dim_reduction/sequences.py                         22     17     12      0  14.71%   67-101
-src/driada/information/ksg.py                                 87     71     20      0  14.95%   17, 22, 26-27, 31, 39-42, 50-68, 78-86, 93-96, 105-141, 145-164
-src/driada/experiment/spike_reconstruction.py                 48     39      8      0  16.07%   49-62, 93-126, 160-215
-src/driada/network/graph_utils.py                             48     38     12      0  16.67%   9-16, 21-31, 35-38, 42-46, 50-52, 56-78
-src/driada/network/quantum.py                                 39     31      8      0  17.02%   7-14, 18-27, 31-33, 37-55
-src/driada/dim_reduction/dr_base.py                           82     60     46      0  17.19%   171-193, 201-216, 225-233, 252-298
-src/driada/gdrive/gdrive_utils.py                             74     56     30      0  17.31%   25-28, 31, 61-107, 141-200, 204-210
-src/driada/experiment/synthetic/experiment_generators.py     276    218    146     10  17.54%   90-93, 104-110, 118, 127, 134-137, 144-156, 209->214, 217-222, 254-257, 262, 364-863
-src/driada/information/info_base.py                          439    338    204     12  18.51%   31-54, 58, 62-97, 141-149, 152-160, 178-184, 197-198, 213, 216-220, 223-224, 227-231, 234-235, 238-240, 243-252, 275-288, 330-340, 355-368, 398-400, 412, 416, 430, 435, 440, 446-448, 451-465, 483-498, 504-507, 512-519, 544-594, 620-698, 726-831, 835-838, 844-855, 888-896, 940-1038, 1077-1093
-src/driada/utils/data.py                                     156    115     74      3  19.13%   34-54, 58-62, 66-87, 92-108, 116-135, 139-141, 169-171, 175-178, 182-192, 232, 244-246, 251-254, 261-264, 276-293, 307-338
-src/driada/dim_reduction/neural.py                           132    101     24      1  20.51%   12-16, 22-43, 46-54, 61-82, 85-90, 96-117, 120-127, 133-140, 143-145, 148-150, 156-163, 170-173, 176-190, 194-198, 202-203, 211-212, 215, 218-226
-src/driada/utils/gif.py                                       38     27     14      0  21.15%   25-31, 46-55, 81-100
-src/driada/information/entropy.py                             56     41     14      0  21.43%   18-19, 42-52, 68, 89-99, 123-135, 157-167, 192-195, 218-221
-src/driada/information/gcmi_jit_utils.py                     207    158     66      4  22.34%   46, 73-79, 104, 106, 122-134, 171-177, 200-259, 286-386, 405-421, 443-456
-src/driada/experiment/wavelet_ridge.py                        66     50      4      0  22.86%   26-27, 34-56, 60-66, 70, 74-85, 90-102, 106-107
-src/driada/experiment/exp_base.py                            443    304    244     24  26.64%   36, 43-56, 67-69, 99, 102, 105->117, 108-115, 119, 129-141, 182, 185, 192->191, 194, 200-202, 220, 229-234, 240-248, 257-260, 265, 273-280, 289->293, 306-343, 356, 363, 368, 374-380, 388-391, 397-404, 410-438, 444-456, 463-474, 481-495, 509-528, 535-541, 550-561, 569-577, 586-592, 599-605, 627-646, 668-691, 703-720, 723, 753-811, 835-859, 882-903, 910-911, 915-920, 923, 926, 929-930, 947-959, 982-988, 1016-1035, 1039
-src/driada/dim_reduction/data.py                             116     76     54      7  27.65%   13-18, 37, 44-45, 54, 59-73, 91, 116-117, 121-133, 137, 178-234, 237-242, 245-247, 250-252
-src/driada/utils/output.py                                    16     10      4      0  30.00%   6-8, 10-12, 16-20
-src/driada/experiment/neuron.py                              156     94     36      5  34.90%   35-36, 41-44, 49-50, 65->67, 67->69, 70, 77, 90, 101, 104-109, 112-114, 117-126, 129-132, 135-138, 146-153, 157-164, 169-182, 186-199, 203-211, 215-224, 228-251
-src/driada/information/time_series_types.py                  231    117    116     25  40.06%   36, 44, 78, 89, 106, 109, 154-155, 166-169, 180-181, 189, 206, 209->223, 219-220, 223->236, 230->236, 232->236, 249-255, 260-272, 275->288, 280-285, 289, 295-302, 313-314, 321-404, 418, 429-440, 451-455, 467-481, 505-509
-src/driada/rsa/core_jit.py                                    95     50     58      1  41.83%   26-107, 140->133
-src/driada/utils/jit.py                                       29     16      4      1  42.42%   17-25, 58-60, 73-78
-src/driada/rsa/integration.py                                 46     24     22      7  42.65%   65, 67-72, 78, 85, 91-108, 139-141, 197, 201-211
-src/driada/experiment/synthetic/core.py                       40     19     16      3  46.43%   37-47, 75-80, 89, 97, 146-161
-src/driada/experiment/synthetic/time_series.py                79     30     24      3  58.25%   33-80, 134, 170->173, 178, 243-252
-src/driada/rsa/core.py                                       165      9     84     12  89.96%   56->73, 124, 195->181, 215->210, 273, 320->324, 447, 451-453, 465-469, 553->557, 559->561, 561->563
+src/driada/information/ksg.py                                 87     71     20      0  14.95%   30, 35, 39-42, 46, 54-57, 65-83, 93-101, 108-111, 129-169, 173-192
+src/driada/network/graph_utils.py                             47     38     12      0  15.25%   8-17, 22-34, 38-41, 45-49, 53-55, 59-81
+src/driada/experiment/spike_reconstruction.py                 48     39      8      0  16.07%   49-62, 91-122, 154-206
+src/driada/dim_reduction/dr_base.py                           82     61     46      0  16.41%   191-215, 223-238, 247-256, 277-339
+src/driada/gdrive/gdrive_utils.py                             73     56     30      0  16.50%   25-28, 31, 61-105, 135-194, 198-204
+src/driada/experiment/synthetic/experiment_generators.py     276    218    146     10  17.54%   109-112, 125-133, 143, 152, 163-166, 177-191, 254->259, 262-267, 309-312, 317, 433-1037
+src/driada/utils/gif.py                                       36     27     14      0  18.00%   21-29, 44-53, 81-108
+src/driada/utils/data.py                                     157    117     74      3  18.61%   34-52, 56-60, 64-85, 90-106, 112-141, 145-147, 175-177, 181-184, 188-198, 238, 250-252, 294-305, 312-315, 327-344, 358-389
+src/driada/information/info_base.py                          455    346    220     18  19.70%   46-73, 91, 95, 99, 103, 105, 109-112, 116-151, 199-207, 210-218, 236-242, 258-259, 274, 277-281, 284-285, 288-292, 295-296, 299-301, 304-313, 336-354, 397-409, 434-454, 495-497, 511, 517, 533, 538, 543, 551-553, 556-575, 593-615, 626-629, 634-641, 669-744, 770-876, 906-1021, 1025-1030, 1036-1047, 1080-1090, 1134-1240, 1279-1295
+src/driada/information/entropy.py                             55     41     14      0  20.29%   18-19, 42-52, 68, 89-101, 125-139, 161-173, 198-201, 224-227
+src/driada/dim_reduction/neural.py                           131    100     24      1  20.65%   12-15, 21-42, 45-55, 62-83, 86-93, 99-120, 123-132, 138-157, 160-162, 165-167, 181-200, 207-210, 213-227, 231-235, 239-240, 248-249, 252, 255-263
+src/driada/information/gcmi_jit_utils.py                     206    158     66      4  22.06%   45, 72-78, 103, 105, 127-143, 182-188, 211-270, 297-397, 416-432, 454-467
+src/driada/experiment/wavelet_ridge.py                        66     50      4      0  22.86%   26-27, 34-56, 59-65, 68, 71-82, 87-99, 103-107
+src/driada/experiment/exp_base.py                            464    322    268     28  25.96%   58, 65-78, 89-92, 131, 134, 139->157, 144-153, 159, 168-185, 192->194, 246, 249, 256->255, 258, 266-270, 285->287, 289, 291->293, 296->exit, 302-308, 316-326, 335-338, 343, 351-358, 367->371, 388-431, 446, 453, 460, 468-479, 489-492, 498-505, 511-541, 547-559, 566-580, 587-605, 619-643, 652-660, 679-693, 705-713, 724-731, 738-745, 772-803, 830-867, 881-900, 905, 937-995, 1019-1044, 1069-1095, 1101-1102, 1105-1110, 1113, 1116, 1119-1120, 1142-1154, 1177-1185, 1219-1241, 1245
+src/driada/utils/output.py                                    16     10      4      0  30.00%   7-9, 12-14, 18-22
+src/driada/rsa/core_jit.py                                    95     60     58      1  31.37%   26-106, 139->132, 191-203
+src/driada/dim_reduction/data.py                             128     79     66      9  31.96%   34, 44-51, 100, 111-112, 122, 127-141, 159, 184-185, 189-203, 207, 255-335, 338-343, 346-348, 351-353
+src/driada/experiment/neuron.py                              172    108     38      5  32.86%   74-75, 79-82, 105-106, 144->146, 146->148, 149, 156, 171, 196-215, 220-225, 228-230, 233-242, 245-248, 251-254, 261-276, 295-302, 306-319, 322-335, 338-354, 378-387, 390-424
+src/driada/utils/jit.py                                       27     16      4      1  38.71%   20-30, 63-66, 79-85
+src/driada/information/time_series_types.py                  231    117    116     25  40.06%   39, 47, 81, 97, 114, 119, 177-178, 189-192, 203-204, 214, 229, 232->246, 242-243, 246->259, 253->259, 255->259, 270-287, 294-308, 311->329, 316-326, 330, 336-343, 358-359, 366-449, 465, 476-487, 498-502, 514-536, 559-563
+src/driada/rsa/integration.py                                 46     24     22      7  42.65%   64, 66-71, 77, 86, 92-113, 146-148, 204, 210-222
+src/driada/experiment/synthetic/core.py                       39     19     16      3  45.45%   36-46, 75-80, 93, 101, 154-171
+src/driada/experiment/synthetic/time_series.py                79     30     24      3  58.25%   33-80, 138, 174->177, 182, 247-258
+src/driada/rsa/core.py                                       164     11     84     12  88.31%   62-63, 129, 200->186, 224->215, 280, 327->331, 458, 464-466, 481-487, 573->577, 579->581, 581->583
 -------------------------------------------------------------------------------------------------------
-TOTAL                                                       8629   7072   3468    121  14.90%
+TOTAL                                                       8747   7225   3552    133  14.43%
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-============================== 32 passed in 5.13s ==============================
+=========================== short test summary info ============================
+FAILED tests/unit/rsa/test_rsa_core.py::TestComputeRDM::test_compute_rdm_euclidean - ValueError: Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
+FAILED tests/unit/rsa/test_rsa_core.py::TestJITFunctions::test_jit_euclidean_distance - ValueError: Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
+FAILED tests/unit/rsa/test_rsa_core.py::TestJITFunctions::test_jit_manhattan_distance - ValueError: Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
+======================== 3 failed, 29 passed in 14.48s =========================
 
+ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmprpf0jepr.py` failed. (See above for error)

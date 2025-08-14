@@ -157,7 +157,7 @@ class TestMultiTimeSeriesProperties:
         """Test binary data properties."""
         # Create binary data
         data = np.random.randint(0, 2, size=(4, 100))
-        mts = MultiTimeSeries(data, discrete=True)
+        mts = MultiTimeSeries(data, discrete=True, allow_zero_columns=True)
 
         # Check if components are binary
         ts_list = [TimeSeries(data[i, :], discrete=True) for i in range(4)]
@@ -226,7 +226,7 @@ class TestMultiTimeSeriesEntropy:
         """Test entropy calculation for discrete MultiTimeSeries."""
         # Test with 2 variables (supported)
         data2 = np.random.randint(0, 4, size=(2, 200))
-        mts2 = MultiTimeSeries(data2, discrete=True)
+        mts2 = MultiTimeSeries(data2, discrete=True, allow_zero_columns=True)
 
         # Get joint entropy of 2 series
         h2 = mts2.get_entropy()
@@ -235,7 +235,7 @@ class TestMultiTimeSeriesEntropy:
 
         # Test with 3 variables (not yet supported)
         data3 = np.random.randint(0, 4, size=(3, 200))
-        mts3 = MultiTimeSeries(data3, discrete=True)
+        mts3 = MultiTimeSeries(data3, discrete=True, allow_zero_columns=True)
 
         with pytest.raises(
             NotImplementedError, match="Joint entropy for 3 discrete variables"
@@ -281,7 +281,7 @@ class TestMultiTimeSeriesFilter:
     def test_filter_discrete_warning(self):
         """Test warning when filtering discrete data."""
         data = np.random.randint(0, 5, size=(2, 100))
-        mts = MultiTimeSeries(data, discrete=True)
+        mts = MultiTimeSeries(data, discrete=True, allow_zero_columns=True)
 
         with pytest.warns(UserWarning, match="Filtering discrete"):
             filtered = mts.filter(method="gaussian")

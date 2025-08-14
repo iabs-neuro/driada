@@ -192,7 +192,7 @@ def test_procrustes_analysis():
     Y += 0.1 * np.random.randn(50, 2)
 
     # Align Y to X
-    Y_aligned, disparity = procrustes_analysis(X, Y)
+    Y_aligned, disparity, transform_info = procrustes_analysis(X, Y)
 
     # Should be well aligned
     assert disparity < 10.0
@@ -419,7 +419,7 @@ def test_procrustes_analysis_no_scaling():
     Y = X @ R
 
     # Align without scaling
-    Y_aligned, disparity = procrustes_analysis(X, Y, scaling=False)
+    Y_aligned, disparity, transform_info = procrustes_analysis(X, Y, scaling=False)
 
     # Should be perfectly aligned (no noise)
     assert disparity < 1e-10
@@ -435,7 +435,7 @@ def test_procrustes_analysis_no_reflection():
     Y[:, 0] = -Y[:, 0]  # Reflect in y-axis
 
     # Align without reflection
-    Y_aligned, disparity = procrustes_analysis(X, Y, reflection=False)
+    Y_aligned, disparity, transform_info = procrustes_analysis(X, Y, reflection=False)
 
     # Should not be perfectly aligned since reflection is not allowed
     assert disparity > 1.0

@@ -110,7 +110,7 @@ class TestEpsGraph:
             "max_deleted_nodes": 0.9,  # High tolerance for dense graph
         }
 
-        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False, verbose=True)
         captured = capsys.readouterr()
 
         # Should see density warning
