@@ -807,7 +807,8 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
             # Ensure ny1 is contiguous for better performance with Numba
             if not ny1.flags["C_CONTIGUOUS"]:
                 ny1 = np.ascontiguousarray(ny1)
-            mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
+            # Fix: mi_model_gd expects Ym to be the number of discrete states (max + 1)
+            mi = mi_model_gd(ny1, ny2, np.max(ny2) + 1, biascorrect=True, demeaned=True)
 
         else:
             ny1 = mts.copula_normal_data[:, ::ds]
@@ -1002,25 +1003,20 @@ def get_1d_mi(
             # Ensure ny2 is contiguous for better performance with Numba
             if not ny2.flags["C_CONTIGUOUS"]:
                 ny2 = np.ascontiguousarray(ny2)
-            mi = mi_model_gd(ny2, ny1, np.max(ny1), biascorrect=True, demeaned=True)
+            # Fix: mi_model_gd expects Ym to be the number of discrete states (max + 1)
+            mi = mi_model_gd(ny2, ny1, np.max(ny1) + 1, biascorrect=True, demeaned=True)
 
         elif not ts1.discrete and ts2.discrete:
             ny1 = ts1.copula_normal_data[::ds]
-            # TODO: fix zd error
             ny2 = np.roll(ts2.int_data[::ds], shift)
-            # ny2 = np.roll(ts2.data[::ds], shift)
             # Ensure ny1 is contiguous for better performance with Numba
             if not ny1.flags["C_CONTIGUOUS"]:
                 ny1 = np.ascontiguousarray(ny1)
-            """
-            print(ny2)
-            print(sum(ny2))
-            print(ny1)
-            """
-            # Ensure ny1 is contiguous for better performance with Numba
-            if not ny1.flags["C_CONTIGUOUS"]:
-                ny1 = np.ascontiguousarray(ny1)
-            mi = mi_model_gd(ny1, ny2, np.max(ny2), biascorrect=True, demeaned=True)
+            # Ensure ny2 is contiguous for better performance with Numba
+            if not ny2.flags["C_CONTIGUOUS"]:
+                ny2 = np.ascontiguousarray(ny2)
+            # Fix: mi_model_gd expects Ym to be the number of discrete states (max + 1)
+            mi = mi_model_gd(ny1, ny2, np.max(ny2) + 1, biascorrect=True, demeaned=True)
 
         if mi < 0:
             mi = 0.0

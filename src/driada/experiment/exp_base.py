@@ -14,6 +14,7 @@ from .neuron import (
 )
 from ..utils.data import get_hash, populate_nested_dict
 from ..information.info_base import get_1d_mi
+from ..intense.intense_base import get_multicomp_correction_thr
 
 STATS_VARS = [
     "data_hash",
@@ -1044,7 +1045,9 @@ class Experiment:
         return spikes_mts.data
 
     def get_significant_neurons(
-        self, min_nspec=1, cbunch=None, fbunch=None, mode="calcium"
+        self, min_nspec=1, cbunch=None, fbunch=None, mode="calcium",
+        override_intense_significance=False, pval_thr=0.05, 
+        multicomp_correction=None, significance_update=False
     ):
         """
         Returns a dict with neuron ids as keys and their significantly correlated features as values
@@ -1060,6 +1063,20 @@ class Experiment:
             Feature names to check. By default (None), all features will be checked
         mode : str
             Data type: 'calcium' or 'spikes'
+        override_intense_significance : bool, optional
+            If True, recompute significance using pval_thr and multicomp_correction
+            instead of using pre-computed INTENSE significance. Default is False.
+        pval_thr : float, optional
+            P-value threshold for significance testing. Default is 0.05.
+            Only used if override_intense_significance=True.
+        multicomp_correction : str or None, optional
+            Multiple comparison correction method. Default is None (no correction).
+            Options: None, 'bonferroni', 'holm', 'fdr_bh'
+            Only used if override_intense_significance=True.
+        significance_update : bool, optional
+            If True, update the significance tables with new thresholds.
+            If False (default), only use new thresholds for current query.
+            Only used if override_intense_significance=True.
 
         Returns
         -------
@@ -1078,12 +1095,60 @@ class Experiment:
         if not np.all(np.array(relevance)):
             raise ValueError("Stats relevance error")
 
-        # TODO: add significance update and pval_thr argument
         cell_feat_dict = {cell_id: [] for cell_id in cell_ids}
-        for cell_id in cell_ids:
-            for feat_id in feat_ids:
-                if self.significance_tables[mode][feat_id][cell_id]["stage2"]:
-                    cell_feat_dict[cell_id].append(feat_id)
+        
+        if override_intense_significance:
+            # Collect all p-values for multiple comparison correction
+            all_pvals = []
+            cell_feat_pvals = {}
+            
+            for cell_id in cell_ids:
+                cell_feat_pvals[cell_id] = {}
+                for feat_id in feat_ids:
+                    pval = self.stats_tables[mode][feat_id][cell_id].get("pval", 1.0)
+                    cell_feat_pvals[cell_id][feat_id] = pval
+                    all_pvals.append(pval)
+            
+            # Calculate corrected threshold
+            if multicomp_correction is None:
+                corrected_threshold = pval_thr
+            elif multicomp_correction == "bonferroni":
+                corrected_threshold = get_multicomp_correction_thr(
+                    pval_thr, mode="bonferroni", nhyp=len(all_pvals)
+                )
+            elif multicomp_correction in ["holm", "fdr_bh"]:
+                corrected_threshold = get_multicomp_correction_thr(
+                    pval_thr, mode=multicomp_correction, all_pvals=all_pvals
+                )
+            else:
+                raise ValueError(
+                    f"Unknown multicomp_correction method: {multicomp_correction}. "
+                    "Options: None, 'bonferroni', 'holm', 'fdr_bh'"
+                )
+            
+            # Determine significance based on new threshold
+            for cell_id in cell_ids:
+                for feat_id in feat_ids:
+                    pval = cell_feat_pvals[cell_id][feat_id]
+                    
+                    # Check if significant according to new threshold
+                    is_significant = pval < corrected_threshold
+                    
+                    if is_significant:
+                        cell_feat_dict[cell_id].append(feat_id)
+                    
+                    # Update significance tables if requested
+                    if significance_update:
+                        self.significance_tables[mode][feat_id][cell_id]["stage2"] = is_significant
+                        self.significance_tables[mode][feat_id][cell_id]["pval_thr"] = pval_thr
+                        self.significance_tables[mode][feat_id][cell_id]["multicomp_correction"] = multicomp_correction
+                        self.significance_tables[mode][feat_id][cell_id]["corrected_pval_thr"] = corrected_threshold
+        else:
+            # Use pre-computed INTENSE significance
+            for cell_id in cell_ids:
+                for feat_id in feat_ids:
+                    if self.significance_tables[mode][feat_id][cell_id]["stage2"]:
+                        cell_feat_dict[cell_id].append(feat_id)
 
         # filter out cells without enough specializations
         final_cell_feat_dict = {

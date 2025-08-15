@@ -34,10 +34,9 @@ from .gcmi import (
 from .ksg import (
     nonparam_entropy_c,
     nonparam_mi_cc,
-    # TODO: Implement these functions in ksg.py
-    # nonparam_mi_cd,
-    # nonparam_mi_dc,
-    # nonparam_mi_dd,
+    nonparam_mi_cd,
+    nonparam_mi_dc,
+    nonparam_mi_dd,
 )
 
 # Entropy functions
@@ -74,10 +73,9 @@ __all__ = [
     # KSG
     "nonparam_entropy_c",
     "nonparam_mi_cc",
-    # TODO: Add when implemented in ksg.py
-    # "nonparam_mi_cd",
-    # "nonparam_mi_dc",
-    # "nonparam_mi_dd",
+    "nonparam_mi_cd",
+    "nonparam_mi_dc",
+    "nonparam_mi_dd",
     # Entropy
     "entropy_d",
     "probs_to_entropy",

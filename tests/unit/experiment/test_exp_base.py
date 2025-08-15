@@ -730,6 +730,90 @@ class TestExperimentMethods:
         assert 0 in sig_neurons
         assert 1 not in sig_neurons
         assert set(sig_neurons[0]) == {"feat1", "feat2"}
+        
+    def test_get_significant_neurons_with_override(self, basic_experiment):
+        """Test getting significant neurons with override_intense_significance."""
+        # Initialize tables
+        basic_experiment._set_selectivity_tables("calcium")
+        
+        # Add p-values to stats tables for all neurons
+        basic_experiment.stats_tables["calcium"]["feat1"][0]["pval"] = 0.001
+        basic_experiment.stats_tables["calcium"]["feat1"][1]["pval"] = 0.02
+        basic_experiment.stats_tables["calcium"]["feat1"][2]["pval"] = 0.08
+        basic_experiment.stats_tables["calcium"]["feat1"][3]["pval"] = 0.5
+        basic_experiment.stats_tables["calcium"]["feat1"][4]["pval"] = 0.7
+        basic_experiment.stats_tables["calcium"]["feat2"][0]["pval"] = 0.03
+        basic_experiment.stats_tables["calcium"]["feat2"][1]["pval"] = 0.15
+        basic_experiment.stats_tables["calcium"]["feat2"][2]["pval"] = 0.9
+        basic_experiment.stats_tables["calcium"]["feat2"][3]["pval"] = 0.8
+        basic_experiment.stats_tables["calcium"]["feat2"][4]["pval"] = 0.6
+        
+        # Mark all as NOT significant in the original INTENSE analysis
+        for feat in ["feat1", "feat2"]:
+            for cell in range(5):  # 5 neurons in basic_experiment
+                basic_experiment.significance_tables["calcium"][feat][cell]["stage2"] = False
+        
+        # Test 1: Use original INTENSE significance (all False)
+        sig_neurons = basic_experiment.get_significant_neurons(
+            override_intense_significance=False
+        )
+        assert len(sig_neurons) == 0
+        
+        # Test 2: Override with pval_thr=0.05, no correction
+        sig_neurons = basic_experiment.get_significant_neurons(
+            override_intense_significance=True,
+            pval_thr=0.05,
+            multicomp_correction=None
+        )
+        # Neurons with p < 0.05: neuron 0 (feat1, feat2), neuron 1 (feat1)
+        assert 0 in sig_neurons
+        assert 1 in sig_neurons
+        assert 2 not in sig_neurons
+        assert set(sig_neurons[0]) == {"feat1", "feat2"}
+        assert set(sig_neurons[1]) == {"feat1"}
+        
+        # Test 3: Override with stricter threshold
+        sig_neurons = basic_experiment.get_significant_neurons(
+            override_intense_significance=True,
+            pval_thr=0.01,
+            multicomp_correction=None
+        )
+        # Only neuron 0 with feat1 (p=0.001)
+        assert 0 in sig_neurons
+        assert 1 not in sig_neurons
+        assert set(sig_neurons[0]) == {"feat1"}
+        
+        # Test 4: With Bonferroni correction (10 tests total: 5 neurons × 2 features)
+        sig_neurons = basic_experiment.get_significant_neurons(
+            override_intense_significance=True,
+            pval_thr=0.05,
+            multicomp_correction="bonferroni"
+        )
+        # Bonferroni threshold = 0.05/10 = 0.005
+        # Only neuron 0 with feat1 (p=0.001) passes
+        assert 0 in sig_neurons
+        assert 1 not in sig_neurons
+        assert set(sig_neurons[0]) == {"feat1"}
+        
+        # Test 5: Update significance tables
+        sig_neurons = basic_experiment.get_significant_neurons(
+            override_intense_significance=True,
+            pval_thr=0.05,
+            multicomp_correction=None,
+            significance_update=True
+        )
+        
+        # Check that significance tables were updated
+        assert basic_experiment.significance_tables["calcium"]["feat1"][0]["stage2"] == True
+        assert basic_experiment.significance_tables["calcium"]["feat1"][1]["stage2"] == True
+        assert basic_experiment.significance_tables["calcium"]["feat1"][2]["stage2"] == False
+        assert basic_experiment.significance_tables["calcium"]["feat2"][0]["stage2"] == True
+        assert basic_experiment.significance_tables["calcium"]["feat2"][1]["stage2"] == False
+        
+        # Check additional fields were added
+        assert basic_experiment.significance_tables["calcium"]["feat1"][0]["pval_thr"] == 0.05
+        assert basic_experiment.significance_tables["calcium"]["feat1"][0]["multicomp_correction"] is None
+        assert basic_experiment.significance_tables["calcium"]["feat1"][0]["corrected_pval_thr"] == 0.05
 
     def test_multicell_shuffled_spikes_error(self, basic_experiment):
         """Test error handling for spike shuffling."""

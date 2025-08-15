@@ -190,3 +190,137 @@ def lnc_correction(tree, points, k, alpha):
         if V_rect < log_knn_dist + np.log(alpha):
             e += (log_knn_dist - V_rect) / n_sample
     return e
+
+
+def nonparam_mi_cd(x_continuous, y_discrete, k=DEFAULT_NN, base=np.e):
+    """
+    Mutual information between continuous and discrete variables using KSG estimator.
+    
+    Uses the mixed-type mutual information estimator from the KSG paper.
+    
+    Parameters
+    ----------
+    x_continuous : array_like
+        Continuous variable data of shape (n_samples,) or (n_samples, n_features)
+    y_discrete : array_like
+        Discrete variable data of shape (n_samples,)
+    k : int, optional
+        Number of nearest neighbors to use. Default is 5.
+    base : float, optional
+        Logarithm base. Default is e (natural logarithm).
+    
+    Returns
+    -------
+    float
+        Mutual information in units determined by base
+    """
+    x_continuous = np.asarray(x_continuous)
+    y_discrete = np.asarray(y_discrete)
+    
+    if len(x_continuous.shape) == 1:
+        x_continuous = x_continuous.reshape(-1, 1)
+    
+    assert len(x_continuous) == len(y_discrete), "Arrays should have same length"
+    assert k <= len(x_continuous) - 1, "Set k smaller than num. samples - 1"
+    
+    n_samples = len(x_continuous)
+    
+    # Add small noise to continuous variables to break ties
+    x_continuous = add_noise(x_continuous)
+    
+    # Calculate H(X) - H(X|Y)
+    # H(X) is the entropy of the continuous variable
+    h_x = nonparam_entropy_c(x_continuous, k=k, base=base)
+    
+    # H(X|Y) is the conditional entropy
+    h_x_given_y = 0.0
+    unique_y = np.unique(y_discrete)
+    
+    for y_val in unique_y:
+        mask = y_discrete == y_val
+        p_y = np.sum(mask) / n_samples
+        
+        if p_y > 0:
+            x_subset = x_continuous[mask]
+            if len(x_subset) > k:
+                h_x_y = nonparam_entropy_c(x_subset, k=min(k, len(x_subset)-1), base=base)
+                h_x_given_y += p_y * h_x_y
+    
+    mi = h_x - h_x_given_y
+    return max(0, mi)  # MI is non-negative
+
+
+def nonparam_mi_dc(x_discrete, y_continuous, k=DEFAULT_NN, base=np.e):
+    """
+    Mutual information between discrete and continuous variables using KSG estimator.
+    
+    This is just the symmetric version of nonparam_mi_cd.
+    
+    Parameters
+    ----------
+    x_discrete : array_like
+        Discrete variable data of shape (n_samples,)
+    y_continuous : array_like
+        Continuous variable data of shape (n_samples,) or (n_samples, n_features)
+    k : int, optional
+        Number of nearest neighbors to use. Default is 5.
+    base : float, optional
+        Logarithm base. Default is e (natural logarithm).
+    
+    Returns
+    -------
+    float
+        Mutual information in units determined by base
+    """
+    # MI is symmetric, so we can just swap the arguments
+    return nonparam_mi_cd(y_continuous, x_discrete, k=k, base=base)
+
+
+def nonparam_mi_dd(x_discrete, y_discrete, base=np.e):
+    """
+    Mutual information between two discrete variables.
+    
+    Uses the plugin estimator based on empirical frequencies.
+    
+    Parameters
+    ----------
+    x_discrete : array_like
+        First discrete variable data of shape (n_samples,)
+    y_discrete : array_like
+        Second discrete variable data of shape (n_samples,)
+    base : float, optional
+        Logarithm base. Default is e (natural logarithm).
+    
+    Returns
+    -------
+    float
+        Mutual information in units determined by base
+    """
+    x_discrete = np.asarray(x_discrete)
+    y_discrete = np.asarray(y_discrete)
+    
+    assert len(x_discrete) == len(y_discrete), "Arrays should have same length"
+    
+    # Get unique values
+    x_vals = np.unique(x_discrete)
+    y_vals = np.unique(y_discrete)
+    
+    # Build contingency table
+    n_samples = len(x_discrete)
+    mi = 0.0
+    
+    for x_val in x_vals:
+        for y_val in y_vals:
+            # Joint probability
+            p_xy = np.sum((x_discrete == x_val) & (y_discrete == y_val)) / n_samples
+            
+            if p_xy > 0:
+                # Marginal probabilities
+                p_x = np.sum(x_discrete == x_val) / n_samples
+                p_y = np.sum(y_discrete == y_val) / n_samples
+                
+                # Add to MI sum
+                mi += p_xy * np.log(p_xy / (p_x * p_y))
+    
+    # Convert to specified base
+    return mi / log(base)
