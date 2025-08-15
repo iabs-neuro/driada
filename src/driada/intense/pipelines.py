@@ -4,6 +4,7 @@ from .stats import stats_not_empty
 from .intense_base import compute_me_stats, IntenseResults
 from ..information.info_base import TimeSeries, MultiTimeSeries
 from .disentanglement import disentangle_all_selectivities, DEFAULT_MULTIFEATURE_MAP
+from ..experiment.exp_base import DEFAULT_STATS
 
 
 def compute_cell_feat_significance(

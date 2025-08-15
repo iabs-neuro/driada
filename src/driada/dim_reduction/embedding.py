@@ -341,6 +341,17 @@ class Embedding:
     ):
 
         # ---------------------------------------------------------------------------
+        # Import torch dependencies (optional dependency)
+        try:
+            import torch
+            import torch.nn as nn
+            import torch.optim as optim
+            from torch.utils.data import DataLoader
+        except ImportError:
+            raise ImportError(
+                "PyTorch is required for autoencoder methods. "
+                "Please install it with: pip install torch"
+            )
 
         torch.manual_seed(seed)
         torch.backends.cudnn.benchmark = False
@@ -592,6 +603,18 @@ class Embedding:
 
         # TODO: add best model mechanism as above
         # ---------------------------------------------------------------------------
+        # Import torch dependencies (optional dependency)
+        try:
+            import torch
+            import torch.nn as nn
+            import torch.optim as optim
+            from torch.utils.data import DataLoader
+        except ImportError:
+            raise ImportError(
+                "PyTorch is required for autoencoder methods. "
+                "Please install it with: pip install torch"
+            )
+        
         torch.manual_seed(seed)
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True

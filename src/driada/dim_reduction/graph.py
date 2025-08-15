@@ -12,6 +12,7 @@ from sklearn.neighbors import kneighbors_graph
 from sklearn.utils.validation import check_symmetric
 from scipy.sparse.csgraph import shortest_path
 from umap.umap_ import fuzzy_simplicial_set
+from pynndescent.distances import named_distances
 from .dr_base import m_param_filter, g_param_filter
 
 from ..network.net_base import Network

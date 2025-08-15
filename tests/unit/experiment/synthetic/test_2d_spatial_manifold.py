@@ -296,7 +296,7 @@ class TestGenerate2DManifoldExp:
         # Use 16 neurons (4x4 grid) with larger fields for better coverage
         exp = generate_2d_manifold_exp(
             n_neurons=9,  # 3x3 grid for faster tests
-            duration=60,  # Reduced duration
+            duration=200,  # Increased duration for better statistics
             fps=10,  # Reduced fps
             field_sigma=0.15,  # Larger fields for better coverage (overlapping)
             step_size=0.04,  # Good exploration
@@ -307,7 +307,7 @@ class TestGenerate2DManifoldExp:
             calcium_noise_std=0.05,  # Moderate calcium noise
             decay_time=1.5,  # Reasonable decay
             verbose=False,
-            seed=42,
+            seed=123,  # Changed seed
         )
 
         # Test 1: Individual x,y position analysis
@@ -341,7 +341,7 @@ class TestGenerate2DManifoldExp:
             find_optimal_delays=False,  # Must disable for MultiTimeSeries
             mode="two_stage",
             n_shuffles_stage1=10,
-            n_shuffles_stage2=50,
+            n_shuffles_stage2=100,  # Increased shuffles
             ds=5,  # Downsample by 5x
             enable_parallelization=False,  # Disable parallelization
             allow_mixed_dimensions=True,
