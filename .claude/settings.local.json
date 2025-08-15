@@ -39,7 +39,12 @@
       "WebFetch(domain:docs.codecov.com)",
       "Bash(CONDA_DEFAULT_ENV=\"\" python test_env_detection.py)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(ruff check:*)"
+      "Bash(ruff check:*)",
+      "Bash(DRIADA_DISABLE_NUMBA=1 pytest tests/unit/experiment/test_neuron.py::test_calcium_signal_preprocessing -xvs)",
+      "Bash(DRIADA_DISABLE_NUMBA=0 pytest tests/unit/experiment/test_spike_reconstruction.py::test_wavelet_spike_reconstruction -xvs)",
+      "Bash(DRIADA_DISABLE_NUMBA=1 pytest tests/unit/experiment/test_spike_reconstruction.py::test_wavelet_spike_reconstruction -xvs)",
+      "Bash(DRIADA_DISABLE_NUMBA=0 pytest tests/unit/experiment/test_neuron.py::TestCalciumSignalPreprocessing::test_calcium_signal_preprocessing -xvs)",
+      "Bash(DRIADA_DISABLE_NUMBA=0 pytest tests/unit/experiment/test_neuron.py::TestNeuronStaticMethods::test_calcium_preprocessing -xvs)"
     ],
     "deny": []
   }

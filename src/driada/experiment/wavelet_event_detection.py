@@ -13,8 +13,8 @@ from ssqueezepy.wavelets import Wavelet, time_resolution
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelmax
-from numba import njit
 
+from ..utils.jit import conditional_njit
 from .wavelet_ridge import Ridge, ridges_to_containers
 
 WVT_EVENT_DETECTION_PARAMS = {
@@ -124,8 +124,7 @@ def get_cwt_ridges(
     return all_ridges
 
 
-# TODO: add support for numba >0.59.0 or "numba_acceleration" flag
-@njit()
+@conditional_njit()
 def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
     # determine peak positions for all scales
 
@@ -310,7 +309,7 @@ def extract_wvt_events(traces, wvt_kwargs):
     return st_ev_inds, end_ev_inds, all_ridges
 
 
-@njit
+@conditional_njit
 def events_to_ts_array_numba(
     length,
     ncells,

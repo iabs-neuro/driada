@@ -2,6 +2,7 @@
 
 import pytest
 import numpy as np
+import os
 from driada.experiment.synthetic import generate_synthetic_exp
 from driada.experiment.wavelet_event_detection import (
     WVT_EVENT_DETECTION_PARAMS,
@@ -155,6 +156,73 @@ def test_spike_reconstruction_reproducibility():
     # Check that reconstructed spikes are identical
     for i in range(3):
         assert np.array_equal(exp1.neurons[i].sp.data, exp2.neurons[i].sp.data)
+
+
+def test_wavelet_numba_python_compatibility():
+    """Test that wavelet event detection works the same in numba and python modes."""
+    # Create synthetic calcium data
+    np.random.seed(42)
+    n_traces = 3
+    trace_length = 500
+    calcium_data = []
+    
+    for i in range(n_traces):
+        # Create synthetic calcium trace with some events
+        trace = np.random.randn(trace_length) * 0.1
+        # Add some synthetic calcium events
+        for j in range(2):
+            event_start = np.random.randint(50, 400)
+            event_duration = np.random.randint(20, 80)
+            event_amplitude = np.random.uniform(1, 2.5)
+            trace[event_start:event_start + event_duration] += event_amplitude * np.exp(-np.linspace(0, 5, event_duration))
+        calcium_data.append(trace)
+    
+    # Test with numba disabled
+    os.environ['DRIADA_DISABLE_NUMBA'] = '1'
+    
+    # Need to reload modules to pick up environment change
+    import importlib
+    from driada.utils import jit as jit_module
+    from driada.experiment import wavelet_event_detection as wvt_module
+    from driada.experiment import wavelet_ridge as ridge_module
+    
+    importlib.reload(jit_module)
+    importlib.reload(ridge_module)
+    importlib.reload(wvt_module)
+    
+    # Extract events without numba
+    from driada.experiment.wavelet_event_detection import extract_wvt_events
+    st_ev_inds_py, end_ev_inds_py, ridges_py = extract_wvt_events(calcium_data, WVT_EVENT_DETECTION_PARAMS)
+    
+    # Test with numba enabled
+    os.environ['DRIADA_DISABLE_NUMBA'] = '0'
+    
+    # Reload modules again
+    importlib.reload(jit_module)
+    importlib.reload(ridge_module)
+    importlib.reload(wvt_module)
+    
+    # Extract events with numba
+    from driada.experiment.wavelet_event_detection import extract_wvt_events
+    st_ev_inds_jit, end_ev_inds_jit, ridges_jit = extract_wvt_events(calcium_data, WVT_EVENT_DETECTION_PARAMS)
+    
+    # Compare results
+    assert len(st_ev_inds_py) == len(st_ev_inds_jit)
+    assert len(end_ev_inds_py) == len(end_ev_inds_jit)
+    
+    for i in range(n_traces):
+        # Check that same number of events were detected
+        assert len(st_ev_inds_py[i]) == len(st_ev_inds_jit[i])
+        assert len(end_ev_inds_py[i]) == len(end_ev_inds_jit[i])
+        
+        # Check that event times are similar (small tolerance for numerical differences)
+        if len(st_ev_inds_py[i]) > 0:
+            for j in range(len(st_ev_inds_py[i])):
+                assert abs(st_ev_inds_py[i][j] - st_ev_inds_jit[i][j]) <= 1
+                assert abs(end_ev_inds_py[i][j] - end_ev_inds_jit[i][j]) <= 1
+    
+    # Reset environment
+    os.environ.pop('DRIADA_DISABLE_NUMBA', None)
 
 
 if __name__ == "__main__":
