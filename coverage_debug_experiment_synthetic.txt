@@ -17,10 +17,10 @@ tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestMixedSelectiveSig
 tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestMixedSelectiveSignal::test_signal_with_continuous_features PASSED [ 10%]
 tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestSyntheticDataMixedSelectivity::test_data_generation_with_known_selectivity PASSED [ 11%]
 tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_basic_generation PASSED [ 12%]
-tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_detectability_of_mixed_selectivity FAILED [ 13%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_detectability_of_mixed_selectivity PASSED [ 13%]
 tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_multifeature_generation PASSED [ 14%]
 tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_parameter_sensitivity PASSED [ 15%]
-tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestIntegrationWithAnalysisPipeline::test_full_pipeline_with_mixed_selectivity FAILED [ 16%]
+tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestIntegrationWithAnalysisPipeline::test_full_pipeline_with_mixed_selectivity PASSED [ 16%]
 tests/unit/experiment/synthetic/test_mixed_selectivity.py::test_generation_performance PASSED [ 17%]
 tests/unit/experiment/synthetic/test_mixed_selectivity.py::test_edge_cases PASSED [ 19%]
 tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DRandomWalk::test_basic_generation PASSED [ 20%]
@@ -38,7 +38,7 @@ tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManif
 tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_return_info_false PASSED [ 33%]
 tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_return_info_true PASSED [ 34%]
 tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_basic_experiment PASSED [ 35%]
-tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility FAILED [ 37%]
+tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility PASSED [ 37%]
 tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_parameter_effects PASSED [ 38%]
 tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_basic_generation_fast PASSED [ 39%]
 tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerateMixedPopulationExpFast::test_different_manifold_types_fast[2d_spatial] PASSED [ 40%]
@@ -52,7 +52,7 @@ tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestGenerate
 tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_manifold_fraction PASSED [ 49%]
 tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_manifold_type PASSED [ 50%]
 tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestParameterValidation::test_invalid_neuron_count PASSED [ 51%]
-tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestIntegrationWithINTENSE::test_mixed_population_with_intense_minimal FAILED [ 52%]
+tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestIntegrationWithINTENSE::test_mixed_population_with_intense_minimal PASSED [ 52%]
 tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestPerformanceBenchmarks::test_generation_under_1s PASSED [ 53%]
 tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestPerformanceBenchmarks::test_multiple_generations_under_5s PASSED [ 55%]
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_circular_random_walk_basic PASSED [ 56%]
@@ -67,7 +67,7 @@ tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circula
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_tuning PASSED [ 66%]
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_neurons_noise PASSED [ 67%]
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_basic PASSED [ 68%]
-tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_calcium FAILED [ 69%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_calcium PASSED [ 69%]
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_basic PASSED [ 70%]
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_extra_features PASSED [ 71%]
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_exp_parameters PASSED [ 73%]
@@ -77,8 +77,8 @@ tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[10
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_various_sizes[200-30] PASSED [ 77%]
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_edge_cases PASSED [ 78%]
 tests/unit/experiment/synthetic/test_circular_manifold.py::test_von_mises_edge_cases PASSED [ 79%]
-tests/unit/experiment/synthetic/test_circular_manifold.py::test_integration_with_intense FAILED [ 80%]
-tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection FAILED [ 82%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_integration_with_intense PASSED [ 80%]
+tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection PASSED [ 82%]
 tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_basic_generation PASSED [ 83%]
 tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_custom_bounds PASSED [ 84%]
 tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DRandomWalk::test_step_size_effect PASSED [ 85%]
@@ -92,208 +92,10 @@ tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManif
 tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldNeurons::test_firing_rate_modulation PASSED [ 94%]
 tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldData::test_basic_generation PASSED [ 95%]
 tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_basic_experiment PASSED [ 96%]
-tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility FAILED [ 97%]
+tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility PASSED [ 97%]
 tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_parameter_effects PASSED [ 98%]
 tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_default_neuron_count PASSED [100%]
 
-=================================== FAILURES ===================================
-_ TestGenerateSyntheticExpWithMixedSelectivity.test_detectability_of_mixed_selectivity _
-tests/unit/experiment/synthetic/test_mixed_selectivity.py:286: in test_detectability_of_mixed_selectivity
-    stats, significance, _, _, disent_results = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "SyntheticMixedSelectivity" constructed successfully with 20 neurons and 4 features
------------------------------ Captured stderr call -----------------------------
-
-  0%|          | 0/20 [00:00<?, ?it/s]
- 50%|█████     | 10/20 [00:00<00:00, 99.09it/s]
-100%|██████████| 20/20 [00:00<00:00, 99.27it/s]
-100%|██████████| 20/20 [00:00<00:00, 99.16it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/20 [00:00<?, ?it/s]
- 20%|██        | 4/20 [00:00<00:00, 34.99it/s]
- 40%|████      | 8/20 [00:00<00:00, 34.56it/s]
- 60%|██████    | 12/20 [00:00<00:00, 34.57it/s]
- 80%|████████  | 16/20 [00:00<00:00, 34.57it/s]
-100%|██████████| 20/20 [00:00<00:00, 34.48it/s]
-100%|██████████| 20/20 [00:00<00:00, 34.53it/s]
-_ TestIntegrationWithAnalysisPipeline.test_full_pipeline_with_mixed_selectivity _
-tests/unit/experiment/synthetic/test_mixed_selectivity.py:502: in test_full_pipeline_with_mixed_selectivity
-    stats, sig, _, results, disent_results = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "SyntheticMixedSelectivity" constructed successfully with 20 neurons and 3 features
------------------------------ Captured stderr call -----------------------------
-
-  0%|          | 0/20 [00:00<?, ?it/s]
- 25%|██▌       | 5/20 [00:00<00:00, 41.34it/s]
- 50%|█████     | 10/20 [00:00<00:00, 39.08it/s]
- 75%|███████▌  | 15/20 [00:00<00:00, 39.91it/s]
-100%|██████████| 20/20 [00:00<00:00, 42.12it/s]
-100%|██████████| 20/20 [00:00<00:00, 41.26it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/20 [00:00<?, ?it/s]
- 10%|█         | 2/20 [00:00<00:01, 17.48it/s]
- 20%|██        | 4/20 [00:00<00:00, 17.46it/s]
- 30%|███       | 6/20 [00:00<00:00, 17.44it/s]
- 40%|████      | 8/20 [00:00<00:00, 17.45it/s]
- 50%|█████     | 10/20 [00:00<00:00, 17.33it/s]
- 60%|██████    | 12/20 [00:00<00:00, 17.30it/s]
- 70%|███████   | 14/20 [00:00<00:00, 17.37it/s]
- 80%|████████  | 16/20 [00:00<00:00, 17.33it/s]
- 90%|█████████ | 18/20 [00:01<00:00, 17.36it/s]
-100%|██████████| 20/20 [00:01<00:00, 17.40it/s]
-100%|██████████| 20/20 [00:01<00:00, 17.38it/s]
-________ TestGenerate2DManifoldExp.test_intense_analysis_compatibility _________
-tests/unit/experiment/synthetic/test_2d_spatial_manifold.py:314: in test_intense_analysis_compatibility
-    stats1, significance1, _, _ = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "2d_spatial_manifold_exp" constructed successfully with 9 neurons and 3 features
-Downsampling constant is too high: some behaviour acts may be skipped. Current minimal behaviour time interval is set to 0.25 sec, downsampling 5 will create time gaps of 0.5 sec
------------------------------ Captured stderr call -----------------------------
-/opt/anaconda3/envs/driada/lib/python3.10/site-packages/ssqueezepy/_gmw.py:219: RuntimeWarning: divide by zero encountered in log
-  + beta * np.log(w) - w**gamma) * w_nonneg
-
-  0%|          | 0/9 [00:00<?, ?it/s]
-100%|██████████| 9/9 [00:00<00:00, 86.72it/s]
-100%|██████████| 9/9 [00:00<00:00, 86.57it/s]
-
-  0%|          | 0/9 [00:00<?, ?it/s]
-100%|██████████| 9/9 [00:00<00:00, 285.84it/s]
-____ TestIntegrationWithINTENSE.test_mixed_population_with_intense_minimal _____
-tests/unit/experiment/synthetic/test_mixed_population_optimized.py:239: in test_mixed_population_with_intense_minimal
-    result = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Using pregenerated features...
-Generating signals...
-Using pregenerated features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "MixedPopulation" constructed successfully with 5 neurons and 9 features
-Downsampling constant is too high: some behaviour acts may be skipped. Current minimal behaviour time interval is set to 0.25 sec, downsampling 5 will create time gaps of 0.5 sec
------------------------------ Captured stderr call -----------------------------
-
-  0%|          | 0/1 [00:00<?, ?it/s]
-100%|██████████| 1/1 [00:00<00:00, 1076.29it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 1007.04it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 311.18it/s]
-_________________ test_generate_circular_manifold_data_calcium _________________
-tests/unit/experiment/synthetic/test_circular_manifold.py:257: in test_generate_circular_manifold_data_calcium
-    stats, significance, info_intense, results = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "circular_manifold_exp" constructed successfully with 10 neurons and 2 features
-Downsampling constant is too high: some behaviour acts may be skipped. Current minimal behaviour time interval is set to 0.25 sec, downsampling 5 will create time gaps of 0.5 sec
------------------------------ Captured stderr call -----------------------------
-/opt/anaconda3/envs/driada/lib/python3.10/site-packages/ssqueezepy/_gmw.py:219: RuntimeWarning: divide by zero encountered in log
-  + beta * np.log(w) - w**gamma) * w_nonneg
-
-  0%|          | 0/10 [00:00<?, ?it/s]
-100%|██████████| 10/10 [00:00<00:00, 141.21it/s]
-
-  0%|          | 0/10 [00:00<?, ?it/s]
-100%|██████████| 10/10 [00:00<00:00, 477.94it/s]
-________________________ test_integration_with_intense _________________________
-tests/unit/experiment/synthetic/test_circular_manifold.py:509: in test_integration_with_intense
-    stats, significance, _, _ = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "circular_manifold_exp" constructed successfully with 10 neurons and 1 features
-Downsampling constant is too high: some behaviour acts may be skipped. Current minimal behaviour time interval is set to 0.25 sec, downsampling 5 will create time gaps of 0.5 sec
------------------------------ Captured stderr call -----------------------------
-/opt/anaconda3/envs/driada/lib/python3.10/site-packages/ssqueezepy/_gmw.py:219: RuntimeWarning: divide by zero encountered in log
-  + beta * np.log(w) - w**gamma) * w_nonneg
-
-  0%|          | 0/10 [00:00<?, ?it/s]
- 90%|█████████ | 9/10 [00:00<00:00, 88.17it/s]
-100%|██████████| 10/10 [00:00<00:00, 87.98it/s]
-
-  0%|          | 0/10 [00:00<?, ?it/s]
-100%|██████████| 10/10 [00:00<00:00, 284.25it/s]
-______________________ test_linear_vs_circular_detection _______________________
-tests/unit/experiment/synthetic/test_circular_manifold.py:557: in test_linear_vs_circular_detection
-    stats1, significance1, info1, results1 = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "circular_manifold_exp" constructed successfully with 10 neurons and 2 features
-Downsampling constant is too high: some behaviour acts may be skipped. Current minimal behaviour time interval is set to 0.25 sec, downsampling 5 will create time gaps of 0.5 sec
------------------------------ Captured stderr call -----------------------------
-/opt/anaconda3/envs/driada/lib/python3.10/site-packages/ssqueezepy/_gmw.py:219: RuntimeWarning: divide by zero encountered in log
-  + beta * np.log(w) - w**gamma) * w_nonneg
-
-  0%|          | 0/10 [00:00<?, ?it/s]
- 90%|█████████ | 9/10 [00:00<00:00, 89.70it/s]
-100%|██████████| 10/10 [00:00<00:00, 89.40it/s]
-
-  0%|          | 0/10 [00:00<?, ?it/s]
-100%|██████████| 10/10 [00:00<00:00, 287.14it/s]
-________ TestGenerate3DManifoldExp.test_intense_analysis_compatibility _________
-tests/unit/experiment/synthetic/test_3d_spatial_manifold.py:296: in test_intense_analysis_compatibility
-    stats1, significance1, _, _ = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "3d_spatial_manifold_exp" constructed successfully with 8 neurons and 4 features
-Downsampling constant is too high: some behaviour acts may be skipped. Current minimal behaviour time interval is set to 0.25 sec, downsampling 5 will create time gaps of 0.5 sec
------------------------------ Captured stderr call -----------------------------
-/opt/anaconda3/envs/driada/lib/python3.10/site-packages/ssqueezepy/_gmw.py:219: RuntimeWarning: divide by zero encountered in log
-  + beta * np.log(w) - w**gamma) * w_nonneg
-
-  0%|          | 0/8 [00:00<?, ?it/s]
-100%|██████████| 8/8 [00:00<00:00, 87.60it/s]
-
-  0%|          | 0/8 [00:00<?, ?it/s]
-100%|██████████| 8/8 [00:00<00:00, 284.09it/s]
 ================================ tests coverage ================================
 ______________ coverage: platform darwin, python 3.10.18-final-0 _______________
 
@@ -305,26 +107,22 @@ src/driada/dimensionality/linear.py                           54     54     16  
 src/driada/dimensionality/utils.py                            42     42      8      0   0.00%   1-91
 src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-19
 src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-69
-src/driada/integration/selectivity_mapper.py                 123    123     60      0   0.00%   8-428
+src/driada/integration/selectivity_mapper.py                 124    124     60      0   0.00%   8-430
 src/driada/network/drawing.py                                134    134     54      0   0.00%   1-225
 src/driada/network/quantum.py                                 40     40      8      0   0.00%   1-69
 src/driada/utils/visual.py                                   283    271    134      0   2.88%   63-270, 304-405, 448-546, 591-681, 718-778, 811-858
-src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 183-280, 304-319, 348-406
 src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-66, 112-174, 218-292, 364-424, 466-549, 605-754
-src/driada/intense/intense_base.py                           410    384    220      0   4.13%   25-27, 48-93, 120-148, 175-185, 248-270, 329-361, 438-518, 587-732, 796-851, 917-948, 984, 988, 992-993, 997-998, 1167-1492, 1541-1582
 src/driada/network/randomization.py                          310    293     94      0   4.21%   43-53, 97-253, 289-342, 374-415, 434-447, 474-643, 712-740
 src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
-src/driada/rsa/core.py                                       164    148     84      0   6.45%   47-84, 116-143, 179-234, 256-282, 327-367, 441-508, 569-621
+src/driada/rsa/core.py                                       164    148     84      0   6.45%   47-85, 117-144, 180-235, 257-283, 328-368, 442-509, 570-622
 src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-106, 128-142, 160-173, 191-203
 src/driada/dim_reduction/manifold_metrics.py                 313    286     98      0   6.57%   39-43, 77-102, 126-160, 184-218, 249-280, 302-312, 335-385, 417-460, 491-518, 539-540, 556-558, 574-583, 615-652, 673-693, 731-781, 807-828, 865-900, 922-962, 996-1026, 1060-1088, 1122-1167
 src/driada/rsa/visual.py                                      78     71     28      0   6.60%   53-155, 186-224
 src/driada/utils/spatial.py                                  213    194     74      0   6.62%   60-93, 129-162, 195-232, 256-274, 300-336, 380-421, 450-494, 522-548, 576-603, 652-725, 754-780
-src/driada/intense/pipelines.py                              287    262    170      4   7.22%   200-203, 213, 219, 224-234, 239-467, 577-701, 812-938, 1038-1173
 src/driada/dim_reduction/graph.py                            242    218     90      0   7.23%   26-76, 83-96, 99-100, 103-116, 121-139, 142-200, 203-215, 219-275, 279-385, 390-397, 460-546
 src/driada/experiment/exp_build.py                           119    105     72      0   7.33%   26-143, 164-233, 237-240, 244-250
 src/driada/dim_reduction/embedding.py                        328    294     82      0   8.29%   19-21, 29-33, 42-67, 70-81, 84-89, 93-100, 104-118, 121-142, 145-147, 150-154, 157-178, 181-196, 212-279, 287-305, 308-310, 313-319, 345-571, 595-743, 748-752, 775-782
 src/driada/network/net_base.py                               387    340    172      0   8.41%   44-56, 63-64, 68-72, 76-88, 96-115, 137-196, 202-250, 257-323, 326-327, 331-363, 367-390, 393-406, 409-428, 431-437, 440-446, 449-455, 458-464, 482-555, 560-589, 592-604, 608-621, 624-626, 629-631, 634-636, 639-641, 644-648, 651-661, 664-692
-src/driada/information/gcmi.py                               250    223     78      2   8.84%   37-38, 46-61, 79-84, 102-112, 136-153, 164-195, 215-260, 280-341, 353-391, 411-478, 493-544
 src/driada/gdrive/download.py                                103     89     46      0   9.40%   30-79, 94-138, 151-212, 216-241
 src/driada/utils/signals.py                                   82     71     34      0   9.48%   81-98, 156-177, 218-289, 313-320, 339-359
 src/driada/network/matrix_utils.py                           203    178     60      0   9.51%   18-31, 35-36, 40-45, 58-96, 100-107, 111-118, 122-124, 129-175, 179-186, 190-195, 199, 207-210, 214-225, 229-236, 240-251, 255-263, 268-272, 276-283, 287-296, 300-307, 311-314, 318-321
@@ -332,53 +130,47 @@ src/driada/information/time_series_types.py                  231    198    116  
 src/driada/network/spectral.py                                30     26      8      0  10.53%   6-8, 24-37, 41-55
 src/driada/utils/plot.py                                      37     31     18      0  10.91%   55-80, 119-135, 173-186
 src/driada/dim_reduction/mvu.py                               68     58     22      0  11.11%   8-10, 37-50, 61-146, 158-184
-src/driada/intense/stats.py                                  104     87     44      0  11.49%   23-24, 43-45, 64-66, 88-91, 117-125, 151-154, 175-187, 212-216, 245-253, 274-281, 317-353, 372-382, 401-406
 src/driada/rsa/integration.py                                 46     38     22      0  11.76%   62-113, 146-148, 195-233
 src/driada/information/entropy_jit.py                         44     38      4      0  12.50%   32-66, 85-128
 src/driada/utils/neural.py                                    20     17      4      0  12.50%   22-46, 52-59
-src/driada/utils/data.py                                     157    127     74      2  13.85%   34-52, 56-60, 64-85, 90-106, 112-141, 145-147, 175-177, 181-184, 188-198, 216-238, 250-252, 294-305, 312-315, 327-344, 358-389
-src/driada/information/info_utils.py                          41     34      8      0  14.29%   7-38, 43-71, 75-99
 src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
 src/driada/dim_reduction/sequences.py                         22     17     12      0  14.71%   67-101
-src/driada/information/ksg.py                                 87     71     20      0  14.95%   30, 35, 39-42, 46, 54-57, 65-83, 93-101, 108-111, 129-169, 173-192
 src/driada/network/graph_utils.py                             47     38     12      0  15.25%   8-17, 22-34, 38-41, 45-49, 53-55, 59-81
 src/driada/dim_reduction/dr_base.py                           82     61     46      0  16.41%   191-215, 223-238, 247-256, 277-339
 src/driada/gdrive/gdrive_utils.py                             73     56     30      0  16.50%   25-28, 31, 61-105, 135-194, 198-204
 src/driada/utils/gif.py                                       36     27     14      0  18.00%   21-29, 44-53, 81-108
 src/driada/information/entropy.py                             55     41     14      0  20.29%   18-19, 42-52, 68, 89-101, 125-139, 161-173, 198-201, 224-227
-src/driada/dim_reduction/neural.py                           131    100     24      1  20.65%   12-15, 21-42, 45-55, 62-83, 86-93, 99-120, 123-132, 138-157, 160-162, 165-167, 181-200, 207-210, 213-227, 231-235, 239-240, 248-249, 252, 255-263
-src/driada/information/info_base.py                          455    340    220     18  20.89%   46-73, 91, 95, 99, 103, 105, 109-112, 116-151, 199-207, 210-218, 234-244, 274, 277-281, 284-285, 288-292, 295-296, 299-301, 304-313, 336-354, 397-409, 434-454, 495-497, 511, 517, 533, 538, 543, 551-553, 556-575, 593-615, 626-629, 634-641, 669-744, 770-876, 906-1021, 1025-1030, 1036-1047, 1083, 1134-1240, 1279-1295
+src/driada/dim_reduction/neural.py                           132    101     24      1  20.51%   12-16, 22-43, 46-56, 63-84, 87-94, 100-121, 124-133, 139-158, 161-163, 166-168, 182-201, 208-211, 214-228, 232-236, 240-241, 249-250, 253, 256-264
 src/driada/dim_reduction/data.py                             128     93     66      5  21.65%   34, 43-53, 100, 111-112, 122, 127-141, 158-163, 180-212, 255-335, 338-343, 346-348, 351-353
 src/driada/information/gcmi_jit_utils.py                     206    157     66      3  22.79%   72-78, 103, 105, 127-143, 182-188, 211-270, 297-397, 416-432, 454-467
+src/driada/information/ksg.py                                 87     58     20      2  28.97%   39-42, 46, 55, 65-83, 94->96, 108-111, 129-169, 173-192
 src/driada/utils/output.py                                    16     10      4      0  30.00%   7-9, 12-14, 18-22
+src/driada/utils/data.py                                     157     99     74      7  33.33%   34-52, 72, 74, 95, 97, 106, 112-141, 145-147, 175-177, 181-184, 188-198, 216-238, 250-252, 294-305, 312-315, 327-344, 358-389
 src/driada/experiment/neuron.py                              172    107     38      2  34.76%   74-75, 79-82, 105-106, 149, 171, 196-215, 220-225, 228-230, 233-242, 245-248, 251-254, 261-276, 295-302, 306-319, 322-335, 338-354, 378-387, 390-424
-src/driada/experiment/exp_base.py                            464    282    268     33  34.84%   58, 68-78, 89-92, 134, 139->157, 145, 159, 168-185, 192->194, 246, 249, 256->255, 258, 266-270, 285->287, 291->293, 296->exit, 303, 307->exit, 316-326, 338, 343, 351-358, 388-431, 446, 453, 460, 468-479, 489-492, 499, 512, 523, 531->529, 534-537, 547-559, 566-580, 587-605, 619-643, 652-660, 679-693, 705-713, 724-731, 738-745, 772-803, 830-867, 881-900, 905, 937-995, 1033, 1069-1095, 1101-1102, 1105-1110, 1113, 1116, 1119-1120, 1142-1154, 1177-1185, 1219-1241, 1245
 src/driada/utils/jit.py                                       27     17      4      1  35.48%   20-30, 63-66, 74, 79-85
+src/driada/intense/pipelines.py                              288    167    170     24  37.77%   202-205, 215, 221, 226-236, 243->246, 246->274, 257-265, 270, 272, 282, 320-321, 335->317, 337->317, 382, 406->410, 439-457, 582->584, 589-591, 600-601, 610-611, 672->660, 674->678, 680, 681->660, 695-701, 814-940, 1040-1175
+src/driada/information/info_base.py                          457    259    220     35  39.44%   46-73, 91, 95, 99, 103, 105, 109-112, 116-151, 199-207, 210-218, 234-244, 274, 277-281, 284-285, 288-292, 295-298, 338-356, 399-411, 436-456, 500-502, 516, 522, 538, 543, 548, 563-570, 598-621, 633-636, 641-648, 678-681, 701-747, 779-782, 799-802, 805-810, 822-846, 863, 869, 915-918, 930, 937-970, 972->exit, 993-997, 1000-1005, 1007->1025, 1013->1015, 1022, 1032-1037, 1043-1054, 1090, 1141-1247, 1286-1302
+src/driada/experiment/exp_base.py                            464    235    268     45  44.26%   58, 68-78, 89-92, 134, 139->157, 145, 159, 168-185, 192->194, 246, 249, 256->255, 258, 266-270, 285->287, 291->293, 296->exit, 303, 307->exit, 338, 343, 351-358, 388-431, 446, 453, 460, 468-479, 499, 512, 523, 531->529, 534-537, 547-559, 566-580, 587-605, 620, 623, 637-643, 660, 680-681, 689-693, 706-707, 713, 728-729, 738-745, 772-803, 830-867, 881-900, 905, 949->955, 957-995, 1033, 1079, 1101-1102, 1105-1110, 1113, 1116, 1119-1120, 1142-1154, 1177-1185, 1219-1241, 1245
+src/driada/information/gcmi.py                               250    126     78     14  44.51%   37-38, 46-61, 79-84, 146-147, 166, 184->195, 218, 227, 233, 251->259, 283, 285, 291, 297, 325->340, 353-391, 411-478, 493-544
 src/driada/experiment/spike_reconstruction.py                 48     25      8      2  44.64%   53, 58-62, 154-206
+src/driada/intense/disentanglement.py                        148     78     72      9  45.00%   59-122, 184, 196-205, 224-229, 238, 259-279, 305-320, 380->407, 388->407, 395
+src/driada/intense/intense_base.py                           410    178    220     43  51.90%   25-27, 49, 51, 59-64, 67-72, 85, 89, 93, 124-148, 176, 179, 182, 185, 253, 329-361, 438-518, 598, 603, 622, 625, 634-644, 674-695, 807, 814->818, 819-821, 992-993, 997-998, 1175, 1181, 1187, 1206, 1212, 1214, 1225-1249, 1259, 1280, 1287->1368, 1290, 1331, 1363-1364, 1378-1384, 1387->exit, 1399, 1436, 1478-1479, 1545-1548, 1563-1580
 src/driada/experiment/synthetic/experiment_generators.py     276     89    146     32  61.37%   112-133, 143, 152, 161->170, 166, 181->194, 186-191, 254-338, 433->437, 452, 455, 467-470, 473->483, 483->495, 504, 583->623, 628->664, 630, 648->638, 660->652, 665-690, 694->760, 697, 706->710, 727->733, 740, 762, 779-784, 791-816, 945-972, 1030-1032
 src/driada/experiment/synthetic/core.py                       39     13     16      3  63.64%   44->46, 75-80, 101, 154-171
 src/driada/experiment/wavelet_event_detection.py             154     42     40      1  69.59%   8, 37-40, 46-123
 src/driada/experiment/synthetic/utils.py                       7      1      4      1  81.82%   31
+src/driada/intense/stats.py                                  104     17     44      7  83.78%   23-24, 43-45, 64-66, 90-91, 120, 151-154, 180, 318, 345->351, 376->374, 377->379, 379->374
 src/driada/experiment/synthetic/mixed_selectivity.py         143     12     80     17  87.00%   56->59, 77, 128->131, 141, 247, 361->364, 369, 384, 390->385, 398, 407, 408->405, 420-427, 436, 478->477, 485->474, 508
 src/driada/experiment/synthetic/manifold_circular.py          73      6     24      6  87.63%   210, 214, 219, 232, 253, 402
 src/driada/experiment/synthetic/manifold_spatial_2d.py        98      5     40      9  89.86%   39->42, 144->147, 157->165, 260->263, 266, 270, 275, 290, 311
 src/driada/experiment/synthetic/manifold_spatial_3d.py       108      5     46      9  90.91%   39->42, 154->157, 168->179, 275->278, 281, 285, 290, 305, 326
+src/driada/information/info_utils.py                          41      1      8      1  95.92%   85
 src/driada/experiment/synthetic/time_series.py                79      1     24      3  96.12%   138, 174->177, 247->251
 src/driada/experiment/wavelet_ridge.py                        66      1      4      1  97.14%   65
 -------------------------------------------------------------------------------------------------------
-TOTAL                                                       8747   6768   3552    155  19.53%
+TOTAL                                                       8752   6038   3552    283  28.06%
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-=========================== short test summary info ============================
-FAILED tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestGenerateSyntheticExpWithMixedSelectivity::test_detectability_of_mixed_selectivity - NameError: name 'np' is not defined
-FAILED tests/unit/experiment/synthetic/test_mixed_selectivity.py::TestIntegrationWithAnalysisPipeline::test_full_pipeline_with_mixed_selectivity - NameError: name 'np' is not defined
-FAILED tests/unit/experiment/synthetic/test_2d_spatial_manifold.py::TestGenerate2DManifoldExp::test_intense_analysis_compatibility - NameError: name 'np' is not defined
-FAILED tests/unit/experiment/synthetic/test_mixed_population_optimized.py::TestIntegrationWithINTENSE::test_mixed_population_with_intense_minimal - NameError: name 'np' is not defined
-FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_generate_circular_manifold_data_calcium - NameError: name 'np' is not defined
-FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_integration_with_intense - NameError: name 'np' is not defined
-FAILED tests/unit/experiment/synthetic/test_circular_manifold.py::test_linear_vs_circular_detection - NameError: name 'np' is not defined
-FAILED tests/unit/experiment/synthetic/test_3d_spatial_manifold.py::TestGenerate3DManifoldExp::test_intense_analysis_compatibility - NameError: name 'np' is not defined
-======================== 8 failed, 81 passed in 29.69s =========================
+============================= 89 passed in 31.01s ==============================
 
-ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmpeelxwfmd.py` failed. (See above for error)

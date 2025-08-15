@@ -7,7 +7,6 @@ from ..information.info_base import TimeSeries
 # Import specific functions instead of using *
 from .wavelet_event_detection import (
     extract_wvt_events, 
-    events_from_trace,
     events_to_ts_array
 )
 

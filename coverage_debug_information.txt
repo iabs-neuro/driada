@@ -186,14 +186,14 @@ tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesIni
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesProperties::test_shape_property PASSED [ 61%]
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesProperties::test_data_attributes PASSED [ 61%]
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesProperties::test_discrete_attributes PASSED [ 62%]
-tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesProperties::test_binary_properties FAILED [ 62%]
+tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesProperties::test_binary_properties PASSED [ 62%]
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesProperties::test_continuous_scaling PASSED [ 62%]
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesProperties::test_rescale_rows PASSED [ 63%]
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesEntropy::test_get_entropy_continuous PASSED [ 63%]
-tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesEntropy::test_get_entropy_discrete FAILED [ 63%]
+tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesEntropy::test_get_entropy_discrete PASSED [ 63%]
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesFilter::test_filter_gaussian PASSED [ 64%]
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesFilter::test_filter_none PASSED [ 64%]
-tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesFilter::test_filter_discrete_warning FAILED [ 64%]
+tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesFilter::test_filter_discrete_warning PASSED [ 64%]
 tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesFilter::test_filter_preserves_attributes PASSED [ 65%]
 tests/unit/information/test_time_series_types.py::TestTimeSeriesTypeDetection::test_timeline_detection PASSED [ 65%]
 tests/unit/information/test_time_series_types.py::TestTimeSeriesTypeDetection::test_binary_detection PASSED [ 65%]
@@ -269,8 +269,8 @@ tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesInitializatio
 tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesInitialization::test_init_empty_dicts PASSED [ 90%]
 tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesKDTree::test_get_kdtree_first_call PASSED [ 90%]
 tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesKDTree::test_compute_kdtree PASSED [ 90%]
-tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesKDTree::test_get_kdtree_query FAILED [ 91%]
-tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesKDTree::test_compute_kdtree_query FAILED [ 91%]
+tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesKDTree::test_get_kdtree_query PASSED [ 91%]
+tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesKDTree::test_compute_kdtree_query PASSED [ 91%]
 tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesEntropy::test_get_entropy_continuous PASSED [ 91%]
 tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesEntropy::test_get_entropy_discrete PASSED [ 92%]
 tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesEntropy::test_get_entropy_with_downsampling PASSED [ 92%]
@@ -297,53 +297,6 @@ tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesInputValidati
 tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesInputValidation::test_shuffle_mask_validation PASSED [ 99%]
 tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesInputValidation::test_edge_cases PASSED [100%]
 
-=================================== FAILURES ===================================
-_____________ TestMultiTimeSeriesProperties.test_binary_properties _____________
-tests/unit/information/test_info_base_multitimeseries.py:160: in test_binary_properties
-    mts = MultiTimeSeries(data, discrete=True)
-src/driada/information/info_base.py:466: in __init__
-    super().__init__(
-src/driada/dim_reduction/data.py:106: in __init__
-    check_data_for_errors(self.data, verbose=verbose)
-src/driada/dim_reduction/data.py:53: in check_data_for_errors
-    raise ValueError(
-E   ValueError: Data contains 8 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
-_____________ TestMultiTimeSeriesEntropy.test_get_entropy_discrete _____________
-tests/unit/information/test_info_base_multitimeseries.py:229: in test_get_entropy_discrete
-    mts2 = MultiTimeSeries(data2, discrete=True)
-src/driada/information/info_base.py:466: in __init__
-    super().__init__(
-src/driada/dim_reduction/data.py:106: in __init__
-    check_data_for_errors(self.data, verbose=verbose)
-src/driada/dim_reduction/data.py:53: in check_data_for_errors
-    raise ValueError(
-E   ValueError: Data contains 12 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
-____________ TestMultiTimeSeriesFilter.test_filter_discrete_warning ____________
-tests/unit/information/test_info_base_multitimeseries.py:284: in test_filter_discrete_warning
-    mts = MultiTimeSeries(data, discrete=True)
-src/driada/information/info_base.py:466: in __init__
-    super().__init__(
-src/driada/dim_reduction/data.py:106: in __init__
-    check_data_for_errors(self.data, verbose=verbose)
-src/driada/dim_reduction/data.py:53: in check_data_for_errors
-    raise ValueError(
-E   ValueError: Data contains 4 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
-__________________ TestTimeSeriesKDTree.test_get_kdtree_query __________________
-tests/unit/information/test_info_base_timeseries.py:224: in test_get_kdtree_query
-    ts = TimeSeries(data)
-src/driada/information/info_base.py:194: in __init__
-    self._check_input()
-src/driada/information/info_base.py:95: in _check_input
-    raise ValueError(f"Time series must be 1D, got shape {self.data.shape}")
-E   ValueError: Time series must be 1D, got shape (150, 1)
-________________ TestTimeSeriesKDTree.test_compute_kdtree_query ________________
-tests/unit/information/test_info_base_timeseries.py:241: in test_compute_kdtree_query
-    ts = TimeSeries(data)
-src/driada/information/info_base.py:194: in __init__
-    self._check_input()
-src/driada/information/info_base.py:95: in _check_input
-    raise ValueError(f"Time series must be 1D, got shape {self.data.shape}")
-E   ValueError: Time series must be 1D, got shape (100, 1)
 ================================ tests coverage ================================
 ______________ coverage: platform darwin, python 3.10.18-final-0 _______________
 
@@ -355,19 +308,19 @@ src/driada/dimensionality/linear.py                           54     54     16  
 src/driada/dimensionality/utils.py                            42     42      8      0   0.00%   1-91
 src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-19
 src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-69
-src/driada/integration/selectivity_mapper.py                 123    123     60      0   0.00%   8-428
+src/driada/integration/selectivity_mapper.py                 124    124     60      0   0.00%   8-430
 src/driada/network/drawing.py                                134    134     54      0   0.00%   1-225
 src/driada/network/quantum.py                                 40     40      8      0   0.00%   1-69
-src/driada/intense/pipelines.py                              287    279    170      0   1.75%   192-467, 577-701, 812-938, 1038-1173
+src/driada/intense/pipelines.py                              288    279    170      0   1.97%   194-469, 579-703, 814-940, 1040-1175
 src/driada/utils/visual.py                                   283    271    134      0   2.88%   63-270, 304-405, 448-546, 591-681, 718-778, 811-858
 src/driada/experiment/synthetic/experiment_generators.py     276    263    146      0   3.08%   100-216, 254-338, 433-1037
-src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 183-280, 304-319, 348-406
+src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 183-281, 305-320, 349-407
 src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-66, 112-174, 218-292, 364-424, 466-549, 605-754
 src/driada/intense/intense_base.py                           410    384    220      0   4.13%   25-27, 48-93, 120-148, 175-185, 248-270, 329-361, 438-518, 587-732, 796-851, 917-948, 984, 988, 992-993, 997-998, 1167-1492, 1541-1582
 src/driada/network/randomization.py                          310    293     94      0   4.21%   43-53, 97-253, 289-342, 374-415, 434-447, 474-643, 712-740
 src/driada/experiment/synthetic/mixed_selectivity.py         143    133     80      0   4.48%   56-92, 128-205, 243-281, 361-516
 src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
-src/driada/rsa/core.py                                       164    148     84      0   6.45%   47-84, 116-143, 179-234, 256-282, 327-367, 441-508, 569-621
+src/driada/rsa/core.py                                       164    148     84      0   6.45%   47-85, 117-144, 180-235, 257-283, 328-368, 442-509, 570-622
 src/driada/experiment/synthetic/manifold_spatial_3d.py       108     98     46      0   6.49%   39-66, 89-105, 152-207, 275-328, 402-496
 src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-106, 128-142, 160-173, 191-203
 src/driada/dim_reduction/manifold_metrics.py                 313    286     98      0   6.57%   39-43, 77-102, 126-160, 184-218, 249-280, 302-312, 335-385, 417-460, 491-518, 539-540, 556-558, 574-583, 615-652, 673-693, 731-781, 807-828, 865-900, 922-962, 996-1026, 1060-1088, 1122-1167
@@ -401,31 +354,24 @@ src/driada/gdrive/gdrive_utils.py                             73     56     30  
 src/driada/experiment/neuron.py                              172    135     38      0  17.62%   74-75, 79-82, 105-106, 128-131, 144-179, 196-215, 220-225, 228-230, 233-242, 245-248, 251-254, 261-276, 295-302, 306-319, 322-335, 338-354, 378-387, 390-424
 src/driada/utils/gif.py                                       36     27     14      0  18.00%   21-29, 44-53, 81-108
 src/driada/utils/data.py                                     157    118     74      2  18.61%   34-52, 56-60, 64-85, 90-106, 112-141, 164-177, 181-184, 188-198, 238, 250-252, 294-305, 313, 327-344, 358-389
-src/driada/dim_reduction/neural.py                           131    100     24      1  20.65%   12-15, 21-42, 45-55, 62-83, 86-93, 99-120, 123-132, 138-157, 160-162, 165-167, 181-200, 207-210, 213-227, 231-235, 239-240, 248-249, 252, 255-263
+src/driada/dim_reduction/neural.py                           132    101     24      1  20.51%   12-16, 22-43, 46-56, 63-84, 87-94, 100-121, 124-133, 139-158, 161-163, 166-168, 182-201, 208-211, 214-228, 232-236, 240-241, 249-250, 253, 256-264
 src/driada/experiment/wavelet_ridge.py                        66     50      4      0  22.86%   26-27, 34-56, 59-65, 68, 71-82, 87-99, 103-107
-src/driada/dim_reduction/data.py                             128     87     66      3  27.84%   34, 44-51, 105->109, 127-141, 158-163, 180-212, 255-335, 338-343, 346-348, 351-353
+src/driada/dim_reduction/data.py                             128     89     66      2  26.29%   34, 43-53, 127-141, 158-163, 180-212, 255-335, 338-343, 346-348, 351-353
 src/driada/utils/output.py                                    16     10      4      0  30.00%   7-9, 12-14, 18-22
 src/driada/utils/jit.py                                       27     17      4      1  35.48%   20-30, 63-66, 74, 79-85
 src/driada/utils/signals.py                                   82     29     34      7  58.62%   81-98, 219, 236, 240, 258-259, 276-280, 289, 314, 339-359
-src/driada/information/info_base.py                          455     72    220     34  81.04%   55-73, 91, 130, 147, 149, 210-218, 236-242, 288-292, 295-296, 497, 511, 517, 533, 551->553, 558-565, 607, 674, 683, 726-730, 773, 802, 819-826, 908-911, 944-959, 965->exit, 974-983, 997, 1000->1018, 1007, 1015, 1042, 1045, 1083, 1181->1176, 1206, 1235
+src/driada/information/info_base.py                          457     61    220     33  83.46%   55-73, 91, 130, 147, 149, 210-218, 236-242, 502, 516, 522, 538, 556->558, 565, 681, 690, 733-737, 780, 809, 826-833, 915-918, 951-966, 972->exit, 981-990, 1004, 1007->1025, 1014, 1022, 1049, 1052, 1090, 1188->1183, 1213, 1242
 src/driada/information/gcmi_jit_utils.py                     206     22     66     10  86.03%   103, 105, 127-143, 212, 298, 371->396, 417, 422-423, 455-456, 461-462
-src/driada/information/time_series_types.py                  231     21    116     16  88.18%   119, 246->259, 255->259, 286->291, 311->329, 317->329, 318->317, 342-343, 358->362, 389, 396, 397->401, 414, 430, 435, 479->487, 482->487, 514-536
+src/driada/information/time_series_types.py                  231     21    116     15  88.47%   119, 246->259, 255->259, 286->291, 311->329, 317->329, 318->317, 342-343, 358->362, 389, 396, 414, 430, 435, 479->487, 482->487, 514-536
 src/driada/information/gcmi.py                               250     21     78     15  89.02%   37-38, 146-147, 218, 227, 283, 325->340, 356, 362, 374-391, 428, 439, 444, 468->477, 498, 502, 518-519
 src/driada/information/entropy.py                             55      5     14      2  89.86%   18-19, 97-101, 167->164
 src/driada/information/ksg.py                                 87      4     20      2  94.39%   39-42, 74, 77
 src/driada/information/entropy_jit.py                         44      1      4      1  95.83%   101
 src/driada/information/info_utils.py                          41      1      8      1  95.92%   85
 -------------------------------------------------------------------------------------------------------
-TOTAL                                                       8747   6705   3552     96  20.25%
+TOTAL                                                       8752   6698   3552     93  20.38%
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-=========================== short test summary info ============================
-FAILED tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesProperties::test_binary_properties - ValueError: Data contains 8 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
-FAILED tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesEntropy::test_get_entropy_discrete - ValueError: Data contains 12 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
-FAILED tests/unit/information/test_info_base_multitimeseries.py::TestMultiTimeSeriesFilter::test_filter_discrete_warning - ValueError: Data contains 4 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
-FAILED tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesKDTree::test_get_kdtree_query - ValueError: Time series must be 1D, got shape (150, 1)
-FAILED tests/unit/information/test_info_base_timeseries.py::TestTimeSeriesKDTree::test_compute_kdtree_query - ValueError: Time series must be 1D, got shape (100, 1)
-======================== 5 failed, 285 passed in 18.40s ========================
+============================= 290 passed in 13.24s =============================
 
-ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmpswpbkq5s.py` failed. (See above for error)

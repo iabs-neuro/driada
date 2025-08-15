@@ -1,3 +1,5 @@
+import numpy as np
+
 from .stats import stats_not_empty
 from .intense_base import compute_me_stats, IntenseResults
 from ..information.info_base import TimeSeries, MultiTimeSeries

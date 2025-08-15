@@ -9,7 +9,7 @@ collecting ... collected 148 items
 tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_ignore PASSED [  0%]
 tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_warn PASSED [  1%]
 tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_raise PASSED [  2%]
-tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_in_pipelines FAILED [  2%]
+tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_in_pipelines PASSED [  2%]
 tests/unit/experiment/test_duplicate_behavior.py::test_no_duplicates_all_behaviors PASSED [  3%]
 tests/unit/experiment/test_spike_reconstruction.py::test_events_to_ts_array_basic PASSED [  4%]
 tests/unit/experiment/test_spike_reconstruction.py::test_events_to_ts_array_multiple_neurons PASSED [  4%]
@@ -19,7 +19,7 @@ tests/unit/experiment/test_spike_reconstruction.py::test_experiment_with_spike_r
 tests/unit/experiment/test_spike_reconstruction.py::test_spike_reconstruction_reproducibility PASSED [  7%]
 tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_wavelet_method PASSED [  8%]
 tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_threshold_method PASSED [  8%]
-tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_custom_method FAILED [  9%]
+tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_custom_method PASSED [  9%]
 tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_invalid_method PASSED [ 10%]
 tests/unit/experiment/test_spike_reconstruction_refactor.py::test_wavelet_vs_threshold_comparison PASSED [ 10%]
 tests/unit/experiment/test_spike_reconstruction_refactor.py::test_experiment_integration PASSED [ 11%]
@@ -37,7 +37,7 @@ tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_reconstruct_spikes
 tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_get_mad PASSED [ 19%]
 tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_get_snr_with_spikes PASSED [ 20%]
 tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_get_snr_without_spikes PASSED [ 20%]
-tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_calc_snr_nan_handling FAILED [ 21%]
+tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_calc_snr_nan_handling PASSED [ 21%]
 tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_fit_t_off PASSED [ 22%]
 tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_get_t_off_caching PASSED [ 22%]
 tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_get_noise_ampl_caching PASSED [ 23%]
@@ -60,7 +60,7 @@ tests/unit/experiment/test_wavelet_imports.py::TestWaveletModuleImports::test_im
 tests/unit/experiment/test_wavelet_imports.py::TestWaveletModuleImports::test_import_wavelet_event_detection PASSED [ 35%]
 tests/unit/experiment/test_wavelet_imports.py::TestWaveletModuleImports::test_wavelet_modules_have_functions PASSED [ 35%]
 tests/unit/experiment/test_exp.py::test_creation PASSED                  [ 36%]
-tests/unit/experiment/test_exp.py::test_intense_exp FAILED               [ 37%]
+tests/unit/experiment/test_exp.py::test_intense_exp PASSED               [ 37%]
 tests/unit/experiment/test_calcium_dynamics.py::test_validate_peak_rate PASSED [ 37%]
 tests/unit/experiment/test_calcium_dynamics.py::test_circular_manifold_defaults PASSED [ 38%]
 tests/unit/experiment/test_calcium_dynamics.py::test_2d_manifold_defaults PASSED [ 39%]
@@ -155,127 +155,6 @@ tests/unit/experiment/test_exp_build.py::TestEdgeCases::test_is_garbage_edge_cas
 tests/unit/experiment/test_exp_build.py::TestEdgeCases::test_deepcopy_behavior PASSED [ 99%]
 tests/unit/experiment/test_exp_build.py::TestEdgeCases::test_large_bad_frames_list PASSED [100%]
 
-=================================== FAILURES ===================================
-_____________________ test_duplicate_behavior_in_pipelines _____________________
-tests/unit/experiment/test_duplicate_behavior.py:114: in test_duplicate_behavior_in_pipelines
-    stats, significance, info, results = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 5249.44it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 758.56it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 95.85it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 644.68it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 163.65it/s]
-____________________ test_reconstruct_spikes_custom_method _____________________
-tests/unit/experiment/test_spike_reconstruction_refactor.py:96: in test_reconstruct_spikes_custom_method
-    spikes, metadata = reconstruct_spikes(
-src/driada/experiment/spike_reconstruction.py:53: in reconstruct_spikes
-    return method(calcium, fps, params)
-tests/unit/experiment/test_spike_reconstruction_refactor.py:84: in custom_method
-    spikes = MultiTimeSeries(spike_ts_list)
-src/driada/information/info_base.py:466: in __init__
-    super().__init__(
-src/driada/dim_reduction/data.py:106: in __init__
-    check_data_for_errors(self.data, verbose=verbose)
-src/driada/dim_reduction/data.py:53: in check_data_for_errors
-    raise ValueError(
-E   ValueError: Data contains 937 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 13421.77it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 814.32it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 97.87it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 639.13it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 160.85it/s]
-_________________ TestNeuronMethods.test_calc_snr_nan_handling _________________
-tests/unit/experiment/test_neuron.py:184: in test_calc_snr_nan_handling
-    neuron = Neuron("cell_10", ca_data, sp_data)
-src/driada/experiment/neuron.py:152: in __init__
-    self.ca = TimeSeries(Neuron.calcium_preprocessing(ca), discrete=False)
-src/driada/information/info_base.py:194: in __init__
-    self._check_input()
-src/driada/information/info_base.py:103: in _check_input
-    raise ValueError("Time series contains NaN values")
-E   ValueError: Time series contains NaN values
-_______________________________ test_intense_exp _______________________________
-tests/unit/experiment/test_exp.py:12: in test_intense_exp
-    res_ = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 20 neurons and 6 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 14479.76it/s]
-
-  0%|          | 0/10 [00:00<?, ?it/s]
-100%|██████████| 10/10 [00:00<00:00, 292.77it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 30.73it/s]
-
-  0%|          | 0/10 [00:00<?, ?it/s]
-100%|██████████| 10/10 [00:00<00:00, 216.02it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/20 [00:00<?, ?it/s]
- 30%|███       | 6/20 [00:00<00:00, 51.50it/s]
- 60%|██████    | 12/20 [00:00<00:00, 51.36it/s]
- 90%|█████████ | 18/20 [00:00<00:00, 51.33it/s]
-100%|██████████| 20/20 [00:00<00:00, 51.33it/s]
 ================================ tests coverage ================================
 ______________ coverage: platform darwin, python 3.10.18-final-0 _______________
 
@@ -287,16 +166,15 @@ src/driada/dimensionality/linear.py                           54     54     16  
 src/driada/dimensionality/utils.py                            42     42      8      0   0.00%   1-91
 src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-19
 src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-69
-src/driada/integration/selectivity_mapper.py                 123    123     60      0   0.00%   8-428
+src/driada/integration/selectivity_mapper.py                 124    124     60      0   0.00%   8-430
 src/driada/network/drawing.py                                134    134     54      0   0.00%   1-225
 src/driada/network/quantum.py                                 40     40      8      0   0.00%   1-69
 src/driada/utils/visual.py                                   283    271    134      0   2.88%   63-270, 304-405, 448-546, 591-681, 718-778, 811-858
-src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 183-280, 304-319, 348-406
+src/driada/intense/disentanglement.py                        148    140     72      0   3.64%   59-122, 183-281, 305-320, 349-407
 src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-66, 112-174, 218-292, 364-424, 466-549, 605-754
 src/driada/network/randomization.py                          310    293     94      0   4.21%   43-53, 97-253, 289-342, 374-415, 434-447, 474-643, 712-740
 src/driada/experiment/synthetic/mixed_selectivity.py         143    133     80      0   4.48%   56-92, 128-205, 243-281, 361-516
-src/driada/intense/pipelines.py                              287    268    170      3   4.81%   200-203, 213-234, 239-467, 577-701, 812-938, 1038-1173
-src/driada/rsa/core.py                                       164    148     84      0   6.45%   47-84, 116-143, 179-234, 256-282, 327-367, 441-508, 569-621
+src/driada/rsa/core.py                                       164    148     84      0   6.45%   47-85, 117-144, 180-235, 257-283, 328-368, 442-509, 570-622
 src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-106, 128-142, 160-173, 191-203
 src/driada/dim_reduction/manifold_metrics.py                 313    286     98      0   6.57%   39-43, 77-102, 126-160, 184-218, 249-280, 302-312, 335-385, 417-460, 491-518, 539-540, 556-558, 574-583, 615-652, 673-693, 731-781, 807-828, 865-900, 922-962, 996-1026, 1060-1088, 1122-1167
 src/driada/rsa/visual.py                                      78     71     28      0   6.60%   53-155, 186-224
@@ -319,28 +197,29 @@ src/driada/dim_reduction/dr_base.py                           82     61     46  
 src/driada/gdrive/gdrive_utils.py                             73     56     30      0  16.50%   25-28, 31, 61-105, 135-194, 198-204
 src/driada/utils/gif.py                                       36     27     14      0  18.00%   21-29, 44-53, 81-108
 src/driada/information/entropy.py                             55     41     14      0  20.29%   18-19, 42-52, 68, 89-101, 125-139, 161-173, 198-201, 224-227
-src/driada/dim_reduction/neural.py                           131    100     24      1  20.65%   12-15, 21-42, 45-55, 62-83, 86-93, 99-120, 123-132, 138-157, 160-162, 165-167, 181-200, 207-210, 213-227, 231-235, 239-240, 248-249, 252, 255-263
+src/driada/dim_reduction/neural.py                           132    101     24      1  20.51%   12-16, 22-43, 46-56, 63-84, 87-94, 100-121, 124-133, 139-158, 161-163, 166-168, 182-201, 208-211, 214-228, 232-236, 240-241, 249-250, 253, 256-264
+src/driada/dim_reduction/data.py                             128     93     66      5  21.65%   34, 43-53, 100, 111-112, 122, 127-141, 158-163, 180-212, 255-335, 338-343, 346-348, 351-353
 src/driada/information/gcmi_jit_utils.py                     206    157     66      3  22.79%   72-78, 103, 105, 127-143, 182-188, 211-270, 297-397, 416-432, 454-467
-src/driada/dim_reduction/data.py                             128     91     66      5  23.71%   34, 44-51, 100, 111-112, 122, 127-141, 158-163, 180-212, 255-335, 338-343, 346-348, 351-353
 src/driada/gdrive/download.py                                103     68     46      2  24.83%   30-79, 94-138, 165-212, 220
 src/driada/information/ksg.py                                 87     58     20      2  28.97%   39-42, 46, 55, 65-83, 94->96, 108-111, 129-169, 173-192
-src/driada/information/info_base.py                          455    289    220     33  32.15%   46-73, 91, 95, 99, 105, 109-112, 116-151, 199-207, 210-218, 236-242, 274, 277-281, 284-285, 288-292, 295-296, 306-310, 336-354, 397-409, 434-454, 495-497, 511, 517, 533, 538, 543, 551->553, 558-565, 593-615, 626-629, 634-641, 671-674, 694-740, 772-775, 781-810, 815-839, 844->855, 856, 859, 862, 874, 908-911, 923, 930-963, 965->exit, 974-983, 992-1016, 1025-1030, 1036-1047, 1080-1090, 1134-1240, 1279-1295
-src/driada/utils/data.py                                     157    101     74      7  32.47%   34-52, 72, 74, 82-83, 95, 97, 106, 112-141, 145-147, 175-177, 181-184, 188-198, 216-238, 250-252, 294-305, 312-315, 327-344, 358-389
-src/driada/information/gcmi.py                               250    156     78      9  33.23%   37-38, 50-55, 79, 146-147, 166, 184->195, 218, 227, 233, 251->259, 280-341, 353-391, 411-478, 493-544
+src/driada/utils/data.py                                     157     99     74      7  33.33%   34-52, 72, 74, 95, 97, 106, 112-141, 145-147, 175-177, 181-184, 188-198, 216-238, 250-252, 294-305, 312-315, 327-344, 358-389
 src/driada/utils/jit.py                                       27     17      4      1  35.48%   20-30, 63-66, 74, 79-85
-src/driada/intense/stats.py                                  104     58     44      5  37.16%   23-24, 43-45, 64-66, 90-91, 122, 151-154, 175-187, 216, 245-253, 274-281, 318, 330->329, 345-349, 372-382, 401-406
-src/driada/intense/intense_base.py                           410    232    220     42  39.05%   25-27, 49, 51, 54->75, 59-64, 67-72, 85, 89, 93, 124-148, 176, 179, 182, 185, 248-270, 329-361, 438-518, 598, 602->605, 622, 625, 634-644, 674-695, 727-728, 807, 814->818, 819-821, 934, 984, 988, 992-993, 997-998, 1175, 1181, 1187, 1200->1211, 1206, 1211->1213, 1213->1218, 1219-1220, 1238->1251, 1245-1249, 1258-1273, 1280, 1287->1368, 1290, 1331, 1340, 1363-1364, 1376-1492, 1541-1582
+src/driada/information/info_base.py                          457    270    220     34  36.48%   46-73, 91, 95, 99, 105, 109-112, 116-151, 199-207, 210-218, 236-242, 274, 277-281, 284-285, 288-292, 295-298, 338-356, 399-411, 436-456, 500-502, 516, 522, 538, 543, 548, 556->558, 563-570, 598-621, 633-636, 641-648, 678-681, 701-747, 779-782, 788-817, 822-846, 851->862, 863, 866, 869, 881, 915-918, 930, 937-970, 972->exit, 1000-1005, 1007->1025, 1014, 1022, 1032-1037, 1043-1054, 1087-1097, 1141-1247, 1286-1302
 src/driada/utils/naming.py                                    13      6      6      1  42.11%   18-27
+src/driada/intense/pipelines.py                              288    149    170     28  43.01%   202-205, 215-236, 243->246, 246->274, 257-265, 270, 272, 282, 320-321, 335->317, 337->317, 381-460, 583, 589-591, 600-601, 610-611, 672->660, 674->678, 680, 681->660, 695-701, 825-826, 831-848, 902->894, 904->908, 910, 911->894, 925-938, 1040-1175
+src/driada/information/gcmi.py                               250    118     78     14  47.56%   37-38, 50-55, 79, 146-147, 166, 184->195, 218, 227, 233, 251->259, 283, 285, 291, 297, 325->340, 353-391, 411-478, 493-544
 src/driada/experiment/synthetic/manifold_spatial_3d.py       108     45     46      6  56.49%   39->42, 58-59, 96-98, 155, 168->179, 187, 275-328, 402-496
-src/driada/information/info_utils.py                          41     16      8      1  61.22%   12-13, 75-99
+src/driada/intense/intense_base.py                           410    138    220     41  61.43%   25-27, 49, 51, 59-64, 67-72, 85, 89, 93, 124-148, 176, 179, 182, 185, 334, 338->341, 438-518, 598, 622, 625, 634-644, 674-695, 807, 814->818, 819-821, 992-993, 997-998, 1175, 1181, 1187, 1206, 1238->1251, 1245-1249, 1280, 1287->1368, 1378-1384, 1387->exit, 1398->1403, 1435->1437, 1438->1444, 1477->1484, 1542, 1545-1548, 1560, 1563-1580
 src/driada/experiment/synthetic/core.py                       39     14     16      3  61.82%   75-80, 93, 101, 154-171
 src/driada/experiment/synthetic/manifold_circular.py          73     22     24      7  65.98%   33->37, 204->207, 210, 214, 219, 232, 253, 312-402
 src/driada/experiment/synthetic/experiment_generators.py     276     78    146     38  66.35%   112, 133, 143, 152, 166, 186-191, 254->259, 260-261, 308, 438, 443, 452, 455, 467-470, 483->495, 502->626, 504, 509-538, 583-616, 628->664, 630, 665-690, 694->760, 697, 740, 760->980, 762, 779-784, 791-816, 839->876, 876->916, 917-918, 933->929, 945-972, 981, 1030-1032, 1035
 src/driada/experiment/wavelet_event_detection.py             154     42     40      1  69.59%   8, 37-40, 46-123
 src/driada/information/time_series_types.py                  231     53    116     33  71.76%   39, 47, 81, 97, 119, 177-178, 189-192, 203-204, 214, 229, 246->259, 255->259, 270-287, 311->329, 317->329, 318->317, 342-343, 358-359, 367, 372-374, 389, 390->394, 396, 397->401, 402, 403->407, 408, 414, 415->419, 430, 435, 442, 465, 472, 479->487, 482->487, 514-536, 559-563
 src/driada/experiment/synthetic/manifold_spatial_2d.py        98     20     40      7  78.99%   157->165, 173, 266, 270, 275, 290, 311, 380-471
-src/driada/experiment/exp_base.py                            464     72    268     47  80.19%   71, 185, 192->194, 256->255, 258, 285->287, 291->293, 296->exit, 307->exit, 338, 343, 397, 408-414, 418, 424, 446, 460, 474-479, 531->529, 567, 571->exit, 580, 588, 593->595, 605, 637->643, 660, 680-681, 690->exit, 706-707, 713, 728-729, 738-745, 782, 795-803, 838, 846, 859-867, 891, 947->955, 949->955, 974-975, 978-979, 981->988, 1033, 1079, 1101-1102, 1105-1110, 1113, 1116, 1119-1120, 1178, 1238->1241
+src/driada/experiment/exp_base.py                            464     72    268     46  80.33%   71, 185, 192->194, 256->255, 258, 285->287, 291->293, 296->exit, 307->exit, 338, 343, 397, 408-414, 418, 424, 446, 460, 474-479, 531->529, 567, 571->exit, 580, 588, 593->595, 605, 637->643, 660, 680-681, 690->exit, 706-707, 713, 728-729, 738-745, 782, 795-803, 838, 846, 859-867, 891, 949->955, 974-975, 978-979, 981->988, 1033, 1079, 1101-1102, 1105-1110, 1113, 1116, 1119-1120, 1178, 1238->1241
 src/driada/experiment/exp_build.py                           119     16     72      6  82.20%   86, 97-114, 183, 187-190, 194, 233
+src/driada/intense/stats.py                                  104     16     44      6  85.14%   23-24, 43-45, 64-66, 90-91, 151-154, 180, 318, 345->351, 376->374, 377->379, 379->374
+src/driada/information/info_utils.py                          41      3      8      2  89.80%   12-13, 85
 src/driada/utils/output.py                                    16      1      4      1  90.00%   19
 src/driada/experiment/synthetic/time_series.py                79      6     24      1  91.26%   138, 247-258
 src/driada/experiment/neuron.py                              172      4     38      6  95.24%   149, 220->225, 228->230, 238, 323, 346
@@ -348,15 +227,9 @@ src/driada/experiment/wavelet_ridge.py                        66      1      4  
 src/driada/experiment/spike_reconstruction.py                 48      0      8      0 100.00%
 src/driada/utils/neural.py                                    20      0      4      0 100.00%
 -------------------------------------------------------------------------------------------------------
-TOTAL                                                       8747   5983   3552    272  28.75%
+TOTAL                                                       8752   5660   3552    303  32.62%
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-=========================== short test summary info ============================
-FAILED tests/unit/experiment/test_duplicate_behavior.py::test_duplicate_behavior_in_pipelines - NameError: name 'np' is not defined
-FAILED tests/unit/experiment/test_spike_reconstruction_refactor.py::test_reconstruct_spikes_custom_method - ValueError: Data contains 937 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
-FAILED tests/unit/experiment/test_neuron.py::TestNeuronMethods::test_calc_snr_nan_handling - ValueError: Time series contains NaN values
-FAILED tests/unit/experiment/test_exp.py::test_intense_exp - NameError: name 'np' is not defined
-======================== 4 failed, 144 passed in 58.56s ========================
+======================== 148 passed in 69.83s (0:01:09) ========================
 
-ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmp8nu0gpfs.py` failed. (See above for error)

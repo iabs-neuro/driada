@@ -46,7 +46,8 @@ def compute_rdm(
     # Convert to MVData if needed
     if isinstance(patterns, np.ndarray):
         # MVData expects (n_features, n_items) so transpose
-        mvdata = MVData(patterns.T)
+        # RSA doesn't require non-zero columns since we're computing distances
+        mvdata = MVData(patterns.T, allow_zero_columns=True)
     else:
         mvdata = patterns
 

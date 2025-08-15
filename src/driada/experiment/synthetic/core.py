@@ -7,7 +7,6 @@ generation functions, including firing rate validation and calcium signal genera
 
 import numpy as np
 import warnings
-from ..exp_base import *
 
 
 def validate_peak_rate(peak_rate, context=""):

@@ -1,3 +1,4 @@
+import numpy as np
 from scipy.sparse.linalg import eigs
 import umap.umap_ as umap
 from pydiffmap import diffusion_map as dm
@@ -11,18 +12,17 @@ from sklearn.model_selection import train_test_split
 
 # warnings.filterwarnings("ignore")
 
-from .dr_base import *
+from .dr_base import e_param_filter
 from .graph import ProximityGraph
 
 try:
-    from .neural import *
+    from .neural import AE, VAE, NeuroDataset
 except ImportError:
     # torch is optional dependency
     pass
-from .mvu import *
+from .mvu import MaximumVarianceUnfolding
 
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix
-from ..utils.data import norm_cross_corr
 
 
 def remove_outliers(data, thr_percentile):

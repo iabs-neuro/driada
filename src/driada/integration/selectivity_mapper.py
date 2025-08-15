@@ -141,7 +141,9 @@ class SelectivityManifoldMapper:
                 )
 
         # Create MVData and compute embedding
-        mvdata = MVData(data=neural_data)  # MVData expects (n_features, n_samples)
+        # For spike data, allow zero columns since neurons might not spike
+        allow_zero = data_type == "spikes"
+        mvdata = MVData(data=neural_data, allow_zero_columns=allow_zero)  # MVData expects (n_features, n_samples)
 
         # Prepare parameters for the new simplified API
         params = {"dim": n_components}

@@ -175,18 +175,15 @@ class TestNeuronMethods:
             neuron.get_snr()
 
     def test_calc_snr_nan_handling(self):
-        """Test SNR calculation with NaN values."""
+        """Test that Neuron creation fails with NaN values in calcium data."""
         ca_data = np.ones(1000)
         ca_data[100] = np.nan
         sp_data = np.zeros(1000)
         sp_data[100] = 1
 
-        neuron = Neuron("cell_10", ca_data, sp_data)
-        # The preprocessing should handle NaN, but if it doesn't:
-        neuron.ca.data[100] = np.nan  # Force NaN
-
-        with pytest.raises(ValueError, match="Error in snr calculation"):
-            neuron._calc_snr()
+        # TimeSeries now validates against NaN values during creation
+        with pytest.raises(ValueError, match="Time series contains NaN values"):
+            neuron = Neuron("cell_10", ca_data, sp_data)
 
     def test_fit_t_off(self):
         """Test t_off fitting."""

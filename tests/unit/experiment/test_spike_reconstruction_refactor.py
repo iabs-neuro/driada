@@ -81,7 +81,7 @@ def test_reconstruct_spikes_custom_method(small_experiment):
         spike_ts_list = [
             TimeSeries(spikes_data[i, :], discrete=True) for i in range(n_neurons)
         ]
-        spikes = MultiTimeSeries(spike_ts_list)
+        spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
 
         metadata = {"method": "custom", "params": params}
 

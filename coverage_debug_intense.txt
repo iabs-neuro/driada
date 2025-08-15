@@ -17,7 +17,7 @@ tests/unit/intense/test_disentanglement.py::test_disentangle_pair_discrete PASSE
 tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_basic[medium] PASSED [  9%]
 tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_cell_bunch[medium] PASSED [ 10%]
 tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_with_significance[small] PASSED [ 11%]
-tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_multifeature[small] FAILED [ 12%]
+tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_multifeature[small] PASSED [ 12%]
 tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_empty_neurons[small] PASSED [ 13%]
 tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_error_handling[small] PASSED [ 14%]
 tests/unit/intense/test_disentanglement.py::test_create_multifeature_map_valid[small] PASSED [ 15%]
@@ -72,7 +72,7 @@ tests/unit/intense/test_intense.py::test_validate_metric_scipy_functions PASSED 
 tests/unit/intense/test_intense.py::test_get_mi_distr_pvalue_edge_cases PASSED [ 65%]
 tests/unit/intense/test_intense.py::test_validate_time_series_bunches_mixed_dimensions PASSED [ 66%]
 tests/unit/intense/test_intense.py::test_get_multicomp_correction_fdr PASSED [ 67%]
-tests/unit/intense/test_intense.py::test_compute_cell_feat_significance_integration FAILED [ 68%]
+tests/unit/intense/test_intense.py::test_compute_cell_feat_significance_integration PASSED [ 68%]
 tests/unit/intense/test_intense.py::test_stats_not_empty_stage2 PASSED   [ 69%]
 tests/unit/intense/test_intense.py::test_parallel_mi_equality PASSED     [ 70%]
 tests/unit/intense/test_intense.py::test_parallel_router PASSED          [ 71%]
@@ -84,458 +84,27 @@ tests/unit/intense/test_intense.py::test_correlation_detection_scaled[scaled_cor
 tests/unit/intense/test_intense.py::test_correlation_detection_scaled[scaled_correlated_ts1] PASSED [ 77%]
 tests/unit/intense/test_intense.py::test_correlation_detection_scaled[scaled_correlated_ts2] PASSED [ 78%]
 tests/unit/intense/test_intense.py::test_get_calcium_feature_me_profile_cbunch_fbunch PASSED [ 79%]
-tests/unit/intense/test_intense.py::test_intense_handles_no_significant_neurons FAILED [ 80%]
-tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_with_disentanglement_fast FAILED [ 81%]
-tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_continuous_fast[small] FAILED [ 82%]
+tests/unit/intense/test_intense.py::test_intense_handles_no_significant_neurons PASSED [ 80%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_with_disentanglement_fast PASSED [ 81%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_continuous_fast[small] PASSED [ 82%]
 tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_feat_feat_significance_fast[small] PASSED [ 83%]
 tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_cell_significance_fast[small] PASSED [ 84%]
 tests/unit/intense/test_intense_pipelines_optimized.py::test_mixed_selectivity_generation_fast PASSED [ 85%]
-tests/unit/intense/test_intense_pipelines_optimized.py::test_disentanglement_minimal FAILED [ 86%]
-tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_empty_cell_bunch FAILED [ 87%]
-tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_single_neuron FAILED [ 88%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_disentanglement_minimal PASSED [ 86%]
+tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_empty_cell_bunch PASSED [ 87%]
+tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_single_neuron PASSED [ 88%]
 tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_single_feature PASSED [ 89%]
-tests/unit/intense/test_intense_pipelines_optimized.py::TestPerformanceBenchmarks::test_all_functions_under_5s FAILED [ 90%]
+tests/unit/intense/test_intense_pipelines_optimized.py::TestPerformanceBenchmarks::test_all_functions_under_5s PASSED [ 90%]
 tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_cell_significance_comprehensive PASSED [ 91%]
 tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_cell_significance_with_spikes PASSED [ 92%]
 tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_cell_significance_error_cases PASSED [ 93%]
-tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_embedding_selectivity_basic FAILED [ 94%]
-tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_embedding_selectivity_multiple_methods FAILED [ 95%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_embedding_selectivity_basic PASSED [ 94%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_embedding_selectivity_multiple_methods PASSED [ 95%]
 tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_embedding_selectivity_error_cases PASSED [ 96%]
 tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_feat_feat_significance_edge_cases PASSED [ 97%]
-tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_error_paths FAILED [ 98%]
-tests/unit/intense/test_intense_pipelines_optimized.py::test_disentanglement_with_asymmetric_features FAILED [100%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_error_paths PASSED [ 98%]
+tests/unit/intense/test_intense_pipelines_optimized.py::test_disentanglement_with_asymmetric_features PASSED [100%]
 
-=================================== FAILURES ===================================
-____________ test_disentangle_all_selectivities_multifeature[small] ____________
-tests/unit/intense/test_disentanglement.py:262: in test_disentangle_all_selectivities_multifeature
-    disent_matrix, count_matrix = disentangle_all_selectivities(
-src/driada/intense/disentanglement.py:204: in disentangle_all_selectivities
-    multifeature_ts[agg_name] = MultiTimeSeries(component_ts)
-src/driada/information/info_base.py:466: in __init__
-    super().__init__(
-src/driada/dim_reduction/data.py:106: in __init__
-    check_data_for_errors(self.data, verbose=verbose)
-src/driada/dim_reduction/data.py:53: in check_data_for_errors
-    raise ValueError(
-E   ValueError: Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.
-
-During handling of the above exception, another exception occurred:
-tests/unit/intense/test_disentanglement.py:269: in test_disentangle_all_selectivities_multifeature
-    assert "not in feat_names" in str(e) or "not found" in str(e)
-E   AssertionError: assert ('not in feat_names' in 'Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.' or 'not found' in 'Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.')
-E    +  where 'Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.' = str(ValueError('Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.'))
-E    +  and   'Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.' = str(ValueError('Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.'))
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 10 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/4 [00:00<?, ?it/s]
-100%|██████████| 4/4 [00:00<00:00, 52.13it/s]
-
-  0%|          | 0/10 [00:00<?, ?it/s]
-100%|██████████| 10/10 [00:00<00:00, 319.78it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/10 [00:00<?, ?it/s]
-100%|██████████| 10/10 [00:00<00:00, 94.89it/s]
-100%|██████████| 10/10 [00:00<00:00, 94.74it/s]
-_______________ test_compute_cell_feat_significance_integration ________________
-tests/unit/intense/test_intense.py:788: in test_compute_cell_feat_significance_integration
-    stats, significance, info, results = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 10645.44it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 794.68it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 101.57it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 651.85it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 152.62it/s]
-_________________ test_intense_handles_no_significant_neurons __________________
-tests/unit/intense/test_intense.py:1122: in test_intense_handles_no_significant_neurons
-    stats, significance, info, results = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "RandomNoise" constructed successfully with 10 neurons and 1 features
------------------------------ Captured stderr call -----------------------------
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/10 [00:00<?, ?it/s]
- 20%|██        | 2/10 [00:00<00:00, 12.01it/s]
- 40%|████      | 4/10 [00:00<00:00, 12.11it/s]
- 60%|██████    | 6/10 [00:00<00:00, 12.07it/s]
- 80%|████████  | 8/10 [00:00<00:00, 11.89it/s]
-100%|██████████| 10/10 [00:00<00:00, 13.17it/s]
-100%|██████████| 10/10 [00:00<00:00, 12.62it/s]
-________ test_compute_cell_feat_significance_with_disentanglement_fast _________
-tests/unit/intense/test_intense_pipelines_optimized.py:80: in test_compute_cell_feat_significance_with_disentanglement_fast
-    stats, significance, info, results, disent_results = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "SyntheticMixedSelectivity" constructed successfully with 20 neurons and 8 features
-Testing with 10 neurons with mixed selectivity
------------------------------ Captured stderr call -----------------------------
-
-  0%|          | 0/20 [00:00<?, ?it/s]
- 10%|█         | 2/20 [00:00<00:01, 11.93it/s]
- 20%|██        | 4/20 [00:00<00:01, 12.38it/s]
- 30%|███       | 6/20 [00:00<00:00, 14.97it/s]
- 40%|████      | 8/20 [00:00<00:00, 13.38it/s]
- 50%|█████     | 10/20 [00:00<00:00, 12.89it/s]
- 60%|██████    | 12/20 [00:00<00:00, 11.82it/s]
- 70%|███████   | 14/20 [00:01<00:00, 11.11it/s]
- 80%|████████  | 16/20 [00:01<00:00, 10.51it/s]
- 90%|█████████ | 18/20 [00:01<00:00, 11.09it/s]
-100%|██████████| 20/20 [00:01<00:00, 10.58it/s]
-100%|██████████| 20/20 [00:01<00:00, 11.48it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/20 [00:00<?, ?it/s]
- 10%|█         | 2/20 [00:00<00:01, 13.38it/s]
- 20%|██        | 4/20 [00:00<00:01, 14.36it/s]
- 30%|███       | 6/20 [00:00<00:00, 14.72it/s]
- 40%|████      | 8/20 [00:00<00:00, 15.45it/s]
- 50%|█████     | 10/20 [00:00<00:00, 16.13it/s]
- 60%|██████    | 12/20 [00:00<00:00, 16.32it/s]
- 70%|███████   | 14/20 [00:00<00:00, 16.68it/s]
- 80%|████████  | 16/20 [00:00<00:00, 16.94it/s]
- 90%|█████████ | 18/20 [00:01<00:00, 17.03it/s]
-100%|██████████| 20/20 [00:01<00:00, 17.15it/s]
-100%|██████████| 20/20 [00:01<00:00, 16.31it/s]
-__________ test_compute_cell_feat_significance_continuous_fast[small] __________
-tests/unit/intense/test_intense_pipelines_optimized.py:145: in test_compute_cell_feat_significance_continuous_fast
-    result = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 2 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 99.88it/s]
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 628.38it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 162.85it/s]
-_________________________ test_disentanglement_minimal _________________________
-tests/unit/intense/test_intense_pipelines_optimized.py:224: in test_disentanglement_minimal
-    result = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 3 neurons and 4 features
-Downsampling constant is too high: some behaviour acts may be skipped. Current minimal behaviour time interval is set to 0.25 sec, downsampling 5 will create time gaps of 0.5 sec
------------------------------ Captured stderr call -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 13981.01it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 1194.79it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 200.20it/s]
-
-  0%|          | 0/1 [00:00<?, ?it/s]
-100%|██████████| 1/1 [00:00<00:00, 989.92it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 311.66it/s]
-___________________ TestEdgeCasesFast.test_empty_cell_bunch ____________________
-tests/unit/intense/test_intense_pipelines_optimized.py:238: in test_empty_cell_bunch
-    compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 13617.87it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 839.87it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 102.13it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 661.41it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 166.00it/s]
-_____________________ TestEdgeCasesFast.test_single_neuron _____________________
-tests/unit/intense/test_intense_pipelines_optimized.py:244: in test_single_neuron
-    result = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 12069.94it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 794.93it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 98.92it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 645.63it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 164.21it/s]
-____________ TestPerformanceBenchmarks.test_all_functions_under_5s _____________
-tests/unit/intense/test_intense_pipelines_optimized.py:268: in test_all_functions_under_5s
-    compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 13981.01it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 842.51it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 100.72it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 654.18it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 166.08it/s]
-___________________ test_compute_embedding_selectivity_basic ___________________
-tests/unit/intense/test_intense_pipelines_optimized.py:386: in test_compute_embedding_selectivity_basic
-    results = compute_embedding_selectivity(
-src/driada/intense/pipelines.py:1088: in compute_embedding_selectivity
-    stats, significance, info, intense_res = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 12595.51it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 814.06it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 99.36it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 599.53it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 165.59it/s]
------------------------------ Captured stdout call -----------------------------
-
-============================================================
-Computing selectivity for embedding: pca
-============================================================
-_____________ test_compute_embedding_selectivity_multiple_methods ______________
-tests/unit/intense/test_intense_pipelines_optimized.py:427: in test_compute_embedding_selectivity_multiple_methods
-    results = compute_embedding_selectivity(
-src/driada/intense/pipelines.py:1088: in compute_embedding_selectivity
-    stats, significance, info, intense_res = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 12122.27it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 768.05it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 100.61it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 641.63it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 166.62it/s]
------------------------------ Captured stdout call -----------------------------
-
-============================================================
-Computing selectivity for embedding: pca
-============================================================
-_______________ test_compute_cell_feat_significance_error_paths ________________
-tests/unit/intense/test_intense_pipelines_optimized.py:502: in test_compute_cell_feat_significance_error_paths
-    compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
----------------------------- Captured stdout setup -----------------------------
-Generating features...
-Generating signals...
-Generating features...
-Generating signals...
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "Synthetic" constructed successfully with 5 neurons and 4 features
----------------------------- Captured stderr setup -----------------------------
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 12052.60it/s]
-
-  0%|          | 0/3 [00:00<?, ?it/s]
-100%|██████████| 3/3 [00:00<00:00, 725.83it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 92.14it/s]
-
-  0%|          | 0/2 [00:00<?, ?it/s]
-100%|██████████| 2/2 [00:00<00:00, 661.61it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/5 [00:00<?, ?it/s]
-100%|██████████| 5/5 [00:00<00:00, 163.83it/s]
-________________ test_disentanglement_with_asymmetric_features _________________
-tests/unit/intense/test_intense_pipelines_optimized.py:558: in test_disentanglement_with_asymmetric_features
-    stats, significance, info, results, disent_results = compute_cell_feat_significance(
-src/driada/intense/pipelines.py:238: in compute_cell_feat_significance
-    precomputed_mask_stage1 = np.ones((n, f))
-E   NameError: name 'np' is not defined
------------------------------ Captured stdout call -----------------------------
-Building neurons...
-Building data hashes...
-Final checkpoint...
-Experiment "SyntheticMixedSelectivity" constructed successfully with 10 neurons and 5 features
------------------------------ Captured stderr call -----------------------------
-
-  0%|          | 0/10 [00:00<?, ?it/s]
- 40%|████      | 4/10 [00:00<00:00, 36.64it/s]
- 80%|████████  | 8/10 [00:00<00:00, 37.32it/s]
-100%|██████████| 10/10 [00:00<00:00, 36.23it/s]
-/Users/nikita/PycharmProjects/driada2/src/driada/experiment/exp_base.py:140: UserWarning: No spike data provided, spikes reconstruction from Ca2+ data disabled
-  warnings.warn(
-
-  0%|          | 0/10 [00:00<?, ?it/s]
- 40%|████      | 4/10 [00:00<00:00, 34.44it/s]
- 80%|████████  | 8/10 [00:00<00:00, 34.48it/s]
-100%|██████████| 10/10 [00:00<00:00, 34.57it/s]
 ================================ tests coverage ================================
 ______________ coverage: platform darwin, python 3.10.18-final-0 _______________
 
@@ -547,14 +116,14 @@ src/driada/dimensionality/linear.py                           54     54     16  
 src/driada/dimensionality/utils.py                            42     42      8      0   0.00%   1-91
 src/driada/gdrive/auth.py                                     13     13      0      0   0.00%   1-19
 src/driada/gdrive/upload.py                                   37     37     10      0   0.00%   1-69
-src/driada/integration/selectivity_mapper.py                 123    123     60      0   0.00%   8-428
+src/driada/integration/selectivity_mapper.py                 124    124     60      0   0.00%   8-430
 src/driada/network/drawing.py                                134    134     54      0   0.00%   1-225
 src/driada/network/quantum.py                                 40     40      8      0   0.00%   1-69
 src/driada/utils/visual.py                                   283    271    134      0   2.88%   63-270, 304-405, 448-546, 591-681, 718-778, 811-858
 src/driada/intense/visual.py                                 236    224     70      0   3.92%   30-66, 112-174, 218-292, 364-424, 466-549, 605-754
 src/driada/network/randomization.py                          310    293     94      0   4.21%   43-53, 97-253, 289-342, 374-415, 434-447, 474-643, 712-740
 src/driada/utils/naming.py                                    13     12      6      0   5.26%   2-27
-src/driada/rsa/core.py                                       164    148     84      0   6.45%   47-84, 116-143, 179-234, 256-282, 327-367, 441-508, 569-621
+src/driada/rsa/core.py                                       164    148     84      0   6.45%   47-85, 117-144, 180-235, 257-283, 328-368, 442-509, 570-622
 src/driada/experiment/synthetic/manifold_spatial_3d.py       108     98     46      0   6.49%   39-66, 89-105, 152-207, 275-328, 402-496
 src/driada/rsa/core_jit.py                                    95     85     58      0   6.54%   26-106, 128-142, 160-173, 191-203
 src/driada/dim_reduction/manifold_metrics.py                 313    286     98      0   6.57%   39-43, 77-102, 126-160, 184-218, 249-280, 302-312, 335-385, 417-460, 491-518, 539-540, 556-558, 574-583, 615-652, 673-693, 731-781, 807-828, 865-900, 922-962, 996-1026, 1060-1088, 1122-1167
@@ -578,56 +147,39 @@ src/driada/utils/neural.py                                    20     17      4  
 src/driada/experiment/wavelet_event_detection.py             154    130     40      1  12.89%   8, 37-40, 46-123, 131-189, 195-201, 211-225, 242-262, 266-309, 324-345, 350-358
 src/driada/utils/matrix.py                                    24     20      4      0  14.29%   17-45, 50-54
 src/driada/dim_reduction/sequences.py                         22     17     12      0  14.71%   67-101
-src/driada/information/ksg.py                                 87     71     20      0  14.95%   30, 35, 39-42, 46, 54-57, 65-83, 93-101, 108-111, 129-169, 173-192
 src/driada/network/graph_utils.py                             47     38     12      0  15.25%   8-17, 22-34, 38-41, 45-49, 53-55, 59-81
 src/driada/experiment/spike_reconstruction.py                 48     39      8      0  16.07%   49-62, 91-122, 154-206
 src/driada/dim_reduction/dr_base.py                           82     61     46      0  16.41%   191-215, 223-238, 247-256, 277-339
 src/driada/gdrive/gdrive_utils.py                             73     56     30      0  16.50%   25-28, 31, 61-105, 135-194, 198-204
 src/driada/utils/gif.py                                       36     27     14      0  18.00%   21-29, 44-53, 81-108
-src/driada/dim_reduction/neural.py                           131    100     24      1  20.65%   12-15, 21-42, 45-55, 62-83, 86-93, 99-120, 123-132, 138-157, 160-162, 165-167, 181-200, 207-210, 213-227, 231-235, 239-240, 248-249, 252, 255-263
+src/driada/dim_reduction/neural.py                           132    101     24      1  20.51%   12-16, 22-43, 46-56, 63-84, 87-94, 100-121, 124-133, 139-158, 161-163, 166-168, 182-201, 208-211, 214-228, 232-236, 240-241, 249-250, 253, 256-264
+src/driada/dim_reduction/data.py                             128     93     66      5  21.65%   34, 43-53, 100, 111-112, 122, 127-141, 158-163, 180-212, 255-335, 338-343, 346-348, 351-353
 src/driada/experiment/wavelet_ridge.py                        66     50      4      0  22.86%   26-27, 34-56, 59-65, 68, 71-82, 87-99, 103-107
 src/driada/experiment/synthetic/experiment_generators.py     276    204    146      9  23.46%   109-112, 133, 143, 152, 163-166, 183-191, 254->259, 317, 433-1037
-src/driada/dim_reduction/data.py                             128     91     66      5  23.71%   34, 44-51, 100, 111-112, 122, 127-141, 158-163, 180-212, 255-335, 338-343, 346-348, 351-353
+src/driada/information/ksg.py                                 87     58     20      2  28.97%   39-42, 46, 55, 65-83, 94->96, 108-111, 129-169, 173-192
 src/driada/utils/output.py                                    16     10      4      0  30.00%   7-9, 12-14, 18-22
 src/driada/experiment/neuron.py                              172    108     38      5  32.86%   74-75, 79-82, 105-106, 144->146, 146->148, 149, 156, 171, 196-215, 220-225, 228-230, 233-242, 245-248, 251-254, 261-276, 295-302, 306-319, 322-335, 338-354, 378-387, 390-424
 src/driada/utils/jit.py                                       27     17      4      1  35.48%   20-30, 63-66, 74, 79-85
-src/driada/experiment/exp_base.py                            464    259    268     39  39.62%   58, 68-78, 89-92, 131, 134, 139->157, 144-153, 159, 168-185, 192->194, 246, 249, 256->255, 258, 266-270, 285->287, 289, 291->293, 296->exit, 303, 307->exit, 335-338, 343, 351-358, 388-431, 446, 453, 460, 468-479, 523, 537, 547-559, 566-580, 587-605, 620, 623, 637-643, 652-660, 679-693, 705-713, 724-731, 738-745, 772-803, 830-867, 881-900, 905, 937-995, 1019-1044, 1079, 1086, 1101-1102, 1105-1110, 1113, 1116, 1119-1120, 1143, 1149, 1178, 1219-1241, 1245
+src/driada/experiment/exp_base.py                            464    237    268     46  44.40%   58, 68-78, 89-92, 131, 134, 139->157, 144-153, 159, 168-185, 192->194, 246, 249, 256->255, 258, 266-270, 285->287, 289, 291->293, 296->exit, 303, 307->exit, 335-338, 343, 351-358, 388-431, 446, 453, 460, 468-479, 523, 537, 547-559, 566-580, 587-605, 620, 623, 637-643, 660, 680-681, 689-693, 706-707, 713, 728-729, 738-745, 772-803, 830-867, 881-900, 905, 949->955, 957-995, 1019-1044, 1079, 1101-1102, 1105-1110, 1113, 1116, 1119-1120, 1143, 1149, 1178, 1219-1241, 1245
 src/driada/experiment/synthetic/core.py                       39     19     16      3  45.45%   36-46, 75-80, 93, 101, 154-171
-src/driada/intense/pipelines.py                              287    117    170     25  52.74%   201, 213, 219, 224-234, 239-467, 587->589, 597->602, 672->676, 678, 679->658, 692->701, 822->827, 837->850, 840-842, 900->892, 902->906, 908, 909->892, 922->938, 1041, 1044, 1053->1059, 1083->1086, 1117-1160, 1169->1052, 1170->1169, 1173
-src/driada/information/info_base.py                          455    193    220     42  53.04%   46-73, 91, 95, 99, 103, 105, 109-112, 116-151, 199-207, 210-218, 236-242, 274, 277-281, 284-285, 288-292, 295-296, 299-301, 304-313, 336-354, 397-409, 434-454, 495-497, 511, 517, 533, 538, 543, 551-553, 556-575, 593-615, 628-629, 639, 671-674, 697-699, 705-715, 726-730, 735-740, 772-775, 792-795, 801->803, 822-826, 908-911, 923, 930-963, 965->exit, 986-990, 997, 1000->1018, 1015, 1025-1030, 1036-1047, 1083, 1135, 1181->1176, 1206, 1232-1235, 1279-1295
 src/driada/information/gcmi_jit_utils.py                     206     81     66      8  55.51%   45, 72-78, 103, 105, 127-143, 182-188, 211-270, 298, 310-315, 371->396, 417, 454-467
+src/driada/information/info_base.py                          457    180    220     42  56.57%   46-73, 91, 95, 99, 103, 105, 109-112, 116-151, 199-207, 210-218, 236-242, 274, 277-281, 284-285, 288-292, 295-298, 338-356, 399-411, 436-456, 500-502, 516, 522, 538, 543, 548, 563-570, 598-621, 635-636, 646, 678-681, 704-706, 712-722, 733-737, 742-747, 779-782, 799-802, 829-833, 915-918, 930, 937-970, 972->exit, 993-997, 1004, 1007->1025, 1022, 1032-1037, 1043-1054, 1090, 1142, 1188->1183, 1213, 1239-1242, 1286-1302
 src/driada/information/entropy_jit.py                         44     17      4      1  58.33%   32-66, 101
 src/driada/information/time_series_types.py                  231     77    116     36  59.94%   39, 47, 81, 112, 119, 177-178, 189-192, 203-204, 214, 229, 234-243, 246->259, 255->259, 270-287, 291->311, 311->329, 317->329, 318->317, 330, 334->345, 342-343, 358-359, 363, 367, 372-374, 380, 389, 390->394, 396, 397->401, 402, 403->407, 408, 409->413, 414, 415->419, 430, 435, 442, 461-487, 514-536, 559-563
 src/driada/utils/data.py                                     157     59     74     14  61.47%   36, 41->40, 47, 72, 74, 95, 97, 117, 121-134, 145-147, 175-177, 181-184, 188-198, 216-238, 250-252, 294-305, 312-315, 338, 341, 375-380
-src/driada/intense/disentanglement.py                        148     45     72      8  66.82%   102, 114, 117, 120, 201, 210-278, 392->391, 396
-src/driada/information/info_utils.py                          41     10      8      1  73.47%   43-71, 85
-src/driada/information/gcmi.py                               250     45     78     26  75.91%   37-38, 50-55, 79, 146-147, 166, 184->195, 218, 227, 233, 251->259, 283, 285, 291, 297, 325->340, 353-391, 428, 439, 444, 468->477, 496, 498, 500, 502, 509, 514-515, 518-519, 523
-src/driada/intense/intense_base.py                           410     79    220     31  77.78%   25-27, 59-64, 72, 85, 89, 93, 144-145, 253, 334, 339, 442, 493-502, 598, 622, 634-644, 674-695, 807, 1175, 1181, 1187, 1206, 1225-1249, 1258-1273, 1387->exit, 1399, 1436, 1438->1444, 1478-1479, 1548, 1563, 1572->1582, 1577-1580
+src/driada/information/gcmi.py                               250     43     78     25  76.83%   37-38, 50-55, 79, 166, 184->195, 218, 227, 233, 251->259, 283, 285, 291, 297, 325->340, 353-391, 428, 439, 444, 468->477, 496, 498, 500, 502, 509, 514-515, 518-519, 523
+src/driada/intense/intense_base.py                           410     71    220     26  80.16%   25-27, 59-64, 72, 85, 89, 93, 144-145, 334, 339, 442, 493-502, 598, 622, 634-644, 674-695, 807, 1175, 1181, 1187, 1206, 1225-1249, 1259, 1387->exit, 1548, 1563, 1572->1582, 1577-1580
+src/driada/intense/pipelines.py                              288     33    170     32  83.19%   203, 215, 221, 226-236, 257-265, 270, 272, 282, 321, 337->317, 406->410, 444->448, 449, 452->460, 589->591, 674->678, 681->660, 824->829, 839->852, 842-844, 902->894, 904->908, 910, 911->894, 924->940, 1046, 1055->1061, 1122->1121, 1127-1129, 1134-1136, 1149->1168, 1162, 1172->1171
 src/driada/experiment/synthetic/mixed_selectivity.py         143     15     80     21  83.86%   56->59, 64, 77, 82, 128->131, 141, 247, 258, 361->364, 369, 384, 390->385, 396->432, 398, 407, 408->405, 420-427, 436, 478->477, 485->474, 508
 src/driada/information/entropy.py                             55      6     14      4  85.51%   18-19, 46, 97-101, 133->130, 167->164
+src/driada/intense/disentanglement.py                        148     16     72     11  86.82%   102, 114, 117, 120, 201, 224-229, 238, 247->259, 268, 270, 271->214, 275-279
 src/driada/experiment/synthetic/time_series.py                79      5     24      5  90.29%   42-44, 138, 174->177, 182, 247->251
+src/driada/information/info_utils.py                          41      1      8      1  95.92%   85
 src/driada/intense/stats.py                                  104      0     44      2  98.65%   345->351, 377->379
 -------------------------------------------------------------------------------------------------------
-TOTAL                                                       8747   5959   3552    288  29.24%
+TOTAL                                                       8752   5783   3552    301  31.53%
 Coverage HTML written to dir htmlcov
 Coverage XML written to file coverage.xml
 Coverage JSON written to file coverage.json
-=========================== short test summary info ============================
-FAILED tests/unit/intense/test_disentanglement.py::test_disentangle_all_selectivities_multifeature[small] - AssertionError: assert ('not in feat_names' in 'Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.' or 'not found' in 'Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.')
- +  where 'Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.' = str(ValueError('Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.'))
- +  and   'Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.' = str(ValueError('Data contains 1 zero columns (all values are 0). This can cause issues in dimensionality reduction. Consider removing these columns or adding small noise.'))
-FAILED tests/unit/intense/test_intense.py::test_compute_cell_feat_significance_integration - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense.py::test_intense_handles_no_significant_neurons - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_with_disentanglement_fast - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_continuous_fast[small] - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::test_disentanglement_minimal - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_empty_cell_bunch - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::TestEdgeCasesFast::test_single_neuron - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::TestPerformanceBenchmarks::test_all_functions_under_5s - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_embedding_selectivity_basic - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_embedding_selectivity_multiple_methods - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::test_compute_cell_feat_significance_error_paths - NameError: name 'np' is not defined
-FAILED tests/unit/intense/test_intense_pipelines_optimized.py::test_disentanglement_with_asymmetric_features - NameError: name 'np' is not defined
-======================== 13 failed, 85 passed in 49.88s ========================
+============================= 98 passed in 34.16s ==============================
 
-ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmp69oluavh.py` failed. (See above for error)

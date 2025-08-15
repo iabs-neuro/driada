@@ -201,7 +201,8 @@ def disentangle_all_selectivities(
                     raise ValueError(f"Component '{component}' not found in experiment")
 
             # Create MultiTimeSeries
-            multifeature_ts[agg_name] = MultiTimeSeries(component_ts)
+            # Allow zero columns since behavioral features might be constant
+            multifeature_ts[agg_name] = MultiTimeSeries(component_ts, allow_zero_columns=True)
 
     # Get neurons with significant selectivity to multiple features
     sneur = exp.get_significant_neurons(min_nspec=2, cbunch=cell_bunch)

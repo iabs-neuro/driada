@@ -1,3 +1,4 @@
+import numpy as np
 import tqdm
 import matplotlib.pyplot as plt
 
@@ -14,7 +15,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelmax
 from numba import njit
 
-from .wavelet_ridge import *
+from .wavelet_ridge import Ridge, ridges_to_containers
 
 WVT_EVENT_DETECTION_PARAMS = {
     "fps": 20,  # fps, frames
