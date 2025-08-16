@@ -91,8 +91,77 @@ def check_weights_and_directions(a, weighted, directed):
         )
 
 
+def calculate_directionality_fraction(adj):
+    """Calculate the fraction of directed edges in an adjacency matrix.
+    
+    A fully symmetric matrix has directionality = 0.0
+    A fully asymmetric matrix has directionality = 1.0
+    A partially directed matrix has 0.0 < directionality < 1.0
+    
+    Parameters
+    ----------
+    adj : scipy.sparse matrix or numpy array
+        Adjacency matrix
+        
+    Returns
+    -------
+    float
+        Fraction of directed edges (0.0 to 1.0)
+    """
+    # Convert to dense for easier calculation
+    if sp.issparse(adj):
+        A = adj.todense()
+    else:
+        A = adj
+        
+    # Remove diagonal to focus on edges
+    A_no_diag = A.copy()
+    np.fill_diagonal(A_no_diag, 0)
+    
+    # Count total edges (non-zero entries)
+    total_edges = np.count_nonzero(A_no_diag)
+    
+    if total_edges == 0:
+        return 0.0  # Empty graph is considered undirected
+    
+    # Count symmetric edges (edges that exist in both directions)
+    # For each edge (i,j), check if (j,i) also exists
+    symmetric_edges = 0
+    rows, cols = np.nonzero(A_no_diag)
+    
+    for i, j in zip(rows, cols):
+        if i < j and A_no_diag[j, i] != 0:  # Only count each symmetric pair once
+            symmetric_edges += 2  # Count both (i,j) and (j,i)
+    
+    # Directed edges are those that don't have a reciprocal edge
+    directed_edges = total_edges - symmetric_edges
+    
+    # Return fraction of directed edges
+    return directed_edges / total_edges
+
+
 def select_construction_pipeline(a, graph):
-    # TODO: add partial directions
+    """Select construction pipeline and determine directionality.
+    
+    This function now supports partial directions by calculating
+    the exact fraction of directed edges in the input.
+    
+    Parameters
+    ----------
+    a : scipy.sparse matrix or None
+        Adjacency matrix
+    graph : networkx.Graph/DiGraph or None
+        NetworkX graph object
+        
+    Returns
+    -------
+    tuple
+        (pipeline, directed_fraction) where:
+        - pipeline is 'adj' or 'graph'
+        - directed_fraction is float between 0.0 and 1.0 or None
+    """
+    directed_fraction = None
+    
     if a is None:
         if graph is None:
             raise ValueError('Either "adj" or "graph" argument must be non-empty')
@@ -105,14 +174,23 @@ def select_construction_pipeline(a, graph):
                 )
             else:
                 pipeline = "graph"
+                # Calculate directionality for NetworkX graphs
+                if nx.is_directed(graph):
+                    # For directed graphs, calculate the fraction of asymmetric edges
+                    adj_from_graph = nx.adjacency_matrix(graph)
+                    directed_fraction = calculate_directionality_fraction(adj_from_graph)
+                else:
+                    directed_fraction = 0.0
 
     else:
         if graph is None:
             pipeline = "adj"
+            # Calculate directionality from adjacency matrix
+            directed_fraction = calculate_directionality_fraction(a)
         else:
             raise ValueError('Either "adj" or "graph" should be given, not both')
 
-    return pipeline
+    return pipeline, directed_fraction
 
 
 class Network:
@@ -140,14 +218,19 @@ class Network:
         self.create_nx_graph = create_nx_graph
         self.logger = logger or logging.getLogger(self.__class__.__name__)
 
-        self.init_method = select_construction_pipeline(adj, graph)
+        self.init_method, self._calculated_directionality = select_construction_pipeline(adj, graph)
 
         self.directed = network_args.get("directed")
         if self.directed is None:
-            if self.init_method == "adj":
-                self.directed = not np.allclose(adj.toarray(), adj.toarray().T)
-            elif self.init_method == "graph":
-                self.directed = nx.is_directed(graph)
+            # Use the calculated directionality fraction
+            if self._calculated_directionality is not None:
+                self.directed = self._calculated_directionality
+            else:
+                # Fallback to binary detection (for backward compatibility)
+                if self.init_method == "adj":
+                    self.directed = not np.allclose(adj.toarray(), adj.toarray().T)
+                elif self.init_method == "graph":
+                    self.directed = nx.is_directed(graph)
 
         self.weighted = network_args.get("weighted")
         if self.weighted is None:

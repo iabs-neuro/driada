@@ -36,7 +36,7 @@ from ..utils.data import to_numpy_array
 
 DEFAULT_NN = 5
 
-# TODO: add @property decorators to properly set getter-setter functionality
+# FUTURE: add @property decorators to properly set getter-setter functionality
 
 
 class TimeSeries:

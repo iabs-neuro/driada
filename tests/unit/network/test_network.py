@@ -337,11 +337,15 @@ class TestHelperFunctions:
         """Test select_construction_pipeline function."""
         # Test with adjacency matrix only
         A = sp.csr_matrix([[0, 1], [1, 0]])
-        assert select_construction_pipeline(A, None) == "adj"
+        pipeline, directionality = select_construction_pipeline(A, None)
+        assert pipeline == "adj"
+        assert directionality == 0.0  # Symmetric matrix
 
         # Test with graph only
         G = nx.Graph()
-        assert select_construction_pipeline(None, G) == "graph"
+        pipeline, directionality = select_construction_pipeline(None, G)
+        assert pipeline == "graph"
+        assert directionality == 0.0  # Undirected graph
 
         # Test with neither
         with pytest.raises(
@@ -764,7 +768,7 @@ class TestNetworkEdgeCases:
         """Test various error conditions in diagonalize method."""
         # Test with inconsistent degree for boolean undirected network
         A = sp.csr_matrix([[0, 1, 0], [1, 0, 1], [0, 0, 0]])  # Node 2 is isolated
-        net = Network(adj=A, create_nx_graph=False)
+        net = Network(adj=A, create_nx_graph=False, real_world=False)
         net.weighted = False
         net.directed = False
 
