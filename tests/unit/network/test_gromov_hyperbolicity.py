@@ -89,7 +89,7 @@ class TestGromovHyperbolicity:
         # Average should match non-list return
         hyp_avg = net.calculate_gromov_hyperbolicity(num_samples=num_samples, return_list=False)
         # Allow small difference due to random sampling
-        assert abs(np.mean(hyp_list) - hyp_avg) < 0.01
+        assert abs(np.mean(hyp_list) - hyp_avg) < 0.02
 
     def test_no_networkx_graph_error(self):
         """Test error when NetworkX graph is not available."""

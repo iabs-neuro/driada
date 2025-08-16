@@ -124,55 +124,123 @@ def assign_random_weights(A):
     return (W + W.T) / 2
 
 
-# TODO: refactor to sparse format
 def turn_to_partially_directed(mat, directed=0.0, weighted=0):
-    if not isinstance(mat, np.ndarray):
-        raise Exception("Wrong input parsed to turn_to_directed function!")
-
-    A = copy.deepcopy(mat)
-
-    if directed == 0.0 or directed is None:
-        if not weighted:
-            a = A.astype(bool)
+    """Convert a symmetric matrix to partially directed by randomly removing edges.
+    
+    This function supports both dense (numpy) and sparse (scipy.sparse) matrices.
+    Sparse format is preferred for memory efficiency with large graphs.
+    
+    Parameters
+    ----------
+    mat : np.ndarray or scipy.sparse matrix
+        Input adjacency matrix (should be symmetric)
+    directed : float, default=0.0
+        Fraction of edges to make directed (0.0 = fully undirected, 1.0 = fully directed)
+    weighted : int, default=0
+        Whether the matrix represents a weighted graph
+        
+    Returns
+    -------
+    scipy.sparse.csr_matrix
+        Partially directed adjacency matrix in sparse format (always returns sparse)
+    """
+    # Determine if we're working with sparse or dense
+    is_sparse = sp.issparse(mat)
+    
+    if is_sparse:
+        # Sparse pathway (preferred)
+        A = mat.tocsr().copy()
+        A.setdiag(0)  # Remove self-loops
+        A.eliminate_zeros()  # Remove any explicit zeros
+        
+        if directed == 0.0 or directed is None:
+            if not weighted:
+                A.data = np.ones_like(A.data, dtype=np.int32)
+            return A
+            
+        # For partial directionality with sparse matrices
+        A_coo = A.tocoo()
+        
+        # Find symmetric edge pairs efficiently
+        edges = list(zip(A_coo.row, A_coo.col))
+        edge_set = set(edges)
+        symmetric_pairs = []
+        seen = set()
+        
+        for i, j in edges:
+            if i < j and (j, i) in edge_set and (i, j) not in seen:
+                symmetric_pairs.append((i, j))
+                seen.add((i, j))
+                seen.add((j, i))
+        
+        if not symmetric_pairs:
+            return A
+        
+        # Randomly select which symmetric pairs to make directed
+        n_pairs = len(symmetric_pairs)
+        random_tosses = np.random.random(n_pairs)
+        
+        # Determine which edges to remove
+        edges_to_remove = set()
+        
+        for idx, (i, j) in enumerate(symmetric_pairs):
+            if random_tosses[idx] < directed:
+                if random_tosses[idx] < directed / 2.0:
+                    edges_to_remove.add((i, j))
+                else:
+                    edges_to_remove.add((j, i))
+        
+        # Build new sparse matrix without removed edges
+        edge_to_value = {}
+        for row, col, data in zip(A_coo.row, A_coo.col, A_coo.data):
+            if (row, col) not in edges_to_remove:
+                edge_to_value[(row, col)] = data
+        
+        if edge_to_value:
+            rows, cols = zip(*edge_to_value.keys())
+            data = list(edge_to_value.values())
+            result = sp.csr_matrix((data, (rows, cols)), shape=A.shape)
         else:
-            a = A.astype(float)
-
-        return sp.csr_array(a)
-
-    np.fill_diagonal(A, 0)
-    rows, cols = A.nonzero()
-    edgeset = set(zip(rows, cols))
-    upper = np.array([l for l in edgeset if l[0] < l[1]])
-    dircount = 0
-
-    random_tosses = np.random.random(len(upper))
-    condition1 = (random_tosses >= directed / 2.0) & (random_tosses < directed)
-    condition2 = (random_tosses <= directed / 2.0) & (random_tosses < directed)
-    indices_where_upper_is_removed = np.where(condition1 == True)[0]
-    indices_where_lower_is_removed = np.where(condition2 == True)[0]
-
-    u_xdata = [u[0] for u in upper[indices_where_upper_is_removed]]
-    u_ydata = [u[1] for u in upper[indices_where_upper_is_removed]]
-    A[u_xdata, u_ydata] = 0
-
-    l_xdata = [u[1] for u in upper[indices_where_lower_is_removed]]
-    l_ydata = [u[0] for u in upper[indices_where_lower_is_removed]]
-    A[l_xdata, l_ydata] = 0
-
-    """
-    for i in range(double_edges):
-        toss = random.random()
-        if toss < directed: # this means double edge will be reduced to single randomly
-            dircount += 1
-            if toss >= directed/2.:
-                A[upper_right[i]] = 0#A[upper_right[i][::-1]] + 0#.1*np.random.random()
+            result = sp.csr_matrix(A.shape)
+            
+        return result
+    
+    else:
+        # Dense pathway (kept for backward compatibility)
+        if not isinstance(mat, np.ndarray):
+            raise TypeError("Input must be numpy array or scipy sparse matrix")
+            
+        A = copy.deepcopy(mat)
+        np.fill_diagonal(A, 0)  # Remove self-loops
+        
+        if directed == 0.0 or directed is None:
+            if not weighted:
+                a = A.astype(bool).astype(int)  # Convert bool to 0/1
             else:
-                A[upper_right[i][::-1]] = 0#A[upper_right[i]] + 0#.1*np.random.random()
-    """
-
-    # a = sp.csr_array(A)
-    # get_symmetry_index(a)
-    return A
+                a = A.astype(float)
+            return sp.csr_matrix(a)
+        
+        # Original dense implementation
+        rows, cols = A.nonzero()
+        edgeset = set(zip(rows, cols))
+        upper = np.array([l for l in edgeset if l[0] < l[1]])
+        
+        random_tosses = np.random.random(len(upper))
+        condition1 = (random_tosses >= directed / 2.0) & (random_tosses < directed)
+        condition2 = (random_tosses <= directed / 2.0) & (random_tosses < directed)
+        indices_where_upper_is_removed = np.where(condition1 == True)[0]
+        indices_where_lower_is_removed = np.where(condition2 == True)[0]
+        
+        u_xdata = [u[0] for u in upper[indices_where_upper_is_removed]]
+        u_ydata = [u[1] for u in upper[indices_where_upper_is_removed]]
+        A[u_xdata, u_ydata] = 0
+        
+        l_xdata = [u[1] for u in upper[indices_where_lower_is_removed]]
+        l_ydata = [u[0] for u in upper[indices_where_lower_is_removed]]
+        A[l_xdata, l_ydata] = 0
+        
+        # Convert to sparse before returning
+        return sp.csr_matrix(A)
 
 
 def get_symmetry_index(a):

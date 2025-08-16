@@ -17,12 +17,13 @@ class TestDisconnectedGraphHandling:
         """Create data that will result in a disconnected graph."""
         np.random.seed(42)
         # Create two well-separated clusters
-        cluster1 = np.random.randn(10, 20) * 0.1  # 10 features, 20 samples
-        cluster2 = np.random.randn(10, 20) * 0.1 + 100  # Far away cluster
+        # Make them VERY far apart to ensure disconnection
+        cluster1 = np.random.randn(10, 10) * 0.1  # 10 features, 10 samples
+        cluster2 = np.random.randn(10, 10) * 0.1 + 1000  # Very far away cluster
 
         # Combine into single dataset
         data = np.hstack([cluster1, cluster2])
-        labels = np.array([0] * 20 + [1] * 20)
+        labels = np.array([0] * 10 + [1] * 10)
 
         return MVData(data, labels=labels)
 
@@ -195,17 +196,23 @@ class TestDisconnectedGraphHandling:
 
     def test_preprocessing_interaction(self, disconnected_data):
         """Test interaction with graph preprocessing options."""
-        # With giant_cc preprocessing (default), some nodes will be lost
+        # Use Isomap which requires connected graphs and will use giant_cc by default
+        # Use n_neighbors=5 to ensure we don't connect across clusters
         embedding = disconnected_data.get_embedding(
-            method="umap", n_neighbors=3, dim=2, max_deleted_nodes=0.6
+            method="isomap", n_neighbors=5, dim=2, max_deleted_nodes=0.6
         )
 
-        # Check that nodes were lost due to preprocessing
+        # Check that lost_nodes attribute exists
         assert hasattr(embedding.graph, "lost_nodes")
-        assert len(embedding.graph.lost_nodes) > 0
+        
+        # With two clusters of 10 nodes each at distance 1000,
+        # and n_neighbors=5, the graph should be disconnected,
+        # so giant_cc preprocessing should remove one cluster
+        assert len(embedding.graph.lost_nodes) == 10
 
-        # UMAP should still work even with lost nodes
+        # Isomap should still work with the remaining cluster
         assert embedding.coords is not None
+        assert embedding.coords.shape[1] == 10  # Only one cluster remains (coords is dim x samples)
 
     def test_handles_disconnected_graphs_property(self):
         """Test the handles_disconnected_graphs property behavior."""

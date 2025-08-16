@@ -52,7 +52,8 @@ class ProximityGraph(Network):
 
         node_mapping = self._init_to_final_node_mapping
         original_n = self.data.shape[1]  # Data is (features, samples)
-        lost_nodes = set(range(original_n)) - set(list(node_mapping.keys()))
+        lost_nodes = set(range(original_n)) - set(node_mapping.values())
+        self.lost_nodes = lost_nodes  # Always set the attribute
         if len(lost_nodes) > 0:
             if self.verbose:
                 print(f"{len(lost_nodes)} nodes lost after giant component creation!")
@@ -62,7 +63,6 @@ class ProximityGraph(Network):
                     f"more than {self.max_deleted_nodes * 100} % of nodes discarded during gc creation!"
                 )
             else:
-                self.lost_nodes = lost_nodes
                 connected = [i for i in range(original_n) if i not in self.lost_nodes]
                 self.bin_adj = self.bin_adj[connected, :].tocsc()[:, connected].tocsr()
                 self.neigh_distmat = (
