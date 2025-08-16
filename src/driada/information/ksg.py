@@ -22,7 +22,102 @@ from .info_utils import py_fast_digamma
 DEFAULT_NN = 5
 # UTILITY FUNCTIONS
 
-# TODO: add automatic alpha selection for LNC correction from https://github.com/BiuBiuBiLL/NPEET_LNC
+# Alpha selection for LNC correction based on k and dimensionality
+# Values from https://github.com/BiuBiuBiLL/NPEET_LNC/blob/master/alpha.xlsx
+
+# Alpha lookup table: (k, d) -> alpha
+# k: number of nearest neighbors
+# d: dimensionality
+ALPHA_LNC_TABLE = {
+    # k=2
+    (2, 3): 0.182224, (2, 4): 0.284370, (2, 5): 0.372004, (2, 6): 0.442894,
+    (2, 7): 0.503244, (2, 8): 0.554523, (2, 9): 0.594569, (2, 10): 0.630903,
+    (2, 11): 0.660295, (2, 12): 0.689290, (2, 13): 0.711052, (2, 14): 0.735075,
+    (2, 15): 0.751908, (2, 16): 0.767809, (2, 17): 0.782448, (2, 18): 0.795362,
+    (2, 19): 0.806728, (2, 20): 0.817252,
+    # k=3
+    (3, 4): 0.077830, (3, 5): 0.167277, (3, 6): 0.250141, (3, 7): 0.320280,
+    (3, 8): 0.384474, (3, 9): 0.441996, (3, 10): 0.489972, (3, 11): 0.532178,
+    (3, 12): 0.568561, (3, 13): 0.603990, (3, 14): 0.636593, (3, 15): 0.660156,
+    (3, 16): 0.683954, (3, 17): 0.706157, (3, 18): 0.724844, (3, 19): 0.743606,
+    (3, 20): 0.757283,
+    # k=5
+    (5, 6): 0.023953, (5, 7): 0.067077, (5, 8): 0.123341, (5, 9): 0.180215,
+    (5, 10): 0.239442, (5, 11): 0.297637, (5, 12): 0.351355, (5, 13): 0.404194,
+    (5, 14): 0.451739, (5, 15): 0.498458, (5, 16): 0.538889, (5, 17): 0.578158,
+    (5, 18): 0.614937, (5, 19): 0.651598, (5, 20): 0.679500,
+    # k=10
+    (10, 11): 0.003734, (10, 12): 0.014748, (10, 13): 0.034749, (10, 14): 0.063109,
+    (10, 15): 0.100471, (10, 16): 0.147694, (10, 17): 0.200196, (10, 18): 0.261374,
+    (10, 19): 0.325363, (10, 20): 0.398082,
+}
+
+
+def get_lnc_alpha(k, d):
+    """Get optimal alpha value for LNC correction based on k and dimensionality.
+    
+    Parameters
+    ----------
+    k : int
+        Number of nearest neighbors
+    d : int
+        Dimensionality of the data
+        
+    Returns
+    -------
+    float
+        Alpha value for LNC correction. Returns 0 if no suitable value found.
+        
+    Notes
+    -----
+    Values are based on the lookup table from:
+    https://github.com/BiuBiuBiLL/NPEET_LNC
+    
+    For (k, d) pairs not in the table:
+    - If k is not in {2, 3, 5, 10}, uses nearest available k
+    - If d is outside available range, uses nearest available d
+    - Interpolates between adjacent values when possible
+    """
+    # Get available k values
+    available_k = sorted(set(k_val for k_val, _ in ALPHA_LNC_TABLE.keys()))
+    
+    # Find closest k
+    if k in available_k:
+        k_use = k
+    else:
+        # Find nearest k
+        k_use = min(available_k, key=lambda x: abs(x - k))
+    
+    # Get available d values for this k
+    available_d = sorted([d_val for k_val, d_val in ALPHA_LNC_TABLE.keys() if k_val == k_use])
+    
+    if not available_d:
+        # No data for this k, use default
+        return 0.25  # Default from original implementation
+    
+    # Find appropriate d
+    if d <= available_d[0]:
+        # Use smallest available d
+        d_use = available_d[0]
+    elif d >= available_d[-1]:
+        # Use largest available d
+        d_use = available_d[-1]
+    elif d in available_d:
+        # Exact match
+        d_use = d
+    else:
+        # Interpolate between adjacent values
+        d_lower = max(d_val for d_val in available_d if d_val < d)
+        d_upper = min(d_val for d_val in available_d if d_val > d)
+        
+        alpha_lower = ALPHA_LNC_TABLE.get((k_use, d_lower), 0)
+        alpha_upper = ALPHA_LNC_TABLE.get((k_use, d_upper), 0)
+        
+        # Linear interpolation
+        weight = (d - d_lower) / (d_upper - d_lower)
+        return alpha_lower + weight * (alpha_upper - alpha_lower)
+    
+    return ALPHA_LNC_TABLE.get((k_use, d_use), 0.25)
 
 
 def add_noise(x, ampl=1e-10):
@@ -117,13 +212,35 @@ def nonparam_mi_cc(
     z=None,
     k=DEFAULT_NN,
     base=np.e,
-    alpha=0,
+    alpha="auto",
     lf=5,
     precomputed_tree_x=None,
     precomputed_tree_y=None,
 ):
     """
     Mutual information of x and y (conditioned on z if z is not None)
+    
+    Parameters
+    ----------
+    x : array-like
+        First variable
+    y : array-like
+        Second variable
+    z : array-like, optional
+        Conditioning variable
+    k : int, default=5
+        Number of nearest neighbors
+    base : float, default=e
+        Logarithm base
+    alpha : float or "auto", default="auto"
+        LNC correction parameter. If "auto", selects based on k and dimensionality.
+        Set to 0 to disable LNC correction.
+    lf : int, default=5
+        Leaf size for tree construction
+    precomputed_tree_x : BallTree/KDTree, optional
+        Precomputed tree for x
+    precomputed_tree_y : BallTree/KDTree, optional
+        Precomputed tree for y
     """
 
     assert len(x) == len(y), "Arrays should have same length"
@@ -141,6 +258,11 @@ def nonparam_mi_cc(
         points.append(z)
 
     points = np.hstack(points)
+    
+    # Auto-select alpha if requested
+    if alpha == "auto":
+        d = points.shape[1]  # Total dimensionality
+        alpha = get_lnc_alpha(k, d)
 
     # Find nearest neighbors in joint space, p=inf means max-norm
     tree = build_tree(points, lf=lf)
@@ -154,7 +276,7 @@ def nonparam_mi_cc(
 
         # print(a, b, c, d)
 
-        if alpha > 0:
+        if isinstance(alpha, (int, float)) and alpha > 0:
             d += lnc_correction(tree, points, k, alpha)
     else:
         xz = np.c_[x, z]
