@@ -40,10 +40,11 @@ class ProximityGraph(Network):
         self.verbose = verbose
 
         self.construct_adjacency()
-        # TODO: add graph_preprocessing to changeable graph params
+        # Get graph preprocessing parameter with default value
+        graph_preprocessing = all_params.get("graph_preprocessing", "giant_cc")
         super(ProximityGraph, self).__init__(
             adj=self.adj,
-            preprocessing="giant_cc",
+            preprocessing=graph_preprocessing,
             create_nx_graph=create_nx_graph,
             directed=False,
             weighted=all_params["weighted"],

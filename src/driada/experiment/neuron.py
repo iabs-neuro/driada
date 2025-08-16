@@ -254,8 +254,8 @@ class Neuron:
 
     def _fit_t_off(self):
 
-        # TODO: fit for an arbitrary kernel form.
-        # TODO: add nonlinear summation fit if needed
+        # FUTURE: fit for an arbitrary kernel form.
+        # FUTURE: add nonlinear summation fit if needed
 
         res = minimize(
             Neuron.ca_mse_error,

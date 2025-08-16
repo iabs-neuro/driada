@@ -219,7 +219,7 @@ def g_param_filter(para):
     chosen graph construction method
     """
     gmethod = para["g_method_name"]
-    appr_keys = ["g_method_name", "max_deleted_nodes", "weighted", "dist_to_aff"]
+    appr_keys = ["g_method_name", "max_deleted_nodes", "weighted", "dist_to_aff", "graph_preprocessing"]
 
     if gmethod in ["knn", "auto_knn", "umap"]:
         appr_keys.extend(["nn"])
@@ -285,6 +285,14 @@ def merge_params_with_defaults(
     g_params = (
         method.default_graph_params.copy() if method.default_graph_params else None
     )
+    
+    # Set default graph_preprocessing based on handles_disconnected_graphs property
+    if g_params is not None:
+        if method.handles_disconnected_graphs:
+            g_params.setdefault("graph_preprocessing", None)
+        else:
+            g_params.setdefault("graph_preprocessing", "giant_cc")
+    
     m_params = (
         method.default_metric_params.copy() if method.default_metric_params else None
     )

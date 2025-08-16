@@ -76,3 +76,6 @@ tensorboard/
 # Temporary files
 *.tmp
 *.bak
+
+# Text files folder
+text/
