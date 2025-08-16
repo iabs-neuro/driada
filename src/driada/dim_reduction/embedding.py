@@ -318,6 +318,63 @@ class Embedding:
         self.coords = reducer.fit_transform(self.graph.data.T).T
         self.reducer_ = reducer
 
+    def _prepare_data_loaders(self, batch_size, train_size, seed):
+        """Prepare train and test data loaders for neural network methods.
+        
+        Parameters
+        ----------
+        batch_size : int
+            Batch size for data loaders
+        train_size : float
+            Proportion of data to use for training (0-1)
+        seed : int
+            Random seed for reproducible splits
+            
+        Returns
+        -------
+        train_loader : DataLoader
+            Training data loader
+        test_loader : DataLoader  
+            Test data loader
+        device : torch.device
+            Device to use for training (cuda if available, else cpu)
+        """
+        try:
+            import torch
+            from torch.utils.data import DataLoader
+        except ImportError:
+            raise ImportError(
+                "PyTorch is required for autoencoder methods. "
+                "Please install it with: pip install torch"
+            )
+            
+        torch.manual_seed(seed)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        
+        # Split data into train and test sets
+        data_T = self.init_data.T  # Transpose to (n_samples, n_features)
+        indices = np.arange(data_T.shape[0])
+        
+        # Use sklearn's train_test_split without shuffling to preserve temporal order
+        train_indices, test_indices = train_test_split(
+            indices, 
+            train_size=train_size, 
+            random_state=seed,
+            shuffle=False
+        )
+        
+        # Create datasets with the split indices
+        train_dataset = NeuroDataset(self.init_data[:, train_indices])
+        test_dataset = NeuroDataset(self.init_data[:, test_indices])
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+        
+        # Use gpu if available
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        return train_loader, test_loader, device
+
     def create_ae_embedding_(
         self,
         continue_learning=0,
@@ -353,34 +410,20 @@ class Embedding:
                 "Please install it with: pip install torch"
             )
 
-        torch.manual_seed(seed)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-
-        # Split data into train and test sets
-        data_T = self.init_data.T  # Transpose to (n_samples, n_features)
-        indices = np.arange(data_T.shape[0])
-        
-        # Use sklearn's train_test_split without shuffling to preserve temporal order
-        train_indices, test_indices = train_test_split(
-            indices, 
-            train_size=train_size, 
-            random_state=seed,
-            shuffle=False
+        # Get data loaders and device
+        train_loader, test_loader, device_to_use = self._prepare_data_loaders(
+            batch_size=batch_size,
+            train_size=train_size,
+            seed=seed
         )
         
-        # Create datasets with the split indices
-        train_dataset = NeuroDataset(self.init_data[:, train_indices])
-        test_dataset = NeuroDataset(self.init_data[:, test_indices])
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-
-        # ---------------------------------------------------------------------------
         if device is None:
-            #  use gpu if available
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            if verbose:
-                print("device:", device)
+            device = device_to_use
+        
+        # Set random seed again for model initialization
+        torch.manual_seed(seed)
+        if verbose:
+            print("device:", device)
 
         if not continue_learning:
             # create a model from `AE` autoencoder class
@@ -614,32 +657,15 @@ class Embedding:
                 "Please install it with: pip install torch"
             )
         
-        torch.manual_seed(seed)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
-
-        # Split data into train and test sets
-        # TODO: move out data loading for autoencoders
-        data_T = self.init_data.T  # Transpose to (n_samples, n_features)
-        indices = np.arange(data_T.shape[0])
-        
-        # Use sklearn's train_test_split without shuffling to preserve temporal order
-        train_indices, test_indices = train_test_split(
-            indices, 
-            train_size=train_size, 
-            random_state=seed,
-            shuffle=False
+        # Get data loaders and device
+        train_loader, test_loader, device = self._prepare_data_loaders(
+            batch_size=batch_size,
+            train_size=train_size,
+            seed=seed
         )
         
-        # Create datasets with the split indices
-        train_dataset = NeuroDataset(self.init_data[:, train_indices])
-        test_dataset = NeuroDataset(self.init_data[:, test_indices])
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-
-        # ---------------------------------------------------------------------------
-        #  use gpu if available
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Set random seed again for model initialization
+        torch.manual_seed(seed)
 
         if not continue_learning:
             # create a model from `VAE` autoencoder class

@@ -143,7 +143,7 @@ class TestDisconnectedGraphHandling:
             "weighted": 0,
             "max_deleted_nodes": 1.0,  # Allow all nodes
             "dist_to_aff": "hk",
-            "preprocessing": "none",  # No preprocessing!
+            "graph_preprocessing": None,  # No preprocessing!
         }
 
         metric_params = {"metric_name": "euclidean", "sigma": 1.0}
