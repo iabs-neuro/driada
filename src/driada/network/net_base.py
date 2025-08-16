@@ -410,7 +410,6 @@ class Network:
         return len(ccs) == 1
 
     def randomize(self, rmode="shuffle"):
-        # TODO: update routines
         if rmode == "graph_iom":
             if self.directed:
                 g = nx.DiGraph(self.graph)
@@ -637,7 +636,88 @@ class Network:
         if verbose:
             print("Diagonalizing finished")
 
-    # TODO: add Gromov hyperbolicity
+    def calculate_gromov_hyperbolicity(self, num_samples=100000, return_list=False):
+        """Calculate Gromov hyperbolicity of the network.
+        
+        Gromov hyperbolicity measures how "tree-like" a graph is. A tree has 
+        hyperbolicity 0, while graphs with many cycles have higher values.
+        
+        This implementation uses random sampling of 4-tuples of nodes to estimate
+        the hyperbolicity efficiently for large graphs.
+        
+        Parameters
+        ----------
+        num_samples : int, default=100000
+            Number of random 4-tuples to sample
+        return_list : bool, default=False
+            If True, return the list of all hyperbolicity values.
+            If False, return the average.
+            
+        Returns
+        -------
+        float or list
+            Average hyperbolicity value, or list of all values if return_list=True
+            
+        References
+        ----------
+        - Chalopin, J., Chepoi, V., Dragan, F.F., Ducoffe, G., Mohammed, A., 
+          Vaxès, Y. (2018). "Fast approximation and exact computation of negative 
+          curvature parameters of graphs" arXiv:1803.06324
+        """
+        import random
+        
+        # Ensure we have a NetworkX graph
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise ValueError("NetworkX graph not available. Initialize Network with create_nx_graph=True")
+            
+        G = self.graph
+        
+        # Check if graph has enough nodes
+        if len(G) < 4:
+            raise ValueError(f"Graph must have at least 4 nodes for hyperbolicity calculation, got {len(G)}")
+        
+        # Relabel nodes to 0, 1, 2, ... for efficient indexing
+        rG = nx.relabel_nodes(G, {list(G.nodes)[i]: i for i in range(len(G.nodes))})
+        nds = list(rG.nodes)
+        
+        # Precompute all shortest paths
+        spmat = np.zeros((len(nds), len(nds)))
+        gen = nx.all_pairs_dijkstra_path_length(rG, weight=None)
+        
+        for i in range(len(nds)):
+            n0, n0dict = next(gen)
+            spmat[n0, np.array(list(n0dict.keys()))] = np.array(list(n0dict.values()))
+        
+        hsum = 0
+        hvals = []
+        
+        # Sample random 4-tuples and compute hyperbolicity
+        for i in range(num_samples):
+            # Sample 4 distinct nodes
+            node_tuple = random.sample(nds, 4)
+            n0, n1, n2, n3 = node_tuple
+            
+            # Get distances between all pairs
+            d01 = spmat[n0, n1]
+            d23 = spmat[n2, n3]
+            d02 = spmat[n0, n2]
+            d13 = spmat[n1, n3]
+            d03 = spmat[n0, n3]
+            d12 = spmat[n1, n2]
+            
+            # Compute the three sums
+            s = [d01 + d23, d02 + d13, d03 + d12]
+            s.sort()
+            
+            # Hyperbolicity is half the difference between the two largest sums
+            h = (s[-1] - s[-2]) / 2
+            hsum += h
+            hvals.append(h)
+        
+        if return_list:
+            return hvals
+        else:
+            return hsum / num_samples
 
     def calculate_z_values(self, mode="lap"):
         spectrum = self.get_spectrum(mode)
