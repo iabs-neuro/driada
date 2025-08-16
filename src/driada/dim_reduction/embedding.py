@@ -601,7 +601,6 @@ class Embedding:
         **kwargs,
     ):
 
-        # TODO: add best model mechanism as above
         # ---------------------------------------------------------------------------
         # Import torch dependencies (optional dependency)
         try:

@@ -105,7 +105,8 @@ class MVData(object):
         if not allow_zero_columns:
             check_data_for_errors(self.data, verbose=verbose)
 
-        # TODO: add support for various preprocessing methods (wvt, med_filt, etc.)
+        # Note: Preprocessing methods (gaussian, savgol, wavelet) are available via
+        # TimeSeries/MultiTimeSeries.filter() before creating MVData objects
         self.rescale_rows = rescale_rows
         if self.rescale_rows:
             for i, row in enumerate(self.data):

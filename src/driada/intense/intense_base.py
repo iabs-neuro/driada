@@ -669,7 +669,7 @@ def scan_pairs(
 
         # DEPRECATED: This joint_distr branch is deprecated and will be removed in v2.0
         # Use MultiTimeSeries for joint distribution handling instead
-        # TODO: Remove this entire branch in v2.0
+        # FUTURE: Remove this entire branch in v2.0
         if joint_distr:
             if metric != "mi":
                 raise ValueError("joint_distr mode works with metric = 'mi' only")
@@ -1161,7 +1161,7 @@ def compute_me_stats(
         Data collected during computation.
     """
 
-    # TODO: add automatic min_shifts from autocorrelation time
+    # FUTURE: add automatic min_shifts from autocorrelation time
 
     # Validate inputs
     validate_time_series_bunches(

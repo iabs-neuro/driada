@@ -21,6 +21,32 @@ from scipy.special import ndtri, psi
 
 from .info_utils import py_fast_digamma_arr
 
+
+def _prepare_for_jit(*arrays):
+    """Prepare arrays for JIT compilation by ensuring they are contiguous and float type.
+    
+    Parameters
+    ----------
+    *arrays : ndarray
+        Variable number of arrays to prepare
+        
+    Returns
+    -------
+    tuple
+        Tuple of prepared arrays in the same order
+    """
+    prepared = []
+    for arr in arrays:
+        # Ensure contiguous
+        if not arr.flags.c_contiguous:
+            arr = np.ascontiguousarray(arr)
+        # Ensure float type
+        if arr.dtype not in (np.float32, np.float64):
+            arr = arr.astype(np.float64)
+        prepared.append(arr)
+    
+    return tuple(prepared) if len(prepared) > 1 else prepared[0]
+
 # Import JIT versions if available
 try:
     from .gcmi_jit_utils import (
@@ -31,6 +57,7 @@ try:
         mi_gg_jit,
         cmi_ggg_jit,
         gcmi_cc_jit,
+        gccmi_ccd_jit,
     )
 
     _JIT_AVAILABLE = True
@@ -45,8 +72,10 @@ def ctransform(x):
     """
     x = np.atleast_2d(x)
 
-    # Use JIT version for suitable inputs
-    if _JIT_AVAILABLE and x.flags.c_contiguous and x.dtype in (np.float32, np.float64):
+    # Use JIT version if available
+    if _JIT_AVAILABLE:
+        x = _prepare_for_jit(x)
+        
         if x.shape[0] == 1:
             # 1D case
             return ctransform_jit(x.ravel()).reshape(1, -1)
@@ -69,8 +98,10 @@ def copnorm(x):
     """
     x = np.atleast_2d(x)
 
-    # Use JIT version for suitable inputs
-    if _JIT_AVAILABLE and x.flags.c_contiguous and x.dtype in (np.float32, np.float64):
+    # Use JIT version if available
+    if _JIT_AVAILABLE:
+        x = _prepare_for_jit(x)
+            
         if x.shape[0] == 1:
             # 1D case
             return copnorm_jit(x.ravel()).reshape(1, -1)
@@ -391,7 +422,7 @@ def gcmi_cc(x, y):
     return I
 
 
-# TODO: integrate into numba everything below this line
+# Note: All functions below have been integrated with numba JIT compilation
 def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     """Conditional Mutual information (CMI) between two Gaussian variables
     conditioned on a third
@@ -412,16 +443,9 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     y = np.atleast_2d(y)
     z = np.atleast_2d(z)
 
-    # Use JIT version if available and suitable
-    if (
-        _JIT_AVAILABLE
-        and x.flags.c_contiguous
-        and y.flags.c_contiguous
-        and z.flags.c_contiguous
-        and x.dtype in (np.float32, np.float64)
-        and y.dtype in (np.float32, np.float64)
-        and z.dtype in (np.float32, np.float64)
-    ):
+    # Use JIT version if available
+    if _JIT_AVAILABLE:
+        x, y, z = _prepare_for_jit(x, y, z)
         return cmi_ggg_jit(x, y, z, biascorrect, demeaned)
 
     if x.ndim > 2 or y.ndim > 2 or z.ndim > 2:
@@ -521,6 +545,11 @@ def gccmi_ccd(x, y, z, Zm):
     # check values of discrete variable
     if z.min() != 0 or z.max() != (Zm - 1):
         raise ValueError("values of discrete variable z are out of bounds")
+    
+    # Use JIT version if available
+    if _JIT_AVAILABLE:
+        x, y = _prepare_for_jit(x, y)
+        return gccmi_ccd_jit(x, y, z, Zm)
 
     # calculate gcmi for each z value
     Icond = np.zeros(Zm)

@@ -166,8 +166,6 @@ EMBEDDING_CONSTRUCTION_METHODS = [
     "umap",
 ]
 
-# TODO: implement random projections
-
 
 def m_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     """

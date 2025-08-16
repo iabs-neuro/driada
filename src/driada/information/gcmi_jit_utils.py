@@ -465,3 +465,72 @@ def gcmi_cc_jit(x, y):
 
     # Compute MI with bias correction
     return mi_gg_jit(cx, cy, biascorrect=True, demeaned=True)
+
+
+@njit
+def gccmi_ccd_jit(x, y, z, Zm):
+    """JIT-compiled Gaussian-Copula CMI between 2 continuous variables 
+    conditioned on a discrete variable.
+    
+    Parameters
+    ----------
+    x : ndarray
+        First continuous variable (n_vars_x, n_samples).
+    y : ndarray
+        Second continuous variable (n_vars_y, n_samples).
+    z : ndarray
+        Discrete conditioning variable (n_samples,).
+    Zm : int
+        Number of discrete states (z values should be in [0, Zm-1]).
+        
+    Returns
+    -------
+    float
+        Conditional mutual information in bits.
+    """
+    Ntrl = x.shape[1]
+    Nvarx = x.shape[0]
+    Nvary = y.shape[0]
+    
+    # Compute marginal MI without conditioning
+    Icond = np.zeros(Zm)
+    Pz = np.zeros(Zm)
+    
+    # For each value of z
+    for zi in range(Zm):
+        # Find trials where z == zi
+        idx = np.where(z == zi)[0]
+        Pz[zi] = len(idx)
+        
+        if len(idx) > 0:
+            # Extract conditional data
+            x_cond = x[:, idx]
+            y_cond = y[:, idx]
+            
+            # Copula transform conditional data
+            if x_cond.shape[1] > 1:  # Need at least 2 samples for copula
+                if Nvarx == 1:
+                    cx_cond = np.empty((1, x_cond.shape[1]))
+                    cx_cond[0, :] = copnorm_jit(x_cond[0, :])
+                else:
+                    cx_cond = copnorm_2d_jit(x_cond)
+                    
+                if Nvary == 1:
+                    cy_cond = np.empty((1, y_cond.shape[1]))
+                    cy_cond[0, :] = copnorm_jit(y_cond[0, :])
+                else:
+                    cy_cond = copnorm_2d_jit(y_cond)
+                
+                # Compute MI for this conditioning value
+                Icond[zi] = mi_gg_jit(cx_cond, cy_cond, biascorrect=True, demeaned=True)
+            else:
+                # Not enough samples for this z value
+                Icond[zi] = 0.0
+    
+    # Normalize probabilities
+    Pz = Pz / Ntrl
+    
+    # Conditional mutual information
+    CMI = np.sum(Pz * Icond)
+    
+    return CMI
