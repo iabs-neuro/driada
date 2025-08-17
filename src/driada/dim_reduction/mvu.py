@@ -135,7 +135,7 @@ class MaximumVarianceUnfolding(object):
 
         # Solve the problem with the SCS Solver
         problem = cp.Problem(objective, constraints)
-        # FIXME The solvertol syntax is unique to SCS
+        # FUTURE: Add solver-specific parameter mapping for other solvers beyond SCS
         problem.solve(
             solver=self.solver,
             eps=self.solver_tol,

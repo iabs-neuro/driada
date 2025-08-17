@@ -3,6 +3,11 @@ import copy
 import scipy.sparse as sp
 
 
+def _is_sparse(matrix):
+    """Check if a matrix is sparse."""
+    return sp.issparse(matrix)
+
+
 def _plain_bfs(adj, source):
     """
     adapted from networkx.algorithms.components.connected._plain_bfs
@@ -244,13 +249,30 @@ def turn_to_partially_directed(mat, directed=0.0, weighted=0):
 
 
 def get_symmetry_index(a):
-    a = a.astype(bool)
-    symmetrized = a + a.T
-
-    difference = symmetrized.astype(int) - a.astype(int)
-    difference.eliminate_zeros()
-    symm_index = 1 - difference.nnz / symmetrized.nnz * 2
-    # symm_index is 1 for a symmetrix matrix and 0 for an asymmetric one
+    """Calculate symmetry index of a matrix.
+    
+    Returns 1 for symmetric matrix, 0 for completely asymmetric.
+    """
+    if _is_sparse(a):
+        # Sparse implementation
+        a = a.astype(bool)
+        symmetrized = a + a.T
+        difference = symmetrized.astype(int) - a.astype(int)
+        difference.eliminate_zeros()
+        symm_index = 1 - difference.nnz / symmetrized.nnz * 2
+    else:
+        # Dense implementation
+        a = a.astype(bool)
+        symmetrized = a + a.T
+        difference = symmetrized.astype(int) - a.astype(int)
+        # Count non-zero elements
+        nnz_diff = np.count_nonzero(difference)
+        nnz_symm = np.count_nonzero(symmetrized)
+        if nnz_symm == 0:
+            symm_index = 1  # Empty matrix is considered symmetric
+        else:
+            symm_index = 1 - nnz_diff / nnz_symm * 2
+    
     return symm_index
 
 
@@ -331,59 +353,178 @@ def sausage_index(A, nn):
     print("sausage index=", si)
 
 
-# TODO: create separate branches for np and sparse matrices for further functions
+# Functions below support both numpy and sparse matrices for optimal performance
 def get_laplacian(A):
-    A = A.astype(float)
-    out_degrees = np.array(A.sum(axis=0)).ravel()
-    D = sp.spdiags(out_degrees, [0], A.shape[0], A.shape[0], format="csr")
-    L = D - A
-    return L
+    """Compute the Laplacian matrix L = D - A.
+    
+    Parameters
+    ----------
+    A : array_like or sparse matrix
+        Adjacency matrix
+        
+    Returns
+    -------
+    L : array_like or sparse matrix
+        Laplacian matrix (same type as input)
+    """
+    if _is_sparse(A):
+        # Sparse implementation
+        A = A.astype(float)
+        out_degrees = np.array(A.sum(axis=0)).ravel()
+        D = sp.spdiags(out_degrees, [0], A.shape[0], A.shape[0], format="csr")
+        L = D - A
+        return L
+    else:
+        # Dense implementation
+        A = A.astype(float)
+        out_degrees = A.sum(axis=0)
+        D = np.diag(out_degrees)
+        L = D - A
+        return L
 
 
 def get_inv_sqrt_diag_matrix(a):
+    """Compute D^(-1/2) where D is the degree matrix.
+    
+    Parameters
+    ----------
+    a : array_like or sparse matrix
+        Adjacency matrix
+        
+    Returns
+    -------
+    DH : array_like or sparse matrix
+        Inverse square root of degree matrix (same type as input)
+    """
     n = a.shape[0]
-    A = sp.csr_array(a)
-    out_degrees = np.array(A.sum(axis=0)).ravel()
-    diags_sqrt = 1.0 / np.sqrt(out_degrees)
-
-    diags_sqrt[np.isinf(diags_sqrt)] = 0
-    DH = sp.spdiags(diags_sqrt, [0], n, n, format="csr")
-    return DH
+    
+    if _is_sparse(a):
+        # Sparse implementation
+        A = sp.csr_array(a)
+        out_degrees = np.array(A.sum(axis=0)).ravel()
+        diags_sqrt = 1.0 / np.sqrt(out_degrees)
+        diags_sqrt[np.isinf(diags_sqrt)] = 0
+        DH = sp.spdiags(diags_sqrt, [0], n, n, format="csr")
+        return DH
+    else:
+        # Dense implementation
+        out_degrees = a.sum(axis=0)
+        diags_sqrt = 1.0 / np.sqrt(out_degrees)
+        diags_sqrt[np.isinf(diags_sqrt)] = 0
+        DH = np.diag(diags_sqrt)
+        return DH
 
 
 def get_norm_laplacian(a):
+    """Compute the normalized Laplacian L = I - D^(-1/2) A D^(-1/2).
+    
+    Parameters
+    ----------
+    a : array_like or sparse matrix
+        Adjacency matrix (must be symmetric)
+        
+    Returns
+    -------
+    matrix : array_like or sparse matrix
+        Normalized Laplacian (same type as input)
+    """
     if get_symmetry_index(a) != 1:
         raise Exception(
             "Cannot construct normalized laplacian matrix from a non-hermitian adjacency matrix"
         )
 
     n = a.shape[0]
-    A = sp.csr_array(a)
-    DH = get_inv_sqrt_diag_matrix(A)
-    matrix = sp.eye(n, dtype=float) - DH.dot(A.dot(DH))
-    return matrix
+    
+    if _is_sparse(a):
+        # Sparse implementation
+        A = sp.csr_array(a)
+        DH = get_inv_sqrt_diag_matrix(A)
+        matrix = sp.eye(n, dtype=float) - DH.dot(A.dot(DH))
+        return matrix
+    else:
+        # Dense implementation
+        DH = get_inv_sqrt_diag_matrix(a)
+        matrix = np.eye(n, dtype=float) - DH.dot(a.dot(DH))
+        return matrix
 
 
 def get_inv_diag_matrix(a):
+    """Compute D^(-1) where D is the degree matrix.
+    
+    Parameters
+    ----------
+    a : array_like or sparse matrix
+        Adjacency matrix
+        
+    Returns
+    -------
+    Dinv : array_like or sparse matrix
+        Inverse of degree matrix (same type as input)
+    """
     n = a.shape[0]
-    A = sp.csr_array(a)
-    out_degrees = np.array(A.sum(axis=0)).ravel()
-    invdiags = 1.0 / out_degrees
-
-    invdiags[np.isinf(invdiags)] = 0
-    Dinv = sp.spdiags(invdiags, [0], n, n, format="csr")
-    return Dinv
+    
+    if _is_sparse(a):
+        # Sparse implementation
+        A = sp.csr_array(a)
+        out_degrees = np.array(A.sum(axis=0)).ravel()
+        invdiags = 1.0 / out_degrees
+        invdiags[np.isinf(invdiags)] = 0
+        Dinv = sp.spdiags(invdiags, [0], n, n, format="csr")
+        return Dinv
+    else:
+        # Dense implementation
+        out_degrees = a.sum(axis=0)
+        invdiags = 1.0 / out_degrees
+        invdiags[np.isinf(invdiags)] = 0
+        Dinv = np.diag(invdiags)
+        return Dinv
 
 
 def get_rw_laplacian(a):
+    """Compute the random walk Laplacian L_rw = I - D^(-1)A.
+    
+    Parameters
+    ----------
+    a : array_like or sparse matrix
+        Adjacency matrix
+        
+    Returns
+    -------
+    matrix : array_like or sparse matrix
+        Random walk Laplacian (same type as input)
+    """
     n = a.shape[0]
     T = get_trans_matrix(a)
-    matrix = sp.eye(n, dtype=float) - T
+    
+    if _is_sparse(a):
+        matrix = sp.eye(n, dtype=float) - T
+    else:
+        matrix = np.eye(n, dtype=float) - T
+    
     return matrix
 
 
 def get_trans_matrix(a):
-    A = sp.csr_array(a)
-    Dinv = get_inv_diag_matrix(a)
-    T = Dinv.dot(A)
-    return T
+    """Compute the transition matrix T = D^(-1)A.
+    
+    Parameters
+    ----------
+    a : array_like or sparse matrix
+        Adjacency matrix
+        
+    Returns
+    -------
+    T : array_like or sparse matrix
+        Transition matrix (same type as input)
+    """
+    if _is_sparse(a):
+        # Sparse implementation
+        A = sp.csr_array(a)
+        Dinv = get_inv_diag_matrix(a)
+        T = Dinv.dot(A)
+        return T
+    else:
+        # Dense implementation
+        Dinv = get_inv_diag_matrix(a)
+        T = Dinv.dot(a)
+        return T
