@@ -970,3 +970,108 @@ class TestTheoreticalGaussianMI:
             # Should have warning about k <= d
             assert len(w) > 0
             assert "LNC correction disabled" in str(w[0].message)
+
+
+class TestCopulaDownsampling:
+    """Test copula transformation behavior with downsampling."""
+    
+    def test_copula_downsampling_approximation_small_ds(self):
+        """Test that copula downsampling approximation is reasonable for small ds."""
+        np.random.seed(42)
+        n_samples = 10000
+        
+        # Create smooth signal (sine wave + noise)
+        t = np.linspace(0, 10, n_samples)
+        x = np.sin(t) + 0.1 * np.random.randn(n_samples)
+        y = np.cos(t) + 0.1 * np.random.randn(n_samples)
+        
+        ts_x = TimeSeries(x)
+        ts_y = TimeSeries(y)
+        
+        # Compare MI with different downsampling factors
+        mi_ds1 = get_1d_mi(ts_x, ts_y, ds=1, estimator='gcmi')
+        mi_ds2 = get_1d_mi(ts_x, ts_y, ds=2, estimator='gcmi')
+        mi_ds5 = get_1d_mi(ts_x, ts_y, ds=5, estimator='gcmi')
+        
+        # For smooth signals, downsampling shouldn't change MI much
+        assert abs(mi_ds2 - mi_ds1) < 0.1  # Small difference for ds=2
+        assert abs(mi_ds5 - mi_ds1) < 0.2  # Larger but still reasonable for ds=5
+    
+    def test_copula_downsampling_with_rapidly_varying_signal(self):
+        """Test copula downsampling with rapidly varying signals."""
+        np.random.seed(42)
+        n_samples = 10000
+        
+        # Create rapidly varying signal with stronger correlation
+        t = np.linspace(0, 100, n_samples)
+        # High frequency signal with modulation
+        carrier = np.sin(50 * t)
+        modulation = np.sin(0.5 * t)
+        x = carrier * modulation + 0.1 * np.random.randn(n_samples)
+        y = carrier * modulation + 0.1 * np.random.randn(n_samples)
+        
+        ts_x = TimeSeries(x)
+        ts_y = TimeSeries(y)
+        
+        # Compare MI with different downsampling
+        mi_ds1 = get_1d_mi(ts_x, ts_y, ds=1, estimator='gcmi')
+        mi_ds20 = get_1d_mi(ts_x, ts_y, ds=20, estimator='gcmi')
+        
+        # For signals with high-frequency components, heavy downsampling affects MI estimation
+        # The exact behavior depends on the signal structure
+        # Just verify both give reasonable positive MI
+        assert mi_ds1 > 0.5  # Strong correlation at full sampling
+        assert mi_ds20 > 0.1  # Still some correlation even with heavy downsampling
+    
+    def test_copula_transformation_preserves_rank_order(self):
+        """Test that copula transformation preserves rank ordering."""
+        np.random.seed(42)
+        
+        # Create data with known rank structure
+        data = np.array([1.5, 3.2, -0.5, 4.1, 2.0])
+        ts = TimeSeries(data)
+        
+        # Get ranks of original data
+        original_ranks = scipy.stats.rankdata(data)
+        
+        # Get ranks of copula transformed data
+        copula_ranks = scipy.stats.rankdata(ts.copula_normal_data)
+        
+        # Ranks should be identical
+        np.testing.assert_array_equal(original_ranks, copula_ranks)
+    
+    def test_copula_downsampling_warning_for_large_ds(self):
+        """Test that documentation warns about large downsampling factors."""
+        # This is more of a documentation test - verify the docstring contains warning
+        from driada.information.info_base import get_1d_mi
+        
+        docstring = get_1d_mi.__doc__
+        assert "downsampling with GCMI" in docstring
+        assert "approximation" in docstring
+        assert "ds ≤ 5" in docstring or "small downsampling factors" in docstring
+    
+    def test_copula_vs_exact_for_gaussian(self):
+        """Test GCMI accuracy for Gaussian data with different downsampling."""
+        np.random.seed(42)
+        n_samples = 10000
+        rho = 0.6
+        
+        # Create correlated Gaussian
+        x = np.random.randn(n_samples)
+        y = rho * x + np.sqrt(1 - rho**2) * np.random.randn(n_samples)
+        
+        ts_x = TimeSeries(x)
+        ts_y = TimeSeries(y)
+        
+        # Theoretical MI
+        mi_theory = -0.5 * np.log(1 - rho**2)
+        
+        # Test with different downsampling
+        for ds in [1, 2, 5, 10]:
+            mi_gcmi = get_1d_mi(ts_x, ts_y, ds=ds, estimator='gcmi')
+            # GCMI overestimates but should be consistent across reasonable ds
+            if ds <= 5:
+                assert abs(mi_gcmi - mi_theory) < 0.2
+            else:
+                # Larger error acceptable for large ds
+                assert abs(mi_gcmi - mi_theory) < 0.3
