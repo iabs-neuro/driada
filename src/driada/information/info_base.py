@@ -930,7 +930,6 @@ def get_1d_mi(
             # raise ValueError('MI(X,X) computation for continuous variable X should give an infinite result')
 
     if estimator == "ksg":
-        # TODO: add shifts everywhere in this branch
         x = ts1.data[::ds].reshape(-1, 1)
         y = ts2.data[::ds]
         if shift != 0:
@@ -939,16 +938,19 @@ def get_1d_mi(
         if not ts1.discrete and not ts2.discrete:
             mi = nonparam_mi_cc(
                 ts1.data[::ds],
-                y[::ds],
+                y,
                 k=k,
                 precomputed_tree_x=ts1.get_kdtree(),
                 precomputed_tree_y=ts2.get_kdtree(),
             )
 
         elif ts1.discrete and ts2.discrete:
+            y2_discrete = ts2.int_data[::ds]
+            if shift != 0:
+                y2_discrete = np.roll(y2_discrete, shift)
             mi = mutual_info_classif(
                 ts1.int_data[::ds].reshape(-1, 1),
-                ts2.int_data[::ds],
+                y2_discrete,
                 discrete_features=True,
                 n_neighbors=k,
             )[0]
@@ -956,12 +958,15 @@ def get_1d_mi(
         # TODO: refactor using ksg functions
         elif ts1.discrete and not ts2.discrete:
             mi = mutual_info_regression(
-                ts1.int_data[::ds], y[::ds], discrete_features=False, n_neighbors=k
+                ts1.int_data[::ds].reshape(-1, 1), y, discrete_features=False, n_neighbors=k
             )[0]
 
         elif not ts1.discrete and ts2.discrete:
+            y2_discrete = ts2.int_data[::ds]
+            if shift != 0:
+                y2_discrete = np.roll(y2_discrete, shift)
             mi = mutual_info_classif(
-                x[::ds], ts2.int_data[::ds], discrete_features=True, n_neighbors=k
+                x, y2_discrete, discrete_features=False, n_neighbors=k
             )[0]
 
         return mi

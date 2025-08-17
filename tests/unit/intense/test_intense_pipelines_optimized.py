@@ -585,3 +585,188 @@ def test_disentanglement_with_asymmetric_features():
         print(
             f"Found {summary['overall_stats']['total_neuron_pairs']} asymmetric pairs"
         )
+
+
+def test_intense_with_ksg_estimator(small_experiment):
+    """Test that INTENSE pipelines work with KSG mutual information estimator."""
+    exp = small_experiment
+    
+    # Test compute_cell_feat_significance with KSG
+    result_ksg = compute_cell_feat_significance(
+        exp,
+        cell_bunch=[0, 1, 2],
+        feat_bunch=None,
+        mi_estimator='ksg',  # Use KSG estimator
+        mode='stage1',
+        n_shuffles_stage1=5,
+        ds=5,
+        enable_parallelization=False,
+        seed=42,
+    )
+    
+    # Test with GCMI for comparison
+    result_gcmi = compute_cell_feat_significance(
+        exp,
+        cell_bunch=[0, 1, 2],
+        feat_bunch=None,
+        mi_estimator='gcmi',  # Use GCMI estimator (default)
+        mode='stage1',
+        n_shuffles_stage1=5,
+        ds=5,
+        enable_parallelization=False,
+        seed=42,
+    )
+    
+    # Check what type of result we get
+    print(f"KSG result type: {type(result_ksg)}, length: {len(result_ksg) if isinstance(result_ksg, (tuple, list)) else 'N/A'}")
+    print(f"GCMI result type: {type(result_gcmi)}, length: {len(result_gcmi) if isinstance(result_gcmi, (tuple, list)) else 'N/A'}")
+    
+    # Both should return the same structure
+    assert type(result_ksg) == type(result_gcmi)
+    
+    # If it's a tuple, unpack appropriately
+    if isinstance(result_ksg, tuple):
+        if len(result_ksg) == 4:
+            stats_ksg, sig_ksg, info_ksg, results_ksg = result_ksg
+            stats_gcmi, sig_gcmi, info_gcmi, results_gcmi = result_gcmi
+        else:
+            raise ValueError(f"Unexpected tuple length: {len(result_ksg)}")
+    else:
+        # If it's a dict, extract stats and significance
+        stats_ksg = result_ksg['stats']
+        sig_ksg = result_ksg['significance']
+        stats_gcmi = result_gcmi['stats']
+        sig_gcmi = result_gcmi['significance']
+    
+    # Basic checks - both should return valid results
+    # Stats are organized as stats[cell_id][feat_id] where both are strings
+    # Get the cell and feat ids
+    cell_ids = list(stats_ksg.keys())
+    assert len(cell_ids) == 3  # We requested 3 cells
+    
+    # Check that both have same structure
+    assert set(stats_ksg.keys()) == set(stats_gcmi.keys())
+    
+    # Check all values are finite
+    for cell_id in cell_ids:
+        feat_ids = list(stats_ksg[cell_id].keys())
+        for feat_id in feat_ids:
+            # Check KSG values
+            me_ksg = stats_ksg[cell_id][feat_id].get('me')
+            if me_ksg is not None:
+                assert np.isfinite(me_ksg), f"KSG ME not finite for cell {cell_id}, feat {feat_id}"
+            
+            # Check structure matches
+            assert feat_id in stats_gcmi[cell_id], f"Feature {feat_id} missing in GCMI results"
+    
+    # Test compute_feat_feat_significance with KSG
+    sim_mat_ksg, sig_mat_ksg, pval_mat_ksg, feat_ids_ksg, info_ksg = compute_feat_feat_significance(
+        exp,
+        mi_estimator='ksg',
+        mode='stage1',
+        n_shuffles_stage1=5,
+        ds=5,
+        enable_parallelization=False,
+        seed=42,
+    )
+    
+    # Check results are valid
+    n_features = len(feat_ids_ksg)
+    assert sim_mat_ksg.shape == (n_features, n_features)
+    assert np.all(np.isfinite(sim_mat_ksg))
+    assert np.allclose(np.diag(sim_mat_ksg), 0)  # Diagonal should be zero
+    
+    # Test compute_cell_cell_significance with KSG
+    sim_mat_cc, sig_mat_cc, pval_mat_cc, cell_ids_cc, info_cc = compute_cell_cell_significance(
+        exp,
+        cell_bunch=[0, 1, 2],
+        mi_estimator='ksg',
+        mode='stage1',
+        n_shuffles_stage1=5,
+        ds=5,
+        enable_parallelization=False,
+        seed=42,
+    )
+    
+    assert sim_mat_cc.shape == (3, 3)
+    assert np.all(np.isfinite(sim_mat_cc))
+    assert np.allclose(np.diag(sim_mat_cc), 0)
+
+
+def test_intense_ksg_with_different_feature_types(mixed_features_experiment):
+    """Test KSG estimator with mixed discrete and continuous features."""
+    exp = mixed_features_experiment
+    
+    # Get discrete and continuous features
+    discrete_feats = [f for f in exp.dynamic_features.keys() if f.startswith('d_feat')]
+    continuous_feats = [f for f in exp.dynamic_features.keys() if f.startswith('c_feat')]
+    
+    # Test with only discrete features
+    if discrete_feats:
+        result_d = compute_cell_feat_significance(
+            exp,
+            cell_bunch=[0, 1],
+            feat_bunch=discrete_feats[:2],
+            mi_estimator='ksg',
+            mode='stage1',
+            n_shuffles_stage1=5,
+            ds=5,
+            enable_parallelization=False,
+            use_precomputed_stats=False,  # Compute fresh stats
+            seed=42,
+        )
+        # Extract stats from the result tuple
+        stats_d = result_d[0] if isinstance(result_d, tuple) else result_d['stats']
+        # Check all ME values are finite
+        for cell_id in stats_d:
+            for feat_id in stats_d[cell_id]:
+                me_val = stats_d[cell_id][feat_id].get('me')
+                if me_val is not None:
+                    assert np.isfinite(me_val), f"ME not finite for discrete features"
+    
+    # Test with only continuous features
+    if continuous_feats:
+        result_c = compute_cell_feat_significance(
+            exp,
+            cell_bunch=[0, 1],
+            feat_bunch=continuous_feats[:2],
+            mi_estimator='ksg',
+            mode='stage1',
+            n_shuffles_stage1=5,
+            ds=5,
+            enable_parallelization=False,
+            use_precomputed_stats=False,  # Compute fresh stats
+            seed=42,
+        )
+        # Extract stats from the result tuple
+        stats_c = result_c[0] if isinstance(result_c, tuple) else result_c['stats']
+        # Check all ME values are finite
+        for cell_id in stats_c:
+            for feat_id in stats_c[cell_id]:
+                me_val = stats_c[cell_id][feat_id].get('me')
+                if me_val is not None:
+                    assert np.isfinite(me_val), f"ME not finite for continuous features"
+    
+    # Test with mixed features
+    if discrete_feats and continuous_feats:
+        mixed_feats = [discrete_feats[0], continuous_feats[0]]
+        result_m = compute_cell_feat_significance(
+            exp,
+            cell_bunch=[0, 1],
+            feat_bunch=mixed_feats,
+            mi_estimator='ksg',
+            mode='stage1',
+            n_shuffles_stage1=5,
+            ds=5,
+            enable_parallelization=False,
+            use_precomputed_stats=False,  # Compute fresh stats
+            seed=42,
+        )
+        # Extract stats from the result tuple
+        stats_m = result_m[0] if isinstance(result_m, tuple) else result_m['stats']
+        # Check all ME values are finite
+        for cell_id in stats_m:
+            for feat_id in stats_m[cell_id]:
+                me_val = stats_m[cell_id][feat_id].get('me')
+                if me_val is not None:
+                    assert np.isfinite(me_val), f"ME not finite for mixed features"

@@ -13,6 +13,7 @@ def compute_cell_feat_significance(
     feat_bunch=None,
     data_type="calcium",
     metric="mi",
+    mi_estimator="gcmi",
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
@@ -58,6 +59,10 @@ def compute_cell_feat_significance(
 
     metric: similarity metric between TimeSeries
         default: 'mi'
+
+    mi_estimator: str
+        Mutual information estimator to use when metric='mi'. Options: 'gcmi' or 'ksg'
+        default: 'gcmi'
 
     mode: str
         Computation mode. 3 modes are available:
@@ -289,6 +294,7 @@ def compute_cell_feat_significance(
         names1=cell_ids,
         names2=feat_ids,
         metric=metric,
+        mi_estimator=mi_estimator,
         precomputed_mask_stage1=precomputed_mask_stage1,
         precomputed_mask_stage2=precomputed_mask_stage2,
         n_shuffles_stage1=n_shuffles_stage1,
@@ -474,6 +480,7 @@ def compute_feat_feat_significance(
     exp,
     feat_bunch="all",
     metric="mi",
+    mi_estimator="gcmi",
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=1000,
@@ -507,6 +514,9 @@ def compute_feat_feat_significance(
         Can be a list of specific feature names.
     metric : str, optional
         Similarity metric to use. Default: 'mi' (mutual information).
+    mi_estimator : str, optional
+        Mutual information estimator to use when metric='mi'. Default: 'gcmi'.
+        Options: 'gcmi' or 'ksg'
     mode : str, optional
         Computation mode: 'two_stage', 'stage1', or 'stage2'. Default: 'two_stage'.
     n_shuffles_stage1 : int, optional
@@ -627,6 +637,7 @@ def compute_feat_feat_significance(
         names1=feat_ids,
         names2=feat_ids,
         metric=metric,
+        mi_estimator=mi_estimator,
         mode=mode,
         precomputed_mask_stage1=precomputed_mask_stage1,
         precomputed_mask_stage2=precomputed_mask_stage2,
@@ -709,6 +720,7 @@ def compute_cell_cell_significance(
     cell_bunch=None,
     data_type="calcium",
     metric="mi",
+    mi_estimator="gcmi",
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=1000,
@@ -742,6 +754,9 @@ def compute_cell_cell_significance(
         Type of neural data: 'calcium' or 'spikes'. Default: 'calcium'.
     metric : str, optional
         Similarity metric to use. Default: 'mi' (mutual information).
+    mi_estimator : str, optional
+        Mutual information estimator to use when metric='mi'. Default: 'gcmi'.
+        Options: 'gcmi' or 'ksg'
     mode : str, optional
         Computation mode: 'two_stage', 'stage1', or 'stage2'. Default: 'two_stage'.
     n_shuffles_stage1 : int, optional
@@ -861,6 +876,7 @@ def compute_cell_cell_significance(
         names1=cell_ids,
         names2=cell_ids,
         metric=metric,
+        mi_estimator=mi_estimator,
         mode=mode,
         precomputed_mask_stage1=precomputed_mask_stage1,
         precomputed_mask_stage2=precomputed_mask_stage2,
@@ -947,6 +963,7 @@ def compute_embedding_selectivity(
     cell_bunch=None,
     data_type="calcium",
     metric="mi",
+    mi_estimator="gcmi",
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
@@ -986,6 +1003,9 @@ def compute_embedding_selectivity(
         Data type used for embeddings and INTENSE ('calcium' or 'spikes')
     metric : str
         Similarity metric between TimeSeries (default: 'mi')
+    mi_estimator : str
+        Mutual information estimator to use when metric='mi'. Default: 'gcmi'.
+        Options: 'gcmi' or 'ksg'
     mode : str
         Computation mode: 'stage1', 'stage2', or 'two_stage' (default)
     n_shuffles_stage1 : int
@@ -1094,6 +1114,7 @@ def compute_embedding_selectivity(
                 feat_bunch=list(embedding_features.keys()),
                 data_type=data_type,
                 metric=metric,
+                mi_estimator=mi_estimator,
                 mode=mode,
                 n_shuffles_stage1=n_shuffles_stage1,
                 n_shuffles_stage2=n_shuffles_stage2,

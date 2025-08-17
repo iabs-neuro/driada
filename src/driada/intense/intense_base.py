@@ -370,6 +370,7 @@ def get_calcium_feature_me_profile(
     window=1000,
     ds=1,
     metric="mi",
+    mi_estimator="gcmi",
     data_type="calcium",
 ):
     """
@@ -398,6 +399,9 @@ def get_calcium_feature_me_profile(
         - 'mi': Mutual information
         - 'spearman': Spearman correlation
         - Other metrics supported by get_sim function
+    mi_estimator : str, optional
+        Mutual information estimator to use when metric='mi'. Default: 'gcmi'.
+        Options: 'gcmi' or 'ksg'
     data_type : str, optional
         Type of neural data to use. Default: 'calcium'.
         - 'calcium': Use calcium imaging data
@@ -482,10 +486,10 @@ def get_calcium_feature_me_profile(
             if isinstance(fid, str):
                 # Single feature
                 ts2 = exp.dynamic_features[fid]
-                me0 = get_sim(ts1, ts2, metric, ds=ds)
+                me0 = get_sim(ts1, ts2, metric, ds=ds, estimator=mi_estimator)
 
                 for shift in np.arange(-window, window, ds) // ds:
-                    lag_me = get_sim(ts1, ts2, metric, ds=ds, shift=shift)
+                    lag_me = get_sim(ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator)
                     shifted_me.append(lag_me)
 
             else:
@@ -495,10 +499,10 @@ def get_calcium_feature_me_profile(
                         f"Multi-feature analysis only supported for metric='mi', got '{metric}'"
                     )
                 feats = [exp.dynamic_features[f] for f in fid]
-                me0 = get_multi_mi(feats, ts1, ds=ds)
+                me0 = get_multi_mi(feats, ts1, ds=ds, estimator=mi_estimator)
 
                 for shift in np.arange(-window, window, ds) // ds:
-                    lag_me = get_multi_mi(feats, ts1, ds=ds, shift=shift)
+                    lag_me = get_multi_mi(feats, ts1, ds=ds, shift=shift, estimator=mi_estimator)
                     shifted_me.append(lag_me)
 
             results[cid][fid] = {"me0": me0, "shifted_me": shifted_me}
@@ -524,6 +528,7 @@ def scan_pairs(
     metric,
     nsh,
     optimal_delays,
+    mi_estimator="gcmi",
     joint_distr=False,
     ds=1,
     mask=None,
@@ -676,7 +681,7 @@ def scan_pairs(
             if mask[i, 0] == 1:
                 # default metric without shuffling, minus due to different order
                 me0 = get_multi_mi(
-                    ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0] // ds
+                    ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0] // ds, estimator=mi_estimator
                 )
                 me_table[i, 0] = (
                     me0 + np.random.random() * noise_const
@@ -687,7 +692,7 @@ def scan_pairs(
                     np.random.random(size=len(random_shifts[i, 0, :])) * noise_const
                 )  # add small noise for better fitting
                 for k, shift in enumerate(random_shifts[i, 0, :]):
-                    mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift)
+                    mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift, estimator=mi_estimator)
                     me_table_shuffles[i, 0, k] = mi + random_noise[k]
 
             else:
@@ -703,6 +708,7 @@ def scan_pairs(
                         metric,
                         ds=ds,
                         shift=optimal_delays[i, j] // ds,
+                        estimator=mi_estimator,
                         check_for_coincidence=True,
                     )  # default metric without shuffling
 
@@ -719,7 +725,7 @@ def scan_pairs(
                     for k, shift in enumerate(random_shifts[i, j, :]):
                         np.random.seed(seed)
                         # mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
-                        me = get_sim(ts1, ts2, metric, ds=ds, shift=shift)
+                        me = get_sim(ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator)
 
                         me_table_shuffles[i, j, k] = me + random_noise[k]
 
@@ -738,6 +744,7 @@ def scan_pairs_parallel(
     metric,
     nsh,
     optimal_delays,
+    mi_estimator="gcmi",
     joint_distr=False,
     allow_mixed_dimensions=False,
     ds=1,
@@ -832,6 +839,7 @@ def scan_pairs_parallel(
             metric,
             nsh,
             split_optimal_delays[_],
+            mi_estimator,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
@@ -857,6 +865,7 @@ def scan_pairs_router(
     metric,
     nsh,
     optimal_delays,
+    mi_estimator="gcmi",
     joint_distr=False,
     allow_mixed_dimensions=False,
     ds=1,
@@ -921,6 +930,7 @@ def scan_pairs_router(
             metric,
             nsh,
             optimal_delays,
+            mi_estimator,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
@@ -937,6 +947,7 @@ def scan_pairs_router(
             metric,
             nsh,
             optimal_delays,
+            mi_estimator,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
@@ -1005,6 +1016,7 @@ def compute_me_stats(
     names2=None,
     mode="two_stage",
     metric="mi",
+    mi_estimator="gcmi",
     precomputed_mask_stage1=None,
     precomputed_mask_stage2=None,
     n_shuffles_stage1=100,
@@ -1056,6 +1068,10 @@ def compute_me_stats(
 
     metric: similarity metric between TimeSeries
         default: 'mi'
+
+    mi_estimator: str
+        Mutual information estimator to use when metric='mi'. Options: 'gcmi' or 'ksg'
+        default: 'gcmi'
 
     precomputed_mask_stage1: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
           precomputed mask for skipping some of possible pairs in stage 1.
@@ -1298,6 +1314,7 @@ def compute_me_stats(
             metric,
             n_shuffles_stage1,
             optimal_delays,
+            mi_estimator,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
@@ -1406,6 +1423,7 @@ def compute_me_stats(
             metric,
             n_shuffles_stage2,
             optimal_delays,
+            mi_estimator,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,

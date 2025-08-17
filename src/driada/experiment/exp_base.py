@@ -559,6 +559,30 @@ class Experiment:
         else:
             return [st for st in sbunch if st in default_list]
 
+    def _add_single_feature_to_data_hashes(self, feat_id, mode="calcium"):
+        """
+        Add a single feature to the data hashes table.
+        """
+        if feat_id not in self._data_hashes[mode]:
+            self._data_hashes[mode][feat_id] = {}
+            # Add hashes for all cells
+            for cell_id in range(self.n_cells):
+                pair_hash = self._build_pair_hash(cell_id, feat_id, mode=mode)
+                self._data_hashes[mode][feat_id][cell_id] = pair_hash
+
+    def _add_single_feature_to_stats(self, feat_id, mode="calcium"):
+        """
+        Add a single feature to the stats and significance tables.
+        """
+        if feat_id not in self.stats_tables[mode]:
+            # Initialize stats for all cells
+            self.stats_tables[mode][feat_id] = {}
+            self.significance_tables[mode][feat_id] = {}
+            
+            for cell_id in range(self.n_cells):
+                self.stats_tables[mode][feat_id][cell_id] = DEFAULT_STATS.copy()
+                self.significance_tables[mode][feat_id][cell_id] = DEFAULT_SIGNIFICANCE.copy()
+
     def _add_multifeature_to_data_hashes(self, feat_id, mode="calcium"):
         """
         Add previously unseen multifeature (e.g. ['x','y']) to table with data hashes.
@@ -621,11 +645,43 @@ class Experiment:
             feat_id = tuple(sorted(list(feat_id)))
 
         if feat_id not in self.stats_tables[mode]:
-            raise ValueError(
-                f"Feature {feat_id} is not present in stats. \n If this is a single feature, "
-                "check the input data, since all single features are processed automatically."
-                'If this is a multifeature (e.g. ["x", "y"]), compute MI significance to create stats'
-            )
+            # DEPRECATED: Dynamic stats table updates are discouraged due to statistical validity concerns
+            # Multiple comparison correction depends on the total number of hypotheses tested
+            import warnings
+            
+            if isinstance(feat_id, tuple):
+                warnings.warn(
+                    "DEPRECATED: Adding tuple features to stats table after initialization is discouraged. "
+                    "This can invalidate multiple comparison corrections. "
+                    "Consider using use_precomputed_stats=False for proper statistical analysis.",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
+                # Still allow it for backward compatibility
+                self._add_multifeature_to_stats(feat_id, mode=mode)
+                if feat_id not in self._data_hashes[mode]:
+                    self._add_multifeature_to_data_hashes(feat_id, mode=mode)
+                return True
+            else:
+                # Single feature case - this shouldn't happen if experiment is properly initialized
+                if feat_id not in self.dynamic_features:
+                    raise ValueError(
+                        f"Feature {feat_id} is not present in dynamic_features. "
+                        "Check the feature name."
+                    )
+                warnings.warn(
+                    f"Feature {feat_id} was not included in initial stats computation. "
+                    "This suggests the experiment was not properly initialized with all features. "
+                    "Adding it now may invalidate multiple comparison corrections.",
+                    UserWarning,
+                    stacklevel=2
+                )
+                # Add new feature to stats table
+                self._add_single_feature_to_stats(feat_id, mode=mode)
+                # Also ensure it's in data hashes
+                if feat_id not in self._data_hashes[mode]:
+                    self._add_single_feature_to_data_hashes(feat_id, mode=mode)
+                return True
 
         pair_hash = self._data_hashes[mode][feat_id][cell_id]
         existing_hash = self.stats_tables[mode][feat_id][cell_id]["data_hash"]
