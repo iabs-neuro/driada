@@ -3,6 +3,13 @@
 This module implements the Kraskov-Stögbauer-Grassberger (KSG) estimator
 and related k-NN based information theoretic measures.
 
+Important Notes:
+    - The Local Non-uniformity Correction (LNC) can be unstable when k <= d
+      (where k is the number of neighbors and d is the total dimensionality).
+      In such cases, LNC is automatically disabled to prevent numerical errors.
+    - For best results, use k > d, with k >= d+2 recommended.
+    - Common good values: k=5 for d<=3, k=10 for d=4-6, k=20 for d>6.
+
 Credits:
     Original implementation by Greg Ver Steeg
     http://www.isi.edu/~gregv/npeet.html
@@ -235,6 +242,9 @@ def nonparam_mi_cc(
     alpha : float or "auto", default="auto"
         LNC correction parameter. If "auto", selects based on k and dimensionality.
         Set to 0 to disable LNC correction.
+        
+        Warning: LNC correction can be unstable when k <= d (dimensionality).
+        It is automatically disabled in such cases.
     lf : int, default=5
         Leaf size for tree construction
     precomputed_tree_x : BallTree/KDTree, optional
@@ -258,11 +268,21 @@ def nonparam_mi_cc(
         points.append(z)
 
     points = np.hstack(points)
+    d = points.shape[1]  # Total dimensionality
     
     # Auto-select alpha if requested
     if alpha == "auto":
-        d = points.shape[1]  # Total dimensionality
         alpha = get_lnc_alpha(k, d)
+        
+        # Disable LNC correction if k <= d to avoid instability
+        if k <= d:
+            import warnings
+            warnings.warn(
+                f"LNC correction disabled: k={k} <= dimensionality={d}. "
+                f"LNC requires k > d for stability. Consider using k >= {d+1}.",
+                UserWarning
+            )
+            alpha = 0
 
     # Find nearest neighbors in joint space, p=inf means max-norm
     tree = build_tree(points, lf=lf)

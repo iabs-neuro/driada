@@ -806,3 +806,167 @@ class TestGetTDMI:
 
         assert len(tdmi) == 3
         assert all(isinstance(v, float) for v in tdmi)
+
+
+class TestTheoreticalGaussianMI:
+    """Test MI estimation against theoretical values for Gaussian distributions."""
+    
+    @staticmethod
+    def theoretical_mi_gaussian_1d(rho):
+        """Calculate theoretical MI for bivariate Gaussian with correlation rho."""
+        # I(X;Y) = -0.5 * log(1 - rho^2)
+        return -0.5 * np.log(1 - rho**2)
+    
+    @staticmethod
+    def theoretical_mi_gaussian_multi(cov_matrix):
+        """Calculate theoretical MI for multivariate Gaussian.
+        
+        For Gaussian variables, I(X;Y) = 0.5 * log(det(Σ_X) * det(Σ_Y) / det(Σ_XY))
+        """
+        # Assuming last variable is Y, rest are X
+        n = cov_matrix.shape[0]
+        
+        # Marginal covariances
+        cov_x = cov_matrix[:-1, :-1]
+        cov_y = cov_matrix[-1:, -1:]
+        
+        # Determinants
+        det_joint = np.linalg.det(cov_matrix)
+        det_x = np.linalg.det(cov_x)
+        det_y = cov_y[0, 0]  # scalar for 1D Y
+        
+        # MI in nats
+        mi = 0.5 * np.log(det_x * det_y / det_joint)
+        return mi
+    
+    def test_1d_gaussian_independent(self):
+        """Test MI estimation for independent Gaussian variables."""
+        np.random.seed(42)
+        n_samples = 5000
+        
+        # Independent Gaussian
+        x = np.random.randn(n_samples)
+        y = np.random.randn(n_samples)
+        
+        ts_x = TimeSeries(x)
+        ts_y = TimeSeries(y)
+        
+        # Test both estimators
+        mi_gcmi = get_1d_mi(ts_x, ts_y, estimator='gcmi')
+        mi_ksg = get_1d_mi(ts_x, ts_y, estimator='ksg', k=10)
+        
+        # Should be close to 0
+        assert abs(mi_gcmi) < 0.05
+        assert abs(mi_ksg) < 0.05
+    
+    def test_1d_gaussian_correlated(self):
+        """Test MI estimation for correlated Gaussian variables."""
+        np.random.seed(42)
+        n_samples = 5000
+        rho = 0.7  # correlation
+        
+        # Correlated Gaussian
+        x = np.random.randn(n_samples)
+        y = rho * x + np.sqrt(1 - rho**2) * np.random.randn(n_samples)
+        
+        ts_x = TimeSeries(x)
+        ts_y = TimeSeries(y)
+        
+        # Theoretical MI
+        mi_theory = self.theoretical_mi_gaussian_1d(rho)
+        
+        # Test both estimators
+        mi_gcmi = get_1d_mi(ts_x, ts_y, estimator='gcmi')
+        mi_ksg = get_1d_mi(ts_x, ts_y, estimator='ksg', k=10)
+        
+        # Should be close to theoretical value
+        # GCMI tends to overestimate even for 1D Gaussian
+        assert abs(mi_gcmi - mi_theory) < 0.15
+        # KSG has more variance but often closer
+        assert abs(mi_ksg - mi_theory) < 0.1
+    
+    def test_multivariate_gaussian(self):
+        """Test multivariate MI estimation for Gaussian variables."""
+        np.random.seed(42)
+        n_samples = 5000
+        
+        # Define covariance matrix for 4D Gaussian (3D X, 1D Y)
+        cov_matrix = np.array([
+            [1.0, 0.5, 0.2, 0.7],   # X1
+            [0.5, 1.0, 0.1, 0.5],   # X2  
+            [0.2, 0.1, 1.0, 0.0],   # X3
+            [0.7, 0.5, 0.0, 1.0]    # Y
+        ])
+        
+        # Generate correlated Gaussian data
+        data = np.random.multivariate_normal(np.zeros(4), cov_matrix, size=n_samples)
+        
+        # Create TimeSeries
+        ts_list = [TimeSeries(data[:, i]) for i in range(3)]
+        ts_y = TimeSeries(data[:, 3])
+        
+        # Theoretical MI
+        mi_theory = self.theoretical_mi_gaussian_multi(cov_matrix)
+        
+        # Test estimators
+        mi_gcmi = get_multi_mi(ts_list, ts_y, estimator='gcmi')
+        mi_ksg = get_multi_mi(ts_list, ts_y, estimator='ksg', k=10)
+        
+        # GCMI tends to overestimate for multivariate
+        assert abs(mi_gcmi - mi_theory) < 0.3
+        # KSG should be closer
+        assert abs(mi_ksg - mi_theory) < 0.1
+    
+    def test_perfect_linear_dependence(self):
+        """Test MI estimation for perfect linear dependence."""
+        np.random.seed(42)
+        n_samples = 5000
+        
+        # X determines Y perfectly
+        x = np.random.randn(n_samples)
+        y = 2 * x  # Perfect linear dependence
+        
+        ts_x = TimeSeries(x)
+        ts_y = TimeSeries(y)
+        
+        # MI should be very large (theoretically infinite)
+        mi_gcmi = get_1d_mi(ts_x, ts_y, estimator='gcmi')
+        mi_ksg = get_1d_mi(ts_x, ts_y, estimator='ksg', k=10)
+        
+        # Both should give large values
+        assert mi_gcmi > 5.0
+        assert mi_ksg > 5.0
+    
+    def test_ksg_k_parameter_stability(self):
+        """Test that KSG is stable for k > d."""
+        np.random.seed(42)
+        n_samples = 5000
+        
+        # 4D Gaussian
+        cov_matrix = np.eye(4)
+        cov_matrix[0, 3] = cov_matrix[3, 0] = 0.6
+        cov_matrix[1, 3] = cov_matrix[3, 1] = 0.4
+        
+        data = np.random.multivariate_normal(np.zeros(4), cov_matrix, size=n_samples)
+        
+        ts_list = [TimeSeries(data[:, i]) for i in range(3)]
+        ts_y = TimeSeries(data[:, 3])
+        
+        # Test different k values (d=4 here)
+        mi_values = []
+        for k in [5, 10, 20]:  # All k > d
+            mi = get_multi_mi(ts_list, ts_y, estimator='ksg', k=k)
+            mi_values.append(mi)
+        
+        # Values should be similar (within reasonable range)
+        assert max(mi_values) - min(mi_values) < 0.2
+        
+        # Test that k=3 gives warning (k < d)
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mi_k3 = get_multi_mi(ts_list, ts_y, estimator='ksg', k=3)
+            
+            # Should have warning about k <= d
+            assert len(w) > 0
+            assert "LNC correction disabled" in str(w[0].message)
