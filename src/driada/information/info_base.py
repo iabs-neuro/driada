@@ -29,7 +29,6 @@ import numpy as np
 import warnings
 from typing import Optional
 from sklearn.preprocessing import MinMaxScaler
-from scipy.stats import entropy
 
 from ..utils.data import to_numpy_array
 
@@ -304,12 +303,9 @@ class TimeSeries:
 
     def _compute_entropy(self, ds=1):
         if self.discrete:
-            # TODO: rewrite this using int_data and via ent_d from driada.information.entropy
-            counts = []
-            for val in np.unique(self.data[::ds]):
-                counts.append(len(np.where(self.data[::ds] == val)[0]))
-
-            self.entropy[ds] = entropy(counts, base=np.e)
+            # Use entropy_d with int_data for efficient computation
+            # entropy_d returns bits, convert to nats for backward compatibility
+            self.entropy[ds] = entropy_d(self.int_data[::ds]) * np.log(2)
 
         else:
             self.entropy[ds] = nonparam_entropy_c(self.data) / np.log(2)
