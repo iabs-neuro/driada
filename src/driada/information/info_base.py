@@ -936,12 +936,15 @@ def get_1d_mi(
             y = np.roll(y, shift)
 
         if not ts1.discrete and not ts2.discrete:
+            # FUTURE: Implement downsampled KD-trees for better performance
+            # Currently, precomputed trees cannot be used with downsampling as they
+            # are built on full data while MI is computed on downsampled data
             mi = nonparam_mi_cc(
-                ts1.data[::ds],
+                x,  # Use the reshaped x, not ts1.data[::ds]
                 y,
                 k=k,
-                precomputed_tree_x=ts1.get_kdtree(),
-                precomputed_tree_y=ts2.get_kdtree(),
+                precomputed_tree_x=None if ds > 1 else ts1.get_kdtree(),
+                precomputed_tree_y=None if ds > 1 else ts2.get_kdtree(),
             )
 
         elif ts1.discrete and ts2.discrete:
@@ -957,8 +960,13 @@ def get_1d_mi(
 
         # TODO: refactor using ksg functions
         elif ts1.discrete and not ts2.discrete:
-            mi = mutual_info_regression(
-                ts1.int_data[::ds].reshape(-1, 1), y, discrete_features=False, n_neighbors=k
+            # When X is discrete and Y is continuous, we need to swap and use mutual_info_classif
+            # MI(X_discrete, Y_continuous) = MI(Y_continuous, X_discrete)
+            x1_discrete = ts1.int_data[::ds]
+            if shift != 0:
+                x1_discrete = np.roll(x1_discrete, shift)
+            mi = mutual_info_classif(
+                y.reshape(-1, 1), x1_discrete, discrete_features=False, n_neighbors=k
             )[0]
 
         elif not ts1.discrete and ts2.discrete:
