@@ -233,7 +233,7 @@ def g_param_filter(para):
     elif gmethod == "tsne":
         appr_keys.extend(["perplexity"])
 
-    return {key: para[key] for key in appr_keys}
+    return {key: para[key] for key in appr_keys if key in para}
 
 
 def e_param_filter(para):
@@ -251,7 +251,7 @@ def e_param_filter(para):
         appr_keys.append("dm_alpha")
         appr_keys.append("dm_t")
 
-    return {key: para[key] for key in appr_keys}
+    return {key: para[key] for key in appr_keys if key in para}
 
 
 def merge_params_with_defaults(

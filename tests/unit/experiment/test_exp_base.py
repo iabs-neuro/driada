@@ -1072,5 +1072,5 @@ class TestExperimentMethods:
         basic_experiment._set_selectivity_tables("calcium")
 
         # Try to check non-existent feature
-        with pytest.raises(ValueError, match="Feature .* is not present in stats"):
+        with pytest.raises(ValueError, match="Feature .* is not present in dynamic_features"):
             basic_experiment._check_stats_relevance(0, "non_existent_feat")

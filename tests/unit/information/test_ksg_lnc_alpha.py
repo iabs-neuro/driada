@@ -52,33 +52,38 @@ class TestLNCAlphaSelection:
         """Test mutual information estimation with automatic alpha selection."""
         np.random.seed(42)
         
-        # Create higher dimensional correlated data where LNC effect is noticeable
+        # Create data where k > d and alpha is meaningful
         n = 500
-        x = np.random.randn(n, 8)  # 8D
-        y = x[:, 0:4] + 0.5 * np.random.randn(n, 4)  # 4D, correlated with first 4 dims of x
+        x = np.random.randn(n, 10)  # 10D
+        y = x[:, 0:5] + 0.5 * np.random.randn(n, 5)  # 5D, correlated with first 5 dims of x
         
-        # Test with auto alpha - set seed before each call
+        # Use k=20 to ensure k > d=15
+        k = 20
+        
+        # For k=20, closest available is k=10
+        d = x.shape[1] + y.shape[1]  # Total dimensionality = 15
+        expected_alpha = get_lnc_alpha(k, d)
+        
+        # Test with auto alpha
         np.random.seed(42)
-        mi_auto = nonparam_mi_cc(x, y, k=5, alpha="auto")
+        mi_auto = nonparam_mi_cc(x, y, k=k, alpha="auto")
         
         # Test with manual alpha=0 (no LNC correction)
         np.random.seed(42)
-        mi_no_lnc = nonparam_mi_cc(x, y, k=5, alpha=0)
+        mi_no_lnc = nonparam_mi_cc(x, y, k=k, alpha=0)
         
         # Test with specific alpha
-        d = x.shape[1] + y.shape[1]  # Total dimensionality = 12
-        expected_alpha = get_lnc_alpha(5, d)
         np.random.seed(42)
-        mi_manual = nonparam_mi_cc(x, y, k=5, alpha=expected_alpha)
+        mi_manual = nonparam_mi_cc(x, y, k=k, alpha=expected_alpha)
         
         
         # Auto should match manual with same alpha
         assert abs(mi_auto - mi_manual) < 1e-10
         
-        # With significant alpha, LNC correction should make a difference
-        assert expected_alpha > 0.3  # Should be around 0.351 for k=5, d=12
-        # The difference might be small but should be non-zero
-        assert abs(mi_auto - mi_no_lnc) > 1e-10
+        # With k=20, d=15, we should get alpha for (10,15) = 0.100471
+        assert expected_alpha > 0.1  # Meaningful alpha
+        # There should be a noticeable difference with LNC correction
+        assert abs(mi_auto - mi_no_lnc) > 0.01  # Significant difference
             
     def test_conditional_mi_with_auto_alpha(self):
         """Test conditional MI with automatic alpha selection."""
@@ -115,25 +120,28 @@ class TestAlphaBackwardCompatibility:
     def test_default_alpha_changed(self):
         """Test that default alpha is now 'auto' instead of 0."""
         np.random.seed(42)
-        # Use higher dimensional data where LNC makes a bigger difference
+        # Use data where k > d and alpha is meaningful
         n = 200
-        x = np.random.randn(n, 5)
-        y = x[:, :3] + 0.5 * np.random.randn(n, 3)
+        x = np.random.randn(n, 8)
+        y = x[:, :4] + 0.5 * np.random.randn(n, 4)
+        
+        # Use k=15 to ensure k > d=12
+        k = 15
         
         # With no alpha specified, should use auto
-        mi_default = nonparam_mi_cc(x, y, k=5)
+        mi_default = nonparam_mi_cc(x, y, k=k)
         
         # With alpha=0
-        mi_no_lnc = nonparam_mi_cc(x, y, k=5, alpha=0)
+        mi_no_lnc = nonparam_mi_cc(x, y, k=k, alpha=0)
         
         # Get expected alpha
-        d = x.shape[1] + y.shape[1]  # 8
-        expected_alpha = get_lnc_alpha(5, d)
+        d = x.shape[1] + y.shape[1]  # 12
+        expected_alpha = get_lnc_alpha(k, d)
         
-        # For k=5, d=8, alpha should be significant
-        assert expected_alpha > 0.1
-        # Should see a difference with LNC correction
-        assert abs(mi_default - mi_no_lnc) > 1e-10
+        # For k=15, d=12, get small but meaningful alpha
+        assert expected_alpha > 0.01  # Small but meaningful alpha
+        # Should see a measurable difference with LNC correction
+        assert abs(mi_default - mi_no_lnc) > 1e-5  # Clear difference
     
     def test_explicit_alpha_still_works(self):
         """Test that explicitly setting alpha still works."""

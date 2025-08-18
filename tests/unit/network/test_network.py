@@ -206,7 +206,7 @@ def test_turn_to_partially_directed_weighted():
     assert np.allclose(result.toarray(), mat)
 
     # Test with non-ndarray input
-    with pytest.raises(Exception, match="Wrong input parsed"):
+    with pytest.raises(TypeError, match="Input must be numpy array or scipy sparse matrix"):
         turn_to_partially_directed([1, 2, 3], directed=0.0)
 
 

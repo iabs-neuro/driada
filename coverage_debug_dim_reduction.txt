@@ -1,0 +1,86 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.10.18, pytest-8.4.1, pluggy-1.6.0 -- /opt/anaconda3/envs/driada/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/nikita/PycharmProjects/driada2
+configfile: pytest.ini
+plugins: timeout-2.4.0, cov-6.2.1
+collecting ... collected 286 items
+
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_basic PASSED [  0%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_with_low_rank_data PASSED [  0%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_with_identity_covariance PASSED [  1%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_with_correction_small_ratio PASSED [  1%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_different_q_values PASSED [  1%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_warning_large_ratio PASSED [  2%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_correction_edge_cases PASSED [  2%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_single_dimension PASSED [  2%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_negative_eigenvalues PASSED [  3%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_correction_with_warnings PASSED [  3%]
+tests/unit/dim_reduction/test_eff_dim.py::TestEffDim::test_eff_dim_extreme_cases PASSED [  3%]
+tests/unit/dim_reduction/test_graph_preprocessing.py::TestGraphPreprocessing::test_default_preprocessing_for_connected_methods PASSED [  4%]
+tests/unit/dim_reduction/test_graph_preprocessing.py::TestGraphPreprocessing::test_default_preprocessing_for_disconnected_methods PASSED [  4%]
+tests/unit/dim_reduction/test_graph_preprocessing.py::TestGraphPreprocessing::test_user_override_preprocessing PASSED [  4%]
+tests/unit/dim_reduction/test_graph_preprocessing.py::TestGraphPreprocessing::test_proximity_graph_uses_preprocessing PASSED [  5%]
+tests/unit/dim_reduction/test_graph_preprocessing.py::TestGraphPreprocessing::test_preprocessing_options PASSED [  5%]
+tests/unit/dim_reduction/test_graph_preprocessing.py::TestGraphPreprocessing::test_handles_disconnected_property PASSED [  5%]
+tests/unit/dim_reduction/test_graph_preprocessing.py::TestGraphPreprocessing::test_backwards_compatibility PASSED [  6%]
+tests/unit/dim_reduction/test_custom_metric.py::test_custom_metric_function PASSED [  6%]
+tests/unit/dim_reduction/test_custom_metric.py::test_builtin_metric PASSED [  6%]
+tests/unit/dim_reduction/test_custom_metric.py::test_invalid_metric PASSED [  7%]
+tests/unit/dim_reduction/test_dr_extended.py::test_mds PASSED            [  7%]
+tests/unit/dim_reduction/test_dr_extended.py::test_lle PASSED            [  8%]
+tests/unit/dim_reduction/test_dr_extended.py::test_hlle PASSED           [  8%]
+tests/unit/dim_reduction/test_dr_extended.py::test_mvu 
+Fatal Python error: Segmentation fault
+
+Current thread 0x00000001d88b9ec0 (most recent call first):
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/cvxcore/python/cvxcore.py", line 728 in __setitem__
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/cvxcore/python/cppbackend.py", line 46 in build_matrix
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/cvxcore/python/canonInterface.py", line 297 in get_problem_matrix
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/utilities/coeff_extractor.py", line 72 in affine
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/reductions/dcp2cone/cone_matrix_stuffing.py", line 339 in stuffed_objective
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/reductions/dcp2cone/cone_matrix_stuffing.py", line 375 in apply
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/reductions/chain.py", line 76 in apply
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/problems/problem.py", line 796 in get_problem_data
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/problems/problem.py", line 1176 in _solve
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/cvxpy/problems/problem.py", line 600 in solve
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/mvu.py", line 139 in fit
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/mvu.py", line 158 in fit_transform
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/embedding.py", line 139 in create_mvu_embedding_
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/embedding.py", line 81 in build
+  File "/Users/nikita/PycharmProjects/driada2/src/driada/dim_reduction/data.py", line 334 in get_embedding
+  File "/Users/nikita/PycharmProjects/driada2/tests/unit/dim_reduction/test_dr_extended.py", line 114 in test_mvu
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/python.py", line 157 in pytest_pyfunc_call
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/python.py", line 1671 in runtest
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/runner.py", line 178 in pytest_runtest_call
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/runner.py", line 246 in <lambda>
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/runner.py", line 344 in from_call
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/runner.py", line 245 in call_and_report
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/runner.py", line 136 in runtestprotocol
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/runner.py", line 117 in pytest_runtest_protocol
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/main.py", line 367 in pytest_runtestloop
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/main.py", line 343 in _main
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/main.py", line 289 in wrap_session
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/main.py", line 336 in pytest_cmdline_main
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/opt/anaconda3/envs/driada/lib/python3.10/site-packages/_pytest/config/__init__.py", line 175 in main
+  File "/var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmp229wzbxc.py", line 41 in <module>
+
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, scipy._lib._ccallback_c, yaml._yaml, numba.core.typeconv._typeconv, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._mt19937, numpy.random.mtrand, numpy.random._philox, numpy.random._pcg64, numpy.random._sfc64, numpy.random._generator, numba._helperlib, numba._dynfunc, numba._dispatcher, numba.core.typing.builtins.itertools, numba.cpython.builtins.math, numba.core.runtime._nrt_python, numba.np.ufunc._internal, numba.experimental.jitclass._box, sklearn.__check_build._check_build, charset_normalizer.md, scipy.sparse._sparsetools, _csparsetools, scipy.sparse._csparsetools, scipy.linalg._fblas, scipy.linalg._flapack, scipy.linalg.cython_lapack, scipy.linalg._cythonized_array_utils, scipy.linalg._solve_toeplitz, scipy.linalg._decomp_lu_cython, scipy.linalg._matfuncs_sqrtm_triu, scipy.linalg._matfuncs_expm, scipy.linalg._linalg_pythran, scipy.linalg.cython_blas, scipy.linalg._decomp_update, scipy.sparse.linalg._dsolve._superlu, scipy.sparse.linalg._eigen.arpack._arpack, scipy.sparse.linalg._propack._spropack, scipy.sparse.linalg._propack._dpropack, scipy.sparse.linalg._propack._cpropack, scipy.sparse.linalg._propack._zpropack, scipy.sparse.csgraph._tools, scipy.sparse.csgraph._shortest_path, scipy.sparse.csgraph._traversal, scipy.sparse.csgraph._min_spanning_tree, scipy.sparse.csgraph._flow, scipy.sparse.csgraph._matching, scipy.sparse.csgraph._reordering, psutil._psutil_osx, psutil._psutil_posix, scipy.special._ufuncs_cxx, scipy.special._ufuncs, scipy.special._specfun, scipy.special._comb, scipy.special._ellip_harm_2, scipy.spatial._ckdtree, scipy._lib.messagestream, scipy.spatial._qhull, scipy.spatial._voronoi, scipy.spatial._distance_wrap, scipy.spatial._hausdorff, scipy.spatial.transform._rotation, scipy.optimize._group_columns, scipy.optimize._trlib._trlib, scipy.optimize._lbfgsb, _moduleTNC, scipy.optimize._moduleTNC, scipy.optimize._cobyla, scipy.optimize._slsqp, scipy.optimize._minpack, scipy.optimize._lsq.givens_elimination, scipy.optimize._zeros, scipy.optimize._cython_nnls, scipy._lib._uarray._uarray, scipy.linalg._decomp_interpolative, scipy.optimize._bglu_dense, scipy.optimize._lsap, scipy.optimize._direct, scipy.integrate._odepack, scipy.integrate._quadpack, scipy.integrate._vode, scipy.integrate._dop, scipy.integrate._lsoda, scipy.interpolate._fitpack, scipy.interpolate._dfitpack, scipy.interpolate._dierckx, scipy.interpolate._ppoly, scipy.interpolate._interpnd, scipy.interpolate._rbfinterp_pythran, scipy.interpolate._rgi_cython, scipy.interpolate._bspl, scipy.special.cython_special, scipy.stats._stats, scipy.stats._sobol, scipy.stats._qmc_cy, scipy.stats._biasedurn, scipy.stats._stats_pythran, scipy.stats._levy_stable.levyst, scipy.stats._ansari_swilk_statistics, scipy.stats._mvn, scipy.stats._rcont.rcont, scipy.ndimage._nd_image, scipy.ndimage._rank_filter_1d, _ni_label, scipy.ndimage._ni_label, pandas._libs.tslibs.ccalendar, pandas._libs.tslibs.np_datetime, pandas._libs.tslibs.dtypes, pandas._libs.tslibs.base, pandas._libs.tslibs.nattype, pandas._libs.tslibs.timezones, pandas._libs.tslibs.fields, pandas._libs.tslibs.timedeltas, pandas._libs.tslibs.tzconversion, pandas._libs.tslibs.timestamps, pandas._libs.properties, pandas._libs.tslibs.offsets, pandas._libs.tslibs.strptime, pandas._libs.tslibs.parsing, pandas._libs.tslibs.conversion, pandas._libs.tslibs.period, pandas._libs.tslibs.vectorized, pandas._libs.ops_dispatch, pandas._libs.missing, pandas._libs.hashtable, pandas._libs.algos, pandas._libs.interval, pandas._libs.lib, pandas._libs.ops, numexpr.interpreter, pandas._libs.hashing, pandas._libs.arrays, pandas._libs.tslib, pandas._libs.sparse, pandas._libs.internals, pandas._libs.indexing, pandas._libs.index, pandas._libs.writers, pandas._libs.join, pandas._libs.window.aggregations, pandas._libs.window.indexers, pandas._libs.reshape, pandas._libs.groupby, pandas._libs.json, pandas._libs.parsers, pandas._libs.testing, sklearn.utils._isfinite, sklearn.utils.sparsefuncs_fast, sklearn.utils.murmurhash, sklearn.utils._openmp_helpers, sklearn.preprocessing._csr_polynomial_expansion, sklearn.preprocessing._target_encoder_fast, numba.cpython.mathimpl.math, numba.cpython.mathimpl.sys, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, PIL._imaging, kiwisolver._cext, scipy.signal._sigtools, scipy.signal._max_len_seq_inner, scipy.signal._upfirdn_apply, scipy.signal._spline, scipy.signal._sosfilt, scipy.signal._peak_finding_utils, h5py._errors, h5py.h5, h5py._conv, h5py.h5z, h5py.h5a, h5py.h5d, h5py.h5ds, h5py.h5f, h5py.h5fd, h5py.h5g, h5py.h5r, h5py.h5s, h5py.h5t, h5py.h5p, h5py.h5pl, h5py._objects, h5py.h5i, h5py.h5o, h5py.h5l, h5py._selector, sklearn.metrics.cluster._expected_mutual_info_fast, sklearn.metrics._dist_metrics, sklearn.metrics._pairwise_distances_reduction._argkmin, sklearn.metrics._pairwise_distances_reduction._argkmin_classmode, sklearn.metrics._pairwise_distances_reduction._base, sklearn.metrics._pairwise_distances_reduction._radius_neighbors, sklearn.metrics._pairwise_distances_reduction._radius_neighbors_classmode, sklearn.metrics._pairwise_fast, sklearn.utils._random, sklearn.tree._criterion, sklearn.tree._splitter, sklearn.tree._tree, sklearn.tree._utils, sklearn._loss._loss, sklearn.ensemble._gradient_boosting, sklearn.utils._seq_dataset, sklearn.linear_model._cd_fast, sklearn.svm._liblinear, sklearn.svm._libsvm, sklearn.svm._libsvm_sparse, sklearn.linear_model._sag_fast, sklearn.linear_model._sgd_fast, sklearn.ensemble._hist_gradient_boosting._gradient_boosting, sklearn.ensemble._hist_gradient_boosting._binning, sklearn.ensemble._hist_gradient_boosting._bitset, sklearn.ensemble._hist_gradient_boosting.common, sklearn.ensemble._hist_gradient_boosting.histogram, sklearn.ensemble._hist_gradient_boosting._predictor, sklearn.ensemble._hist_gradient_boosting.splitting, sklearn.neighbors._ball_tree, sklearn.neighbors._kd_tree, sklearn.utils.arrayfuncs, sklearn.decomposition._online_lda_fast, sklearn.decomposition._cdnmf_fast, sklearn._isotonic, sklearn.manifold._barnes_hut_tsne, sklearn.manifold._utils, pywt._extensions._pywt, pywt._extensions._dwt, pywt._extensions._swt, scipy.cluster._vq, scipy.cluster._hierarchy, scipy.cluster._optimal_leaf_ordering, scipy.io.matlab._mio_utils, scipy.io.matlab._streams, scipy.io.matlab._mio5_utils, sklearn.datasets._svmlight_format_fast, sklearn.utils._vector_sentinel, sklearn.feature_extraction._hashing_fast (total: 245)
+/var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmp4q37bx6z: line 3:  4434 Segmentation fault: 11  python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmp229wzbxc.py
+
+ERROR conda.cli.main_run:execute(125): `conda run python /var/folders/6k/qvnh55652hvfzbwp8wl6fwsr0000gq/T/tmp229wzbxc.py` failed. (See above for error)
