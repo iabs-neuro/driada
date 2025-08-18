@@ -146,7 +146,9 @@ class TestMultiTimeSeriesProperties:
 
     def test_discrete_attributes(self):
         """Test attributes for discrete MultiTimeSeries."""
-        data = np.random.randint(0, 5, size=(4, 80))
+        # Create discrete data with at least some variation to avoid zero columns
+        np.random.seed(42)  # For reproducibility
+        data = np.random.randint(1, 6, size=(4, 80))  # Use 1-5 instead of 0-4
         mts = MultiTimeSeries(data, discrete=True)
 
         assert hasattr(mts, "int_data")
