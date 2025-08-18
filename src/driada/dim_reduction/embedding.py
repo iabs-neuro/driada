@@ -25,14 +25,6 @@ from .mvu import MaximumVarianceUnfolding
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix
 
 
-def remove_outliers(data, thr_percentile):
-    thr1 = np.mean(data) + thr_percentile * np.std(data)
-    thr2 = np.mean(data) - thr_percentile * np.std(data)
-    good_points = np.where((data < thr1) & (data > thr2))[0]
-
-    return good_points, data[good_points]
-
-
 class Embedding:
     """
     Low-dimensional representation of data
@@ -67,6 +59,22 @@ class Embedding:
             self.nnmodel = None
 
     def build(self, kwargs=None):
+        """Build the embedding using the specified method.
+        
+        Dynamically calls the appropriate embedding creation method based on
+        the embedding method name (e.g., 'pca' calls create_pca_embedding_).
+        
+        Parameters
+        ----------
+        kwargs : dict, optional
+            Additional keyword arguments passed to the specific embedding method.
+            For neural network methods (AE/VAE), this includes training parameters.
+            
+        Raises
+        ------
+        Exception
+            If the graph is disconnected and the method cannot handle it.
+        """
         if kwargs is None:
             kwargs = dict()
         fn = getattr(self, "create_" + self.e_method_name + "_embedding_")
@@ -81,6 +89,21 @@ class Embedding:
         fn(**kwargs)
 
     def create_pca_embedding_(self, verbose=True):
+        """Create PCA (Principal Component Analysis) embedding.
+        
+        Linear dimensionality reduction using orthogonal transformation to
+        convert data into linearly uncorrelated components ordered by variance.
+        
+        Parameters
+        ----------
+        verbose : bool, default=True
+            Whether to print progress messages.
+            
+        Notes
+        -----
+        Sets self.coords to shape (dim, n_samples) and stores the PCA object
+        in self.reducer_ for potential reuse or analysis.
+        """
         if verbose:
             print("Calculating PCA embedding...")
 
@@ -90,6 +113,17 @@ class Embedding:
         # print(pca.explained_variance_ratio_)
 
     def create_isomap_embedding_(self):
+        """Create Isomap embedding using geodesic distances.
+        
+        Non-linear dimensionality reduction through isometric mapping.
+        Preserves geodesic distances between all points by first computing
+        shortest paths on the neighborhood graph, then applying MDS.
+        
+        Notes
+        -----
+        Requires a proximity graph. Uses Dijkstra's algorithm to compute
+        shortest paths, then applies classical MDS to the geodesic distance matrix.
+        """
         A = self.graph.adj
         map = Isomap(
             n_components=self.dim, n_neighbors=self.graph.nn, metric="precomputed"
@@ -118,6 +152,23 @@ class Embedding:
         self.reducer_ = mds
 
     def create_mvu_embedding_(self):
+        """Create Maximum Variance Unfolding (MVU) embedding.
+        
+        Non-linear dimensionality reduction that "unfolds" a manifold by
+        maximizing variance while preserving local distances. Solves a
+        semidefinite programming problem to find the optimal embedding.
+        
+        Notes
+        -----
+        Requires cvxpy for convex optimization. Uses the SCS solver with
+        reasonable defaults for most datasets. The embedding preserves
+        local neighborhood structure while maximizing global variance.
+        
+        Raises
+        ------
+        ImportError
+            If cvxpy is not installed.
+        """
         try:
             import cvxpy as cp
         except ImportError:
@@ -142,6 +193,12 @@ class Embedding:
         self.reducer_ = mvu
 
     def create_lle_embedding_(self):
+        """Create Locally Linear Embedding (LLE).
+        
+        Non-linear dimensionality reduction that assumes data lies on a
+        locally linear manifold. Each point is reconstructed from its
+        neighbors, and these weights are preserved in lower dimensions.
+        """
         lle = LocallyLinearEmbedding(n_components=self.dim, n_neighbors=self.graph.nn)
         self.coords = lle.fit_transform(self.graph.data.T).T
         self.reducer_ = lle

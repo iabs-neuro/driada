@@ -37,11 +37,37 @@ def _plain_bfs(adj, source):
 
 
 def get_neighbors_from_adj(a, node):
+    """Get neighbors of a node from adjacency matrix.
+    
+    Parameters
+    ----------
+    a : array-like or sparse matrix
+        Adjacency matrix of the graph.
+    node : int
+        Node index to find neighbors for.
+        
+    Returns
+    -------
+    numpy.ndarray
+        Array of neighbor node indices.
+    """
     inds = a[[node], :].nonzero()[1]
     return inds
 
 
 def get_ccs_from_adj(adj):
+    """Find all connected components in an undirected graph.
+    
+    Parameters
+    ----------
+    adj : array-like or sparse matrix
+        Adjacency matrix of the graph.
+        
+    Yields
+    ------
+    set
+        Set of node indices in each connected component.
+    """
     seen = set()
     for v in range(adj.shape[0]):
         if v not in seen:
@@ -102,6 +128,20 @@ def get_sccs_from_adj(adj):
 
 
 def get_giant_cc_from_adj(adj):
+    """Extract the giant (largest) connected component from a graph.
+    
+    Parameters
+    ----------
+    adj : sparse matrix
+        Adjacency matrix of the graph.
+        
+    Returns
+    -------
+    gcc_adj : sparse matrix
+        Adjacency matrix of the giant connected component.
+    node_mapping : dict
+        Mapping from new node indices to original node indices.
+    """
     connected_components = sorted(get_ccs_from_adj(adj), key=len, reverse=True)
     gcc = np.array(list(connected_components[0]))
     gcc_adj = adj[gcc, :].tocsc()[:, gcc].tocsr()
@@ -113,6 +153,20 @@ def get_giant_cc_from_adj(adj):
 
 
 def get_giant_scc_from_adj(adj):
+    """Extract the giant (largest) strongly connected component from a directed graph.
+    
+    Parameters
+    ----------
+    adj : sparse matrix
+        Adjacency matrix of the directed graph.
+        
+    Returns
+    -------
+    gscc_adj : sparse matrix
+        Adjacency matrix of the giant strongly connected component.
+    node_mapping : dict
+        Mapping from new node indices to original node indices.
+    """
     connected_components = sorted(get_sccs_from_adj(adj), key=len, reverse=True)
     gscc = np.array(list(connected_components[0]))
     gscc_adj = adj[gscc, :].tocsc()[:, gscc].tocsr()
@@ -124,6 +178,19 @@ def get_giant_scc_from_adj(adj):
 
 
 def assign_random_weights(A):
+    """Assign random weights to edges in an adjacency matrix.
+    
+    Parameters
+    ----------
+    A : array-like
+        Binary adjacency matrix.
+        
+    Returns
+    -------
+    numpy.ndarray
+        Weighted adjacency matrix with random weights in [0,1],
+        symmetrized to ensure undirected graph.
+    """
     X = np.random.random(size=(A.shape[0], A.shape[0]))
     W = np.multiply(X, A)
     return (W + W.T) / 2
@@ -277,6 +344,28 @@ def get_symmetry_index(a):
 
 
 def symmetric_component(A, is_weighted):
+    """Extract the symmetric component of a matrix.
+    
+    Finds edges that exist in both directions (i,j) and (j,i).
+    For weighted graphs, preserves the original weights.
+    
+    Parameters
+    ----------
+    A : sparse matrix
+        Input adjacency matrix.
+    is_weighted : bool
+        If True, preserve edge weights; if False, return binary matrix.
+        
+    Returns
+    -------
+    numpy.matrix
+        Symmetric component of the input matrix.
+        
+    Notes
+    -----
+    The symmetric component contains only edges that exist bidirectionally.
+    This is useful for analyzing reciprocal connections in directed networks.
+    """
     a = A.astype(bool).todense()
     symm_mask = np.bitwise_and(a, a.T)
     if not is_weighted:
@@ -286,14 +375,52 @@ def symmetric_component(A, is_weighted):
 
 
 def non_symmetric_component(A, is_weighted):
+    """Extract the non-symmetric (asymmetric) component of a matrix.
+    
+    Finds edges that exist in only one direction, i.e., (i,j) exists
+    but (j,i) does not, or vice versa.
+    
+    Parameters
+    ----------
+    A : sparse matrix
+        Input adjacency matrix.
+    is_weighted : bool
+        If True, preserve edge weights; if False, work with binary matrix.
+        
+    Returns
+    -------
+    numpy.matrix
+        Non-symmetric component of the input matrix.
+        
+    Notes
+    -----
+    The non-symmetric component represents unidirectional connections
+    in directed networks. A - symmetric_component(A) = non_symmetric_component(A).
+    """
     return A.astype(float) - symmetric_component(A, is_weighted).astype(float)
 
 
 def remove_duplicates(coo):
-    # this function removes duplicate entries from a coo-format adjacency matrix
-    # duplicates are discarded as the data is always the same:
-    # coo[i,j] = val1, coo[i,j] = val2 ==> val1 = val2
-
+    """Remove duplicate entries from a COO-format sparse matrix.
+    
+    When multiple values exist for the same (i,j) position, keeps only
+    the last occurrence. This is useful for cleaning malformed sparse matrices.
+    
+    Parameters
+    ----------
+    coo : scipy.sparse.coo_matrix
+        COO-format sparse matrix potentially containing duplicates.
+        
+    Returns
+    -------
+    scipy.sparse.coo_matrix
+        COO matrix with duplicates removed.
+        
+    Notes
+    -----
+    COO format allows duplicate entries, but most algorithms expect
+    unique (i,j) pairs. This function ensures data integrity.
+    """
     dok = sp.dok_matrix((coo.shape), dtype=coo.dtype)
     for i, j, v in zip(coo.row, coo.col, coo.data):
         dok[i, j] = v
@@ -301,6 +428,31 @@ def remove_duplicates(coo):
 
 
 def adj_input_to_csr_sparse_matrix(a):
+    """Convert various matrix formats to CSR sparse format.
+    
+    Handles numpy arrays and different scipy sparse formats, ensuring
+    the output is always in CSR format for efficient row operations.
+    
+    Parameters
+    ----------
+    a : np.ndarray or scipy.sparse matrix
+        Input matrix in various formats (dense, COO, CSC, CSR).
+        
+    Returns
+    -------
+    scipy.sparse.csr_array
+        Matrix in CSR (Compressed Sparse Row) format.
+        
+    Raises
+    ------
+    Exception
+        If input format is not recognized.
+        
+    Notes
+    -----
+    CSR format is efficient for row slicing and matrix arithmetic.
+    COO matrices are cleaned of duplicates before conversion.
+    """
     if isinstance(a, np.ndarray):
         adj = sp.csr_array(a)
     elif a.format in ["csr", "csc"]:
@@ -316,6 +468,26 @@ def adj_input_to_csr_sparse_matrix(a):
 
 
 def remove_selfloops_from_adj(a):
+    """Remove self-loops (diagonal elements) from adjacency matrix.
+    
+    Self-loops are edges from a node to itself. This function sets
+    all diagonal elements to zero.
+    
+    Parameters
+    ----------
+    a : array-like or sparse matrix
+        Input adjacency matrix.
+        
+    Returns
+    -------
+    array-like or sparse matrix
+        Adjacency matrix with self-loops removed (diagonal = 0).
+        
+    Notes
+    -----
+    Only modifies the matrix if self-loops exist (trace != 0).
+    For sparse matrices, explicitly removes zeros after diagonal clearing.
+    """
     if a.trace() != 0:
         a = adj_input_to_csr_sparse_matrix(a)
         anew = a.copy()
@@ -327,6 +499,28 @@ def remove_selfloops_from_adj(a):
 
 
 def remove_isolates_from_adj(a):
+    """Remove isolated nodes (nodes with no connections) from adjacency matrix.
+    
+    Isolated nodes have zero in-degree and zero out-degree. This function
+    removes such nodes and returns the cleaned matrix with a mapping.
+    
+    Parameters
+    ----------
+    a : array-like or sparse matrix
+        Input adjacency matrix.
+        
+    Returns
+    -------
+    cleared_matrix : sparse matrix
+        Adjacency matrix with isolated nodes removed.
+    node_mapping : dict
+        Mapping from new node indices to original indices.
+        
+    Notes
+    -----
+    Useful for focusing analysis on the connected components of a network.
+    The node mapping allows tracking of original node identities.
+    """
     a = adj_input_to_csr_sparse_matrix(a)
 
     in_degrees = np.array(a.astype(bool).astype(int).sum(axis=1))  # .flatten().ravel()
@@ -342,6 +536,30 @@ def remove_isolates_from_adj(a):
 
 
 def sausage_index(A, nn):
+    """Calculate the sausage index of a network.
+    
+    The sausage index measures the proportion of edges that connect
+    nodes within a distance nn along the main diagonal. High values
+    indicate a "sausage-like" or chain-like network structure.
+    
+    Parameters
+    ----------
+    A : array-like
+        Adjacency matrix (typically symmetric).
+    nn : int
+        Maximum diagonal distance to consider as "sausage edges".
+        
+    Returns
+    -------
+    None
+        Prints the sausage index and edge statistics.
+        
+    Notes
+    -----
+    Sausage index = (edges within nn diagonals) / (total edges).
+    Values close to 1 indicate strong linear/chain structure.
+    Values close to 0 indicate more random connectivity.
+    """
     A = A.astype(bool).astype(int)
     sausage_edges = 0
     for i in range(nn):

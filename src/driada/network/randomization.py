@@ -2,7 +2,8 @@
 Graph randomization algorithms for network analysis.
 
 This module provides various methods for randomizing graphs while preserving
-certain structural properties like in-out motifs (IOM), degree sequences, etc.
+certain structural properties like in-degree, out-degree, and mutual degree (IOM),
+degree sequences, etc.
 """
 
 import copy
@@ -62,11 +63,15 @@ def adj_random_rewiring_iom_preserving(
     random_state: Optional[int] = None,
 ) -> sp.csr_matrix:
     """
-    Perform In-Out-Motif (IOM) preserving graph randomization on adjacency matrix.
+    Perform In-degree, Out-degree, and Mutual degree (IOM) preserving graph randomization.
 
-    This method rewires edges while preserving the in-out motif structure of the graph.
+    This method rewires edges while preserving three key properties for each node:
+    - In-degree: number of incoming edges
+    - Out-degree: number of outgoing edges  
+    - Mutual degree: number of bidirectional (reciprocal) connections
+    
     It handles symmetric (bidirectional) and non-symmetric (unidirectional) components
-    separately to maintain the graph's motif patterns.
+    separately to maintain these local connectivity patterns.
 
     Parameters
     ----------
@@ -451,8 +456,9 @@ def random_rewiring_IOM_preserving(G: nx.Graph, r: int = 10) -> nx.Graph:
     """
     DEPRECATED: Use adj_random_rewiring_iom_preserving() instead.
 
-    Legacy NetworkX-based implementation of IOM-preserving randomization.
-    This function is slower and less efficient than the adjacency matrix version.
+    Legacy NetworkX-based implementation of In-degree, Out-degree, and Mutual degree
+    (IOM) preserving randomization. This function is slower and less efficient than
+    the adjacency matrix version.
 
     Parameters
     ----------

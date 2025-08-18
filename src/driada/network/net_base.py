@@ -406,10 +406,45 @@ class Network:
         self.n = self.adj.shape[0]
 
     def is_connected(self):
+        """Check if the network is connected.
+        
+        A network is connected if there is a path between every pair of nodes.
+        For directed networks, checks weak connectivity (ignoring edge direction).
+        
+        Returns
+        -------
+        bool
+            True if the network has only one connected component, False otherwise.
+        """
         ccs = list(get_ccs_from_adj(self.adj))
         return len(ccs) == 1
 
     def randomize(self, rmode="shuffle"):
+        """Create a randomized version of the network.
+        
+        Different randomization methods preserve different network properties.
+        
+        Parameters
+        ----------
+        rmode : str, default='shuffle'
+            Randomization method:
+            - 'shuffle': Complete edge shuffling (random graph with same density)
+            - 'graph_iom': In-degree, Out-degree, and Mutual degree preserving (via NetworkX)
+            - 'adj_iom': In-degree, Out-degree, and Mutual degree preserving (via adjacency matrix)
+            - 'complete': Randomize as complete graph
+            
+        Returns
+        -------
+        Network
+            New Network object with randomized edges.
+            
+        Notes
+        -----
+        IOM methods preserve in-degree, out-degree, and mutual (reciprocal) degree
+        sequences for each node. This maintains the local connectivity patterns
+        while randomizing the global structure.
+        Shuffle method only preserves edge density.
+        """
         if rmode == "graph_iom":
             if self.directed:
                 g = nx.DiGraph(self.graph)
@@ -445,6 +480,24 @@ class Network:
         return rand_net
 
     def get_node_degrees(self):
+        """Calculate degree sequences for all nodes.
+        
+        Computes in-degree, out-degree, and total degree for each node.
+        Also creates scaled versions normalized to [0, 1].
+        
+        Sets Attributes
+        ---------------
+        outdeg : np.ndarray
+            Out-degree for each node.
+        indeg : np.ndarray
+            In-degree for each node.
+        deg : np.ndarray
+            Total degree (considering undirected edges).
+        scaled_outdeg : np.ndarray
+            Out-degrees scaled to [0, 1].
+        scaled_indeg : np.ndarray
+            In-degrees scaled to [0, 1].
+        """
         # convert sparse matrix to 0-1 format and sum over specific axis
         self.outdeg = np.array(self.adj.astype(bool).astype(int).sum(axis=0)).ravel()
         self.indeg = np.array(self.adj.astype(bool).astype(int).sum(axis=1)).ravel()
@@ -472,6 +525,26 @@ class Network:
             self.scaled_indeg = np.ones(len(self.indeg))
 
     def get_degree_distr(self, mode="all"):
+        """Get degree distribution of the network.
+        
+        Parameters
+        ----------
+        mode : str, default='all'
+            Type of degree distribution:
+            - 'all': Total degree
+            - 'in': In-degree only
+            - 'out': Out-degree only
+            
+        Returns
+        -------
+        np.ndarray
+            Normalized histogram of degree values.
+            
+        Raises
+        ------
+        ValueError
+            If mode is not recognized.
+        """
         if mode == "all":
             deg = self.deg
         elif mode == "out":
@@ -488,6 +561,30 @@ class Network:
         return hist
 
     def get_matrix(self, mode):
+        """Get a specific matrix representation of the network.
+        
+        Computes and caches various matrix representations lazily.
+        
+        Parameters
+        ----------
+        mode : str
+            Matrix type to retrieve:
+            - 'adj': Adjacency matrix
+            - 'lap'/'lap_out': Laplacian matrix
+            - 'nlap': Normalized Laplacian
+            - 'rwlap': Random walk Laplacian
+            - 'trans': Transition matrix
+            
+        Returns
+        -------
+        scipy.sparse matrix
+            The requested matrix representation.
+            
+        Raises
+        ------
+        Exception
+            If matrix type is not recognized or not applicable.
+        """
         check_matrix_type(mode, self.directed)
         matrix = getattr(self, mode)
         if matrix is None:
@@ -510,6 +607,20 @@ class Network:
         return matrix
 
     def get_spectrum(self, mode):
+        """Get eigenvalues of a specific matrix representation.
+        
+        Computes eigendecomposition if not already cached.
+        
+        Parameters
+        ----------
+        mode : str
+            Matrix type (see get_matrix for options).
+            
+        Returns
+        -------
+        np.ndarray
+            Eigenvalues of the specified matrix.
+        """
         check_matrix_type(mode, self.directed)
         spectrum = getattr(self, mode + "_spectrum")
         if spectrum is None:
@@ -519,6 +630,20 @@ class Network:
         return spectrum
 
     def get_eigenvectors(self, mode):
+        """Get eigenvectors of a specific matrix representation.
+        
+        Computes eigendecomposition if not already cached.
+        
+        Parameters
+        ----------
+        mode : str
+            Matrix type (see get_matrix for options).
+            
+        Returns
+        -------
+        np.ndarray
+            Eigenvectors of the specified matrix (as columns).
+        """
         check_matrix_type(mode, self.directed)
         eigenvectors = getattr(self, mode + "_eigenvectors")
         if eigenvectors is None:
@@ -528,6 +653,25 @@ class Network:
         return eigenvectors
 
     def get_ipr(self, mode):
+        """Get Inverse Participation Ratio (IPR) for eigenvectors.
+        
+        IPR measures localization of eigenvectors. Higher values indicate
+        more localized eigenvectors.
+        
+        Parameters
+        ----------
+        mode : str
+            Matrix type (see get_matrix for options).
+            
+        Returns
+        -------
+        np.ndarray
+            IPR values for each eigenvector.
+            
+        Notes
+        -----
+        IPR = sum(|v_i|^4) / (sum(|v_i|^2))^2
+        """
         check_matrix_type(mode, self.directed)
         ipr = getattr(self, mode + "_ipr")
         if ipr is None:

@@ -82,6 +82,25 @@ class ProximityGraph(Network):
         # self.norm_timediff = self.timediff / (self.n / 3)
 
     def distances_to_affinities(self):
+        """Convert distance matrix to affinity matrix.
+        
+        Transforms distances between neighbors into similarity weights.
+        The transformation method is specified by self.dist_to_aff parameter.
+        
+        Currently implemented methods:
+        - 'hk': Heat kernel with adaptive bandwidth
+          w_ij = exp(-d_ij^2 / (sigma * mean_squared_distance))
+        
+        Raises
+        ------
+        Exception
+            If no distance matrix is available or graph is not weighted.
+            
+        Notes
+        -----
+        Only applies to weighted graphs. The resulting affinity matrix
+        is symmetrized to ensure undirected graph structure.
+        """
         if self.neigh_distmat is None:
             raise Exception("distances between nearest neighbors not available")
 
@@ -98,10 +117,25 @@ class ProximityGraph(Network):
             self.adj = (self.adj + self.adj.T) / 2.0
 
     def construct_adjacency(self):
+        """Construct the adjacency matrix using the specified graph method.
+        
+        Dynamically calls the appropriate graph construction method based on
+        self.g_method_name (e.g., 'knn', 'umap', 'auto_knn', 'eps').
+        """
         construct_fn = getattr(self, "create_" + self.g_method_name + "_graph_")
         construct_fn()
 
     def _checkpoint(self):
+        """Verify graph construction integrity.
+        
+        Checks that adjacency matrices are sparse and symmetric.
+        Called after graph construction to ensure valid graph structure.
+        
+        Raises
+        ------
+        Exception
+            If adjacency is not sparse or not symmetric.
+        """
         if self.adj is not None:
             if not sp.issparse(self.adj):
                 # check for sparsity violation
@@ -120,6 +154,16 @@ class ProximityGraph(Network):
             )
 
     def create_umap_graph_(self):
+        """Create graph using UMAP's fuzzy simplicial set construction.
+        
+        Uses UMAP's algorithm to build a fuzzy topological representation
+        that captures both local and global structure of the data manifold.
+        
+        Notes
+        -----
+        The resulting graph has weighted edges representing fuzzy set membership.
+        Sets self.adj (weighted), self.bin_adj (binary), and self.neigh_distmat.
+        """
         RAND = np.random.RandomState(42)
         adj, _, _, dists = fuzzy_simplicial_set(
             self.data.T,
@@ -141,6 +185,17 @@ class ProximityGraph(Network):
         self.knn_distances = None
 
     def create_knn_graph_(self):
+        """Create k-nearest neighbors graph using pynndescent.
+        
+        Constructs a symmetric k-NN graph where each point is connected to its
+        k nearest neighbors. Uses approximate nearest neighbor search for efficiency.
+        
+        Notes
+        -----
+        - Supports custom metrics via callable functions or named distances
+        - Stores k-NN indices and distances for potential reuse
+        - Creates both weighted and binary adjacency matrices
+        """
         if callable(self.metric):
             # Custom metric function passed directly
             curr_metric = self.metric
@@ -202,6 +257,15 @@ class ProximityGraph(Network):
             self.adj = self.bin_adj.copy()
 
     def create_auto_knn_graph_(self):
+        """Create k-NN graph using scikit-learn's implementation.
+        
+        A simpler alternative to pynndescent that uses sklearn's 
+        kneighbors_graph. Creates an unweighted, symmetric graph.
+        
+        Notes
+        -----
+        Does not compute or store distances, only connectivity.
+        """
         A = kneighbors_graph(
             self.data.T, self.nn, mode="connectivity", include_self=False
         )
@@ -277,6 +341,33 @@ class ProximityGraph(Network):
         self.knn_distances = None
 
     def calculate_indim(self, mode, factor=2, verbose=None):
+        """Calculate intrinsic dimension using geodesic distance distribution.
+        
+        Estimates intrinsic dimension by analyzing the distribution of geodesic
+        distances on the nearest neighbor graph. Uses curve fitting to match
+        the theoretical distance distribution for different dimensions.
+        
+        Parameters
+        ----------
+        mode : str
+            Computation mode:
+            - 'fast': Use random subsample of nodes
+            - 'full': Use all nodes
+        factor : int, default=2
+            Subsampling factor for 'fast' mode (uses n/factor nodes).
+        verbose : bool, optional
+            Override instance verbose setting.
+            
+        Returns
+        -------
+        float
+            Estimated intrinsic dimension.
+            
+        Notes
+        -----
+        Only works with k-NN graphs. Computes shortest paths and fits
+        the distance distribution to theoretical curves.
+        """
 
         def normalizing_const(dim):
             if dim == 0:

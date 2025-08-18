@@ -315,6 +315,125 @@ def to_numpy_array(data):
         return np.array(data)
 
 
+def remove_outliers(data, method='zscore', threshold=3.0, quantile_range=(0.05, 0.95)):
+    """Remove outliers from data using various detection strategies.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        1D array of data points.
+    method : str, default='zscore'
+        Outlier detection method:
+        - 'zscore': Remove points beyond threshold standard deviations from mean
+        - 'iqr': Interquartile range method (1.5*IQR beyond Q1/Q3)
+        - 'mad': Median absolute deviation method
+        - 'quantile': Remove points outside specified quantile range
+        - 'isolation': Local outlier factor based on density
+    threshold : float, default=3.0
+        Detection threshold:
+        - For 'zscore': number of standard deviations
+        - For 'iqr': multiplier for IQR (typically 1.5)
+        - For 'mad': number of median absolute deviations
+        - For 'isolation': contamination fraction (0-0.5)
+    quantile_range : tuple, default=(0.05, 0.95)
+        For 'quantile' method: (lower_quantile, upper_quantile)
+        
+    Returns
+    -------
+    inlier_indices : np.ndarray
+        Indices of non-outlier points.
+    clean_data : np.ndarray
+        Data with outliers removed.
+        
+    Examples
+    --------
+    >>> data = np.array([1, 2, 3, 100, 4, 5])  # 100 is outlier
+    >>> # Z-score method
+    >>> indices, cleaned = remove_outliers(data, method='zscore', threshold=2)
+    >>> cleaned
+    array([1, 2, 3, 4, 5])
+    
+    >>> # IQR method
+    >>> indices, cleaned = remove_outliers(data, method='iqr', threshold=1.5)
+    
+    >>> # Quantile method
+    >>> indices, cleaned = remove_outliers(data, method='quantile', quantile_range=(0.1, 0.9))
+    """
+    data = np.asarray(data).ravel()
+    n = len(data)
+    
+    if method == 'zscore':
+        # Classical z-score method
+        mean = np.mean(data)
+        std = np.std(data)
+        if std == 0:
+            # All values are identical
+            inlier_mask = np.ones(n, dtype=bool)
+        else:
+            z_scores = np.abs((data - mean) / std)
+            inlier_mask = z_scores < threshold
+        
+    elif method == 'iqr':
+        # Interquartile range method
+        q1 = np.percentile(data, 25)
+        q3 = np.percentile(data, 75)
+        iqr = q3 - q1
+        lower_bound = q1 - threshold * iqr
+        upper_bound = q3 + threshold * iqr
+        inlier_mask = (data >= lower_bound) & (data <= upper_bound)
+        
+    elif method == 'mad':
+        # Median Absolute Deviation method (robust to outliers)
+        median = np.median(data)
+        mad = np.median(np.abs(data - median))
+        # Scale MAD to be consistent with standard deviation
+        mad_scaled = 1.4826 * mad
+        if mad_scaled == 0:
+            # All values are identical
+            inlier_mask = np.ones(n, dtype=bool)
+        else:
+            modified_z_scores = np.abs((data - median) / mad_scaled)
+            inlier_mask = modified_z_scores < threshold
+            
+    elif method == 'quantile':
+        # Simple quantile-based method
+        lower_bound = np.percentile(data, quantile_range[0] * 100)
+        upper_bound = np.percentile(data, quantile_range[1] * 100)
+        inlier_mask = (data >= lower_bound) & (data <= upper_bound)
+        
+    elif method == 'isolation':
+        # Isolation Forest for anomaly detection
+        try:
+            from sklearn.ensemble import IsolationForest
+        except ImportError:
+            raise ImportError(
+                "IsolationForest requires scikit-learn. "
+                "Falling back to MAD method."
+            )
+            # Fallback to MAD
+            return remove_outliers(data, method='mad', threshold=threshold)
+            
+        # Reshape for sklearn
+        data_reshaped = data.reshape(-1, 1)
+        iso_forest = IsolationForest(
+            contamination=min(threshold, 0.5),  # threshold is contamination rate
+            random_state=42
+        )
+        predictions = iso_forest.fit_predict(data_reshaped)
+        inlier_mask = predictions == 1
+        
+    else:
+        raise ValueError(
+            f"Unknown outlier detection method: {method}. "
+            f"Choose from: 'zscore', 'iqr', 'mad', 'quantile', 'isolation'"
+        )
+    
+    inlier_indices = np.where(inlier_mask)[0]
+    clean_data = data[inlier_mask]
+    
+    return inlier_indices, clean_data
+
+
 def write_dict_to_hdf5(data, hdf5_file, group_name=""):
     """
     Recursively writes a dictionary to an HDF5 file.
