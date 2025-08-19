@@ -6,6 +6,54 @@ import math
 
 
 def renyi_divergence(A, B, q):
+    """Calculate the quantum Rényi divergence between two density matrices.
+
+    The quantum Rényi divergence generalizes the quantum relative entropy
+    (Kullback-Leibler divergence) and quantifies distinguishability between
+    quantum states.
+
+    Parameters
+    ----------
+    A : numpy.ndarray
+        First density matrix (must be square, positive semi-definite,
+        trace 1).
+    B : numpy.ndarray
+        Second density matrix (must be same shape as A).
+    q : float
+        Order parameter. Must be positive. q=1 gives quantum relative entropy.
+
+    Returns
+    -------
+    float
+        The quantum Rényi divergence D_q(A||B) in bits.
+
+    Raises
+    ------
+    Exception
+        If q <= 0.
+
+    Notes
+    -----
+    The quantum Rényi divergence is defined as:
+    - For q = 1: D_1(ρ||σ) = Tr(ρ(log₂ ρ - log₂ σ))
+    - For q ≠ 1: D_q(ρ||σ) = (1/(q-1)) log₂(Tr(ρ^q σ^(1-q)))
+
+    Properties:
+    - D_q(ρ||σ) ≥ 0 with equality iff ρ = σ
+    - Not symmetric: D_q(ρ||σ) ≠ D_q(σ||ρ) in general
+    - For classical (diagonal) states, reduces to classical Rényi divergence
+
+    References
+    ----------
+    Müller-Lennert, M., et al. (2013). On quantum Rényi entropies:
+    A new generalization and some properties. J. Math. Phys. 54, 122203.
+
+    Examples
+    --------
+    >>> rho = np.array([[0.7, 0.1], [0.1, 0.3]])
+    >>> sigma = np.array([[0.5, 0.0], [0.0, 0.5]])
+    >>> div = renyi_divergence(rho, sigma, q=0.5)
+    """
     if q <= 0:
         raise Exception("q must be >0")
     elif q == 1:
@@ -29,6 +77,48 @@ def renyi_divergence(A, B, q):
 
 
 def get_density_matrix(A, t, norm=0):
+    """Compute quantum density matrix from graph adjacency matrix.
+
+    Constructs a quantum-like Gibbs state density matrix from a graph using
+    the graph Laplacian, following De Domenico & Biamonte's formulation.
+
+    Parameters
+    ----------
+    A : numpy.ndarray
+        Adjacency matrix of the graph.
+    t : float
+        Inverse temperature parameter β (also interpreted as time).
+        Controls the "quantumness" of the state.
+    norm : int, optional
+        If 1, use normalized Laplacian. If 0, use regular Laplacian.
+        Default is 0.
+
+    Returns
+    -------
+    numpy.ndarray
+        Density matrix ρ = exp(-tL) / Z(t), where L is the Laplacian
+        and Z(t) = Tr[exp(-tL)] is the partition function.
+
+    Notes
+    -----
+    This density matrix is formally proportional to the propagator of a
+    diffusive process on the network. The construction treats the Laplacian
+    as a Hamiltonian in a quantum Gibbs state:
+    ρ = (1/Z) exp(-βH), where H = L
+
+    References
+    ----------
+    De Domenico, M., & Biamonte, J. (2016). Spectral entropies as
+    information-theoretic tools for complex network comparison.
+    Physical Review X, 6(4), 041062.
+
+    Examples
+    --------
+    >>> A = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+    >>> rho = get_density_matrix(A, t=1.0)
+    >>> np.trace(rho)  # Trace should be 1
+    1.0
+    """
     A = A.astype(float)
     if norm:
         X = get_norm_laplacian(A)
@@ -36,18 +126,96 @@ def get_density_matrix(A, t, norm=0):
         X = get_laplacian(A)
 
     R = expm(-t * X)
-    R = R / np.trace(X)
+    R = R / np.trace(R)  # Normalize by trace to ensure Tr(ρ) = 1
 
     return R
 
 
 def manual_entropy(pr):
+    """Calculate Shannon entropy from probability distribution.
+
+    Computes entropy while handling numerical issues with zero and
+    near-zero probabilities.
+
+    Parameters
+    ----------
+    pr : numpy.ndarray
+        Probability distribution (should sum to 1).
+
+    Returns
+    -------
+    float
+        Shannon entropy in bits.
+
+    Notes
+    -----
+    The function filters out zero values and very small values (< 1e-15)
+    to avoid numerical issues with logarithms.
+
+    Examples
+    --------
+    >>> pr = np.array([0.5, 0.5, 0.0])
+    >>> H = manual_entropy(pr)
+    >>> np.isclose(H, 1.0)  # Maximum entropy for 2 equiprobable states
+    True
+    """
     probs = np.trim_zeros(pr)
     probs = probs[np.where(probs > 1e-15)]
     return -np.real(np.sum(np.multiply(probs, np.log2(probs))))
 
 
 def js_divergence(A, B, t, return_partial_entropies=True):
+    """Calculate quantum Jensen-Shannon divergence between two graphs.
+
+    Computes the quantum generalization of JS divergence using von Neumann
+    entropy of density matrices derived from graph Laplacians.
+
+    Parameters
+    ----------
+    A : numpy.ndarray
+        Adjacency matrix of first graph.
+    B : numpy.ndarray
+        Adjacency matrix of second graph (same size as A).
+    t : float
+        Inverse temperature parameter β for density matrix computation.
+    return_partial_entropies : bool, optional
+        If True, return individual entropies along with JS divergence.
+        Default is True.
+
+    Returns
+    -------
+    float or tuple
+        If return_partial_entropies=False: QJSD value.
+        If return_partial_entropies=True: tuple of
+        (S(ρ_mix), S(ρ_A), S(ρ_B), QJSD).
+
+    Notes
+    -----
+    The quantum Jensen-Shannon divergence is defined as:
+    QJSD(ρ_A, ρ_B) = S((ρ_A + ρ_B)/2) - (S(ρ_A) + S(ρ_B))/2
+    
+    where S(ρ) = -Tr(ρ log₂ ρ) is the von Neumann entropy.
+    
+    The square root of QJSD has been proven to be a metric on the
+    quantum state space. This measure quantifies the distinguishability
+    between two network structures in a quantum information context.
+
+    Returns 0 if calculation results in negative values due to
+    numerical precision issues (which can occur for very similar graphs).
+
+    References
+    ----------
+    Lamberti, P., et al. (2008). Jensen-Shannon divergence as a measure
+    of distinguishability between mixed quantum states. Physical Review A.
+
+    Examples
+    --------
+    >>> A = np.array([[0, 1], [1, 0]])
+    >>> B = np.array([[0, 1], [1, 0]])
+    >>> js_div = js_divergence(A, B, t=1.0, return_partial_entropies=False)
+    >>> js_div  # Should be 0 for identical graphs
+    0.0
+    """
     X = get_density_matrix(A, t)
     Y = get_density_matrix(B, t)
 

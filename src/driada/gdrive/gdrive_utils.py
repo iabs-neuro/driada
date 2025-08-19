@@ -28,6 +28,13 @@ class GoogleDriveFile(object):
         self.children = children if children is not None else []
 
     def is_folder(self):
+        """Check if the GoogleDriveFile is a folder.
+
+        Returns
+        -------
+        bool
+            True if the file is a folder, False otherwise.
+        """
         return self.type == folder_type
 
     def __repr__(self):
@@ -195,6 +202,34 @@ def download_and_parse_google_drive_link(
 
 
 def id_from_link(link):
+    """Extract the file or folder ID from a Google Drive URL.
+
+    Parameters
+    ----------
+    link : str
+        Google Drive URL containing the file or folder ID.
+        Can be in format:
+        - https://drive.google.com/drive/folders/{id}
+        - https://drive.google.com/file/d/{id}/view
+        - https://drive.google.com/open?id={id}
+
+    Returns
+    -------
+    str
+        The extracted file or folder ID.
+
+    Raises
+    ------
+    ValueError
+        If the link doesn't contain 'http' or has an invalid format.
+
+    Examples
+    --------
+    >>> id_from_link('https://drive.google.com/drive/folders/1a2b3c4d5e')
+    '1a2b3c4d5e'
+    >>> id_from_link('https://drive.google.com/open?id=xyz123')
+    'xyz123'
+    """
     if "http" not in link:
         raise ValueError("Wrong link format")
 

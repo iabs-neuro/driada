@@ -41,6 +41,34 @@ SUPPORTED_GRAPH_TYPES = [nx.Graph, nx.DiGraph]
 
 
 def check_matrix_type(mode, is_directed):
+    """Validate matrix type for directed/undirected networks.
+
+    Ensures the requested matrix type is compatible with the network's
+    directionality.
+
+    Parameters
+    ----------
+    mode : str
+        Matrix type to validate. Options include:
+        - 'adj': adjacency matrix
+        - 'lap': Laplacian matrix
+        - 'nlap': normalized Laplacian
+        - 'trans': transition matrix
+        - 'rwlap': random walk Laplacian
+        - 'lap_out', 'lap_in': directed Laplacians
+    is_directed : bool
+        Whether the network is directed.
+
+    Raises
+    ------
+    ValueError
+        If mode is not recognized or incompatible with network type.
+
+    Notes
+    -----
+    Directed networks support: 'adj', 'lap_out', 'lap_in'.
+    Undirected networks support: 'adj', 'trans', 'lap', 'nlap', 'rwlap'.
+    """
     if mode not in MATRIX_TYPES:
         raise ValueError(
             f"Matrix type {mode} is not in allowed matrix types: {MATRIX_TYPES}"
@@ -60,11 +88,44 @@ def check_matrix_type(mode, is_directed):
 
 
 def check_adjacency(a):
+    """Validate that matrix is square (valid adjacency matrix).
+
+    Parameters
+    ----------
+    a : numpy.ndarray or scipy.sparse matrix
+        Matrix to validate.
+
+    Raises
+    ------
+    Exception
+        If matrix is not square.
+    """
     if a.shape[0] != a.shape[1]:
         raise Exception("Non-square adjacency matrix!")
 
 
 def check_directed(directed, real_world):
+    """Validate directionality parameter.
+
+    Parameters
+    ----------
+    directed : float
+        Directionality value (0.0 for undirected, 1.0 for directed,
+        fractional for partially directed).
+    real_world : bool
+        Whether this is a real-world network (must be fully directed
+        or undirected).
+
+    Raises
+    ------
+    Exception
+        If directed value is invalid or fractional for real networks.
+
+    Notes
+    -----
+    Real-world networks must have directed in {0, 1}.
+    Synthetic networks can have 0 <= directed <= 1.
+    """
     if real_world:
         if directed not in [0, 1, 0.0, 1.0]:
             raise Exception("Fractional direction is not valid for a real network")
@@ -73,6 +134,30 @@ def check_directed(directed, real_world):
 
 
 def check_weights_and_directions(a, weighted, directed):
+    """Verify adjacency matrix properties match specified parameters.
+
+    Checks if the actual matrix properties (weighted/directed) match
+    the declared parameters.
+
+    Parameters
+    ----------
+    a : scipy.sparse matrix
+        Adjacency matrix to check.
+    weighted : bool
+        Whether the network is expected to be weighted.
+    directed : bool or float
+        Whether the network is expected to be directed.
+
+    Raises
+    ------
+    Exception
+        If actual matrix properties don't match declared parameters.
+
+    Notes
+    -----
+    - Directed: matrix is not symmetric (A != A^T)
+    - Weighted: matrix has non-binary values
+    """
     is_directed = not np.allclose(a.toarray(), a.toarray().T)
     is_weighted = not np.allclose(a.toarray(), a.astype(bool).astype(int).toarray())
 

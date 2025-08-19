@@ -8,6 +8,18 @@ from .download import retrieve_relevant_ids
 
 
 def get_datetime():
+    """Get current datetime string in Moscow timezone.
+
+    Returns
+    -------
+    str
+        Formatted datetime string in format 'DD-MM-YYYY HH:MM:SS'.
+
+    Examples
+    --------
+    >>> get_datetime()
+    '15-03-2024 14:30:45'
+    """
     tz = pytz.timezone("Europe/Moscow")
     now = datetime.now(tz)
 
@@ -24,6 +36,64 @@ def save_file_to_gdrive(
     force_rewriting=False,
     gauth=None,
 ):
+    """Upload a file to Google Drive folder associated with an experiment.
+
+    Uploads a local file to a Google Drive folder specified either directly
+    via a link or through a data router table. Supports both creating new
+    files and overwriting existing ones.
+
+    Parameters
+    ----------
+    data_router : pandas.DataFrame
+        DataFrame containing experiment names and Google Drive folder links.
+        Must have an 'Эксперимент' column matching expname.
+    expname : str
+        Name of the experiment, used to look up folder links in data_router.
+    path_to_file : str
+        Local file path of the file to upload.
+    link : str or None, optional
+        Direct Google Drive folder link. If provided, overrides data_router lookup.
+        Default is None.
+    destination : str or None, optional
+        Column name in data_router specifying which folder to use.
+        Required if link is None. Default is None.
+    force_rewriting : bool, optional
+        If True, overwrites existing file with same name.
+        If False, appends timestamp to filename. Default is False.
+    gauth : GoogleAuth object
+        PyDrive2 authentication object. Required for upload.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If destination is not found in data_router columns.
+
+    Notes
+    -----
+    When force_rewriting=False, the uploaded file will have a timestamp
+    appended to its name in format 'filename_DD-MM-YYYY HH:MM:SS.ext'.
+    
+    When force_rewriting=True and multiple files with the same name exist,
+    a warning is printed and the first matching file is overwritten.
+
+    Examples
+    --------
+    >>> # Upload with timestamp
+    >>> save_file_to_gdrive(
+    ...     data_router, 'exp001', './results.csv',
+    ...     destination='Results', gauth=auth
+    ... )
+    
+    >>> # Overwrite existing file
+    >>> save_file_to_gdrive(
+    ...     data_router, 'exp001', './results.csv',
+    ...     destination='Results', force_rewriting=True, gauth=auth
+    ... )
+    """
 
     drive = GoogleDrive(gauth)
 
