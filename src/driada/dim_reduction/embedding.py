@@ -134,7 +134,22 @@ class Embedding:
         self.reducer_ = map
 
     def create_mds_embedding_(self):
-        """Create MDS (Multi-Dimensional Scaling) embedding."""
+        """Create MDS (Multi-Dimensional Scaling) embedding.
+        
+        Classical MDS finds a low-dimensional representation that preserves
+        pairwise distances between points. Works with either a pre-computed
+        distance matrix or calculates distances from the data.
+        
+        Notes
+        -----
+        Sets self.coords to shape (dim, n_samples) containing the MDS coordinates.
+        If init_distmat is provided, uses it as a precomputed distance matrix.
+        Otherwise, computes Euclidean distances from init_data.
+        
+        The algorithm minimizes the stress function:
+        stress = sum((d_ij - ||x_i - x_j||)^2)
+        where d_ij are the input distances.
+        """
         from sklearn.manifold import MDS
 
         # MDS typically uses a distance matrix
@@ -204,6 +219,24 @@ class Embedding:
         self.reducer_ = lle
 
     def create_hlle_embedding_(self):
+        """Create Hessian Locally Linear Embedding (HLLE).
+        
+        Modified version of LLE that uses Hessian-based regularization to
+        better preserve local geometric structure. Particularly effective
+        for manifolds with varying curvature.
+        
+        Notes
+        -----
+        Sets self.coords to shape (dim, n_samples).
+        Requires n_neighbors > n_components * (n_components + 3) / 2.
+        More computationally intensive than standard LLE but often produces
+        better embeddings for complex manifolds.
+        
+        References
+        ----------
+        Donoho, D. & Grimes, C. (2003). Hessian eigenmaps: Locally linear
+        embedding techniques for high-dimensional data. PNAS.
+        """
         hlle = LocallyLinearEmbedding(
             n_components=self.dim, n_neighbors=self.graph.nn, method="hessian"
         )
@@ -211,6 +244,32 @@ class Embedding:
         self.reducer_ = hlle
 
     def create_le_embedding_(self):
+        """Create Laplacian Eigenmaps (LE) embedding.
+        
+        Spectral embedding method that uses eigenvectors of the graph Laplacian
+        to embed nodes while preserving local neighborhood structure.
+        Particularly effective for data lying on low-dimensional manifolds.
+        
+        Notes
+        -----
+        Sets self.coords to shape (dim, n_samples) containing the embedding.
+        Uses the transition matrix eigenvectors (more stable than Laplacian).
+        Normalizes eigenvectors by node degree to ensure proper embedding.
+        
+        The embedding minimizes:
+        sum_ij W_ij ||y_i - y_j||^2
+        subject to orthogonality constraints.
+        
+        Raises
+        ------
+        Exception
+            If the graph is disconnected (multiple eigenvalues equal to 1).
+            
+        References
+        ----------
+        Belkin, M. & Niyogi, P. (2003). Laplacian eigenmaps for
+        dimensionality reduction and data representation. Neural Computation.
+        """
         A = self.graph.adj
         dim = self.dim
         n = self.graph.n
@@ -235,6 +294,21 @@ class Embedding:
             self.coords = vecs
 
     def create_auto_le_embedding_(self):
+        """Create Laplacian Eigenmaps embedding using sklearn's implementation.
+        
+        Alternative implementation using sklearn's spectral_embedding function.
+        More robust and handles edge cases better than the manual implementation.
+        
+        Notes
+        -----
+        Sets self.coords to shape (dim, n_samples).
+        Uses normalized Laplacian by default for better numerical stability.
+        Automatically handles disconnected graphs by dropping the first
+        eigenvector.
+        
+        This is the recommended method for most use cases unless you need
+        fine control over the eigendecomposition process.
+        """
         A = self.graph.adj
         dim = self.dim
 
@@ -341,6 +415,23 @@ class Embedding:
         }
 
     def create_auto_dmaps_embedding_(self):
+        """Create diffusion maps embedding using pydiffmap library.
+        
+        Alternative implementation using the pydiffmap library which provides
+        automatic bandwidth selection via the Berry-Harlim-Gao (BGH) method.
+        More sophisticated than the manual implementation.
+        
+        Notes
+        -----
+        Sets self.coords to shape (dim, n_samples).
+        Uses epsilon='bgh' for automatic bandwidth selection based on
+        local geometry. The alpha parameter controls the degree of
+        density normalization (alpha=0: no normalization, alpha=1: full
+        Fokker-Planck normalization).
+        
+        This method is preferred when you want automatic parameter tuning
+        and don't need fine control over the diffusion process.
+        """
         dim = self.dim
         nn = self.graph.nn
         metric = self.graph.metric
@@ -362,11 +453,57 @@ class Embedding:
         self.reducer_ = dmap
 
     def create_tsne_embedding_(self):
+        """Create t-SNE (t-distributed Stochastic Neighbor Embedding).
+        
+        Non-linear dimensionality reduction that converts similarities between
+        data points to joint probabilities and minimizes KL divergence between
+        high-dimensional and low-dimensional distributions.
+        
+        Notes
+        -----
+        Sets self.coords to shape (dim, n_samples).
+        Particularly effective for visualization (dim=2 or 3).
+        Non-parametric: cannot embed new points without refitting.
+        Stochastic: different runs may produce different results.
+        
+        The perplexity parameter (related to number of neighbors) is
+        automatically set by sklearn based on dataset size.
+        
+        References
+        ----------
+        van der Maaten, L. & Hinton, G. (2008). Visualizing data using
+        t-SNE. Journal of Machine Learning Research.
+        """
         model = TSNE(n_components=self.dim, verbose=1)
         self.coords = model.fit_transform(self.init_data.T).T
         self.reducer_ = model
 
     def create_umap_embedding_(self):
+        """Create UMAP (Uniform Manifold Approximation and Projection) embedding.
+        
+        State-of-the-art manifold learning technique based on Riemannian
+        geometry and algebraic topology. Preserves both local and global
+        structure better than t-SNE.
+        
+        Notes
+        -----
+        Sets self.coords to shape (dim, n_samples).
+        The min_dist parameter controls how tightly points are packed
+        (smaller values = tighter packing).
+        Unlike t-SNE, UMAP can transform new points after fitting.
+        
+        Advantages over t-SNE:
+        - Preserves more global structure
+        - Faster for large datasets
+        - Supports supervised/semi-supervised modes
+        - Can embed new points
+        
+        References
+        ----------
+        McInnes, L., Healy, J., & Melville, J. (2018).
+        UMAP: Uniform Manifold Approximation and Projection for
+        Dimension Reduction. arXiv:1802.03426.
+        """
         min_dist = self.min_dist
         reducer = umap.UMAP(
             n_neighbors=self.graph.nn, n_components=self.dim, min_dist=min_dist
@@ -453,6 +590,77 @@ class Embedding:
         log_every=1,
         device=None,
     ):
+        """Create autoencoder embedding.
+        
+        .. deprecated:: 
+            This method is deprecated. Use `create_flexible_ae_embedding_` instead 
+            for more flexibility and advanced loss functions.
+            
+            To recreate the same functionality with the new method:
+            
+            # Basic AE (no additional losses)
+            create_flexible_ae_embedding_(architecture="ae", ...)
+            
+            # AE with correlation loss
+            create_flexible_ae_embedding_(
+                architecture="ae",
+                loss_components=[
+                    {"name": "reconstruction", "weight": 1.0},
+                    {"name": "correlation", "weight": corr_hyperweight}
+                ],
+                ...
+            )
+            
+            # AE with MI/orthogonality loss
+            create_flexible_ae_embedding_(
+                architecture="ae", 
+                loss_components=[
+                    {"name": "reconstruction", "weight": 1.0},
+                    {"name": "orthogonality", "weight": mi_hyperweight, 
+                     "external_data": minimize_mi_data}
+                ],
+                ...
+            )
+        
+        Parameters
+        ----------
+        continue_learning : int, default=0
+            Whether to continue training existing model.
+        epochs : int, default=50
+            Number of training epochs.
+        lr : float, default=1e-3
+            Learning rate.
+        seed : int, default=42
+            Random seed.
+        batch_size : int, default=32
+            Batch size for training.
+        enc_kwargs : dict, optional
+            Encoder configuration.
+        dec_kwargs : dict, optional  
+            Decoder configuration.
+        feature_dropout : float, default=0.2
+            Feature dropout rate.
+        train_size : float, default=0.8
+            Training set fraction.
+        inter_dim : int, default=100
+            Hidden layer dimension.
+        verbose : bool, default=True
+            Print training progress.
+        add_corr_loss : bool, default=False
+            Add correlation loss to encourage decorrelated latent features.
+        corr_hyperweight : float, default=0
+            Weight for correlation loss.
+        add_mi_loss : bool, default=False
+            Add MI-based orthogonality loss.
+        mi_hyperweight : float, default=0
+            Weight for MI loss.
+        minimize_mi_data : np.ndarray, optional
+            External data to minimize correlation with (for MI loss).
+        log_every : int, default=1
+            Logging frequency.
+        device : torch.device, optional
+            Device to run on.
+        """
 
         # ---------------------------------------------------------------------------
         # Import torch dependencies (optional dependency)
@@ -700,6 +908,59 @@ class Embedding:
         log_every=10,
         **kwargs,
     ):
+        """Create variational autoencoder embedding.
+        
+        .. deprecated::
+            This method is deprecated. Use `create_flexible_ae_embedding_` instead
+            for more flexibility and advanced loss functions.
+            
+            To recreate the same functionality with the new method:
+            
+            # Standard VAE
+            create_flexible_ae_embedding_(
+                architecture="vae",
+                loss_components=[
+                    {"name": "reconstruction", "weight": 1.0},
+                    {"name": "beta_vae", "weight": 1.0, "beta": kld_weight}
+                ],
+                ...
+            )
+            
+            # For advanced disentanglement methods, use:
+            # - TC-VAE: {"name": "tc_vae", "alpha": 1.0, "beta": 5.0, "gamma": 1.0}
+            # - Factor-VAE: {"name": "factor_vae", "gamma": 10.0}
+        
+        Parameters
+        ----------
+        continue_learning : int, default=0
+            Whether to continue training existing model.
+        epochs : int, default=50
+            Number of training epochs.
+        lr : float, default=1e-3
+            Learning rate.
+        seed : int, default=42
+            Random seed.
+        batch_size : int, default=32
+            Batch size for training.
+        enc_kwargs : dict, optional
+            Encoder configuration.
+        dec_kwargs : dict, optional
+            Decoder configuration.
+        feature_dropout : float, default=0.2
+            Feature dropout rate.
+        kld_weight : float, default=1
+            Weight for KL divergence loss term.
+        train_size : float, default=0.8
+            Training set fraction.
+        inter_dim : int, default=128
+            Hidden layer dimension.
+        verbose : bool, default=True
+            Print training progress.
+        log_every : int, default=10
+            Logging frequency.
+        **kwargs
+            Additional keyword arguments.
+        """
 
         # ---------------------------------------------------------------------------
         # Import torch dependencies (optional dependency)
@@ -848,6 +1109,314 @@ class Embedding:
         self.coords = model.get_code_embedding(input_)
 
         # -------------------------------------
+
+    def create_flexible_ae_embedding_(
+        self,
+        architecture="ae",  # "ae" or "vae"
+        continue_learning=0,
+        epochs=50,
+        lr=1e-3,
+        seed=42,
+        batch_size=32,
+        enc_kwargs=None,
+        dec_kwargs=None,
+        feature_dropout=0.2,
+        train_size=0.8,
+        inter_dim=100,
+        verbose=True,
+        loss_components=None,
+        log_every=1,
+        device=None,
+        logger=None,
+    ):
+        """Create flexible autoencoder embedding with modular loss composition.
+        
+        Parameters
+        ----------
+        architecture : str, default="ae"
+            Architecture type: "ae" for standard autoencoder, "vae" for variational.
+        continue_learning : int, default=0
+            Whether to continue training existing model.
+        epochs : int, default=50
+            Number of training epochs.
+        lr : float, default=1e-3
+            Learning rate.
+        seed : int, default=42
+            Random seed for reproducibility.
+        batch_size : int, default=32
+            Batch size for training.
+        enc_kwargs : dict, optional
+            Encoder configuration (e.g., dropout).
+        dec_kwargs : dict, optional
+            Decoder configuration.
+        feature_dropout : float, default=0.2
+            Dropout rate for input features during training.
+        train_size : float, default=0.8
+            Fraction of data for training.
+        inter_dim : int, default=100
+            Hidden layer dimension.
+        verbose : bool, default=True
+            Whether to print training progress.
+        loss_components : list of dict, optional
+            Loss component configurations. Each dict should contain:
+            - "name": str, the loss type
+            - "weight": float, the loss weight
+            - Additional parameters specific to each loss type
+            If None, uses standard reconstruction loss for AE or
+            reconstruction + KLD for VAE.
+        log_every : int, default=1
+            Log frequency (epochs).
+        device : torch.device, optional
+            Device to run on.
+        logger : logging.Logger, optional
+            Logger instance.
+            
+        Examples
+        --------
+        >>> # Standard autoencoder with correlation loss
+        >>> emb = mvdata.get_embedding(
+        ...     method="flexible_ae",
+        ...     architecture="ae",
+        ...     dim=10,
+        ...     loss_components=[
+        ...         {"name": "reconstruction", "weight": 1.0},
+        ...         {"name": "correlation", "weight": 0.1}
+        ...     ]
+        ... )
+        
+        >>> # β-VAE for disentanglement
+        >>> emb = mvdata.get_embedding(
+        ...     method="flexible_ae",
+        ...     architecture="vae",
+        ...     dim=10,
+        ...     loss_components=[
+        ...         {"name": "reconstruction", "weight": 1.0},
+        ...         {"name": "beta_vae", "weight": 1.0, "beta": 4.0}
+        ...     ]
+        ... )
+        
+        >>> # Recreate deprecated 'ae' method with correlation loss
+        >>> # Old: method="ae", add_corr_loss=True, corr_hyperweight=0.1
+        >>> # New:
+        >>> emb = mvdata.get_embedding(
+        ...     method="flexible_ae",
+        ...     architecture="ae",
+        ...     dim=10,
+        ...     loss_components=[
+        ...         {"name": "reconstruction", "weight": 1.0},
+        ...         {"name": "correlation", "weight": 0.1}
+        ...     ]
+        ... )
+        
+        >>> # Recreate deprecated 'ae' method with MI loss
+        >>> # Old: method="ae", add_mi_loss=True, mi_hyperweight=0.1, minimize_mi_data=data
+        >>> # New:
+        >>> emb = mvdata.get_embedding(
+        ...     method="flexible_ae",
+        ...     architecture="ae",
+        ...     dim=10,
+        ...     loss_components=[
+        ...         {"name": "reconstruction", "weight": 1.0},
+        ...         {"name": "orthogonality", "weight": 0.1, "external_data": data}
+        ...     ]
+        ... )
+        
+        >>> # Recreate deprecated 'vae' method
+        >>> # Old: method="vae", kld_weight=0.1
+        >>> # New:
+        >>> emb = mvdata.get_embedding(
+        ...     method="flexible_ae",
+        ...     architecture="vae",
+        ...     dim=10,
+        ...     loss_components=[
+        ...         {"name": "reconstruction", "weight": 1.0},
+        ...         {"name": "beta_vae", "weight": 1.0, "beta": 0.1}
+        ...     ]
+        ... )
+        """
+        # Import torch dependencies
+        try:
+            import torch
+            import torch.nn as nn
+            import torch.optim as optim
+            from torch.utils.data import DataLoader
+        except ImportError:
+            raise ImportError(
+                "PyTorch is required for autoencoder methods. "
+                "Please install it with: pip install torch"
+            )
+        
+        from .flexible_ae import ModularAutoencoder, FlexibleVAE
+        
+        # Get data loaders and device
+        train_loader, test_loader, device_to_use = self._prepare_data_loaders(
+            batch_size=batch_size,
+            train_size=train_size,
+            seed=seed
+        )
+        
+        if device is None:
+            device = device_to_use
+        
+        # Set random seed for model initialization
+        torch.manual_seed(seed)
+        if verbose:
+            print("device:", device)
+        
+        # Default loss components if none specified
+        if loss_components is None:
+            loss_components = []
+            
+            # Always add reconstruction loss
+            loss_components.append({
+                "name": "reconstruction",
+                "weight": 1.0,
+                "loss_type": "mse"
+            })
+            
+            # For VAE, add standard KLD loss
+            if architecture == "vae":
+                loss_components.append({
+                    "name": "beta_vae",
+                    "weight": 1.0,
+                    "beta": 1.0
+                })
+        
+        if not continue_learning:
+            # Create model based on architecture
+            if architecture == "ae":
+                model = ModularAutoencoder(
+                    input_dim=self.init_data.shape[0],
+                    latent_dim=self.dim,
+                    hidden_dim=inter_dim,
+                    encoder_config=enc_kwargs,
+                    decoder_config=dec_kwargs,
+                    loss_components=loss_components,
+                    device=device,
+                    logger=logger
+                )
+            elif architecture == "vae":
+                model = FlexibleVAE(
+                    input_dim=self.init_data.shape[0],
+                    latent_dim=self.dim,
+                    hidden_dim=inter_dim,
+                    encoder_config=enc_kwargs,
+                    decoder_config=dec_kwargs,
+                    loss_components=loss_components,
+                    device=device,
+                    logger=logger
+                )
+            else:
+                raise ValueError(f"Unknown architecture: {architecture}")
+            
+            model = model.to(device)
+        else:
+            model = self.nnmodel
+        
+        # Create optimizer
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+        
+        # Feature dropout
+        f_dropout = nn.Dropout(feature_dropout)
+        
+        best_test_epoch = -1
+        best_test_loss = 1e10
+        best_test_model = None
+        
+        # Training loop
+        for epoch in range(epochs):
+            # Training phase
+            model.train()
+            train_losses = []
+            
+            for batch_features, _, indices in train_loader:
+                batch_features = batch_features.to(device)
+                optimizer.zero_grad()
+                
+                # Apply feature dropout
+                noisy_features = f_dropout(torch.ones_like(batch_features)) * batch_features
+                noisy_features = noisy_features.float()
+                
+                # Compute loss
+                total_loss, loss_dict = model.compute_loss(
+                    noisy_features,
+                    indices=indices
+                )
+                
+                # Backward pass
+                total_loss.backward()
+                optimizer.step()
+                
+                train_losses.append(loss_dict)
+            
+            # Average training losses
+            avg_train_losses = {}
+            for key in train_losses[0].keys():
+                avg_train_losses[key] = np.mean([d[key] for d in train_losses])
+            
+            # Validation phase
+            if (epoch + 1) % log_every == 0:
+                model.eval()
+                test_losses = []
+                
+                with torch.no_grad():
+                    for batch_features, _, indices in test_loader:
+                        batch_features = batch_features.to(device)
+                        
+                        # Apply feature dropout for consistency
+                        noisy_features = f_dropout(torch.ones_like(batch_features)) * batch_features
+                        noisy_features = noisy_features.float()
+                        
+                        # Compute loss
+                        total_loss, loss_dict = model.compute_loss(
+                            noisy_features,
+                            indices=indices
+                        )
+                        
+                        test_losses.append(loss_dict)
+                
+                # Average test losses
+                avg_test_losses = {}
+                for key in test_losses[0].keys():
+                    avg_test_losses[key] = np.mean([d[key] for d in test_losses])
+                
+                test_loss = avg_test_losses["total_loss"]
+                
+                # Track best model
+                if test_loss < best_test_loss:
+                    best_test_loss = test_loss
+                    best_test_epoch = epoch + 1
+                    best_test_model = model.state_dict().copy()
+                
+                if verbose:
+                    train_loss = avg_train_losses["total_loss"]
+                    print(
+                        f"epoch : {epoch + 1}/{epochs}, "
+                        f"train loss = {train_loss:.8f}, "
+                        f"test loss = {test_loss:.8f}"
+                    )
+                    
+                    # Print individual loss components
+                    if len(model.losses) > 1:
+                        loss_str = ", ".join([
+                            f"{k}: {v:.6f}" 
+                            for k, v in avg_test_losses.items() 
+                            if k != "total_loss" and not k.endswith("_weighted")
+                        ])
+                        print(f"  Components: {loss_str}")
+        
+        if verbose and best_test_epoch != epochs:
+            print(f"best model: epoch {best_test_epoch}")
+        
+        # Load best model
+        if best_test_model is not None:
+            model.load_state_dict(best_test_model)
+        
+        # Store model and extract embeddings
+        self.nnmodel = model
+        input_ = torch.tensor(self.init_data.T).float().to(device)
+        self.coords = model.get_latent_representation(input_)
+        self.nn_loss = best_test_loss
 
     def continue_learning(self, add_epochs, kwargs={}):
         if self.all_params["e_method_name"] not in ["ae", "vae"]:

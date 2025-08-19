@@ -134,6 +134,7 @@ METHODS_DICT = {
     ),
     "ae": DRMethod(0, 0, 0, 1, default_params={"dim": 2}),
     "vae": DRMethod(0, 0, 0, 1, default_params={"dim": 2}),
+    "flexible_ae": DRMethod(0, 0, 0, 1, default_params={"dim": 2, "architecture": "ae"}),
     "tsne": DRMethod(0, 0, 0, 0, default_params={"dim": 2, "perplexity": 30}),
     "umap": DRMethod(
         0,
@@ -162,6 +163,7 @@ EMBEDDING_CONSTRUCTION_METHODS = [
     "mvu",
     "ae",
     "vae",
+    "flexible_ae",
     "tsne",
     "umap",
 ]

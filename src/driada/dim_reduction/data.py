@@ -321,6 +321,10 @@ class MVData(object):
                 "log_every",
                 "device",
                 "continue_learning",
+                # flexible_ae specific parameters
+                "architecture",
+                "loss_components",
+                "logger",
             ]
             for param in nn_params:
                 if param in e_params:
