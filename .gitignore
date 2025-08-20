@@ -76,6 +76,18 @@ tensorboard/
 # Temporary files
 *.tmp
 *.bak
+temp/
+archive/
+deprecated/
+
+# Coverage and debug files
+coverage.json
+coverage.xml
+coverage_debug_*.txt
+coverage_gaps_report.md
+
+# Test files in root
+test_*.py
 
 # Text files folder
 text/
