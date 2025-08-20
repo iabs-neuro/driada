@@ -53,6 +53,40 @@ def create_correlated_gaussian_data(
 
 
 def populate_nested_dict(content, outer, inner):
+    """Create a nested dictionary with specified structure and content.
+    
+    Creates a two-level nested dictionary where each outer key maps to
+    a dictionary of inner keys, and each inner key maps to a copy of
+    the provided content.
+    
+    Parameters
+    ----------
+    content : dict or any copyable object
+        The content to populate at each leaf of the nested dictionary.
+        Will be copied for each inner key to avoid aliasing.
+    outer : list or iterable
+        Keys for the outer level of the nested dictionary.
+    inner : list or iterable
+        Keys for the inner level of the nested dictionary.
+        
+    Returns
+    -------
+    dict
+        Nested dictionary with structure {outer_key: {inner_key: content_copy}}.
+        
+    Examples
+    --------
+    >>> content = {'value': 0, 'count': 0}
+    >>> outer = ['A', 'B']
+    >>> inner = ['x', 'y', 'z']
+    >>> nested = populate_nested_dict(content, outer, inner)
+    >>> nested['A']['x']
+    {'value': 0, 'count': 0}
+    >>> # Each entry is a separate copy
+    >>> nested['A']['x']['value'] = 5
+    >>> nested['B']['x']['value']
+    0
+    """
     nested_dict = {o: {} for o in outer}
     for o in outer:
         nested_dict[o] = {i: content.copy() for i in inner}
@@ -61,6 +95,46 @@ def populate_nested_dict(content, outer, inner):
 
 
 def nested_dict_to_seq_of_tables(datadict, ordered_names1=None, ordered_names2=None):
+    """Convert a nested dictionary to a sequence of 2D tables.
+    
+    Transforms a nested dictionary with structure {outer: {inner: {key: value}}}
+    into a dictionary of 2D numpy arrays where rows correspond to outer keys
+    and columns to inner keys.
+    
+    Parameters
+    ----------
+    datadict : dict
+        Nested dictionary with three levels. Structure should be:
+        {outer_key: {inner_key: {data_key: value}}}
+    ordered_names1 : list or None, optional
+        Ordered list of outer keys to use as row indices.
+        If None, uses sorted outer keys. Default is None.
+    ordered_names2 : list or None, optional
+        Ordered list of inner keys to use as column indices.
+        If None, uses sorted inner keys. Default is None.
+        
+    Returns
+    -------
+    dict
+        Dictionary mapping data keys to 2D numpy arrays where:
+        - Rows correspond to ordered_names1 (outer keys)
+        - Columns correspond to ordered_names2 (inner keys)
+        - Values are from the nested dictionary
+        
+    Examples
+    --------
+    >>> data = {
+    ...     'A': {'x': {'metric1': 1, 'metric2': 2},
+    ...           'y': {'metric1': 3, 'metric2': 4}},
+    ...     'B': {'x': {'metric1': 5, 'metric2': 6},
+    ...           'y': {'metric1': 7, 'metric2': 8}}
+    ... }
+    >>> tables = nested_dict_to_seq_of_tables(data)
+    >>> tables['metric1']
+    array([[1., 3.],
+           [5., 7.]])
+    >>> # Rows are ['A', 'B'], columns are ['x', 'y']
+    """
     names1 = list(datadict.keys())
     names2 = list(datadict[names1[0]].keys())
     datakeys = list(datadict[names1[0]][names2[0]].keys())

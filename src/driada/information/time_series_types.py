@@ -32,18 +32,48 @@ class TimeSeriesType:
 
     @property
     def is_discrete(self) -> bool:
+        """Check if the time series is primarily discrete.
+        
+        Returns
+        -------
+        bool
+            True if the primary type is discrete, False otherwise.
+        """
         return self.primary_type == "discrete"
 
     @property
     def is_continuous(self) -> bool:
+        """Check if the time series is primarily continuous.
+        
+        Returns
+        -------
+        bool
+            True if the primary type is continuous, False otherwise.
+        """
         return self.primary_type == "continuous"
 
     @property
     def is_ambiguous(self) -> bool:
+        """Check if the time series type is ambiguous.
+        
+        Returns
+        -------
+        bool
+            True if the type detection was ambiguous (could not confidently
+            classify as discrete or continuous), False otherwise.
+        """
         return self.primary_type == "ambiguous"
 
     @property
     def is_periodic(self) -> bool:
+        """Check if the time series has detected periodicity.
+        
+        Returns
+        -------
+        bool
+            True if periodicity was detected (periodicity is not None),
+            False otherwise.
+        """
         return self.periodicity is not None
 
 

@@ -354,7 +354,7 @@ def download_gdrive_data(
 def initialize_iabs_router(root="\\content"):
     """Download and initialize the IABS data router from Google Sheets.
 
-    Downloads the IABS (Institute of Applied Behavioral Science) data router
+    Downloads the IABS (Institute for Advanced Brain Studies) data router
     spreadsheet from Google Drive and prepares it for use in data downloading.
 
     Parameters

@@ -766,6 +766,44 @@ class Network:
         return ipr
 
     def get_z_values(self, mode):
+        """Get eigenvalue spacing ratios for the specified matrix mode.
+        
+        Computes the ratio z_i = (λ_nn - λ_i) / (λ_nnn - λ_i) where λ_nn is the
+        nearest neighbor eigenvalue and λ_nnn is the next-nearest neighbor.
+        These ratios are useful for analyzing spectral statistics without
+        requiring eigenvalue unfolding procedures.
+        
+        Parameters
+        ----------
+        mode : str
+            Matrix mode to use:
+            - Undirected: 'adj', 'trans', 'lap', 'nlap', 'rwlap'
+            - Directed: 'adj', 'lap_out', 'lap_in'
+            
+        Returns
+        -------
+        dict
+            Dictionary mapping eigenvalues to their spacing ratios (z-values).
+            
+        Notes
+        -----
+        The spacing ratio is a standard measure in random matrix theory for
+        characterizing level statistics. It avoids the need for eigenvalue
+        unfolding that is required for simple spacing distributions.
+        
+        If z-values haven't been calculated yet, this method will trigger
+        their calculation via calculate_z_values().
+        
+        References
+        ----------
+        Atas, Y. Y., et al. (2013). Distribution of the ratio of consecutive
+        level spacings in random matrix ensembles. Physical Review Letters,
+        110(8), 084101.
+        
+        Sá, L., Ribeiro, P., & Prosen, T. (2020). Complex spacing ratios:
+        A signature of dissipative quantum chaos. Physical Review X, 10(2),
+        021019. https://link.aps.org/doi/10.1103/PhysRevX.10.021019
+        """
         check_matrix_type(mode, self.directed)
         zvals = getattr(self, mode + "_zvalues")
         if zvals is None:
@@ -790,6 +828,33 @@ class Network:
         raise NotImplementedError("Partial diagonalization is not yet implemented")
 
     def diagonalize(self, mode="lap", verbose=None):
+        """Compute eigenvalues and eigenvectors of the specified matrix.
+        
+        Performs full eigendecomposition of the network matrix specified by mode.
+        Results are cached as attributes for later retrieval.
+        
+        Parameters
+        ----------
+        mode : str, optional
+            Matrix mode to diagonalize:
+            - Undirected: 'adj', 'trans', 'lap', 'nlap', 'rwlap'
+            - Directed: 'adj', 'lap_out', 'lap_in'
+            Default is 'lap'.
+        verbose : bool or None, optional
+            Whether to print progress messages. If None, uses self.verbose.
+            Default is None.
+            
+        Notes
+        -----
+        After diagonalization, eigenvalues and eigenvectors are stored as:
+        - self.{mode}_spectrum: eigenvalues (sorted)
+        - self.{mode}_eigenvectors: right eigenvectors (as columns)
+        
+        The method uses scipy.linalg.eigh for symmetric matrices and
+        scipy.linalg.eig for non-symmetric matrices. Complex eigenvalues
+        and eigenvectors are allowed for directed networks but will raise
+        an error for undirected networks.
+        """
         if verbose is None:
             verbose = self.verbose
 

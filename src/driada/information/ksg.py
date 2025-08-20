@@ -128,6 +128,36 @@ def get_lnc_alpha(k, d):
 
 
 def add_noise(x, ampl=1e-10):
+    """Add small random noise to data to break degeneracy.
+    
+    When multiple data points have identical values, k-nearest neighbor 
+    algorithms can become unstable. Adding small random noise helps break
+    these ties without significantly affecting the mutual information estimate.
+    
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Input data array to add noise to.
+    ampl : float, optional
+        Amplitude of the noise to add. Default is 1e-10, which is small
+        enough to not affect the MI estimate but large enough to break ties.
+        
+    Returns
+    -------
+    numpy.ndarray
+        Input data with small random noise added.
+        
+    Notes
+    -----
+    The noise is uniformly distributed in [0, ampl). This is a standard
+    technique in KSG mutual information estimation to handle degenerate
+    cases where many points have identical coordinates.
+    
+    References
+    ----------
+    Kraskov, A., Stögbauer, H., & Grassberger, P. (2004). Estimating mutual
+    information. Physical Review E, 69(6), 066138.
+    """
     # small noise to break degeneracy, see doc.
     return x + ampl * np.random.random_sample(x.shape)
 

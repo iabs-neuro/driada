@@ -22,6 +22,24 @@ except ImportError:
 
     # Define dummy decorators
     def njit(*args, **kwargs):
+        """Dummy njit decorator when numba is not available.
+        
+        This function acts as a pass-through decorator that returns
+        the original function unchanged when numba is not installed
+        or disabled.
+        
+        Parameters
+        ----------
+        *args
+            Positional arguments (function to decorate if called directly)
+        **kwargs
+            Keyword arguments (ignored)
+            
+        Returns
+        -------
+        function or decorator
+            Original function or decorator that returns original function
+        """
         def decorator(func):
             return func
 

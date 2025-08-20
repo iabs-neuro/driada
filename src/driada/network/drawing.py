@@ -191,6 +191,46 @@ def draw_eigenvectors(
     draw_edges=True,
     edge_options={},
 ):
+    """Draw network nodes colored by eigenvector components.
+    
+    Visualizes a network with nodes colored according to the values of
+    eigenvectors in the specified index range. Creates a grid of subplots,
+    one for each eigenvector from left_ind to right_ind (inclusive).
+    
+    Parameters
+    ----------
+    net : Network
+        Network object to visualize.
+    left_ind : int
+        Starting index of eigenvectors to visualize (inclusive).
+    right_ind : int
+        Ending index of eigenvectors to visualize (inclusive).
+    mode : str, optional
+        Matrix mode for eigendecomposition. Options: 'adj', 'lap', 'nlap'.
+        Default is 'adj'.
+    nodesize : float or None, optional
+        Size of nodes in the visualization. If None, uses default size.
+        Default is None.
+    cmap : str or matplotlib colormap, optional
+        Colormap for coloring nodes. Default is 'plasma'.
+    draw_edges : bool, optional
+        Whether to draw edges. Default is True.
+    edge_options : dict, optional
+        Additional options for edge drawing (passed to networkx).
+        Default is empty dict.
+        
+    Returns
+    -------
+    matplotlib.figure.Figure
+        Figure containing the eigenvector visualization.
+        
+    Notes
+    -----
+    The function creates a grid of subplots arranged to fit all requested
+    eigenvectors. Each subplot shows the network with nodes colored by
+    the corresponding eigenvector's components. The subplot title shows
+    the eigenvector index and its eigenvalue.
+    """
     spectrum = net.get_spectrum(mode)
     eigenvectors = net.get_eigenvectors(mode)
 

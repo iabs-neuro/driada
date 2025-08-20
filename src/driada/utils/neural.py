@@ -49,6 +49,50 @@ def generate_pseudo_calcium_signal(
 def generate_pseudo_calcium_multisignal(
     n, duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std
 ):
+    """Generate multiple pseudo-calcium fluorescence signals.
+    
+    Creates a collection of synthetic calcium signals that simulate the 
+    fluorescence traces typically observed in calcium imaging experiments.
+    Each signal is generated independently with the same parameters.
+    
+    Parameters
+    ----------
+    n : int
+        Number of calcium signals to generate.
+    duration : float
+        Duration of each signal in seconds.
+    sampling_rate : float
+        Sampling rate in Hz.
+    event_rate : float
+        Average rate of calcium events (spikes) per second.
+    amplitude_range : tuple of float
+        Range (min, max) for event amplitudes.
+    decay_time : float
+        Exponential decay time constant in seconds.
+    noise_std : float
+        Standard deviation of Gaussian noise to add.
+        
+    Returns
+    -------
+    numpy.ndarray
+        Array of shape (n, n_timepoints) containing the generated calcium
+        signals. Each row is one neuron's calcium trace.
+        
+    See Also
+    --------
+    generate_pseudo_calcium_signal : Generates a single calcium signal.
+    
+    Examples
+    --------
+    >>> # Generate 10 neurons with 30 seconds of data at 30Hz
+    >>> signals = generate_pseudo_calcium_multisignal(
+    ...     n=10, duration=30, sampling_rate=30, 
+    ...     event_rate=0.5, amplitude_range=(0.5, 2.0),
+    ...     decay_time=1.0, noise_std=0.1
+    ... )
+    >>> signals.shape
+    (10, 900)
+    """
     sigs = []
     for i in range(n):
         sig = generate_pseudo_calcium_signal(
