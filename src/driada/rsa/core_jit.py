@@ -27,7 +27,7 @@ def fast_correlation_distance(patterns):
     rdm = np.zeros((n_items, n_items))
 
     # Standardize patterns (mean=0, std=1) - manual computation for numba
-    patterns_std = np.zeros_like(patterns)
+    patterns_std = np.zeros_like(patterns, dtype=np.float64)
     for i in range(n_items):
         # Compute mean
         mean = 0.0
@@ -80,16 +80,17 @@ def fast_correlation_distance(patterns):
                 dist = 0.0 if patterns_equal else 1.0
             else:
                 # Normal correlation computation
-                # Correlation = dot product of standardized patterns
+                # When standardized with ddof=1, sum of squares = n-1
+                # So correlation = dot product / (n-1)
                 corr = 0.0
                 for k in range(n_features):
                     corr += patterns_std[i, k] * patterns_std[j, k]
-
-                # Normalize by (n-1) to match numpy.corrcoef
+                
+                # Divide by (n-1) to get correlation coefficient
                 if n_features > 1:
-                    corr /= n_features - 1
+                    corr /= (n_features - 1)
                 else:
-                    corr = 0.0
+                    corr = 1.0  # Single feature case
 
                 # Clip to [-1, 1] to handle numerical errors
                 if corr > 1.0:

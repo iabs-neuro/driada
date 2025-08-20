@@ -295,6 +295,9 @@ def bootstrap_rdm_comparison(
 ) -> Dict[str, Union[float, np.ndarray]]:
     """
     Bootstrap test for RDM similarity between two datasets.
+    
+    Uses within-condition resampling to maintain balanced representation
+    of all conditions while assessing the stability of the RDM similarity.
 
     Parameters
     ----------
@@ -324,6 +327,13 @@ def bootstrap_rdm_comparison(
         - 'p_value': Bootstrap p-value
         - 'ci_lower': 95% CI lower bound
         - 'ci_upper': 95% CI upper bound
+        
+    Notes
+    -----
+    The bootstrap procedure resamples trials within each condition
+    independently, maintaining the balance of conditions. This provides
+    confidence intervals for the RDM similarity that account for 
+    trial-by-trial variability while preserving the experimental design.
     """
     if random_state is not None:
         np.random.seed(random_state)
@@ -333,20 +343,49 @@ def bootstrap_rdm_comparison(
     rdm2, _ = compute_rdm_from_timeseries_labels(data2, labels2, metric=metric)
     observed_similarity = compare_rdms(rdm1, rdm2, method=comparison_method)
 
-    # Bootstrap
+    # Get unique conditions
+    unique_conditions1 = np.unique(labels1)
+    unique_conditions2 = np.unique(labels2)
+    
+    # Check that both datasets have same conditions
+    if not np.array_equal(unique_conditions1, unique_conditions2):
+        raise ValueError("Both datasets must have the same set of condition labels")
+    
+    # Bootstrap with within-condition resampling
     bootstrap_similarities = []
-    n_timepoints = data1.shape[1]
 
     for _ in range(n_bootstrap):
-        # Resample timepoints with replacement
-        idx = np.random.choice(n_timepoints, size=n_timepoints, replace=True)
+        # Resample within each condition to maintain balance
+        idx1 = []
+        idx2 = []
+        
+        for condition in unique_conditions1:
+            # Get indices for this condition
+            cond_idx1 = np.where(labels1 == condition)[0]
+            cond_idx2 = np.where(labels2 == condition)[0]
+            
+            # Resample with replacement within condition
+            n_samples1 = len(cond_idx1)
+            n_samples2 = len(cond_idx2)
+            
+            resampled_idx1 = np.random.choice(cond_idx1, size=n_samples1, replace=True)
+            resampled_idx2 = np.random.choice(cond_idx2, size=n_samples2, replace=True)
+            
+            idx1.extend(resampled_idx1)
+            idx2.extend(resampled_idx2)
+        
+        # Convert to arrays and shuffle to mix conditions
+        idx1 = np.array(idx1)
+        idx2 = np.array(idx2)
+        np.random.shuffle(idx1)
+        np.random.shuffle(idx2)
 
         # Compute RDMs on resampled data
         rdm1_boot, _ = compute_rdm_from_timeseries_labels(
-            data1[:, idx], labels1[idx], metric=metric
+            data1[:, idx1], labels1[idx1], metric=metric
         )
         rdm2_boot, _ = compute_rdm_from_timeseries_labels(
-            data2[:, idx], labels2[idx], metric=metric
+            data2[:, idx2], labels2[idx2], metric=metric
         )
 
         # Compare

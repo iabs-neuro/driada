@@ -184,6 +184,16 @@ def plot_rdm_comparison(
         The figure object
     """
     n_rdms = len(rdms)
+    
+    # Validate that all RDMs have the same shape
+    if n_rdms > 0:
+        first_shape = rdms[0].shape
+        for i, rdm in enumerate(rdms[1:], 1):
+            if rdm.shape != first_shape:
+                raise ValueError(
+                    f"All RDMs must have the same shape. RDM 0 has shape {first_shape}, "
+                    f"but RDM {i} has shape {rdm.shape}"
+                )
 
     if figsize is None:
         figsize = (6 * n_rdms, 5)

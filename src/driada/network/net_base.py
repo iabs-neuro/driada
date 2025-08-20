@@ -1063,22 +1063,37 @@ class Network:
         NL = get_norm_laplacian(A)
         DH = get_inv_sqrt_diag_matrix(A)
 
+        # For Laplacian Eigenmaps, we need the SMALLEST eigenvalues
+        # Request dim+1 to include the zero eigenvalue
         start_v = np.ones(K)
-        eigvals, eigvecs = eigs(NL, k=dim + 1, which="LR", v0=start_v, maxiter=K * 1000)
+        
+        # Use SM (Smallest Magnitude) instead of LR (Largest Real)
+        eigvals, eigvecs = eigs(NL, k=min(dim + 1, K-1), which="SM", v0=start_v, maxiter=K * 1000)
         eigvals = np.asarray([np.round(np.real(x), 6) for x in eigvals])
+        
+        # Sort by eigenvalue (smallest first)
+        idx = np.argsort(eigvals)
+        eigvals = eigvals[idx]
+        eigvecs = eigvecs[:, idx]
 
-        if np.count_nonzero(eigvals == 1.0) > 1:
+        # Check connectivity: should have exactly one zero eigenvalue
+        n_zero_eigvals = np.sum(np.abs(eigvals) < 1e-6)
+        if n_zero_eigvals != 1:
             raise Exception(
-                "Error while LEM embedding construction: graph is not connected!"
+                f"Error while LEM embedding construction: graph is not connected! "
+                f"Found {n_zero_eigvals} zero eigenvalues, expected 1."
             )
-        else:
-            # Select the eigenvectors (skip the constant eigenvector)
-            vecs = eigvecs[:, 1 : dim + 1]  # shape: (n_nodes, dim)
-            # Normalize eigenvectors
-            vec_norms = np.sqrt(np.sum(np.abs(vecs) ** 2, axis=0))
-            vecs = vecs / vec_norms
-            # Apply D^{-1/2} transformation
-            # explanation: https://jlmelville.github.io/smallvis/spectral.html
-            vecs = DH.dot(vecs)  # DH is (n_nodes, n_nodes), vecs is (n_nodes, dim)
+        
+        # Select the eigenvectors corresponding to the smallest non-zero eigenvalues
+        # Skip the first (zero) eigenvalue and its constant eigenvector
+        vecs = eigvecs[:, 1 : dim + 1]  # shape: (n_nodes, dim)
+        
+        # Normalize eigenvectors
+        vec_norms = np.sqrt(np.sum(np.abs(vecs) ** 2, axis=0))
+        vecs = vecs / vec_norms
+        
+        # Apply D^{-1/2} transformation
+        # explanation: https://jlmelville.github.io/smallvis/spectral.html
+        vecs = DH.dot(vecs)  # DH is (n_nodes, n_nodes), vecs is (n_nodes, dim)
 
-            self.lem_emb = vecs.T  # Store as (dim, n_nodes) for backward compatibility
+        self.lem_emb = vecs.T  # Store as (dim, n_nodes) for backward compatibility

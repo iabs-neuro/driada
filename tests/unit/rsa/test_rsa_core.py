@@ -172,37 +172,108 @@ class TestBootstrap:
 
     def test_bootstrap_rdm_comparison(self):
         """Test bootstrap significance testing."""
-        # Create two datasets with known structure
-        n_features = 10
-        n_timepoints = 100
-
-        # Create correlated data
-        data1 = np.random.randn(n_features, n_timepoints)
-        data2 = data1 + 0.5 * np.random.randn(n_features, n_timepoints)
-
-        # Create labels
-        labels = np.repeat([0, 1, 2, 3], 25)
-
-        # Run bootstrap
-        results = core.bootstrap_rdm_comparison(
+        # Set random seed for reproducible test
+        np.random.seed(42)
+        
+        # Test Case 1: Two datasets with IDENTICAL structure (should have high similarity)
+        n_features = 20
+        n_timepoints = 200
+        labels = np.tile([0, 1, 2, 3], 50)  # 50 samples per condition
+        
+        # Create datasets where conditions have varying similarity
+        # This creates more diverse RDM values instead of all ~1.3
+        data1 = np.zeros((n_features, n_timepoints))
+        data2 = np.zeros((n_features, n_timepoints))
+        
+        # Define base patterns with varying overlaps
+        base_patterns = {
+            0: np.array([1, 1, 1, 0, 0, 0, 0, 0, 0, 0] + [0]*10),  # Pattern A
+            1: np.array([1, 1, 0, 1, 0, 0, 0, 0, 0, 0] + [0]*10),  # Similar to A (overlap)
+            2: np.array([0, 0, 0, 0, 1, 1, 1, 0, 0, 0] + [0]*10),  # Pattern B 
+            3: np.array([0, 0, 0, 0, 0, 0, 0, 1, 1, 1] + [0]*10),  # Pattern C (distinct)
+        }
+        
+        for i, label in enumerate(labels):
+            # Both datasets use same base patterns with small noise
+            data1[:, i] = base_patterns[label] + 0.05 * np.random.randn(n_features)
+            data2[:, i] = base_patterns[label] + 0.05 * np.random.randn(n_features)
+        
+        # Run bootstrap for identical structures using Pearson correlation
+        results_same = core.bootstrap_rdm_comparison(
             data1,
             data2,
             labels,
             labels,
-            n_bootstrap=50,  # Small for testing
+            n_bootstrap=100,
             random_state=42,
+            comparison_method="pearson",  # Use Pearson instead of Spearman
         )
-
-        # Check results structure
-        assert "observed" in results
-        assert "bootstrap_distribution" in results
-        assert "p_value" in results
-        assert "ci_lower" in results
-        assert "ci_upper" in results
-
-        # Check bootstrap distribution
-        assert len(results["bootstrap_distribution"]) == 50
-        assert results["ci_lower"] <= results["observed"] <= results["ci_upper"]
+        
+        # Test Case 2: Two datasets with COMPLETELY DIFFERENT structures
+        # Reset random seed for consistency
+        np.random.seed(42)
+        
+        # Dataset 3: Different structure - orthogonal patterns
+        data3 = np.zeros((n_features, n_timepoints))
+        
+        for i, label in enumerate(labels):
+            # data1 still has original pattern
+            # data3 has completely different mapping
+            if label == 0:
+                pattern3 = np.zeros(n_features)
+                pattern3[15:20] = 1.0  # Different location
+            elif label == 1:
+                pattern3 = np.zeros(n_features)
+                pattern3[0:5] = 1.0  # Swapped with condition 0
+            elif label == 2:
+                pattern3 = np.zeros(n_features)
+                pattern3[5:10] = 1.0  # Swapped with condition 3  
+            else:  # label == 3
+                pattern3 = np.zeros(n_features)
+                pattern3[10:15] = 1.0  # Swapped with condition 2
+                
+            data3[:, i] = pattern3 + 0.1 * np.random.randn(n_features)
+        
+        # Run bootstrap for different structures
+        results_diff = core.bootstrap_rdm_comparison(
+            data1,
+            data3,
+            labels,
+            labels,
+            n_bootstrap=100,
+            random_state=42,
+            comparison_method="pearson",  # Use Pearson for consistency
+        )
+        
+        # ASSERTIONS FOR IDENTICAL STRUCTURES
+        # Should have high observed similarity (> 0.7)
+        assert results_same["observed"] > 0.7, f"Identical structures should have high similarity, got {results_same['observed']}"
+        
+        # Bootstrap distribution should be centered near observed value
+        bootstrap_mean_same = np.mean(results_same["bootstrap_distribution"])
+        assert abs(results_same["observed"] - bootstrap_mean_same) < 0.1, \
+            f"Bootstrap mean should be close to observed for identical structures"
+        
+        # Confidence interval should be tight for identical structures
+        ci_width_same = results_same["ci_upper"] - results_same["ci_lower"]
+        assert ci_width_same < 0.3, f"CI should be tight for identical structures, got width={ci_width_same}"
+        
+        # ASSERTIONS FOR DIFFERENT STRUCTURES  
+        # Should have low or negative observed similarity
+        assert results_diff["observed"] < 0.3, f"Different structures should have low similarity, got {results_diff['observed']}"
+        
+        # Bootstrap should still be centered near observed (within-condition preserves structure)
+        bootstrap_mean_diff = np.mean(results_diff["bootstrap_distribution"])
+        assert abs(results_diff["observed"] - bootstrap_mean_diff) < 0.15, \
+            f"Bootstrap mean should be close to observed even for different structures"
+        
+        
+        # Check both have valid results
+        for results in [results_same, results_diff]:
+            assert -1 <= results["observed"] <= 1
+            assert 0 <= results["p_value"] <= 1
+            assert len(results["bootstrap_distribution"]) == 100
+            assert results["ci_lower"] < results["ci_upper"]
 
 
 class TestUnifiedAPI:

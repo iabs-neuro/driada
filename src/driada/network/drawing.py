@@ -50,7 +50,7 @@ def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
     if not net.directed:
         mode = "all"
 
-    fig, ax = create_default_figure(10, 8)
+    fig, ax = create_default_figure(figsize=(10, 8))
     ax.set_title("Degree distribution", color="white")
 
     if mode is not None:
@@ -146,7 +146,7 @@ def draw_spectrum(net, mode="adj", ax=None, colors=None, cmap="plasma", nbins=No
         ax.scatter(data.real, data.imag, cmap=cmap, c=colors)
     else:
         if nbins is None:
-            nbins = len(spectrum) / 10
+            nbins = max(1, len(spectrum) // 10)
         ax.hist(data.real, bins=nbins)
 
 
@@ -401,11 +401,15 @@ def plot_lem_embedding(net, ndim, colors=None):
         colors = range(net.lem_emb.shape[1])
 
     psize = 10
-    data = net.lem_emb.toarray()
+    # Handle both sparse and dense arrays
+    if hasattr(net.lem_emb, 'toarray'):
+        data = net.lem_emb.toarray()
+    else:
+        data = net.lem_emb
     pairs = list(combinations(np.arange(ndim), 2))
     npics = len(pairs)
-    pics_in_a_row = np.ceil(np.sqrt(npics))
-    pics_in_a_col = np.ceil(1.0 * npics / pics_in_a_row)
+    pics_in_a_row = int(np.ceil(np.sqrt(npics)))
+    pics_in_a_col = int(np.ceil(1.0 * npics / pics_in_a_row))
 
     fig = plt.figure(figsize=(20, 20))
     fig.suptitle("Projections")
