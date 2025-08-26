@@ -11,6 +11,49 @@ except ImportError:
 
 
 class MaximumVarianceUnfolding(object):
+    """Maximum Variance Unfolding (MVU) for nonlinear dimensionality reduction.
+    
+    MVU learns a low-dimensional representation that preserves local distances
+    while maximizing the variance of the embedding. It formulates the problem
+    as a semidefinite program (SDP) to find a kernel matrix that respects
+    local isometry constraints.
+    
+    Parameters
+    ----------
+    equation : {'berkley', 'wikipedia'}, default='berkley'
+        Formulation variant to use:
+        - 'berkley': UC Berkeley formulation with centered embedding constraint
+        - 'wikipedia': Standard formulation with trace maximization
+    solver : cvxpy.Solver, optional
+        CVXPY solver to use. Default is SCS (Splitting Conic Solver).
+    solver_tol : float, default=1e-2
+        Convergence tolerance for the SDP solver.
+    eig_tol : float, default=1e-10
+        Tolerance for eigenvalue thresholding. Eigenvalues in (-eig_tol, eig_tol)
+        are set to zero to handle numerical errors in the PSD constraint.
+    solver_iters : int, default=2500
+        Maximum number of solver iterations. Set to None for default solver limit.
+    warm_start : bool, default=False
+        Whether to use warm start in solver. Useful when solving similar problems
+        repeatedly.
+    seed : int, optional
+        Random seed for reproducibility.
+        
+    Attributes
+    ----------
+    neighborhood_graph : ndarray of shape (n_samples, n_samples)
+        Binary matrix indicating k-nearest neighbor connections.
+        
+    Notes
+    -----
+    Requires cvxpy package for solving the semidefinite program.
+    The algorithm can be slow for large datasets due to the SDP formulation.
+    
+    References
+    ----------
+    Weinberger, K. Q., & Saul, L. K. (2006). An introduction to nonlinear
+    dimensionality reduction by maximum variance unfolding. AAAI.
+    """
 
     def __init__(
         self,
@@ -22,18 +65,6 @@ class MaximumVarianceUnfolding(object):
         warm_start=False,
         seed=None,
     ):
-        """
-        :param equation: A string either "berkley" or "wikipedia" to represent
-                         two different equations for the same problem.
-        :param solver: A CVXPY solver object.
-        :param solver_tol: A float representing the tolerance the solver uses to know when to stop.
-        :param eig_tol: The positive semi-definite constraint is only so accurate, this sets
-                        eigenvalues that lie in -eig_tol < 0 < eig_tol to 0.
-        :param solver_iters: The max number of iterations the solver will go through.
-        :param warm_start: Whether or not to use a warm start for the solver.
-                           Useful if you are running multiple tests on the same data.
-        :param seed: The numpy seed for random numbers.
-        """
         if not CVXPY_AVAILABLE:
             raise ImportError(
                 "cvxpy is required for MVU but not installed. "
@@ -50,12 +81,41 @@ class MaximumVarianceUnfolding(object):
         self.neighborhood_graph = None
 
     def fit(self, data, k):
-        """
-        The method to fit an MVU model to the data.
-        :param data: The data to which the model will be fitted.
-        :param k: The number of neighbors to fix.
-        :param dropout_rate: The number of neighbors to discount.
-        :return: Embedded Gramian: The Gramian matrix of the embedded data.
+        """Fit MVU model by solving the semidefinite program.
+        
+        Constructs a k-nearest neighbor graph and solves an SDP to find
+        the optimal Gram matrix that preserves local distances while
+        maximizing variance.
+        
+        Parameters
+        ----------
+        data : ndarray of shape (n_samples, n_features)
+            High-dimensional input data.
+        k : int
+            Number of nearest neighbors to preserve distances for.
+            Must be large enough to create a connected graph.
+            
+        Returns
+        -------
+        ndarray of shape (n_samples, n_samples)
+            Optimal Gram matrix Q from the SDP solution.
+            This is the inner product matrix of the embedded points.
+            
+        Raises
+        ------
+        ValueError
+            If the k-NN graph has disconnected components and solver_iters
+            is None (some solvers may not converge with disconnected graphs).
+        ImportError
+            If cvxpy is not installed.
+            
+        Notes
+        -----
+        The Gram matrix Q satisfies:
+        - Q is positive semidefinite
+        - Sum of each row is zero (centering constraint)
+        - For neighbors i,j: ||x_i - x_j||² = ||y_i - y_j||²
+          where x are original points and y are embedded points
         """
         # Number of data points in the set
         n = data.shape[0]
@@ -146,13 +206,32 @@ class MaximumVarianceUnfolding(object):
         return Q.value
 
     def fit_transform(self, data, dim, k):
-        """
-        The method to fit and transform an MVU model to the data.
-        :param data: The data to which the model will be fitted.
-        :param dim: The new dimension of the dataset.
-        :param k: The number of neighbors to fix.
-        :param dropout_rate: The number of neighbors to discount.
-        :return: embedded_data: The embedded form of the data.
+        """Fit MVU model and transform data to lower dimension.
+        
+        Combines fit() and transform steps: solves the SDP to get the
+        optimal Gram matrix, then extracts the embedding via eigendecomposition.
+        
+        Parameters
+        ----------
+        data : ndarray of shape (n_samples, n_features)
+            High-dimensional input data.
+        dim : int
+            Target dimensionality for the embedding.
+        k : int
+            Number of nearest neighbors to preserve distances for.
+            
+        Returns
+        -------
+        ndarray of shape (n_samples, dim)
+            Low-dimensional embedding of the data.
+            
+        Notes
+        -----
+        The embedding is obtained by:
+        1. Solving SDP to get Gram matrix Q
+        2. Eigendecomposition: Q = V * Lambda * V^T
+        3. Embedding: Y = sqrt(Lambda_top) * V_top^T
+        where Lambda_top and V_top are the top 'dim' eigenvalues/vectors.
         """
 
         embedded_gramian = self.fit(data, k)

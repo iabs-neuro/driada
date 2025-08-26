@@ -33,17 +33,26 @@ def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=Fa
 
     Parameters
     ----------
-    ts_bunch1 : list
-        First set of time series.
-    ts_bunch2 : list
-        Second set of time series.
-    allow_mixed_dimensions : bool, optional
-        Whether to allow mixed TimeSeries and MultiTimeSeries. Default: False.
+    ts_bunch1 : list of TimeSeries or MultiTimeSeries
+        First set of time series objects (e.g., neural activity).
+    ts_bunch2 : list of TimeSeries or MultiTimeSeries
+        Second set of time series objects (e.g., behavioral features).
+    allow_mixed_dimensions : bool, default=False
+        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
+        If False, all objects must be TimeSeries.
 
     Raises
     ------
     ValueError
-        If validation fails.
+        If bunches are empty, contain wrong types, or have mismatched lengths.
+        
+    Notes
+    -----
+    When allow_mixed_dimensions=False, both bunches must contain only TimeSeries
+    objects. All time series within each bunch must have the same length, and
+    both bunches must have matching lengths.
+    
+    DOC_VERIFIED
     """
     if len(ts_bunch1) == 0:
         raise ValueError("ts_bunch1 cannot be empty")
@@ -55,16 +64,16 @@ def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=Fa
         ts1_types = [type(ts) for ts in ts_bunch1]
         ts2_types = [type(ts) for ts in ts_bunch2]
 
-        if not all(t == TimeSeries for t in ts1_types):
-            if any(t == MultiTimeSeries for t in ts1_types):
+        if not all(issubclass(t, TimeSeries) for t in ts1_types):
+            if any(issubclass(t, MultiTimeSeries) for t in ts1_types):
                 raise ValueError(
                     "MultiTimeSeries found in ts_bunch1 but allow_mixed_dimensions=False"
                 )
             else:
                 raise ValueError("ts_bunch1 must contain TimeSeries objects")
 
-        if not all(t == TimeSeries for t in ts2_types):
-            if any(t == MultiTimeSeries for t in ts2_types):
+        if not all(issubclass(t, TimeSeries) for t in ts2_types):
+            if any(issubclass(t, MultiTimeSeries) for t in ts2_types):
                 raise ValueError(
                     "MultiTimeSeries found in ts_bunch2 but allow_mixed_dimensions=False"
                 )
@@ -102,19 +111,34 @@ def validate_metric(metric, allow_scipy=True):
     Parameters
     ----------
     metric : str
-        Metric name to validate.
-    allow_scipy : bool, optional
-        Whether to allow scipy correlation metrics. Default: True.
+        Metric name to validate. Supported metrics:
+        - 'mi': Mutual information (supports multivariate data)
+        - 'av': Activity ratio (requires one binary and one continuous variable)
+        - 'fast_pearsonr': Fast Pearson correlation implementation
+        - 'spearmanr', 'pearsonr', 'kendalltau': scipy.stats correlation functions
+        - Any other callable from scipy.stats (if allow_scipy=True)
+    allow_scipy : bool, default=True
+        Whether to allow scipy.stats correlation functions.
 
     Returns
     -------
     metric_type : str
-        Type of metric: 'mi', 'correlation', 'special', or 'scipy'.
+        Type of metric:
+        - 'mi': Mutual information metric
+        - 'special': Special metrics ('av', 'fast_pearsonr')
+        - 'scipy': scipy.stats functions
 
     Raises
     ------
     ValueError
-        If metric is not supported.
+        If metric is not supported or not a callable function in scipy.stats.
+        
+    Notes
+    -----
+    The function validates that scipy.stats attributes are callable to prevent
+    accepting non-function attributes like constants or data arrays.
+    
+    DOC_VERIFIED
     """
     # Built-in metrics
     if metric == "mi":
@@ -124,10 +148,6 @@ def validate_metric(metric, allow_scipy=True):
     if metric in ["av", "fast_pearsonr"]:
         return "special"
 
-    # Common correlation metrics (shorthand names)
-    correlation_metrics = ["spearman", "pearson", "kendall"]
-    if metric in correlation_metrics:
-        return "correlation"
 
     # Full scipy names
     scipy_correlation_metrics = ["spearmanr", "pearsonr", "kendalltau"]
@@ -139,7 +159,8 @@ def validate_metric(metric, allow_scipy=True):
         try:
             import scipy.stats
 
-            if hasattr(scipy.stats, metric):
+            attr = getattr(scipy.stats, metric, None)
+            if attr is not None and callable(attr):
                 return "scipy"
         except ImportError:
             pass
@@ -147,8 +168,8 @@ def validate_metric(metric, allow_scipy=True):
     # If we get here, metric is not supported
     raise ValueError(
         f"Unsupported metric: {metric}. Supported metrics include: "
-        f"'mi', 'av', 'fast_pearsonr', 'spearman', 'pearson', 'kendall', "
-        f"'spearmanr', 'pearsonr', 'kendalltau', and other scipy.stats functions."
+        f"'mi', 'av', 'fast_pearsonr', 'spearmanr', 'pearsonr', 'kendalltau', "
+        f"and other scipy.stats functions."
     )
 
 
@@ -159,30 +180,53 @@ def validate_common_parameters(shift_window=None, ds=None, nsh=None, noise_const
     Parameters
     ----------
     shift_window : int, optional
-        Maximum shift window in frames.
+        Maximum shift window in frames. Must be non-negative.
     ds : int, optional
-        Downsampling factor.
+        Downsampling factor. Must be positive integer.
     nsh : int, optional
-        Number of shuffles.
+        Number of shuffles for significance testing. Must be positive integer.
     noise_const : float, optional
-        Noise constant for numerical stability.
+        Noise constant for numerical stability. Must be non-negative.
 
     Raises
     ------
+    TypeError
+        If parameters have incorrect types (non-integer for shift_window, ds, nsh;
+        non-numeric for noise_const).
     ValueError
-        If any parameter is invalid.
+        If parameters have invalid values (negative shift_window or noise_const;
+        non-positive ds or nsh).
+        
+    Notes
+    -----
+    This function validates parameter types using isinstance checks for numpy
+    compatibility (accepts both Python int and numpy integer types).
+    
+    DOC_VERIFIED
     """
-    if shift_window is not None and shift_window < 0:
-        raise ValueError(f"shift_window must be non-negative, got {shift_window}")
+    if shift_window is not None:
+        if not isinstance(shift_window, (int, np.integer)):
+            raise TypeError(f"shift_window must be integer, got {type(shift_window).__name__}")
+        if shift_window < 0:
+            raise ValueError(f"shift_window must be non-negative, got {shift_window}")
 
-    if ds is not None and ds <= 0:
-        raise ValueError(f"ds must be positive, got {ds}")
+    if ds is not None:
+        if not isinstance(ds, (int, np.integer)):
+            raise TypeError(f"ds must be integer, got {type(ds).__name__}")
+        if ds <= 0:
+            raise ValueError(f"ds must be positive, got {ds}")
 
-    if nsh is not None and nsh <= 0:
-        raise ValueError(f"nsh must be positive, got {nsh}")
+    if nsh is not None:
+        if not isinstance(nsh, (int, np.integer)):
+            raise TypeError(f"nsh must be integer, got {type(nsh).__name__}")
+        if nsh <= 0:
+            raise ValueError(f"nsh must be positive, got {nsh}")
 
-    if noise_const is not None and noise_const < 0:
-        raise ValueError(f"noise_const must be non-negative, got {noise_const}")
+    if noise_const is not None:
+        if not isinstance(noise_const, (int, float, np.number)):
+            raise TypeError(f"noise_const must be numeric, got {type(noise_const).__name__}")
+        if noise_const < 0:
+            raise ValueError(f"noise_const must be non-negative, got {noise_const}")
 
 
 def calculate_optimal_delays(
@@ -208,20 +252,16 @@ def calculate_optimal_delays(
     ts_bunch2 : list of TimeSeries
         Second set of time series (typically behavioral variables).
     metric : str
-        Similarity metric to maximize. Options include:
-        - 'mi': Mutual information
-        - 'spearman': Spearman correlation
-        - Other metrics supported by get_sim function
+        Similarity metric to maximize. See validate_metric for supported options.
     shift_window : int
         Maximum shift to test in each direction (frames).
-        Will test shifts from -shift_window to +shift_window.
+        Will test shifts from -shift_window to +shift_window inclusive.
     ds : int
         Downsampling factor. Every ds-th point is used from the time series.
-        Default: 1 (no downsampling).
-    verbose : bool, optional
-        Whether to print progress information. Default: True.
-    enable_progressbar : bool, optional
-        Whether to show progress bar. Default: True.
+    verbose : bool, default=True
+        Whether to print progress information.
+    enable_progressbar : bool, default=True
+        Whether to show progress bar.
 
     Returns
     -------
@@ -243,6 +283,8 @@ def calculate_optimal_delays(
     >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi',
     ...                                   shift_window=100, ds=1)
     >>> print(f"Neuron 1 optimal delay with speed: {delays[0, 0]} frames")
+    
+    DOC_VERIFIED
     """
     # Validate inputs
     validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
@@ -253,7 +295,7 @@ def calculate_optimal_delays(
         print("Calculating optimal delays:")
 
     optimal_delays = np.zeros((len(ts_bunch1), len(ts_bunch2)), dtype=int)
-    shifts = np.arange(-shift_window, shift_window, ds) // ds
+    shifts = np.arange(-shift_window, shift_window + ds, ds) // ds
 
     for i, ts1 in tqdm.tqdm(
         enumerate(ts_bunch1), total=len(ts_bunch1), disable=not enable_progressbar
@@ -286,19 +328,16 @@ def calculate_optimal_delays_parallel(
     ts_bunch2 : list of TimeSeries
         Second set of time series (typically behavioral variables).
     metric : str
-        Similarity metric to maximize. Options include:
-        - 'mi': Mutual information
-        - 'spearman': Spearman correlation
-        - Other metrics supported by get_sim function
+        Similarity metric to maximize. See validate_metric for supported options.
     shift_window : int
         Maximum shift to test in each direction (frames).
-        Will test shifts from -shift_window to +shift_window.
+        Will test shifts from -shift_window to +shift_window inclusive.
     ds : int
         Downsampling factor. Every ds-th point is used from the time series.
-    verbose : bool, optional
-        Whether to print progress information. Default: True.
-    n_jobs : int, optional
-        Number of parallel jobs to run. Default: -1 (use all available cores).
+    verbose : bool, default=True
+        Whether to print progress information.
+    n_jobs : int, default=-1
+        Number of parallel jobs to run. -1 uses all available cores.
 
     Returns
     -------
@@ -324,6 +363,8 @@ def calculate_optimal_delays_parallel(
     >>> # Use 8 cores for faster computation
     >>> delays = calculate_optimal_delays_parallel(neurons, behaviors, 'mi',
     ...                                            shift_window=100, ds=1, n_jobs=8)
+    
+    DOC_VERIFIED
     """
     # Validate inputs
     validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
@@ -437,6 +478,8 @@ def get_calcium_feature_me_profile(
     >>>
     >>> # Multi-feature joint mutual information
     >>> results = get_calcium_feature_me_profile(exp, cbunch=[0], fbunch=[('x', 'y')])
+    
+    DOC_VERIFIED
     """
     # Validate inputs
     validate_common_parameters(ds=ds)
@@ -488,7 +531,7 @@ def get_calcium_feature_me_profile(
                 ts2 = exp.dynamic_features[fid]
                 me0 = get_sim(ts1, ts2, metric, ds=ds, estimator=mi_estimator)
 
-                for shift in np.arange(-window, window, ds) // ds:
+                for shift in np.arange(-window, window + ds, ds) // ds:
                     lag_me = get_sim(ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator)
                     shifted_me.append(lag_me)
 
@@ -501,7 +544,7 @@ def get_calcium_feature_me_profile(
                 feats = [exp.dynamic_features[f] for f in fid]
                 me0 = get_multi_mi(feats, ts1, ds=ds, estimator=mi_estimator)
 
-                for shift in np.arange(-window, window, ds) // ds:
+                for shift in np.arange(-window, window + ds, ds) // ds:
                     lag_me = get_multi_mi(feats, ts1, ds=ds, shift=shift, estimator=mi_estimator)
                     shifted_me.append(lag_me)
 
@@ -538,54 +581,62 @@ def scan_pairs(
     enable_progressbar=True,
 ):
     """
-    Calculates MI shuffles for 2 given sets of TimeSeries
-    This function is generally assumed to be used internally,
-    but can be also called manually to "look inside" high-level computation routines
+    Calculate similarity metric and shuffled distributions for pairs of time series.
+
+    This function computes the similarity metric between all pairs from ts_bunch1 and
+    ts_bunch2, along with shuffled distributions for significance testing.
 
     Parameters
     ----------
-    ts_bunch1: list of TimeSeries objects
-
-    ts_bunch2: list of TimeSeries objects
-
-    metric: similarity metric between TimeSeries
-
-    nsh: int
-        number of shuffles
-
-    joint_distr: bool
-        if joint_distr=True, ALL (sic!) TimeSeries in ts_bunch2 will be treated as components of a single multifeature
-        default: False
-
-    ds: int
-        Downsampling constant. Every "ds" point will be taken from the data time series.
-        default: 1
-
-    mask: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
-          precomputed mask for skipping some of possible pairs.
-          0 in mask values means calculation will be skipped.
-          1 in mask values means calculation will proceed.
-
-    noise_const: float
-        Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit
-        default: 1e-3
-
-    optimal_delays: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
-        best shifts from original time series alignment in terms of MI.
-
-    seed: int
-        Random seed for reproducibility
+    ts_bunch1 : list of TimeSeries or MultiTimeSeries
+        First set of time series (typically neural signals).
+    ts_bunch2 : list of TimeSeries or MultiTimeSeries
+        Second set of time series (typically behavioral variables).
+    metric : str
+        Similarity metric to compute. See validate_metric for supported options.
+    nsh : int
+        Number of shuffles for significance testing.
+    optimal_delays : np.ndarray
+        Optimal delays array of shape (len(ts_bunch1), len(ts_bunch2)) or
+        (len(ts_bunch1), 1) if joint_distr=True. Contains best shifts in frames.
+    mi_estimator : str, default='gcmi'
+        Mutual information estimator to use when metric='mi'.
+        Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
+    joint_distr : bool, default=False
+        If True, all TimeSeries in ts_bunch2 are treated as components of a 
+        single multivariate feature. Deprecated - use MultiTimeSeries instead.
+    ds : int, default=1
+        Downsampling factor. Every ds-th point is used from the time series.
+    mask : np.ndarray, optional
+        Binary mask array of shape (len(ts_bunch1), len(ts_bunch2)) or
+        (len(ts_bunch1), 1) if joint_distr=True. 0 skips calculation, 1 proceeds.
+    noise_const : float, default=1e-3
+        Small noise amplitude added to improve numerical stability.
+    seed : int, optional
+        Random seed for reproducibility.
+    allow_mixed_dimensions : bool, default=False
+        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
+    enable_progressbar : bool, default=True
+        Whether to show progress bar during computation.
 
     Returns
     -------
-    random_shifts: np.array of shape (len(ts_bunch1), len(ts_bunch2), nsh)
-        signals shifts used for MI distribution computation
-
-    me_total: np.array of shape (len(ts_bunch1), len(ts_bunch2)), nsh+1) or (len(ts_bunch1), 1, nsh+1) if joint_distr==True
-        Aggregated array of true and shuffled MI values.
-        True MI matrix can be obtained by me_total[:,:,0]
-        Shuffled MI tensor of shape (len(ts_bunch1), len(ts_bunch2)), nsh) or (len(ts_bunch1), 1, nsh) if joint_distr==True
-        can be obtained by me_total[:,:,1:]
+    random_shifts : np.ndarray
+        Array of shape (len(ts_bunch1), len(ts_bunch2), nsh) containing
+        random shifts used for shuffled distribution computation.
+    me_total : np.ndarray
+        Array of shape (len(ts_bunch1), len(ts_bunch2), nsh+1) or
+        (len(ts_bunch1), 1, nsh+1) if joint_distr=True. Contains true metric
+        values at index 0 and shuffled values at indices 1:nsh+1.
+        
+    Notes
+    -----
+    - True metric values: me_total[:,:,0]
+    - Shuffled values: me_total[:,:,1:]
+    - Random shifts are drawn uniformly from time series length
+    - Noise is added as: value * (1 + noise_const * U(-1,1))
+    
+    DOC_VERIFIED
     """
 
     # Validate inputs
@@ -771,20 +822,24 @@ def scan_pairs_parallel(
         Number of shuffles to perform.
     optimal_delays : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2))
         Pre-computed optimal delays for each pair.
-    joint_distr : bool, optional
+    mi_estimator : str, default='gcmi'
+        Mutual information estimator to use when metric='mi'.
+        Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
+    joint_distr : bool, default=False
         If True, treats all ts_bunch2 as components of a single multifeature.
-        Default: False.
-    ds : int, optional
-        Downsampling factor. Default: 1.
+    allow_mixed_dimensions : bool, default=False
+        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
+    ds : int, default=1
+        Downsampling factor.
     mask : np.ndarray, optional
         Binary mask of shape (len(ts_bunch1), len(ts_bunch2)).
         0 = skip computation, 1 = compute. Default: all ones.
-    noise_const : float, optional
-        Small noise added to improve numerical stability. Default: 1e-3.
+    noise_const : float, default=1e-3
+        Small noise added to improve numerical stability.
     seed : int, optional
-        Random seed for reproducibility. Default: None.
-    n_jobs : int, optional
-        Number of parallel jobs. Default: -1 (use all cores).
+        Random seed for reproducibility.
+    n_jobs : int, default=-1
+        Number of parallel jobs. -1 uses all cores.
 
     Returns
     -------
@@ -792,11 +847,33 @@ def scan_pairs_parallel(
         Random shifts used for shuffling.
     me_total : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2), nsh+1)
         Metric values. [:,:,0] contains true values, [:,:,1:] contains shuffles.
+        
+    Raises
+    ------
+    ValueError
+        If input validation fails or parameters are invalid.
+        
+    Notes
+    -----
+    - Parallelization is done by splitting ts_bunch1 across workers
+    - Each worker handles a subset of ts_bunch1 against all of ts_bunch2
+    - Uses JOBLIB_BACKEND global variable (threading if PyTorch present, else loky)
+    - Random seeding ensures reproducibility across different mask configurations
 
     See Also
     --------
     scan_pairs : Sequential version of this function
     scan_pairs_router : Wrapper that chooses between parallel and sequential
+    
+    Examples
+    --------
+    >>> neurons = [neuron.ca for neuron in exp.neurons[:50]]
+    >>> behaviors = [exp.speed, exp.direction]
+    >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi', 100, 1)
+    >>> shifts, metrics = scan_pairs_parallel(neurons, behaviors, 'mi', 
+    ...                                      100, delays, n_jobs=4)
+    
+    DOC_VERIFIED
     """
 
     # Validate inputs
@@ -893,22 +970,26 @@ def scan_pairs_router(
         Number of shuffles to perform.
     optimal_delays : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2))
         Pre-computed optimal delays for each pair.
-    joint_distr : bool, optional
+    mi_estimator : str, default='gcmi'
+        Mutual information estimator to use when metric='mi'.
+        Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
+    joint_distr : bool, default=False
         If True, treats all ts_bunch2 as components of a single multifeature.
-        Default: False.
-    ds : int, optional
-        Downsampling factor. Default: 1.
+    allow_mixed_dimensions : bool, default=False
+        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
+    ds : int, default=1
+        Downsampling factor.
     mask : np.ndarray, optional
         Binary mask of shape (len(ts_bunch1), len(ts_bunch2)).
         0 = skip computation, 1 = compute. Default: all ones.
-    noise_const : float, optional
-        Small noise added to improve numerical stability. Default: 1e-3.
+    noise_const : float, default=1e-3
+        Small noise added to improve numerical stability.
     seed : int, optional
-        Random seed for reproducibility. Default: None.
-    enable_parallelization : bool, optional
-        Whether to use parallel processing. Default: True.
-    n_jobs : int, optional
-        Number of parallel jobs if parallelization enabled. Default: -1 (use all cores).
+        Random seed for reproducibility.
+    enable_parallelization : bool, default=True
+        Whether to use parallel processing.
+    n_jobs : int, default=-1
+        Number of parallel jobs if parallelization enabled. -1 uses all cores.
 
     Returns
     -------
@@ -916,11 +997,28 @@ def scan_pairs_router(
         Random shifts used for shuffling.
     me_total : np.ndarray of shape (len(ts_bunch1), len(ts_bunch2), nsh+1)
         Metric values. [:,:,0] contains true values, [:,:,1:] contains shuffles.
+        
+    Notes
+    -----
+    This function automatically chooses between sequential and parallel 
+    implementations based on the enable_parallelization flag. It's the
+    recommended entry point for scan_pairs functionality.
 
     See Also
     --------
     scan_pairs : Sequential implementation
     scan_pairs_parallel : Parallel implementation
+    
+    Examples
+    --------
+    >>> neurons = [neuron.ca for neuron in exp.neurons[:50]]
+    >>> behaviors = [exp.speed, exp.direction]
+    >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi', 100, 1)
+    >>> # Automatically use parallel processing
+    >>> shifts, metrics = scan_pairs_router(neurons, behaviors, 'mi', 
+    ...                                    100, delays)
+    
+    DOC_VERIFIED
     """
 
     if enable_parallelization:
@@ -992,19 +1090,137 @@ class IntenseResults(object):
     """
 
     def __init__(self):
+        """
+        Initialize an empty IntenseResults container.
+        
+        Creates an IntenseResults object with no initial data. Properties are added
+        dynamically using the update() or update_multiple() methods.
+        
+        Notes
+        -----
+        The IntenseResults class serves as a flexible container for storing INTENSE
+        computation outputs. It allows dynamic addition of properties to accommodate
+        different analysis configurations and results.
+        
+        Common properties added during INTENSE analysis:
+        - 'stats': Statistical test results (p-values, metric values)
+        - 'significance': Binary significance indicators
+        - 'info': Computation metadata (delays, parameters used)
+        - 'intense_params': Parameters used for the computation
+        
+        See Also
+        --------
+        compute_cell_feat_significance : Main function that returns IntenseResults
+        update : Method to add properties to the results
+        save_to_hdf5 : Method to persist results to disk
+        
+        DOC_VERIFIED
+        """
         pass
 
     def update(self, property_name, data):
-        """Add or update a property with data."""
+        """Add or update a property with data.
+        
+        Stores analysis results as attributes of the IntenseResults object,
+        allowing flexible storage of various data types and structures.
+        
+        Parameters
+        ----------
+        property_name : str
+            Name of the property to store. Will become an attribute of the
+            object accessible via dot notation.
+        data : any
+            Data to store. Can be any Python object: arrays, dictionaries,
+            dataframes, custom objects, etc.
+            
+        Examples
+        --------
+        >>> results = IntenseResults()
+        >>> results.update('mi_matrix', np.array([[0, 0.5], [0.5, 0]]))
+        >>> results.update('significant_pairs', [(0, 1), (2, 3)])
+        >>> results.mi_matrix
+        array([[0. , 0.5],
+               [0.5, 0. ]])
+               
+        Notes
+        -----
+        Property names should be valid Python identifiers. Existing properties
+        will be overwritten without warning.
+        
+        DOC_VERIFIED
+        """
         setattr(self, property_name, data)
 
     def update_multiple(self, datadict):
-        """Update multiple properties from a dictionary."""
+        """Update multiple properties from a dictionary.
+        
+        Batch update of multiple properties at once, useful for storing
+        related analysis results together.
+        
+        Parameters
+        ----------
+        datadict : dict
+            Dictionary mapping property names to data values. Each key-value
+            pair will be stored as an attribute.
+            
+        Examples
+        --------
+        >>> results = IntenseResults()
+        >>> results.update_multiple({
+        ...     'mi_values': np.array([0.1, 0.5, 0.3]),
+        ...     'p_values': np.array([0.05, 0.001, 0.02]),
+        ...     'delays': np.array([0, 10, 20]),
+        ...     'metadata': {'method': 'gcmi', 'n_shuffles': 1000}
+        ... })
+        >>> results.mi_values
+        array([0.1, 0.5, 0.3])
+        
+        See Also
+        --------
+        update : Add single property
+        
+        DOC_VERIFIED
+        """
         for dname, data in datadict.items():
             setattr(self, dname, data)
 
     def save_to_hdf5(self, fname):
-        """Save all results to an HDF5 file."""
+        """Save all results to an HDF5 file.
+        
+        Exports all stored properties to an HDF5 file for persistent storage
+        and later analysis. Handles numpy arrays, lists, and basic Python types.
+        
+        Parameters
+        ----------
+        fname : str
+            Path to the output HDF5 file. Will be created or overwritten.
+            
+        Notes
+        -----
+        - Arrays are stored as HDF5 datasets
+        - Lists are converted to numpy arrays before storage
+        - Other types are stored as HDF5 attributes
+        - Complex objects may need custom serialization
+        - Nested dictionaries are preserved as HDF5 groups
+        
+        Examples
+        --------
+        >>> results = IntenseResults()
+        >>> results.update('data', np.random.randn(100, 50))
+        >>> results.update('params', {'threshold': 0.05, 'method': 'mi'})
+        >>> results.save_to_hdf5('analysis_results.h5')
+        
+        >>> # Later, load results
+        >>> import h5py
+        >>> with h5py.File('analysis_results.h5', 'r') as f:
+        ...     data = f['data'][:]
+        
+        See Also
+        --------
+        driada.utils.data.write_dict_to_hdf5 : Underlying function used
+        
+        DOC_VERIFIED
+        """
         dict_repr = self.__dict__
         write_dict_to_hdf5(dict_repr, fname)
 
@@ -1137,7 +1353,7 @@ def compute_me_stats(
     find_optimal_delays: bool
         Allows slight shifting (not more than +- shift_window) of time series,
         selects a shift with the highest MI as default.
-        default: True
+        default: False
 
     skip_delays: list
         List of indices from ts_bunch2 for which delays are not applied (set to 0).
@@ -1175,6 +1391,28 @@ def compute_me_stats(
 
     accumulated_info: dict
         Data collected during computation.
+        
+    Raises
+    ------
+    ValueError
+        If mode is not 'stage1', 'stage2', or 'two_stage'.
+        If multicomp_correction is not None, 'bonferroni', 'holm', or 'fdr_bh'.
+        If pval_thr is not between 0 and 1.
+        If duplicate_behavior is not 'ignore', 'raise', or 'warn'.
+        If allow_mixed_dimensions=False but mixed types are provided.
+        If duplicate TimeSeries found and duplicate_behavior='raise'.
+        
+    Notes
+    -----
+    - When comparing the same bunch (ts_bunch1 is ts_bunch2), the diagonal
+      of masks is automatically set to 0 to avoid self-comparisons.
+    - In 'stage2' mode, dummy stage1 structures are created with placeholder values
+      to maintain consistency in the return format.
+    - For stage2, the final mask combines stage1 results with precomputed_mask_stage2
+      using logical AND.
+    - Input masks are never modified; copies are created when needed.
+    
+    DOC_VERIFIED
     """
 
     # FUTURE: add automatic min_shifts from autocorrelation time
@@ -1226,8 +1464,15 @@ def compute_me_stats(
 
     if precomputed_mask_stage1 is None:
         precomputed_mask_stage1 = np.ones((n1, n2))
+    else:
+        # Create a copy to avoid modifying the input
+        precomputed_mask_stage1 = precomputed_mask_stage1.copy()
+        
     if precomputed_mask_stage2 is None:
         precomputed_mask_stage2 = np.ones((n1, n2))
+    else:
+        # Create a copy to avoid modifying the input
+        precomputed_mask_stage2 = precomputed_mask_stage2.copy()
 
     # If comparing the same bunch with itself, mask out the diagonal
     # to avoid computing MI of a TimeSeries with itself at zero shift
@@ -1518,6 +1763,7 @@ def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
     ----------
     fwer : float
         Family-wise error rate or false discovery rate (e.g., 0.05).
+        Must be between 0 and 1.
     mode : str or None, optional
         Multiple comparison correction method. Default: 'holm'.
         - None: No correction, threshold = fwer
@@ -1526,7 +1772,7 @@ def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
         - 'fdr_bh': Benjamini-Hochberg FDR correction
     **multicomp_kwargs : dict
         Additional arguments for correction method:
-        - For 'bonferroni': nhyp (int) - number of hypotheses
+        - For 'bonferroni': nhyp (int) - number of hypotheses, must be > 0
         - For 'holm': all_pvals (list) - all p-values to be tested
         - For 'fdr_bh': all_pvals (list) - all p-values to be tested
 
@@ -1534,11 +1780,16 @@ def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
     -------
     threshold : float
         Adjusted p-value threshold for individual hypothesis testing.
+        Returns 0 if no p-values pass the correction criteria (reject all).
 
     Raises
     ------
     ValueError
-        If required arguments are missing or unknown method specified.
+        If fwer is not between 0 and 1.
+        If required arguments are missing or invalid.
+        If unknown method specified.
+        If nhyp <= 0 for bonferroni method.
+        If all_pvals is empty for holm or fdr_bh methods.
 
     Notes
     -----
@@ -1546,6 +1797,8 @@ def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
     - FDR methods control expected proportion of false positives among rejections
     - Holm is uniformly more powerful than Bonferroni
     - FDR typically allows more discoveries but with controlled false positive rate
+    - If no p-values satisfy the correction criteria, threshold is set to 0
+      (reject all hypotheses)
 
     Examples
     --------
@@ -1555,44 +1808,56 @@ def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
     >>>
     >>> # FDR correction
     >>> thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)
+    
+    DOC_VERIFIED
     """
+    # Validate fwer parameter
+    if not 0 <= fwer <= 1:
+        raise ValueError(f"fwer must be between 0 and 1, got {fwer}")
+    
     if mode is None:
         threshold = fwer
 
     elif mode == "bonferroni":
-        if "nhyp" in multicomp_kwargs:
-            threshold = fwer / multicomp_kwargs["nhyp"]
-        else:
+        if "nhyp" not in multicomp_kwargs:
             raise ValueError(
                 "Number of hypotheses for Bonferroni correction not provided"
             )
+        nhyp = multicomp_kwargs["nhyp"]
+        if nhyp <= 0:
+            raise ValueError(f"Number of hypotheses must be positive, got {nhyp}")
+        threshold = fwer / nhyp
 
     elif mode == "holm":
-        if "all_pvals" in multicomp_kwargs:
-            all_pvals = sorted(multicomp_kwargs["all_pvals"])
-            nhyp = len(all_pvals)
-            threshold = 0  # Default if no discoveries
-            for i, pval in enumerate(all_pvals):
-                cthr = fwer / (nhyp - i)
-                if pval > cthr:
-                    break
-                threshold = cthr
-        else:
+        if "all_pvals" not in multicomp_kwargs:
             raise ValueError("List of p-values for Holm correction not provided")
+        all_pvals = multicomp_kwargs["all_pvals"]
+        if len(all_pvals) == 0:
+            raise ValueError("Empty p-value list provided for Holm correction")
+        all_pvals = sorted(all_pvals)
+        nhyp = len(all_pvals)
+        threshold = 0  # Default if no discoveries (reject all)
+        for i, pval in enumerate(all_pvals):
+            cthr = fwer / (nhyp - i)
+            if pval > cthr:
+                break
+            threshold = cthr
 
     elif mode == "fdr_bh":
-        if "all_pvals" in multicomp_kwargs:
-            all_pvals = sorted(multicomp_kwargs["all_pvals"])
-            nhyp = len(all_pvals)
-            threshold = 0.0
-
-            # Benjamini-Hochberg procedure
-            for i in range(nhyp - 1, -1, -1):
-                if all_pvals[i] <= fwer * (i + 1) / nhyp:
-                    threshold = all_pvals[i]
-                    break
-        else:
+        if "all_pvals" not in multicomp_kwargs:
             raise ValueError("List of p-values for FDR correction not provided")
+        all_pvals = multicomp_kwargs["all_pvals"]
+        if len(all_pvals) == 0:
+            raise ValueError("Empty p-value list provided for FDR correction")
+        all_pvals = sorted(all_pvals)
+        nhyp = len(all_pvals)
+        threshold = 0.0  # Default if no discoveries (reject all)
+
+        # Benjamini-Hochberg procedure
+        for i in range(nhyp - 1, -1, -1):
+            if all_pvals[i] <= fwer * (i + 1) / nhyp:
+                threshold = all_pvals[i]
+                break
 
     else:
         raise ValueError("Unknown multiple comparisons correction method")

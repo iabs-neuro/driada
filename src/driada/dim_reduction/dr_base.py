@@ -23,6 +23,13 @@ class DRMethod(object):
         Default graph construction parameters (if requires_graph)
     default_metric_params : dict or None
         Default metric parameters (if requires weights)
+        
+    Notes
+    -----
+    Boolean attributes are stored internally but accept 0/1 integer values
+    for backward compatibility.
+    
+    DOC_VERIFIED
     """
 
     def __init__(
@@ -36,11 +43,34 @@ class DRMethod(object):
         default_graph_params=None,
         default_metric_params=None,
     ):
-        self.is_linear = is_linear
-        self.requires_graph = requires_graph
-        self.requires_distmat = requires_distmat
-        self.nn_based = nn_based
-        self.handles_disconnected_graphs = handles_disconnected_graphs
+        """Initialize a DRMethod configuration object.
+        
+        Parameters
+        ----------
+        is_linear : int or bool
+            Whether the method is linear (1/True) or nonlinear (0/False).
+        requires_graph : int or bool
+            Whether the method requires a proximity graph (1/True) or not (0/False).
+        requires_distmat : int or bool
+            Whether the method requires a distance matrix (1/True) or not (0/False).
+        nn_based : int or bool
+            Whether the method is neural network based (1/True) or not (0/False).
+        handles_disconnected_graphs : int or bool, default=0
+            Whether the method can handle disconnected graphs without preprocessing.
+        default_params : dict or None, default=None
+            Default parameters for the embedding method. If None, uses empty dict.
+        default_graph_params : dict or None, default=None
+            Default graph construction parameters (if requires_graph).
+        default_metric_params : dict or None, default=None
+            Default metric parameters (if requires weights).
+            
+        DOC_VERIFIED
+        """
+        self.is_linear = bool(is_linear)
+        self.requires_graph = bool(requires_graph)
+        self.requires_distmat = bool(requires_distmat)
+        self.nn_based = bool(nn_based)
+        self.handles_disconnected_graphs = bool(handles_disconnected_graphs)
         self.default_params = default_params or {}
         self.default_graph_params = default_graph_params
         self.default_metric_params = default_metric_params
@@ -187,6 +217,21 @@ def m_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     -------
     dict
         Filtered parameters appropriate for the chosen metric
+        
+    Raises
+    ------
+    KeyError
+        If 'metric_name' key is missing from para dict.
+    ValueError
+        If metric_name is unknown (not in named_distances, not 'hyperbolic',
+        and not callable).
+        
+    Notes
+    -----
+    The special metric 'hyperbolic' is supported in addition to the standard
+    pynndescent named_distances. Custom callable metrics are also supported.
+    
+    DOC_VERIFIED
     """
     name = para["metric_name"]
     appr_keys = ["metric_name"]
@@ -215,10 +260,44 @@ def m_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     return {key: para[key] for key in appr_keys if key in para}
 
 
-def g_param_filter(para):
-    """
-    This function prunes parameters that are excessive for
-    chosen graph construction method
+def g_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
+    """Filter parameters to keep only those relevant for the graph method.
+    
+    Different graph construction methods require different parameters.
+    This function ensures only the appropriate parameters are passed
+    to avoid errors or warnings from unused parameters.
+    
+    Parameters
+    ----------
+    para : dict
+        Dictionary containing all graph construction parameters.
+        Must include 'g_method_name' key.
+        
+    Returns
+    -------
+    dict
+        Filtered dictionary containing only parameters relevant to the
+        specified graph construction method.
+        
+    Raises
+    ------
+    KeyError
+        If 'g_method_name' key is missing from para dict.
+        
+    Notes
+    -----
+    Supported graph methods and their specific parameters:
+    - 'knn', 'auto_knn', 'umap': requires 'nn' (number of neighbors)
+    - 'eps': requires 'eps' (radius) and 'min_density' (minimum graph density)
+    - 'eknn': requires 'eps', 'min_density', and 'nn'
+    - 'tsne': requires 'perplexity'
+    
+    All methods support: 'g_method_name', 'max_deleted_nodes', 'weighted',
+    'dist_to_aff', 'graph_preprocessing'.
+    
+    Unknown methods are accepted and will receive only the base parameters.
+    
+    DOC_VERIFIED
     """
     gmethod = para["g_method_name"]
     appr_keys = ["g_method_name", "max_deleted_nodes", "weighted", "dist_to_aff", "graph_preprocessing"]
@@ -227,10 +306,10 @@ def g_param_filter(para):
         appr_keys.extend(["nn"])
 
     elif gmethod == "eps":
-        appr_keys.extend(["eps", "eps_min"])
+        appr_keys.extend(["eps", "min_density"])
 
     elif gmethod == "eknn":
-        appr_keys.extend(["eps", "eps_min", "nn"])
+        appr_keys.extend(["eps", "min_density", "nn"])
 
     elif gmethod == "tsne":
         appr_keys.extend(["perplexity"])
@@ -238,12 +317,43 @@ def g_param_filter(para):
     return {key: para[key] for key in appr_keys if key in para}
 
 
-def e_param_filter(para):
+def e_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
+    """Filter parameters to keep only those relevant for the embedding method.
+    
+    Different dimensionality reduction methods require different parameters.
+    This function ensures only the appropriate parameters are passed to
+    avoid errors or warnings from unused parameters.
+    
+    Parameters
+    ----------
+    para : dict
+        Dictionary containing all embedding parameters.
+        Must include 'e_method_name' key.
+        
+    Returns
+    -------
+    dict
+        Filtered dictionary containing only parameters relevant to the
+        specified embedding method.
+        
+    Raises
+    ------
+    KeyError
+        If 'e_method_name' key is missing from para dict.
+        
+    Notes
+    -----
+    All methods support: 'e_method', 'e_method_name', 'dim' (target dimension).
+    
+    Method-specific parameters:
+    - 'umap': adds 'min_dist' (minimum distance in low-dimensional space)
+    - 'dmaps', 'auto_dmaps': adds 'dm_alpha' (diffusion maps alpha parameter)
+      and 'dm_t' (diffusion time)
+      
+    Unknown methods are accepted and will receive only the base parameters.
+    
+    DOC_VERIFIED
     """
-    This function prunes parameters that are excessive for the
-    chosen embedding construction method
-    """
-
     appr_keys = ["e_method", "e_method_name", "dim"]
 
     if para["e_method_name"] == "umap":
@@ -264,15 +374,41 @@ def merge_params_with_defaults(
     Parameters
     ----------
     method_name : str
-        Name of the DR method
+        Name of the DR method. Must be one of the keys in METHODS_DICT.
     user_params : dict or None
         User-provided parameters. Can contain 'e_params', 'g_params', 'm_params' keys
-        or direct parameter values which will be treated as embedding parameters.
+        for structured format, or direct parameter values for flat format.
 
     Returns
     -------
     dict
-        Dictionary with 'e_params', 'g_params', 'm_params' keys containing merged parameters
+        Dictionary with 'e_params', 'g_params', 'm_params' keys containing merged parameters.
+        
+    Raises
+    ------
+    ValueError
+        If method_name is not found in METHODS_DICT.
+        
+    Notes
+    -----
+    The function supports two input formats:
+    
+    1. Structured format with explicit parameter groups:
+       {'e_params': {...}, 'g_params': {...}, 'm_params': {...}}
+       
+    2. Flat format where parameters are auto-distributed:
+       - 'n_neighbors' → g_params['nn']
+       - 'metric' → m_params['metric_name']
+       - 'sigma' → m_params['sigma']
+       - 'max_deleted_nodes' → g_params['max_deleted_nodes']
+       - All others → e_params
+       
+    The function also sets graph_preprocessing based on the method's
+    handles_disconnected_graphs property:
+    - If True: graph_preprocessing = None
+    - If False: graph_preprocessing = 'giant_cc'
+    
+    DOC_VERIFIED
     """
     if method_name not in METHODS_DICT:
         raise ValueError(f"Unknown method: {method_name}")

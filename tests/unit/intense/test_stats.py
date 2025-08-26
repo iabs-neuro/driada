@@ -44,10 +44,10 @@ def test_chebyshev_ineq():
     p_bound = chebyshev_ineq(data, val)
     assert p_bound <= 0.12  # 1/9 ≈ 0.111
 
-    # Test 4: Edge case - single value data
+    # Test 4: Edge case - single value data (should raise error)
     data_single = np.array([5.0])
-    p_bound = chebyshev_ineq(data_single, 6.0)
-    assert p_bound == 0.0  # std=0, returns 0
+    with pytest.raises(ValueError, match="zero variance"):
+        chebyshev_ineq(data_single, 6.0)
 
 
 def test_get_lognormal_p():
@@ -77,6 +77,11 @@ def test_get_lognormal_p():
     data_same = np.ones(100) * 2.0
     p_val = get_lognormal_p(data_same, 2.5)
     assert 0 <= p_val <= 1
+    
+    # Test 5: Negative values should raise error
+    data_negative = np.array([-1, 1, 2, 3])
+    with pytest.raises(ValueError, match="positive values"):
+        get_lognormal_p(data_negative, 1.0)
 
 
 def test_get_gamma_p():
@@ -105,6 +110,11 @@ def test_get_gamma_p():
     # Test 4: Zero value (gamma starts at 0)
     p_val = get_gamma_p(data, 0.0)
     assert p_val == 1.0
+    
+    # Test 5: Negative values should raise error
+    data_negative = np.array([-1, 1, 2, 3])
+    with pytest.raises(ValueError, match="positive values"):
+        get_gamma_p(data_negative, 1.0)
 
 
 def test_get_distribution_function():

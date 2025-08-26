@@ -160,6 +160,50 @@ def nested_dict_to_seq_of_tables(datadict, ordered_names1=None, ordered_names2=N
 
 
 def add_names_to_nested_dict(datadict, names1, names2):
+    """Replace numeric keys in a nested dictionary with meaningful names.
+    
+    Takes a nested dictionary with integer keys at two levels and replaces
+    them with provided names. Useful for converting indexed data structures
+    to named structures for better readability and access.
+    
+    Parameters
+    ----------
+    datadict : dict
+        Nested dictionary with integer keys at two levels. Expected structure
+        is datadict[i][j] where i and j are integers starting from 0.
+    names1 : list-like or None
+        Names to use for the first level keys. If None, uses range(n1) where
+        n1 is the number of first-level keys. Length must match the number
+        of first-level keys in datadict.
+    names2 : list-like or None
+        Names to use for the second level keys. If None, uses range(n2) where
+        n2 is the number of second-level keys. Length must match the number
+        of second-level keys in datadict.
+        
+    Returns
+    -------
+    dict
+        New nested dictionary with the same data but keys replaced by names.
+        If both names1 and names2 are None, returns the original dict unchanged.
+        Structure: renamed_dict[name1][name2] contains datadict[i][j].
+        
+    Examples
+    --------
+    >>> data = {0: {0: {'value': 1}, 1: {'value': 2}}, 
+    ...         1: {0: {'value': 3}, 1: {'value': 4}}}
+    >>> names1 = ['row1', 'row2']
+    >>> names2 = ['col1', 'col2']
+    >>> renamed = add_names_to_nested_dict(data, names1, names2)
+    >>> renamed['row1']['col1']
+    {'value': 1}
+    
+    Notes
+    -----
+    The function assumes datadict has a regular structure where all first-level
+    keys have the same set of second-level keys. It uses populate_nested_dict
+    to create an empty structure with the new names, then copies the data
+    from the original indexed positions.
+    """
     # renaming for convenience
     n1 = len(datadict.keys())
     n2 = len(datadict[list(datadict.keys())[0]])
@@ -183,6 +227,66 @@ def add_names_to_nested_dict(datadict, names1, names2):
 def retrieve_relevant_from_nested_dict(
     nested_dict, target_key, target_value, operation="=", allow_missing_keys=False
 ):
+    """Find all (outer_key, inner_key) pairs where a condition is met.
+    
+    Searches through a nested dictionary structure to find all locations where
+    a specific key-value condition is satisfied. Useful for filtering nested
+    data structures based on criteria.
+    
+    Parameters
+    ----------
+    nested_dict : dict
+        Nested dictionary with structure {outer_key: {inner_key: data_dict}},
+        where data_dict contains the key-value pairs to search.
+    target_key : str
+        The key to look for in the innermost dictionaries.
+    target_value : any
+        The value to compare against. Must be comparable with stored values
+        when using ">" or "<" operations.
+    operation : {"=", ">", "<"}, default="="
+        Comparison operation to use:
+        - "=" : Find entries where target_key equals target_value
+        - ">" : Find entries where target_key is greater than target_value
+        - "<" : Find entries where target_key is less than target_value
+    allow_missing_keys : bool, default=False
+        If True, skip entries where target_key is missing instead of raising
+        an error. Missing keys are treated as not matching any criteria.
+        
+    Returns
+    -------
+    list of tuples
+        List of (outer_key, inner_key) tuples identifying locations where
+        the condition is satisfied.
+        
+    Raises
+    ------
+    ValueError
+        If target_key is not found and allow_missing_keys is False, or if
+        an invalid operation is specified.
+    TypeError
+        If comparison operations ">" or "<" are used with incomparable types
+        (will propagate from Python's comparison).
+        
+    Examples
+    --------
+    >>> data = {
+    ...     'exp1': {'cell1': {'score': 0.8, 'type': 'A'},
+    ...              'cell2': {'score': 0.6, 'type': 'B'}},
+    ...     'exp2': {'cell1': {'score': 0.9, 'type': 'A'},
+    ...              'cell2': {'score': 0.7, 'type': 'B'}}
+    ... }
+    >>> retrieve_relevant_from_nested_dict(data, 'score', 0.7, '>')
+    [('exp1', 'cell1'), ('exp2', 'cell1')]
+    >>> retrieve_relevant_from_nested_dict(data, 'type', 'A', '=')
+    [('exp1', 'cell1'), ('exp2', 'cell1')]
+    
+    Notes
+    -----
+    For ">" and "<" operations:
+    - Missing keys (when allow_missing_keys=True) are treated as not matching
+    - None values are treated as not matching (since None comparisons would fail)  
+    - Incomparable types (e.g., string vs number) will raise TypeError
+    """
     relevant_pairs = []
     for key1 in nested_dict.keys():
         for key2 in nested_dict[key1].keys():
@@ -216,6 +320,51 @@ def retrieve_relevant_from_nested_dict(
 
 
 def rescale(data):
+    """Rescale 1D data to the range [0, 1] using min-max normalization.
+    
+    Applies min-max scaling to transform data linearly so that the minimum
+    value becomes 0 and the maximum value becomes 1. Useful for normalizing
+    time series or feature vectors to a common scale.
+    
+    Parameters
+    ----------
+    data : array-like
+        Input data to rescale. Must be 1-dimensional.
+        
+    Returns
+    -------
+    ndarray
+        Rescaled data with same length as input, values in [0, 1].
+        If input min equals max, returns array of 0.5 values.
+        
+    Raises
+    ------
+    ValueError
+        If input data has more than 1 dimension.
+        
+    Notes
+    -----
+    Uses sklearn's MinMaxScaler internally. The transformation is:
+    X_scaled = (X - X.min()) / (X.max() - X.min())
+    
+    Examples
+    --------
+    >>> data = np.array([1, 2, 3, 4, 5])
+    >>> rescale(data)
+    array([0.  , 0.25, 0.5 , 0.75, 1.  ])
+    
+    >>> # Attempting to rescale 2D data raises an error
+    >>> data2d = np.array([[1, 5], [2, 4]])
+    >>> try:
+    ...     rescale(data2d)
+    ... except ValueError as e:
+    ...     print(f"Error: {e}")
+    Error: Input data must be 1-dimensional, got shape (2, 2)
+    """
+    data = np.asarray(data)
+    if data.ndim > 1:
+        raise ValueError(f"Input data must be 1-dimensional, got shape {data.shape}")
+    
     scaler = MinMaxScaler(feature_range=(0, 1))
     res = scaler.fit_transform(data.reshape(-1, 1)).ravel()
     return res
@@ -252,24 +401,54 @@ def get_hash(data):
 
 
 def phase_synchrony(vec1, vec2):
+    """Calculate instantaneous phase synchrony between two signals.
+    
+    Computes phase synchrony using the Hilbert transform to extract
+    instantaneous phases, then measures phase coupling using a 
+    sine-based metric that ranges from 0 (no synchrony) to 1 (perfect synchrony).
+    
+    Parameters
+    ----------
+    vec1 : array-like
+        First signal, should be 1D array of same length as vec2.
+    vec2 : array-like  
+        Second signal, should be 1D array of same length as vec1.
+        
+    Returns
+    -------
+    ndarray
+        Phase synchrony values at each time point, ranging from 0 to 1.
+        Same length as input signals.
+        
+    Notes
+    -----
+    The algorithm:
+    1. Applies Hilbert transform to get analytic signals
+    2. Extracts instantaneous phases using np.angle()
+    3. Computes phase difference at each time point
+    4. Maps to [0,1] using: 1 - sin(|Δφ|/2)
+    
+    This metric is 1 when phases are aligned (Δφ = 0) and 0 when
+    maximally misaligned (Δφ = π).
+    
+    Examples
+    --------
+    >>> t = np.linspace(0, 1, 1000)
+    >>> signal1 = np.sin(2 * np.pi * 10 * t)  # 10 Hz
+    >>> signal2 = np.sin(2 * np.pi * 10 * t + np.pi/4)  # 10 Hz, phase shifted
+    >>> sync = phase_synchrony(signal1, signal2)
+    >>> np.mean(sync)  # High synchrony despite phase shift
+    0.961...
+    
+    See Also
+    --------
+    scipy.signal.hilbert : Hilbert transform used to extract phases
+    """
     al1 = np.angle(hilbert(vec1), deg=False)
     al2 = np.angle(hilbert(vec2), deg=False)
     phase_sync = 1 - np.sin(np.abs(al1 - al2) / 2)
     return phase_sync
 
-
-def correlation_matrix_old(a, b):
-    if np.allclose(a, b):
-        return np.corrcoef(a, a)
-    else:
-        n1 = a.shape[0]
-        n2 = b.shape[0]
-        corrmat = np.zeros((n1, n2))
-        for i in range(n1):
-            for j in range(n2):
-                corrmat[i, j] = st.pearsonr(a[i, :], b[j, :])[0]
-
-        return corrmat
 
 
 def correlation_matrix(A):

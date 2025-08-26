@@ -15,7 +15,7 @@ except ImportError:
 from driada.dim_reduction.losses import (
     AELoss, LossRegistry, ReconstructionLoss, CorrelationLoss,
     OrthogonalityLoss, BetaVAELoss, TCVAELoss, SparsityLoss,
-    ContractiveLoss, WassersteinLoss
+    ContractiveLoss, MMDLoss, FactorVAELoss
 )
 
 
@@ -35,7 +35,7 @@ class TestLossRegistry:
         assert "tc_vae" in registry.losses
         assert "sparse" in registry.losses
         assert "contractive" in registry.losses
-        assert "wasserstein" in registry.losses
+        assert "mmd" in registry.losses
     
     def test_create_loss(self):
         """Test creating losses from registry."""
@@ -297,12 +297,12 @@ class TestSparsityLoss:
 
 
 @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch not available")
-class TestWassersteinLoss:
-    """Test Wasserstein loss."""
+class TestMMDLoss:
+    """Test MMD loss."""
     
     def test_standard_normal_code(self):
         """Test loss when code matches standard normal."""
-        loss = WassersteinLoss(mmd_weight=1.0, weight=1.0)
+        loss = MMDLoss(mmd_weight=1.0, weight=1.0)
         
         # Code from standard normal
         torch.manual_seed(42)
@@ -316,7 +316,7 @@ class TestWassersteinLoss:
     
     def test_shifted_code(self):
         """Test loss when code is shifted from standard normal."""
-        loss = WassersteinLoss(mmd_weight=1.0, weight=1.0)
+        loss = MMDLoss(mmd_weight=1.0, weight=1.0)
         
         # Get baseline loss for standard normal
         torch.manual_seed(42)

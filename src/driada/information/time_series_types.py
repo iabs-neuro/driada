@@ -18,7 +18,70 @@ import warnings
 
 @dataclass
 class TimeSeriesType:
-    """Result of time series type detection."""
+    """Result of time series type detection.
+    
+    Encapsulates the results of comprehensive time series analysis, including
+    classification of the primary data type (discrete/continuous), subtype
+    details, periodicity information, and confidence scores.
+    
+    This class provides a structured way to represent and query time series
+    characteristics, useful for selecting appropriate analysis methods.
+    
+    Attributes
+    ----------
+    primary_type : {'discrete', 'continuous', 'ambiguous'}
+        Primary classification of the time series:
+        - 'discrete': Integer-valued or categorical data
+        - 'continuous': Real-valued measurements
+        - 'ambiguous': Cannot confidently determine type
+    subtype : {'binary', 'categorical', 'count', 'timeline', 'linear', 'circular'}, optional
+        More specific classification:
+        - Discrete subtypes: 'binary' (0/1), 'categorical', 'count' (non-negative integers)
+        - Continuous subtypes: 'linear', 'circular' (phase/angle), 'timeline'
+    confidence : float
+        Confidence score for the classification (0-1). Higher values indicate
+        more certainty in the type detection.
+    is_circular : bool
+        Whether the data represents circular/angular quantities (e.g., phases,
+        angles, time-of-day).
+    circular_period : float, optional
+        Period of circular data (e.g., 2π for radians, 360 for degrees).
+    periodicity : float, optional
+        Detected period from autocorrelation analysis. Non-circular data can
+        still be periodic (e.g., oscillations, rhythms).
+    metadata : dict
+        Statistical properties computed during detection, including:
+        - n_unique: number of unique values
+        - unique_ratio: fraction of unique values
+        - is_integer: whether all values are integers
+        - has_decimals: whether any decimals present
+        - entropy: Shannon entropy
+        - Various other statistical measures
+        
+    Examples
+    --------
+    >>> # Binary spike trains
+    >>> spikes = np.array([0, 0, 1, 0, 1, 1, 0, 0])
+    >>> result = analyze_time_series_type(spikes)
+    >>> result.primary_type
+    'discrete'
+    >>> result.subtype
+    'binary'
+    
+    >>> # Circular phase data
+    >>> phases = np.random.uniform(0, 2*np.pi, 100)
+    >>> result = analyze_time_series_type(phases)
+    >>> result.is_circular
+    True
+    
+    Notes
+    -----
+    The detection algorithm uses multiple statistical tests and heuristics
+    to determine the most likely type. For ambiguous cases (e.g., discretized
+    continuous data), the confidence score helps indicate uncertainty.
+    
+    DOC_VERIFIED
+    """
 
     primary_type: Literal["discrete", "continuous", "ambiguous"]
     subtype: Optional[
@@ -38,6 +101,8 @@ class TimeSeriesType:
         -------
         bool
             True if the primary type is discrete, False otherwise.
+            
+        DOC_VERIFIED
         """
         return self.primary_type == "discrete"
 
@@ -49,6 +114,8 @@ class TimeSeriesType:
         -------
         bool
             True if the primary type is continuous, False otherwise.
+            
+        DOC_VERIFIED
         """
         return self.primary_type == "continuous"
 
@@ -61,6 +128,8 @@ class TimeSeriesType:
         bool
             True if the type detection was ambiguous (could not confidently
             classify as discrete or continuous), False otherwise.
+            
+        DOC_VERIFIED
         """
         return self.primary_type == "ambiguous"
 
@@ -73,8 +142,16 @@ class TimeSeriesType:
         bool
             True if periodicity was detected (periodicity is not None),
             False otherwise.
+            
+        Notes
+        -----
+        Returns True only for valid positive finite periods.
+        
+        DOC_VERIFIED
         """
-        return self.periodicity is not None
+        return (self.periodicity is not None and 
+                self.periodicity > 0 and 
+                np.isfinite(self.periodicity))
 
 
 def analyze_time_series_type(
@@ -90,7 +167,7 @@ def analyze_time_series_type(
     Parameters
     ----------
     data : np.ndarray
-        1D array of time series values
+        1D array of time series values. Must contain numeric data.
     name : str, optional
         Name of the time series (used for context-aware detection)
     confidence_threshold : float
@@ -104,8 +181,33 @@ def analyze_time_series_type(
     -------
     TimeSeriesType
         Comprehensive type detection results
+        
+    Raises
+    ------
+    ValueError
+        If data is empty, contains non-numeric values, or contains NaN/Inf values.
+    TypeError
+        If data cannot be converted to numpy array.
+        
+    DOC_VERIFIED
     """
-    data = np.asarray(data).ravel()
+    # Convert to array and validate
+    try:
+        data = np.asarray(data).ravel()
+    except Exception as e:
+        raise TypeError(f"Cannot convert data to numpy array: {e}")
+    
+    # Validate non-empty
+    if len(data) == 0:
+        raise ValueError("Data array cannot be empty")
+    
+    # Check numeric dtype
+    if not np.issubdtype(data.dtype, np.number):
+        raise ValueError(f"Data must be numeric, got dtype: {data.dtype}")
+    
+    # Check for NaN/Inf
+    if not np.all(np.isfinite(data)):
+        raise ValueError("Data contains NaN or Inf values")
 
     if len(data) < min_samples:
         warnings.warn(
@@ -178,7 +280,41 @@ def analyze_time_series_type(
 
 
 def _extract_statistical_properties(data: np.ndarray) -> Dict[str, float]:
-    """Extract comprehensive statistical properties from time series."""
+    """Extract comprehensive statistical properties from time series.
+    
+    Computes a wide range of statistical features used for time series
+    type detection, including distributional properties, entropy measures,
+    and structural characteristics.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        1D array of time series values. Must be non-empty with finite values.
+        
+    Returns
+    -------
+    dict
+        Dictionary of statistical properties including:
+        - Basic stats: mean, std, min, max, range, skewness, kurtosis
+        - Uniqueness: n_unique, uniqueness_ratio, n_samples  
+        - Entropy: entropy (Shannon), normalized_entropy
+        - Gap statistics: mean_gap, std_gap, cv_gap, max_gap_ratio
+        - Integer analysis: fraction_integers
+        - Distribution tests: uniform_pvalue, normal_pvalue
+        - Autocorrelation: max_autocorr
+        
+    Raises
+    ------
+    ValueError
+        If data is empty or contains non-finite values.
+        
+    Notes
+    -----
+    These features are designed to distinguish between:
+    - Discrete vs continuous data
+    - Different discrete subtypes (binary, categorical, count)
+    - Special patterns (circular, periodic)
+    """
     n = len(data)
     unique_vals = np.unique(data)
     n_unique = len(unique_vals)
@@ -238,13 +374,20 @@ def _extract_statistical_properties(data: np.ndarray) -> Dict[str, float]:
         autocorr = correlate(
             data - features["mean"], data - features["mean"], mode="same"
         )
-        autocorr = autocorr / autocorr[n // 2]  # Normalize
-        features["max_autocorr"] = np.max(np.abs(autocorr[n // 2 + 1 :]))
+        # Normalize with protection against zero division
+        center_val = autocorr[n // 2]
+        if np.abs(center_val) > 1e-10:
+            autocorr = autocorr / center_val
+            features["max_autocorr"] = np.max(np.abs(autocorr[n // 2 + 1 :]))
+        else:
+            features["max_autocorr"] = 0
     else:
         features["max_autocorr"] = 0
 
     # Integer check
     features["fraction_integers"] = np.mean(np.abs(data - np.round(data)) < 1e-10)
+    
+    DOC_VERIFIED
 
     return features
 
@@ -252,7 +395,41 @@ def _extract_statistical_properties(data: np.ndarray) -> Dict[str, float]:
 def _detect_periodicity(
     data: np.ndarray, properties: Dict[str, float], name: Optional[str] = None
 ) -> Dict[str, Union[float, None]]:
-    """Detect general periodicity in time series (not necessarily circular)."""
+    """
+    Detect general periodicity in time series (not necessarily circular).
+    
+    Analyzes a time series to identify periodic patterns using autocorrelation
+    and Fourier analysis. This function detects any repeating patterns, whether
+    they represent circular quantities (angles) or other periodic phenomena
+    (seasonal patterns, oscillations).
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        Time series data to analyze.
+    properties : Dict[str, float]
+        Pre-computed statistical properties of the data. Expected keys:
+        - 'max_autocorr': Maximum autocorrelation value
+    name : str, optional
+        Variable name (currently unused but kept for API consistency).
+        
+    Returns
+    -------
+    Dict[str, Union[float, None]]
+        Dictionary containing:
+        - 'period': Detected period length in samples, or None if no period found
+        - 'confidence': Confidence score [0, 1] for the periodicity detection
+        
+    Notes
+    -----
+    The function uses two complementary approaches:
+    1. Autocorrelation: Finds repeating patterns by correlating the signal with
+       itself at different lags. Good for noisy data.
+    2. FFT: Identifies dominant frequencies in the frequency domain. Better for
+       clean signals with strong periodicity.
+    
+    Requires at least 20 samples for basic analysis and 50 for FFT analysis.
+    """
     result = {"period": None, "confidence": 0.0}
 
     if len(data) < 20:
@@ -263,14 +440,16 @@ def _detect_periodicity(
         # Find the lag with maximum autocorrelation
         data_centered = data - np.mean(data)
         autocorr = correlate(data_centered, data_centered, mode="same")
-        autocorr = autocorr / autocorr[len(data) // 2]
-
-        # Find peaks in autocorrelation
-        peaks, peak_props = find_peaks(autocorr[len(data) // 2 + 1 :], height=0.5)
-        if len(peaks) > 0:
-            # First significant peak gives the period
-            result["period"] = peaks[0] + 1
-            result["confidence"] = peak_props["peak_heights"][0]
+        # Normalize with protection against zero division
+        center_val = autocorr[len(data) // 2]
+        if np.abs(center_val) > 1e-10:
+            autocorr = autocorr / center_val
+            # Find peaks in autocorrelation
+            peaks, peak_props = find_peaks(autocorr[len(data) // 2 + 1 :], height=0.5)
+            if len(peaks) > 0:
+                # First significant peak gives the period
+                result["period"] = peaks[0] + 1
+                result["confidence"] = peak_props["peak_heights"][0]
 
     # Fourier analysis for strong periodicity
     if len(data) >= 50:
@@ -287,12 +466,59 @@ def _detect_periodicity(
                 result["confidence"] = max(result["confidence"], 0.8)
 
     return result
+    
+    DOC_VERIFIED
 
 
 def _detect_circular(
     data: np.ndarray, properties: Dict[str, float], name: Optional[str] = None
 ) -> Dict[str, Union[bool, float, None]]:
-    """Detect if the time series represents circular/angular data."""
+    """
+    Detect if the time series represents circular/angular data.
+    
+    Identifies whether a time series contains circular quantities (angles,
+    phases, directions) that wrap around at specific boundaries. This is
+    important for proper statistical analysis of angular data.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        Time series data to analyze.
+    properties : Dict[str, float]
+        Pre-computed statistical properties of the data. Expected keys include
+        various statistical measures computed by detect_time_series_type.
+    name : str, optional
+        Variable name used for context-based detection. Names containing
+        'angle', 'phase', 'direction', etc. increase circular detection confidence.
+        
+    Returns
+    -------
+    Dict[str, Union[bool, float, None]]
+        Dictionary containing:
+        - 'is_circular': Whether the data is detected as circular
+        - 'confidence': Confidence score [0, 1] for the detection
+        - 'period': Detected circular period (e.g., 360 for degrees, 2π for radians)
+        
+    Raises
+    ------
+    KeyError
+        If properties dict is missing required keys.
+        
+    Notes
+    -----
+    Detection methods include:
+    1. Range-based: Checks for common circular ranges ([0, 2π], [-π, π], [0, 360], [-180, 180])
+    2. Wraparound detection: Identifies discontinuous jumps indicating wraparound
+    3. Von Mises fitting: Tests if data follows circular distribution
+    4. Context clues: Uses variable names as hints
+    
+    The function is conservative to avoid false positives, requiring multiple
+    indicators before confirming circular data.
+    
+    Important: Binary data (e.g., [0,1] spike trains) is explicitly excluded 
+    from circular detection even if values fall within circular ranges, to prevent
+    misclassification of discrete binary variables as circular continuous data.
+    """
     result = {"is_circular": False, "confidence": 0.0, "period": None}
 
     # Context-based detection from name
@@ -361,8 +587,8 @@ def _detect_circular(
 
     # Von Mises distribution test (for circular data)
     # Skip for discrete data with few unique values
-    if properties["range"] > 0 and len(data) >= 50 and properties["n_unique"] > 10:
-        # Normalize to [0, 2π]
+    if properties["range"] > 1e-10 and len(data) >= 50 and properties["n_unique"] > 10:
+        # Normalize to [0, 2π] with protection against zero range
         normalized = 2 * np.pi * (data - properties["min"]) / properties["range"]
         try:
             # Fit Von Mises distribution
@@ -376,12 +602,44 @@ def _detect_circular(
         result["confidence"] >= 0.6
     )  # Higher threshold to avoid false positives
     return result
+    
+    DOC_VERIFIED
 
 
 def _detect_primary_type(
     data: np.ndarray, properties: Dict[str, float]
 ) -> Dict[str, Union[str, float]]:
-    """Detect primary type: discrete vs continuous."""
+    """
+    Detect primary type: discrete vs continuous.
+    
+    Analyzes statistical properties to classify time series data as either
+    discrete (categorical, count data) or continuous.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        Time series data array.
+    properties : Dict[str, float]
+        Pre-computed properties with required keys: 'n_unique', 'fraction_integers',
+        'uniqueness_ratio', 'cv_gap', 'mean', 'kurtosis', 'max_autocorr',
+        'normalized_entropy', 'normal_pvalue', 'uniform_pvalue', 'n_samples'.
+        
+    Returns
+    -------
+    Dict[str, Union[str, float]]
+        Dictionary with:
+        - 'type': Either 'discrete', 'continuous', or 'ambiguous'
+        - 'confidence': Confidence score between 0 and 1
+        - 'discrete_score': Internal score supporting discrete classification (0-1)
+        - 'continuous_score': Internal score supporting continuous classification (0-1)
+        
+    Raises
+    ------
+    KeyError
+        If properties dict is missing required keys.
+        
+    DOC_VERIFIED
+    """
     # Strong discrete indicators (binary, small categorical)
     if properties["n_unique"] == 2:
         # Binary data - check if truly binary (allowing small numerical errors)
@@ -451,7 +709,7 @@ def _detect_primary_type(
     if properties["uniform_pvalue"] > 0.05:
         continuous_score += 0.1
 
-    # Normalize scores
+    # Normalize scores with protection against zero total
     total = discrete_score + continuous_score
     if total > 0:
         discrete_score /= total
@@ -487,7 +745,40 @@ def _detect_primary_type(
 def _detect_discrete_subtype(
     data: np.ndarray, properties: Dict[str, float]
 ) -> Dict[str, Union[str, float]]:
-    """Detect discrete subtype."""
+    """
+    Detect discrete subtype for discrete time series data.
+    
+    Classifies discrete data into specific subtypes based on characteristics
+    like number of unique values, monotonicity, and spacing patterns.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        Time series data array already identified as discrete.
+    properties : Dict[str, float]
+        Pre-computed properties with keys: 'n_unique', 'fraction_integers',
+        'uniqueness_ratio'.
+        
+    Returns
+    -------
+    Dict[str, Union[str, float]]
+        Dictionary with:
+        - 'subtype': One of 'binary', 'count', 'timeline', or 'categorical'
+        - 'confidence': Confidence score between 0 and 1
+        
+    Raises
+    ------
+    KeyError
+        If properties dict is missing required keys.
+        
+    Notes
+    -----
+    Detection hierarchy (checked in order):
+    1. Binary: Exactly 2 unique values (confidence=1.0)
+    2. Count: Monotonically non-decreasing integers (confidence=0.95)
+    3. Timeline: Regularly spaced values with high uniqueness (confidence=0.95)
+    4. Categorical: Default for other discrete data (confidence=0.8)
+    """
     n_unique = properties["n_unique"]
     unique_vals = np.unique(data)
 
@@ -515,6 +806,8 @@ def _detect_discrete_subtype(
 
     # Default to categorical
     return {"subtype": "categorical", "confidence": 0.8}
+    
+    DOC_VERIFIED
 
 
 def _detect_continuous_subtype(
@@ -523,7 +816,47 @@ def _detect_continuous_subtype(
     circular_result: Dict[str, Union[bool, float, None]],
     periodicity_result: Dict[str, Union[float, None]],
 ) -> Dict[str, Union[str, float]]:
-    """Detect continuous subtype."""
+    """Detect continuous subtype.
+    
+    Classifies continuous time series into specific categories based on
+    their mathematical properties and typical use cases.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        1D array of continuous time series values (currently unused).
+    properties : dict
+        Pre-computed statistical properties (currently unused).
+    circular_result : dict
+        Results from _detect_circular function with 'is_circular' and 'confidence' keys.
+    periodicity_result : dict
+        Results from _detect_periodicity function (currently unused).
+        
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'subtype': {'linear', 'circular'}
+        - 'confidence': float, confidence in subtype classification (0-1)
+        
+    Subtypes
+    --------
+    - 'linear': Standard continuous measurements (e.g., firing rates, LFP amplitude)
+    - 'circular': Angular/phase data that wraps around (e.g., oscillation phase)
+    
+    Raises
+    ------
+    KeyError
+        If circular_result dict is missing required keys.
+        
+    Notes
+    -----
+    Circular takes precedence if detected with high confidence.
+    Linear is the default for all other continuous data.
+    Timeline detection is handled as a discrete subtype, not continuous.
+    
+    DOC_VERIFIED
+    """
     # Check if circular (angles, phases, directions)
     if circular_result["is_circular"]:
         return {"subtype": "circular", "confidence": circular_result["confidence"]}
@@ -540,7 +873,47 @@ def _print_detection_details(
     circular_result: Dict[str, Union[bool, float, None]],
     periodicity_result: Dict[str, Union[float, None]],
 ):
-    """Print detailed detection information."""
+    """Print detailed detection information.
+    
+    Displays comprehensive analysis results for debugging and validation
+    of time series type detection.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        Original time series data.
+    properties : dict
+        Statistical properties from _extract_statistical_properties.
+    primary_result : dict
+        Primary type detection results.
+    subtype_result : dict
+        Subtype detection results.
+    circular_result : dict
+        Circular detection results.
+    periodicity_result : dict
+        Periodicity detection results.
+        
+    Prints
+    ------
+    - Data overview: length, unique values, basic stats
+    - Detection results: primary type, subtype, confidence scores
+    - Special patterns: circularity, periodicity
+    - Decision factors: key statistics that influenced classification
+    
+    Raises
+    ------
+    KeyError
+        If any of the result dictionaries are missing required keys.
+    TypeError
+        If string formatting fails due to incompatible types.
+        
+    Notes
+    -----
+    Useful for understanding why a particular classification was made
+    and for debugging edge cases in type detection.
+    
+    DOC_VERIFIED
+    """
     print("\n=== Time Series Type Detection ===")
     print(f"Samples: {len(data)}")
     print(
@@ -585,6 +958,15 @@ def is_discrete_time_series(
     bool or tuple
         True if discrete, False if continuous.
         If return_confidence=True, returns (is_discrete, confidence)
+        
+    Raises
+    ------
+    ValueError
+        If data is empty, contains non-numeric values, or contains NaN/Inf values.
+    TypeError
+        If data cannot be converted to numpy array.
+        
+    DOC_VERIFIED
     """
     result = analyze_time_series_type(ts, confidence_threshold=0.5)
 

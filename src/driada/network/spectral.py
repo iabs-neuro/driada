@@ -57,7 +57,7 @@ def q_entropy(spectrum, t, q=1):
     Returns
     -------
     float
-        Rényi q-entropy S_q(ρ).
+        Rényi q-entropy S_q(ρ) in bits (using log₂).
 
     Raises
     ------
@@ -67,16 +67,16 @@ def q_entropy(spectrum, t, q=1):
     Notes
     -----
     The Rényi q-entropy is defined as:
-    - For q = 1: S_1(ρ) = -Tr(ρ log ρ) (von Neumann entropy)
-    - For q ≠ 1: S_q(ρ) = (1/(1-q)) log(Tr(ρ^q))
+    - For q = 1: S_1(ρ) = -Tr(ρ log₂ ρ) (von Neumann entropy)
+    - For q ≠ 1: S_q(ρ) = (1/(1-q)) log₂(Tr(ρ^q))
     
     For density matrix ρ = exp(-tL)/Z, this reduces to:
-    S_q = (1/(1-q)) log(Z^(-q) sum_i exp(-tqλ_i))
+    S_q = (1/(1-q)) log₂(Z^(-q) sum_i exp(-tqλ_i))
     
     The Rényi entropy generalizes information measures:
-    - q → 0: S_0 = log(rank(ρ)) (Hartley entropy)
+    - q → 0: S_0 = log₂(rank(ρ)) (Hartley entropy)
     - q = 1: S_1 = von Neumann entropy
-    - q → ∞: S_∞ = -log(λ_max) (min-entropy)
+    - q → ∞: S_∞ = -log₂(λ_max) (min-entropy)
 
     References
     ----------
@@ -96,7 +96,7 @@ def q_entropy(spectrum, t, q=1):
         Z = np.sum(np.exp(-t * spectrum))
         if q != 1:
             eigenvalues = np.exp(-t * q * spectrum)
-            S = 1 / (1 - q) * np.log(Z ** (-q) * np.sum(eigenvalues))
+            S = 1 / (1 - q) * np.log2(Z ** (-q) * np.sum(eigenvalues))
         else:
             S = spectral_entropy(spectrum, t, verbose=0)
 

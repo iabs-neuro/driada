@@ -21,6 +21,103 @@ def load_exp_from_aligned_data(
     verbose=True,
     reconstruct_spikes="wavelet",
 ):
+    """Create an Experiment object from aligned neural and behavioral data.
+    
+    Constructs an Experiment instance from pre-aligned calcium imaging data
+    and behavioral variables, automatically determining feature types and
+    filtering out constant or invalid features.
+    
+    Parameters
+    ----------
+    data_source : str
+        Identifier for the data source (e.g., 'IABS', 'custom'). 
+        Used with exp_params to construct the experiment name.
+    exp_params : dict
+        Experiment parameters dictionary. For IABS data source, requires:
+        - 'track': experimental paradigm (e.g., 'linear_track')
+        - 'animal_id': subject identifier 
+        - 'session': session identifier
+        For other sources, can contain any metadata for experiment naming.
+    data : dict
+        Dictionary containing aligned data with keys:
+        - 'calcium' or 'Calcium': 2D array of calcium signals (neurons x time)
+        - 'spikes' or 'Spikes': 2D array of spike data (optional)
+        - Other keys: behavioral variables as 1D arrays (time)
+    force_continuous : list, optional
+        List of feature names to force as continuous variables.
+        By default, features are automatically classified based on their values.
+        Use this when discrete-looking data should be treated as continuous
+        (e.g., binned position data).
+    bad_frames : list, optional
+        List of frame indices to mark as bad/invalid. These frames will be
+        masked in the resulting Experiment object. Useful for removing
+        motion artifacts or recording gaps.
+    static_features : dict, optional
+        Static experimental parameters. Common keys:
+        - 't_rise_sec': calcium rise time (default: 0.25)
+        - 't_off_sec': calcium decay time (default: 2.0)  
+        - 'fps': frame rate in Hz (default: 20.0)
+        - Any other experiment-specific constants
+    verbose : bool, default=True
+        Whether to print progress and feature information.
+    reconstruct_spikes : str or bool, default='wavelet'
+        Method for spike reconstruction if spikes not provided.
+        Options: 
+        - 'wavelet': wavelet-based detection (recommended)
+        - False: no reconstruction
+        - Custom method name if implemented
+        
+    Returns
+    -------
+    Experiment
+        Initialized Experiment object with processed data.
+        
+    Raises
+    ------
+    TypeError
+        If data or exp_params are not dictionaries.
+    ValueError
+        If data is empty or calcium data is missing.
+        
+    Notes
+    -----
+    - Features with constant values or all NaN are automatically filtered out
+    - Feature types (discrete/continuous) are automatically determined by checking
+      if values appear to be categorical (few unique values) or continuous
+    - Case-insensitive key matching for 'calcium' and 'spikes'
+    - Creates a deep copy of input data to avoid modifying the original
+    - The experiment name is constructed using construct_session_name()
+    
+    Examples
+    --------
+    >>> # Basic usage with minimal data
+    >>> data = {
+    ...     'calcium': np.random.rand(50, 1000),  # 50 neurons, 1000 frames
+    ...     'position': np.linspace(0, 100, 1000),  # Linear track position
+    ...     'speed': np.abs(np.diff(np.linspace(0, 100, 1001)))[:1000],
+    ...     'trial_type': np.repeat([0, 1, 0, 1], 250)  # Discrete variable
+    ... }
+    >>> exp_params = {
+    ...     'track': 'linear_track',
+    ...     'animal_id': 'mouse01', 
+    ...     'session': 'day1'
+    ... }
+    >>> exp = load_exp_from_aligned_data('IABS', exp_params, data)
+    Building experiment linear_track_mouse01_day1...
+    behaviour variables:
+    
+    'position' continuous
+    'speed' continuous  
+    'trial_type' discrete
+    
+    >>> # Force discrete variable to be continuous
+    >>> exp2 = load_exp_from_aligned_data(
+    ...     'IABS', exp_params, data,
+    ...     force_continuous=['trial_type'],
+    ...     bad_frames=[10, 11, 12],  # Mark frames as bad
+    ...     static_features={'fps': 30.0}  # Override default fps
+    ... )
+    """
 
     # Validate inputs
     if not isinstance(data, dict):
@@ -160,6 +257,102 @@ def load_experiment(
     save_to_pickle=False,
     verbose=True,
 ):
+    """Load or create an Experiment object with automatic caching and cloud support.
+    
+    This function provides a high-level interface for loading experiments with
+    smart caching, automatic cloud data download (for IABS data), and pickle
+    serialization. It first checks for cached experiments, then loads from
+    local data files, and finally downloads from cloud storage if needed.
+    
+    Parameters
+    ----------
+    data_source : str
+        Data source identifier. Currently only 'IABS' is supported for
+        automatic cloud download. Other sources must provide data_path.
+    exp_params : dict
+        Experiment parameters dictionary. See load_exp_from_aligned_data
+        for required fields based on data_source.
+    force_rebuild : bool, default=False
+        If True, rebuild experiment even if pickle cache exists.
+    force_reload : bool, default=False
+        If True, re-download data from cloud even if local files exist.
+    via_pydrive : bool, default=True
+        Use PyDrive for Google Drive access. If False, uses alternative method.
+    gauth : GoogleAuth object, optional
+        Pre-authenticated GoogleAuth object for Drive access.
+        If None, will create new authentication.
+    root : str, default='DRIADA data'
+        Root directory for storing experiments and data.
+    exp_path : str, optional
+        Custom path for experiment pickle file. If None, uses standard
+        naming: {root}/{expname}/Exp {expname}.pickle
+    data_path : str, optional
+        Custom path for data file. If None, uses standard naming:
+        {root}/{expname}/Aligned data/{expname} syn data.npz
+    force_continuous : list, optional
+        Feature names to force as continuous. See load_exp_from_aligned_data.
+    bad_frames : list, optional
+        Frame indices to mark as bad. See load_exp_from_aligned_data.
+    static_features : dict, optional
+        Static experimental parameters. See load_exp_from_aligned_data.
+    reconstruct_spikes : str or bool, default='wavelet'
+        Spike reconstruction method. See load_exp_from_aligned_data.
+    save_to_pickle : bool, default=False
+        Whether to save the experiment to pickle after creation.
+    verbose : bool, default=True
+        Print progress messages.
+        
+    Returns
+    -------
+    exp : Experiment
+        The loaded or created Experiment object.
+    load_log : list or None
+        Cloud download log if data was downloaded, None otherwise.
+        
+    Raises
+    ------
+    ValueError
+        If root exists but is not a directory, or if data_source
+        is not supported.
+    FileNotFoundError
+        If data cannot be found locally or downloaded from cloud.
+        
+    Notes
+    -----
+    Loading priority:
+    1. If pickle exists and not force_rebuild/reload: load from pickle
+    2. If local data exists: load from data file
+    3. If IABS source: attempt cloud download
+    4. Otherwise: raise error
+    
+    For IABS data, expects cloud structure with 'Aligned data' containing
+    npz files with calcium and behavioral data.
+    
+    Examples
+    --------
+    >>> # Load IABS experiment with automatic download
+    >>> exp_params = {
+    ...     'track': 'linear_track',
+    ...     'animal_id': 'mouse01',
+    ...     'session': 'day1'
+    ... }
+    >>> exp, log = load_experiment('IABS', exp_params)
+    Loading experiment linear_track_mouse01_day1 from pickle...
+    
+    >>> # Force rebuild from data
+    >>> exp, log = load_experiment(
+    ...     'IABS', exp_params, 
+    ...     force_rebuild=True,
+    ...     save_to_pickle=True  # Cache for next time
+    ... )
+    Building experiment linear_track_mouse01_day1...
+    
+    >>> # Custom data source with local file
+    >>> exp, log = load_experiment(
+    ...     'custom', {'name': 'my_exp'},
+    ...     data_path='/path/to/data.npz'
+    ... )
+    """
 
     if os.path.exists(root) and not os.path.isdir(root):
         raise ValueError("Root must be a folder!")
@@ -234,6 +427,22 @@ def load_experiment(
 
 
 def save_exp_to_pickle(exp, path, verbose=True):
+    """Save an Experiment object to a pickle file.
+    
+    Parameters
+    ----------
+    exp : Experiment
+        The Experiment object to save.
+    path : str
+        File path where the pickle will be saved.
+    verbose : bool, default=True
+        Whether to print save confirmation.
+        
+    Notes
+    -----
+    Uses Python's pickle module with default protocol.
+    Creates parent directories if they don't exist.
+    """
     with open(path, "wb") as f:
         pickle.dump(exp, f)
         if verbose:
@@ -241,6 +450,27 @@ def save_exp_to_pickle(exp, path, verbose=True):
 
 
 def load_exp_from_pickle(path, verbose=True):
+    """Load an Experiment object from a pickle file.
+    
+    Parameters
+    ----------
+    path : str
+        Path to the pickle file.
+    verbose : bool, default=True
+        Whether to print load confirmation.
+        
+    Returns
+    -------
+    Experiment
+        The loaded Experiment object.
+        
+    Raises
+    ------
+    FileNotFoundError
+        If the pickle file doesn't exist.
+    pickle.UnpicklingError
+        If the file is corrupted or incompatible.
+    """
     with open(path, "rb") as f:
         exp = pickle.load(
             f,

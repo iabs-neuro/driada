@@ -70,11 +70,59 @@ class Neuron:
     @staticmethod
     @njit()
     def spike_form(t, t_rise, t_off):
+        """Calculate normalized calcium response kernel shape.
+        
+        Computes the double-exponential kernel used to model calcium
+        indicator dynamics with separate rise and decay time constants.
+        
+        Parameters
+        ----------
+        t : array-like
+            Time points (in frames).
+        t_rise : float
+            Rise time constant (in frames).
+        t_off : float
+            Decay time constant (in frames).
+            
+        Returns
+        -------
+        array-like
+            Normalized kernel values (peak = 1).
+            
+        Notes
+        -----
+        The kernel has the form: (1 - exp(-t/τ_rise)) * exp(-t/τ_off)
+        normalized to have maximum value of 1.
+        """
         form = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
         return form / max(form)
 
     @staticmethod
     def get_restored_calcium(sp, t_rise, t_off):
+        """Reconstruct calcium signal from spike train.
+        
+        Convolves spike train with double-exponential kernel to simulate
+        calcium indicator dynamics.
+        
+        Parameters
+        ----------
+        sp : array-like
+            Binary spike train.
+        t_rise : float
+            Rise time constant (in frames).
+        t_off : float
+            Decay time constant (in frames).
+            
+        Returns
+        -------
+        array-like
+            Reconstructed calcium signal.
+            
+        Notes
+        -----
+        Uses a kernel of length 1000 frames, which should be sufficient
+        for most calcium indicators.
+        """
         x = np.linspace(0, 1000, num=1000)
         spform = Neuron.spike_form(x, t_rise=t_rise, t_off=t_off)
         conv = np.convolve(sp, spform)
@@ -216,6 +264,16 @@ class Neuron:
             raise NotImplementedError(f"Method '{method}' not implemented")
 
     def get_mad(self):
+        """Get median absolute deviation of calcium signal.
+        
+        Computes MAD as a robust measure of noise level in the calcium signal.
+        Caches the result for efficiency.
+        
+        Returns
+        -------
+        float
+            Median absolute deviation of the calcium signal.
+        """
         if self.mad is None:
             try:
                 self.snr, self.mad = self._calc_snr()
@@ -224,11 +282,34 @@ class Neuron:
         return self.mad
 
     def get_snr(self):
+        """Get signal-to-noise ratio of calcium signal.
+        
+        Computes SNR as the ratio of mean calcium amplitude during spikes
+        to the median absolute deviation (noise level).
+        
+        Returns
+        -------
+        float
+            Signal-to-noise ratio. Returns 0 if no spikes are present.
+        """
         if self.snr is None:
             self.snr, self.mad = self._calc_snr()
         return self.snr
 
     def _calc_snr(self):
+        """Calculate signal-to-noise ratio and MAD.
+        
+        Returns
+        -------
+        tuple
+            (snr, mad) where snr is signal-to-noise ratio and mad is
+            median absolute deviation.
+            
+        Raises
+        ------
+        ValueError
+            If SNR calculation results in NaN.
+        """
         spk_inds = np.nonzero(self.sp.data)[0]
         mad = median_abs_deviation(self.ca.data)
         if len(spk_inds) > 0:
@@ -241,12 +322,32 @@ class Neuron:
         return sn, mad
 
     def get_t_off(self):
+        """Get calcium decay time constant.
+        
+        Returns the fitted decay time constant if individual fitting was
+        requested, otherwise returns the default value.
+        
+        Returns
+        -------
+        float
+            Decay time constant in frames.
+        """
         if self.t_off is None:
             self.t_off, self.noise_ampl = self._fit_t_off()
 
         return self.t_off
 
     def get_noise_ampl(self):
+        """Get noise amplitude estimate.
+        
+        Returns the median absolute deviation as an estimate of noise
+        amplitude in the calcium signal.
+        
+        Returns
+        -------
+        float
+            Noise amplitude (MAD).
+        """
         if self.noise_ampl is None:
             self.t_off, self.noise_ampl = self._fit_t_off()
 

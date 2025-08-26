@@ -19,7 +19,6 @@ from driada.dim_reduction.manifold_metrics import (
     circular_distance,
     extract_angles_from_embedding,
     compute_reconstruction_error,
-    compute_temporal_consistency,  # Deprecated
     compute_embedding_alignment_metrics,
     train_simple_decoder,
     compute_embedding_quality,
@@ -578,109 +577,6 @@ def test_compute_reconstruction_error_invalid_type():
 
     with pytest.raises(ValueError, match="Unknown manifold type"):
         compute_reconstruction_error(embedding, true_var, manifold_type="invalid")
-
-
-def test_compute_temporal_consistency_circular():
-    """Test temporal consistency for circular manifolds (DEPRECATED)"""
-    # The issue: extract_angles_from_embedding returns angles in [-pi, pi]
-    # but our true_angles might be in [0, 2*pi] or beyond
-    # The velocities should still match if we use consistent angle ranges
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-
-        n_points = 100
-        np.random.seed(42)  # For reproducibility
-
-        # Create angles with varying velocity (more realistic)
-        # This avoids the constant velocity issue that causes correlation problems
-        t = np.linspace(0, 4 * np.pi, n_points)
-        # Add sinusoidal variation to create varying angular velocity
-        true_angles = t + 0.3 * np.sin(2 * t)
-        # Wrap to [-pi, pi]
-        true_angles = np.arctan2(np.sin(true_angles), np.cos(true_angles))
-
-        # Create embedding with some offset from origin (more realistic)
-        # This tests the centering operation in extract_angles_from_embedding
-        offset = np.array([0.5, 0.3])
-        embedding = np.column_stack([np.cos(true_angles), np.sin(true_angles)]) + offset
-
-        consistency = compute_temporal_consistency(
-            embedding, true_angles, manifold_type="circular"
-        )
-
-        # Should be very high for perfect reconstruction
-        assert consistency > 0.95
-
-        # Add small noise
-        noisy_angles = true_angles + 0.1 * np.random.randn(n_points)
-        noisy_embedding = (
-            np.column_stack([np.cos(noisy_angles), np.sin(noisy_angles)]) + offset
-        )
-        consistency_noisy = compute_temporal_consistency(
-            noisy_embedding, true_angles, manifold_type="circular"
-        )
-        assert (
-            0.3 < consistency_noisy < consistency
-        )  # More realistic range for noisy data
-
-        # Random angles should have low consistency
-        random_angles = np.random.uniform(-np.pi, np.pi, n_points)
-        random_embedding = (
-            np.column_stack([np.cos(random_angles), np.sin(random_angles)]) + offset
-        )
-        consistency_random = compute_temporal_consistency(
-            random_embedding, true_angles, manifold_type="circular"
-        )
-        assert consistency_random < 0.2  # Should be very low
-
-
-def test_compute_temporal_consistency_spatial():
-    """Test temporal consistency for spatial manifolds (DEPRECATED)"""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-
-        # Create smooth trajectory with varying speed
-        n_points = 100
-        t = np.linspace(0, 4 * np.pi, n_points)
-        # Varying radius creates varying speed
-        r = 1 + 0.3 * np.sin(t / 2)
-        true_positions = np.column_stack([r * np.cos(t), r * np.sin(t)])
-
-        # Test with identical trajectory
-        consistency = compute_temporal_consistency(
-            true_positions, true_positions, manifold_type="spatial"
-        )
-        assert consistency > 0.99
-
-        # Test with noisy trajectory - use higher noise for meaningful difference
-        np.random.seed(42)  # For reproducibility
-        noisy_positions = true_positions + 0.5 * np.random.randn(n_points, 2)
-        consistency_noisy = compute_temporal_consistency(
-            noisy_positions, true_positions, manifold_type="spatial"
-        )
-        assert (
-            0.3 < consistency_noisy < 0.99
-        )  # Should be lower than perfect but still correlated
-
-        # Test with random positions - should have low consistency
-        random_positions = np.random.randn(n_points, 2)
-        consistency_random = compute_temporal_consistency(
-            random_positions, true_positions, manifold_type="spatial"
-        )
-        assert consistency_random < 0.5
-
-
-def test_compute_temporal_consistency_invalid_type():
-    """Test temporal consistency with invalid manifold type (DEPRECATED)"""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-
-        embedding = np.random.randn(10, 2)
-        true_var = np.random.randn(10)
-
-        with pytest.raises(ValueError, match="Unknown manifold type"):
-            compute_temporal_consistency(embedding, true_var, manifold_type="invalid")
 
 
 def test_train_simple_decoder_circular():

@@ -36,7 +36,6 @@ from .ksg import (
     nonparam_mi_cc,
     nonparam_mi_cd,
     nonparam_mi_dc,
-    nonparam_mi_dd,
 )
 
 # Entropy functions
@@ -75,7 +74,6 @@ __all__ = [
     "nonparam_mi_cc",
     "nonparam_mi_cd",
     "nonparam_mi_dc",
-    "nonparam_mi_dd",
     # Entropy
     "entropy_d",
     "probs_to_entropy",

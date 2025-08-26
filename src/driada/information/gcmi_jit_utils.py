@@ -4,23 +4,59 @@ JIT-compiled copula transformation functions for GCMI.
 
 import numpy as np
 from numba import njit
+from ..utils.jit import conditional_njit
 
 
-@njit
+@conditional_njit
 def ctransform_jit(x):
-    """JIT-compiled copula transformation (empirical CDF).
+    """Transform data to uniform marginals using empirical CDF.
 
-    Efficient O(n log n) implementation using sorting-based ranking.
+    DOC_VERIFIED
+
+    Efficient O(n log n) implementation using sorting-based ranking. This function
+    converts continuous data to uniform marginals on (0, 1) by computing the 
+    empirical cumulative distribution function (CDF). The transformation preserves
+    the rank ordering while handling ties appropriately.
+
+    Mathematical background:
+    The copula transformation maps each value x_i to its empirical CDF value:
+    F_n(x_i) = rank(x_i) / (n + 1)
+    
+    where rank(x_i) is the position of x_i in the sorted array, and n is the
+    sample size. The denominator (n + 1) ensures values are strictly in (0, 1).
 
     Parameters
     ----------
     x : ndarray
-        1D array of values to transform.
+        1D array of values to transform. Must contain at least 2 elements.
 
     Returns
     -------
     ndarray
-        Copula-transformed values in (0, 1).
+        Copula-transformed values in (0, 1). Same shape as input, with each
+        value mapped to its empirical CDF value.
+
+    Notes
+    -----
+    - For tied values, each occurrence gets a unique rank based on its position
+      in the original array (stable tie-breaking).
+    - The output values are guaranteed to be in the open interval (0, 1).
+    - Empty arrays will cause undefined behavior due to JIT compilation.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import ctransform_jit
+    >>> 
+    >>> # Simple example with unique values
+    >>> x = np.array([3.0, 1.0, 4.0, 2.0])
+    >>> ct = ctransform_jit(x)
+    >>> print(ct)  # [0.6, 0.2, 0.8, 0.4]
+    >>> 
+    >>> # Example with tied values
+    >>> x_tied = np.array([1.0, 2.0, 2.0, 3.0])
+    >>> ct_tied = ctransform_jit(x_tied)
+    >>> print(ct_tied)  # Each tied value gets unique rank
     """
     n = x.size
 
@@ -53,21 +89,57 @@ def ctransform_jit(x):
     return ranks.astype(np.float64) / (n + 1)
 
 
-@njit
+@conditional_njit
 def ctransform_2d_jit(x):
-    """JIT-compiled copula transformation for 2D arrays.
+    """Transform 2D array to uniform marginals using empirical CDF.
 
-    Transforms each row independently.
+    DOC_VERIFIED
+
+    Applies copula transformation independently to each row of a 2D array. This is
+    commonly used when transforming multiple variables simultaneously, where each
+    variable (row) has its own empirical distribution.
+
+    Mathematical background:
+    For each row i, applies the transformation:
+    F_n,i(x_{i,j}) = rank_i(x_{i,j}) / (n_i + 1)
+    
+    where rank_i is computed within row i, and n_i is the number of samples
+    in row i (typically all rows have the same number of samples).
 
     Parameters
     ----------
     x : ndarray
-        2D array where each row is transformed independently.
+        2D array of shape (n_vars, n_samples) where each row represents a 
+        different variable to be transformed independently. Each row must
+        have at least 2 samples.
 
     Returns
     -------
     ndarray
-        Copula-transformed array.
+        Copula-transformed array of same shape as input. Each row contains
+        values in (0, 1) representing the empirical CDF of that row.
+
+    Notes
+    -----
+    - Each row is transformed independently, preserving within-row relationships.
+    - Cross-row relationships are maintained through the rank structure.
+    - Empty rows or single-element rows will cause undefined behavior.
+    - The function is optimized for multivariate data analysis where each
+      variable needs its own marginal transformation.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import ctransform_2d_jit
+    >>> 
+    >>> # Transform two variables with different distributions
+    >>> x = np.array([[1.0, 3.0, 2.0, 4.0],   # Variable 1
+    ...               [10.0, 30.0, 20.0, 40.0]])  # Variable 2
+    >>> ct = ctransform_2d_jit(x)
+    >>> print(ct.shape)  # (2, 4)
+    >>> # Each row is transformed to uniform (0, 1)
+    >>> print(ct[0])  # [0.2, 0.6, 0.4, 0.8]
+    >>> print(ct[1])  # [0.2, 0.6, 0.4, 0.8]
     """
     n_vars, n_samples = x.shape
     result = np.empty_like(x)
@@ -78,21 +150,68 @@ def ctransform_2d_jit(x):
     return result
 
 
-@njit
+@conditional_njit
 def ndtri_approx(p):
-    """Approximate inverse normal CDF for JIT compilation.
+    """Compute inverse normal CDF (quantile function) using rational approximation.
 
-    Uses a simpler but efficient approximation for JIT compilation.
+    DOC_VERIFIED
+
+    Implements the inverse of the standard normal cumulative distribution function
+    (probit function) using a rational polynomial approximation suitable for JIT
+    compilation. This provides a fast approximation of scipy.special.ndtri.
+
+    Mathematical background:
+    The function computes Φ^(-1)(p) where Φ is the standard normal CDF.
+    Uses the Abramowitz and Stegun rational approximation:
+    
+    For p ∈ (0, 0.5):
+        t = sqrt(-2 * ln(p))
+        Φ^(-1)(p) ≈ -(t - P(t)/Q(t))
+    
+    For p ∈ [0.5, 1):
+        t = sqrt(-2 * ln(1-p))
+        Φ^(-1)(p) ≈ t - P(t)/Q(t)
+    
+    where P and Q are polynomials with coefficients optimized for accuracy.
 
     Parameters
     ----------
     p : float or ndarray
-        Probability values in (0, 1).
+        Probability values in (0, 1). Values at boundaries are handled:
+        - p ≤ 0 returns -inf
+        - p ≥ 1 returns +inf
 
     Returns
     -------
     float or ndarray
-        Approximate quantile values.
+        Approximate quantile values (z-scores) of the standard normal
+        distribution. Same shape as input.
+
+    Notes
+    -----
+    - Accuracy: ~2.5e-4 absolute error for p in [0.001, 0.999]
+    - Coefficients from Abramowitz & Stegun, Handbook of Mathematical Functions
+    - Optimized for speed over accuracy compared to scipy.special.ndtri
+    - Handles edge cases: p=0 → -∞, p=1 → +∞
+    - Symmetric around p=0.5: ndtri(p) = -ndtri(1-p)
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import ndtri_approx
+    >>> 
+    >>> # Single value
+    >>> z = ndtri_approx(0.975)  # 95% quantile
+    >>> print(f"{z:.4f}")  # ≈ 1.96
+    >>> 
+    >>> # Array of probabilities
+    >>> probs = np.array([0.025, 0.5, 0.975])
+    >>> z_scores = ndtri_approx(probs)
+    >>> print(z_scores)  # ≈ [-1.96, 0.0, 1.96]
+    >>> 
+    >>> # Edge cases
+    >>> print(ndtri_approx(0.0))   # -inf
+    >>> print(ndtri_approx(1.0))   # +inf
     """
     # Handle array input
     if hasattr(p, "shape"):
@@ -145,39 +264,131 @@ def ndtri_approx(p):
                 )
 
 
-@njit
+@conditional_njit
 def copnorm_jit(x):
-    """JIT-compiled copula normalization.
+    """Transform data to standard normal using copula-normalization.
 
-    Fast implementation using approximations suitable for JIT.
+    DOC_VERIFIED
+
+    Combines copula transformation with inverse normal CDF to convert arbitrary
+    continuous data to standard normal distribution while preserving rank
+    relationships. This is a key preprocessing step for Gaussian Copula methods.
+
+    Mathematical background:
+    The copula-normalization is a two-step process:
+    1. Transform to uniform: u_i = F_n(x_i) ∈ (0, 1)
+    2. Transform to normal: z_i = Φ^(-1)(u_i)
+    
+    where F_n is the empirical CDF and Φ^(-1) is the inverse normal CDF.
+    The result has standard normal marginals while preserving the copula
+    (dependence structure) of the original data.
 
     Parameters
     ----------
     x : ndarray
-        1D array to normalize.
+        1D array of continuous values to normalize. Must have at least 2 elements
+        for meaningful empirical CDF estimation.
 
     Returns
     -------
     ndarray
-        Standard normal samples with same empirical CDF as input.
+        Standard normal samples with same empirical CDF as input. Values have
+        mean≈0, std≈1, and preserve the rank ordering of the input.
+
+    Notes
+    -----
+    - The transformation is rank-preserving (monotonic)
+    - Output is approximately N(0,1) distributed
+    - Ties in input data are handled consistently
+    - Edge effects: extreme ranks map to finite but large z-scores
+    - Small sample sizes (<30) may show deviations from exact normality
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import copnorm_jit
+    >>> 
+    >>> # Transform exponential data to normal
+    >>> np.random.seed(42)
+    >>> x_exp = np.random.exponential(scale=2.0, size=100)
+    >>> z = copnorm_jit(x_exp)
+    >>> 
+    >>> # Check properties
+    >>> print(f"Mean: {np.mean(z):.3f}")      # ≈ 0
+    >>> print(f"Std: {np.std(z):.3f}")        # ≈ 1
+    >>> print(f"Ranks preserved: {np.all(np.argsort(x_exp) == np.argsort(z))}")  # True
+    >>> 
+    >>> # Works with any continuous distribution
+    >>> x_uniform = np.random.uniform(0, 10, size=50)
+    >>> z_uniform = copnorm_jit(x_uniform)
+    >>> print(f"Output range: [{np.min(z_uniform):.2f}, {np.max(z_uniform):.2f}]")
     """
     cx = ctransform_jit(x)
     return ndtri_approx(cx)
 
 
-@njit
+@conditional_njit
 def copnorm_2d_jit(x):
-    """JIT-compiled copula normalization for 2D arrays.
+    """Transform 2D array to standard normal using copula-normalization.
+
+    DOC_VERIFIED
+
+    Applies copula-normalization independently to each row of a 2D array. This
+    transforms multivariate data where each variable (row) is converted to standard
+    normal marginals while preserving the dependence structure between variables.
+
+    Mathematical background:
+    For each row i:
+    1. Compute empirical CDF: u_{i,j} = F_{n,i}(x_{i,j})
+    2. Apply inverse normal: z_{i,j} = Φ^(-1)(u_{i,j})
+    
+    The resulting data has standard normal marginals for each variable while
+    preserving the copula (multivariate dependence structure). This is essential
+    for Gaussian Copula Mutual Information (GCMI) estimation.
 
     Parameters
     ----------
     x : ndarray
-        2D array where each row is normalized independently.
+        2D array of shape (n_vars, n_samples) where each row represents a
+        different variable to be normalized independently. Each row must
+        have at least 2 samples.
 
     Returns
     -------
     ndarray
-        Copula-normalized array.
+        Copula-normalized array of same shape as input. Each row has
+        approximately standard normal distribution N(0,1) while preserving
+        the multivariate dependence structure.
+
+    Notes
+    -----
+    - Each variable is normalized independently
+    - Cross-variable dependencies are preserved through the copula
+    - The transformation is applied row-wise for efficiency
+    - Small sample sizes per variable may affect normality
+    - Empty or single-sample rows will cause undefined behavior
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import copnorm_2d_jit
+    >>> 
+    >>> # Create multivariate data with different marginals
+    >>> np.random.seed(42)
+    >>> x = np.zeros((3, 100))
+    >>> x[0, :] = np.random.exponential(2.0, 100)      # Exponential
+    >>> x[1, :] = np.random.uniform(-5, 5, 100)        # Uniform
+    >>> x[2, :] = np.random.gamma(2.0, 2.0, 100)       # Gamma
+    >>> 
+    >>> # Transform to standard normal marginals
+    >>> z = copnorm_2d_jit(x)
+    >>> 
+    >>> # Check each variable is approximately N(0,1)
+    >>> for i in range(3):
+    ...     print(f"Var {i}: mean={np.mean(z[i]):.3f}, std={np.std(z[i]):.3f}")
+    >>> 
+    >>> # Dependencies between variables are preserved
+    >>> # (correlation structure remains similar)
     """
     n_vars, n_samples = x.shape
     result = np.empty_like(x)
@@ -188,25 +399,80 @@ def copnorm_2d_jit(x):
     return result
 
 
-@njit
+@conditional_njit
 def mi_gg_jit(x, y, biascorrect=True, demeaned=False):
     """JIT-compiled Gaussian mutual information between two variables.
+
+    DOC_VERIFIED
+
+    Computes mutual information between two multivariate Gaussian variables
+    using entropy-based calculations with optional small-sample bias correction.
+    This is the core computational function used by higher-level GCMI methods.
+
+    Mathematical background:
+    For Gaussian variables X and Y, mutual information is:
+    I(X;Y) = H(X) + H(Y) - H(X,Y)
+    
+    where H is differential entropy. For Gaussian variables:
+    H(X) = 0.5 * log(det(Σ_X)) + 0.5 * d_X * log(2πe)
+    
+    Using covariance matrices:
+    I(X;Y) = 0.5 * log(det(Σ_X)) + 0.5 * log(det(Σ_Y)) - 0.5 * log(det(Σ_XY))
+    
+    Bias correction follows Panzeri & Treves (1996), accounting for finite
+    sample effects using digamma function corrections.
 
     Parameters
     ----------
     x : ndarray
-        First variable data (n_vars_x, n_samples).
+        First variable data of shape (n_vars_x, n_samples). Can be univariate
+        (1, n_samples) or multivariate. Must have at least 2 samples.
     y : ndarray
-        Second variable data (n_vars_y, n_samples).
-    biascorrect : bool
-        Apply bias correction.
-    demeaned : bool
-        Whether data is already demeaned.
+        Second variable data of shape (n_vars_y, n_samples). Must have same
+        number of samples as x.
+    biascorrect : bool, default=True
+        Apply small-sample bias correction using Panzeri-Treves method.
+        Recommended for sample sizes < 1000.
+    demeaned : bool, default=False
+        Whether input data has already been mean-centered. If False, data
+        will be demeaned internally (modifying input arrays).
 
     Returns
     -------
     float
-        Mutual information in bits.
+        Mutual information in bits. Always non-negative (>= 0). Returns 0
+        for independent variables.
+
+    Notes
+    -----
+    - Uses Cholesky decomposition for numerical stability
+    - Adds small regularization (1e-12) to handle near-singular matrices
+    - Modifies input arrays if demeaned=False
+    - Assumes data follows multivariate Gaussian distribution
+    - For non-Gaussian data, use gcmi_cc_jit which applies copula transform
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import mi_gg_jit
+    >>> 
+    >>> # Independent Gaussian variables - MI ≈ 0
+    >>> np.random.seed(42)
+    >>> x = np.random.randn(2, 100)  # 2 variables, 100 samples
+    >>> y = np.random.randn(3, 100)  # 3 variables, 100 samples
+    >>> mi = mi_gg_jit(x, y)
+    >>> print(f"MI (independent): {mi:.4f} bits")  # ≈ 0
+    >>> 
+    >>> # Correlated variables - MI > 0
+    >>> x = np.random.randn(1, 100)
+    >>> y = x + 0.5 * np.random.randn(1, 100)  # y depends on x
+    >>> mi = mi_gg_jit(x, y)
+    >>> print(f"MI (dependent): {mi:.4f} bits")  # > 0
+    >>> 
+    >>> # Pre-demeaned data
+    >>> x_centered = x - np.mean(x, axis=1, keepdims=True)
+    >>> y_centered = y - np.mean(y, axis=1, keepdims=True)
+    >>> mi = mi_gg_jit(x_centered, y_centered, demeaned=True)
     """
     if x.shape[1] != y.shape[1]:
         raise ValueError("Number of samples must match")
@@ -270,29 +536,86 @@ def mi_gg_jit(x, y, biascorrect=True, demeaned=False):
     return I
 
 
-@njit
+@conditional_njit
 def cmi_ggg_jit(x, y, z, biascorrect=True, demeaned=False):
     """JIT-compiled conditional mutual information for Gaussian variables.
 
-    Computes I(X;Y|Z) for continuous variables.
+    DOC_VERIFIED
+
+    Computes conditional mutual information I(X;Y|Z) between continuous
+    Gaussian variables X and Y given conditioning variable Z. Measures
+    the information shared between X and Y that is not explained by Z.
+
+    Mathematical background:
+    For Gaussian variables, conditional MI is:
+    I(X;Y|Z) = H(X,Z) + H(Y,Z) - H(X,Y,Z) - H(Z)
+    
+    where H denotes differential entropy. Using covariance matrices:
+    I(X;Y|Z) = 0.5 * [log(det(Σ_XZ)) + log(det(Σ_YZ)) - log(det(Σ_XYZ)) - log(det(Σ_Z))]
+    
+    This measures the residual dependence between X and Y after accounting
+    for their mutual dependence on Z.
 
     Parameters
     ----------
     x : ndarray
-        First variable (n_vars_x, n_samples).
+        First variable of shape (n_vars_x, n_samples). Can be univariate
+        or multivariate. Must have at least 2 samples.
     y : ndarray
-        Second variable (n_vars_y, n_samples).
+        Second variable of shape (n_vars_y, n_samples). Must have same
+        number of samples as x.
     z : ndarray
-        Conditioning variable (n_vars_z, n_samples).
-    biascorrect : bool
-        Apply bias correction.
-    demeaned : bool
-        Whether data is already demeaned.
+        Conditioning variable of shape (n_vars_z, n_samples). The variable
+        being conditioned on. Must have same number of samples.
+    biascorrect : bool, default=True
+        Apply Panzeri-Treves bias correction for finite samples.
+        Recommended for sample sizes < 1000.
+    demeaned : bool, default=False
+        Whether input data has already been mean-centered. If False,
+        data will be demeaned internally (modifying input arrays).
 
     Returns
     -------
     float
-        Conditional mutual information in bits.
+        Conditional mutual information in bits. Always non-negative.
+        Returns 0 when X and Y are conditionally independent given Z.
+
+    Notes
+    -----
+    - Assumes all variables follow joint Gaussian distribution
+    - Uses Cholesky decomposition for numerical stability
+    - Adds regularization (1e-12) to handle near-singular matrices
+    - Modifies input arrays if demeaned=False
+    - For non-Gaussian data, apply copula transform first
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import cmi_ggg_jit
+    >>> 
+    >>> # Example 1: X and Y are independent given Z
+    >>> np.random.seed(42)
+    >>> z = np.random.randn(1, 100)
+    >>> x = z + 0.5 * np.random.randn(1, 100)  # X depends on Z
+    >>> y = z + 0.5 * np.random.randn(1, 100)  # Y depends on Z
+    >>> cmi = cmi_ggg_jit(x, y, z)
+    >>> print(f"CMI (conditionally independent): {cmi:.4f} bits")  # ≈ 0
+    >>> 
+    >>> # Example 2: X and Y have dependence beyond Z
+    >>> z = np.random.randn(1, 100)
+    >>> x = z + np.random.randn(1, 100)
+    >>> y = x + z + 0.5 * np.random.randn(1, 100)  # Y depends on both X and Z
+    >>> cmi = cmi_ggg_jit(x, y, z)
+    >>> print(f"CMI (conditionally dependent): {cmi:.4f} bits")  # > 0
+    >>> 
+    >>> # Example 3: Multivariate case
+    >>> x = np.random.randn(2, 100)  # 2D variable
+    >>> y = np.random.randn(3, 100)  # 3D variable  
+    >>> z = np.random.randn(1, 100)  # 1D conditioning
+    >>> # Add some conditional dependence
+    >>> y[0] += 0.5 * x[0]  # y[0] depends on x[0]
+    >>> cmi = cmi_ggg_jit(x, y, z)
+    >>> print(f"Multivariate CMI: {cmi:.4f} bits")
     """
     if x.shape[1] != y.shape[1] or x.shape[1] != z.shape[1]:
         raise ValueError("Number of samples must match")
@@ -397,21 +720,59 @@ def cmi_ggg_jit(x, y, z, biascorrect=True, demeaned=False):
     return I
 
 
-@njit
+@conditional_njit
 def digamma_approx(x):
     """Approximate digamma function for JIT compilation.
 
-    Uses asymptotic expansion for x > 6 and recurrence for smaller values.
+    DOC_VERIFIED
+
+    Computes the digamma (psi) function ψ(x) = d/dx[log(Γ(x))] using
+    asymptotic expansion for large values and recurrence relation for
+    smaller values. Optimized for JIT compilation in bias correction.
+
+    Mathematical background:
+    Uses the recurrence relation: ψ(x) = ψ(x+1) - 1/x
+    to shift x > 6, then applies asymptotic expansion:
+    ψ(x) ≈ log(x) - 1/(2x) - 1/(12x²) + 1/(120x⁴) + O(1/x⁶)
+    
+    This approximation is accurate to ~1e-5 for x > 6 and sufficient
+    for bias correction in information theory calculations.
 
     Parameters
     ----------
     x : float
-        Input value.
+        Input value. Must be positive (x > 0). For x <= 0, returns -inf.
 
     Returns
     -------
     float
-        Approximate digamma value.
+        Approximate digamma value. Returns -inf for x <= 0.
+
+    Notes
+    -----
+    - Accuracy decreases for very small x (< 1)
+    - Optimized for speed over precision
+    - Used primarily in Panzeri-Treves bias correction
+    - Not suitable for high-precision mathematical applications
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import digamma_approx
+    >>> 
+    >>> # Compare with scipy for typical bias correction values
+    >>> x = 50.0  # Typical value: (n_samples - n_vars - 1) / 2
+    >>> psi_approx = digamma_approx(x)
+    >>> print(f"ψ({x}) ≈ {psi_approx:.6f}")
+    >>> 
+    >>> # Behavior at different scales
+    >>> values = [0.5, 1.0, 5.0, 10.0, 100.0]
+    >>> for val in values:
+    ...     print(f"ψ({val:5.1f}) ≈ {digamma_approx(val):8.4f}")
+    >>> 
+    >>> # Edge case: non-positive input
+    >>> print(f"ψ(0) = {digamma_approx(0.0)}")  # -inf
+    >>> print(f"ψ(-1) = {digamma_approx(-1.0)}")  # -inf
     """
     if x <= 0:
         return -np.inf
@@ -432,23 +793,73 @@ def digamma_approx(x):
     return result
 
 
-@njit
+@conditional_njit
 def gcmi_cc_jit(x, y):
     """JIT-compiled Gaussian-Copula MI between continuous variables.
 
-    Full pipeline: copula transform -> normalize -> compute MI.
+    DOC_VERIFIED
+
+    Computes mutual information between continuous variables using the
+    Gaussian Copula method. This is the main user-facing function for
+    MI estimation between continuous variables of any distribution.
+
+    The method applies copula-normalization to transform arbitrary
+    continuous distributions to Gaussian, then computes MI assuming
+    Gaussian marginals. This preserves the dependence structure while
+    enabling robust MI estimation.
 
     Parameters
     ----------
     x : ndarray
-        First variable (n_vars_x, n_samples).
+        First variable, either 1D array of shape (n_samples,) or 2D array
+        of shape (n_vars_x, n_samples). Must have at least 2 samples.
     y : ndarray
-        Second variable (n_vars_y, n_samples).
+        Second variable, either 1D array of shape (n_samples,) or 2D array
+        of shape (n_vars_y, n_samples). Must have same number of samples as x.
 
     Returns
     -------
     float
-        GCMI in bits.
+        Gaussian-copula mutual information in bits. Always non-negative.
+        Returns 0 for independent variables.
+
+    Notes
+    -----
+    - Automatically handles 1D input by reshaping to (1, n_samples)
+    - Applies copula transform independently to each variable
+    - Uses bias-corrected MI estimation
+    - Robust to different marginal distributions
+    - Input data is not modified
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import gcmi_cc_jit
+    >>> 
+    >>> # Example 1: Linear dependence with different marginals
+    >>> np.random.seed(42)
+    >>> x = np.random.exponential(1, 100)  # Exponential distribution
+    >>> y = 2 * x + np.random.uniform(-1, 1, 100)  # Linear relation + uniform noise
+    >>> mi = gcmi_cc_jit(x, y)
+    >>> print(f"MI (linear dependence): {mi:.3f} bits")
+    >>> 
+    >>> # Example 2: Nonlinear dependence
+    >>> x = np.random.uniform(-3, 3, 200)
+    >>> y = x**2 + np.random.normal(0, 0.5, 200)  # Quadratic relation
+    >>> mi = gcmi_cc_jit(x, y) 
+    >>> print(f"MI (nonlinear): {mi:.3f} bits")
+    >>> 
+    >>> # Example 3: Multivariate case
+    >>> x = np.random.randn(2, 100)  # 2D Gaussian
+    >>> y = np.vstack([x[0] + x[1], x[0] - x[1]])  # 2D linear combination
+    >>> mi = gcmi_cc_jit(x, y)
+    >>> print(f"MI (multivariate): {mi:.3f} bits")
+    >>> 
+    >>> # Example 4: Independent variables
+    >>> x = np.random.gamma(2, 2, 100)
+    >>> y = np.random.beta(2, 5, 100)
+    >>> mi = gcmi_cc_jit(x, y)
+    >>> print(f"MI (independent): {mi:.3f} bits")  # ≈ 0
     """
     # Copula transform
     if x.ndim == 1:
@@ -467,26 +878,89 @@ def gcmi_cc_jit(x, y):
     return mi_gg_jit(cx, cy, biascorrect=True, demeaned=True)
 
 
-@njit
+@conditional_njit
 def gccmi_ccd_jit(x, y, z, Zm):
     """JIT-compiled Gaussian-Copula CMI between 2 continuous variables 
     conditioned on a discrete variable.
     
+    DOC_VERIFIED
+    
+    Computes conditional mutual information I(X;Y|Z) where X and Y are
+    continuous variables and Z is discrete. Uses Gaussian copula transform
+    for robustness to non-Gaussian marginals.
+    
+    Mathematical background:
+    For discrete Z with states {0, 1, ..., Zm-1}:
+    I(X;Y|Z) = Σ_z P(Z=z) * I(X;Y|Z=z)
+    
+    where I(X;Y|Z=z) is the MI between X and Y computed only on samples
+    where Z=z. Each conditional MI is computed using Gaussian copula.
+    
     Parameters
     ----------
     x : ndarray
-        First continuous variable (n_vars_x, n_samples).
+        First continuous variable of shape (n_vars_x, n_samples) or
+        (n_samples,) for univariate case. Must have at least 2 samples.
     y : ndarray
-        Second continuous variable (n_vars_y, n_samples).
+        Second continuous variable of shape (n_vars_y, n_samples) or
+        (n_samples,) for univariate case. Same number of samples as x.
     z : ndarray
-        Discrete conditioning variable (n_samples,).
+        Discrete conditioning variable of shape (n_samples,). Values must
+        be integers in range [0, Zm-1].
     Zm : int
-        Number of discrete states (z values should be in [0, Zm-1]).
+        Number of discrete states. Must be positive. Z values should be
+        in range [0, Zm-1].
         
     Returns
     -------
     float
-        Conditional mutual information in bits.
+        Conditional mutual information in bits. Always non-negative.
+        Returns 0 when X and Y are conditionally independent given Z.
+        
+    Notes
+    -----
+    - Each conditional subset must have ≥ 2 samples for copula transform
+    - States with < 2 samples contribute 0 to the CMI
+    - Automatically handles variable reshaping
+    - Uses bias-corrected MI estimation for each conditional
+    - Robust to different marginal distributions
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.information.gcmi_jit_utils import gccmi_ccd_jit
+    >>> 
+    >>> # Example 1: Simpson's paradox - dependence reverses by group
+    >>> np.random.seed(42)
+    >>> n_samples = 300
+    >>> z = np.random.randint(0, 2, n_samples)  # Binary grouping
+    >>> x = np.zeros((1, n_samples))
+    >>> y = np.zeros((1, n_samples))
+    >>> 
+    >>> # Group 0: negative correlation
+    >>> idx0 = z == 0
+    >>> x[0, idx0] = np.random.randn(np.sum(idx0))
+    >>> y[0, idx0] = -x[0, idx0] + 0.5 * np.random.randn(np.sum(idx0))
+    >>> 
+    >>> # Group 1: positive correlation  
+    >>> idx1 = z == 1
+    >>> x[0, idx1] = np.random.randn(np.sum(idx1)) + 3
+    >>> y[0, idx1] = x[0, idx1] + 0.5 * np.random.randn(np.sum(idx1)) + 3
+    >>> 
+    >>> cmi = gccmi_ccd_jit(x, y, z, 2)
+    >>> print(f"CMI given group: {cmi:.3f} bits")  # High CMI
+    >>> 
+    >>> # Example 2: Conditional independence
+    >>> z = np.random.randint(0, 3, 200)  # 3 states
+    >>> x = np.random.randn(1, 200)
+    >>> # Y depends only on Z, not on X given Z
+    >>> y = np.zeros((1, 200))
+    >>> for state in range(3):
+    ...     mask = z == state
+    ...     y[0, mask] = state + np.random.randn(np.sum(mask))
+    >>> 
+    >>> cmi = gccmi_ccd_jit(x, y, z, 3)
+    >>> print(f"CMI (cond. independent): {cmi:.3f} bits")  # ≈ 0
     """
     Ntrl = x.shape[1]
     Nvarx = x.shape[0]

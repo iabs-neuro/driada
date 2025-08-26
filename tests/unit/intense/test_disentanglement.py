@@ -454,11 +454,11 @@ def test_get_disentanglement_summary_redundant():
     assert pair["feat1_primary"] == 3.5 / 5 * 100  # 70%
     assert pair["feat2_primary"] == 1.5 / 5 * 100  # 30%
 
-    # With the current formula:
-    # n_undistinguishable = (3.5 + 1.5 - 5) * 2 = 0
-    # n_redundant = 5 - 0 = 5
-    assert pair["undistinguishable_pct"] == 0.0
-    assert pair["redundant_pct"] == 100.0
+    # With the corrected formula:
+    # Fractional parts: 0.5 each, so n_undistinguishable = 0.5 * 2 = 1
+    # n_redundant = 5 - 1 = 4
+    assert pair["undistinguishable_pct"] == 20.0  # 1 out of 5
+    assert pair["redundant_pct"] == 80.0  # 4 out of 5
 
 
 # Edge case tests

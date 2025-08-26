@@ -577,7 +577,7 @@ class TestEpsilonGraph:
         g_params = {
             "g_method_name": "eps",
             "eps": 6.0,  # Larger radius to connect clusters (distance between clusters is ~5)
-            "eps_min": 0.001,  # Lower minimum density requirement
+            "min_density": 0.001,  # Lower minimum density requirement
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.5,
@@ -602,7 +602,7 @@ class TestEpsilonGraph:
         g_params = {
             "g_method_name": "eps",
             "eps": 6.0,  # Larger radius to connect clusters
-            "eps_min": 0.001,
+            "min_density": 0.001,
             "weighted": True,
             "dist_to_aff": "hk",  # Heat kernel affinities
             "max_deleted_nodes": 0.5,
@@ -626,7 +626,7 @@ class TestEpsilonGraph:
         g_params = {
             "g_method_name": "eps",
             "eps": 0.1,  # Very small radius
-            "eps_min": 0.1,  # High minimum density requirement
+            "min_density": 0.1,  # High minimum density requirement
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.5,
@@ -641,7 +641,7 @@ class TestEpsilonGraph:
         g_params = {
             "g_method_name": "eps",
             "eps": 100.0,  # Very large radius
-            "eps_min": 0.01,
+            "min_density": 0.01,
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.5,
@@ -666,7 +666,7 @@ class TestEpsilonGraph:
             g_params = {
                 "g_method_name": "eps",
                 "eps": 8.0,  # Larger for manhattan/chebyshev metrics
-                "eps_min": 0.001,
+                "min_density": 0.001,
                 "weighted": False,
                 "dist_to_aff": None,
                 "max_deleted_nodes": 0.5,
@@ -709,79 +709,6 @@ class TestGraphMethods:
         # Values should be non-negative (trace of adjacency powers)
         assert all(d >= 0 for d in diagsums)
 
-    def test_calculate_indim_fast_mode(self):
-        """Test internal dimension calculation in fast mode"""
-        # Create data with known intrinsic dimension
-        np.random.seed(42)
-        # 2D manifold in 5D space
-        n_points = 100
-        basis = np.random.randn(5, 2)
-        basis = np.linalg.qr(basis)[0]  # Orthonormalize
-        coeffs = np.random.randn(n_points, 2)
-        data = (coeffs @ basis.T).T
-
-        m_params = {"metric_name": "euclidean", "sigma": 1.0}
-        g_params = {
-            "g_method_name": "knn",
-            "nn": 10,
-            "weighted": True,
-            "dist_to_aff": "hk",
-            "max_deleted_nodes": 0.5,
-        }
-
-        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
-
-        # Calculate dimension in fast mode
-        dmin, dpr = graph.calculate_indim(mode="fast", factor=2)
-
-        # Should return reasonable estimates
-        assert isinstance(dmin, float)
-        assert isinstance(dpr, float)
-        assert 0 < dmin < 10
-        assert 0 < dpr < 10
-
-    def test_calculate_indim_full_mode(self):
-        """Test internal dimension calculation in full mode"""
-        # Small dataset for full mode
-        np.random.seed(42)
-        data = np.random.randn(3, 50)
-
-        m_params = {"metric_name": "euclidean", "sigma": 1.0}
-        g_params = {
-            "g_method_name": "knn",
-            "nn": 5,
-            "weighted": True,
-            "dist_to_aff": "hk",
-            "max_deleted_nodes": 0.5,
-        }
-
-        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
-
-        # Calculate dimension in full mode
-        dmin, dpr = graph.calculate_indim(mode="full")
-
-        # Should return estimates
-        assert isinstance(dmin, float)
-        assert isinstance(dpr, float)
-
-    def test_calculate_indim_wrong_method_error(self):
-        """Test error for wrong graph method in calculate_indim"""
-        np.random.seed(42)
-        data = np.random.randn(3, 30)
-
-        m_params = {"metric_name": "euclidean", "sigma": 1.0}
-        g_params = {
-            "g_method_name": "auto_knn",  # This method doesn't support indim calculation
-            "nn": 5,
-            "weighted": False,
-            "dist_to_aff": None,
-            "max_deleted_nodes": 0.5,
-        }
-
-        graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
-
-        with pytest.raises(Exception, match="Distance matrix construction missed"):
-            graph.calculate_indim(mode="fast")
 
     def test_custom_metric_function(self):
         """Test graph construction with custom metric function"""
@@ -893,7 +820,7 @@ class TestGraphMethods:
         g_params = {
             "g_method_name": "eps",
             "eps": 2.0,
-            "eps_min": 0.001,
+            "min_density": 0.001,
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.5,

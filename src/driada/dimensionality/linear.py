@@ -7,6 +7,7 @@ such as Principal Component Analysis (PCA).
 
 import numpy as np
 from sklearn.decomposition import PCA
+from scipy.stats import entropy
 
 
 def pca_dimension(data, threshold=0.95, standardize=True):
@@ -46,12 +47,14 @@ def pca_dimension(data, threshold=0.95, standardize=True):
     Examples
     --------
     >>> import numpy as np
-    >>> from driada.dimensionality.linear import pca_dimension
+    >>> from driada.dimensionality import pca_dimension
     >>> # Generate data with 3 effective dimensions
     >>> data = np.random.randn(1000, 10)
     >>> data[:, 3:] *= 0.1  # Make dimensions 4-10 have small variance
     >>> n_dim = pca_dimension(data, threshold=0.95)
     >>> print(f"Number of components for 95% variance: {n_dim}")
+    
+    DOC_VERIFIED
     """
     if not 0 < threshold <= 1:
         raise ValueError(f"threshold must be between 0 and 1, got {threshold}")
@@ -122,6 +125,8 @@ def pca_dimension_profile(data, thresholds=None, standardize=True):
     >>> profile = pca_dimension_profile(data)
     >>> for thresh, n_comp in zip(profile['thresholds'], profile['n_components']):
     ...     print(f"{thresh*100:.0f}% variance: {n_comp} components")
+    
+    DOC_VERIFIED
     """
     if thresholds is None:
         thresholds = np.array([0.5, 0.8, 0.9, 0.95, 0.99])
@@ -189,9 +194,18 @@ def effective_rank(data, standardize=True):
     Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
     effective dimensionality. In 2007 15th European Signal Processing
     Conference (pp. 606-610). IEEE.
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.dimensionality import effective_rank
+    >>> # Full rank matrix
+    >>> data = np.random.randn(100, 10)
+    >>> eff_r = effective_rank(data)
+    >>> print(f"Effective rank: {eff_r:.2f}")
+    
+    DOC_VERIFIED
     """
-    from scipy.stats import entropy
-
     data = np.asarray(data)
 
     # Standardize if requested
@@ -205,9 +219,16 @@ def effective_rank(data, standardize=True):
 
     # Compute singular values
     _, s, _ = np.linalg.svd(data_standardized, full_matrices=False)
+    
+    # Remove negligible singular values to avoid numerical issues
+    tolerance = np.finfo(float).eps * max(data.shape) * s[0] if len(s) > 0 else 0
+    s_positive = s[s > tolerance]
+    
+    if len(s_positive) == 0:
+        return 1.0  # Degenerate case
 
     # Normalize to get probability distribution
-    s_normalized = s / np.sum(s)
+    s_normalized = s_positive / np.sum(s_positive)
 
     # Compute entropy (base e)
     ent = entropy(s_normalized)

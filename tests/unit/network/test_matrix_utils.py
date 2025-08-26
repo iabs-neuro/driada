@@ -149,10 +149,52 @@ class TestMatrixUtilsBranching:
         assert get_symmetry_index(simple_graph_adj) == 1.0
         assert get_symmetry_index(sp.csr_matrix(simple_graph_adj)) == 1.0
         
-        # Asymmetric matrix
-        asym_adj = np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]])
-        assert get_symmetry_index(asym_adj) < 1.0
-        assert get_symmetry_index(sp.csr_matrix(asym_adj)) < 1.0
+        # Completely asymmetric matrix (directed cycle)
+        asym_adj = np.array([
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+            [1, 0, 0, 0]
+        ])
+        assert get_symmetry_index(asym_adj) == 0.0
+        assert get_symmetry_index(sp.csr_matrix(asym_adj)) == 0.0
+        
+        # Partially symmetric matrix
+        partial_adj = np.array([
+            [0, 1, 1, 0],
+            [1, 0, 0, 1],
+            [0, 0, 0, 1],
+            [0, 1, 1, 0]
+        ])
+        # 6 edges have symmetric counterpart out of 7 total edges
+        expected = 6.0 / 7.0
+        assert abs(get_symmetry_index(partial_adj) - expected) < 1e-10
+        assert abs(get_symmetry_index(sp.csr_matrix(partial_adj)) - expected) < 1e-10
+        
+        # Matrix with diagonal elements
+        diag_adj = np.array([
+            [1, 1, 0],
+            [1, 0, 1],
+            [0, 0, 1]
+        ])
+        # 4 edges have counterpart (including self-loops) out of 5 total
+        expected_diag = 4.0 / 5.0
+        assert abs(get_symmetry_index(diag_adj) - expected_diag) < 1e-10
+        
+        # Empty matrix (no edges) - considered fully symmetric
+        empty_adj = np.zeros((5, 5))
+        assert get_symmetry_index(empty_adj) == 1.0
+        assert get_symmetry_index(sp.csr_matrix(empty_adj)) == 1.0
+        
+        # Upper triangular matrix (no symmetric edges)
+        upper_adj = np.array([
+            [0, 1, 1, 1],
+            [0, 0, 1, 1],
+            [0, 0, 0, 1],
+            [0, 0, 0, 0]
+        ])
+        assert get_symmetry_index(upper_adj) == 0.0
+        assert get_symmetry_index(sp.csr_matrix(upper_adj)) == 0.0
     
     def test_isolated_nodes_handling(self):
         """Test functions handle isolated nodes correctly."""

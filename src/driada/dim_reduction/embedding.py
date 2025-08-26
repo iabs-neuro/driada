@@ -26,8 +26,142 @@ from ..network.matrix_utils import get_inv_sqrt_diag_matrix
 
 
 class Embedding:
-    """
-    Low-dimensional representation of data
+    """Low-dimensional representation of high-dimensional data.
+    
+    This is an internal class typically created by MVData.get_embedding().
+    It provides a unified interface for various dimensionality reduction methods
+    including linear (PCA), non-linear manifold learning (Isomap, LLE, UMAP),
+    spectral methods (Laplacian Eigenmaps, Diffusion Maps), and neural
+    network-based approaches (autoencoders, VAEs).
+    
+    Parameters
+    ----------
+    init_data : ndarray
+        Input data matrix of shape (n_features, n_samples).
+    init_distmat : ndarray or None
+        Precomputed distance matrix of shape (n_samples, n_samples).
+        Used by methods like MDS when available.
+    labels : array-like
+        Labels for data points, used for visualization and evaluation.
+    params : dict
+        Filtered embedding parameters from e_param_filter(). Must contain:
+        - 'e_method' : DRMethod object from METHODS_DICT
+        - 'e_method_name' : str, method name (e.g., 'pca', 'umap')
+        - 'dim' : int, target embedding dimension
+        May also contain method-specific keys:
+        - 'min_dist' : float, for UMAP only
+        - 'dm_alpha' : float, for dmaps/auto_dmaps only
+        - 'dm_t' : int, for dmaps/auto_dmaps only
+    g : ProximityGraph, optional
+        Precomputed proximity graph. Required for graph-based methods
+        (LE, Isomap, LLE, etc.). If None, must be created before building.
+        
+    Attributes
+    ----------
+    graph : ProximityGraph
+        The proximity graph used by graph-based methods.
+    coords : ndarray or None
+        Embedding coordinates of shape (dim, n_samples). None until build() is called.
+    labels : array-like
+        Data point labels.
+    nclasses : int
+        Number of unique classes in labels.
+    init_data : ndarray
+        Original high-dimensional data.
+    init_distmat : ndarray or None
+        Precomputed distance matrix if provided.
+    all_params : dict
+        Filtered parameters from e_param_filter.
+    transformation_matrix : ndarray or None
+        For linear methods (PCA), the transformation matrix to project new data.
+    nnmodel : nn.Module or None
+        For neural network methods, the trained model.
+    nn_loss : float or None
+        For neural network methods, the final loss value.
+    reducer_ : object
+        The underlying reducer object (sklearn model, etc.) for potential reuse.
+        
+    Plus all parameters from params dict set as attributes via setattr.
+        
+    Methods
+    -------
+    build(kwargs=None)
+        Build the embedding using the specified method.
+    create_pca_embedding_(verbose=True)
+        Linear projection via Principal Component Analysis.
+    create_mds_embedding_()
+        Classical multidimensional scaling preserving distances.
+    create_isomap_embedding_()
+        Non-linear embedding preserving geodesic distances.
+    create_lle_embedding_()
+        Locally Linear Embedding assuming local linearity.
+    create_hlle_embedding_()
+        Hessian LLE with better curvature preservation.
+    create_mvu_embedding_()
+        Maximum Variance Unfolding via semidefinite programming.
+    create_le_embedding_()
+        Laplacian Eigenmaps using graph spectral decomposition.
+    create_auto_le_embedding_()
+        Laplacian Eigenmaps using sklearn implementation.
+    create_dmaps_embedding_()
+        Diffusion Maps with manual implementation.
+    create_auto_dmaps_embedding_()
+        Diffusion Maps using pydiffmap library.
+    create_tsne_embedding_()
+        t-SNE for visualization with local structure preservation.
+    create_umap_embedding_()
+        UMAP balancing local and global structure.
+    create_ae_embedding_(**kwargs)
+        Autoencoder with optional correlation/MI losses (deprecated).
+    create_vae_embedding_(**kwargs)
+        Variational autoencoder (deprecated).
+    create_flexible_ae_embedding_(**kwargs)
+        Flexible autoencoder with modular loss composition.
+    continue_learning(add_epochs, kwargs={})
+        Continue training neural network models.
+    to_mvdata()
+        Convert embedding to MVData for further processing.
+        
+    Notes
+    -----
+    - Graph-based methods require a ProximityGraph to be provided or created
+    - Neural methods (AE/VAE) require PyTorch to be installed
+    - Some methods (MVU) require additional dependencies (cvxpy)
+    - Coordinates are stored as (dim, n_samples) for consistency
+    - The 'auto_' prefix indicates methods using external libraries
+    
+    Examples
+    --------
+    Direct instantiation (internal use):
+    
+    >>> from driada.dim_reduction.dr_base import METHODS_DICT
+    >>> import numpy as np
+    >>> data = np.random.randn(100, 1000)  # 100 features, 1000 samples
+    >>> labels = np.random.randint(0, 3, 1000)
+    >>> # Parameters after e_param_filter
+    >>> params = {
+    ...     'e_method': METHODS_DICT['pca'],
+    ...     'e_method_name': 'pca',
+    ...     'dim': 2
+    ... }
+    >>> embedding = Embedding(data, None, labels, params)
+    >>> embedding.build()
+    >>> print(embedding.coords.shape)  # (2, 1000)
+    
+    Typical usage via MVData (recommended):
+    
+    >>> from driada.dim_reduction.data import MVData
+    >>> mvdata = MVData(data, labels=labels)
+    >>> # PCA embedding
+    >>> embedding = mvdata.get_embedding(method='pca', dim=2)
+    >>> print(embedding.coords.shape)  # (2, 1000)
+    >>> # UMAP with custom parameters
+    >>> embedding = mvdata.get_embedding(
+    ...     method='umap', 
+    ...     dim=2,
+    ...     n_neighbors=15,
+    ...     min_dist=0.1
+    ... )
     """
 
     def __init__(self, init_data, init_distmat, labels, params, g=None):
@@ -758,7 +892,7 @@ class Embedding:
 
         for epoch in range(epochs):
             loss = 0
-            for batch_features, _, indices in train_loader:
+            for batch_features, indices in train_loader:
                 batch_features = batch_features.to(device)
                 # reset the gradients back to zero
                 # PyTorch accumulates gradients on subsequent backward passes
@@ -841,7 +975,7 @@ class Embedding:
 
                 # compute loss on test part
                 tloss = 0
-                for batch_features, _, indices in test_loader:
+                for batch_features, indices in test_loader:
                     batch_features = batch_features.to(device)
                     # compute reconstructions
                     noisy_batch_features = (
@@ -1019,7 +1153,7 @@ class Embedding:
             loss = 0
             loss1 = 0
             loss2 = 0
-            for batch_features, _, _ in train_loader:  # NeuroDataset returns 3 values
+            for batch_features, indices in train_loader:  # NeuroDataset returns (sample, idx)
                 batch_features = batch_features.to(device)
                 # reset the gradients back to zero
                 # PyTorch accumulates gradients on subsequent backward passes
@@ -1061,11 +1195,7 @@ class Embedding:
             if (epoch + 1) % log_every == 0:
                 # compute loss on test part
                 tloss = 0
-                for (
-                    batch_features,
-                    _,
-                    _,
-                ) in test_loader:  # NeuroDataset returns 3 values
+                for batch_features, indices in test_loader:  # NeuroDataset returns (sample, idx)
                     data = (
                         f_dropout(torch.ones(batch_features.shape).to(device))
                         * batch_features
@@ -1329,7 +1459,7 @@ class Embedding:
             model.train()
             train_losses = []
             
-            for batch_features, _, indices in train_loader:
+            for batch_features, indices in train_loader:
                 batch_features = batch_features.to(device)
                 optimizer.zero_grad()
                 
@@ -1360,7 +1490,7 @@ class Embedding:
                 test_losses = []
                 
                 with torch.no_grad():
-                    for batch_features, _, indices in test_loader:
+                    for batch_features, indices in test_loader:
                         batch_features = batch_features.to(device)
                         
                         # Apply feature dropout for consistency

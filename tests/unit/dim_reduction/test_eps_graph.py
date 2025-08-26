@@ -17,7 +17,7 @@ class TestEpsGraph:
         g_params = {
             "g_method_name": "eps",
             "eps": 1.0,
-            "eps_min": 0.01,
+            "min_density": 0.01,
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.5,
@@ -40,7 +40,7 @@ class TestEpsGraph:
         g_params = {
             "g_method_name": "eps",
             "eps": 1.5,
-            "eps_min": 0.01,
+            "min_density": 0.01,
             "weighted": True,
             "dist_to_aff": "hk",
             "max_deleted_nodes": 0.5,
@@ -65,7 +65,7 @@ class TestEpsGraph:
         g_params = {
             "g_method_name": "eps",
             "eps": 0.01,  # Very small epsilon
-            "eps_min": 0.1,  # High minimum density
+            "min_density": 0.1,  # High minimum density
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.5,
@@ -84,7 +84,7 @@ class TestEpsGraph:
             g_params = {
                 "g_method_name": "eps",
                 "eps": 1.0 if metric == "manhattan" else 0.5,
-                "eps_min": 0.01,
+                "min_density": 0.01,
                 "weighted": False,
                 "dist_to_aff": None,
                 "max_deleted_nodes": 0.5,
@@ -104,7 +104,7 @@ class TestEpsGraph:
         g_params = {
             "g_method_name": "eps",
             "eps": 2.0,  # Large epsilon for dense graph
-            "eps_min": 0.01,
+            "min_density": 0.01,
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.9,  # High tolerance for dense graph

@@ -308,24 +308,3 @@ def test_get_proximity_graph_unknown_method():
 
     with pytest.raises(Exception, match="Unknown graph construction method"):
         mvdata.get_proximity_graph(m_params, g_params)
-
-
-@patch("matplotlib.pyplot.matshow")
-def test_draw_vector(mock_matshow):
-    """Test draw_vector visualization."""
-    mvdata = MVData(np.random.rand(10, 20))
-    mvdata.draw_vector(5)
-
-    # Should call matshow twice
-    assert mock_matshow.call_count == 2
-
-
-@patch("matplotlib.pyplot.figure")
-@patch("matplotlib.pyplot.plot")
-def test_draw_row(mock_plot, mock_figure):
-    """Test draw_row visualization."""
-    mvdata = MVData(np.random.rand(10, 20))
-    mvdata.draw_row(3)
-
-    mock_figure.assert_called_once_with(figsize=(12, 10))
-    mock_plot.assert_called_once()

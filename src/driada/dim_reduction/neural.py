@@ -99,7 +99,43 @@ class Encoder(nn.Module):
 
 
 class VAEEncoder(nn.Module):
-    """Special encoder for VAE that doesn't use sigmoid activation"""
+    """Variational encoder that outputs parameters for latent Gaussian distribution.
+    
+    Unlike standard autoencoders, VAE encoders output parameters (mean and log variance)
+    for a Gaussian distribution in the latent space, enabling probabilistic sampling
+    and regularization via KL divergence.
+    
+    Parameters
+    ----------
+    orig_dim : int
+        Original input dimension (number of features).
+    inter_dim : int
+        Intermediate hidden layer dimension.
+    code_dim : int
+        Latent space dimension. The encoder outputs 2*code_dim values:
+        first code_dim for means, next code_dim for log variances.
+    kwargs : dict
+        Additional parameters:
+        - dropout : float, optional
+            Dropout rate (0 to 1). Default is no dropout.
+    device : torch.device, optional
+        Device to run the model on. Defaults to CUDA if available, else CPU.
+        
+    Attributes
+    ----------
+    encoder_hidden_layer : nn.Linear
+        First linear transformation layer.
+    encoder_output_layer : nn.Linear
+        Second linear transformation to latent parameters.
+    dropout : nn.Dropout
+        Dropout layer for regularization.
+        
+    Notes
+    -----
+    The output layer does not use sigmoid activation (unlike standard AE)
+    because it needs to output unconstrained means and log variances for
+    the Gaussian distribution.
+    """
 
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
         super().__init__()
@@ -519,10 +555,28 @@ class VAE(nn.Module):
 
 
 class NeuroDataset(Dataset):
-    """Neural activity dataset."""
+    """PyTorch Dataset wrapper for neural activity data.
+    
+    Wraps neural data matrices for use with PyTorch DataLoader, enabling
+    efficient batching and sampling during neural network training.
+    
+    Parameters
+    ----------
+    data : ndarray
+        Input data matrix of shape (n_features, n_samples). Will be transposed
+        internally to (n_samples, n_features) for PyTorch compatibility.
+    transform : callable, optional
+        Optional transform to be applied on each sample.
+        
+    Attributes
+    ----------
+    data : ndarray
+        Transposed data matrix of shape (n_samples, n_features).
+    transform : callable or None
+        Transform function to apply to samples.
+    """
 
     def __init__(self, data, transform=None):
-
         self.data = data.T
         self.transform = transform
 
@@ -532,11 +586,11 @@ class NeuroDataset(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-
-        sample = {"vector": self.data[idx].reshape(-1, 1), "target": 0}
-
+        
+        sample = self.data[idx]
+        
         if self.transform:
             sample = self.transform(sample)
-
-        return self.data[idx], -42, idx
-        # return sample
+            
+        # Return sample and index (standard pattern)
+        return sample, idx

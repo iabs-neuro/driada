@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.sparse as sp
 
 from .dr_base import (
@@ -26,7 +25,9 @@ def check_data_for_errors(d, verbose=True):
     Raises
     ------
     ValueError
-        If data contains columns with all zeros
+        If data contains columns with all zeros.
+    
+    DOC_VERIFIED
     """
     # Handle both dense and sparse matrices
     if sp.issparse(d):
@@ -59,7 +60,12 @@ def check_data_for_errors(d, verbose=True):
 
 class MVData(object):
     """
-    Main class for multivariate data storage & processing
+    Main class for multivariate data storage & processing.
+    
+    This class encapsulates multivariate data and provides methods for
+    preprocessing, distance computation, graph construction, and embedding
+    generation. Data is stored as a matrix with features as rows and
+    samples as columns.
     
     Parameters
     ----------
@@ -80,6 +86,43 @@ class MVData(object):
     allow_zero_columns : bool, default=False
         Whether to allow columns with all zero values. If False, raises ValueError
         when zero columns are detected.
+        
+    DOC_VERIFIED
+        
+    Attributes
+    ----------
+    data : np.ndarray
+        Processed data matrix with shape (n_features, n_samples).
+    labels : np.ndarray
+        Labels for each sample.
+    distmat : np.ndarray or None
+        Distance matrix if provided.
+    n_dim : int
+        Number of features (rows).
+    n_points : int
+        Number of samples (columns).
+    ds : int
+        Downsampling factor.
+    rescale_rows : bool
+        Whether rows were rescaled.
+    data_name : str or None
+        Name of the dataset.
+    verbose : bool
+        Verbosity flag.
+        
+    Raises
+    ------
+    ValueError
+        If data contains zero columns and allow_zero_columns=False.
+        From rescale() if rescale_rows=True and data format is invalid.
+        
+    Notes
+    -----
+    - Data is downsampled by taking every ds-th column
+    - If rescale_rows=True, each row is rescaled to [0,1] range
+    - Labels default to zeros if not provided
+    
+    DOC_VERIFIED
     """
 
     def __init__(
@@ -125,6 +168,35 @@ class MVData(object):
         self.distmat = distmat
 
     def median_filter(self, window):
+        """Apply median filter to each row of the data.
+        
+        Median filtering is useful for removing impulse noise while
+        preserving edges in the signal. Operates row-wise on the data.
+        
+        Parameters
+        ----------
+        window : int or array-like
+            Size of the median filter window. If int, uses a window of
+            that size. Must be odd. See scipy.signal.medfilt documentation
+            for valid window specifications.
+            
+        Raises
+        ------
+        ValueError
+            From scipy.signal.medfilt if window size is invalid.
+        ImportError
+            If scipy.signal is not available.
+            
+        Notes
+        -----
+        - Modifies self.data in-place
+        - Handles both sparse and dense matrices appropriately
+        - For sparse matrices, converts to dense for filtering then back to sparse
+        - Warning: Converting large sparse matrices to dense may cause memory issues
+        - The window parameter is passed directly to scipy.signal.medfilt
+        
+        DOC_VERIFIED
+        """
         from scipy.signal import medfilt
 
         # Handle both sparse and dense data
@@ -155,6 +227,8 @@ class MVData(object):
         -------
         np.ndarray
             Correlation matrix
+            
+        DOC_VERIFIED
         """
         if axis == 0:
             cm = correlation_matrix(self.data)
@@ -177,6 +251,21 @@ class MVData(object):
         -------
         np.ndarray
             Distance matrix of shape (n_samples, n_samples)
+            
+        Raises
+        ------
+        ValueError
+            If metric name is invalid or metric parameters are incompatible.
+        MemoryError
+            If dataset is too large for pairwise distance computation.
+            
+        Notes
+        -----
+        - The metric 'l2' is automatically converted to 'euclidean' for scipy compatibility
+        - Distances are computed on transposed data (between columns/samples)
+        - Result is stored in self.distmat
+        
+        DOC_VERIFIED
         """
         from scipy.spatial.distance import pdist, squareform
 
@@ -243,6 +332,16 @@ class MVData(object):
         Embedding
             The computed embedding
 
+        Raises
+        ------
+        ValueError
+            If neither 'method' nor 'e_params' is provided.
+            If method requires proximity graph but g_params not provided.
+            If method requires weights but m_params not provided.
+        Exception
+            If embedding method is unknown.
+            If method requires distance matrix but none available.
+            
         Examples
         --------
         # Legacy format (still supported)
@@ -251,6 +350,8 @@ class MVData(object):
         # New simplified format
         >>> emb = mvdata.get_embedding(method='pca', dim=3)
         >>> emb = mvdata.get_embedding(method='umap', n_components=2, n_neighbors=30)
+        
+        DOC_VERIFIED
         """
         # Handle new simplified API
         if method is not None:
@@ -340,19 +441,38 @@ class MVData(object):
         return emb
 
     def get_proximity_graph(self, m_params, g_params):
+        """Construct proximity graph from the data.
+        
+        Creates a graph where nodes are data points and edges connect
+        nearby points according to the specified method.
+        
+        Parameters
+        ----------
+        m_params : dict
+            Metric parameters including 'metric_name' and metric-specific params.
+        g_params : dict
+            Graph construction parameters including 'g_method_name' and
+            method-specific params (e.g., 'nn' for k-NN graphs).
+            
+        Returns
+        -------
+        ProximityGraph
+            Graph object capturing local neighborhood structure.
+            
+        Raises
+        ------
+        Exception
+            If g_method_name is not in GRAPH_CONSTRUCTION_METHODS.
+            
+        See Also
+        --------
+        ProximityGraph : The graph construction class.
+        
+        DOC_VERIFIED
+        """
         if g_params["g_method_name"] not in GRAPH_CONSTRUCTION_METHODS:
             raise Exception("Unknown graph construction method!")
 
         graph = ProximityGraph(self.data, m_params, g_params, verbose=self.verbose)
         # print('Graph succesfully constructed')
         return graph
-
-    def draw_vector(self, num):
-        data = self.data[:, num]
-        plt.matshow(data.reshape(1, self.n_dim))
-        plt.matshow(self.data)
-
-    def draw_row(self, num):
-        data = self.data[num, :]
-        plt.figure(figsize=(12, 10))
-        plt.plot(data)

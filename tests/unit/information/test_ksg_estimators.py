@@ -8,7 +8,6 @@ from driada.information.ksg import (
     nonparam_mi_cc,
     nonparam_mi_cd,
     nonparam_mi_dc,
-    nonparam_mi_dd,
     lnc_correction,
     build_tree,
 )
@@ -427,54 +426,6 @@ class TestKSGMixedType:
         
         # Should be equal (or very close due to numerical precision)
         assert abs(mi_dc - mi_cd) < 1e-9
-        
-    def test_nonparam_mi_dd_basic(self):
-        """Test MI between two discrete variables."""
-        np.random.seed(42)
-        n_samples = 1000
-        
-        # Create correlated discrete variables
-        x_discrete = np.random.randint(0, 3, n_samples)
-        y_discrete = x_discrete.copy()
-        # Add some noise
-        mask = np.random.rand(n_samples) < 0.3
-        y_discrete[mask] = np.random.randint(0, 3, np.sum(mask))
-        
-        mi = nonparam_mi_dd(x_discrete, y_discrete)
-        
-        # MI should be positive for correlated variables
-        assert mi > 0
-        assert mi < np.log(3)  # Upper bound is log(number of states)
-        
-    def test_nonparam_mi_dd_perfect_correlation(self):
-        """Test MI for perfectly correlated discrete variables."""
-        np.random.seed(42)
-        n_samples = 1000
-        
-        # Create perfectly correlated variables
-        x_discrete = np.random.randint(0, 4, n_samples)
-        y_discrete = x_discrete.copy()
-        
-        mi = nonparam_mi_dd(x_discrete, y_discrete)
-        
-        # MI should equal entropy for perfect correlation
-        # H(X) = H(Y) = log(4) for uniform distribution
-        expected_mi = np.log(4)
-        assert abs(mi - expected_mi) < 0.1
-        
-    def test_nonparam_mi_dd_independent(self):
-        """Test MI for independent discrete variables."""
-        np.random.seed(42)
-        n_samples = 1000
-        
-        # Create independent variables
-        x_discrete = np.random.randint(0, 3, n_samples)
-        y_discrete = np.random.randint(0, 4, n_samples)
-        
-        mi = nonparam_mi_dd(x_discrete, y_discrete)
-        
-        # MI should be close to 0 for independent variables
-        assert mi < 0.05
         
     def test_comparison_with_gcmi(self):
         """Compare KSG estimator with GCMI for mixed types."""

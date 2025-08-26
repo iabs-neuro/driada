@@ -54,19 +54,52 @@ def generate_pseudo_calcium_signal(
     decay_time=2,
     noise_std=0.1,
 ):
-    """
-    Generate a pseudo-calcium imaging signal with noise.
-
-    Parameters:
-    - duration: Total duration of the signal in seconds.
-    - sampling_rate: Sampling rate in Hz.
-    - event_rate: Average rate of calcium events per second.
-    - amplitude_range: Tuple of (min, max) for the amplitude of calcium events.
-    - decay_time: Time constant for the decay of calcium events in seconds.
-    - noise_std: Standard deviation of the Gaussian noise to be added.
-
-    Returns:
-    - signal: Numpy array representing the pseudo-calcium signal.
+    """Generate a pseudo-calcium imaging signal with noise.
+    
+    Creates a synthetic calcium fluorescence signal that mimics GCaMP-like
+    dynamics with exponential decay, random event amplitudes, and Gaussian noise.
+    
+    Parameters
+    ----------
+    events : ndarray or None, optional
+        Binary array indicating event occurrences at each time point. 
+        If None, events are generated randomly using a Poisson process.
+    duration : float, default=600
+        Total duration of the signal in seconds. Only used if events is None.
+    sampling_rate : float, default=20.0
+        Sampling rate in Hz.
+    event_rate : float, default=0.2
+        Average rate of calcium events per second. Only used if events is None.
+    amplitude_range : tuple of float, default=(0.5, 2)
+        (min, max) range for random calcium event amplitudes.
+    decay_time : float, default=2
+        Time constant for exponential decay of calcium events in seconds.
+        Typical GCaMP indicators have decay times of 1-2 seconds.
+    noise_std : float, default=0.1
+        Standard deviation of additive Gaussian noise.
+        
+    Returns
+    -------
+    ndarray
+        1D array representing the pseudo-calcium signal with shape (n_samples,).
+        
+    Notes
+    -----
+    The calcium signal is modeled as a sum of exponentially decaying transients
+    triggered at event times, plus additive Gaussian noise. This approximates
+    the dynamics of genetically encoded calcium indicators like GCaMP6.
+    
+    Examples
+    --------
+    >>> # Generate random calcium signal
+    >>> signal = generate_pseudo_calcium_signal(duration=100, event_rate=0.5)
+    >>> signal.shape
+    (2000,)  # 100 seconds * 20 Hz
+    
+    >>> # Generate from specific spike times
+    >>> spikes = np.zeros(1000)
+    >>> spikes[[100, 200, 300]] = 1  # 3 spike events
+    >>> signal = generate_pseudo_calcium_signal(events=spikes)
     """
 
     if events is None:

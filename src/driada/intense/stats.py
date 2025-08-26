@@ -11,7 +11,7 @@ def chebyshev_ineq(data, val):
     Parameters
     ----------
     data : array-like
-        Sample data to estimate mean and std from.
+        Sample data to estimate mean and std from. Must have non-zero variance.
     val : float
         Value to compute tail probability for.
 
@@ -19,8 +19,26 @@ def chebyshev_ineq(data, val):
     -------
     p_bound : float
         Upper bound on P(X >= val) based on Chebyshev's inequality.
+        
+    Raises
+    ------
+    ValueError
+        If data has zero variance (all values are identical).
+        
+    Notes
+    -----
+    Chebyshev's inequality states that P(|X - μ| >= k*σ) <= 1/k²
+    This gives P(X >= val) <= 1/z² where z = (val - μ)/σ
+    
+    DOC_VERIFIED
     """
-    z = (val - np.mean(data)) / np.std(data)
+    mean = np.mean(data)
+    std = np.std(data)
+    
+    if std == 0:
+        raise ValueError("Cannot apply Chebyshev's inequality to data with zero variance")
+    
+    z = (val - mean) / std
     return 1.0 / z**2
 
 
@@ -32,6 +50,7 @@ def get_lognormal_p(data, val):
     ----------
     data : array-like
         Sample data to fit log-normal distribution.
+        Must contain positive values.
     val : float
         Observed value to compute p-value for.
 
@@ -39,7 +58,23 @@ def get_lognormal_p(data, val):
     -------
     p_value : float
         P(X >= val) under fitted log-normal distribution.
+        
+    Raises
+    ------
+    ValueError
+        If data contains non-positive values.
+        
+    Notes
+    -----
+    Fits log-normal distribution with floc=0 (zero lower bound).
+    Log-normal distribution is suitable for positive-valued data.
+    
+    DOC_VERIFIED
     """
+    data = np.asarray(data)
+    if np.any(data <= 0):
+        raise ValueError("Data must contain only positive values for log-normal distribution")
+    
     params = lognorm.fit(data, floc=0)
     rv = lognorm(*params)
     return rv.sf(val)
@@ -53,6 +88,7 @@ def get_gamma_p(data, val):
     ----------
     data : array-like
         Sample data to fit gamma distribution.
+        Must contain positive values.
     val : float
         Observed value to compute p-value for.
 
@@ -60,7 +96,23 @@ def get_gamma_p(data, val):
     -------
     p_value : float
         P(X >= val) under fitted gamma distribution.
+        
+    Raises
+    ------
+    ValueError
+        If data contains non-positive values.
+        
+    Notes
+    -----
+    Fits gamma distribution with floc=0 (zero lower bound).
+    Gamma distribution is suitable for positive-valued data.
+    
+    DOC_VERIFIED
     """
+    data = np.asarray(data)
+    if np.any(data <= 0):
+        raise ValueError("Data must contain only positive values for gamma distribution")
+    
     params = gamma.fit(data, floc=0)
     rv = gamma(*params)
     return rv.sf(val)
@@ -84,6 +136,8 @@ def get_distribution_function(dist_name):
     ------
     ValueError
         If distribution name not found in scipy.stats.
+    
+    DOC_VERIFIED
     """
     try:
         return getattr(scipy.stats, dist_name)
@@ -108,24 +162,28 @@ def get_mi_distr_pvalue(data, val, distr_type="gamma"):
     -------
     p_value : float
         P(X >= val) under fitted distribution.
+        Returns 1.0 if distribution fitting fails.
 
     Notes
     -----
     - For 'gamma' and 'lognorm', fits with floc=0 (zero lower bound)
     - For other distributions, uses default fitting
+    - Returns conservative p-value (1.0) on fitting errors
+    
+    DOC_VERIFIED
     """
     distr = get_distribution_function(distr_type)
-    # try:
-    if distr_type in ["gamma", "lognorm"]:
-        params = distr.fit(data, floc=0)
-    else:
-        params = distr.fit(data)
-
-    rv = distr(*params)
-    return rv.sf(val)
-
-    # except: # some rare error in function fitting
-    # return 1.0
+    try:
+        if distr_type in ["gamma", "lognorm"]:
+            params = distr.fit(data, floc=0)
+        else:
+            params = distr.fit(data)
+        
+        rv = distr(*params)
+        return rv.sf(val)
+    except Exception:  # Distribution fitting can fail for various reasons
+        # Return conservative p-value on error
+        return 1.0
 
 
 def get_mask(ptable, rtable, pval_thr, rank_thr):
@@ -139,14 +197,17 @@ def get_mask(ptable, rtable, pval_thr, rank_thr):
     rtable : np.ndarray
         Array of ranks (0 to 1).
     pval_thr : float
-        P-value threshold.
+        P-value threshold. Values <= pval_thr pass.
     rank_thr : float
-        Rank threshold.
+        Rank threshold. Values >= rank_thr pass.
 
     Returns
     -------
     mask : np.ndarray
-        Binary mask: 1 where both thresholds satisfied, 0 otherwise.
+        Binary mask: 1 where both conditions satisfied 
+        (p <= pval_thr AND rank >= rank_thr), 0 otherwise.
+    
+    DOC_VERIFIED
     """
     mask = np.ones(ptable.shape)
     mask[np.where(ptable > pval_thr)] = 0
@@ -171,6 +232,13 @@ def stats_not_empty(pair_stats, current_data_hash, stage=1):
     -------
     is_valid : bool
         True if stats are valid and complete, False otherwise.
+        
+    Raises
+    ------
+    ValueError
+        If stage is not 1 or 2.
+    
+    DOC_VERIFIED
     """
     if stage == 1:
         stats_to_check = ["pre_rval", "pre_pval"]
@@ -189,24 +257,28 @@ def stats_not_empty(pair_stats, current_data_hash, stage=1):
 
 def criterion1(pair_stats, nsh1, topk=1):
     """
-    Calculates whether the given neuron-feature pair is potentially significant after preliminary shuffling
+    Check if pair passes stage 1 significance criterion.
 
     Parameters
     ----------
-    pair_stats: dict
-        dictionary of computed stats
-
-    nsh1: int
-        number of shuffles for first stage
-
-    topk: int
-        true MI should be among topk MI shuffles
-        default: 1
+    pair_stats : dict
+        Dictionary containing 'pre_rval' from stage 1 analysis.
+    nsh1 : int
+        Number of shuffles for first stage.
+    topk : int, optional
+        True MI should rank in top k among shuffles. Default: 1.
 
     Returns
     -------
-    crit_passed: bool
-        True if significance confirmed, False if not.
+    crit_passed : bool
+        True if pair's rank exceeds threshold (1 - topk/(nsh1+1)).
+        
+    Notes
+    -----
+    The criterion checks if: pre_rval > (1 - topk/(nsh1+1))
+    For topk=1 and nsh1=100, this requires pre_rval > 0.99
+    
+    DOC_VERIFIED
     """
 
     if pair_stats.get("pre_rval") is not None:
@@ -218,28 +290,32 @@ def criterion1(pair_stats, nsh1, topk=1):
 
 def criterion2(pair_stats, nsh2, pval_thr, topk=5):
     """
-    Calculates whether the given neuron-feature pair is significant after full-scale shuffling
+    Check if pair passes stage 2 significance criterion.
 
     Parameters
     ----------
-    pair_stats: dict
-        dictionary of computed stats
-
-    nsh2: int
-        number of shuffles for second stage
-
-    pval_thr: float
-        pvalue threshold for a single pair. It depends on a FWER significance level and multiple
-        hypothesis correction algorithm.
-
-    topk: int
-        true MI should be among topk MI shuffles
-        default: 5
+    pair_stats : dict
+        Dictionary containing 'rval' and 'pval' from stage 2 analysis.
+    nsh2 : int
+        Number of shuffles for second stage.
+    pval_thr : float
+        P-value threshold after multiple hypothesis correction.
+    topk : int, optional
+        True MI should rank in top k among shuffles. Default: 5.
 
     Returns
     -------
-    crit_passed: bool
-        True if significance is confirmed, False if not.
+    crit_passed : bool
+        True if both conditions met:
+        1) rval > (1 - topk/(nsh2+1))
+        2) pval < pval_thr
+        
+    Notes
+    -----
+    Both rank and p-value criteria must be satisfied.
+    Missing 'rval' or 'pval' results in False.
+    
+    DOC_VERIFIED
     """
     # whether pair passed stage 1 and has statistics from stage 2
     if pair_stats.get("rval") is not None and pair_stats.get("pval") is not None:
@@ -270,6 +346,8 @@ def get_all_nonempty_pvals(all_stats, ids1, ids2):
     -------
     all_pvals : list
         List of all non-None p-values found.
+    
+    DOC_VERIFIED
     """
     all_pvals = []
     for i, id1 in enumerate(ids1):
@@ -311,6 +389,8 @@ def get_table_of_stats(
     -------
     stage_stats : dict of dict
         Nested dictionary with computed statistics for each pair.
+    
+    DOC_VERIFIED
     """
     # 0 in mask values means that stats for this pair will not be calculated
     # 1 in mask values means that stats for this pair will be calculated from new results.
@@ -368,6 +448,8 @@ def merge_stage_stats(stage1_stats, stage2_stats):
     -------
     merged_stats : dict of dict
         Combined statistics with both stage 1 and 2 results.
+    
+    DOC_VERIFIED
     """
     merged_stats = stage2_stats.copy()
     for i in stage2_stats:
@@ -397,6 +479,8 @@ def merge_stage_significance(stage_1_significance, stage_2_significance):
     -------
     merged_significance : dict of dict
         Combined significance results.
+    
+    DOC_VERIFIED
     """
     merged_significance = stage_2_significance.copy()
     for i in stage_2_significance:

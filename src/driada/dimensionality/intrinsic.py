@@ -71,6 +71,13 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     >>> data = np.column_stack([x, y] + [np.random.randn(1000)*0.01 for _ in range(8)])
     >>> d_est = nn_dimension(data, k=2)
     >>> print(f"Estimated dimension: {d_est:.2f}")  # Should be close to 2
+    
+    Raises
+    ------
+    ValueError
+        If inputs are invalid, sample size too small, or duplicate points exist.
+        
+    DOC_VERIFIED
     """
     # Validate inputs
     if data is None and precomputed_graph is None:
@@ -133,7 +140,16 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     ratios = np.zeros((k - 1, n_samples))
     for i in range(k - 1):
         # Ratio of (i+2)-th neighbor distance to (i+1)-th neighbor distance
-        ratios[i, :] = distances[:, i + 2] / distances[:, i + 1]
+        # Check for zero distances to avoid division by zero
+        denom = distances[:, i + 1]
+        if np.any(denom == 0):
+            n_zero = np.sum(denom == 0)
+            raise ValueError(
+                f"Found {n_zero} zero distances to {i+1}-th nearest neighbor. "
+                "This typically indicates duplicate points in the dataset. "
+                "Consider removing duplicates or adding small noise."
+            )
+        ratios[i, :] = distances[:, i + 2] / denom
 
     # Maximum likelihood estimation for intrinsic dimension
     if k == 2:
@@ -159,13 +175,14 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     Parameters
     ----------
     data : array-like of shape (n_samples, n_features)
-        The input data matrix.
+        The input data matrix. For large datasets, consider subsampling as
+        this method requires O(n²) memory.
 
     r_min : float, optional
-        Minimum distance to consider. If None, automatically determined.
+        Minimum distance to consider. If None, uses 1st percentile of distances.
 
     r_max : float, optional
-        Maximum distance to consider. If None, automatically determined.
+        Maximum distance to consider. If None, uses 50th percentile of distances.
 
     n_bins : int, default=20
         Number of distance bins for the correlation sum.
@@ -173,23 +190,75 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     Returns
     -------
     dimension : float
-        The estimated correlation dimension.
+        The estimated correlation dimension. Returns NaN if estimation fails.
+        
+    Raises
+    ------
+    ValueError
+        If data has fewer than 2 samples or invalid parameters.
+        
+    Notes
+    -----
+    This method has O(n²) memory complexity. For datasets with more than
+    10,000 samples, consider using a subsample or alternative methods.
 
     References
     ----------
     Grassberger, P., & Procaccia, I. (1983). Characterization of strange
     attractors. Physical Review Letters, 50(5), 346.
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.dimensionality import correlation_dimension
+    >>> 
+    >>> # Generate points on a 2D circle embedded in 3D
+    >>> t = np.linspace(0, 2*np.pi, 500)
+    >>> data = np.column_stack([np.cos(t), np.sin(t), np.zeros_like(t)])
+    >>> d_est = correlation_dimension(data, n_bins=15)
+    >>> print(f"Correlation dimension: {d_est:.2f}")  # Should be close to 1
+    >>> 
+    >>> # For noisy data, specify scaling range
+    >>> noisy_data = data + 0.01 * np.random.randn(*data.shape)
+    >>> d_est = correlation_dimension(noisy_data, r_min=0.05, r_max=0.5)
+    >>> print(f"Correlation dimension: {d_est:.2f}")
+    
+    DOC_VERIFIED
     """
     from scipy.spatial.distance import pdist
+    
+    data = np.asarray(data)
+    n_samples = len(data)
+    
+    if n_samples < 2:
+        raise ValueError(f"Need at least 2 samples, got {n_samples}")
+    
+    # Warn about memory usage for large datasets
+    if n_samples > 10000:
+        import warnings
+        warnings.warn(
+            f"Computing pairwise distances for {n_samples} samples requires "
+            f"~{n_samples * (n_samples - 1) * 8 / 2e9:.1f} GB of memory. "
+            "Consider using a subsample for large datasets.",
+            RuntimeWarning
+        )
 
     # Compute pairwise distances
     distances = pdist(data)
     distances = distances[distances > 0]  # Remove zero distances
+    
+    if len(distances) == 0:
+        raise ValueError("All points are identical")
 
     if r_min is None:
         r_min = np.percentile(distances, 1)
     if r_max is None:
         r_max = np.percentile(distances, 50)
+    
+    if r_min <= 0:
+        raise ValueError(f"r_min must be positive, got {r_min}")
+    if r_max <= r_min:
+        raise ValueError(f"r_max ({r_max}) must be greater than r_min ({r_min})")
 
     # Create log-spaced bins
     r_values = np.logspace(np.log10(r_min), np.log10(r_max), n_bins)
@@ -292,6 +361,15 @@ def geodesic_dimension(
     >>> data, _ = make_swiss_roll(n_samples=1000, noise=0.05)
     >>> d_est = geodesic_dimension(data, k=15)
     >>> print(f"Estimated dimension: {d_est:.2f}")  # Should be close to 2
+    
+    Raises
+    ------
+    ValueError
+        If inputs are invalid or graph is too disconnected.
+    RuntimeWarning
+        If graph is disconnected (infinite distances found).
+        
+    DOC_VERIFIED
     """
     import scipy.sparse as sp
     from scipy.sparse.csgraph import shortest_path
@@ -313,8 +391,8 @@ def geodesic_dimension(
             data, n_neighbors=k, mode="distance", include_self=False
         )
         # Make symmetric by taking minimum distance
-        graph = graph + graph.T
-        graph = sp.csr_matrix(graph)
+        graph_min = graph.minimum(graph.T)
+        graph = sp.csr_matrix(graph_min)
 
     else:
         # Use provided graph
@@ -361,6 +439,12 @@ def geodesic_dimension(
     # Find maximum of distribution
     dmax_idx = np.argmax(hist)
     dmax = bin_centers[dmax_idx]
+    
+    if dmax == 0:
+        raise ValueError(
+            "Maximum of distance distribution is at 0. "
+            "This may indicate all points are identical or graph is degenerate."
+        )
 
     # Normalize distances by maximum
     hist_norm, bin_edges_norm = np.histogram(all_dists / dmax, bins=nbins, density=True)
@@ -384,8 +468,9 @@ def geodesic_dimension(
         distances near the maximum follows: D * log(sin(x * pi/2))
         where x is the normalized distance and D is the intrinsic dimension.
         """
-        # Original paper uses D * log(sin(x * pi/2)) with natural logarithm
-        return D * np.log(np.sin(x * np.pi / 2))
+        # Clip x to valid domain for sin
+        x_clipped = np.clip(x, 1e-10, 1 - 1e-10)
+        return D * np.log(np.sin(x_clipped * np.pi / 2))
 
     # Grid search for best dimension
     dimensions = np.arange(1.0, 26.0, dim_step)

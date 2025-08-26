@@ -13,21 +13,37 @@ leveraging numba's ability to compile numpy operations efficiently.
 
 import numpy as np
 from numba import njit
+from ..utils.jit import conditional_njit
 
 
-@njit
+@conditional_njit
 def entropy_d_jit(x):
     """JIT-compiled discrete entropy calculation using vectorized operations.
 
     Parameters
     ----------
     x : array-like
-        Discrete variable values.
+        Discrete variable values. Must be numeric and sortable.
 
     Returns
     -------
     float
-        Entropy in bits.
+        Entropy in bits. Returns 0.0 for empty arrays.
+        
+    Raises
+    ------
+    AttributeError
+        If x doesn't have required array attributes (size).
+    TypeError
+        If x contains non-numeric or non-sortable values.
+        
+    Notes
+    -----
+    Uses Shannon entropy formula H = -Σ(p*log2(p)) where p are the
+    probabilities of each unique value. The implementation sorts the
+    input array to efficiently count unique values.
+    
+    DOC_VERIFIED
     """
     n = x.size
     if n == 0:
@@ -66,23 +82,47 @@ def entropy_d_jit(x):
     return h
 
 
-@njit
+@conditional_njit
 def joint_entropy_dd_jit(x, y):
     """JIT-compiled joint entropy for two discrete variables.
 
     Parameters
     ----------
     x : array-like
-        First discrete variable.
+        First discrete variable. Must be numeric.
     y : array-like
-        Second discrete variable.
+        Second discrete variable. Must be numeric and same length as x.
 
     Returns
     -------
     float
         Joint entropy H(X,Y) in bits.
+        
+    Raises
+    ------
+    ValueError
+        If x and y have different lengths or are empty.
+    AttributeError
+        If x or y don't have required array attributes.
+    TypeError
+        If x or y contain non-numeric values.
+        
+    Notes
+    -----
+    Creates a joint encoding of (x,y) pairs and calculates entropy of
+    the joint distribution. Uses overflow-safe encoding with automatic
+    fallback to Cantor pairing for large value ranges.
+    
+    DOC_VERIFIED
     """
     n = x.size
+    
+    # Validate inputs
+    if n == 0:
+        return 0.0
+    
+    if y.size != n:
+        raise ValueError(f"x and y must have same length, got {n} and {y.size}")
 
     # Find ranges for proper scaling - use int64 to prevent overflow
     x_min = np.int64(np.min(x))

@@ -35,6 +35,15 @@ MAX_EVENT_DUR = 2.5  # sec
 
 
 def wvt_viz(x, Wx):
+    """Visualize signal and its wavelet transform.
+    
+    Parameters
+    ----------
+    x : array-like
+        Input signal.
+    Wx : ndarray
+        Wavelet transform coefficients (scales x time).
+    """
     fig, axs = plt.subplots(2, 1, figsize=(12, 12))
     axs[0].set_xlim(0, len(x))
     axs[0].plot(x, c="b")
@@ -44,6 +53,49 @@ def wvt_viz(x, Wx):
 def get_cwt_ridges(
     sig, wavelet=None, fps=20, scmin=150, scmax=250, all_wvt_times=None, wvt_scales=None
 ):
+    """Extract ridges from continuous wavelet transform of a signal.
+    
+    Identifies ridges (connected paths of local maxima across scales) in the
+    wavelet transform, which correspond to transient events in the signal.
+    Ridges are tracked by connecting maxima at adjacent scales within a time
+    window determined by wavelet support.
+    
+    Parameters
+    ----------
+    sig : array-like
+        Input signal to analyze.
+    wavelet : ssqueezepy.wavelets.Wavelet, optional
+        Wavelet object to use. If None, uses default from cwt().
+    fps : float, default=20
+        Sampling rate in Hz.
+    scmin : int, default=150
+        Starting scale index (processes scales from scmax down to scmin).
+    scmax : int, default=250
+        Maximum scale index.
+    all_wvt_times : list, optional
+        Pre-computed wavelet time resolutions for each scale. If None,
+        computes them using time_resolution().
+    wvt_scales : array-like, optional
+        Wavelet scales to use. If None, uses 'log-piecewise' default.
+        
+    Returns
+    -------
+    list of Ridge
+        All detected ridges. Each Ridge object contains indices, amplitudes,
+        scales, and time resolutions along the ridge path.
+        
+    Notes
+    -----
+    The algorithm processes scales from coarse (scmax) to fine (scmin),
+    extending existing ridges when possible and creating new ones for
+    unmatched maxima. Ridges are terminated when no maxima fall within
+    the expected time window at the next scale.
+    
+    See Also
+    --------
+    get_cwt_ridges_fast : Numba-accelerated version
+    Ridge : Ridge object storing ridge properties
+    """
     if wvt_scales is not None:
         scales = wvt_scales
     else:
@@ -126,6 +178,47 @@ def get_cwt_ridges(
 
 @conditional_njit()
 def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
+    """Fast ridge extraction from pre-computed wavelet transform data.
+    
+    Numba-accelerated version of get_cwt_ridges that operates on pre-computed
+    wavelet coefficients and peak locations. Implements the same ridge-tracking
+    algorithm but requires pre-processing of the data.
+    
+    Parameters
+    ----------
+    wvtdata : ndarray
+        Pre-computed wavelet transform coefficients, shape (n_scales, n_time).
+        Real part of complex wavelet transform.
+    peaks : ndarray
+        Binary mask of peak locations, shape (n_scales, n_time).
+        Non-zero values indicate local maxima positions.
+    wvt_times : array-like
+        Time resolutions for each scale, indicating the temporal support
+        of the wavelet at that scale.
+    wvt_scales : array-like
+        Scale values corresponding to each row in wvtdata.
+        
+    Returns
+    -------
+    list of Ridge
+        All detected ridges with their properties.
+        
+    Notes
+    -----
+    This function is decorated with @conditional_njit for optional JIT
+    compilation. The algorithm processes all scales sequentially, extending
+    ridges when maxima fall within the expected time window (±wvt_time).
+    
+    The main differences from get_cwt_ridges:
+    - Operates on pre-computed data rather than raw signal
+    - Processes all scales rather than a subset
+    - Uses list concatenation (+=) for Numba 0.60+ compatibility
+    
+    See Also
+    --------
+    get_cwt_ridges : Original implementation
+    events_from_trace : High-level function using this for event detection
+    """
     # determine peak positions for all scales
 
     start = True
@@ -192,6 +285,45 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
 def passing_criterion(
     ridge, scale_length_thr=40, max_scale_thr=10, max_ampl_thr=0.05, max_dur_thr=100
 ):
+    """Check if a ridge meets criteria for being a valid event.
+    
+    Evaluates whether a detected ridge represents a significant calcium
+    transient event based on multiple criteria including length, scale,
+    amplitude, and duration.
+    
+    Parameters
+    ----------
+    ridge : Ridge
+        Ridge object to evaluate.
+    scale_length_thr : int, default=40
+        Minimum number of scales the ridge must span. Higher values
+        filter out shorter-lived events.
+    max_scale_thr : int, default=10
+        Minimum maximum scale index. Events must reach at least this
+        scale. Lower values (<5) may include noise.
+    max_ampl_thr : float, default=0.05
+        Minimum maximum amplitude of the ridge. Higher values filter
+        out low-amplitude events.
+    max_dur_thr : int, default=100
+        Maximum allowed duration in frames. Filters out unrealistically
+        long events that may be artifacts.
+        
+    Returns
+    -------
+    bool
+        True if ridge passes all criteria, False otherwise.
+        
+    Notes
+    -----
+    All criteria must be satisfied (AND logic):
+    - ridge.length >= scale_length_thr
+    - ridge.max_scale >= max_scale_thr
+    - ridge.max_ampl >= max_ampl_thr
+    - ridge.duration <= max_dur_thr
+    
+    Typical calcium transients have specific scale and duration
+    characteristics that distinguish them from noise or artifacts.
+    """
     crit = (
         ridge.length >= scale_length_thr
         and ridge.max_scale >= max_scale_thr
@@ -208,6 +340,37 @@ def get_events_from_ridges(
     max_ampl_thr=0.05,
     max_dur_thr=100,
 ):
+    """Extract event start/end times from ridges that pass quality criteria.
+    
+    Filters a list of detected ridges based on quality criteria and extracts
+    the temporal boundaries (start and end indices) of events that pass.
+    
+    Parameters
+    ----------
+    all_ridges : list of Ridge
+        All detected ridges from wavelet transform analysis.
+    scale_length_thr : int, default=40
+        Minimum ridge length in scales. See passing_criterion().
+    max_scale_thr : int, default=10
+        Minimum maximum scale. See passing_criterion().
+    max_ampl_thr : float, default=0.05
+        Minimum maximum amplitude. See passing_criterion().
+    max_dur_thr : int, default=100
+        Maximum duration in frames. See passing_criterion().
+        
+    Returns
+    -------
+    st_evinds : list of int
+        Start indices (frame numbers) of events that pass criteria.
+    end_evinds : list of int
+        End indices (frame numbers) of events that pass criteria.
+        Paired with st_evinds (same length).
+        
+    See Also
+    --------
+    passing_criterion : Function that evaluates ridge quality
+    events_from_trace : High-level event detection function
+    """
     event_ridges = [
         r
         for r in all_ridges
@@ -238,6 +401,66 @@ def events_from_trace(
     max_ampl_thr=0.05,
     max_dur_thr=200,
 ):
+    """Detect calcium transient events in a single trace using wavelet ridges.
+    
+    Complete pipeline for calcium event detection: normalizes signal, applies
+    Gaussian smoothing, computes wavelet transform, finds ridges, and filters
+    them to identify significant calcium transients.
+    
+    Parameters
+    ----------
+    trace : array-like
+        Raw calcium signal trace (e.g., ΔF/F or raw fluorescence).
+    wavelet : ssqueezepy.wavelets.Wavelet
+        Wavelet object (typically Generalized Morse Wavelet).
+    manual_scales : array-like
+        Wavelet scales to use for CWT. Should span expected event durations.
+    rel_wvt_times : array-like
+        Pre-computed relative wavelet time resolutions for each scale.
+    fps : float, default=20
+        Sampling rate in Hz.
+    sigma : float, default=8
+        Gaussian smoothing sigma in frames. Reduces noise before CWT.
+    eps : int, default=10
+        Minimum spacing between peaks (order parameter for argrelmax).
+        Prevents detecting multiple peaks too close together.
+    scale_length_thr : int, default=40
+        Minimum ridge length. See passing_criterion().
+    max_scale_thr : int, default=7
+        Minimum maximum scale. See passing_criterion().
+    max_ampl_thr : float, default=0.05
+        Minimum amplitude threshold. See passing_criterion().
+    max_dur_thr : int, default=200
+        Maximum duration in frames. See passing_criterion().
+        
+    Returns
+    -------
+    all_ridges : list of Ridge
+        All detected ridges (before filtering).
+    st_evinds : list of int
+        Start indices of detected events.
+    end_evinds : list of int
+        End indices of detected events.
+        
+    Notes
+    -----
+    Processing steps:
+    1. Normalize trace to [0, 1] range
+    2. Apply Gaussian smoothing to reduce noise
+    3. Compute continuous wavelet transform
+    4. Find local maxima across scales
+    5. Track ridges connecting maxima
+    6. Filter ridges based on quality criteria
+    
+    The default parameters are tuned for typical calcium imaging at 20 Hz
+    with GCaMP-like indicators. May need adjustment for different indicators
+    or sampling rates.
+    
+    See Also
+    --------
+    extract_wvt_events : Batch processing for multiple neurons
+    WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary
+    """
 
     trace = (trace - min(trace)) / (max(trace) - min(trace))
     sig = gaussian_filter1d(trace, sigma=sigma)
@@ -263,6 +486,52 @@ def events_from_trace(
 
 
 def extract_wvt_events(traces, wvt_kwargs):
+    """Extract calcium events from multiple traces using wavelet ridge detection.
+    
+    Detects calcium transient events by finding ridges in the continuous wavelet
+    transform (CWT) of calcium signals. Uses Generalized Morse Wavelets and
+    ridge filtering to identify significant events.
+    
+    Parameters
+    ----------
+    traces : ndarray
+        2D array of calcium traces (neurons x time).
+    wvt_kwargs : dict
+        Wavelet detection parameters:
+        - fps : float, frame rate in Hz (default: 20)
+        - beta : float, GMW beta parameter (default: 2)
+        - gamma : float, GMW gamma parameter (default: 3)
+        - sigma : float, Gaussian smoothing sigma in frames (default: 8)
+        - eps : int, minimum spacing between events in frames (default: 10)
+        - manual_scales : array, wavelet scales to use
+        - scale_length_thr : int, minimum ridge length (default: 40)
+        - max_scale_thr : int, max scale index threshold (default: 7)
+        - max_ampl_thr : float, minimum ridge amplitude (default: 0.05)
+        - max_dur_thr : int, maximum event duration in frames (default: 200)
+        
+    Returns
+    -------
+    st_ev_inds : list of lists
+        Start indices for each detected event per neuron.
+    end_ev_inds : list of lists
+        End indices for each detected event per neuron.
+    all_ridges : list of lists
+        Ridge objects containing detailed event information per neuron.
+        
+    Notes
+    -----
+    The algorithm:
+    1. Smooths traces with Gaussian filter
+    2. Computes CWT using Generalized Morse Wavelets
+    3. Detects ridges (connected paths through scale-time plane)
+    4. Filters ridges based on length, amplitude, and duration criteria
+    5. Returns event start/end times
+    
+    Ridge filtering removes noise and artifacts by requiring events to:
+    - Persist across multiple scales (scale_length_thr)
+    - Have sufficient amplitude (max_ampl_thr)
+    - Have reasonable duration (max_dur_thr)
+    """
     fps = wvt_kwargs.get("fps", 20)
     beta = wvt_kwargs.get("beta", 2)
     gamma = wvt_kwargs.get("gamma", 3)
@@ -320,7 +589,41 @@ def events_to_ts_array_numba(
     min_event_dur,
     max_event_dur,
 ):
-    """Numba-optimized version of events_to_ts_array."""
+    """
+    Numba-optimized version of events_to_ts_array.
+    
+    Low-level implementation for converting event indices to binary time series.
+    Uses flattened arrays for compatibility with Numba JIT compilation.
+    
+    Parameters
+    ----------
+    length : int
+        Length of output time series in frames.
+    ncells : int
+        Number of neurons/cells.
+    st_ev_inds_flat : np.ndarray
+        Flattened array of all event start indices.
+    end_ev_inds_flat : np.ndarray
+        Flattened array of all event end indices.
+    event_counts : np.ndarray
+        Number of events per neuron, shape (ncells,).
+    fps : float
+        Frames per second of the recording.
+    min_event_dur : float
+        Minimum event duration in seconds.
+    max_event_dur : float
+        Maximum event duration in seconds.
+        
+    Returns
+    -------
+    np.ndarray
+        Binary array of shape (ncells, length) where 1 indicates active event.
+        
+    Notes
+    -----
+    Called internally by events_to_ts_array. Event duration constraints are
+    enforced as described in the parent function.
+    """
     spikes = np.zeros((ncells, length))
 
     mindur = int(min_event_dur * fps)
@@ -346,7 +649,34 @@ def events_to_ts_array_numba(
 
 
 def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
-    """Convert event indices to time series array with spike trains."""
+    """Convert event indices to binary time series array.
+    
+    Transforms lists of event start/end indices into a binary array where
+    1 indicates an active event and 0 indicates no event. Events are
+    constrained to reasonable durations based on calcium dynamics.
+    
+    Parameters
+    ----------
+    length : int
+        Length of the output time series in frames.
+    st_ev_inds : list of lists
+        Start indices for events. Each sublist contains events for one neuron.
+    end_ev_inds : list of lists
+        End indices for events. Each sublist contains events for one neuron.
+    fps : float
+        Frame rate in Hz, used to convert duration constraints to frames.
+        
+    Returns
+    -------
+    ndarray
+        Binary array of shape (n_neurons, length) where 1 indicates an event.
+        
+    Notes
+    -----
+    Events are adjusted to have durations between MIN_EVENT_DUR (0.5s) and
+    MAX_EVENT_DUR (2.5s). Events shorter than minimum are extended from their
+    center, while events longer than maximum are truncated.
+    """
     ncells = len(end_ev_inds)
 
     # Flatten the jagged arrays for numba

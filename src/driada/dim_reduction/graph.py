@@ -1,5 +1,3 @@
-# @title Graph class { form-width: "200px" }
-
 import pynndescent
 import scipy.sparse as sp
 import numpy as np
@@ -19,11 +17,177 @@ from ..network.net_base import Network
 
 
 class ProximityGraph(Network):
-    """
-    Graph built on data points which represents the underlying manifold
+    """Proximity graph for manifold learning and dimensionality reduction.
+    
+    Constructs a graph where nodes are data points and edges connect nearby points,
+    capturing the local geometry of the underlying manifold. Supports multiple 
+    graph construction methods including k-NN, UMAP fuzzy topology, and epsilon-ball.
+    
+    The graph can be used for manifold learning algorithms, intrinsic dimension
+    estimation, and as input to spectral dimensionality reduction methods.
+    
+    Parameters
+    ----------
+    d : ndarray
+        Data matrix of shape (n_features, n_samples). Each column is a data point.
+    m_params : dict
+        Metric parameters dictionary. Required key:
+        - 'metric_name' : str or callable
+            Distance metric name from pynndescent.distances.named_distances
+            ('euclidean', 'cosine', 'manhattan', etc.), 'hyperbolic', 
+            or a callable custom distance function
+        Optional keys (filtered by m_param_filter):
+        - 'sigma' : float, bandwidth for heat kernel affinity transformation
+        - 'p' : float, parameter for minkowski metric
+        - Additional metric-specific parameters passed to distance function
+    g_params : dict
+        Graph construction parameters. Required key:
+        - 'g_method_name' : str, graph construction method 
+            Options: 'knn', 'umap', 'auto_knn', 'eps'
+        Method-specific keys (filtered by g_param_filter):
+        - 'nn' : int, number of nearest neighbors (for knn/umap/auto_knn)
+        - 'eps' : float, epsilon radius (for eps method)
+        - 'min_density' : float, minimum graph density threshold (for eps method)
+        General optional keys:
+        - 'weighted' : bool, whether to create weighted edges
+        - 'dist_to_aff' : str, distance to affinity conversion ('hk' for heat kernel)
+        - 'max_deleted_nodes' : float, maximum fraction of nodes that can be 
+            deleted during giant component extraction (raises exception if exceeded)
+        - 'graph_preprocessing' : str, preprocessing method (default: 'giant_cc')
+    create_nx_graph : bool, default=False
+        Whether to create NetworkX graph representation (passed to Network parent).
+    verbose : bool, default=False
+        Whether to print progress messages.
+        
+    Attributes
+    ----------
+    data : ndarray
+        The input data matrix (n_features, n_samples).
+    metric : str
+        The distance metric name extracted from m_params.
+    metric_args : dict
+        Filtered metric parameters excluding 'metric_name' and 'sigma'.
+    all_metric_params : dict
+        All filtered metric parameters from m_param_filter.
+    adj : sparse matrix
+        Weighted adjacency matrix. For weighted graphs with dist_to_aff='hk',
+        contains affinities exp(-d²/(sigma*mean_squared_dist)). For unweighted
+        graphs, same as bin_adj.
+    bin_adj : sparse matrix
+        Binary adjacency matrix indicating connections.
+    neigh_distmat : sparse matrix
+        Sparse matrix of distances between connected neighbors. For unweighted
+        graphs or methods without distance computation, contains zeros in sparse format.
+    knn_indices : ndarray or None
+        k-NN indices array of shape (n_nodes, k+1) including self (only for 'knn' method).
+    knn_distances : ndarray or None
+        k-NN distances array of shape (n_nodes, k+1) including self (only for 'knn' method).
+    lost_nodes : set
+        Set of node indices removed during giant component preprocessing. Empty set
+        if no preprocessing or no nodes lost.
+    intrinsic_dimensions : dict
+        Cached intrinsic dimension estimates. Keys are method names with parameters.
+    
+    Plus all attributes from g_params set via setattr.
+        
+    Methods
+    -------
+    construct_adjacency()
+        Dynamically call graph construction method based on g_method_name.
+    distances_to_affinities()
+        Convert neigh_distmat to affinity weights using heat kernel (only 'hk' implemented).
+    create_knn_graph_()
+        Create k-NN graph using pynndescent. Saves knn_indices and knn_distances.
+    create_umap_graph_()  
+        Create graph using UMAP's fuzzy_simplicial_set. Sets knn arrays to None.
+    create_auto_knn_graph_()
+        Create unweighted k-NN graph using sklearn. Sets knn arrays to None.
+    create_eps_graph_()
+        Create epsilon-ball graph. Checks density against min_density. Sets knn arrays to None.
+    get_int_dim(method='geodesic', force_recompute=False, logger=None, **kwargs)
+        Estimate intrinsic dimension. Methods: 'geodesic' (uses neigh_distmat or adj),
+        'nn' (requires saved knn data from 'knn' method). Results are cached.
+    scaling()
+        Compute diagonal sums of adjacency matrix powers for graph scaling analysis.
+    _checkpoint()
+        Verify graph sparsity and symmetry. Called after construction.
+        
+    Raises
+    ------
+    Exception
+        If more than max_deleted_nodes fraction of nodes are lost during preprocessing.
+    Exception
+        If adjacency matrix is not sparse or not symmetric.
+    ValueError
+        If unknown metric or graph method specified.
+        
+    Notes
+    -----
+    - Inherits from Network class, gaining spectral analysis capabilities
+    - All graphs are enforced to be symmetric/undirected via check_symmetric
+    - Giant connected component extraction is default preprocessing
+    - For weighted graphs with 'hk', distances are converted to similarities
+    - Node indices are remapped after giant component extraction
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from driada.dim_reduction.graph import ProximityGraph
+    >>> # Generate sample data
+    >>> data = np.random.randn(3, 100)  # 100 points in 3D
+    >>> # Define metric parameters
+    >>> m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
+    >>> # Define graph parameters for k-NN graph
+    >>> g_params = {
+    ...     'g_method_name': 'knn',
+    ...     'nn': 15,
+    ...     'weighted': True,
+    ...     'dist_to_aff': 'hk',
+    ...     'max_deleted_nodes': 0.1
+    ... }
+    >>> # Create proximity graph
+    >>> graph = ProximityGraph(data, m_params, g_params)
+    >>> print(f"Graph has {graph.n} nodes and {graph.adj.nnz//2} edges")
+    
+    DOC_VERIFIED
     """
 
     def __init__(self, d, m_params, g_params, create_nx_graph=False, verbose=False):
+        """Initialize proximity graph from data.
+        
+        Parameters
+        ----------
+        d : ndarray of shape (n_features, n_samples)
+            Data matrix where each column is a sample.
+        m_params : dict
+            Metric parameters. Must contain 'metric_name'.
+        g_params : dict  
+            Graph parameters. Must contain 'g_method_name'.
+        create_nx_graph : bool, default=False
+            Whether to create NetworkX representation.
+        verbose : bool, default=False
+            Whether to print progress messages.
+            
+        Raises
+        ------
+        ValueError
+            If data is not 2D or is empty.
+            If required parameters are missing.
+            
+        Notes
+        -----
+        lost_nodes attribute is always set (even if empty).
+        Data shape assumes (features, samples) format.
+        
+        DOC_VERIFIED
+        """
+        # Validate input data
+        d = np.asarray(d)
+        if d.ndim != 2:
+            raise ValueError(f"Data must be 2D array, got {d.ndim}D")
+        if d.size == 0:
+            raise ValueError("Data array is empty")
+            
         self.all_metric_params = m_param_filter(m_params)
         self.metric = m_params["metric_name"]
         self.metric_args = {
@@ -33,8 +197,20 @@ class ProximityGraph(Network):
         }
 
         all_params = g_param_filter(g_params)
+        
+        # Safe attribute setting - only set allowed attributes
+        allowed_attrs = {'g_method_name', 'nn', 'eps', 'min_density', 'perplexity',
+                        'max_deleted_nodes', 'weighted', 'dist_to_aff', 'graph_preprocessing'}
         for key in all_params:
-            setattr(self, key, g_params[key])
+            if key in allowed_attrs:
+                setattr(self, key, g_params[key])
+            else:
+                if self.verbose:
+                    print(f"Warning: Ignoring unknown parameter '{key}'")
+                    
+        # Set default for max_deleted_nodes if not provided
+        if not hasattr(self, 'max_deleted_nodes'):
+            self.max_deleted_nodes = 0.5
 
         self.data = d
         self.verbose = verbose
@@ -93,26 +269,39 @@ class ProximityGraph(Network):
         
         Raises
         ------
-        Exception
+        RuntimeError
             If no distance matrix is available or graph is not weighted.
+        ValueError
+            If sigma is not positive.
             
         Notes
         -----
         Only applies to weighted graphs. The resulting affinity matrix
         is symmetrized to ensure undirected graph structure.
+        Mean distance uses only non-zero entries.
+        
+        DOC_VERIFIED
         """
         if self.neigh_distmat is None:
-            raise Exception("distances between nearest neighbors not available")
+            raise RuntimeError("distances between nearest neighbors not available")
 
         if not self.weighted:
-            raise Exception("no need to construct affinities for binary graph weights")
+            raise RuntimeError("no need to construct affinities for binary graph weights")
 
         if self.dist_to_aff == "hk":
-            sigma = self.all_metric_params["sigma"]
+            sigma = self.all_metric_params.get("sigma", 1.0)
+            if sigma <= 0:
+                raise ValueError(f"Sigma must be positive, got {sigma}")
+                
             self.adj = self.neigh_distmat.copy()
             sqdist_matrix = self.neigh_distmat.multiply(self.neigh_distmat)
             mean_sqdist = sqdist_matrix.sum() / sqdist_matrix.nnz
-            self.adj.data = np.exp(-sqdist_matrix.data / (1.0 * sigma * mean_sqdist))
+            
+            if mean_sqdist == 0:
+                raise ValueError("All distances are zero - cannot compute meaningful affinities")
+            
+            self.adj.data = np.exp(-sqdist_matrix.data / (sigma * mean_sqdist))
+                
             # Ensure symmetry after transformation
             self.adj = (self.adj + self.adj.T) / 2.0
 
@@ -121,8 +310,25 @@ class ProximityGraph(Network):
         
         Dynamically calls the appropriate graph construction method based on
         self.g_method_name (e.g., 'knn', 'umap', 'auto_knn', 'eps').
+        
+        Raises
+        ------
+        ValueError
+            If g_method_name contains invalid characters.
+        AttributeError
+            If the specified graph construction method doesn't exist.
+            
+        DOC_VERIFIED
         """
-        construct_fn = getattr(self, "create_" + self.g_method_name + "_graph_")
+        # Validate method name
+        if not self.g_method_name.replace('_', '').isalnum():
+            raise ValueError(f"Invalid g_method_name: {self.g_method_name}")
+            
+        method_name = "create_" + self.g_method_name + "_graph_"
+        if not hasattr(self, method_name):
+            raise AttributeError(f"Unknown graph construction method: {self.g_method_name}")
+            
+        construct_fn = getattr(self, method_name)
         construct_fn()
 
     def _checkpoint(self):
@@ -133,23 +339,43 @@ class ProximityGraph(Network):
         
         Raises
         ------
-        Exception
+        RuntimeError
             If adjacency is not sparse or not symmetric.
+            
+        Notes
+        -----
+        Validates that matrices are symmetric within tolerance.
+        
+        DOC_VERIFIED
         """
         if self.adj is not None:
             if not sp.issparse(self.adj):
                 # check for sparsity violation
-                raise Exception("Adjacency matrix is not sparse!")
-            self.adj = check_symmetric(self.adj, raise_exception=True)
-            self.bin_adj = check_symmetric(self.bin_adj, raise_exception=True)
-            self.neigh_distmat = check_symmetric(
-                self.neigh_distmat, raise_exception=True
-            )
+                raise RuntimeError("Adjacency matrix is not sparse!")
+                
+            # Check symmetry - this will raise if not symmetric
+            try:
+                check_symmetric(self.adj, raise_exception=True)
+            except Exception as e:
+                raise RuntimeError(f"Adjacency matrix not symmetric: {e}")
+                
+            if hasattr(self, 'bin_adj') and self.bin_adj is not None:
+                try:
+                    check_symmetric(self.bin_adj, raise_exception=True)
+                except Exception as e:
+                    raise RuntimeError(f"Binary adjacency not symmetric: {e}")
+                    
+            if hasattr(self, 'neigh_distmat') and self.neigh_distmat is not None:
+                try:
+                    check_symmetric(self.neigh_distmat, raise_exception=True)
+                except Exception as e:
+                    raise RuntimeError(f"Neighbor distances not symmetric: {e}")
+                    
             if self.verbose:
                 print("Adjacency symmetry confirmed")
 
         else:
-            raise Exception(
+            raise RuntimeError(
                 "Adjacency matrix is not constructed, checkpoint routines are unavailable"
             )
 
@@ -163,7 +389,12 @@ class ProximityGraph(Network):
         -----
         The resulting graph has weighted edges representing fuzzy set membership.
         Sets self.adj (weighted), self.bin_adj (binary), and self.neigh_distmat.
+        Uses fixed seed=42 for reproducibility.
+        Data is transposed to match UMAP's expected (n_samples, n_features) format.
+        
+        DOC_VERIFIED
         """
+        # TODO: Make seed configurable via g_params
         RAND = np.random.RandomState(42)
         adj, _, _, dists = fuzzy_simplicial_set(
             self.data.T,
@@ -190,12 +421,27 @@ class ProximityGraph(Network):
         Constructs a symmetric k-NN graph where each point is connected to its
         k nearest neighbors. Uses approximate nearest neighbor search for efficiency.
         
+        Raises
+        ------
+        ValueError
+            If nn exceeds number of samples minus 1.
+            If metric is unknown or invalid.
+            
         Notes
         -----
         - Supports custom metrics via callable functions or named distances
         - Stores k-NN indices and distances for potential reuse
         - Creates both weighted and binary adjacency matrices
+        - Uses diversify_prob=1.0 and pruning_degree_multiplier=1.5
+        - Data is transposed to match pynndescent expected format
+        - Excludes self-connections (uses nn+1 neighbors then skips first)
+        
+        DOC_VERIFIED
         """
+        N = self.data.shape[1]
+        if self.nn >= N:
+            raise ValueError(f"nn ({self.nn}) must be less than number of samples ({N})")
+            
         if callable(self.metric):
             # Custom metric function passed directly
             curr_metric = self.metric
@@ -203,25 +449,17 @@ class ProximityGraph(Network):
             # Built-in metric name
             curr_metric = self.metric
         else:
-            # Try to find custom metric in globals (backward compatibility)
-            try:
-                curr_metric = globals()[self.metric]
-                if not callable(curr_metric):
-                    raise ValueError(
-                        f"Global '{self.metric}' is not a callable metric function"
-                    )
-            except KeyError:
-                raise ValueError(
-                    f"Unknown metric '{self.metric}'. Must be one of {list(named_distances.keys())}, "
-                    f"a callable function, or a global function name."
-                )
+            # Safer approach - check if metric is a known string
+            raise ValueError(
+                f"Unknown metric '{self.metric}'. Must be one of {list(named_distances.keys())} "
+                f"or a callable function."
+            )
 
-        N = self.data.shape[1]
         index = pynndescent.NNDescent(
-            self.data.T,
+            self.data.T,  # Transpose for (n_samples, n_features)
             metric=curr_metric,
             metric_kwds=self.metric_args,
-            n_neighbors=self.nn + 1,
+            n_neighbors=self.nn + 1,  # +1 to exclude self
             diversify_prob=1.0,
             pruning_degree_multiplier=1.5,
         )
@@ -262,10 +500,25 @@ class ProximityGraph(Network):
         A simpler alternative to pynndescent that uses sklearn's 
         kneighbors_graph. Creates an unweighted, symmetric graph.
         
+        Raises
+        ------
+        ValueError
+            If nn exceeds number of samples minus 1.
+            
         Notes
         -----
-        Does not compute or store distances, only connectivity.
+        - Always creates unweighted graphs (connectivity mode)
+        - Uses 'auto' algorithm selection in sklearn
+        - Sets diagonal to 0 to exclude self-connections
+        - Does not store knn_indices or knn_distances
+        - Data is transposed to match sklearn expected format
+        - Symmetrizes by A = A + A.T
+        
+        DOC_VERIFIED
         """
+        N = self.data.shape[1]
+        if self.nn >= N:
+            raise ValueError(f"nn ({self.nn}) must be less than number of samples ({N})")
         A = kneighbors_graph(
             self.data.T, self.nn, mode="connectivity", include_self=False
         )
@@ -281,7 +534,36 @@ class ProximityGraph(Network):
         self.knn_distances = None
 
     def create_eps_graph_(self):
-        """Create epsilon-ball graph where edges connect points within distance eps."""
+        """Create epsilon-ball graph where edges connect points within distance eps.
+        
+        Constructs a graph by connecting all pairs of points whose distance is
+        less than or equal to the epsilon threshold. Uses sklearn's 
+        radius_neighbors_graph for efficient computation.
+        
+        The resulting graph density is checked against self.min_density to ensure
+        sufficient connectivity. Issues a warning if density exceeds 0.5.
+        
+        Raises
+        ------
+        ValueError
+            If eps is not positive.
+            If min_density is not in (0, 1].
+            If graph density is below self.min_density threshold.
+            
+        Notes
+        -----
+        Sets self.adj (weighted or binary), self.bin_adj (binary), and 
+        self.neigh_distmat (distances for weighted graphs, zero matrix otherwise).
+        For weighted graphs, distances are converted to affinities.
+        Does not store knn_indices or knn_distances.
+        Data is transposed to match sklearn expected format.
+        
+        DOC_VERIFIED
+        """
+        if self.eps <= 0:
+            raise ValueError(f"eps must be positive, got {self.eps}")
+        if not 0 < self.min_density <= 1:
+            raise ValueError(f"min_density must be in (0, 1], got {self.min_density}")
         from sklearn.neighbors import radius_neighbors_graph
 
         # Use radius_neighbors_graph to create epsilon-ball graph
@@ -303,9 +585,9 @@ class ProximityGraph(Network):
 
         # Check if graph is too sparse or too dense
         nnz_ratio = A.nnz / (self.data.shape[1] * (self.data.shape[1] - 1))
-        if nnz_ratio < self.eps_min:
+        if nnz_ratio < self.min_density:
             raise ValueError(
-                f"Epsilon graph too sparse (density={nnz_ratio:.4f} < eps_min={self.eps_min}). "
+                f"Epsilon graph too sparse (density={nnz_ratio:.4f} < min_density={self.min_density}). "
                 f"Consider increasing eps parameter."
             )
         if nnz_ratio > 0.5:
@@ -340,160 +622,55 @@ class ProximityGraph(Network):
         self.knn_indices = None
         self.knn_distances = None
 
-    def calculate_indim(self, mode, factor=2, verbose=None):
-        """Calculate intrinsic dimension using geodesic distance distribution.
+
+    def scaling(self):
+        """Compute normalized diagonal sums of the binary adjacency matrix.
         
-        Estimates intrinsic dimension by analyzing the distribution of geodesic
-        distances on the nearest neighbor graph. Uses curve fitting to match
-        the theoretical distance distribution for different dimensions.
+        Analyzes graph structure by computing the average connectivity at different
+        node separations. For each diagonal offset i, computes the fraction of
+        possible edges that exist between nodes separated by i positions.
         
-        Parameters
-        ----------
-        mode : str
-            Computation mode:
-            - 'fast': Use random subsample of nodes
-            - 'full': Use all nodes
-        factor : int, default=2
-            Subsampling factor for 'fast' mode (uses n/factor nodes).
-        verbose : bool, optional
-            Override instance verbose setting.
-            
         Returns
         -------
-        float
-            Estimated intrinsic dimension.
+        list of float
+            List of length n-1 where element i is the average value along the 
+            i-th super-diagonal of the binary adjacency matrix, normalized by
+            the diagonal length (n-i).
             
         Notes
         -----
-        Only works with k-NN graphs. Computes shortest paths and fits
-        the distance distribution to theoretical curves.
+        This provides a simple graph structure summary. The first elements 
+        indicate local connectivity while later elements show longer-range
+        connections. Regular lattices show characteristic patterns.
+        Uses sparse matrix operations to avoid memory issues with large graphs.
+        
+        DOC_VERIFIED
         """
-
-        def normalizing_const(dim):
-            if dim == 0:
-                return 1
-            if dim == 1:
-                return 2
-            elif dim == 2:
-                return np.pi / 2
-            else:
-                return (dim - 1.0) / dim * normalizing_const(dim - 2)
-
-        def func(x, a):
-            # C = normalizing_const(a)
-            return a * (np.log10(np.sin(1.0 * x * np.pi / 2)))  # + np.log10(C)
-            # return a*(np.log10(np.sin(1.0*x/xmax*np.pi/2))) - np.log10(valmax)
-
-        def func2(x, a):
-            return -a / 2.0 * (x - max(x)) ** 2
-
-        if self.g_method_name not in ["knn"]:
-            raise Exception(
-                "Distance matrix construction missed! Only knn graph method is supported for intrinsic dimension calculation."
-            )
-
-        if verbose is None:
-            verbose = self.verbose
-        if verbose:
-            print("Calculating graph internal dimension...")
-
-        if mode == "fast":
-            # Use neigh_distmat which contains the distances
-            distmat = self.neigh_distmat.copy()
-            indices = list(
-                npr.permutation(
-                    npr.choice(self.n, size=self.n // factor, replace=False)
-                )
-            )
-            dm = distmat[indices, :][:, indices]
-
-        elif mode == "full":
-            # Use neigh_distmat for full mode too
-            dm = self.neigh_distmat.copy()
-
-        if verbose:
-            print("Shortest path computation started, distance matrix size: ", dm.shape)
-        spmatrix = shortest_path(dm, method="D", directed=False)
-        all_dists = spmatrix.flatten()
-        all_dists = all_dists[all_dists != 0]
-
-        nbins = 500
-        pre_hist = np.histogram(all_dists, bins=nbins, density=True)
-        # plt.hist(all_dists, bins = 500)
-        dx = pre_hist[1][1] - pre_hist[1][0]
-        dmax_bin = np.argmax(pre_hist[0])
-        dmax = pre_hist[1][dmax_bin] + dx / 2.0
-
-        hist = np.histogram(all_dists / dmax, bins=nbins, density=True)
-        distr_x = hist[1][:-1] + dx / 2
-        distr_y = hist[0] / max(hist[0][0:nbins])
-        # avg = np.mean(all_dists)  # Not currently used but might be useful for future analysis
-        std = np.std(all_dists / dmax)
-
-        res = []
-        # print(distr_x)
-        # print(distr_y)
-        # Create consistent mask for both x and y
-        mask = (distr_x > 1 - 2.0 * std) & (distr_x <= 1) & (distr_y > 1e-6)
-        left_distr_x = distr_x[mask]
-        left_distr_y = np.log10(distr_y[mask])
-
-        for D in [0.1 * x for x in range(10, 260)]:
-            y = func(left_distr_x, D - 1)
-            res.append(np.linalg.norm(y - left_distr_y) / np.sqrt(len(y)))
-
-        plot = 0
-        if plot:
-            fig = plt.figure(2, figsize=(12, 10))
-            plt.plot(np.linspace(0, len(res) / 10.0, num=len(res)), res)
-
-        Dmin = 0.1 * (np.argmax(-np.array(res)) + 1)
-        if verbose:
-            print("Dmin = ", Dmin)
-        fit = curve_fit(func2, left_distr_x, left_distr_y)
-        # print(fit)
-        a = fit[0][0]
-        # print('Dfit = ', Dfit)
-
-        plot = 0
-        if plot:
-            fig = plt.figure(1, figsize=(12, 10))
-            ax = fig.add_subplot(111)
-            ax.hist(
-                all_dists / dmax,
-                bins=nbins,
-                histtype="stepfilled",
-                density=True,
-                log=True,
-            )
-
-        alpha = 2.0
-        R = np.sqrt(2 * a)
-        if verbose:
-            print("R = ", R)
-        Dpr = 1 - alpha**2 / (2 * np.log(np.cos(alpha * np.pi / 2.0 / R)))
-        if verbose:
-            print("D_calc = ", Dpr)
-
-        return Dmin, Dpr
-
-    def scaling(self):
-        # Convert sparse matrix to dense for trace calculation
-        # .A is deprecated, use .toarray() instead
-        mat = self.adj.astype(bool).toarray().astype(int)
+        # Work with sparse binary adjacency matrix
+        mat = self.bin_adj.astype(bool)
         diagsums = []
+        
+        # Extract diagonal sums using sparse operations
         for i in range(self.n - 1):
-            diagsums.append(
-                np.trace(mat, offset=i, dtype=None, out=None) / (self.n - i)
-            )
+            # Get indices for the i-th superdiagonal
+            diag_length = self.n - i
+            row_indices = np.arange(diag_length)
+            col_indices = row_indices + i
+            
+            # Sum the values along this diagonal
+            diag_sum = 0
+            for j in range(diag_length):
+                if mat[row_indices[j], col_indices[j]]:
+                    diag_sum += 1
+                    
+            diagsums.append(diag_sum / diag_length)
 
         return diagsums
 
     def get_int_dim(
         self, method="geodesic", force_recompute=False, logger=None, **kwargs
     ):
-        """
-        Estimate intrinsic dimension using graph-based methods.
+        """Estimate intrinsic dimension using graph-based methods.
 
         This method estimates the intrinsic dimensionality using either
         geodesic distances on the graph or k-NN method with precomputed
@@ -549,6 +726,8 @@ class ProximityGraph(Network):
         >>> dim_nn = graph.get_int_dim(method='nn')
         >>> # Access all computed dimensions
         >>> print(graph.intrinsic_dimensions)
+        
+        DOC_VERIFIED
         """
         import logging
         from ..dimensionality import geodesic_dimension, nn_dimension

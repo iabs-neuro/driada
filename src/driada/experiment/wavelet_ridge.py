@@ -135,6 +135,32 @@ if is_jit_enabled():
             self.duration = -1
 
         def extend(self, index, ampl, scale, wvt_time):
+            """Extend the ridge with a new point.
+            
+            Adds a new data point to the ridge, updating all tracked attributes.
+            Can only be called on non-terminated ridges.
+            
+            Parameters
+            ----------
+            index : float
+                Time index of the new point.
+            ampl : float
+                Amplitude (wavelet coefficient) at this point.
+            scale : float
+                Wavelet scale at this point.
+            wvt_time : float
+                Wavelet time corresponding to this point.
+                
+            Raises
+            ------
+            ValueError
+                If the ridge has already been terminated.
+                
+            Notes
+            -----
+            The order of appending is important for maintaining consistency
+            across all ridge attributes.
+            """
             if not self.terminated:
                 self.scales.append(scale)
                 self.ampls.append(ampl)
@@ -144,9 +170,39 @@ if is_jit_enabled():
                 raise ValueError("Ridge is terminated")
 
         def tip(self):
+            """Get the time index of the ridge's current endpoint.
+            
+            Returns
+            -------
+            float
+                The time index of the last point in the ridge.
+                
+            Notes
+            -----
+            This is typically used during ridge construction to determine
+            where to look for the next potential ridge point.
+            """
             return self.indices[-1]
 
         def terminate(self):
+            """Finalize the ridge and compute summary statistics.
+            
+            Marks the ridge as terminated and calculates various summary
+            attributes including length, maximum amplitude, duration, etc.
+            Can only be called once per ridge.
+            
+            Notes
+            -----
+            After termination, the ridge can no longer be extended.
+            The following attributes are computed:
+            - end_scale: Final scale value
+            - length: Number of points in the ridge
+            - max_scale: Scale at maximum amplitude
+            - max_ampl: Maximum amplitude value
+            - start: Starting time index
+            - end: Ending time index
+            - duration: Time span of the ridge
+            """
             if self.terminated:
                 pass
             else:
@@ -216,6 +272,32 @@ else:
             self.duration = -1
 
         def extend(self, index, ampl, scale, wvt_time):
+            """Extend the ridge with a new point.
+            
+            Adds a new data point to the ridge, updating all tracked attributes.
+            Can only be called on non-terminated ridges.
+            
+            Parameters
+            ----------
+            index : float
+                Time index of the new point.
+            ampl : float
+                Amplitude (wavelet coefficient) at this point.
+            scale : float
+                Wavelet scale at this point.
+            wvt_time : float
+                Wavelet time corresponding to this point.
+                
+            Raises
+            ------
+            ValueError
+                If the ridge has already been terminated.
+                
+            Notes
+            -----
+            The order of appending is important for maintaining consistency
+            across all ridge attributes.
+            """
             if not self.terminated:
                 self.scales.append(scale)
                 self.ampls.append(ampl)
@@ -225,9 +307,39 @@ else:
                 raise ValueError("Ridge is terminated")
 
         def tip(self):
+            """Get the time index of the ridge's current endpoint.
+            
+            Returns
+            -------
+            float
+                The time index of the last point in the ridge.
+                
+            Notes
+            -----
+            This is typically used during ridge construction to determine
+            where to look for the next potential ridge point.
+            """
             return self.indices[-1]
 
         def terminate(self):
+            """Finalize the ridge and compute summary statistics.
+            
+            Marks the ridge as terminated and calculates various summary
+            attributes including length, maximum amplitude, duration, etc.
+            Can only be called once per ridge.
+            
+            Notes
+            -----
+            After termination, the ridge can no longer be extended.
+            The following attributes are computed:
+            - end_scale: Final scale value
+            - length: Number of points in the ridge
+            - max_scale: Scale at maximum amplitude
+            - max_ampl: Maximum amplitude value
+            - start: Starting time index
+            - end: Ending time index
+            - duration: Time span of the ridge
+            """
             if self.terminated:
                 pass
             else:

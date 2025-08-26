@@ -54,6 +54,8 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
     - If II > 0 (synergy), uses different criteria for special cases
 
     See README_INTENSE.md for theoretical background.
+    
+    DOC_VERIFIED
     """
     # Compute pairwise mutual information
     mi12 = get_mi(ts1, ts2, ds=ds)  # MI(neuron, behavior1)
@@ -178,6 +180,17 @@ def disentangle_all_selectivities(
     to at least 2 features. If feat_feat_significance is provided, only
     behaviorally correlated feature pairs are analyzed for redundancy.
     Non-significant pairs indicate true mixed selectivity.
+    
+    Raises
+    ------
+    ValueError
+        If a feature name is not found in the experiment or feat_names.
+    AttributeError
+        If required attributes are missing from the experiment.
+    KeyError
+        If expected keys are missing from data structures.
+    
+    DOC_VERIFIED
     """
     # Use default multifeature mapping if none provided
     if multifeature_map is None:
@@ -272,9 +285,10 @@ def disentangle_all_selectivities(
                     disent_matrix[ind1, ind2] += 0.5  # Both contribute
                     disent_matrix[ind2, ind1] += 0.5
 
-            except Exception as e:
+            except (ValueError, AttributeError, KeyError) as e:
+                # Log specific errors but continue processing other pairs
                 print(
-                    f"ERROR processing neuron {neuron}, features {sel_comb}: {str(e)}"
+                    f"WARNING: Skipping neuron {neuron}, features {sel_comb}: {str(e)}"
                 )
                 continue
 
@@ -301,6 +315,8 @@ def create_multifeature_map(exp, mapping_dict):
     ------
     ValueError
         If any component features don't exist in the experiment.
+    
+    DOC_VERIFIED
     """
     validated_map = {}
 
@@ -345,6 +361,17 @@ def get_disentanglement_summary(
         - Total counts for each pair
         - Overall redundancy vs independence rates
         - Breakdown by significant vs non-significant feature pairs
+        
+    Notes
+    -----
+    The calculation distinguishes between:
+    - Redundant cases: One feature is primary (disentangle result 0 or 1)
+    - Undistinguishable cases: Both features contribute (disentangle result 0.5)
+    
+    Undistinguishable cases are identified by fractional values in the 
+    disentanglement matrix, as each such case contributes 0.5 to both features.
+    
+    DOC_VERIFIED
     """
     summary = {"feature_pairs": {}, "overall_stats": {}}
 
@@ -360,8 +387,15 @@ def get_disentanglement_summary(
                 n_i_primary = disent_matrix[i, j]
                 n_j_primary = disent_matrix[j, i]
 
-                # Account for 0.5 contributions (undistinguishable)
-                n_undistinguishable = (n_i_primary + n_j_primary - n_total) * 2
+                # Calculate undistinguishable cases from fractional parts
+                # Each undistinguishable case contributes 0.5 to both matrices
+                # So fractional part * 2 gives the number of such cases
+                frac_i = n_i_primary - int(n_i_primary)
+                frac_j = n_j_primary - int(n_j_primary)
+                
+                # Fractional parts should match (both get 0.5 from each undistinguishable)
+                # Use minimum to handle floating point precision
+                n_undistinguishable = round(min(frac_i, frac_j) * 2)
                 n_redundant = n_total - n_undistinguishable
 
                 pair_key = f"{feat_names[i]}_vs_{feat_names[j]}"

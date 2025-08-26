@@ -26,7 +26,7 @@ from .manifold_metrics import (
     circular_distance,
     extract_angles_from_embedding,
     compute_reconstruction_error,
-    compute_temporal_consistency,
+    compute_embedding_alignment_metrics,
     compute_decoding_accuracy,
     manifold_reconstruction_score,
 )
@@ -54,7 +54,7 @@ __all__ = [
     "circular_distance",
     "extract_angles_from_embedding",
     "compute_reconstruction_error",
-    "compute_temporal_consistency",
+    "compute_embedding_alignment_metrics",
     "compute_decoding_accuracy",
     "manifold_reconstruction_score",
 ]

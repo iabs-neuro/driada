@@ -4,23 +4,59 @@ import scipy.sparse as sp
 
 
 def _is_sparse(matrix):
-    """Check if a matrix is sparse."""
+    """
+    Check if a matrix is sparse.
+    
+    Parameters
+    ----------
+    matrix : any
+        Object to check. Can be numpy array, scipy sparse matrix, or any other object.
+        
+    Returns
+    -------
+    bool
+        True if matrix is a scipy sparse matrix, False otherwise.
+        Returns False for any non-sparse input (including None, strings, etc).
+    
+    DOC_VERIFIED
+    """
     return sp.issparse(matrix)
 
 
 def _plain_bfs(adj, source):
     """
-    adapted from networkx.algorithms.components.connected._plain_bfs
+    Perform breadth-first search from source node.
+    
+    Adapted from networkx.algorithms.components.connected._plain_bfs
 
-    Args:
-        adj:
-        source:
+    Parameters
+    ----------
+    adj : numpy.ndarray or scipy sparse matrix (CSR, CSC)
+        Adjacency matrix with shape (n, n). Must support .shape attribute 
+        and matrix indexing with adj[[node], :].
+    source : int
+        Starting node index (0-based).
 
-    Returns:
-
+    Returns
+    -------
+    set
+        Set of nodes reachable from source.
+        
+    Raises
+    ------
+    ValueError
+        If source is out of bounds for the adjacency matrix.
+    
+    Notes
+    -----
+    Early termination occurs when all n nodes have been visited.
+    
+    DOC_VERIFIED
     """
-
     n = adj.shape[0]
+    if not 0 <= source < n:
+        raise ValueError(f"Source node {source} is out of bounds for adjacency matrix of size {n}")
+    
     seen = {source}
     nextlevel = [source]
     while nextlevel:
@@ -37,19 +73,34 @@ def _plain_bfs(adj, source):
 
 
 def get_neighbors_from_adj(a, node):
-    """Get neighbors of a node from adjacency matrix.
+    """Get outgoing neighbors of a node from adjacency matrix.
     
     Parameters
     ----------
-    a : array-like or sparse matrix
-        Adjacency matrix of the graph.
+    a : numpy.ndarray or scipy sparse matrix
+        Adjacency matrix of the graph. Must support matrix indexing with 
+        a[[node], :] and .nonzero() method.
     node : int
-        Node index to find neighbors for.
+        Node index to find neighbors for (0-based). Negative indices are supported
+        following Python's indexing convention.
         
     Returns
     -------
     numpy.ndarray
-        Array of neighbor node indices.
+        Array of neighbor node indices where a[node, :] is non-zero.
+        Includes self-loops if present. Returns indices in column order.
+    
+    Raises
+    ------
+    IndexError
+        From underlying array if node index is out of bounds.
+    
+    Notes
+    -----
+    For directed graphs, returns out-neighbors only (nodes that can be
+    reached from this node).
+    
+    DOC_VERIFIED
     """
     inds = a[[node], :].nonzero()[1]
     return inds
@@ -61,12 +112,22 @@ def get_ccs_from_adj(adj):
     Parameters
     ----------
     adj : array-like or sparse matrix
-        Adjacency matrix of the graph.
+        Adjacency matrix of the graph. Should be symmetric for undirected graphs.
         
     Yields
     ------
     set
-        Set of node indices in each connected component.
+        Set of node indices in each connected component. Components are yielded
+        in order of lowest node index. Isolated nodes are included as
+        single-node components.
+    
+    Notes
+    -----
+    For directed graphs, this finds weakly connected components
+    (treating edges as undirected). For strongly connected components
+    in directed graphs, use get_sccs_from_adj instead.
+    
+    DOC_VERIFIED
     """
     seen = set()
     for v in range(adj.shape[0]):
@@ -78,12 +139,29 @@ def get_ccs_from_adj(adj):
 
 def get_sccs_from_adj(adj):
     """
-        adapted from networkx.algorithms.components.strongly_connected.strongly_connected_components
-    Args:
-        adj:
+    Get strongly connected components using Tarjan's algorithm.
+    
+    Adapted from networkx.algorithms.components.strongly_connected.strongly_connected_components
 
-    Returns:
+    Parameters
+    ----------
+    adj : numpy.ndarray or scipy sparse matrix
+        Adjacency matrix representing a directed graph. Must support .shape
+        attribute and work with get_neighbors_from_adj() function.
 
+    Yields
+    ------
+    set
+        Set of nodes in each strongly connected component.
+        Components are yielded as they are discovered.
+    
+    Notes
+    -----
+    Implements non-recursive version of Tarjan's algorithm. A strongly 
+    connected component is a maximal set of nodes where every node is 
+    reachable from every other node following directed edges.
+    
+    DOC_VERIFIED
     """
 
     all_nodes = range(adj.shape[0])
@@ -133,7 +211,7 @@ def get_giant_cc_from_adj(adj):
     Parameters
     ----------
     adj : sparse matrix
-        Adjacency matrix of the graph.
+        Adjacency matrix of the graph. Must be a scipy sparse matrix.
         
     Returns
     -------
@@ -141,8 +219,25 @@ def get_giant_cc_from_adj(adj):
         Adjacency matrix of the giant connected component.
     node_mapping : dict
         Mapping from new node indices to original node indices.
+        
+    Raises
+    ------
+    ValueError
+        If the graph is empty (no nodes).
+    AttributeError
+        If adj is not a sparse matrix (missing tocsc/tocsr methods).
+        
+    Notes
+    -----
+    For directed graphs, this finds the giant weakly connected component.
+    
+    DOC_VERIFIED
     """
-    connected_components = sorted(get_ccs_from_adj(adj), key=len, reverse=True)
+    connected_components = list(get_ccs_from_adj(adj))
+    if not connected_components:
+        raise ValueError("Cannot find giant component in empty graph")
+    
+    connected_components.sort(key=len, reverse=True)
     gcc = np.array(list(connected_components[0]))
     gcc_adj = adj[gcc, :].tocsc()[:, gcc].tocsr()
 
@@ -158,7 +253,7 @@ def get_giant_scc_from_adj(adj):
     Parameters
     ----------
     adj : sparse matrix
-        Adjacency matrix of the directed graph.
+        Adjacency matrix of the directed graph. Must be a scipy sparse matrix.
         
     Returns
     -------
@@ -166,9 +261,28 @@ def get_giant_scc_from_adj(adj):
         Adjacency matrix of the giant strongly connected component.
     node_mapping : dict
         Mapping from new node indices to original node indices.
+        
+    Raises
+    ------
+    ValueError
+        If the graph is empty (no nodes).
+    AttributeError
+        If adj is not a sparse matrix (missing tocsc/tocsr methods).
+        
+    Notes
+    -----
+    For undirected graphs, each node will be its own SCC and the function
+    will return an arbitrary single-node component.
+    
+    DOC_VERIFIED
     """
-    connected_components = sorted(get_sccs_from_adj(adj), key=len, reverse=True)
+    connected_components = list(get_sccs_from_adj(adj))
+    if not connected_components:
+        raise ValueError("Cannot find giant component in empty graph")
+    
+    connected_components.sort(key=len, reverse=True)
     gscc = np.array(list(connected_components[0]))
+    # Convert to CSC for efficient column slicing, then back to CSR
     gscc_adj = adj[gscc, :].tocsc()[:, gscc].tocsr()
 
     # mapping of new nodes to old ones
@@ -182,18 +296,51 @@ def assign_random_weights(A):
     
     Parameters
     ----------
-    A : array-like
-        Binary adjacency matrix.
+    A : array-like or sparse matrix
+        Binary adjacency matrix. Can be dense numpy array or scipy sparse matrix.
         
     Returns
     -------
-    numpy.ndarray
+    array-like
         Weighted adjacency matrix with random weights in [0,1],
-        symmetrized to ensure undirected graph.
+        symmetrized to ensure undirected graph. Returns same format
+        as input (dense if A is dense, sparse if A is sparse).
+        
+    Notes
+    -----
+    - The function generates uniform random weights in [0,1]
+    - Weights are symmetrized by averaging: (W + W.T) / 2
+    - Directed edges will get averaged weights
+    - Zero entries in A remain zero in the output
+    - To control randomness, set numpy's random seed before calling
+    - Sparse matrices are handled efficiently without densification
+    
+    DOC_VERIFIED
     """
-    X = np.random.random(size=(A.shape[0], A.shape[0]))
-    W = np.multiply(X, A)
-    return (W + W.T) / 2
+    if sp.issparse(A):
+        # Efficient sparse implementation
+        # Convert to COO for easy access to non-zero entries
+        A_coo = A.tocoo()
+        
+        # Generate random weights only for existing edges
+        weights = np.random.random(len(A_coo.data))
+        
+        # Create weighted sparse matrix with same structure
+        W = sp.coo_matrix((weights, (A_coo.row, A_coo.col)), shape=A.shape)
+        
+        # Convert to CSR for efficient arithmetic operations
+        W_csr = W.tocsr()
+        
+        # Symmetrize and return in same format as input
+        W_sym = (W_csr + W_csr.T) / 2
+        
+        # Return in the same sparse format as input
+        return W_sym.asformat(A.format)
+    else:
+        # Dense implementation (unchanged for backward compatibility)
+        X = np.random.random(size=(A.shape[0], A.shape[0]))
+        W = np.multiply(X, A)
+        return (W + W.T) / 2
 
 
 def turn_to_partially_directed(mat, directed=0.0, weighted=0):
@@ -206,16 +353,37 @@ def turn_to_partially_directed(mat, directed=0.0, weighted=0):
     ----------
     mat : np.ndarray or scipy.sparse matrix
         Input adjacency matrix (should be symmetric)
-    directed : float, default=0.0
-        Fraction of edges to make directed (0.0 = fully undirected, 1.0 = fully directed)
+    directed : float or None, default=0.0
+        Fraction of edges to make directed. Must be in range [0.0, 1.0] or None.
+        0.0 = fully undirected, 1.0 = fully directed. None is converted to 0.0.
     weighted : int, default=0
-        Whether the matrix represents a weighted graph
+        Whether the matrix represents a weighted graph (0=binary, 1=weighted)
         
     Returns
     -------
     scipy.sparse.csr_matrix
         Partially directed adjacency matrix in sparse format (always returns sparse)
+        
+    Raises
+    ------
+    ValueError
+        If directed is not in range [0.0, 1.0] (after None conversion)
+        
+    Notes
+    -----
+    - Self-loops are always removed
+    - Only symmetric edge pairs are affected
+    - Asymmetric edges remain unchanged
+    - Uses uniform random distribution for edge direction selection
+    
+    DOC_VERIFIED
     """
+    # Validate parameters
+    if directed is None:
+        directed = 0.0
+    if not 0.0 <= directed <= 1.0:
+        raise ValueError(f"directed must be in range [0.0, 1.0], got {directed}")
+    
     # Determine if we're working with sparse or dense
     is_sparse = sp.issparse(mat)
     
@@ -225,7 +393,7 @@ def turn_to_partially_directed(mat, directed=0.0, weighted=0):
         A.setdiag(0)  # Remove self-loops
         A.eliminate_zeros()  # Remove any explicit zeros
         
-        if directed == 0.0 or directed is None:
+        if directed == 0.0:
             if not weighted:
                 A.data = np.ones_like(A.data, dtype=np.int32)
             return A
@@ -300,8 +468,8 @@ def turn_to_partially_directed(mat, directed=0.0, weighted=0):
         random_tosses = np.random.random(len(upper))
         condition1 = (random_tosses >= directed / 2.0) & (random_tosses < directed)
         condition2 = (random_tosses <= directed / 2.0) & (random_tosses < directed)
-        indices_where_upper_is_removed = np.where(condition1 == True)[0]
-        indices_where_lower_is_removed = np.where(condition2 == True)[0]
+        indices_where_upper_is_removed = np.where(condition1)[0]
+        indices_where_lower_is_removed = np.where(condition2)[0]
         
         u_xdata = [u[0] for u in upper[indices_where_upper_is_removed]]
         u_ydata = [u[1] for u in upper[indices_where_upper_is_removed]]
@@ -318,27 +486,80 @@ def turn_to_partially_directed(mat, directed=0.0, weighted=0):
 def get_symmetry_index(a):
     """Calculate symmetry index of a matrix.
     
-    Returns 1 for symmetric matrix, 0 for completely asymmetric.
+    The symmetry index measures what fraction of edges in a directed graph
+    have their reciprocal edge present. It quantifies the degree of 
+    bidirectionality in the network.
+    
+    Parameters
+    ----------
+    a : array-like or sparse matrix
+        Input adjacency matrix to analyze. Can be weighted or binary.
+        
+    Returns
+    -------
+    float
+        Symmetry index in range [0, 1]:
+        - 1.0: Perfectly symmetric (all edges are bidirectional)
+        - 0.0: Completely asymmetric (no reciprocal edges)
+        - 0.5: Half of edges have reciprocal counterparts
+        
+    Notes
+    -----
+    The symmetry index is calculated as:
+    (number of edges with symmetric counterpart) / (total number of edges)
+    
+    An edge a[i,j] has a symmetric counterpart if a[j,i] is also non-zero.
+    Self-loops (diagonal elements) always have their symmetric counterpart 
+    (themselves) and thus contribute to symmetry.
+    
+    Empty matrices (no edges) are considered perfectly symmetric and return 1.0.
+    
+    This metric differs from counting symmetric pairs: it counts each edge
+    individually and checks if its reverse exists, rather than counting
+    unique bidirectional pairs.
+    
+    Examples
+    --------
+    >>> # Perfectly symmetric matrix
+    >>> A = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+    >>> get_symmetry_index(A)
+    1.0
+    
+    >>> # Directed cycle (no reciprocal edges)
+    >>> B = np.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
+    >>> get_symmetry_index(B)
+    0.0
+    
+    >>> # Partially symmetric
+    >>> C = np.array([[0, 1, 1], [1, 0, 0], [0, 0, 0]])
+    >>> get_symmetry_index(C)  # 2 edges have counterparts out of 3 total
+    0.6666...
+    
+    DOC_VERIFIED
     """
     if _is_sparse(a):
         # Sparse implementation
-        a = a.astype(bool)
-        symmetrized = a + a.T
-        difference = symmetrized.astype(int) - a.astype(int)
-        difference.eliminate_zeros()
-        symm_index = 1 - difference.nnz / symmetrized.nnz * 2
+        a_bool = a.astype(bool)
+        # For each edge, check if its transpose also exists
+        # An edge has a symmetric counterpart if both a[i,j] and a[j,i] are non-zero
+        symmetric = a_bool.multiply(a_bool.T)
+        # Count edges with symmetric counterpart (symmetric[i,j]=1 means a[i,j] has counterpart)
+        symm_count = symmetric.nnz
+        total_edges = a_bool.nnz
+        if total_edges == 0:
+            return 1.0  # Empty matrix is considered symmetric
+        symm_index = symm_count / total_edges
     else:
         # Dense implementation
-        a = a.astype(bool)
-        symmetrized = a + a.T
-        difference = symmetrized.astype(int) - a.astype(int)
-        # Count non-zero elements
-        nnz_diff = np.count_nonzero(difference)
-        nnz_symm = np.count_nonzero(symmetrized)
-        if nnz_symm == 0:
-            symm_index = 1  # Empty matrix is considered symmetric
-        else:
-            symm_index = 1 - nnz_diff / nnz_symm * 2
+        a_bool = a.astype(bool)
+        # For each edge, check if its transpose also exists
+        symmetric = a_bool & a_bool.T
+        # Count edges with symmetric counterpart
+        symm_count = np.count_nonzero(symmetric)
+        total_edges = np.count_nonzero(a_bool)
+        if total_edges == 0:
+            return 1.0  # Empty matrix is considered symmetric
+        symm_index = symm_count / total_edges
     
     return symm_index
 
@@ -351,27 +572,52 @@ def symmetric_component(A, is_weighted):
     
     Parameters
     ----------
-    A : sparse matrix
-        Input adjacency matrix.
+    A : square sparse matrix
+        Input adjacency matrix. Must be square (n×n) as the function
+        computes A ∩ A.T. Supports scipy sparse matrix formats.
     is_weighted : bool
         If True, preserve edge weights; if False, return binary matrix.
         
     Returns
     -------
-    numpy.matrix
-        Symmetric component of the input matrix.
+    sparse matrix or numpy.matrix
+        Symmetric component of the input matrix. Returns sparse matrix if input
+        is sparse, dense matrix if input is dense.
+        
+    Raises
+    ------
+    ValueError
+        If A is not a square matrix (due to broadcasting error in A.T operation).
         
     Notes
     -----
     The symmetric component contains only edges that exist bidirectionally.
     This is useful for analyzing reciprocal connections in directed networks.
+    
+    Mathematical relationship: A = symmetric_component(A) + non_symmetric_component(A)
+    
+    DOC_VERIFIED
     """
-    a = A.astype(bool).todense()
-    symm_mask = np.bitwise_and(a, a.T)
-    if not is_weighted:
-        return symm_mask
-
-    return np.multiply(symm_mask, A.todense())
+    # Check if sparse to preserve sparsity
+    if sp.issparse(A):
+        # Work in sparse format
+        A_bool = A.astype(bool)
+        A_T_bool = A_bool.T
+        # Element-wise AND in sparse format
+        symm_mask = A_bool.multiply(A_T_bool)
+        
+        if not is_weighted:
+            return symm_mask.astype(A.dtype)
+        else:
+            # For weighted, multiply with original weights
+            return symm_mask.multiply(A)
+    else:
+        # Dense implementation (original)
+        a = A.astype(bool)
+        symm_mask = np.bitwise_and(a, a.T)
+        if not is_weighted:
+            return symm_mask
+        return np.multiply(symm_mask, A)
 
 
 def non_symmetric_component(A, is_weighted):
@@ -382,22 +628,40 @@ def non_symmetric_component(A, is_weighted):
     
     Parameters
     ----------
-    A : sparse matrix
-        Input adjacency matrix.
+    A : square sparse matrix or array
+        Input adjacency matrix. Must be square (n×n) for transpose operation.
     is_weighted : bool
         If True, preserve edge weights; if False, work with binary matrix.
         
     Returns
     -------
-    numpy.matrix
-        Non-symmetric component of the input matrix.
+    sparse matrix or array
+        Non-symmetric component of the input matrix. Returns same format as input
+        (sparse if input is sparse, dense if input is dense).
+        
+    Raises
+    ------
+    ValueError
+        If A is not a square matrix.
         
     Notes
     -----
     The non-symmetric component represents unidirectional connections
-    in directed networks. A - symmetric_component(A) = non_symmetric_component(A).
+    in directed networks. Mathematical relationship: 
+    A = symmetric_component(A) + non_symmetric_component(A).
+    
+    This function now preserves sparsity to avoid memory issues with large matrices.
+    
+    DOC_VERIFIED
     """
-    return A.astype(float) - symmetric_component(A, is_weighted).astype(float)
+    symm_comp = symmetric_component(A, is_weighted)
+    
+    if sp.issparse(A):
+        # Sparse subtraction preserves sparsity
+        return A - symm_comp
+    else:
+        # Dense subtraction
+        return A.astype(float) - symm_comp.astype(float)
 
 
 def remove_duplicates(coo):
@@ -410,16 +674,30 @@ def remove_duplicates(coo):
     ----------
     coo : scipy.sparse.coo_matrix
         COO-format sparse matrix potentially containing duplicates.
+        Must be in COO format (not CSR, CSC, etc.).
         
     Returns
     -------
     scipy.sparse.coo_matrix
         COO matrix with duplicates removed.
         
+    Raises
+    ------
+    AttributeError
+        If input is not in COO format (missing .row, .col, .data attributes).
+        
     Notes
     -----
     COO format allows duplicate entries, but most algorithms expect
-    unique (i,j) pairs. This function ensures data integrity.
+    unique (i,j) pairs. This function ensures data integrity by keeping
+    the last value for each (i,j) position. The "last" value depends on
+    the order of data in the COO arrays.
+    
+    Note: This uses DOK intermediate format which has O(nnz) time complexity
+    but high memory overhead. For large matrices, consider using scipy's
+    built-in duplicate summing behavior instead.
+    
+    DOC_VERIFIED
     """
     dok = sp.dok_matrix((coo.shape), dtype=coo.dtype)
     for i, j, v in zip(coo.row, coo.col, coo.data):
@@ -437,11 +715,13 @@ def adj_input_to_csr_sparse_matrix(a):
     ----------
     a : np.ndarray or scipy.sparse matrix
         Input matrix in various formats (dense, COO, CSC, CSR).
+        Other sparse formats (LIL, DIA, BSR) are not supported.
         
     Returns
     -------
     scipy.sparse.csr_array
         Matrix in CSR (Compressed Sparse Row) format.
+        Note: returns csr_array (not csr_matrix) for consistency.
         
     Raises
     ------
@@ -452,16 +732,21 @@ def adj_input_to_csr_sparse_matrix(a):
     -----
     CSR format is efficient for row slicing and matrix arithmetic.
     COO matrices are cleaned of duplicates before conversion.
+    CSC matrices are properly converted to CSR format.
+    
+    DOC_VERIFIED
     """
     if isinstance(a, np.ndarray):
         adj = sp.csr_array(a)
-    elif a.format in ["csr", "csc"]:
+    elif a.format == "csr":
         adj = a
+    elif a.format == "csc":
+        adj = a.tocsr()
     elif a.format == "coo":
-        adj = remove_duplicates(a)
+        adj = remove_duplicates(a).tocsr()
     else:
         raise Exception(
-            "Wrong input parsed to preprocess_adj_matrix function:", type(a)
+            "Wrong input parsed to adj_input_to_csr_sparse_matrix function:", type(a)
         )
 
     return sp.csr_array(adj)
@@ -482,11 +767,15 @@ def remove_selfloops_from_adj(a):
     -------
     array-like or sparse matrix
         Adjacency matrix with self-loops removed (diagonal = 0).
+        Always returns a copy, even if no self-loops exist.
         
     Notes
     -----
     Only modifies the matrix if self-loops exist (trace != 0).
     For sparse matrices, explicitly removes zeros after diagonal clearing.
+    Always returns a copy to ensure safety.
+    
+    DOC_VERIFIED
     """
     if a.trace() != 0:
         a = adj_input_to_csr_sparse_matrix(a)
@@ -495,7 +784,7 @@ def remove_selfloops_from_adj(a):
         anew.eliminate_zeros()
         return anew
     else:
-        return a
+        return a.copy()
 
 
 def remove_isolates_from_adj(a):
@@ -511,15 +800,16 @@ def remove_isolates_from_adj(a):
         
     Returns
     -------
-    cleared_matrix : sparse matrix
+    cleared_matrix : scipy.sparse.csr_array
         Adjacency matrix with isolated nodes removed.
     node_mapping : dict
         Mapping from new node indices to original indices.
         
     Notes
     -----
-    Useful for focusing analysis on the connected components of a network.
-    The node mapping allows tracking of original node identities.
+    Degree calculation is binary (ignores edge weights).
+    
+    DOC_VERIFIED
     """
     a = adj_input_to_csr_sparse_matrix(a)
 
@@ -551,24 +841,30 @@ def sausage_index(A, nn):
         
     Returns
     -------
-    None
-        Prints the sausage index and edge statistics.
+    float
+        Sausage index value between 0 and 1.
+        Returns 0.0 for empty graphs (no edges).
         
     Notes
     -----
     Sausage index = (edges within nn diagonals) / (total edges).
     Values close to 1 indicate strong linear/chain structure.
     Values close to 0 indicate more random connectivity.
+    Only counts upper diagonals (assumes symmetric matrix).
+    
+    DOC_VERIFIED
     """
     A = A.astype(bool).astype(int)
+    total_edges = np.sum(A) / 2.0
+    
+    if total_edges == 0:
+        return 0.0
+    
     sausage_edges = 0
     for i in range(nn):
         sausage_edges += sum(np.diag(A, k=i))
 
-    si = sausage_edges / (np.sum(A) / 2)
-    print("sausage edges:", sausage_edges)
-    print("other edges:", np.sum(A) / 2 - sausage_edges)
-    print("sausage index=", si)
+    return float(sausage_edges) / total_edges
 
 
 # Functions below support both numpy and sparse matrices for optimal performance
@@ -583,7 +879,15 @@ def get_laplacian(A):
     Returns
     -------
     L : array_like or sparse matrix
-        Laplacian matrix (same type as input)
+        Laplacian matrix (same type as input).
+        Always returns float type.
+        
+    Notes
+    -----
+    Uses out-degree (row sums) for directed graphs.
+    Isolated nodes have L[i,i] = 0.
+    
+    DOC_VERIFIED
     """
     if _is_sparse(A):
         # Sparse implementation
@@ -612,7 +916,10 @@ def get_inv_sqrt_diag_matrix(a):
     Returns
     -------
     DH : array_like or sparse matrix
-        Inverse square root of degree matrix (same type as input)
+        Inverse square root of degree matrix (same type as input).
+        Zero-degree nodes have 0 on diagonal.
+        
+    DOC_VERIFIED
     """
     n = a.shape[0]
     
@@ -645,10 +952,21 @@ def get_norm_laplacian(a):
     -------
     matrix : array_like or sparse matrix
         Normalized Laplacian (same type as input)
+    
+    Raises
+    ------
+    Exception
+        If adjacency matrix is not symmetric.
+        
+    Notes
+    -----
+    The normalized Laplacian is L = I - D^(-1/2) A D^(-1/2).
+    
+    DOC_VERIFIED
     """
     if get_symmetry_index(a) != 1:
         raise Exception(
-            "Cannot construct normalized laplacian matrix from a non-hermitian adjacency matrix"
+            "Cannot construct normalized laplacian matrix from a non-symmetric adjacency matrix"
         )
 
     n = a.shape[0]
@@ -677,7 +995,10 @@ def get_inv_diag_matrix(a):
     Returns
     -------
     Dinv : array_like or sparse matrix
-        Inverse of degree matrix (same type as input)
+        Inverse of degree matrix (same type as input).
+        Zero-degree nodes have 0 on diagonal.
+        
+    DOC_VERIFIED
     """
     n = a.shape[0]
     
@@ -709,7 +1030,16 @@ def get_rw_laplacian(a):
     Returns
     -------
     matrix : array_like or sparse matrix
-        Random walk Laplacian (same type as input)
+        Random walk Laplacian (same type as input).
+        Always returns float dtype.
+        
+    Notes
+    -----
+    For random walks, L_rw represents "staying probabilities".
+    Isolated nodes have L_rw[i,i] = 1 (100% probability of staying)
+    since they have no outgoing edges.
+    
+    DOC_VERIFIED
     """
     n = a.shape[0]
     T = get_trans_matrix(a)
@@ -733,7 +1063,15 @@ def get_trans_matrix(a):
     Returns
     -------
     T : array_like or sparse matrix
-        Transition matrix (same type as input)
+        Transition matrix (same type as input).
+        Always returns float dtype.
+        
+    Notes
+    -----
+    Row-stochastic matrix where rows sum to 1 (or 0 for isolated nodes).
+    Uses out-degree normalization for directed graphs.
+    
+    DOC_VERIFIED
     """
     if _is_sparse(a):
         # Sparse implementation
