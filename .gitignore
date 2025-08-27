@@ -89,5 +89,8 @@ coverage_gaps_report.md
 # Test files in root
 test_*.py
 
+# All tools directory scripts
+tools/
+
 # Text files folder
 text/

@@ -45,9 +45,62 @@ class Encoder(nn.Module):
         Second linear transformation to latent space.
     dropout : nn.Dropout
         Dropout layer for regularization.
+        
+    Raises
+    ------
+    ValueError
+        If dropout rate is not in the range [0, 1).
+        
+    Examples
+    --------
+    >>> import torch
+    >>> encoder = Encoder(orig_dim=100, inter_dim=50, code_dim=10, 
+    ...                   kwargs={'dropout': 0.2})
+    >>> data = torch.randn(32, 100)  # batch of 32 samples
+    >>> latent = encoder(data)
+    >>> print(latent.shape)
+    torch.Size([32, 10])
+    
+    Notes
+    -----
+    The encoder uses LeakyReLU activation for the hidden layer. The output
+    layer has no activation function, producing unbounded latent codes to
+    maximize the representational capacity of the latent space.
+    
+    See Also
+    --------
+    Decoder : The corresponding decoder network.
+    VAEEncoder : Variational encoder for probabilistic latent representations.
+    
+    DOC_VERIFIED
     """
 
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
+        """Initialize the encoder network.
+        
+        Sets up the two-layer neural network architecture with optional
+        dropout regularization and moves the model to the specified device.
+        
+        Parameters
+        ----------
+        orig_dim : int
+            Original input dimension (number of features).
+        inter_dim : int
+            Intermediate hidden layer dimension.
+        code_dim : int
+            Output dimension of the encoded representation.
+        kwargs : dict
+            Additional parameters, supports 'dropout' key.
+        device : torch.device, optional
+            Target device for computations.
+            
+        Raises
+        ------
+        ValueError
+            If dropout rate is not in the range [0, 1).
+            
+        DOC_VERIFIED
+        """
         super().__init__()
         dropout = kwargs.get("dropout", None)
 
@@ -70,9 +123,15 @@ class Encoder(nn.Module):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self._device = device
+            
+        # Move model to the specified device
+        self.to(self._device)
 
     def forward(self, features):
         """Forward pass through the encoder.
+        
+        Applies the two-layer neural network transformation to encode
+        input features into a lower-dimensional latent representation.
         
         Parameters
         ----------
@@ -83,18 +142,25 @@ class Encoder(nn.Module):
         -------
         torch.Tensor
             Encoded representation of shape (batch_size, code_dim).
-            Values are bounded between 0 and 1 due to sigmoid activation.
+            Values are unbounded to maximize representational capacity.
+            
+        Notes
+        -----
+        The forward pass applies the following transformations:
+        1. Linear transformation to hidden dimension
+        2. Dropout regularization (if enabled)
+        3. LeakyReLU activation
+        4. Linear transformation to latent dimension
+        
+        The output is unbounded to allow full representational capacity
+        in the latent space.
+        
+        DOC_VERIFIED
         """
         activation = self.encoder_hidden_layer(features)
-        activation = (
-            self.dropout(torch.ones(activation.shape).to(self._device)) * activation
-        )
+        activation = self.dropout(activation)
         activation = F.leaky_relu(activation)
-        # activation = torch.relu(activation)
         code = self.encoder_output_layer(activation)
-        code = torch.sigmoid(code)
-        # code = F.leaky_relu(code)
-
         return code
 
 
@@ -112,8 +178,9 @@ class VAEEncoder(nn.Module):
     inter_dim : int
         Intermediate hidden layer dimension.
     code_dim : int
-        Latent space dimension. The encoder outputs 2*code_dim values:
-        first code_dim for means, next code_dim for log variances.
+        Latent space dimension. Note: this should be 2*latent_dim if you want
+        latent_dim means and latent_dim log variances. The encoder outputs
+        code_dim values total.
     kwargs : dict
         Additional parameters:
         - dropout : float, optional
@@ -126,18 +193,66 @@ class VAEEncoder(nn.Module):
     encoder_hidden_layer : nn.Linear
         First linear transformation layer.
     encoder_output_layer : nn.Linear
-        Second linear transformation to latent parameters.
+        Second linear transformation to latent parameters (outputs code_dim values).
     dropout : nn.Dropout
         Dropout layer for regularization.
+        
+    Raises
+    ------
+    ValueError
+        If dropout rate is not in the range [0, 1).
+        
+    Examples
+    --------
+    >>> import torch
+    >>> # For 10-dim latent space, need code_dim=20 (10 means + 10 log variances)
+    >>> vae_encoder = VAEEncoder(orig_dim=100, inter_dim=50, code_dim=20, 
+    ...                          kwargs={'dropout': 0.2})
+    >>> data = torch.randn(32, 100)  # batch of 32 samples
+    >>> params = vae_encoder(data)
+    >>> print(params.shape)
+    torch.Size([32, 20])
         
     Notes
     -----
     The output layer does not use sigmoid activation (unlike standard AE)
     because it needs to output unconstrained means and log variances for
     the Gaussian distribution.
+    
+    See Also
+    --------
+    VAE : Complete variational autoencoder that uses this encoder.
+    Encoder : Standard encoder with bounded outputs.
+    
+    DOC_VERIFIED
     """
 
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
+        """Initialize the variational encoder network.
+        
+        Sets up the two-layer neural network architecture that outputs
+        parameters for a Gaussian distribution in latent space.
+        
+        Parameters
+        ----------
+        orig_dim : int
+            Original input dimension (number of features).
+        inter_dim : int
+            Intermediate hidden layer dimension.
+        code_dim : int
+            Total output dimension (should be 2*latent_dim for mean and log variance).
+        kwargs : dict
+            Additional parameters, supports 'dropout' key.
+        device : torch.device, optional
+            Target device for computations.
+            
+        Raises
+        ------
+        ValueError
+            If dropout rate is not in the range [0, 1).
+            
+        DOC_VERIFIED
+        """
         super().__init__()
         dropout = kwargs.get("dropout", None)
 
@@ -160,9 +275,15 @@ class VAEEncoder(nn.Module):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self._device = device
+            
+        # Move model to the specified device
+        self.to(self._device)
 
     def forward(self, features):
         """Forward pass through the VAE encoder.
+        
+        Applies the two-layer neural network transformation to encode
+        input features into parameters for a Gaussian distribution.
         
         Parameters
         ----------
@@ -172,16 +293,21 @@ class VAEEncoder(nn.Module):
         Returns
         -------
         torch.Tensor
-            Encoded representation of shape (batch_size, 2*code_dim).
-            First half contains means, second half contains log variances
-            for the latent Gaussian distribution.
+            Encoded representation of shape (batch_size, code_dim).
+            Contains concatenated parameters for the latent Gaussian:
+            typically first half for means, second half for log variances.
+            
+        Notes
+        -----
+        Unlike standard encoders, VAE encoders output unconstrained values
+        (no sigmoid activation) since they represent distribution parameters.
+        The output should be reshaped to extract means and log variances.
+        
+        DOC_VERIFIED
         """
         activation = self.encoder_hidden_layer(features)
-        activation = (
-            self.dropout(torch.ones(activation.shape).to(self._device)) * activation
-        )
+        activation = self.dropout(activation)
         activation = F.leaky_relu(activation)
-        # No sigmoid activation for VAE! The output represents mean and log variance
         code = self.encoder_output_layer(activation)
         return code
 
@@ -216,9 +342,62 @@ class Decoder(nn.Module):
         Second linear transformation to original space.
     dropout : nn.Dropout
         Dropout layer for regularization.
+        
+    Raises
+    ------
+    ValueError
+        If dropout rate is not in the range [0, 1).
+        
+    Examples
+    --------
+    >>> import torch
+    >>> decoder = Decoder(code_dim=10, inter_dim=50, orig_dim=100,
+    ...                   kwargs={'dropout': 0.2})
+    >>> latent = torch.randn(32, 10)  # batch of 32 latent codes
+    >>> reconstructed = decoder(latent)
+    >>> print(reconstructed.shape)
+    torch.Size([32, 100])
+    
+    Notes
+    -----
+    The decoder uses LeakyReLU activation for the hidden layer and
+    no activation function on the output layer, allowing it to output
+    unbounded values for reconstruction.
+    
+    See Also
+    --------
+    Encoder : The corresponding encoder network.
+    AE : Complete autoencoder using this decoder.
+    
+    DOC_VERIFIED
     """
 
     def __init__(self, code_dim, inter_dim, orig_dim, kwargs, device=None):
+        """Initialize the decoder network.
+        
+        Sets up the two-layer neural network architecture with optional
+        dropout regularization and moves the model to the specified device.
+        
+        Parameters
+        ----------
+        code_dim : int
+            Input dimension of the latent representation.
+        inter_dim : int
+            Intermediate hidden layer dimension.
+        orig_dim : int
+            Output dimension (same as original data).
+        kwargs : dict
+            Additional parameters, supports 'dropout' key.
+        device : torch.device, optional
+            Target device for computations.
+            
+        Raises
+        ------
+        ValueError
+            If dropout rate is not in the range [0, 1).
+            
+        DOC_VERIFIED
+        """
         super().__init__()
         dropout = kwargs.get("dropout", None)
 
@@ -241,9 +420,15 @@ class Decoder(nn.Module):
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self._device = device
+            
+        # Move model to the specified device
+        self.to(self._device)
 
     def forward(self, features):
         """Forward pass through the decoder.
+        
+        Applies the two-layer neural network transformation to decode
+        latent representations back to the original data space.
         
         Parameters
         ----------
@@ -254,16 +439,23 @@ class Decoder(nn.Module):
         -------
         torch.Tensor
             Reconstructed data of shape (batch_size, orig_dim).
+            
+        Notes
+        -----
+        The forward pass applies the following transformations:
+        1. Linear transformation to hidden dimension
+        2. Dropout regularization (if enabled)
+        3. LeakyReLU activation
+        4. Linear transformation to original dimension
+        5. No output activation (unbounded reconstruction)
+        
+        DOC_VERIFIED
         """
         activation = self.decoder_hidden_layer(features)
-        activation = (
-            self.dropout(torch.ones(activation.shape).to(self._device)) * activation
-        )
-        # activation = torch.relu(activation)
+        activation = self.dropout(activation)
         activation = F.leaky_relu(activation)
         activation = self.decoder_output_layer(activation)
         reconstructed = activation
-        # reconstructed = torch.sigmoid(activation)
         return reconstructed
 
 
@@ -304,14 +496,55 @@ class AE(nn.Module):
         
     Examples
     --------
+    >>> import torch
     >>> ae = AE(orig_dim=100, inter_dim=50, code_dim=10, 
     ...         enc_kwargs={'dropout': 0.2}, dec_kwargs={'dropout': 0.2},
     ...         device=torch.device('cuda'))
+    >>> data = torch.randn(32, 100).cuda()
     >>> reconstructed = ae(data)
+    >>> print(reconstructed.shape)
+    torch.Size([32, 100])
     >>> latent = ae.get_code_embedding(data)
+    >>> print(latent.shape)  # Note: transposed output
+    (10, 32)
+    
+    Notes
+    -----
+    The encoder produces unbounded latent codes, while the decoder
+    outputs unbounded reconstructions. This design is suitable for
+    general-purpose dimensionality reduction of unbounded data.
+    
+    See Also
+    --------
+    VAE : Variational autoencoder for probabilistic encoding.
+    Encoder : The encoder component.
+    Decoder : The decoder component.
+    
+    DOC_VERIFIED
     """
 
     def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs, dec_kwargs, device):
+        """Initialize the autoencoder.
+        
+        Creates encoder and decoder networks with the specified architecture.
+        
+        Parameters
+        ----------
+        orig_dim : int
+            Original input dimension.
+        inter_dim : int
+            Hidden layer dimension for both networks.
+        code_dim : int
+            Latent representation dimension.
+        enc_kwargs : dict
+            Encoder parameters (e.g., {'dropout': 0.2}).
+        dec_kwargs : dict
+            Decoder parameters (e.g., {'dropout': 0.2}).
+        device : torch.device
+            Device for computations.
+            
+        DOC_VERIFIED
+        """
         super(AE, self).__init__()
 
         self.encoder = Encoder(
@@ -336,6 +569,9 @@ class AE(nn.Module):
     def forward(self, features):
         """Forward pass through the autoencoder.
         
+        Encodes input data to latent representation and then decodes it
+        back to reconstruct the original data.
+        
         Parameters
         ----------
         features : torch.Tensor
@@ -345,6 +581,13 @@ class AE(nn.Module):
         -------
         torch.Tensor
             Reconstructed data of shape (batch_size, orig_dim).
+            
+        Notes
+        -----
+        The forward pass performs: input → encoder → latent → decoder → reconstruction.
+        Both latent codes and reconstructions are unbounded.
+        
+        DOC_VERIFIED
         """
         code = self.encoder.forward(features)
         reconstructed = self.decoder.forward(code)
@@ -363,6 +606,14 @@ class AE(nn.Module):
         numpy.ndarray
             Latent representation of shape (code_dim, batch_size).
             Note: Output is transposed for compatibility with DRIADA conventions.
+            
+        Notes
+        -----
+        This method only runs the encoder portion and returns the latent
+        codes as a numpy array. The transpose operation converts from
+        PyTorch's (batch, features) to DRIADA's (features, samples) format.
+        
+        DOC_VERIFIED
         """
         encoder = self.encoder
         embedding = encoder.forward(input_)
@@ -407,20 +658,36 @@ class VAE(nn.Module):
     code_dim : int
         Latent space dimension.
         
+    Examples
+    --------
+    >>> import torch
+    >>> vae = VAE(orig_dim=100, inter_dim=50, code_dim=10,
+    ...           enc_kwargs={'dropout': 0.2}, dec_kwargs={'dropout': 0.2})
+    >>> data = torch.randn(32, 100)
+    >>> reconstructed, mean, log_var = vae(data)
+    >>> # Compute VAE loss
+    >>> recon_loss = torch.nn.functional.mse_loss(reconstructed, data)
+    >>> kl_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+    >>> vae_loss = recon_loss + kl_loss
+    >>> # Generate new samples
+    >>> z = torch.randn(32, 10)
+    >>> generated = vae.decoder(z)
+    
     Notes
     -----
     The VAE loss consists of two terms:
     1. Reconstruction loss (e.g., MSE or BCE)
     2. KL divergence between the learned distribution and a standard Gaussian
     
-    Examples
+    The encoder internally outputs 2*code_dim features which are split into
+    mean and log variance parameters for the latent Gaussian distribution.
+    
+    See Also
     --------
-    >>> vae = VAE(orig_dim=100, inter_dim=50, code_dim=10,
-    ...           enc_kwargs={'dropout': 0.2}, dec_kwargs={'dropout': 0.2})
-    >>> reconstructed, mean, log_var = vae(data)
-    >>> # Generate new samples
-    >>> z = torch.randn(batch_size, code_dim)
-    >>> generated = vae.decoder(z)
+    AE : Standard deterministic autoencoder.
+    VAEEncoder : The probabilistic encoder component.
+    
+    DOC_VERIFIED
     """
 
     def __init__(
@@ -432,6 +699,39 @@ class VAE(nn.Module):
         dec_kwargs=None,
         device=None,
     ):
+        """Initialize the Variational Autoencoder.
+        
+        Creates a VAE with encoder outputting distribution parameters
+        (mean and log variance) and decoder for reconstruction. The encoder
+        output dimension is doubled to accommodate both parameters.
+        
+        Parameters
+        ----------
+        orig_dim : int
+            Original input dimension (number of features).
+        inter_dim : int
+            Hidden layer dimension for both encoder and decoder.
+        code_dim : int
+            Dimension of the latent representation. The encoder will output
+            2 * code_dim features (code_dim for mean, code_dim for log variance).
+        enc_kwargs : dict, optional
+            Additional encoder parameters (e.g., {'dropout': 0.2}).
+            Defaults to empty dict if None.
+        dec_kwargs : dict, optional
+            Additional decoder parameters (e.g., {'dropout': 0.2}).
+            Defaults to empty dict if None.
+        device : torch.device, optional
+            Device for computations. If None, encoder/decoder handle device selection.
+            
+        Notes
+        -----
+        The encoder output dimension is set to 2 * code_dim to enable the
+        VAE to learn both mean and log variance parameters for the latent
+        Gaussian distribution. These parameters are later split in the
+        get_code method.
+        
+        DOC_VERIFIED
+        """
         super(VAE, self).__init__()
 
         # Use VAEEncoder instead of regular Encoder
@@ -457,7 +757,8 @@ class VAE(nn.Module):
         """Reparameterization trick for VAE.
         
         Samples from the latent distribution N(mu, sigma^2) in a way that allows
-        backpropagation through the sampling operation.
+        backpropagation through the sampling operation by expressing the sample
+        as a deterministic function of the parameters and a separate noise variable.
         
         Parameters
         ----------
@@ -470,14 +771,36 @@ class VAE(nn.Module):
         -------
         torch.Tensor
             Sampled latent vector, shape (batch_size, code_dim).
+            
+        Examples
+        --------
+        >>> mu = torch.zeros(32, 10)
+        >>> log_var = torch.ones(32, 10) * -2  # Small variance
+        >>> z = self.reparameterization(mu, log_var)
+        >>> print(z.shape)
+        torch.Size([32, 10])
+        
+        Notes
+        -----
+        The reparameterization trick transforms sampling from N(mu, sigma^2) into:
+        z = mu + sigma * epsilon, where epsilon ~ N(0, I)
+        
+        This allows gradients to flow through mu and log_var during backpropagation
+        while maintaining the stochasticity through the random epsilon.
+        
+        DOC_VERIFIED
         """
         std = torch.exp(0.5 * log_var)  # standard deviation
-        eps = torch.randn_like(std)  # `randn_like` as we need the same size
-        sample = mu + (eps * std)  # sampling as if coming from the input space
+        eps = torch.randn_like(std)  # sample from N(0, I)
+        sample = mu + (eps * std)  # reparameterized sample
         return sample
 
     def get_code(self, features):
-        """Extract latent code from input features.
+        """Extract latent code from input features using VAE encoding.
+        
+        Encodes input features through the VAE encoder which outputs concatenated
+        mean and log variance parameters. These are reshaped and separated, then
+        used to sample from the latent distribution via reparameterization.
         
         Parameters
         ----------
@@ -490,25 +813,45 @@ class VAE(nn.Module):
             - code : Sampled latent representation, shape (batch_size, code_dim)
             - mu : Mean of latent distribution, shape (batch_size, code_dim)
             - log_var : Log variance of latent distribution, shape (batch_size, code_dim)
+            
+        Examples
+        --------
+        >>> features = torch.randn(32, 100)
+        >>> code, mu, log_var = vae.get_code(features)
+        >>> assert code.shape == (32, 10)  # Assuming code_dim=10
+        >>> assert mu.shape == (32, 10)
+        >>> assert log_var.shape == (32, 10)
+        
+        Notes
+        -----
+        The encoder outputs a tensor of shape (batch_size, 2 * code_dim) which
+        is reshaped to (batch_size, 2, code_dim) where:
+        - [:, 0, :] contains the mean parameters
+        - [:, 1, :] contains the log variance parameters
+        
+        DOC_VERIFIED
         """
         x = self.encoder.forward(features)
-
-        # print('x shape:', x.shape)
+        
+        # Reshape to separate mean and log variance
         x = x.view(-1, 2, self.code_dim)
-
-        # get `mu` and `log_var`
+        
+        # Extract distribution parameters
         mu = x[:, 0, :]  # the first feature values as mean
-        log_var = x[:, 1, :]  # the other feature values as variance
-
-        # print('mu shape:', mu.shape)
-        # get the latent vector through reparameterization
+        log_var = x[:, 1, :]  # the other feature values as log variance
+        
+        # Sample latent code via reparameterization
         code = self.reparameterization(mu, log_var)
-        # print('code shape:', mu.shape)
-
+        
         return code, mu, log_var
 
     def forward(self, features):
         """Forward pass through the VAE.
+        
+        Performs a complete forward pass: encoding input to latent distribution
+        parameters, sampling from the distribution, and decoding back to
+        reconstruction space. Returns both reconstruction and distribution
+        parameters needed for VAE loss computation.
         
         Parameters
         ----------
@@ -522,10 +865,29 @@ class VAE(nn.Module):
             - mu : Mean of latent distribution, shape (batch_size, code_dim)
             - log_var : Log variance of latent distribution, shape (batch_size, code_dim)
             
+        Examples
+        --------
+        >>> data = torch.randn(32, 100)
+        >>> recon, mu, log_var = vae(data)
+        >>> # Compute VAE loss
+        >>> recon_loss = F.mse_loss(recon, data)
+        >>> kl_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+        >>> vae_loss = recon_loss + kl_loss
+            
         Notes
         -----
         The mu and log_var are needed to compute the KL divergence loss:
         KL = -0.5 * sum(1 + log_var - mu^2 - exp(log_var))
+        
+        The total VAE loss is: L = reconstruction_loss + beta * KL_loss
+        where beta is a hyperparameter controlling the regularization strength.
+        
+        See Also
+        --------
+        get_code : For encoding only without reconstruction.
+        reparameterization : The sampling mechanism.
+        
+        DOC_VERIFIED
         """
         # encoding
         code, mu, log_var = self.get_code(features)
@@ -534,24 +896,58 @@ class VAE(nn.Module):
         reconstructed = self.decoder.forward(code)
         return reconstructed, mu, log_var
 
-    def get_code_embedding(self, input_):
+    def get_code_embedding(self, input_, use_mean=True):
         """Extract latent representation from input data.
+        
+        Returns either the mean of the latent distribution (deterministic) or
+        a sample from it (stochastic), transposed to match DRIADA conventions.
         
         Parameters
         ----------
         input_ : torch.Tensor
             Input data of shape (batch_size, orig_dim).
+        use_mean : bool, default=True
+            If True, returns the mean of the latent distribution (deterministic).
+            If False, returns a sample from the distribution (stochastic).
             
         Returns
         -------
         numpy.ndarray
-            Sampled latent representation of shape (code_dim, batch_size).
-            Note: Output is transposed for compatibility with DRIADA conventions.
-            This returns the sampled code, not the mean.
+            Latent representation of shape (code_dim, batch_size).
+            
+        Examples
+        --------
+        >>> data = torch.randn(32, 100)
+        >>> # Get deterministic embedding (mean)
+        >>> embedding = vae.get_code_embedding(data, use_mean=True)
+        >>> embedding2 = vae.get_code_embedding(data, use_mean=True)
+        >>> np.allclose(embedding, embedding2)  # True - deterministic
+        True
+        >>> # Get stochastic embedding (sampled)
+        >>> embedding3 = vae.get_code_embedding(data, use_mean=False)
+        >>> embedding4 = vae.get_code_embedding(data, use_mean=False)
+        >>> np.allclose(embedding3, embedding4)  # False - different samples
+        False
+            
+        Notes
+        -----
+        - Output is transposed: (batch, features) → (features, samples)
+        - use_mean=True is recommended for visualization, downstream tasks,
+          and when you need consistent embeddings
+        - use_mean=False captures the uncertainty in the latent representation
+        
+        See Also
+        --------
+        get_code : Returns code, mean, and log variance as tensors.
+        AE.get_code_embedding : Always deterministic (standard autoencoder).
+        
+        DOC_VERIFIED
         """
-        # encoder = self.encoder
-        embedding, mu, log_var = self.get_code(input_)
-        return embedding.detach().cpu().numpy().T
+        code, mu, log_var = self.get_code(input_)
+        if use_mean:
+            return mu.detach().cpu().numpy().T
+        else:
+            return code.detach().cpu().numpy().T
 
 
 class NeuroDataset(Dataset):
@@ -574,16 +970,83 @@ class NeuroDataset(Dataset):
         Transposed data matrix of shape (n_samples, n_features).
     transform : callable or None
         Transform function to apply to samples.
+        
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from torch.utils.data import DataLoader
+    >>> # Create dataset with 100 neurons, 1000 time points
+    >>> data = np.random.randn(100, 1000)
+    >>> dataset = NeuroDataset(data)
+    >>> # Create DataLoader for batching
+    >>> loader = DataLoader(dataset, batch_size=32, shuffle=True)
+    >>> for batch_data, batch_idx in loader:
+    ...     print(batch_data.shape)  # (32, 100) - batch_size x n_features
+    ...     break
+    
+    Notes
+    -----
+    The dataset returns tuples of (sample, index) where the index can be
+    used for tracking which samples were selected during training.
+    
+    DOC_VERIFIED
     """
 
     def __init__(self, data, transform=None):
+        """Initialize the neural dataset.
+        
+        Transposes the input data from (n_features, n_samples) to 
+        (n_samples, n_features) for PyTorch compatibility.
+        
+        Parameters
+        ----------
+        data : ndarray
+            Input data matrix of shape (n_features, n_samples).
+        transform : callable, optional
+            Optional transform function to apply to each sample.
+            
+        DOC_VERIFIED
+        """
         self.data = data.T
         self.transform = transform
 
     def __len__(self):
+        """Return the number of samples in the dataset.
+        
+        Returns
+        -------
+        int
+            Number of samples (n_samples).
+            
+        DOC_VERIFIED
+        """
         return len(self.data)
 
     def __getitem__(self, idx):
+        """Retrieve a sample and its index from the dataset.
+        
+        Parameters
+        ----------
+        idx : int or torch.Tensor
+            Index of the sample to retrieve. If tensor, will be converted
+            to Python list/int for numpy indexing.
+            
+        Returns
+        -------
+        tuple
+            - sample : ndarray
+                Data sample of shape (n_features,), optionally transformed.
+            - idx : int
+                The index of the retrieved sample.
+                
+        Notes
+        -----
+        Returns both the sample and its index to allow tracking of which
+        samples were used during training. This can be useful for debugging
+        or sample weighting schemes.
+        
+        DOC_VERIFIED
+        """
         if torch.is_tensor(idx):
             idx = idx.tolist()
         
@@ -592,5 +1055,4 @@ class NeuroDataset(Dataset):
         if self.transform:
             sample = self.transform(sample)
             
-        # Return sample and index (standard pattern)
         return sample, idx

@@ -19,7 +19,7 @@ def compute_cell_feat_significance(
     n_shuffles_stage2=10000,
     joint_distr=False,
     allow_mixed_dimensions=False,
-    metric_distr_type="norm",
+    metric_distr_type="gamma",
     noise_ampl=1e-3,
     ds=1,
     use_precomputed_stats=True,
@@ -87,6 +87,7 @@ def compute_cell_feat_significance(
     joint_distr: bool
         if True, ALL features in feat_bunch will be treated as components of a single multifeature
         For example, 'x' and 'y' features will be put together into ('x','y') multifeature.
+        Note: This parameter is marked for deprecation. Use allow_mixed_dimensions instead.
         default: False
 
     allow_mixed_dimensions: bool
@@ -152,6 +153,7 @@ def compute_cell_feat_significance(
 
     skip_delays: list
         List of features for which delays are not applied (set to 0).
+        Only features that exist in feat_bunch will be processed.
         Has no effect if find_optimal_delays = False
 
     shift_window: int
@@ -195,6 +197,49 @@ def compute_cell_feat_significance(
         - 'disent_matrix': Disentanglement results matrix
         - 'count_matrix': Count matrix from disentanglement
         - 'summary': Summary statistics from disentanglement
+    
+    Raises
+    ------
+    ValueError
+        If data_type is not 'calcium' or 'spikes'
+        If features are not found in experiment
+        If allow_mixed_dimensions enabled with unknown feature type
+    
+    Notes
+    -----
+    - When joint_distr=True, all features are combined into a single multifeature
+    - shift_window is converted from seconds to frames using exp.fps
+    - Updates exp.optimal_nf_delays as a side effect
+    - Relative MI values are computed using appropriate neural data entropy
+    - When with_disentanglement=True, feat-feat uses 1/10 the shuffles of neuron-feat
+    
+    Examples
+    --------
+    >>> # Basic neuron-feature analysis
+    >>> stats, sig, info, res = compute_cell_feat_significance(
+    ...     exp, 
+    ...     cell_bunch=[0, 1, 2],
+    ...     feat_bunch=['speed', 'head_direction']
+    ... )
+    >>> 
+    >>> # With disentanglement analysis for mixed selectivity
+    >>> stats, sig, info, res, disent = compute_cell_feat_significance(
+    ...     exp,
+    ...     feat_bunch=['x', 'y', 'speed'],
+    ...     with_disentanglement=True,
+    ...     multifeature_map={('x', 'y'): 'place'}
+    ... )
+    >>> 
+    >>> # Using spike data with custom parameters
+    >>> stats, sig, info, res = compute_cell_feat_significance(
+    ...     exp,
+    ...     data_type='spikes',
+    ...     metric_distr_type='norm',
+    ...     n_shuffles_stage2=5000,
+    ...     pval_thr=0.001
+    ... )
+    
+    DOC_VERIFIED
     """
 
     exp.check_ds(ds)
@@ -309,7 +354,7 @@ def compute_cell_feat_significance(
         multicomp_correction=multicomp_correction,
         pval_thr=pval_thr,
         find_optimal_delays=find_optimal_delays,
-        skip_delays=[feat_ids.index(f) for f in skip_delays],
+        skip_delays=[feat_ids.index(f) for f in skip_delays if f in feat_ids],
         shift_window=shift_window * exp.fps,
         verbose=verbose,
         enable_parallelization=enable_parallelization,
@@ -335,9 +380,13 @@ def compute_cell_feat_significance(
             me_val = computed_stats[cell_id][feat_id].get("me")
             if me_val is not None and metric == "mi":
                 feat_entropy = exp.get_feature_entropy(feat_id, ds=ds)
-                ca_entropy = exp.neurons[int(cell_id)].ca.get_entropy(ds=ds)
+                # Get entropy from appropriate data type
+                if data_type == "calcium":
+                    neural_entropy = exp.neurons[int(cell_id)].ca.get_entropy(ds=ds)
+                elif data_type == "spikes":
+                    neural_entropy = exp.neurons[int(cell_id)].sp.get_entropy(ds=ds)
                 computed_stats[cell_id][feat_id]["rel_me_beh"] = me_val / feat_entropy
-                computed_stats[cell_id][feat_id]["rel_me_ca"] = me_val / ca_entropy
+                computed_stats[cell_id][feat_id]["rel_me_ca"] = me_val / neural_entropy
 
             if save_computed_stats:
                 stage2_only = True if mode == "stage2" else False
@@ -586,6 +635,30 @@ def compute_feat_feat_significance(
     ...     exp,
     ...     feat_bunch=['speed', 'head_direction', ('x', 'y')]
     ... )
+    >>> 
+    >>> # Find significant correlations with custom parameters
+    >>> sim_mat, sig_mat, pval_mat, features, info = compute_feat_feat_significance(
+    ...     exp,
+    ...     feat_bunch=['lick_rate', 'reward', 'speed'],
+    ...     n_shuffles_stage2=5000,
+    ...     pval_thr=0.001,
+    ...     multicomp_correction='bonferroni'
+    ... )
+    
+    Raises
+    ------
+    ValueError
+        If features are not found in experiment
+    
+    Notes
+    -----
+    - Only upper triangle is computed for efficiency (matrix is symmetric)
+    - Diagonal elements are always zero (self-similarity prevented)
+    - No delay optimization is performed between features
+    - Supports both discrete and continuous features
+    - Multifeatures are created using aggregate_multiple_ts
+    
+    DOC_VERIFIED
     """
     import numpy as np
 
@@ -826,6 +899,33 @@ def compute_cell_cell_significance(
     ...     cell_bunch=[0, 5, 10, 15, 20],
     ...     data_type='spikes'
     ... )
+    >>> 
+    >>> # Identify functional assemblies with strict criteria
+    >>> sim_mat, sig_mat, pval_mat, cells, info = compute_cell_cell_significance(
+    ...     exp,
+    ...     n_shuffles_stage2=5000,
+    ...     pval_thr=0.001,
+    ...     multicomp_correction='bonferroni'
+    ... )
+    >>> # Post-process to find network modules
+    >>> import networkx as nx
+    >>> G = nx.from_numpy_array(sig_mat)
+    >>> modules = list(nx.connected_components(G))
+    
+    Raises
+    ------
+    ValueError
+        If data_type is not 'calcium' or 'spikes'
+        If spike data is missing for requested neurons
+    
+    Notes
+    -----
+    - Only upper triangle is computed for efficiency (matrix is symmetric)
+    - Warns if all neurons have identical spike data
+    - Computes network statistics when verbose=True
+    - Synchronous activity assumed (no delay optimization)
+    
+    DOC_VERIFIED
     """
     import numpy as np
 
@@ -967,7 +1067,7 @@ def compute_embedding_selectivity(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
-    metric_distr_type="norm",
+    metric_distr_type="gamma",
     noise_ampl=1e-3,
     ds=1,
     use_precomputed_stats=True,
@@ -1055,6 +1155,46 @@ def compute_embedding_selectivity(
         - 'significant_neurons': Dict of neurons significantly selective to embedding components
         - 'n_components': Number of embedding components
         - 'component_selectivity': For each component, list of selective neurons
+    
+    Raises
+    ------
+    ValueError
+        If no embeddings found for specified data_type
+        If embedding method not found
+    
+    Notes
+    -----
+    - Temporarily adds embedding components as dynamic features
+    - Forces use_precomputed_stats=False for temporary features
+    - Component names follow pattern "{method}_comp{index}"
+    - Cleanup in finally block ensures experiment state restored
+    - Only stage2 significance is considered for results
+    
+    Examples
+    --------
+    >>> # Analyze all stored embeddings
+    >>> results = compute_embedding_selectivity(exp)
+    >>> 
+    >>> # Analyze specific embedding method
+    >>> results = compute_embedding_selectivity(
+    ...     exp,
+    ...     embedding_methods='pca',
+    ...     cell_bunch=[0, 1, 2, 3, 4]
+    ... )
+    >>> 
+    >>> # Find neurons selective to UMAP manifold components
+    >>> results = compute_embedding_selectivity(
+    ...     exp,
+    ...     embedding_methods=['umap', 'tsne'],
+    ...     n_shuffles_stage2=5000,
+    ...     pval_thr=0.001
+    ... )
+    >>> # Extract UMAP-selective neurons
+    >>> umap_neurons = results['umap']['significant_neurons']
+    >>> for neuron_id, components in umap_neurons.items():
+    ...     print(f"Neuron {neuron_id} selective to components: {components}")
+    
+    DOC_VERIFIED
     """
 
     # Get list of embedding methods to analyze

@@ -165,11 +165,37 @@ class Embedding:
     """
 
     def __init__(self, init_data, init_distmat, labels, params, g=None):
+        """
+        Parameters already documented in class docstring.
+        
+        Raises
+        ------
+        TypeError
+            If g is provided but not a ProximityGraph instance.
+        AttributeError
+            If required params keys are missing during attribute access.
+            
+        Notes
+        -----
+        All keys in params dict are set as instance attributes via setattr.
+        The params are filtered through e_param_filter before use.
+        
+        Examples
+        --------
+        >>> # Typically created via MVData.get_embedding(), not directly
+        >>> from driada.dim_reduction import ProximityGraph
+        >>> data = np.random.randn(100, 50)  # 100 features, 50 samples
+        >>> labels = np.repeat([0, 1], 25)
+        >>> params = {'e_method': pca_method, 'e_method_name': 'pca', 'dim': 2}
+        >>> emb = Embedding(data, None, labels, params)
+        
+        DOC_VERIFIED
+        """
         if g is not None:
             if isinstance(g, ProximityGraph):
                 self.graph = g
             else:
-                raise Exception("Wrong graph type!")
+                raise TypeError("Graph must be ProximityGraph instance")
 
         self.all_params = e_param_filter(params)
         for key in params:
@@ -187,7 +213,8 @@ class Embedding:
         try:
             self.nclasses = len(set(self.labels))
         except (TypeError, AttributeError):
-            self.nclasses = np.unique(self.labels)
+            # Fixed: was returning array instead of count
+            self.nclasses = len(np.unique(self.labels))
 
         if self.e_method.nn_based:
             self.nnmodel = None
@@ -204,10 +231,29 @@ class Embedding:
             Additional keyword arguments passed to the specific embedding method.
             For neural network methods (AE/VAE), this includes training parameters.
             
+        Returns
+        -------
+        None
+            Modifies self.coords in-place with embedding coordinates.
+            
         Raises
         ------
+        AttributeError
+            If e_method_name is invalid or corresponding method not found.
+            If self.graph is None for methods requiring it.
         Exception
             If the graph is disconnected and the method cannot handle it.
+            
+        Examples
+        --------
+        >>> emb = Embedding(data, None, labels, params)  
+        >>> emb.build()  # For PCA, no graph needed
+        >>> # For graph methods, build graph first:
+        >>> emb.graph = ProximityGraph(data, nn=10)
+        >>> emb.graph.build()
+        >>> emb.build()  # Now can use Isomap, LLE, etc.
+        
+        DOC_VERIFIED
         """
         if kwargs is None:
             kwargs = dict()
@@ -233,10 +279,34 @@ class Embedding:
         verbose : bool, default=True
             Whether to print progress messages.
             
+        Returns
+        -------
+        None
+            Sets self.coords to shape (dim, n_samples).
+            
+        Raises
+        ------
+        AttributeError
+            If self.dim is not set.
+        ValueError
+            If PCA fails (e.g., dim > n_features).
+            
         Notes
         -----
         Sets self.coords to shape (dim, n_samples) and stores the PCA object
         in self.reducer_ for potential reuse or analysis.
+        
+        Data is transposed before fitting since init_data is (n_features, n_samples)
+        while sklearn expects (n_samples, n_features).
+        
+        Examples
+        --------
+        >>> params = {'e_method_name': 'pca', 'dim': 2}
+        >>> emb = Embedding(data, None, labels, params)
+        >>> emb.create_pca_embedding_(verbose=False)
+        >>> print(emb.coords.shape)  # (2, n_samples)
+        
+        DOC_VERIFIED
         """
         if verbose:
             print("Calculating PCA embedding...")
@@ -253,19 +323,45 @@ class Embedding:
         Preserves geodesic distances between all points by first computing
         shortest paths on the neighborhood graph, then applying MDS.
         
+        Returns
+        -------
+        None
+            Sets self.coords to shape (dim, n_samples).
+            
+        Raises
+        ------
+        AttributeError
+            If self.graph, self.dim, or self.nn not set.
+        MemoryError
+            If converting sparse matrix to dense fails.
+            
         Notes
         -----
         Requires a proximity graph. Uses Dijkstra's algorithm to compute
         shortest paths, then applies classical MDS to the geodesic distance matrix.
+        
+        Warning: Converts sparse adjacency to dense matrix which may
+        use excessive memory for large datasets.
+        
+        The Isomap object is stored in self.reducer_ for potential reuse.
+        
+        Examples
+        --------
+        >>> emb.graph = ProximityGraph(data, nn=10)
+        >>> emb.graph.build()
+        >>> emb.create_isomap_embedding_()
+        >>> print(emb.coords.shape)  # (dim, n_samples)
+        
+        DOC_VERIFIED
         """
         A = self.graph.adj
-        map = Isomap(
+        isomap_reducer = Isomap(
             n_components=self.dim, n_neighbors=self.graph.nn, metric="precomputed"
         )
         # self.coords = sp.csr_matrix(map.fit_transform(self.graph.data.A.T).T)
         spmatrix = shortest_path(A.todense(), method="D", directed=False)
-        self.coords = map.fit_transform(spmatrix).T
-        self.reducer_ = map
+        self.coords = isomap_reducer.fit_transform(spmatrix).T
+        self.reducer_ = isomap_reducer
 
     def create_mds_embedding_(self):
         """Create MDS (Multi-Dimensional Scaling) embedding.
@@ -274,6 +370,18 @@ class Embedding:
         pairwise distances between points. Works with either a pre-computed
         distance matrix or calculates distances from the data.
         
+        Returns
+        -------
+        None
+            Sets self.coords to shape (dim, n_samples).
+            
+        Raises
+        ------
+        ImportError
+            If sklearn.manifold.MDS not available.
+        AttributeError
+            If self.dim not set.
+            
         Notes
         -----
         Sets self.coords to shape (dim, n_samples) containing the MDS coordinates.
@@ -283,6 +391,19 @@ class Embedding:
         The algorithm minimizes the stress function:
         stress = sum((d_ij - ||x_i - x_j||)^2)
         where d_ij are the input distances.
+        
+        Uses fixed random_state=42 for reproducibility - to be changed in the future.
+        The MDS object is stored in self.reducer_ for potential reuse.
+        
+        Examples
+        --------
+        >>> # With precomputed distances
+        >>> from scipy.spatial.distance import pdist, squareform
+        >>> distmat = squareform(pdist(data.T))
+        >>> emb = Embedding(data, distmat, labels, params)
+        >>> emb.create_mds_embedding_()
+        
+        DOC_VERIFIED
         """
         from sklearn.manifold import MDS
 

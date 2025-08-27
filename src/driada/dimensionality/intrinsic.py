@@ -467,6 +467,20 @@ def geodesic_dimension(
         Based on Granata & Carnevale 2016 paper, the distribution of geodesic
         distances near the maximum follows: D * log(sin(x * pi/2))
         where x is the normalized distance and D is the intrinsic dimension.
+        
+        Parameters
+        ----------
+        x : array_like
+            Normalized distances (should be in range [0, 1]).
+        D : float
+            Candidate intrinsic dimension.
+            
+        Returns
+        -------
+        array_like
+            Log probability values for the theoretical distribution.
+            
+        DOC_VERIFIED
         """
         # Clip x to valid domain for sin
         x_clipped = np.clip(x, 1e-10, 1 - 1e-10)

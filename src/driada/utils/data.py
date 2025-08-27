@@ -759,3 +759,95 @@ def read_hdf5_to_dict(hdf5_file):
 
     with h5py.File(hdf5_file, "r") as f:
         return _read_group(f)
+
+
+def check_nonnegative(**kwargs):
+    """Check that all provided parameters are non-negative.
+    
+    Validates that numeric parameters are >= 0. Useful for input validation
+    in functions that require non-negative values (counts, rates, probabilities).
+    
+    Parameters
+    ----------
+    **kwargs : dict
+        Parameter name to value mappings. All values should be numeric.
+        
+    Raises
+    ------
+    ValueError
+        If any parameter value is negative, NaN, or infinite.
+        Error message includes parameter name and value.
+        
+    Examples
+    --------
+    >>> check_nonnegative(n_neurons=10, rate=0.5)  # No error
+    
+    >>> check_nonnegative(n_neurons=10, rate=-0.5)
+    ValueError: rate must be non-negative, got -0.5
+    
+    >>> check_nonnegative(count=5, prob=np.nan)
+    ValueError: prob must be non-negative, got nan
+    
+    DOC_VERIFIED
+    """
+    for name, value in kwargs.items():
+        if value is None:
+            continue  # Skip None values
+        try:
+            val = float(value)
+            if np.isnan(val):
+                raise ValueError(f"{name} cannot be NaN")
+            if np.isinf(val):
+                raise ValueError(f"{name} cannot be infinite")
+            if val < 0:
+                raise ValueError(f"{name} must be non-negative, got {value}")
+        except (TypeError, ValueError) as e:
+            if "cannot be" in str(e) or "must be" in str(e):
+                raise  # Re-raise our validation errors
+            raise TypeError(f"{name} must be numeric, got {type(value).__name__}")
+
+
+def check_positive(**kwargs):
+    """Check that all provided parameters are positive (> 0).
+    
+    Validates that numeric parameters are strictly positive. Useful for input 
+    validation in functions that require positive values (dimensions, sizes).
+    
+    Parameters
+    ----------
+    **kwargs : dict
+        Parameter name to value mappings. All values should be numeric.
+        
+    Raises
+    ------
+    ValueError
+        If any parameter value is not positive, NaN, or infinite.
+        Error message includes parameter name and value.
+        
+    Examples
+    --------
+    >>> check_positive(n_neurons=10, dim=5)  # No error
+    
+    >>> check_positive(n_neurons=0)
+    ValueError: n_neurons must be positive, got 0
+    
+    >>> check_positive(dim=-5)
+    ValueError: dim must be positive, got -5
+    
+    DOC_VERIFIED
+    """
+    for name, value in kwargs.items():
+        if value is None:
+            continue  # Skip None values
+        try:
+            val = float(value)
+            if np.isnan(val):
+                raise ValueError(f"{name} cannot be NaN")
+            if np.isinf(val):
+                raise ValueError(f"{name} cannot be infinite")
+            if val <= 0:
+                raise ValueError(f"{name} must be positive, got {value}")
+        except (TypeError, ValueError) as e:
+            if "cannot be" in str(e) or "must be" in str(e):
+                raise  # Re-raise our validation errors
+            raise TypeError(f"{name} must be numeric, got {type(value).__name__}")

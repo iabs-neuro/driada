@@ -1,4 +1,5 @@
 import copy
+import os
 import os.path
 import numpy as np
 import pickle
@@ -79,14 +80,20 @@ def load_exp_from_aligned_data(
     ValueError
         If data is empty or calcium data is missing.
         
+    Side Effects
+    ------------
+    - Prints feature information if verbose=True
+    - Creates deep copy of input data
+    
     Notes
     -----
-    - Features with constant values or all NaN are automatically filtered out
+    - Features with ≤1 unique non-NaN values are filtered as "garbage"
     - Feature types (discrete/continuous) are automatically determined by checking
       if values appear to be categorical (few unique values) or continuous
     - Case-insensitive key matching for 'calcium' and 'spikes'
     - Creates a deep copy of input data to avoid modifying the original
     - The experiment name is constructed using construct_session_name()
+    - Bad frames create a boolean mask; indices beyond data length are ignored
     
     Examples
     --------
@@ -117,6 +124,8 @@ def load_exp_from_aligned_data(
     ...     bad_frames=[10, 11, 12],  # Mark frames as bad
     ...     static_features={'fps': 30.0}  # Override default fps
     ... )
+    
+    DOC_VERIFIED
     """
 
     # Validate inputs
@@ -148,7 +157,24 @@ def load_exp_from_aligned_data(
     dyn_features = adata.copy()
 
     def is_garbage(vals):
-        """Check if values are constant or all NaN."""
+        """Check if values are constant or all NaN.
+        
+        Parameters
+        ----------
+        vals : array-like
+            Values to check for validity.
+            
+        Returns
+        -------
+        bool
+            True if values are all NaN, constant, or empty.
+            
+        Notes
+        -----
+        Used to filter out uninformative features from dynamic data.
+        
+        DOC_VERIFIED
+        """
         if len(vals) == 0:
             return True
         # Convert to numpy array for consistent handling
@@ -273,9 +299,11 @@ def load_experiment(
         Experiment parameters dictionary. See load_exp_from_aligned_data
         for required fields based on data_source.
     force_rebuild : bool, default=False
-        If True, rebuild experiment even if pickle cache exists.
+        If True, rebuild experiment from data files even if pickle cache exists.
+        The existing pickle is ignored completely.
     force_reload : bool, default=False
         If True, re-download data from cloud even if local files exist.
+        Also bypasses pickle cache (similar to force_rebuild).
     via_pydrive : bool, default=True
         Use PyDrive for Google Drive access. If False, uses alternative method.
     gauth : GoogleAuth object, optional
@@ -304,29 +332,42 @@ def load_experiment(
         
     Returns
     -------
-    exp : Experiment
-        The loaded or created Experiment object.
-    load_log : list or None
-        Cloud download log if data was downloaded, None otherwise.
+    tuple
+        exp : Experiment
+            The loaded or created Experiment object.
+        load_log : list or None
+            Cloud download log if data was downloaded, None otherwise.
+            Always None for local loads or pickle loads.
         
     Raises
     ------
     ValueError
-        If root exists but is not a directory, or if data_source
-        is not supported.
+        If root exists but is not a directory.
+        If data_source is not 'IABS' and no data_path provided.
     FileNotFoundError
-        If data cannot be found locally or downloaded from cloud.
+        If data file not found and cannot be downloaded.
+        
+    Side Effects
+    ------------
+    - Creates root directory if it doesn't exist
+    - Creates experiment subdirectory structure
+    - Downloads data from cloud for IABS source (if needed)
+    - Saves pickle file if save_to_pickle=True and building from data
+    - Prints progress messages if verbose=True
         
     Notes
     -----
     Loading priority:
     1. If pickle exists and not force_rebuild/reload: load from pickle
-    2. If local data exists: load from data file
+    2. If local data exists and not force_reload: load from data file
     3. If IABS source: attempt cloud download
     4. Otherwise: raise error
     
     For IABS data, expects cloud structure with 'Aligned data' containing
     npz files with calcium and behavioral data.
+    
+    The function returns a tuple (exp, load_log) to maintain backward
+    compatibility, even though load_log is often None.
     
     Examples
     --------
@@ -352,6 +393,8 @@ def load_experiment(
     ...     'custom', {'name': 'my_exp'},
     ...     data_path='/path/to/data.npz'
     ... )
+    
+    DOC_VERIFIED
     """
 
     if os.path.exists(root) and not os.path.isdir(root):
@@ -438,11 +481,34 @@ def save_exp_to_pickle(exp, path, verbose=True):
     verbose : bool, default=True
         Whether to print save confirmation.
         
+    Raises
+    ------
+    PermissionError
+        If no write permission for the path.
+    OSError
+        If path is invalid or other OS-related errors.
+        
+    Examples
+    --------
+    >>> # Save experiment to file
+    >>> save_exp_to_pickle(exp, 'data/experiments/exp1.pkl')
+    Experiment EXP001 saved to data/experiments/exp1.pkl
+    
+    >>> # Save without verbose output
+    >>> save_exp_to_pickle(exp, 'exp2.pkl', verbose=False)
+    
     Notes
     -----
     Uses Python's pickle module with default protocol.
     Creates parent directories if they don't exist.
+    
+    DOC_VERIFIED
     """
+    # Create parent directories if they don't exist
+    parent_dir = os.path.dirname(path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+    
     with open(path, "wb") as f:
         pickle.dump(exp, f)
         if verbose:
@@ -468,8 +534,26 @@ def load_exp_from_pickle(path, verbose=True):
     ------
     FileNotFoundError
         If the pickle file doesn't exist.
-    pickle.UnpicklingError
-        If the file is corrupted or incompatible.
+    PermissionError
+        If no read permission for the file.
+    OSError
+        If path is invalid or other OS-related errors.
+        
+    Examples
+    --------
+    >>> # Load experiment from file
+    >>> exp = load_exp_from_pickle('data/experiments/exp1.pkl')
+    Experiment EXP001 loaded from data/experiments/exp1.pkl
+    
+    >>> # Load without verbose output
+    >>> exp = load_exp_from_pickle('exp2.pkl', verbose=False)
+    
+    Notes
+    -----
+    Uses Python's pickle module for deserialization.
+    Prints experiment signature upon successful load if verbose=True.
+    
+    DOC_VERIFIED
     """
     with open(path, "rb") as f:
         exp = pickle.load(

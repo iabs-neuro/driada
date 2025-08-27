@@ -7,7 +7,12 @@ from scipy.stats import rankdata, gaussian_kde, wasserstein_distance
 import seaborn as sns
 
 
-def plot_pc_activity(exp, cell_ind, ds=None, ax=None):
+def plot_pc_activity(exp, cell_ind, place_key=("x", "y"), ds=5, ax=None, 
+                    show_trajectory=False, show_spikes=True, cmap="plasma",
+                    marker_size=100, marker_style="*", marker_color="k",
+                    scatter_alpha=0.8, trajectory_alpha=0.3, trajectory_color="gray",
+                    figsize_base=6, title_format="Cell {cell_ind}, Rel MI={rel_mi:.4f}, pval={pval:.2e}",
+                    xlabel=None, ylabel=None, show_stats=True):
     """
     Plot place cell activity overlaid on spatial trajectory.
 
@@ -17,51 +22,152 @@ def plot_pc_activity(exp, cell_ind, ds=None, ax=None):
         Experiment object with spatial data and neurons.
     cell_ind : int
         Index of the neuron to plot.
+    place_key : tuple or str, optional
+        Feature key for spatial data. Default: ("x", "y").
+        Can be tuple like ("x", "y") or string like "position".
     ds : int, optional
         Downsampling factor. Default: 5.
     ax : matplotlib.axes.Axes, optional
         Axes to plot on. If None, creates new figure.
+    show_trajectory : bool, optional
+        Whether to show trajectory line. Default: False.
+    show_spikes : bool, optional
+        Whether to show spike markers. Default: True.
+    cmap : str, optional
+        Colormap for activity. Default: "plasma".
+    marker_size : int, optional
+        Size of spike markers. Default: 100.
+    marker_style : str, optional
+        Marker style for spikes. Default: "*".
+    marker_color : str, optional
+        Color for spike markers. Default: "k".
+    scatter_alpha : float, optional
+        Alpha for activity scatter. Default: 0.8.
+    trajectory_alpha : float, optional
+        Alpha for trajectory line. Default: 0.3.
+    trajectory_color : str, optional
+        Color for trajectory. Default: "gray".
+    figsize_base : float, optional
+        Base figure size (adjusted by aspect ratio). Default: 6.
+    title_format : str, optional
+        Format string for title. Available keys: cell_ind, rel_mi, pval.
+        Default: "Cell {cell_ind}, Rel MI={rel_mi:.4f}, pval={pval:.2e}"
+    xlabel : str, optional
+        X-axis label. Default: first element of place_key or "x".
+    ylabel : str, optional
+        Y-axis label. Default: second element of place_key or "y".
+    show_stats : bool, optional
+        Whether to show statistics in title. Default: True.
 
     Returns
     -------
     ax : matplotlib.axes.Axes
         Axes with the plot.
+    
+    Raises
+    ------
+    KeyError
+        If cell_ind or place_key not found in stats_table
+    IndexError
+        If cell_ind >= number of neurons
+    ValueError
+        If place data is not 2D
+    AttributeError
+        If required attributes missing from experiment
+    
+    Notes
+    -----
+    - Uses log-transformed calcium data for color mapping
+    - Figure aspect ratio automatically adjusted based on spatial extent
+    - Stats (MI and p-value) retrieved from experiment's stats_table
+    - Supports both tuple place keys like ("x", "y") and single feature names
+    
+    Examples
+    --------
+    >>> # Basic place cell plot
+    >>> ax = plot_pc_activity(exp, cell_ind=5)
+    
+    >>> # Custom styling with trajectory
+    >>> ax = plot_pc_activity(exp, cell_ind=10, show_trajectory=True,
+    ...                      cmap='viridis', marker_color='red')
+    
+    >>> # Using different spatial features
+    >>> ax = plot_pc_activity(exp, cell_ind=3, place_key=("x_grid", "y_grid"))
+    
+    DOC_VERIFIED
     """
-    pc_stats = exp.stats_table[("x", "y")][cell_ind]
-    pval = None if pc_stats["pval"] is None else np.round(pc_stats["pval"], 7)
-    rel_mi_beh = (
-        None if pc_stats["rel_mi_beh"] is None else np.round(pc_stats["rel_mi_beh"], 4)
-    )
+    # Validate inputs
+    if cell_ind < 0 or cell_ind >= exp.n_cells:
+        raise IndexError(f"cell_ind {cell_ind} out of range [0, {exp.n_cells})")
+    
+    # Get spatial data
+    if isinstance(place_key, tuple) and len(place_key) == 2:
+        x_key, y_key = place_key
+        x_data = getattr(exp, x_key).data
+        y_data = getattr(exp, y_key).data
+        default_xlabel = x_key
+        default_ylabel = y_key
+    else:
+        # Single feature - try to get x,y components
+        place_feat = getattr(exp, place_key)
+        if hasattr(place_feat, 'data') and place_feat.data.ndim == 2:
+            x_data = place_feat.data[:, 0]
+            y_data = place_feat.data[:, 1]
+            default_xlabel = f"{place_key}_x"
+            default_ylabel = f"{place_key}_y"
+        else:
+            raise ValueError(f"Place feature {place_key} must be 2D or provide tuple of features")
+    
+    # Get statistics if available
+    if show_stats and hasattr(exp, 'stats_table') and place_key in exp.stats_table:
+        try:
+            pc_stats = exp.stats_table[place_key][cell_ind]
+            pval = pc_stats.get("pval", None)
+            rel_mi = pc_stats.get("rel_me_beh", pc_stats.get("rel_mi_beh", None))
+        except (KeyError, IndexError):
+            pval = None
+            rel_mi = None
+            show_stats = False
+    else:
+        show_stats = False
 
-    if ds is None:
-        ds = 5
-
+    # Create figure if needed
     if ax is None:
-        lenx = max(exp.x.data) - min(exp.x.data)
-        leny = max(exp.y.data) - min(exp.y.data)
+        lenx = max(x_data) - min(x_data)
+        leny = max(y_data) - min(y_data)
         xyratio = max(lenx / leny, leny / lenx)
-        fig, ax = create_default_figure(6 * xyratio, 6)
+        fig, ax = create_default_figure(figsize_base * xyratio, figsize_base)
 
-    # neur = np.roll(rescale(rankdata(exp.neurons[ind].ca.data)), 0)
+    # Get neural activity
     neur = rescale(np.log(exp.neurons[cell_ind].ca.data + 1e-10))
-    spinds = np.where(exp.neurons[cell_ind].sp.data != 0)[0]
-
-    # ax.plot(exp.x.data[::ds], exp.y.data[::ds], c = 'k', alpha=0.3)
-    ax.scatter(
-        exp.x.data[::ds], exp.y.data[::ds], c=neur[::ds], cmap="plasma", alpha=0.8
-    )
-    ax.scatter(
-        exp.x.data[spinds],
-        exp.y.data[spinds],
-        c="k",
-        alpha=1,
-        marker="*",
-        linewidth=2,
-        s=100,
-    )
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_title(f"Cell {cell_ind}, Rel MI={rel_mi_beh}, pval={pval}")
+    
+    # Plot trajectory if requested
+    if show_trajectory:
+        ax.plot(x_data[::ds], y_data[::ds], c=trajectory_color, 
+                alpha=trajectory_alpha, zorder=1)
+    
+    # Plot activity
+    ax.scatter(x_data[::ds], y_data[::ds], c=neur[::ds], 
+               cmap=cmap, alpha=scatter_alpha, zorder=2)
+    
+    # Plot spikes if requested
+    if show_spikes and hasattr(exp.neurons[cell_ind], 'sp'):
+        spinds = np.where(exp.neurons[cell_ind].sp.data != 0)[0]
+        if len(spinds) > 0:
+            ax.scatter(x_data[spinds], y_data[spinds], 
+                      c=marker_color, alpha=1, marker=marker_style,
+                      linewidth=2, s=marker_size, zorder=3)
+    
+    # Labels
+    ax.set_xlabel(xlabel or default_xlabel)
+    ax.set_ylabel(ylabel or default_ylabel)
+    
+    # Title
+    if show_stats and pval is not None and rel_mi is not None:
+        title = title_format.format(cell_ind=cell_ind, rel_mi=rel_mi, pval=pval)
+    else:
+        title = f"Cell {cell_ind}"
+    ax.set_title(title)
 
     return ax
 
@@ -98,7 +204,7 @@ def plot_neuron_feature_density(
     ds : int, optional
         Downsampling factor. Default: 1.
     shift : int, optional
-        Temporal shift (not implemented). Default: None.
+        Temporal shift in frames. Currently not implemented. Default: None.
     ax : matplotlib.axes.Axes, optional
         Axes to plot on. If None, creates new figure.
     compute_wsd : bool, optional
@@ -108,6 +214,33 @@ def plot_neuron_feature_density(
     -------
     ax : matplotlib.axes.Axes
         Axes with the plot.
+    
+    Raises
+    ------
+    NotImplementedError
+        If data_type='spikes' with binary feature
+    IndexError
+        If cell_id >= number of neurons
+    AttributeError
+        If feature not found in experiment
+    
+    Notes
+    -----
+    - Binary features: Uses KDE with bw_adjust=0.5, log10 transform
+    - Continuous features: Adds 1e-8 noise, uses 100x100 grid
+    - Uses .scdata attribute for scaled data access
+    - shift parameter is accepted but not used
+    
+    Examples
+    --------
+    >>> # Plot calcium vs binary feature density
+    >>> ax = plot_neuron_feature_density(exp, 'calcium', 5, 'licking')
+    
+    >>> # With Wasserstein distance for binary features
+    >>> ax = plot_neuron_feature_density(exp, 'calcium', 10, 'reward', 
+    ...                                 compute_wsd=True)
+    
+    DOC_VERIFIED
     """
     ind2 = min(exp.n_frames, ind2)
 
@@ -205,7 +338,7 @@ def plot_neuron_feature_pair(
     add_density_plot : bool, optional
         Whether to add density subplot. Default: True.
     ax : matplotlib.axes.Axes, optional
-        Axes to plot on (ignored if add_density_plot=True).
+        Axes to plot on. Forces add_density_plot=False when provided.
     title : str, optional
         Custom title for the plot.
 
@@ -213,6 +346,36 @@ def plot_neuron_feature_pair(
     -------
     fig : matplotlib.figure.Figure
         Figure containing the plot(s).
+    
+    Raises
+    ------
+    IndexError
+        If cell_id >= number of neurons
+    AttributeError
+        If featname not found in experiment
+    
+    Notes
+    -----
+    - Discrete features shown as red scatter points where active
+    - Uses make_beautiful() for axis styling
+    - Default title includes exp.signature
+    - When add_density_plot=True, uses 60:40 width ratio
+    - Calls plt.tight_layout() which affects figure state
+    
+    Examples
+    --------
+    >>> # Basic time series plot
+    >>> fig = plot_neuron_feature_pair(exp, 5, 'speed')
+    
+    >>> # Without density subplot
+    >>> fig = plot_neuron_feature_pair(exp, 10, 'licking', 
+    ...                               add_density_plot=False)
+    
+    >>> # Custom time range
+    >>> fig = plot_neuron_feature_pair(exp, 3, 'reward', 
+    ...                               ind1=1000, ind2=5000, ds=2)
+    
+    DOC_VERIFIED
     """
 
     ind2 = min(exp.n_frames, ind2)
@@ -352,14 +515,37 @@ def plot_disentanglement_heatmap(
     ax : matplotlib.axes.Axes
         Axes containing the heatmap.
 
+    Raises
+    ------
+    ImportError
+        If seaborn, pandas, or matplotlib.colors not available
+    ValueError
+        If matrix dimensions don't match or feat_names length doesn't match matrices
+    
     Notes
     -----
     The heatmap uses a diverging colormap where:
     - Red indicates low disentanglement (feature is redundant)
-    - White indicates balanced contribution (~50%)
+    - Gray (0.7, 0.7, 0.7) indicates balanced contribution (~50%)
     - Green indicates high disentanglement (feature is primary)
 
     Cells are masked (shown in white) where no data is available.
+    Uses pandas DataFrame internally for seaborn compatibility.
+    Calls plt.tight_layout() which affects figure state.
+    
+    Examples
+    --------
+    >>> # Basic heatmap
+    >>> fig, ax = plot_disentanglement_heatmap(disent_mat, count_mat, features)
+    
+    >>> # Custom styling
+    >>> fig, ax = plot_disentanglement_heatmap(
+    ...     disent_mat, count_mat, features,
+    ...     title="My Analysis", cmap='RdYlGn',
+    ...     figsize=(8, 6), dpi=150
+    ... )
+    
+    DOC_VERIFIED
     """
     import seaborn as sns
     from matplotlib.colors import LinearSegmentedColormap
@@ -449,7 +635,7 @@ def plot_disentanglement_summary(
     feat_names : list of str
         Feature names corresponding to matrix indices.
     experiments : list of str, optional
-        Experiment names if multiple matrices provided.
+        Experiment names if multiple matrices provided. Currently not used.
     title_prefix : str, optional
         Prefix for the main title.
     figsize : tuple, optional
@@ -461,6 +647,37 @@ def plot_disentanglement_summary(
     -------
     fig : matplotlib.figure.Figure
         Figure containing all subplots.
+    
+    Raises
+    ------
+    ImportError
+        If matplotlib.colors, seaborn, or pandas not available
+    ValueError
+        If matrix dimensions don't match or feat_names length doesn't match matrices
+    TypeError
+        If disent_matrix/count_matrix not ndarray or list of ndarrays
+    
+    Notes
+    -----
+    - Creates 2x2 grid layout with custom ratios (3:1 for both dimensions)
+    - Main heatmap uses red-white-green colormap (different from plot_disentanglement_heatmap)
+    - Dominance scores show how often each feature is primary
+    - Only displays feature pairs with non-zero counts
+    - experiments parameter is accepted but not used in current implementation
+    - Calls plt.tight_layout() which affects figure state
+    
+    Examples
+    --------
+    >>> # Single experiment summary
+    >>> fig = plot_disentanglement_summary(disent_mat, count_mat, features)
+    
+    >>> # Multiple experiments (matrices will be summed)
+    >>> fig = plot_disentanglement_summary(
+    ...     [disent1, disent2], [count1, count2], features,
+    ...     title_prefix="Combined: "
+    ... )
+    
+    DOC_VERIFIED
     """
     # Handle multiple experiments
     if isinstance(disent_matrix, list):
@@ -600,6 +817,40 @@ def plot_selectivity_heatmap(
         - selectivity_rate: percentage of selective neurons
         - metric_values: list of all non-zero metric values
         - sparsity: percentage of zero entries in the matrix
+    
+    Raises
+    ------
+    AttributeError
+        If experiment missing required attributes (dynamic_features, n_cells, get_neuron_feature_pair_stats)
+    KeyError
+        If neuron or feature not found in experiment data
+    
+    Notes
+    -----
+    - Only processes string-type features (tuple features are ignored)
+    - Always uses mode='calcium' when retrieving stats
+    - Calls plt.tight_layout() which affects figure state
+    
+    Examples
+    --------
+    >>> # Basic selectivity heatmap
+    >>> fig, ax, stats = plot_selectivity_heatmap(exp, significant_neurons)
+    
+    >>> # With log scale and p-value filtering
+    >>> fig, ax, stats = plot_selectivity_heatmap(
+    ...     exp, significant_neurons,
+    ...     use_log_scale=True,
+    ...     significance_threshold=0.001
+    ... )
+    
+    >>> # Custom visualization
+    >>> fig, ax, stats = plot_selectivity_heatmap(
+    ...     exp, significant_neurons,
+    ...     cmap='hot', vmin=0, vmax=0.5,
+    ...     figsize=(12, 10)
+    ... )
+    
+    DOC_VERIFIED
     """
     # Get all features and create ordered lists
     all_features = sorted(

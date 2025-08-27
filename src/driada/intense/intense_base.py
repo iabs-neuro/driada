@@ -1087,6 +1087,8 @@ class IntenseResults(object):
     >>> results.update('stats', computed_stats)
     >>> results.update('info', {'optimal_delays': delays})
     >>> results.save_to_hdf5('intense_results.h5')
+    
+    DOC_VERIFIED
     """
 
     def __init__(self):

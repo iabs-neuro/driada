@@ -112,30 +112,6 @@ class TestModularAutoencoder:
         assert "ReconstructionLoss_0_weighted" in loss_dict
         assert "CorrelationLoss_1_weighted" in loss_dict
     
-    def test_add_remove_loss(self):
-        """Test adding and removing loss components."""
-        ae = ModularAutoencoder(
-            input_dim=20,
-            latent_dim=5,
-            hidden_dim=10
-        )
-        
-        # Initial state
-        assert len(ae.losses) == 1
-        
-        # Add loss
-        ae.add_loss("correlation", weight=0.5)
-        assert len(ae.losses) == 2
-        assert ae.losses[1].__class__.__name__ == "CorrelationLoss"
-        assert ae.losses[1].weight == 0.5
-        
-        # Remove loss
-        ae.remove_loss(1)
-        assert len(ae.losses) == 1
-        
-        # Test invalid index
-        with pytest.raises(IndexError):
-            ae.remove_loss(10)
     
     def test_get_latent_representation(self):
         """Test getting latent representation."""

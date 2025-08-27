@@ -115,6 +115,8 @@ class MVData(object):
     ValueError
         If data contains zero columns and allow_zero_columns=False.
         From rescale() if rescale_rows=True and data format is invalid.
+        If labels length doesn't match number of points after downsampling.
+        If distance matrix shape doesn't match (n_points, n_points).
         
     Notes
     -----
@@ -164,8 +166,18 @@ class MVData(object):
             self.labels = np.zeros(self.n_points)
         else:
             self.labels = to_numpy_array(labels)
+            if len(self.labels) != self.n_points:
+                raise ValueError(
+                    f"Labels length ({len(self.labels)}) must match number of points after downsampling ({self.n_points})"
+                )
 
         self.distmat = distmat
+        if distmat is not None:
+            distmat_arr = to_numpy_array(distmat)
+            if distmat_arr.shape != (self.n_points, self.n_points):
+                raise ValueError(
+                    f"Distance matrix shape {distmat_arr.shape} must be ({self.n_points}, {self.n_points}) to match downsampled data"
+                )
 
     def median_filter(self, window):
         """Apply median filter to each row of the data.

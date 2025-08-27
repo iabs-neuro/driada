@@ -24,6 +24,7 @@ from .mixed_selectivity import (
 )
 from ..exp_base import Experiment
 from ...information.info_base import TimeSeries, MultiTimeSeries
+from ...utils.data import check_nonnegative
 
 
 def generate_synthetic_data(
@@ -48,74 +49,178 @@ def generate_synthetic_data(
 ):
     """
     Generate synthetic neural data with feature-selective neurons.
+    
+    Creates synthetic calcium imaging data where each neuron is selective to
+    one feature (either continuous or discrete). Features are generated using
+    fractional Brownian motion (continuous) or binary island patterns (discrete).
 
     Parameters
     ----------
     nfeats : int
-        Number of features.
+        Number of features. Must be non-negative.
     nneurons : int
-        Number of neurons.
+        Number of neurons. Must be non-negative.
     ftype : str
         Feature type: 'c' for continuous, 'd' for discrete.
     duration : float
-        Duration in seconds.
+        Duration in seconds. Must be positive.
     seed : int
-        Random seed.
+        Random seed for reproducibility.
     sampling_rate : float
-        Sampling rate in Hz.
+        Sampling rate in Hz. Must be positive.
     rate_0 : float
-        Baseline firing rate.
+        Baseline firing rate in Hz. Must be non-negative.
     rate_1 : float
-        Active firing rate.
+        Active firing rate in Hz. Must be non-negative.
     skip_prob : float
-        Probability of skipping islands.
+        Probability of skipping islands. Must be in [0, 1].
     hurst : float
-        Hurst parameter for FBM.
+        Hurst parameter for FBM (0-1). 0.5 = random walk.
     ampl_range : tuple
-        Amplitude range for calcium events.
+        (min, max) amplitude range for calcium events.
     decay_time : float
-        Calcium decay time.
+        Calcium decay time constant in seconds. Must be positive.
     avg_islands : int
-        Average number of islands for discrete features.
+        Average number of islands for discrete features. Must be positive.
     avg_duration : int
-        Average duration of islands.
+        Average duration of islands in seconds. Must be positive.
     noise_std : float
-        Noise standard deviation.
+        Noise standard deviation. Must be non-negative.
     verbose : bool
-        Print progress.
+        Print progress messages.
     pregenerated_features : list, optional
-        Use provided features instead of generating new ones.
+        Pre-generated feature arrays to use instead of generating new ones.
+        Must have length equal to nfeats if provided.
     apply_random_neuron_shifts : bool
-        Apply random shifts to break correlations.
+        Apply random circular shifts to break correlations between neurons.
 
     Returns
     -------
     features : ndarray
-        Feature time series (nfeats x length).
+        Feature time series of shape (nfeats, n_timepoints).
+        Empty array if nfeats=0.
     signals : ndarray
-        Neural signals (nneurons x length).
+        Neural calcium signals of shape (nneurons, n_timepoints).
+        Shape (0, n_timepoints) if nneurons=0.
     ground_truth : ndarray
-        Ground truth matrix (nfeats x nneurons).
+        Ground truth connectivity matrix of shape (nfeats, nneurons).
+        Binary matrix where gt[i,j]=1 means neuron j responds to feature i.
+        
+    Raises
+    ------
+    ValueError
+        If ftype is not 'c' or 'd'.
+        If pregenerated_features length doesn't match nfeats.
+        If any numeric parameters are out of valid ranges.
+        
+    Side Effects
+    ------------
+    - Modifies numpy random state when seed is used (affects global random number generation)
+    - Prints progress messages to stdout when verbose=True:
+      - "Using pregenerated features..." or "Generating features..."
+      - "Generating signals..."
+      - Progress bars via tqdm for feature and signal generation
+    - Shows progress bars for neuron shifts when verbose=True and apply_random_neuron_shifts=True
+    - Allocates potentially large arrays (memory intensive):
+      - features array: (nfeats, duration*sampling_rate) float64
+      - signals array: (nneurons, duration*sampling_rate) float64
+      - ground_truth matrix: (nfeats, nneurons) float64
+    - May consume significant memory for large nfeats/nneurons/duration combinations
+    
+    Notes
+    -----
+    - Each neuron randomly assigned to one feature (uniform distribution)
+    - When nfeats=0: neurons show baseline activity only
+    - When nneurons=0: returns empty arrays with correct dimensions
+    - Features use incremental seeds for reproducibility
+    - Some features may have no assigned neurons if nfeats > nneurons
+    
+    Examples
+    --------
+    >>> # Generate 10 neurons selective to 3 continuous features
+    >>> features, signals, gt = generate_synthetic_data(
+    ...     nfeats=3, nneurons=10, ftype='c', duration=100, seed=0
+    ... )
+    >>> features.shape
+    (3, 2000)  # 3 features, 100s * 20Hz
+    >>> signals.shape  
+    (10, 2000)  # 10 neurons
+    >>> np.sum(gt)  # Each neuron assigned to one feature
+    10
+    
+    >>> # Use pre-generated discrete features
+    >>> prefeats = [np.random.randint(0, 2, 1000) for _ in range(2)]
+    >>> f, s, gt = generate_synthetic_data(
+    ...     nfeats=2, nneurons=5, ftype='d', 
+    ...     pregenerated_features=prefeats
+    ... )
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_nonnegative(nfeats=nfeats, nneurons=nneurons, duration=duration, 
+                      sampling_rate=sampling_rate, rate_0=rate_0, rate_1=rate_1,
+                      skip_prob=skip_prob, hurst=hurst, decay_time=decay_time,
+                      noise_std=noise_std, avg_islands=avg_islands, avg_duration=avg_duration)
+    
+    # Additional validation for ranges
+    if not 0 <= skip_prob <= 1:
+        raise ValueError(f"skip_prob must be in [0, 1], got {skip_prob}")
+    if not 0 <= hurst <= 1:
+        raise ValueError(f"hurst must be in [0, 1], got {hurst}")
+    if len(ampl_range) != 2 or ampl_range[0] > ampl_range[1]:
+        raise ValueError(f"ampl_range must be (min, max) with min <= max, got {ampl_range}")
+    check_nonnegative(ampl_min=ampl_range[0], ampl_max=ampl_range[1])
+    if ftype not in ['c', 'd']:
+        raise ValueError(f"ftype must be 'c' or 'd', got '{ftype}'")
+        
     gt = np.zeros((nfeats, nneurons))
     length = int(duration * sampling_rate)
 
     # Handle edge case of 0 neurons
     if nneurons == 0:
-        return np.array([]), np.array([]).reshape(0, length), gt
+        if nfeats == 0:
+            return np.array([]).reshape(0, length), np.array([]).reshape(0, length), gt
+        else:
+            # Still need to return features even with 0 neurons
+            if pregenerated_features is not None:
+                return np.vstack(pregenerated_features), np.array([]).reshape(0, length), gt
+            else:
+                # Generate features for consistency
+                if verbose:
+                    print("Generating features...")
+                all_feats = []
+                feature_iterator = tqdm.tqdm(range(nfeats), disable=not verbose)
+                for i in feature_iterator:
+                    if ftype == "c":
+                        feature_seed = seed + i if seed is not None else None
+                        fbm_series = generate_fbm_time_series(length, hurst, seed=feature_seed)
+                        all_feats.append(fbm_series)
+                    else:
+                        # Use seed for reproducibility
+                        feature_seed = seed + i if seed is not None else None
+                        if feature_seed is not None:
+                            np.random.seed(feature_seed)
+                        binary_series = generate_binary_time_series(
+                            length, avg_islands, avg_duration * sampling_rate
+                        )
+                        all_feats.append(binary_series)
+                return np.vstack(all_feats), np.array([]).reshape(0, length), gt
 
     # Use pregenerated features if provided, otherwise generate new ones
     if pregenerated_features is not None:
-        print("Using pregenerated features...")
+        if verbose:
+            print("Using pregenerated features...")
         all_feats = pregenerated_features
         if len(all_feats) != nfeats:
             raise ValueError(
                 f"Number of pregenerated features ({len(all_feats)}) does not match nfeats ({nfeats})"
             )
     else:
-        print("Generating features...")
+        if verbose:
+            print("Generating features...")
         all_feats = []
-        for i in tqdm.tqdm(np.arange(nfeats)):
+        for i in tqdm.tqdm(np.arange(nfeats), disable=not verbose):
             if ftype == "c":
                 # Generate the series with unique seed for each feature
                 feature_seed = seed + i if seed is not None else None
@@ -130,9 +235,12 @@ def generate_synthetic_data(
                 all_feats.append(binary_series)
 
             else:
-                raise ValueError("unknown feature flag")
+                raise ValueError(f"Unknown feature type: {ftype}")
 
-    print("Generating signals...")
+    if verbose:
+        print("Generating signals...")
+    
+    # Handle feature selection for neurons
     if nfeats > 0:
         fois = np.random.choice(np.arange(nfeats), size=nneurons)
         gt[fois, np.arange(nneurons)] = (
@@ -143,7 +251,7 @@ def generate_synthetic_data(
         fois = np.full(nneurons, -1)  # Use -1 to indicate no feature selection
     all_signals = []
 
-    for j in tqdm.tqdm(np.arange(nneurons)):
+    for j in tqdm.tqdm(np.arange(nneurons), disable=not verbose):
         foi = fois[j]
 
         # Handle case where there are no features
@@ -188,7 +296,7 @@ def generate_synthetic_data(
                     )
 
         else:
-            raise ValueError("unknown feature flag")
+            raise ValueError(f"Unknown feature type: {ftype}")
 
         # randomly skip some on periods
         mod_binary_series = delete_one_islands(binary_series, skip_prob)
@@ -209,11 +317,19 @@ def generate_synthetic_data(
         )
 
         all_signals.append(pseudo_calcium_signal)
-        # Do not modify seed during feature generation
-        # if seed is not None:
-        #     seed += 1  # save reproducibility, but break degeneracy
 
-    return np.vstack(all_feats), np.vstack(all_signals), gt
+    # Return features and signals
+    if nfeats == 0:
+        features = np.array([]).reshape(0, length)
+    else:
+        features = np.vstack(all_feats)
+    
+    if nneurons == 0:
+        signals = np.array([]).reshape(0, length)
+    else:
+        signals = np.vstack(all_signals)
+        
+    return features, signals, gt
 
 
 def generate_synthetic_exp(
@@ -224,9 +340,15 @@ def generate_synthetic_exp(
     fps=20,
     with_spikes=False,
     duration=1200,
+    **kwargs,
 ):
     """
     Generate a synthetic experiment with neurons selective to discrete and continuous features.
+    
+    Creates a complete Experiment object with synthetic neural data where neurons are 
+    divided between discrete (binary) and continuous feature selectivity. The function
+    generates both the neural calcium signals and the underlying features, packaging
+    them into an Experiment object ready for analysis.
 
     Parameters
     ----------
@@ -244,12 +366,57 @@ def generate_synthetic_exp(
         If True, reconstruct spikes from calcium using wavelet method. Default: False.
     duration : int, optional
         Duration of the experiment in seconds. Default: 1200.
+    **kwargs : dict, optional
+        Additional parameters to pass to generate_synthetic_data.
+        Can override default hardcoded values for:
+        - hurst (default: 0.3)
+        - rate_0 (default: 0.1)
+        - rate_1 (default: 1.0)
+        - skip_prob (default: 0.1)
+        - noise_std (default: 0.1)
+        - Any other generate_synthetic_data parameter
 
     Returns
     -------
     exp : Experiment
         Synthetic experiment object with calcium signals and optionally spike data.
+        
+    Raises
+    ------
+    ValueError
+        If any numeric parameters are negative or out of valid ranges.
+        
+    Side Effects
+    ------------
+    - Modifies numpy random state when seed is used
+    - Calls generate_synthetic_data twice with potential memory allocation
+    - Prints progress messages from generate_synthetic_data
+        
+    Examples
+    --------
+    >>> # Basic usage with default parameters
+    >>> exp = generate_synthetic_exp(n_dfeats=10, n_cfeats=10, nneurons=100)
+    >>> exp.calcium.shape
+    (100, 24000)  # 100 neurons, 1200s * 20Hz
+    
+    >>> # Custom parameters via kwargs
+    >>> exp = generate_synthetic_exp(
+    ...     n_dfeats=5, n_cfeats=5, nneurons=50,
+    ...     duration=600, fps=10, hurst=0.7, rate_1=2.0
+    ... )
+    
+    Notes
+    -----
+    - Neurons split evenly between feature types (extra neuron to discrete if odd)
+    - If one feature type has 0 features, all neurons allocated to other type
+    - Uses different seeds for discrete (seed) and continuous (seed+1000) features
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_nonnegative(n_dfeats=n_dfeats, n_cfeats=n_cfeats, nneurons=nneurons,
+                      fps=fps, duration=duration)
+    
     # Set the numpy random seed at the beginning of the function
     if seed is not None:
         np.random.seed(seed)
@@ -266,32 +433,38 @@ def generate_synthetic_exp(
         n_neurons_discrete = (nneurons + 1) // 2
         n_neurons_continuous = nneurons // 2
 
+    # Default parameters that can be overridden by kwargs
+    default_params = {
+        'hurst': 0.3,
+        'rate_0': 0.1,
+        'rate_1': 1.0,
+        'skip_prob': 0.1,
+        'noise_std': 0.1,
+    }
+    
+    # Merge kwargs with defaults
+    params = {**default_params, **kwargs}
+    
     dfeats, calcium1, gt = generate_synthetic_data(
         n_dfeats,
         n_neurons_discrete,
         duration=duration,
-        hurst=0.3,
         ftype="d",
         seed=seed,
-        rate_0=0.1,
-        rate_1=1.0,
-        skip_prob=0.1,
-        noise_std=0.1,
         sampling_rate=fps,
+        **params,
     )
 
+    # Use different seed for continuous features to ensure independence
+    continuous_seed = seed + 1000 if seed is not None else None
     cfeats, calcium2, gt2 = generate_synthetic_data(
         n_cfeats,  # Fixed: was n_dfeats
         n_neurons_continuous,
         duration=duration,
-        hurst=0.3,
         ftype="c",
-        seed=seed,
-        rate_0=0.1,
-        rate_1=1.0,
-        skip_prob=0.1,
-        noise_std=0.1,
+        seed=continuous_seed,
         sampling_rate=fps,
+        **params,
     )
 
     discr_ts = {
@@ -312,28 +485,15 @@ def generate_synthetic_exp(
         all_calcium = np.vstack([calcium1, calcium2])
 
     # Create experiment
-    if with_spikes:
-        # Create experiment with spike reconstruction
-        exp = Experiment(
-            "Synthetic",
-            all_calcium,
-            None,
-            {},
-            {"fps": fps},
-            {**discr_ts, **cont_ts},
-            reconstruct_spikes="wavelet",
-        )
-    else:
-        # Create experiment without spikes
-        exp = Experiment(
-            "Synthetic",
-            all_calcium,
-            None,
-            {},
-            {"fps": fps},
-            {**discr_ts, **cont_ts},
-            reconstruct_spikes=None,
-        )
+    exp = Experiment(
+        "Synthetic",
+        all_calcium,
+        None,
+        {},
+        {"fps": fps},
+        {**discr_ts, **cont_ts},
+        reconstruct_spikes="wavelet" if with_spikes else None,
+    )
 
     return exp
 
@@ -409,6 +569,22 @@ def generate_mixed_population_exp(
         - 'behavioral_features': Behavioral feature data
         - 'correlation_applied': Correlation mode used
 
+    Raises
+    ------
+    ValueError
+        If manifold_fraction not in [0.0, 1.0].
+        If manifold_type not in ['circular', '2d_spatial', '3d_spatial'].
+        If correlation_mode not in ['independent', 'spatial_correlated', 'feature_correlated'].
+        If correlation_strength not in [0.0, 1.0].
+        If any numeric parameters are negative.
+        
+    Side Effects
+    ------------
+    - Modifies numpy random state when seed is used
+    - Prints progress messages to stdout when verbose=True
+    - Calls multiple data generation functions with memory allocation
+    - Memory intensive for large n_neurons or long duration
+
     Examples
     --------
     >>> # Generate population with 60% place cells, 40% feature-selective
@@ -416,7 +592,8 @@ def generate_mixed_population_exp(
     ...     n_neurons=50,
     ...     manifold_fraction=0.6,
     ...     manifold_type='2d_spatial',
-    ...     correlation_mode='spatial_correlated'
+    ...     correlation_mode='spatial_correlated',
+    ...     return_info=True
     ... )
 
     >>> # Check population composition
@@ -425,11 +602,21 @@ def generate_mixed_population_exp(
 
     Notes
     -----
-    The function integrates existing manifold and feature generators to create
-    realistic mixed populations. Spatial correlations can model scenarios where
-    behavioral variables depend on location (e.g., speed varying with position)
-    or where spatial coding is modulated by behavioral state.
+    - Total neurons = n_manifold + (n_neurons - n_manifold) * selectivity_prob
+    - When selectivity_prob < 1.0, some neurons will be "silent" (not in output)
+    - Feature-selective neuron count affected by feature_params['selectivity_prob']
+    - Spatial correlations model location-dependent behavioral variables
+    - Seed offsets: manifold (+1000), features (+2000), selectivity (+3000)
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_nonnegative(n_neurons=n_neurons, manifold_fraction=manifold_fraction,
+                      n_discrete_features=n_discrete_features,
+                      n_continuous_features=n_continuous_features,
+                      correlation_strength=correlation_strength,
+                      duration=duration, fps=fps)
+    
     if seed is not None:
         np.random.seed(seed)
 
@@ -675,9 +862,11 @@ def generate_mixed_population_exp(
                     spatial_signal = np.mean(spatial_data, axis=0)  # Average position
 
                 # Normalize spatial signal
-                spatial_signal = (spatial_signal - np.mean(spatial_signal)) / np.std(
-                    spatial_signal
-                )
+                signal_std = np.std(spatial_signal)
+                if signal_std > 0:
+                    spatial_signal = (spatial_signal - np.mean(spatial_signal)) / signal_std
+                else:
+                    spatial_signal = np.zeros_like(spatial_signal)
 
                 # Apply correlation
                 correlated_feat = (
@@ -958,9 +1147,13 @@ def generate_mixed_population_exp(
 
                 if modulation_signal is not None:
                     # Normalize modulation signal
-                    mod_norm = (
-                        modulation_signal - np.mean(modulation_signal)
-                    ) / np.std(modulation_signal)
+                    mod_std = np.std(modulation_signal)
+                    if mod_std > 0:
+                        mod_norm = (
+                            modulation_signal - np.mean(modulation_signal)
+                        ) / mod_std
+                    else:
+                        mod_norm = np.zeros_like(modulation_signal)
 
                     # Apply to manifold calcium signals
                     for i in range(n_manifold):
@@ -1007,7 +1200,7 @@ def generate_mixed_population_exp(
             "n_feature_selective": n_feature_selective,
             "manifold_type": manifold_type,
             "manifold_indices": list(range(n_manifold)),
-            "feature_indices": list(range(n_manifold, n_neurons)),
+            "feature_indices": list(range(n_manifold, n_manifold + n_feature_selective)),
             "manifold_fraction": manifold_fraction,
         },
         "manifold_info": manifold_info,
