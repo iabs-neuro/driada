@@ -7,6 +7,7 @@ import wget
 import gdown
 import pandas as pd
 from pathlib import Path
+import requests
 
 from .gdrive_utils import (
     parse_google_drive_file,
@@ -35,7 +36,7 @@ def retrieve_relevant_ids(
     Parameters
     ----------
     folder : str
-        URL of the Google Drive folder to search.
+        URL of the Google Drive folder to search. Must be a valid Google Drive folder URL.
     name_part : str
         Substring that must be present in the file name for it to be included.
     prohibited_name_part : str, optional
@@ -59,11 +60,17 @@ def retrieve_relevant_ids(
     ------
     MemoryError
         If the folder contains more files than MAX_NUMBER_FILES (50).
+    requests.RequestException
+        If network request to Google Drive fails.
 
     Notes
     -----
     The function recursively searches through subfolders and applies the same
-    filtering criteria to all levels of the folder hierarchy.
+    filtering criteria to all levels of the folder hierarchy. Network errors
+    during recursive searches are caught and reported but don't stop the
+    overall operation.
+    
+    DOC_VERIFIED
     """
 
     return_code = True
@@ -78,12 +85,14 @@ def retrieve_relevant_ids(
     )
 
     relevant = []
-    if len(list(id_name_type_iter)) > MAX_NUMBER_FILES:
+    # Convert iterator to list to check count and iterate
+    id_name_type_list = list(id_name_type_iter)
+    if len(id_name_type_list) > MAX_NUMBER_FILES:
         raise MemoryError(
-            f"The folder {folder} has {len(list(id_name_type_iter))} elements while max allowed number of files is {MAX_NUMBER_FILES}"
+            f"The folder {folder} has {len(id_name_type_list)} elements while max allowed number of files is {MAX_NUMBER_FILES}"
         )
 
-    for child_id, child_name, child_type in id_name_type_iter:
+    for child_id, child_name, child_type in id_name_type_list:
         if child_type != folder_type:
             if child_name in whitelist:
                 relevant.append((child_id, child_name))
@@ -138,9 +147,10 @@ def download_part_of_folder(
     Parameters
     ----------
     output : str
-        Local directory path where files will be downloaded.
+        Local directory path where files will be downloaded. Directory will be
+        created if it doesn't exist.
     folder : str
-        Google Drive folder share link.
+        Google Drive folder share link. Must be a valid Google Drive URL.
     key : str, optional
         Substring that must be present in file names to be downloaded.
         Default is empty string (matches all).
@@ -159,8 +169,7 @@ def download_part_of_folder(
         PyDrive2 authentication object. Required if via_pydrive=True.
         Default is None.
     maxfiles : int or None, optional
-        Maximum number of files to download (only used with PyDrive2).
-        Default is None (no limit).
+        Maximum number of files to download. Default is None (no limit).
 
     Returns
     -------
@@ -177,6 +186,13 @@ def download_part_of_folder(
         If via_pydrive=True but gauth is None.
     FileNotFoundError
         If download fails when not using PyDrive2.
+    OSError
+        If unable to create output directory or write files.
+
+    Notes
+    -----
+    When using PyDrive, all filtering parameters (antikey, whitelist, extensions)
+    are applied consistently with the gdown path.
 
     Examples
     --------
@@ -187,6 +203,8 @@ def download_part_of_folder(
     ...     key='experiment',
     ...     extensions=['.csv']
     ... )
+    
+    DOC_VERIFIED
     """
 
     os.makedirs(output, exist_ok=True)
@@ -209,10 +227,26 @@ def download_part_of_folder(
                 file_list = file_list[:maxfiles]
 
             for f in file_list:
-                if key in f["title"]:
-                    # print('title: %s, id: %s' % (f['title'],f['id']))
-                    f.GetContentFile(join(output, f["title"]))
-                    rel.append((f["id"], f["title"]))
+                file_name = f["title"]
+                file_ext = Path(file_name).suffix
+                
+                # Apply same filtering logic as gdown path
+                should_download = False
+                
+                # Check whitelist first
+                if file_name in whitelist:
+                    should_download = True
+                # Then check key match
+                elif key in file_name:
+                    # Check extensions
+                    if not extensions or file_ext in extensions:
+                        # Check antikey
+                        if antikey is None or antikey not in file_name:
+                            should_download = True
+                
+                if should_download:
+                    f.GetContentFile(join(output, file_name))
+                    rel.append((f["id"], file_name))
 
             return_code = True
 
@@ -280,13 +314,30 @@ def download_gdrive_data(
     load_log : list
         Captured output log from the download process.
 
+    Raises
+    ------
+    ValueError
+        If data_router is not a DataFrame or lacks required 'Эксперимент' column.
+        If via_pydrive=True but gauth is None.
+
     Notes
     -----
     The function creates a directory structure: tdir/expname/data_type/
     for organizing downloaded files. Data types excluded by default are:
     'Эксперимент', 'Краткое описание', 'Video', 'Aligned data', 'Computation results'.
+    
+    Empty directories are automatically removed after download attempts.
+    
+    DOC_VERIFIED
     """
 
+    # Validate inputs
+    if not isinstance(data_router, pd.DataFrame):
+        raise ValueError("data_router must be a pandas DataFrame")
+    
+    if via_pydrive and gauth is None:
+        raise ValueError("gauth is required when via_pydrive=True")
+    
     with Capturing() as load_log:
         print("-------------------------------------------------------------")
         print(f"Extracting data for {expname} from Google Drive")
@@ -351,7 +402,7 @@ def download_gdrive_data(
             return success, load_log
 
 
-def initialize_iabs_router(root="\\content"):
+def initialize_iabs_router(root="/content"):
     """Download and initialize the IABS data router from Google Sheets.
 
     Downloads the IABS (Institute for Advanced Brain Studies) data router
@@ -361,7 +412,7 @@ def initialize_iabs_router(root="\\content"):
     ----------
     root : str, optional
         Root directory where the router file will be saved.
-        Default is '\\content' (typically for Google Colab).
+        Default is '/content' (typically for Google Colab).
 
     Returns
     -------
@@ -372,10 +423,25 @@ def initialize_iabs_router(root="\\content"):
         List of data type column names that can be downloaded, excluding
         metadata columns.
 
+    Raises
+    ------
+    ImportError
+        If config.py not found or IABS_ROUTER_URL not defined in config.
+    requests.RequestException
+        If download from Google Sheets fails.
+    pd.errors.ParserError
+        If the downloaded file cannot be parsed as Excel.
+    OSError
+        If unable to create directory or write file.
+
     Notes
     -----
-    The function downloads the router from a hardcoded Google Sheets URL.
-    It removes any existing router file before downloading the latest version.
+    Requires a config.py file with IABS_ROUTER_URL defined. See config_template.py
+    for the required format.
+    
+    WARNING: This function removes any existing router file before downloading
+    the latest version. No backup is created.
+    
     Empty cells in the DataFrame are forward-filled to handle merged cells.
 
     The following columns are excluded from data_pieces as they contain
@@ -385,6 +451,8 @@ def initialize_iabs_router(root="\\content"):
     - 'Video'
     - 'Aligned data'
     - 'Computation results'
+    
+    DOC_VERIFIED
     """
     router_name = "IABS data router.xlsx"
     router_path = join(root, router_name)
@@ -392,10 +460,31 @@ def initialize_iabs_router(root="\\content"):
     if router_name in os.listdir(root):
         os.remove(router_path)
 
-    global_data_table_url = "https://docs.google.com/spreadsheets/d/130DDFAoAbmm0jcKLBF6xsWsQLDr2Zsj4cPuOYivXoM8/export?format=xlsx"
-    wget.download(global_data_table_url, out=router_path)
+    # Import URL from config
+    try:
+        from .config import IABS_ROUTER_URL
+    except ImportError:
+        raise ImportError(
+            "config.py not found. Please copy config_template.py to config.py "
+            "and set IABS_ROUTER_URL to your Google Sheets export URL. "
+            "Make sure to add config.py to .gitignore."
+        )
+    except AttributeError:
+        raise ImportError(
+            "IABS_ROUTER_URL not found in config.py. Please check config_template.py "
+            "for the required format."
+        )
+    
+    # Download router file
+    try:
+        wget.download(IABS_ROUTER_URL, out=router_path)
+    except Exception as e:
+        raise requests.RequestException(f"Failed to download router file: {e}")
 
-    data_router = pd.read_excel(router_path)
+    try:
+        data_router = pd.read_excel(router_path)
+    except Exception as e:
+        raise pd.errors.ParserError(f"Failed to parse router Excel file: {e}")
     # data_router.fillna(method='ffill', inplace=True)
     data_router = data_router.replace("", None).ffill()
 

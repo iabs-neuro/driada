@@ -2,6 +2,8 @@ import numpy as np
 import warnings
 import tqdm
 import pickle
+import logging
+from typing import Optional, Union, List
 
 from ..information.info_base import TimeSeries
 from ..information.info_base import MultiTimeSeries
@@ -2008,6 +2010,156 @@ class Experiment:
             "timestamp": np.datetime64("now"),
             "shape": embedding.shape,
         }
+
+    def create_embedding(
+        self,
+        method: str,
+        n_components: int = 2,
+        data_type: str = "calcium",
+        neuron_selection: Optional[Union[str, List[int]]] = None,
+        **dr_kwargs,
+    ) -> np.ndarray:
+        """
+        Create dimensionality reduction embedding and store it.
+
+        Parameters
+        ----------
+        method : str
+            DR method name ('pca', 'umap', 'isomap', etc.).
+        n_components : int, optional
+            Number of embedding dimensions. Default is 2.
+        data_type : str, optional
+            Type of data to use ('calcium' or 'spikes'). Default is 'calcium'.
+        neuron_selection : str, list or None, optional
+            How to select neurons:
+            - None or 'all': Use all neurons
+            - 'significant': Use only significantly selective neurons
+            - List of integers: Use specific neuron indices
+        **dr_kwargs
+            Additional arguments for the DR method (e.g., n_neighbors, min_dist).
+
+        Returns
+        -------
+        embedding : np.ndarray
+            The embedding array, shape (n_timepoints, n_components).
+            
+        Raises
+        ------
+        ValueError
+            If data_type is invalid or no significant neurons found.
+        AttributeError
+            If required data (calcium/spikes) is not available.
+            
+        Examples
+        --------
+        >>> # Create PCA embedding using all neurons
+        >>> embedding = exp.create_embedding('pca', n_components=10)
+        >>> 
+        >>> # Create UMAP using only significant neurons
+        >>> embedding = exp.create_embedding('umap', neuron_selection='significant')
+        
+        DOC_VERIFIED
+        """
+        from ..information.info_base import MultiTimeSeries
+        from ..utils.data import check_positive
+        
+        # Validate inputs
+        check_positive(n_components=n_components)
+        if data_type not in ['calcium', 'spikes']:
+            raise ValueError("data_type must be 'calcium' or 'spikes'")
+            
+        # Select neurons
+        if neuron_selection is None or neuron_selection == "all":
+            neuron_indices = np.arange(self.n_cells)
+        elif neuron_selection == "significant":
+            has_selectivity = (
+                hasattr(self, "stats_tables") and 
+                self.stats_tables is not None and
+                data_type in self.stats_tables and
+                len(self.stats_tables[data_type]) > 0
+            )
+            if not has_selectivity:
+                raise ValueError(
+                    "Cannot select significant neurons without selectivity analysis"
+                )
+            sig_neurons = self.get_significant_neurons()
+            neuron_indices = np.array(list(sig_neurons.keys()))
+            if len(neuron_indices) == 0:
+                logging.warning("No significant neurons found, using all neurons")
+                neuron_indices = np.arange(self.n_cells)
+        else:
+            neuron_indices = np.array(neuron_selection)
+
+        # Get neural data - calcium and spikes are already MultiTimeSeries
+        if data_type == "calcium":
+            multi_ts = self.calcium
+        else:
+            if not hasattr(self, "spikes") or self.spikes is None:
+                raise AttributeError("Experiment has no spike data")
+            multi_ts = self.spikes
+            
+        # Create subset MultiTimeSeries with selected neurons
+        if len(neuron_indices) != self.n_cells:
+            subset_data = multi_ts.data[neuron_indices, :]
+            multi_ts = MultiTimeSeries(
+                subset_data, 
+                discrete=multi_ts.discrete,
+                allow_zero_columns=(data_type == "spikes")
+            )
+
+        # Apply downsampling if requested
+        ds = dr_kwargs.pop("ds", 1)  # Remove 'ds' from dr_kwargs
+        if ds > 1:
+            check_positive(ds=ds)
+            # Create downsampled MultiTimeSeries
+            downsampled_data = multi_ts.data[:, ::ds]
+            multi_ts = MultiTimeSeries(
+                downsampled_data,
+                discrete=multi_ts.discrete,
+                allow_zero_columns=(data_type == "spikes")
+            )
+            logging.info(
+                f"Downsampling data by factor {ds}: {multi_ts.data.shape[1]} timepoints"
+            )
+
+        # Prepare parameters for dimensionality reduction
+        params = {"dim": n_components}
+        params.update(dr_kwargs)  # Add all additional parameters
+
+        # Get embedding using MultiTimeSeries/MVData method
+        embedding_obj = multi_ts.get_embedding(method=method, **params)
+        embedding = embedding_obj.coords.T  # Transpose to (n_timepoints, n_components)
+
+        # Check if embedding has all timepoints (accounting for downsampling)
+        expected_frames = self.n_frames // ds
+        if embedding.shape[0] < expected_frames:
+            n_missing = expected_frames - embedding.shape[0]
+            raise ValueError(
+                f"{method} embedding dropped {n_missing} timepoints due to graph disconnection. "
+                f"This is not supported for INTENSE analysis. Try increasing n_neighbors or using a different method."
+            )
+
+        # Store metadata
+        metadata = {
+            "method": method,
+            "n_components": n_components,
+            "neuron_selection": neuron_selection,
+            "neuron_indices": neuron_indices.tolist(),
+            "n_neurons": len(neuron_indices),
+            "dr_params": dr_kwargs,
+            "data_type": data_type,
+            "ds": ds,  # Store downsampling factor
+        }
+
+        # Store in experiment
+        self.store_embedding(embedding, method, data_type, metadata)
+
+        logging.info(
+            f"Created {method} embedding with {n_components} components "
+            f"using {len(neuron_indices)} neurons"
+        )
+
+        return embedding
 
     def get_embedding(self, method_name, data_type="calcium"):
         """

@@ -10,6 +10,7 @@ from .core import validate_peak_rate, generate_pseudo_calcium_signal
 from .utils import get_effective_decay_time
 from ..exp_base import Experiment
 from ...information.info_base import TimeSeries, MultiTimeSeries
+from ...utils.data import check_positive, check_nonnegative
 
 
 def generate_3d_random_walk(
@@ -18,27 +19,69 @@ def generate_3d_random_walk(
     """
     Generate a 3D random walk trajectory within bounded region.
 
+    Creates a smooth random walk in 3D space using momentum-based updates
+    with reflective boundary conditions. The walker starts at a random
+    position and moves with inertia, bouncing off walls elastically.
+
     Parameters
     ----------
     length : int
-        Number of time points.
-    bounds : tuple
-        (min, max) bounds for x, y, z coordinates.
-    step_size : float
-        Step size for random walk.
-    momentum : float
-        Momentum factor (0-1) for smoother trajectories.
+        Number of time points. Must be positive.
+    bounds : tuple, optional
+        (min, max) bounds for x, y, and z coordinates. Default is (0, 1).
+        Must have bounds[0] < bounds[1].
+    step_size : float, optional
+        Step size for random walk. Must be positive. Default is 0.02.
+        Typical values: 0.01-0.1 relative to bounds size.
+    momentum : float, optional
+        Momentum factor for smoother trajectories. Must be in [0, 1].
+        Default is 0.8. Higher values give smoother, more continuous paths.
     seed : int, optional
-        Random seed.
+        Random seed for reproducibility.
 
     Returns
     -------
     positions : ndarray
-        Shape (3, length) with x, y, z coordinates.
+        Shape (3, length) with x, y, z coordinates. Each row contains
+        x, y, and z coordinates respectively.
+
+    Raises
+    ------
+    ValueError
+        If length is not positive, step_size is not positive, momentum is
+        not in [0, 1], or bounds[0] >= bounds[1].
+    TypeError
+        If inputs are not numeric types.
+
+    Notes
+    -----
+    The walk follows:
+    velocity = momentum * velocity + (1 - momentum) * N(0, step_size)
+    position[t] = position[t-1] + velocity
+    
+    When hitting boundaries, the relevant velocity component is reversed
+    to simulate elastic collision.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    if not isinstance(length, (int, np.integer)):
+        raise TypeError("length must be an integer")
+    check_positive(length=length, step_size=step_size)
+    
+    if not isinstance(momentum, (int, float)):
+        raise TypeError("momentum must be numeric")
+    if not 0 <= momentum <= 1:
+        raise ValueError("momentum must be in range [0, 1]")
+    
+    if len(bounds) != 2:
+        raise ValueError("bounds must be a tuple of (min, max)")
+    if bounds[0] >= bounds[1]:
+        raise ValueError("bounds must have min < max")
+    
     if seed is not None:
         np.random.seed(seed)
-
+    
     positions = np.zeros((3, length))
     velocity = np.zeros(3)
 
@@ -70,21 +113,56 @@ def gaussian_place_field_3d(positions, center, sigma=0.1):
     """
     Calculate neural response using 3D Gaussian place field.
 
+    Implements an isotropic 3D Gaussian receptive field commonly used to
+    model place cells in volumetric environments. The response peaks at
+    the field center and falls off with a Gaussian profile.
+
     Parameters
     ----------
     positions : ndarray
         Shape (3, n_timepoints) with x, y, z coordinates OR
         Shape (n_positions, 3) with positions in rows.
     center : ndarray
-        Shape (3,) with place field center coordinates.
-    sigma : float
-        Width of the place field.
+        Shape (3,) with place field center coordinates [x, y, z].
+    sigma : float, optional
+        Width (standard deviation) of the place field. Must be positive.
+        Default is 0.1. Larger values give wider fields.
 
     Returns
     -------
     response : ndarray
-        Neural response (firing rate modulation).
+        Neural response (firing rate modulation) in range [0, 1].
+        Shape matches input positions format. Maximum value is 1.0
+        at field center.
+
+    Raises
+    ------
+    ValueError
+        If sigma is not positive, or if center shape is not (3,).
+    TypeError
+        If inputs are not numeric arrays.
+
+    Notes
+    -----
+    The response follows a 3D Gaussian:
+    response = exp(-((x-cx)² + (y-cy)² + (z-cz)²) / (2σ²))
+    where (cx, cy, cz) is the field center and σ is the width.
+    
+    This function flexibly handles both common position formats:
+    - (3, n_timepoints): positions as columns
+    - (n_positions, 3): positions as rows
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    positions = np.asarray(positions)
+    center = np.asarray(center)
+    
+    if center.shape != (3,):
+        raise ValueError("center must have shape (3,)")
+    
+    check_positive(sigma=sigma)
+    
     # Handle both input formats
     if positions.shape[0] == 3 and positions.shape[1] != 3:
         # Format: (3, n_timepoints)
@@ -119,41 +197,84 @@ def generate_3d_manifold_neurons(
     """
     Generate population of place cells with 3D Gaussian place fields.
 
+    Creates a population of neurons with place fields either arranged in a
+    regular 3D grid or randomly distributed. Each neuron responds maximally
+    when the animal is at its place field center in 3D space.
+
     Parameters
     ----------
     n_neurons : int
-        Number of neurons.
+        Number of neurons in the population. Must be positive.
     positions : ndarray
         Shape (3, n_timepoints) with x, y, z positions.
-    field_sigma : float
-        Width of place fields. Default is 0.1.
-    baseline_rate : float
-        Baseline firing rate. Default is 0.1 Hz.
-    peak_rate : float
-        Peak firing rate at place field center. Default is 1.0 Hz.
+    field_sigma : float, optional
+        Width of place fields. Must be positive. Default is 0.1.
+    baseline_rate : float, optional
+        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
+        Should be less than peak_rate.
+    peak_rate : float, optional
+        Peak firing rate at place field center in Hz. Default is 1.0.
         Values >2 Hz may cause calcium signal saturation.
-    noise_std : float
-        Noise in firing rates.
-    grid_arrangement : bool
+    noise_std : float, optional
+        Standard deviation of Gaussian noise in firing rates.
+        Must be non-negative. Default is 0.05.
+    grid_arrangement : bool, optional
         If True, arrange place fields in a 3D grid. Otherwise random.
-    bounds : tuple
-        (min, max) bounds for place field centers.
+        Default is True.
+    bounds : tuple, optional
+        (min, max) bounds for place field centers. Default is (0, 1).
+        Must have bounds[0] < bounds[1].
     seed : int, optional
-        Random seed.
+        Random seed for reproducibility.
 
     Returns
     -------
     firing_rates : ndarray
-        Shape (n_neurons, n_timepoints) with firing rates.
+        Shape (n_neurons, n_timepoints) with firing rates in Hz.
+        All values are non-negative.
     place_field_centers : ndarray
-        Shape (n_neurons, 3) with place field centers.
+        Shape (n_neurons, 3) with x, y, z coordinates of place field centers.
+
+    Raises
+    ------
+    ValueError
+        If peak_rate is invalid, n_neurons is not positive, field_sigma
+        is not positive, noise_std is negative, baseline_rate > peak_rate,
+        or bounds are invalid.
+    TypeError
+        If inputs are not correct types.
+
+    Notes
+    -----
+    Grid arrangement places neurons on a cubic grid with 0.1 margin from
+    boundaries. The grid uses n^(1/3) neurons per side and adds small
+    jitter (std=0.02) to break regularity.
+    
+    Firing rates are computed as:
+    rate = baseline + (peak - baseline) * gaussian_place_field_3d + noise
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_neurons=n_neurons, field_sigma=field_sigma)
+    check_nonnegative(baseline_rate=baseline_rate, noise_std=noise_std)
+    
     # Validate firing rate
     validate_peak_rate(peak_rate, context="generate_3d_manifold_neurons")
+    
+    # Check parameter relationships
+    if baseline_rate > peak_rate:
+        raise ValueError(f"baseline_rate ({baseline_rate}) must be <= peak_rate ({peak_rate})")
+    
+    if len(bounds) != 2 or bounds[0] >= bounds[1]:
+        raise ValueError("bounds must be (min, max) with min < max")
 
     if seed is not None:
         np.random.seed(seed)
 
+    positions = np.asarray(positions)
+    if positions.shape[0] != 3:
+        raise ValueError("positions must have shape (3, n_timepoints)")
     n_timepoints = positions.shape[1]
 
     # Generate place field centers
@@ -227,51 +348,83 @@ def generate_3d_manifold_data(
     """
     Generate synthetic data with neurons on 3D spatial manifold (place cells).
 
+    Creates a complete dataset including 3D spatial trajectory, place cell
+    responses, and realistic calcium imaging signals. Useful for testing
+    3D spatial coding analyses.
+
     Parameters
     ----------
     n_neurons : int
-        Number of neurons.
-    duration : float
-        Duration in seconds.
-    sampling_rate : float
-        Sampling rate in Hz.
-    field_sigma : float
-        Width of place fields.
-    step_size : float
-        Step size for random walk.
-    momentum : float
-        Momentum for smoother trajectories.
-    baseline_rate : float
-        Baseline firing rate. Default is 0.1 Hz.
-    peak_rate : float
-        Peak firing rate. Default is 1.0 Hz.
+        Number of neurons. Must be positive.
+    duration : float, optional
+        Duration in seconds. Must be positive. Default is 600.
+    sampling_rate : float, optional
+        Sampling rate in Hz. Must be positive. Default is 20.0.
+    field_sigma : float, optional
+        Width of place fields. Must be positive. Default is 0.1.
+    step_size : float, optional
+        Step size for random walk. Must be positive. Default is 0.02.
+    momentum : float, optional
+        Momentum for smoother trajectories. Must be in [0, 1]. Default is 0.8.
+    baseline_rate : float, optional
+        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
+    peak_rate : float, optional
+        Peak firing rate in Hz. Default is 1.0.
         Values >2 Hz may cause calcium signal saturation.
-    noise_std : float
-        Firing rate noise.
-    grid_arrangement : bool
-        Arrange place fields in grid.
-    decay_time : float
-        Calcium decay time.
-    calcium_noise_std : float
-        Calcium signal noise.
-    bounds : tuple
-        Spatial bounds.
+    noise_std : float, optional
+        Firing rate noise. Must be non-negative. Default is 0.05.
+    grid_arrangement : bool, optional
+        If True, arrange place fields in 3D grid. Default is True.
+    decay_time : float, optional
+        Calcium decay time constant in seconds. Must be positive. Default is 2.0.
+    calcium_noise_std : float, optional
+        Calcium signal noise. Must be non-negative. Default is 0.1.
+    bounds : tuple, optional
+        Spatial bounds (min, max) for all dimensions. Default is (0, 1).
     seed : int, optional
-        Random seed.
-    verbose : bool
-        Print progress.
+        Random seed for reproducibility.
+    verbose : bool, optional
+        Print progress messages. Default is True.
 
     Returns
     -------
     calcium_signals : ndarray
         Calcium signals (n_neurons x n_timepoints).
     positions : ndarray
-        Position trajectory (3 x n_timepoints).
+        Position trajectory (3 x n_timepoints) with x, y, z coordinates.
     place_field_centers : ndarray
-        Place field centers (n_neurons x 3).
+        Place field centers (n_neurons x 3) with x, y, z coordinates.
     firing_rates : ndarray
-        Underlying firing rates.
+        Underlying firing rates in Hz (n_neurons x n_timepoints).
+
+    Raises
+    ------
+    ValueError
+        If any positive parameters are not positive, if any non-negative
+        parameters are negative, or if momentum is not in [0, 1].
+
+    Notes
+    -----
+    The generation process:
+    1. Creates 3D random walk trajectory with momentum
+    2. Generates place cell responses based on 3D distance to place fields
+    3. Converts firing rates to spike probabilities
+    4. Samples spikes using binomial distribution
+    5. Convolves spikes with calcium kernel and adds noise
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate,
+                  field_sigma=field_sigma, step_size=step_size, decay_time=decay_time)
+    check_nonnegative(baseline_rate=baseline_rate, noise_std=noise_std,
+                     calcium_noise_std=calcium_noise_std)
+    
+    if not isinstance(momentum, (int, float)):
+        raise TypeError("momentum must be numeric")
+    if not 0 <= momentum <= 1:
+        raise ValueError("momentum must be in range [0, 1]")
+    
     if seed is not None:
         np.random.seed(seed)
 
@@ -297,7 +450,7 @@ def generate_3d_manifold_data(
         noise_std,
         grid_arrangement,
         bounds,
-        seed=(seed + 1) if seed else None,
+        seed=(seed + 1) if seed is not None else None,
     )
 
     # Convert to calcium signals
@@ -349,41 +502,45 @@ def generate_3d_manifold_exp(
     """
     Generate complete experiment with 3D spatial manifold (place cells).
 
+    Creates a DRIADA Experiment object with synthetic 3D place cell data,
+    including calcium imaging signals and 3D behavioral trajectory.
+
     Parameters
     ----------
-    n_neurons : int
-        Number of neurons.
-    duration : float
-        Duration in seconds.
-    fps : float
-        Sampling rate.
-    field_sigma : float
-        Place field width.
-    step_size : float
-        Random walk step size.
-    momentum : float
-        Trajectory smoothness.
-    baseline_rate : float
-        Baseline firing rate. Default is 0.1 Hz.
-    peak_rate : float
-        Peak firing rate. Default is 1.0 Hz.
+    n_neurons : int, optional
+        Number of neurons. Must be positive. Default is 125 (5x5x5 grid).
+    duration : float, optional
+        Duration in seconds. Must be positive. Default is 600.
+    fps : float, optional
+        Sampling rate (frames per second). Must be positive. Default is 20.0.
+    field_sigma : float, optional
+        Place field width. Must be positive. Default is 0.1.
+    step_size : float, optional
+        Random walk step size. Must be positive. Default is 0.02.
+    momentum : float, optional
+        Trajectory smoothness factor. Must be in [0, 1]. Default is 0.8.
+    baseline_rate : float, optional
+        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
+    peak_rate : float, optional
+        Peak firing rate in Hz. Default is 1.0.
         Values >2 Hz may cause calcium signal saturation.
-    noise_std : float
-        Firing rate noise.
-    grid_arrangement : bool
-        Grid arrangement of place fields.
-    decay_time : float
-        Calcium decay time.
-    calcium_noise_std : float
-        Calcium noise.
-    bounds : tuple
-        Spatial bounds.
+    noise_std : float, optional
+        Firing rate noise. Must be non-negative. Default is 0.05.
+    grid_arrangement : bool, optional
+        If True, arrange place fields in 3D grid. Default is True.
+    decay_time : float, optional
+        Calcium decay time in seconds. Must be positive. Default is 2.0.
+    calcium_noise_std : float, optional
+        Calcium signal noise. Must be non-negative. Default is 0.1.
+    bounds : tuple, optional
+        Spatial bounds (min, max) for all dimensions. Default is (0, 1).
     seed : int, optional
-        Random seed.
-    verbose : bool
-        Print progress.
-    return_info : bool
+        Random seed for reproducibility.
+    verbose : bool, optional
+        Print progress messages. Default is True.
+    return_info : bool, optional
         If True, return (exp, info) tuple with additional information.
+        Default is False.
 
     Returns
     -------
@@ -397,6 +554,28 @@ def generate_3d_manifold_exp(
         - place_field_centers: 3D place field centers (n_neurons, 3)
         - firing_rates: Raw firing rates (n_neurons, n_frames)
         - parameters: Dictionary of all parameters used
+
+    Raises
+    ------
+    ValueError
+        If any positive parameters are not positive, if any non-negative
+        parameters are negative, if momentum is not in [0, 1], or if
+        bounds are invalid.
+    TypeError
+        If inputs are not correct types.
+
+    Notes
+    -----
+    The experiment includes:
+    - Static features: fps, decay time, manifold info, place field centers
+    - Dynamic features: position_3d (MultiTimeSeries), x, y, and z (TimeSeries)
+    - Calcium signals with realistic noise and dynamics
+    - Underlying firing rates attached to exp object
+    
+    For short experiments (duration ≤ 30s), the decay time is automatically
+    adjusted to prevent shuffle mask issues.
+    
+    DOC_VERIFIED
     """
     # Calculate effective decay time for shuffle mask
     effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)

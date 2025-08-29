@@ -12,25 +12,61 @@ def create_correlated_gaussian_data(
 ):
     """Generate multivariate Gaussian data with specified correlations.
 
+    Creates synthetic data from a multivariate normal distribution with
+    specified correlations between features. The data has zero mean and
+    correlations specified by correlation_pairs.
+
     Parameters
     ----------
-    n_features : int
-        Number of features (dimensions)
-    n_samples : int
-        Number of samples
-    correlation_pairs : list of tuples or None
+    n_features : int, optional
+        Number of features (dimensions). Must be positive. Default is 10.
+    n_samples : int, optional
+        Number of samples to generate. Must be non-negative. Default is 10000.
+    correlation_pairs : list of tuples or None, optional
         List of (i, j, correlation) tuples specifying correlated features.
-        If None, uses default pattern: [(1, 9, 0.9), (2, 8, 0.8), (3, 7, 0.7)]
-    seed : int
-        Random seed for reproducibility
+        Indices i, j should be in range [0, n_features). Correlations must
+        be in [-1, 1]. Out-of-bounds indices are silently ignored.
+        If None, uses default pattern: [(1, 9, 0.9), (2, 8, 0.8), (3, 7, 0.7)].
+    seed : int, optional
+        Random seed for reproducibility. Sets global numpy random state.
+        Default is 42.
 
     Returns
     -------
     data : np.ndarray
-        Data array of shape (n_features, n_samples)
+        Data array of shape (n_features, n_samples) with samples as columns.
     cov_matrix : np.ndarray
-        Covariance matrix used to generate the data
+        Correlation matrix used to generate the data (n_features, n_features).
+        Positive definite, with 1s on diagonal.
+        
+    Raises
+    ------
+    ValueError
+        If n_features <= 0 or n_samples < 0.
+        If any correlation value is outside [-1, 1].
+        
+    Notes
+    -----
+    This function modifies the global numpy random state via np.random.seed().
+    For thread-safe random generation, consider using numpy.random.Generator.
+    
+    The correlation matrix is made positive definite if needed by adding a
+    small value to the diagonal.
+    
+    Examples
+    --------
+    >>> data, corr = create_correlated_gaussian_data(n_features=3, n_samples=100)
+    >>> data.shape
+    (3, 100)
+    >>> np.allclose(corr.diagonal(), 1.0)
+    True
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_features=n_features)
+    check_nonnegative(n_samples=n_samples)
+    
     np.random.seed(seed)
     if correlation_pairs is None:
         correlation_pairs = [(1, 9, 0.9), (2, 8, 0.8), (3, 7, 0.7)]
@@ -38,6 +74,10 @@ def create_correlated_gaussian_data(
     # Create correlation matrix
     C = np.eye(n_features)
     for i, j, corr in correlation_pairs:
+        # Validate correlation value
+        if not -1 <= corr <= 1:
+            raise ValueError(f"Correlation must be in [-1, 1], got {corr} for pair ({i}, {j})")
+        # Apply correlation only if indices are valid
         if i < n_features and j < n_features:
             C[i, j] = C[j, i] = corr
 
@@ -63,7 +103,7 @@ def populate_nested_dict(content, outer, inner):
     ----------
     content : dict or any copyable object
         The content to populate at each leaf of the nested dictionary.
-        Will be copied for each inner key to avoid aliasing.
+        Must have a .copy() method. Will be copied for each inner key to avoid aliasing.
     outer : list or iterable
         Keys for the outer level of the nested dictionary.
     inner : list or iterable
@@ -73,6 +113,17 @@ def populate_nested_dict(content, outer, inner):
     -------
     dict
         Nested dictionary with structure {outer_key: {inner_key: content_copy}}.
+
+    Raises
+    ------
+    AttributeError
+        If content does not have a .copy() method.
+
+    Notes
+    -----
+    - Duplicate keys in outer or inner iterables will overwrite previous values.
+    - The content must have a .copy() method (e.g., dict, list, numpy array).
+    - Primitive types (int, str, float) will raise AttributeError.
         
     Examples
     --------
@@ -86,7 +137,12 @@ def populate_nested_dict(content, outer, inner):
     >>> nested['A']['x']['value'] = 5
     >>> nested['B']['x']['value']
     0
+    
+    DOC_VERIFIED
     """
+    if not hasattr(content, 'copy'):
+        raise AttributeError(f"Content of type {type(content).__name__} does not have a .copy() method")
+    
     nested_dict = {o: {} for o in outer}
     for o in outer:
         nested_dict[o] = {i: content.copy() for i in inner}
@@ -120,6 +176,19 @@ def nested_dict_to_seq_of_tables(datadict, ordered_names1=None, ordered_names2=N
         - Rows correspond to ordered_names1 (outer keys)
         - Columns correspond to ordered_names2 (inner keys)
         - Values are from the nested dictionary
+
+    Raises
+    ------
+    ValueError
+        If datadict is empty.
+    IndexError
+        If datadict structure is inconsistent.
+
+    Notes
+    -----
+    - Missing values are filled with np.nan, not zeros.
+    - Assumes all inner dictionaries have the same data keys.
+    - Uses the first entry to determine the data key structure.
         
     Examples
     --------
@@ -134,14 +203,23 @@ def nested_dict_to_seq_of_tables(datadict, ordered_names1=None, ordered_names2=N
     array([[1., 3.],
            [5., 7.]])
     >>> # Rows are ['A', 'B'], columns are ['x', 'y']
+    
+    DOC_VERIFIED
     """
+    # Validate input
+    if not datadict:
+        raise ValueError("Cannot process empty dictionary")
+    
     names1 = list(datadict.keys())
+    if not names1:
+        raise ValueError("Cannot process empty dictionary")
+    
     names2 = list(datadict[names1[0]].keys())
+    if not names2:
+        raise ValueError("First level dictionary is empty")
+    
     datakeys = list(datadict[names1[0]][names2[0]].keys())
 
-    # print(names1)
-    # print(names2)
-    # print(datakeys)
     if ordered_names1 is None:
         ordered_names1 = sorted(names1)
     if ordered_names2 is None:
@@ -186,6 +264,13 @@ def add_names_to_nested_dict(datadict, names1, names2):
         New nested dictionary with the same data but keys replaced by names.
         If both names1 and names2 are None, returns the original dict unchanged.
         Structure: renamed_dict[name1][name2] contains datadict[i][j].
+
+    Raises
+    ------
+    KeyError
+        If integer keys are not consecutive starting from 0.
+    ValueError
+        If names length doesn't match number of keys.
         
     Examples
     --------
@@ -199,29 +284,41 @@ def add_names_to_nested_dict(datadict, names1, names2):
     
     Notes
     -----
-    The function assumes datadict has a regular structure where all first-level
-    keys have the same set of second-level keys. It uses populate_nested_dict
-    to create an empty structure with the new names, then copies the data
-    from the original indexed positions.
+    - Requires consecutive integer keys starting from 0.
+    - Uses .update() to merge inner dictionaries.
+    - Returns original dict if both names are None.
+    - Assumes all outer keys contain the same inner keys (e.g., if datadict[0] has keys [0,1,2],
+      then datadict[1], datadict[2], etc. must also have keys [0,1,2]).
+    
+    DOC_VERIFIED
     """
+    if names1 is None and names2 is None:
+        return datadict
+    
     # renaming for convenience
     n1 = len(datadict.keys())
     n2 = len(datadict[list(datadict.keys())[0]])
+    
+    # Validate consecutive integer keys
+    outer_keys = sorted(datadict.keys())
+    if outer_keys != list(range(len(outer_keys))):
+        raise KeyError(f"Outer keys must be consecutive integers from 0. Found: {outer_keys}")
+    
+    if names1 is None:
+        names1 = range(n1)
+    elif len(names1) != n1:
+        raise ValueError(f"names1 length ({len(names1)}) must match number of outer keys ({n1})")
+    
+    if names2 is None:
+        names2 = range(n2)
+    elif len(names2) != n2:
+        raise ValueError(f"names2 length ({len(names2)}) must match number of inner keys ({n2})")
 
-    if not (names1 is None and names2 is None):
-        if names1 is None:
-            names1 = range(n1)
-        if names2 is None:
-            names2 = range(n2)
-
-        renamed_dict = populate_nested_dict(dict(), names1, names2)
-        for i in range(n1):
-            for j in range(n2):
-                renamed_dict[names1[i]][names2[j]].update(datadict[i][j])
-        return renamed_dict
-
-    else:
-        return datadict
+    renamed_dict = populate_nested_dict(dict(), names1, names2)
+    for i in range(n1):
+        for j in range(n2):
+            renamed_dict[names1[i]][names2[j]].update(datadict[i][j])
+    return renamed_dict
 
 
 def retrieve_relevant_from_nested_dict(
@@ -286,7 +383,12 @@ def retrieve_relevant_from_nested_dict(
     - Missing keys (when allow_missing_keys=True) are treated as not matching
     - None values are treated as not matching (since None comparisons would fail)  
     - Incomparable types (e.g., string vs number) will raise TypeError
+    
+    DOC_VERIFIED
     """
+    if operation not in ['=', '>', '<']:
+        raise ValueError(f"Operation must be one of '=', '>', '<'. Got: {operation}")
+    
     relevant_pairs = []
     for key1 in nested_dict.keys():
         for key2 in nested_dict[key1].keys():
@@ -344,8 +446,11 @@ def rescale(data):
         
     Notes
     -----
-    Uses sklearn's MinMaxScaler internally. The transformation is:
-    X_scaled = (X - X.min()) / (X.max() - X.min())
+    - Uses sklearn's MinMaxScaler internally. The transformation is:
+      X_scaled = (X - X.min()) / (X.max() - X.min())
+    - Constant arrays (where all values are equal) return 0.5.
+    - NaN values are preserved in the output.
+    - Single element arrays return 0.0.
     
     Examples
     --------
@@ -360,6 +465,8 @@ def rescale(data):
     ... except ValueError as e:
     ...     print(f"Error: {e}")
     Error: Input data must be 1-dimensional, got shape (2, 2)
+    
+    DOC_VERIFIED
     """
     data = np.asarray(data)
     if data.ndim > 1:
@@ -383,6 +490,26 @@ def get_hash(data):
     -------
     str
         Hexadecimal hash string
+
+    Notes
+    -----
+    - For numpy arrays: includes shape and dtype in hash, so same data with
+      different shape produces different hashes.
+    - For non-arrays: uses str() representation which may vary across Python
+      versions and implementations.
+    - Byte order affects the hash for arrays.
+    - Uses SHA256 algorithm with UTF-8 encoding.
+
+    Examples
+    --------
+    >>> arr = np.array([1, 2, 3])
+    >>> hash1 = get_hash(arr)
+    >>> arr_reshaped = arr.reshape(3, 1)
+    >>> hash2 = get_hash(arr_reshaped)
+    >>> hash1 == hash2  # Different shapes produce different hashes
+    False
+
+    DOC_VERIFIED
     """
     if isinstance(data, np.ndarray):
         # For numpy arrays, use the raw bytes for consistent hashing
@@ -410,15 +537,20 @@ def phase_synchrony(vec1, vec2):
     Parameters
     ----------
     vec1 : array-like
-        First signal, should be 1D array of same length as vec2.
+        First signal, must be 1D array of same length as vec2.
     vec2 : array-like  
-        Second signal, should be 1D array of same length as vec1.
+        Second signal, must be 1D array of same length as vec1.
         
     Returns
     -------
     ndarray
         Phase synchrony values at each time point, ranging from 0 to 1.
         Same length as input signals.
+
+    Raises
+    ------
+    ValueError
+        If input signals have different lengths.
         
     Notes
     -----
@@ -430,6 +562,10 @@ def phase_synchrony(vec1, vec2):
     
     This metric is 1 when phases are aligned (Δφ = 0) and 0 when
     maximally misaligned (Δφ = π).
+    
+    - Edge effects from Hilbert transform may affect boundary values.
+    - Designed for real-valued signals.
+    - NaN values propagate through the calculation.
     
     Examples
     --------
@@ -443,7 +579,15 @@ def phase_synchrony(vec1, vec2):
     See Also
     --------
     scipy.signal.hilbert : Hilbert transform used to extract phases
+    
+    DOC_VERIFIED
     """
+    vec1 = np.asarray(vec1)
+    vec2 = np.asarray(vec2)
+    
+    if vec1.shape != vec2.shape:
+        raise ValueError(f"Input signals must have same shape. Got {vec1.shape} and {vec2.shape}")
+    
     al1 = np.angle(hilbert(vec1), deg=False)
     al2 = np.angle(hilbert(vec2), deg=False)
     phase_sync = 1 - np.sin(np.abs(al1 - al2) / 2)
@@ -464,6 +608,22 @@ def correlation_matrix(A):
     -------
     numpy array of shape (n_variables, n_variables)
         Correlation matrix
+
+    Notes
+    -----
+    - Variables with zero variance (constant values) are handled by setting their
+      correlation to 1.0 with themselves and NaN with other variables.
+    - Single observation (n=1) returns NaN matrix as correlation is undefined.
+    - Uses row-wise computation (variables are rows).
+
+    Examples
+    --------
+    >>> A = np.array([[1, 2, 3], [4, 5, 6]])
+    >>> corr = correlation_matrix(A)
+    >>> corr.shape
+    (2, 2)
+    
+    DOC_VERIFIED
     """
     # Center the data
     am = A - np.mean(A, axis=1, keepdims=True)
@@ -492,24 +652,67 @@ def correlation_matrix(A):
 
 
 def cross_correlation_matrix(A, B):
-    """
-    # fast implementation.
+    """Compute cross-correlation matrix between two sets of variables.
+    
+    Computes Pearson correlations between variables (rows) in A and variables (rows) in B.
 
-    A: numpy array of shape (ndims, nvars1)
-    B: numpy array of shape (ndims, nvars2)
+    Parameters
+    ----------
+    A : numpy array of shape (n_variables1, n_observations)
+        First data matrix where each row is a variable
+    B : numpy array of shape (n_variables2, n_observations)  
+        Second data matrix where each row is a variable
 
-    returns: numpy array of shape (nvars1, nvars2)
+    Returns
+    -------
+    numpy array of shape (n_variables1, n_variables2)
+        Cross-correlation matrix where element [i,j] is the correlation
+        between A[i,:] and B[j,:]
+
+    Raises
+    ------
+    ValueError
+        If A and B have different numbers of observations (columns).
+
+    Notes
+    -----
+    - Uses row-wise computation (variables are rows), consistent with correlation_matrix.
+    - Variables with zero variance will result in NaN correlations.
+    - Centers data by row means.
+
+    Examples
+    --------
+    >>> A = np.array([[1, 2, 3], [4, 5, 6]])  # 2 variables, 3 observations
+    >>> B = np.array([[7, 8, 9], [10, 11, 12]])  # 2 variables, 3 observations
+    >>> cross_corr = cross_correlation_matrix(A, B)
+    >>> cross_corr.shape
+    (2, 2)
+    
+    DOC_VERIFIED
     """
-    am = A - np.mean(A, axis=0, keepdims=True)
-    bm = B - np.mean(B, axis=0, keepdims=True)
-    return (
-        am.T
-        @ bm
-        / (
-            np.sqrt(np.sum(am**2, axis=0, keepdims=True)).T
-            * np.sqrt(np.sum(bm**2, axis=0, keepdims=True))
-        )
-    )
+    if A.shape[1] != B.shape[1]:
+        raise ValueError(f"A and B must have same number of observations. Got {A.shape[1]} and {B.shape[1]}")
+    
+    # Center the data by row means (like correlation_matrix)
+    am = A - np.mean(A, axis=1, keepdims=True)
+    bm = B - np.mean(B, axis=1, keepdims=True)
+    
+    # Compute cross-correlation
+    n = A.shape[1]
+    if n > 1:
+        # Handle zero variance case
+        with np.errstate(divide="ignore", invalid="ignore"):
+            # Compute standard deviations
+            std_a = np.sqrt(np.sum(am**2, axis=1, keepdims=True) / (n - 1))
+            std_b = np.sqrt(np.sum(bm**2, axis=1, keepdims=True) / (n - 1))
+            
+            # Compute correlation
+            corr = (am @ bm.T) / (n - 1) / (std_a @ std_b.T)
+            
+        return corr
+    else:
+        # Single observation - correlation is undefined
+        return np.full((A.shape[0], B.shape[0]), np.nan)
 
 
 def norm_cross_corr(a, b, mode='full'):
@@ -535,14 +738,25 @@ def norm_cross_corr(a, b, mode='full'):
     Returns
     -------
     np.ndarray
-        Normalized cross-correlation values
+        Normalized cross-correlation values. Shape depends on mode parameter.
+
+    Raises
+    ------
+    ValueError
+        If mode is not one of 'full', 'valid', or 'same'.
         
     Notes
     -----
     The normalization ensures that the correlation values are in the range [-1, 1],
     where 1 indicates perfect correlation, -1 indicates perfect anti-correlation,
-    and 0 indicates no correlation.
+    and 0 indicates no correlation. Properly handles the number of overlapping
+    samples for each lag position.
+    
+    DOC_VERIFIED
     """
+    if mode not in ['full', 'valid', 'same']:
+        raise ValueError(f"mode must be one of 'full', 'valid', or 'same'. Got: {mode}")
+    
     # Convert to numpy arrays
     a = np.asarray(a)
     b = np.asarray(b)
@@ -552,20 +766,87 @@ def norm_cross_corr(a, b, mode='full'):
     b_norm = (b - np.mean(b)) / (np.std(b) + 1e-10)
     
     # Compute cross-correlation
-    # Divide by length to get proper normalized correlation coefficients
-    correlation = np.correlate(a_norm, b_norm, mode=mode) / len(a)
+    correlation = np.correlate(a_norm, b_norm, mode=mode)
+    
+    # Compute normalization factor based on number of overlapping samples
+    len_a = len(a)
+    len_b = len(b)
+    
+    if mode == 'valid':
+        # All values use same number of overlapping samples
+        norm_factor = min(len_a, len_b)
+        correlation = correlation / norm_factor
+    elif mode == 'full':
+        # Variable overlap: create normalization array
+        # For full mode, output length is len_a + len_b - 1
+        norm_factors = np.zeros(len_a + len_b - 1)
+        for i in range(len_a + len_b - 1):
+            # Calculate overlap at each lag position
+            overlap_start = max(0, i - len_b + 1)
+            overlap_end = min(i + 1, len_a)
+            norm_factors[i] = overlap_end - overlap_start
+        correlation = correlation / norm_factors
+    else:  # mode == 'same'
+        # Output length is max(len_a, len_b)
+        output_len = max(len_a, len_b)
+        norm_factors = np.zeros(output_len)
+        
+        # Calculate which part of 'full' result is used
+        if len_a >= len_b:
+            start_idx = (len_b - 1) // 2
+        else:
+            start_idx = (len_a - 1) // 2
+            
+        # Extract normalization factors from full calculation
+        for i in range(output_len):
+            full_idx = start_idx + i
+            overlap_start = max(0, full_idx - len_b + 1)
+            overlap_end = min(full_idx + 1, len_a)
+            norm_factors[i] = overlap_end - overlap_start
+        correlation = correlation / norm_factors
     
     return correlation
 
 
 def to_numpy_array(data):
-    if isinstance(data, np.ndarray):
-        return data
-
+    """Convert various data types to numpy array.
+    
+    Handles numpy arrays, sparse matrices, and other array-like objects.
+    Warning: Converting large sparse matrices can cause memory issues.
+    
+    Parameters
+    ----------
+    data : array_like, sparse matrix, or any object
+        Input data to convert to numpy array. Can be:
+        - numpy array (returned as-is)
+        - scipy sparse matrix (converted to dense)
+        - list, tuple, or other array-like object
+    
+    Returns
+    -------
+    numpy.ndarray
+        Dense numpy array representation of the input data.
+        
+    Warnings
+    --------
+    Converting large sparse matrices to dense arrays can cause memory issues.
+    Consider the memory implications before converting sparse data.
+    
+    Examples
+    --------
+    >>> import scipy.sparse as sp
+    >>> sparse_data = sp.csr_matrix([[1, 0, 0], [0, 2, 0]])
+    >>> dense = to_numpy_array(sparse_data)
+    >>> dense.toarray() if hasattr(dense, 'toarray') else dense
+    array([[1, 0, 0],
+           [0, 2, 0]])
+           
+    DOC_VERIFIED
+    """
     if ssp.issparse(data):
         return data.toarray()
     else:
-        return np.array(data)
+        return np.asarray(data)
 
 
 def remove_outliers(data, method='zscore', threshold=3.0, quantile_range=(0.05, 0.95)):
@@ -597,6 +878,20 @@ def remove_outliers(data, method='zscore', threshold=3.0, quantile_range=(0.05, 
         Indices of non-outlier points.
     clean_data : np.ndarray
         Data with outliers removed.
+
+    Raises
+    ------
+    ValueError
+        If method is not recognized.
+    ImportError
+        If 'isolation' method is used but scikit-learn is not installed.
+        
+    Notes
+    -----
+    - Input data is flattened with ravel().
+    - For constant data (zero variance), all points are considered inliers.
+    - MAD method uses scaling factor 1.4826 for consistency with normal distribution.
+    - Isolation method uses random_state=42 for reproducibility.
         
     Examples
     --------
@@ -611,6 +906,8 @@ def remove_outliers(data, method='zscore', threshold=3.0, quantile_range=(0.05, 
     
     >>> # Quantile method
     >>> indices, cleaned = remove_outliers(data, method='quantile', quantile_range=(0.1, 0.9))
+    
+    DOC_VERIFIED
     """
     data = np.asarray(data).ravel()
     n = len(data)
@@ -661,10 +958,8 @@ def remove_outliers(data, method='zscore', threshold=3.0, quantile_range=(0.05, 
         except ImportError:
             raise ImportError(
                 "IsolationForest requires scikit-learn. "
-                "Falling back to MAD method."
+                "Install it with: pip install scikit-learn"
             )
-            # Fallback to MAD
-            return remove_outliers(data, method='mad', threshold=threshold)
             
         # Reshape for sklearn
         data_reshaped = data.reshape(-1, 1)
@@ -691,17 +986,45 @@ def write_dict_to_hdf5(data, hdf5_file, group_name=""):
     """
     Recursively writes a dictionary to an HDF5 file.
 
-    Parameters:
-        data (dict): The dictionary to write.
-        hdf5_file (str): The path to the HDF5 file.
-        group_name (str): The name of the current group in the HDF5 file.
+    Parameters
+    ----------
+    data : dict
+        The dictionary to write. Can contain nested dictionaries, lists,
+        numpy arrays, or scalar values.
+    hdf5_file : str
+        The path to the HDF5 file.
+    group_name : str, default=""
+        The name of the current group in the HDF5 file.
+
+    Notes
+    -----
+    - Opens file in append mode ('a'), which can overwrite existing data.
+    - Converts all numeric data to float64 (may cause precision loss/gain).
+    - Lists are converted to numpy arrays before storage.
+    - Non-numeric/non-array values are stored as attributes.
+    - No protection against circular references (infinite recursion).
+
+    Warnings
+    --------
+    - All numeric data is cast to float64, which may not preserve original dtype.
+    - Opening in append mode can corrupt existing file structure.
+
+    Side Effects
+    ------------
+    Writes to the file system.
+
+    Examples
+    --------
+    >>> data = {'group1': {'array': np.array([1, 2, 3]), 'value': 42}}
+    >>> write_dict_to_hdf5(data, 'output.h5')
+
+    DOC_VERIFIED
     """
     with h5py.File(hdf5_file, "a") as f:
         # Create a new group or get existing one
         group = f.create_group(group_name) if group_name else f
 
         for key, value in data.items():
-            print(key)
             if isinstance(value, dict):
                 # If the value is a dictionary, recurse into it
                 write_dict_to_hdf5(value, hdf5_file, f"{group_name}/{key}")
@@ -720,11 +1043,29 @@ def read_hdf5_to_dict(hdf5_file):
     """
     Reads an HDF5 file and converts it into a nested dictionary.
 
-    Parameters:
-        hdf5_file (str): The path to the HDF5 file.
+    Parameters
+    ----------
+    hdf5_file : str
+        The path to the HDF5 file.
 
-    Returns:
-        dict: A nested dictionary representing the contents of the HDF5 file.
+    Returns
+    -------
+    dict
+        A nested dictionary representing the contents of the HDF5 file.
+
+    Notes
+    -----
+    - Uses [()] syntax to read full datasets into memory.
+    - Group attributes can overwrite dataset/group keys if names conflict.
+    - Large datasets are loaded entirely into memory.
+
+    Examples
+    --------
+    >>> data_dict = read_hdf5_to_dict('input.h5')
+    >>> data_dict['group1']['array']
+    array([1, 2, 3])
+
+    DOC_VERIFIED
     """
 
     def _read_group(group):
@@ -801,6 +1142,73 @@ def check_nonnegative(**kwargs):
                 raise ValueError(f"{name} cannot be infinite")
             if val < 0:
                 raise ValueError(f"{name} must be non-negative, got {value}")
+        except (TypeError, ValueError) as e:
+            if "cannot be" in str(e) or "must be" in str(e):
+                raise  # Re-raise our validation errors
+            raise TypeError(f"{name} must be numeric, got {type(value).__name__}")
+
+
+def check_unit(left_open=False, right_open=False, **kwargs):
+    """Check that all provided parameters are in the unit interval.
+    
+    Validates that numeric parameters are within [0, 1] with configurable
+    bound inclusion. Useful for probabilities, fractions, and normalized values.
+    
+    Parameters
+    ----------
+    left_open : bool, optional
+        If True, left bound is open (0, 1]. If False, closed [0, 1]. Default: False.
+    right_open : bool, optional
+        If True, right bound is open [0, 1). If False, closed [0, 1]. Default: False.
+    **kwargs : dict
+        Parameter name to value mappings. All values should be numeric in [0, 1].
+        
+    Raises
+    ------
+    ValueError
+        If any parameter value is outside the unit interval, NaN, or infinite.
+        Error message includes parameter name, value, and expected range.
+        
+    Examples
+    --------
+    >>> check_unit(probability=0.5, fraction=0.8)  # No error
+    
+    >>> check_unit(probability=1.5)
+    ValueError: probability must be in [0, 1], got 1.5
+    
+    >>> check_unit(left_open=True, rate=0.0)
+    ValueError: rate must be in (0, 1], got 0.0
+    
+    >>> check_unit(left_open=True, right_open=True, value=0.5)  # No error
+    
+    DOC_VERIFIED
+    """
+    # Determine bounds description
+    left_bracket = "(" if left_open else "["
+    right_bracket = ")" if right_open else "]"
+    bounds_desc = f"{left_bracket}0, 1{right_bracket}"
+    
+    for name, value in kwargs.items():
+        if value is None:
+            continue  # Skip None values
+        try:
+            val = float(value)
+            if np.isnan(val):
+                raise ValueError(f"{name} cannot be NaN")
+            if np.isinf(val):
+                raise ValueError(f"{name} cannot be infinite")
+            
+            # Check bounds
+            if left_open and val <= 0:
+                raise ValueError(f"{name} must be in {bounds_desc}, got {value}")
+            elif not left_open and val < 0:
+                raise ValueError(f"{name} must be in {bounds_desc}, got {value}")
+                
+            if right_open and val >= 1:
+                raise ValueError(f"{name} must be in {bounds_desc}, got {value}")
+            elif not right_open and val > 1:
+                raise ValueError(f"{name} must be in {bounds_desc}, got {value}")
+                
         except (TypeError, ValueError) as e:
             if "cannot be" in str(e) or "must be" in str(e):
                 raise  # Re-raise our validation errors

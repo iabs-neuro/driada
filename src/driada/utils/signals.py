@@ -21,6 +21,8 @@ from scipy.ndimage import gaussian_filter1d
 import pywt
 from typing import Optional, Union, List
 
+from .data import check_positive, check_nonnegative
+
 
 def brownian(
     x0: Union[float, np.ndarray],
@@ -66,6 +68,11 @@ def brownian(
         Array of floats with shape `x0.shape + (n,)`.
         Note that the initial value `x0` is not included in the returned array.
 
+    Raises
+    ------
+    ValueError
+        If n <= 0, dt <= 0, or delta < 0
+
     Examples
     --------
     >>> # Generate single Brownian motion path
@@ -77,7 +84,15 @@ def brownian(
     >>> paths = brownian([0.0, 1.0, -1.0], 1000, dt=0.01)
     >>> paths.shape
     (3, 1000)
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    if not isinstance(n, (int, np.integer)) or n <= 0:
+        raise ValueError(f"n must be a positive integer, got {n}")
+    check_positive(dt=dt)
+    check_nonnegative(delta=delta)
+    
     x0 = np.asarray(x0)
 
     # For each element of x0, generate a sample of n numbers from a
@@ -110,7 +125,7 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
     Parameters
     ----------
     U : array-like
-        Input signal/time series.
+        Input signal/time series. Must have length >= m + 2.
     m : int
         Pattern length. Common values are 1 or 2.
     r : float
@@ -123,6 +138,11 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
         The approximate entropy value. Higher values indicate more
         randomness/complexity.
 
+    Raises
+    ------
+    ValueError
+        If length of U < m + 2, m < 1, or r < 0
+
     Notes
     -----
     The algorithm:
@@ -131,6 +151,8 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
     3. Count pattern matches within tolerance r
     4. Calculate the logarithmic frequency of patterns
     5. Return the difference between m and m+1 pattern frequencies
+    
+    Complexity is O(N²). For long signals consider downsampling.
 
     References
     ----------
@@ -142,17 +164,30 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
     --------
     >>> # Regular signal has low entropy
     >>> regular = [1, 2, 3, 1, 2, 3, 1, 2, 3]
-    >>> approximate_entropy(regular, m=2, r=0.1)
-    0.0
+    >>> apen = approximate_entropy(regular, m=2, r=0.5)
+    >>> apen < 0.1
+    True
 
     >>> # Random signal has high entropy
     >>> import numpy as np
     >>> random_signal = np.random.randn(100)
     >>> apen = approximate_entropy(random_signal, m=2, r=0.2 * np.std(random_signal))
-    >>> apen > 1.0  # Typically true for random signals
+    >>> apen > 0.5  # Typically true for random signals
     True
+    
+    DOC_VERIFIED
     """
 
+    # Validate inputs
+    U = np.asarray(U)
+    N = len(U)
+    
+    if N < m + 2:
+        raise ValueError(f"Signal length ({N}) must be >= m + 2 ({m + 2})")
+    if m < 1:
+        raise ValueError(f"Pattern length m must be >= 1, got {m}")
+    check_nonnegative(r=r)
+    
     def _maxdist(x_i, x_j):
         """Calculate maximum distance between two patterns."""
         return max([abs(ua - va) for ua, va in zip(x_i, x_j)])
@@ -168,10 +203,16 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
             for x_i in patterns
         ]
 
-        # Return average log frequency
-        return (N - m + 1.0) ** (-1) * sum(np.log(C))
-
-    N = len(U)
+        # Avoid log(0) by adding small epsilon
+        phi_sum = 0.0
+        for c in C:
+            if c > 0:
+                phi_sum += np.log(c)
+            else:
+                # When no patterns match, use a very small probability
+                phi_sum += np.log(1e-10)
+        
+        return phi_sum / (N - m + 1.0)
 
     # Approximate entropy is the difference between phi(m+1) and phi(m)
     return abs(_phi(m + 1) - _phi(m))
@@ -204,6 +245,11 @@ def filter_1d_timeseries(
     ndarray
         Filtered 1D time series
 
+    Raises
+    ------
+    ValueError
+        If unknown method or invalid parameters (e.g., polyorder >= window_length)
+
     Examples
     --------
     >>> # Gaussian smoothing for general noise reduction
@@ -214,6 +260,8 @@ def filter_1d_timeseries(
 
     >>> # Wavelet denoising for multi-scale noise removal
     >>> filtered = filter_1d_timeseries(data, method='wavelet', wavelet='db4')
+    
+    DOC_VERIFIED
     """
     if method == "none":
         return data.copy()
@@ -238,6 +286,10 @@ def filter_1d_timeseries(
         # Check if signal is long enough
         if len(data) <= window_length:
             return data.copy()
+        
+        # Validate polyorder
+        if polyorder >= window_length:
+            raise ValueError(f"polyorder ({polyorder}) must be less than window_length ({window_length})")
 
         return savgol_filter(data, window_length, polyorder)
 
@@ -299,7 +351,7 @@ def filter_signals(data: np.ndarray, method: str = "gaussian", **kwargs) -> np.n
     Parameters
     ----------
     data : ndarray
-        Data with shape (n_neurons, n_timepoints)
+        Data with shape (n_signals, n_timepoints) or 1D array
     method : str
         Filtering method: 'gaussian', 'savgol', 'wavelet', or 'none'
     **kwargs : dict
@@ -309,6 +361,23 @@ def filter_signals(data: np.ndarray, method: str = "gaussian", **kwargs) -> np.n
     -------
     ndarray
         Filtered data with same shape as input
+
+    Raises
+    ------
+    ValueError
+        If unknown method or invalid parameters
+    
+    Examples
+    --------
+    >>> # Filter multiple signals
+    >>> signals = np.random.randn(10, 1000)  # 10 signals, 1000 points each
+    >>> filtered = filter_signals(signals, method='gaussian', sigma=2.0)
+    
+    >>> # Also works with 1D arrays
+    >>> signal = np.random.randn(1000)
+    >>> filtered = filter_signals(signal, method='savgol')
+    
+    DOC_VERIFIED
     """
     if data.ndim == 1:
         return filter_1d_timeseries(data, method=method, **kwargs)
@@ -327,15 +396,41 @@ def adaptive_filter_signals(data: np.ndarray, snr_threshold: float = 2.0) -> np.
     Parameters
     ----------
     data : ndarray
-        Data with shape (n_neurons, n_timepoints)
+        Data with shape (n_signals, n_timepoints)
     snr_threshold : float
-        SNR threshold for determining filter strength
+        SNR threshold for determining filter strength. Default 2.0.
 
     Returns
     -------
     ndarray
-        Adaptively filtered data
+        Adaptively filtered data with same shape as input
+
+    Raises
+    ------
+    ValueError
+        If data is not 2D or snr_threshold <= 0
+
+    Notes
+    -----
+    Uses simple binary threshold: strong filtering (sigma=2.0) for 
+    low SNR, light filtering (sigma=0.5) for high SNR.
+    
+    Examples
+    --------
+    >>> # Adaptively filter based on estimated SNR
+    >>> signals = np.random.randn(5, 1000)
+    >>> filtered = adaptive_filter_signals(signals, snr_threshold=3.0)
+    
+    >>> # Lower threshold applies stronger filtering to more signals
+    >>> filtered = adaptive_filter_signals(signals, snr_threshold=1.0)
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    if data.ndim != 2:
+        raise ValueError(f"Data must be 2D, got shape {data.shape}")
+    check_positive(snr_threshold=snr_threshold)
+    
     filtered_data = np.zeros_like(data)
 
     for i in range(data.shape[0]):

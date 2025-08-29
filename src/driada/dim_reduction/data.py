@@ -54,7 +54,7 @@ def check_data_for_errors(d, verbose=True):
         raise ValueError(
             f"Data contains {len(zero_cols)} zero columns (all values are 0). "
             f"This can cause issues in dimensionality reduction. "
-            f"Consider removing these columns or adding small noise."
+            f"Consider removing these columns, adding small noise, or set allow_zero_columns=True."
         )
 
 

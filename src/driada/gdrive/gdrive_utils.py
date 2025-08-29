@@ -19,9 +19,25 @@ class GoogleDriveFile(object):
     children: List[GoogleDriveFile]
         If it is a directory, it contains the folder files/directories
 
+    DOC_VERIFIED
     """
 
     def __init__(self, id, name, type, children=None):
+        """Initialize GoogleDriveFile instance.
+        
+        Parameters
+        ----------
+        id : str
+            Unique file or folder ID from Google Drive.
+        name : str
+            Display name of the file or folder.
+        type : str
+            MIME type of the file, or 'application/vnd.google-apps.folder' for folders.
+        children : List[GoogleDriveFile], optional
+            Child items if this is a folder. Default is empty list.
+            
+        DOC_VERIFIED
+        """
         self.id = id
         self.name = name
         self.type = type
@@ -34,10 +50,29 @@ class GoogleDriveFile(object):
         -------
         bool
             True if the file is a folder, False otherwise.
+            
+        Notes
+        -----
+        Uses the global folder_type constant for comparison.
+        
+        DOC_VERIFIED
         """
         return self.type == folder_type
 
     def __repr__(self):
+        """Return string representation of GoogleDriveFile.
+        
+        Returns
+        -------
+        str
+            Formatted string showing all attributes including children.
+            
+        Notes
+        -----
+        May produce long output if there are many children.
+        
+        DOC_VERIFIED
+        """
         template = "(id={id}, name={name}, type={type}, children={children})"
         return "GoogleDriveFile" + template.format(
             id=self.id,
@@ -48,22 +83,36 @@ class GoogleDriveFile(object):
 
 
 def parse_google_drive_file(folder, content, use_cookies=True):
-    """Extracts information about the current page file and its children
+    """Extract information about the current page file and its children.
 
     Parameters
     ----------
-    folder: str
+    folder : str
         URL of the Google Drive folder.
-        Must be of the format 'https://drive.google.com/drive/folders/{url}'.
-    content: str
-        Google Drive's raw string
+        Must be of the format 'https://drive.google.com/drive/folders/{id}'.
+    content : str
+        Google Drive's raw HTML content.
+    use_cookies : bool, optional
+        Whether to clear cookies. Default is True.
 
     Returns
     -------
-    gdrive_file: GoogleDriveFile
-        Current GoogleDriveFile, with empty children
-    id_name_type_iter: Iterator
-        Tuple iterator of each children id, name, type
+    gdrive_file : GoogleDriveFile
+        Current GoogleDriveFile object with empty children list.
+    id_name_type_iter : list
+        List of tuples (id, name, type) for each child item.
+        
+    Raises
+    ------
+    RuntimeError
+        If folder information cannot be extracted from HTML.
+        
+    Notes
+    -----
+    Parses JavaScript data embedded in Google Drive HTML.
+    Expects specific HTML structure and may break with Google Drive updates.
+    
+    DOC_VERIFIED
     """
     folder_soup = BeautifulSoup(content, features="html.parser")
 
@@ -119,25 +168,37 @@ def download_and_parse_google_drive_link(
 
     Parameters
     ----------
-    folder: str
+    folder : str
         URL of the Google Drive folder.
-        Must be of the format 'https://drive.google.com/drive/folders/{url}'.
-    quiet: bool, optional
-        Suppress terminal output.
-    use_cookies: bool, optional
+        Must be of the format 'https://drive.google.com/drive/folders/{id}'.
+    quiet : bool, optional
+        Suppress terminal output. Default is False.
+    use_cookies : bool, optional
         Flag to use cookies. Default is True.
-    remaining_ok: bool, optional
-        Flag that ensures that is ok to let some file to not be downloaded,
-        since there is a limitation of how many items gdown can download,
-        default is False.
+    remaining_ok : bool, optional
+        Allow processing if folder has ≥50 files (API limit).
+        Default is False.
+    name_part : str, optional
+        Filter items by name substring. Default is empty string (no filter).
 
     Returns
     -------
-    return_code: bool
-        Returns False if the download completed unsuccessfully.
-        May be due to invalid URLs, permission errors, rate limits, etc.
-    gdrive_file: GoogleDriveFile
-        Returns the folder structure of the Google Drive folder.
+    return_code : bool
+        True if successful, False if failed (network error, permissions, etc.).
+    gdrive_file : GoogleDriveFile or None
+        Folder structure with nested children, or None if failed.
+        
+    Raises
+    ------
+    RuntimeError
+        If folder has ≥50 files and remaining_ok is False.
+        
+    Notes
+    -----
+    Recursively processes subfolders. Limited to 50 items per folder
+    due to Google Drive API restrictions.
+    
+    DOC_VERIFIED
     """
     return_code = True
 
@@ -221,7 +282,7 @@ def id_from_link(link):
     Raises
     ------
     ValueError
-        If the link doesn't contain 'http' or has an invalid format.
+        If the link doesn't contain 'http'.
 
     Examples
     --------
@@ -229,6 +290,13 @@ def id_from_link(link):
     '1a2b3c4d5e'
     >>> id_from_link('https://drive.google.com/open?id=xyz123')
     'xyz123'
+    
+    Notes
+    -----
+    Does not validate the extracted ID format. May return empty string
+    or invalid IDs for malformed URLs.
+    
+    DOC_VERIFIED
     """
     if "http" not in link:
         raise ValueError("Wrong link format")

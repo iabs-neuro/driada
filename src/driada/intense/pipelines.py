@@ -355,7 +355,7 @@ def compute_cell_feat_significance(
         pval_thr=pval_thr,
         find_optimal_delays=find_optimal_delays,
         skip_delays=[feat_ids.index(f) for f in skip_delays if f in feat_ids],
-        shift_window=shift_window * exp.fps,
+        shift_window=int(shift_window * exp.fps),
         verbose=verbose,
         enable_parallelization=enable_parallelization,
         n_jobs=n_jobs,
@@ -1152,6 +1152,7 @@ def compute_embedding_selectivity(
         - 'stats': Statistics for each neuron-component pair
         - 'significance': Significance results
         - 'info': Additional information from compute_me_stats
+        - 'intense_results': Full IntenseResults object from INTENSE computation
         - 'significant_neurons': Dict of neurons significantly selective to embedding components
         - 'n_components': Number of embedding components
         - 'component_selectivity': For each component, list of selective neurons
@@ -1302,6 +1303,7 @@ def compute_embedding_selectivity(
                 "stats": stats,
                 "significance": significance,
                 "info": info,
+                "intense_results": intense_res,  # Include the full IntenseResults object
                 "significant_neurons": significant_neurons,
                 "n_components": n_components,
                 "component_selectivity": component_selectivity,

@@ -23,10 +23,12 @@ from typing import Optional, Tuple, Dict, List, Union
 import logging
 
 from ..information import TimeSeries, MultiTimeSeries, get_sim
+from .data import check_positive
 
 
 def compute_occupancy_map(
     positions: np.ndarray,
+    fps: float = 1.0,
     arena_bounds: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None,
     bin_size: float = 0.025,
     min_occupancy: float = 0.1,
@@ -39,6 +41,9 @@ def compute_occupancy_map(
     ----------
     positions : np.ndarray, shape (n_samples, 2)
         X, Y positions over time
+    fps : float
+        Frames per second (sampling frequency). Default 1.0 assumes 
+        one frame per second.
     arena_bounds : tuple of tuples, optional
         ((x_min, x_max), (y_min, y_max)). If None, inferred from data
     bin_size : float
@@ -56,9 +61,25 @@ def compute_occupancy_map(
         X bin edges
     y_edges : np.ndarray
         Y bin edges
+    
+    Raises
+    ------
+    ValueError
+        If positions is not 2D or fps is non-positive
+    
+    Examples
+    --------
+    >>> positions = np.random.rand(1000, 2)  # 1000 frames
+    >>> # With 30 fps recording
+    >>> occ_map, x_edges, y_edges = compute_occupancy_map(positions, fps=30.0)
+    >>> # occ_map contains time in seconds per bin
+    
+    DOC_VERIFIED
     """
     if positions.shape[1] != 2:
         raise ValueError(f"Positions must be 2D, got shape {positions.shape}")
+    
+    check_positive(fps=fps)
 
     # Determine arena bounds
     if arena_bounds is None:
@@ -80,8 +101,8 @@ def compute_occupancy_map(
         positions[:, 0], positions[:, 1], bins=[x_edges, y_edges]
     )
 
-    # Convert to time (assuming 1 sample = 1 time unit)
-    # In real usage, this should be scaled by actual sampling rate
+    # Convert sample counts to time in seconds
+    occupancy = occupancy / fps
 
     # Smooth if requested
     if smooth_sigma is not None and smooth_sigma > 0:
@@ -99,6 +120,7 @@ def compute_rate_map(
     occupancy_map: np.ndarray,
     x_edges: np.ndarray,
     y_edges: np.ndarray,
+    fps: float = 1.0,
     smooth_sigma: Optional[float] = 1.5,
 ) -> np.ndarray:
     """
@@ -111,11 +133,14 @@ def compute_rate_map(
     positions : np.ndarray, shape (n_samples, 2)
         X, Y positions corresponding to neural signal
     occupancy_map : np.ndarray
-        2D occupancy map from compute_occupancy_map
+        2D occupancy map in seconds from compute_occupancy_map
     x_edges : np.ndarray
         X bin edges from compute_occupancy_map
     y_edges : np.ndarray
         Y bin edges from compute_occupancy_map
+    fps : float
+        Frames per second (sampling frequency). Must match the fps used
+        in compute_occupancy_map.
     smooth_sigma : float, optional
         Gaussian smoothing sigma in bins
 
@@ -123,7 +148,28 @@ def compute_rate_map(
     -------
     rate_map : np.ndarray
         2D activity map (mean signal per spatial bin)
+    
+    Raises
+    ------
+    ValueError
+        If positions shape doesn't match neural_signal length or fps is non-positive
+    
+    Examples
+    --------
+    >>> # Compute occupancy first
+    >>> occ_map, x_edges, y_edges = compute_occupancy_map(positions, fps=30.0)
+    >>> # Then compute rate map
+    >>> rate_map = compute_rate_map(neural_signal, positions, occ_map, 
+    ...                            x_edges, y_edges, fps=30.0)
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    if len(neural_signal) != len(positions):
+        raise ValueError(f"neural_signal length ({len(neural_signal)}) must match "
+                        f"positions length ({len(positions)})")
+    check_positive(fps=fps)
+    
     # For continuous signals (e.g., calcium), compute mean activity per bin
     # Use weighted 2D histogram to sum activity in each bin
     activity_sum, _, _ = np.histogram2d(
@@ -134,21 +180,20 @@ def compute_rate_map(
     )
     activity_sum = activity_sum.T  # Transpose for correct orientation
 
-    # Count samples in each bin (should match occupancy)
-    sample_count, _, _ = np.histogram2d(
-        positions[:, 0], positions[:, 1], bins=[x_edges, y_edges]
-    )
-    sample_count = sample_count.T
-
+    # Convert occupancy from seconds back to sample counts for rate calculation
+    # This ensures we use the same bins and smoothing as the occupancy map
+    occupancy_counts = occupancy_map * fps
+    
     # Compute mean activity per bin
     with np.errstate(divide="ignore", invalid="ignore"):
-        rate_map = activity_sum / sample_count
-        rate_map[sample_count == 0] = 0  # Set unvisited bins to 0
+        rate_map = activity_sum / occupancy_counts
+        rate_map[occupancy_counts == 0] = 0  # Set unvisited bins to 0
+        rate_map[np.isnan(occupancy_map)] = 0  # Respect occupancy NaN mask
 
     # Smooth if requested
     if smooth_sigma is not None and smooth_sigma > 0:
         # Only smooth visited bins
-        mask = sample_count > 0
+        mask = occupancy_counts > 0
         if np.any(mask):
             # Create a smoothed version preserving only visited areas
             smoothed = ndimage.gaussian_filter(rate_map, sigma=smooth_sigma)
@@ -190,7 +235,27 @@ def extract_place_fields(
         - center: (x, y) indices of field center
         - size: Number of bins in field
         - mean_rate: Mean rate within field
+    
+    Raises
+    ------
+    ValueError
+        If input parameters are invalid
+    
+    Notes
+    -----
+    Uses 8-connectivity for contiguous region detection.
+    
+    Examples
+    --------
+    >>> rate_map = np.random.rand(40, 40)
+    >>> fields = extract_place_fields(rate_map, min_peak_rate=0.8)
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    check_positive(min_peak_rate=min_peak_rate, min_field_size=min_field_size, 
+                   peak_to_mean_ratio=peak_to_mean_ratio)
+    
     # Threshold rate map
     mean_rate = np.nanmean(rate_map)
     threshold = mean_rate * peak_to_mean_ratio
@@ -245,12 +310,24 @@ def compute_spatial_information_rate(
     rate_map : np.ndarray
         2D firing rate map
     occupancy_map : np.ndarray
-        2D occupancy map (time spent in each bin)
+        2D occupancy map in seconds (time spent in each bin)
 
     Returns
     -------
     spatial_info : float
-        Spatial information in bits/spike
+        Spatial information in bits/spike. Returns 0 if mean rate is 0.
+    
+    Notes
+    -----
+    Forces non-negative result. Uses log2 for bits.
+    
+    Examples
+    --------
+    >>> occ_map, x_edges, y_edges = compute_occupancy_map(positions, fps=30.0)
+    >>> rate_map = compute_rate_map(signal, positions, occ_map, x_edges, y_edges, fps=30.0)
+    >>> si = compute_spatial_information_rate(rate_map, occ_map)
+    
+    DOC_VERIFIED
     """
     # Normalize occupancy to get probability
     valid_mask = ~np.isnan(occupancy_map)
@@ -274,66 +351,6 @@ def compute_spatial_information_rate(
     return max(0.0, spatial_info)  # Ensure non-negative
 
 
-def compute_grid_score(
-    rate_map: np.ndarray, min_peaks: int = 3, max_field_size_ratio: float = 0.5
-) -> float:
-    """
-    Compute grid score from spatial autocorrelation.
-
-    Grid score measures hexagonal regularity (Sargolini et al., 2006).
-
-    Parameters
-    ----------
-    rate_map : np.ndarray
-        2D firing rate map
-    min_peaks : int
-        Minimum number of peaks for valid grid
-    max_field_size_ratio : float
-        Maximum field size as ratio of map size
-
-    Returns
-    -------
-    grid_score : float
-        Grid score (-2 to 2, higher = more grid-like)
-    """
-    # Compute 2D autocorrelation
-    rate_map_clean = np.nan_to_num(rate_map)
-    autocorr = signal.correlate2d(rate_map_clean, rate_map_clean, mode="same")
-    autocorr = autocorr / np.max(autocorr)  # Normalize
-
-    # Find peaks in autocorrelation
-    from scipy.ndimage import maximum_filter
-
-    local_maxima = autocorr == maximum_filter(autocorr, size=3)
-
-    # Remove central peak
-    center = np.array(autocorr.shape) // 2
-    local_maxima[center[0] - 2 : center[0] + 3, center[1] - 2 : center[1] + 3] = False
-
-    # Check if enough peaks
-    peak_coords = np.column_stack(np.where(local_maxima))
-
-    # For very sparse patterns, might not have enough peaks
-    if len(peak_coords) < min_peaks:
-        # Check for minimal structure - if only central peak exists
-        if np.sum(local_maxima) == 0:
-            return -2.0  # No structure beyond center
-
-    # Compute rotational correlations at 30°, 60°, 90°, 120°, 150°
-    angles = [30, 60, 90, 120, 150]
-    correlations = []
-
-    for angle in angles:
-        rotated = ndimage.rotate(autocorr, angle, reshape=False, order=1)
-        corr = np.corrcoef(autocorr.flatten(), rotated.flatten())[0, 1]
-        correlations.append(corr)
-
-    # Grid score is minimum of 60° and 120° minus maximum of 30°, 90°, 150°
-    grid_score = min(correlations[1], correlations[3]) - max(
-        correlations[0], correlations[2], correlations[4]
-    )
-
-    return grid_score
 
 
 def compute_spatial_decoding_accuracy(
@@ -376,7 +393,32 @@ def compute_spatial_decoding_accuracy(
         - r2_y: R² score for Y position
         - r2_avg: Average R² score
         - mse: Mean squared error
+    
+    Raises
+    ------
+    ValueError
+        If shape mismatch between neural_activity and positions
+    
+    Notes
+    -----
+    Forces non-negative R² scores. Uses all CPU cores.
+    
+    Examples
+    --------
+    >>> metrics = compute_spatial_decoding_accuracy(neural_data, positions)
+    >>> print(f"Decoding R²: {metrics['r2_avg']:.3f}")
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    if neural_activity.shape[1] != positions.shape[0]:
+        raise ValueError(f"Shape mismatch: neural_activity has {neural_activity.shape[1]} "
+                        f"samples but positions has {positions.shape[0]}")
+    if positions.shape[1] != 2:
+        raise ValueError(f"Positions must be 2D, got shape {positions.shape}")
+    check_positive(test_size=test_size, n_estimators=n_estimators, 
+                   min_samples_leaf=min_samples_leaf)
+    
     if logger:
         logger.info(
             f"Computing spatial decoding with {neural_activity.shape[0]} neurons"
@@ -432,9 +474,9 @@ def compute_spatial_information(
     Parameters
     ----------
     neural_activity : array-like or TimeSeries
-        Neural activity data
+        Neural activity data. If np.ndarray, shape (n_neurons, n_samples) or (n_samples,)
     positions : array-like or TimeSeries
-        Spatial position data (X, Y)
+        Spatial position data (X, Y). If np.ndarray, shape (n_samples, 2)
     logger : logging.Logger, optional
         Logger for debugging
 
@@ -445,6 +487,24 @@ def compute_spatial_information(
         - mi_x: MI with X position
         - mi_y: MI with Y position
         - mi_total: MI with 2D position
+    
+    Raises
+    ------
+    ValueError
+        If positions is not 2D or shape mismatch
+    ImportError
+        If required information theory packages are not available
+    
+    Notes
+    -----
+    Uses Gaussian-Copula MI (gcmi) estimator.
+    
+    Examples
+    --------
+    >>> mi_metrics = compute_spatial_information(neural_data, positions)
+    >>> print(f"MI with position: {mi_metrics['mi_total']:.3f} bits")
+    
+    DOC_VERIFIED
     """
     # Convert to TimeSeries if needed
     if isinstance(neural_activity, np.ndarray):
@@ -476,20 +536,14 @@ def compute_spatial_information(
             raise ValueError("Positions must be 2D")
 
     # Compute mutual information
-    try:
-        mi_x = get_sim(neural_ts, x_ts, metric="mi", estimator="gcmi")
-        mi_y = get_sim(neural_ts, y_ts, metric="mi", estimator="gcmi")
-        mi_total = get_sim(neural_ts, pos_2d_ts, metric="mi", estimator="gcmi")
+    mi_x = get_sim(neural_ts, x_ts, metric="mi", estimator="gcmi")
+    mi_y = get_sim(neural_ts, y_ts, metric="mi", estimator="gcmi")
+    mi_total = get_sim(neural_ts, pos_2d_ts, metric="mi", estimator="gcmi")
 
-        metrics = {"mi_x": mi_x, "mi_y": mi_y, "mi_total": mi_total}
+    metrics = {"mi_x": mi_x, "mi_y": mi_y, "mi_total": mi_total}
 
-        if logger:
-            logger.info(f"Spatial MI: X={mi_x:.3f}, Y={mi_y:.3f}, Total={mi_total:.3f}")
-
-    except Exception as e:
-        if logger:
-            logger.warning(f"MI calculation failed: {e}")
-        metrics = {"mi_x": 0.0, "mi_y": 0.0, "mi_total": 0.0}
+    if logger:
+        logger.info(f"Spatial MI: X={mi_x:.3f}, Y={mi_y:.3f}, Total={mi_total:.3f}")
 
     return metrics
 
@@ -508,7 +562,7 @@ def filter_by_speed(
     data : dict
         Dictionary with at least 'positions' key containing (n_samples, 2) array
     speed_range : tuple
-        (min_speed, max_speed) to include
+        (min_speed, max_speed) to include. Default excludes near-stationary periods.
     position_key : str
         Key for position data in dictionary
     smooth_window : int
@@ -517,9 +571,36 @@ def filter_by_speed(
     Returns
     -------
     filtered_data : dict
-        Data dictionary with speed-filtered arrays
+        Data dictionary with speed-filtered arrays. Adds 'speed' key with 
+        computed speeds.
+    
+    Raises
+    ------
+    ValueError
+        If speed_range values are invalid
+    KeyError
+        If position_key not found in data
+    
+    Notes
+    -----
+    First sample assigned zero speed.
+    
+    Examples
+    --------
+    >>> data = {'positions': positions, 'neural_activity': activity}
+    >>> # Keep only when animal is moving
+    >>> filtered = filter_by_speed(data, speed_range=(0.05, np.inf))
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    if position_key not in data:
+        raise KeyError(f"position_key '{position_key}' not found in data")
     positions = data[position_key]
+    if speed_range[0] < 0:
+        raise ValueError(f"min_speed must be non-negative, got {speed_range[0]}")
+    if speed_range[0] > speed_range[1]:
+        raise ValueError(f"min_speed ({speed_range[0]}) > max_speed ({speed_range[1]})")
 
     # Compute speed
     velocity = np.diff(positions, axis=0)
@@ -548,64 +629,12 @@ def filter_by_speed(
     return filtered_data
 
 
-def filter_by_direction(
-    data: Dict[str, np.ndarray],
-    direction_range: Tuple[float, float],
-    position_key: str = "positions",
-    smooth_window: int = 5,
-) -> Dict[str, np.ndarray]:
-    """
-    Filter data to include only periods of specific movement directions.
-
-    Parameters
-    ----------
-    data : dict
-        Dictionary with at least 'positions' key
-    direction_range : tuple
-        (min_angle, max_angle) in radians, where 0 = east, π/2 = north
-    position_key : str
-        Key for position data
-    smooth_window : int
-        Window size for direction smoothing
-
-    Returns
-    -------
-    filtered_data : dict
-        Direction-filtered data
-    """
-    positions = data[position_key]
-
-    # Compute movement direction
-    velocity = np.diff(positions, axis=0)
-    direction = np.arctan2(velocity[:, 1], velocity[:, 0])
-
-    # Add zero direction for first sample
-    direction = np.concatenate([[0], direction])
-
-    # Handle angle wrapping
-    min_dir, max_dir = direction_range
-    if min_dir <= max_dir:
-        mask = (direction >= min_dir) & (direction <= max_dir)
-    else:
-        # Wrapped range (e.g., -π/4 to π/4)
-        mask = (direction >= min_dir) | (direction <= max_dir)
-
-    # Filter all arrays
-    filtered_data = {}
-    for key, value in data.items():
-        if isinstance(value, np.ndarray) and len(value) == len(mask):
-            filtered_data[key] = value[mask]
-        else:
-            filtered_data[key] = value
-
-    filtered_data["direction"] = direction[mask]
-
-    return filtered_data
 
 
 def analyze_spatial_coding(
     neural_activity: np.ndarray,
     positions: np.ndarray,
+    fps: float = 1.0,
     arena_bounds: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None,
     bin_size: float = 0.025,
     min_peak_rate: float = 1.0,
@@ -623,6 +652,8 @@ def analyze_spatial_coding(
         Neural activity matrix
     positions : np.ndarray, shape (n_samples, 2)
         Position data
+    fps : float
+        Frames per second (sampling frequency)
     arena_bounds : tuple, optional
         Arena boundaries
     bin_size : float
@@ -630,7 +661,7 @@ def analyze_spatial_coding(
     min_peak_rate : float
         Minimum peak rate for place fields
     speed_range : tuple, optional
-        Speed filter range
+        Speed filter range. None to skip filtering.
     peak_to_mean_ratio : float
         Minimum ratio of peak to mean rate in field
     min_field_size : int
@@ -645,10 +676,37 @@ def analyze_spatial_coding(
         - rate_maps: List of rate maps per neuron
         - place_fields: List of place fields per neuron
         - spatial_info: Spatial information per neuron
-        - grid_scores: Grid scores per neuron
         - decoding_accuracy: Position decoding metrics
         - spatial_mi: Mutual information metrics
+        - summary: Dict with n_place_cells, mean_spatial_info
+    
+    Raises
+    ------
+    ValueError
+        If shape mismatch or invalid parameters
+    
+    Notes
+    -----
+    - Applies speed filtering before analysis if speed_range provided
+    - All analyses use the same spatial binning
+    - Rate maps are smoothed with sigma=1.5
+    
+    Examples
+    --------
+    >>> results = analyze_spatial_coding(neural_data, positions, fps=30.0)
+    >>> print(f"Found {results['summary']['n_place_cells']} place cells")
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    if neural_activity.shape[1] != positions.shape[0]:
+        raise ValueError(f"Shape mismatch: neural_activity has {neural_activity.shape[1]} "
+                        f"samples but positions has {positions.shape[0]}")
+    if positions.shape[1] != 2:
+        raise ValueError(f"Positions must be 2D, got shape {positions.shape}")
+    check_positive(fps=fps, bin_size=bin_size, min_peak_rate=min_peak_rate,
+                   peak_to_mean_ratio=peak_to_mean_ratio, min_field_size=min_field_size)
+    
     if logger:
         logger.info(f"Analyzing spatial coding for {neural_activity.shape[0]} neurons")
 
@@ -664,21 +722,20 @@ def analyze_spatial_coding(
 
     # Compute occupancy map
     occupancy_map, x_edges, y_edges = compute_occupancy_map(
-        positions, arena_bounds, bin_size
+        positions, fps, arena_bounds, bin_size
     )
 
     results = {
         "rate_maps": [],
         "place_fields": [],
         "spatial_info": [],
-        "grid_scores": [],
     }
 
     # Analyze each neuron
     for i in range(neural_activity.shape[0]):
         # Compute rate map
         rate_map = compute_rate_map(
-            neural_activity[i], positions, occupancy_map, x_edges, y_edges
+            neural_activity[i], positions, occupancy_map, x_edges, y_edges, fps
         )
         results["rate_maps"].append(rate_map)
 
@@ -695,10 +752,6 @@ def analyze_spatial_coding(
         si = compute_spatial_information_rate(rate_map, occupancy_map)
         results["spatial_info"].append(si)
 
-        # Grid score
-        gs = compute_grid_score(rate_map)
-        results["grid_scores"].append(gs)
-
     # Population-level analyses
     results["decoding_accuracy"] = compute_spatial_decoding_accuracy(
         neural_activity, positions, logger=logger
@@ -711,15 +764,12 @@ def analyze_spatial_coding(
     # Summary statistics
     results["summary"] = {
         "n_place_cells": sum(len(pf) > 0 for pf in results["place_fields"]),
-        "n_grid_cells": sum(gs > 0.3 for gs in results["grid_scores"]),
         "mean_spatial_info": np.mean(results["spatial_info"]),
-        "mean_grid_score": np.mean(results["grid_scores"]),
     }
 
     if logger:
         logger.info(
-            f"Found {results['summary']['n_place_cells']} place cells, "
-            f"{results['summary']['n_grid_cells']} grid cells"
+            f"Found {results['summary']['n_place_cells']} place cells"
         )
 
     return results
@@ -736,23 +786,45 @@ def compute_spatial_metrics(
 
     Parameters
     ----------
-    neural_activity : np.ndarray
+    neural_activity : np.ndarray, shape (n_neurons, n_samples)
         Neural activity data
-    positions : np.ndarray
+    positions : np.ndarray, shape (n_samples, 2)
         Position data
     metrics : list of str, optional
         Metrics to compute. If None, computes all.
-        Options: 'decoding', 'information', 'place_fields', 'grid_scores'
+        Options: 'decoding', 'information', 'place_fields'
     **kwargs
         Additional arguments passed to analysis functions
+        (e.g., fps, logger, test_size, bin_size)
 
     Returns
     -------
     results : dict
-        Computed metrics
+        Computed metrics based on requested analyses
+    
+    Raises
+    ------
+    ValueError
+        If invalid metric name provided
+    
+    Examples
+    --------
+    >>> # Compute only decoding accuracy
+    >>> results = compute_spatial_metrics(neural_data, positions, 
+    ...                                  metrics=['decoding'], fps=30.0)
+    >>> # Compute all metrics
+    >>> results = compute_spatial_metrics(neural_data, positions, fps=30.0)
+    
+    DOC_VERIFIED
     """
     if metrics is None:
-        metrics = ["decoding", "information", "place_fields", "grid_scores"]
+        metrics = ["decoding", "information", "place_fields"]
+    
+    # Validate metrics
+    valid_metrics = {"decoding", "information", "place_fields"}
+    invalid = set(metrics) - valid_metrics
+    if invalid:
+        raise ValueError(f"Invalid metrics: {invalid}. Valid options: {valid_metrics}")
 
     results = {}
 
@@ -766,15 +838,9 @@ def compute_spatial_metrics(
             neural_activity, positions, **kwargs
         )
 
-    if "place_fields" in metrics or "grid_scores" in metrics:
+    if "place_fields" in metrics:
         analysis = analyze_spatial_coding(neural_activity, positions, **kwargs)
-
-        if "place_fields" in metrics:
-            results["place_fields"] = analysis["place_fields"]
-            results["n_place_cells"] = analysis["summary"]["n_place_cells"]
-
-        if "grid_scores" in metrics:
-            results["grid_scores"] = analysis["grid_scores"]
-            results["n_grid_cells"] = analysis["summary"]["n_grid_cells"]
+        results["place_fields"] = analysis["place_fields"]
+        results["n_place_cells"] = analysis["summary"]["n_place_cells"]
 
     return results

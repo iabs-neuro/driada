@@ -153,6 +153,8 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         Returns
         -------
         Latent representation (type depends on subclass).
+        
+        DOC_VERIFIED
         """
         pass
     
@@ -168,6 +170,8 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         Returns
         -------
         Output (type depends on subclass).
+        
+        DOC_VERIFIED
         """
         pass
     
@@ -195,6 +199,8 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
             Weighted sum of all loss components.
         loss_dict : dict
             Individual loss values for logging.
+            
+        DOC_VERIFIED
         """
         pass
     

@@ -10,26 +10,51 @@ import numpy as np
 from fbm import FBM
 import itertools
 from itertools import groupby
+from ...utils.data import check_positive, check_nonnegative
 
 
-def generate_binary_time_series(length, avg_islands, avg_duration):
+def generate_binary_time_series(length, avg_islands, avg_duration, seed=None):
     """
     Generate a binary time series with islands of 1s.
 
     Parameters
     ----------
     length : int
-        Length of the time series.
+        Length of the time series. Must be positive.
     avg_islands : int
-        Average number of islands (continuous stretches of 1s).
+        Average number of islands (continuous stretches of 1s). Must be non-negative.
     avg_duration : int
-        Average duration of each island.
+        Average duration of each island in time points. Must be positive.
+    seed : int, optional
+        Random seed for reproducibility.
 
     Returns
     -------
-    ndarray
-        Binary time series.
+    ndarray of shape (length,)
+        Binary time series with 0s and 1s.
+        
+    Raises
+    ------
+    ValueError
+        If length or avg_duration are not positive, or avg_islands is negative.
+        
+    Notes
+    -----
+    Uses exponential distribution for gaps between islands and normal
+    distribution (std = avg_duration/3) for island durations. Automatically
+    adjusts number of islands if they don't fit in the requested length.
+    Starting state (0 or 1) is randomly chosen.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(length=length, avg_duration=avg_duration)
+    check_nonnegative(avg_islands=avg_islands)
+    
+    # Set random seed if provided
+    if seed is not None:
+        np.random.seed(seed)
+        
     series = np.zeros(length, dtype=int)
 
     # Calculate expected total active time and inactive time
@@ -80,24 +105,49 @@ def generate_binary_time_series(length, avg_islands, avg_duration):
     return series
 
 
-def apply_poisson_to_binary_series(binary_series, rate_0, rate_1):
+def apply_poisson_to_binary_series(binary_series, rate_0, rate_1, seed=None):
     """
     Apply Poisson sampling to a binary series based on its state.
 
     Parameters
     ----------
     binary_series : ndarray
-        Binary time series (0s and 1s).
+        Binary time series (0s and 1s). Must contain only 0s and 1s.
     rate_0 : float
-        Poisson rate for 0 state.
+        Poisson rate for 0 state. Must be non-negative.
     rate_1 : float
-        Poisson rate for 1 state.
+        Poisson rate for 1 state. Must be non-negative.
+    seed : int, optional
+        Random seed for reproducibility.
 
     Returns
     -------
-    ndarray
-        Poisson-sampled series.
+    ndarray of shape (len(binary_series),)
+        Poisson-sampled integer series.
+        
+    Raises
+    ------
+    ValueError
+        If binary_series contains values other than 0 and 1.
+        If rate_0 or rate_1 are negative.
+        
+    Notes
+    -----
+    Uses itertools.groupby to efficiently process runs of identical values.
+    Each run is sampled from Poisson distribution with the appropriate rate.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    binary_series = np.asarray(binary_series)
+    if not np.all(np.isin(binary_series, [0, 1])):
+        raise ValueError("binary_series must contain only 0s and 1s")
+    check_nonnegative(rate_0=rate_0, rate_1=rate_1)
+    
+    # Set random seed if provided
+    if seed is not None:
+        np.random.seed(seed)
+        
     length = len(binary_series)
     poisson_series = np.zeros(length, dtype=int)
 
@@ -117,25 +167,46 @@ def apply_poisson_to_binary_series(binary_series, rate_0, rate_1):
     return poisson_series
 
 
-def delete_one_islands(binary_ts, probability):
+def delete_one_islands(binary_ts, probability, seed=None):
     """
     Delete islands of 1s from a binary time series with given probability.
 
     Parameters
     ----------
     binary_ts : ndarray
-        Binary time series.
+        Binary time series. Must contain only 0s and 1s.
     probability : float
-        Probability of deleting each island.
+        Probability of deleting each island. Must be in [0, 1].
+    seed : int, optional
+        Random seed for reproducibility.
 
     Returns
     -------
-    ndarray
-        Modified binary time series.
+    ndarray of shape binary_ts.shape
+        Modified binary time series (copy).
+        
+    Raises
+    ------
+    ValueError
+        If binary_ts contains values other than 0 and 1.
+        If probability is not in [0, 1].
+        
+    Notes
+    -----
+    Creates a copy of the input array. Each island of 1s has an independent
+    probability of being deleted (set to 0s).
+    
+    DOC_VERIFIED
     """
-    # Ensure binary_ts is binary
+    # Input validation
     if not np.all(np.isin(binary_ts, [0, 1])):
         raise ValueError("binary_ts must be binary (0s and 1s)")
+    if not 0 <= probability <= 1:
+        raise ValueError(f"probability must be in [0, 1], got {probability}")
+        
+    # Set random seed if provided
+    if seed is not None:
+        np.random.seed(seed)
 
     # Create a copy of the input array
     result = binary_ts.copy()
@@ -158,19 +229,37 @@ def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
     Parameters
     ----------
     length : int
-        Length of the series.
+        Length of the series. Must be positive.
     hurst : float
-        Hurst parameter (0.5 = standard Brownian motion).
+        Hurst parameter. Must be in (0, 1). 0.5 = standard Brownian motion.
     seed : int, optional
-        Random seed.
+        Random seed for reproducibility.
     roll_shift : int, optional
-        Circular shift to apply.
+        Circular shift to apply for breaking correlations.
 
     Returns
     -------
-    ndarray
+    ndarray of shape (length,)
         FBM time series.
+        
+    Raises
+    ------
+    ValueError
+        If length is not positive.
+        If hurst is not in (0, 1).
+        
+    Notes
+    -----
+    Uses Davies-Harte method for efficient FBM generation. The FBM library
+    is initialized with n=length-1 to generate exactly 'length' points.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(length=length)
+    if not 0 < hurst < 1:
+        raise ValueError(f"hurst must be in (0, 1), got {hurst}")
+        
     if seed is not None:
         np.random.seed(seed)
 
@@ -184,23 +273,46 @@ def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
     return fbm_series
 
 
-def select_signal_roi(values, seed=42, target_fraction=0.15):
+def select_signal_roi(values, seed=None, target_fraction=0.15):
     """
     Select a region of interest (ROI) from signal values.
 
     Parameters
     ----------
     values : ndarray
-        Signal values.
-    seed : int
-        Random seed.
+        Signal values. Must be non-empty.
+    seed : int, optional
+        Random seed. If None, uses current random state.
+    target_fraction : float, optional
+        Fraction of data to include in ROI. Must be in (0, 1]. Default is 0.15.
 
     Returns
     -------
-    tuple
+    tuple of float
         (center, lower_border, upper_border) of the ROI.
+        
+    Raises
+    ------
+    ValueError
+        If values is empty.
+        If target_fraction is not in (0, 1].
+        
+    Notes
+    -----
+    Selects a random window containing target_fraction of sorted values.
+    Adds epsilon=1e-10 to boundaries to avoid numerical edge cases.
+    
+    DOC_VERIFIED
     """
-    np.random.seed(seed)
+    # Input validation
+    values = np.asarray(values)
+    if values.size == 0:
+        raise ValueError("values cannot be empty")
+    if not 0 < target_fraction <= 1:
+        raise ValueError(f"target_fraction must be in (0, 1], got {target_fraction}")
+        
+    if seed is not None:
+        np.random.seed(seed)
 
     # Sort values to find percentiles
     sorted_values = np.sort(values)
@@ -235,18 +347,32 @@ def discretize_via_roi(continuous_signal, seed=None):
     Parameters
     ----------
     continuous_signal : ndarray
-        Continuous signal to discretize.
+        Continuous signal to discretize. Must be non-empty.
     seed : int, optional
-        Random seed for ROI selection.
+        Random seed for ROI selection. If None, uses current random state.
 
     Returns
     -------
-    ndarray
-        Binary discretized signal.
+    ndarray of shape continuous_signal.shape
+        Binary discretized signal (0s and 1s).
+        
+    Raises
+    ------
+    ValueError
+        If continuous_signal is empty.
+        
+    Notes
+    -----
+    Uses select_signal_roi with default target_fraction=0.15. Returns 1 where
+    signal values fall within the selected ROI boundaries (inclusive).
+    
+    DOC_VERIFIED
     """
-    if seed is not None:
-        np.random.seed(seed)
-
+    # Input validation
+    continuous_signal = np.asarray(continuous_signal)
+    if continuous_signal.size == 0:
+        raise ValueError("continuous_signal cannot be empty")
+        
     # Get ROI boundaries
     _, lower, upper = select_signal_roi(continuous_signal, seed=seed)
 

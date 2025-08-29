@@ -15,6 +15,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelmax
 
 from ..utils.jit import conditional_njit
+from ..utils.data import check_positive, check_nonnegative
 from .wavelet_ridge import Ridge, ridges_to_containers
 
 WVT_EVENT_DETECTION_PARAMS = {
@@ -37,13 +38,40 @@ MAX_EVENT_DUR = 2.5  # sec
 def wvt_viz(x, Wx):
     """Visualize signal and its wavelet transform.
     
+    Creates a two-panel plot showing the input signal and its wavelet
+    transform magnitude.
+    
     Parameters
     ----------
-    x : array-like
-        Input signal.
-    Wx : ndarray
-        Wavelet transform coefficients (scales x time).
+    x : array-like of shape (n_samples,)
+        Input signal. Must be 1D.
+    Wx : ndarray of shape (n_scales, n_time)
+        Wavelet transform coefficients. Must have n_time == len(x).
+        
+    Raises
+    ------
+    ValueError
+        If x is not 1D or Wx shape doesn't match x length.
+        
+    Notes
+    -----
+    The wavelet transform is displayed as magnitude (absolute value)
+    using the 'turbo' colormap.
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    x = np.asarray(x)
+    if x.ndim != 1:
+        raise ValueError(f"x must be 1D, got shape {x.shape}")
+    
+    Wx = np.asarray(Wx)
+    if Wx.ndim != 2:
+        raise ValueError(f"Wx must be 2D, got shape {Wx.shape}")
+    
+    if Wx.shape[1] != len(x):
+        raise ValueError(f"Wx time dimension ({Wx.shape[1]}) must match x length ({len(x)})")
+    
     fig, axs = plt.subplots(2, 1, figsize=(12, 12))
     axs[0].set_xlim(0, len(x))
     axs[0].plot(x, c="b")
@@ -84,6 +112,14 @@ def get_cwt_ridges(
         All detected ridges. Each Ridge object contains indices, amplitudes,
         scales, and time resolutions along the ridge path.
         
+    Raises
+    ------
+    ValueError
+        If fps is not positive.
+        If scmin or scmax are negative.
+        If scmin >= scmax.
+        If sig is not 1-dimensional.
+        
     Notes
     -----
     The algorithm processes scales from coarse (scmax) to fine (scmin),
@@ -95,7 +131,20 @@ def get_cwt_ridges(
     --------
     get_cwt_ridges_fast : Numba-accelerated version
     Ridge : Ridge object storing ridge properties
+    
+    DOC_VERIFIED
     """
+    # Validate parameters
+    check_positive(fps=fps)
+    check_nonnegative(scmin=scmin, scmax=scmax)
+    if scmin >= scmax:
+        raise ValueError(f"scmin ({scmin}) must be less than scmax ({scmax})")
+    
+    # Validate signal
+    sig = np.asarray(sig)
+    if sig.ndim != 1:
+        raise ValueError(f"sig must be 1D, got shape {sig.shape}")
+    
     if wvt_scales is not None:
         scales = wvt_scales
     else:
@@ -218,7 +267,24 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
     --------
     get_cwt_ridges : Original implementation
     events_from_trace : High-level function using this for event detection
+    
+    DOC_VERIFIED
     """
+    # Validate inputs (before JIT compilation)
+    wvtdata = np.asarray(wvtdata)
+    peaks = np.asarray(peaks)
+    wvt_times = np.asarray(wvt_times)
+    wvt_scales = np.asarray(wvt_scales)
+    
+    if wvtdata.ndim != 2:
+        raise ValueError(f"wvtdata must be 2D, got shape {wvtdata.shape}")
+    if peaks.shape != wvtdata.shape:
+        raise ValueError(f"peaks shape {peaks.shape} must match wvtdata shape {wvtdata.shape}")
+    if len(wvt_times) != wvtdata.shape[0]:
+        raise ValueError(f"wvt_times length ({len(wvt_times)}) must match number of scales ({wvtdata.shape[0]})")
+    if len(wvt_scales) != wvtdata.shape[0]:
+        raise ValueError(f"wvt_scales length ({len(wvt_scales)}) must match number of scales ({wvtdata.shape[0]})")
+    
     # determine peak positions for all scales
 
     start = True
@@ -313,6 +379,13 @@ def passing_criterion(
     bool
         True if ridge passes all criteria, False otherwise.
         
+    Raises
+    ------
+    TypeError
+        If ridge is not a Ridge instance.
+    ValueError
+        If any threshold parameter is invalid (negative when should be non-negative).
+        
     Notes
     -----
     All criteria must be satisfied (AND logic):
@@ -323,7 +396,17 @@ def passing_criterion(
     
     Typical calcium transients have specific scale and duration
     characteristics that distinguish them from noise or artifacts.
+    
+    DOC_VERIFIED
     """
+    # Validate parameters
+    check_nonnegative(scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
+    check_positive(max_dur_thr=max_dur_thr)
+    
+    # Validate ridge type
+    if not isinstance(ridge, Ridge):
+        raise TypeError(f"ridge must be Ridge instance, got {type(ridge)}")
+    
     crit = (
         ridge.length >= scale_length_thr
         and ridge.max_scale >= max_scale_thr
@@ -366,11 +449,28 @@ def get_events_from_ridges(
         End indices (frame numbers) of events that pass criteria.
         Paired with st_evinds (same length).
         
+    Raises
+    ------
+    TypeError
+        If all_ridges is not iterable.
+        
     See Also
     --------
     passing_criterion : Function that evaluates ridge quality
     events_from_trace : High-level event detection function
+    
+    DOC_VERIFIED
     """
+    # Validate parameters
+    check_nonnegative(scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
+    check_positive(max_dur_thr=max_dur_thr)
+    
+    # Validate ridges
+    try:
+        iter(all_ridges)
+    except TypeError:
+        raise TypeError(f"all_ridges must be iterable, got {type(all_ridges)}")
+    
     event_ridges = [
         r
         for r in all_ridges
@@ -456,13 +556,48 @@ def events_from_trace(
     with GCaMP-like indicators. May need adjustment for different indicators
     or sampling rates.
     
+    Raises
+    ------
+    ValueError
+        If trace is empty, not 1D, or has zero range (constant signal).
+        If parameters are invalid or arrays have mismatched lengths.
+    TypeError
+        If wavelet is not a Wavelet instance.
+        
     See Also
     --------
     extract_wvt_events : Batch processing for multiple neurons
     WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary
+    
+    DOC_VERIFIED
     """
-
-    trace = (trace - min(trace)) / (max(trace) - min(trace))
+    # Validate parameters
+    check_positive(fps=fps, max_dur_thr=max_dur_thr)
+    check_nonnegative(sigma=sigma, eps=eps, scale_length_thr=scale_length_thr, 
+                     max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
+    
+    # Validate trace
+    trace = np.asarray(trace)
+    if trace.ndim != 1:
+        raise ValueError(f"trace must be 1D, got shape {trace.shape}")
+    if trace.size == 0:
+        raise ValueError("trace cannot be empty")
+        
+    # Validate wavelet
+    if not isinstance(wavelet, Wavelet):
+        raise TypeError(f"wavelet must be Wavelet instance, got {type(wavelet)}")
+        
+    # Validate scales and times
+    manual_scales = np.asarray(manual_scales)
+    rel_wvt_times = np.asarray(rel_wvt_times)
+    if len(manual_scales) != len(rel_wvt_times):
+        raise ValueError(f"manual_scales and rel_wvt_times must have same length, got {len(manual_scales)} and {len(rel_wvt_times)}")
+    
+    # Normalize trace with range check
+    trace_min, trace_max = trace.min(), trace.max()
+    if trace_max - trace_min == 0:
+        raise ValueError("trace has zero range (constant signal)")
+    trace = (trace - trace_min) / (trace_max - trace_min)
     sig = gaussian_filter1d(trace, sigma=sigma)
 
     W, wvt_scales = cwt(sig, wavelet=wavelet, fs=fps, scales=manual_scales)
@@ -518,6 +653,13 @@ def extract_wvt_events(traces, wvt_kwargs):
     all_ridges : list of lists
         Ridge objects containing detailed event information per neuron.
         
+    Raises
+    ------
+    ValueError
+        If traces is not 2D or empty.
+    TypeError
+        If wvt_kwargs is not a dictionary.
+        
     Notes
     -----
     The algorithm:
@@ -531,7 +673,20 @@ def extract_wvt_events(traces, wvt_kwargs):
     - Persist across multiple scales (scale_length_thr)
     - Have sufficient amplitude (max_ampl_thr)
     - Have reasonable duration (max_dur_thr)
+    
+    DOC_VERIFIED
     """
+    # Validate inputs
+    traces = np.asarray(traces)
+    if traces.ndim != 2:
+        raise ValueError(f"traces must be 2D (neurons x time), got shape {traces.shape}")
+    if traces.shape[1] == 0:
+        raise ValueError("traces cannot be empty (no time points)")
+    
+    if not isinstance(wvt_kwargs, dict):
+        raise TypeError(f"wvt_kwargs must be dict, got {type(wvt_kwargs)}")
+        
+    # Extract parameters with validation
     fps = wvt_kwargs.get("fps", 20)
     beta = wvt_kwargs.get("beta", 2)
     gamma = wvt_kwargs.get("gamma", 3)
@@ -543,6 +698,11 @@ def extract_wvt_events(traces, wvt_kwargs):
     max_scale_thr = wvt_kwargs.get("max_scale_thr", 7)
     max_ampl_thr = wvt_kwargs.get("max_ampl_thr", 0.05)
     max_dur_thr = wvt_kwargs.get("max_dur_thr", 200)
+    
+    # Validate extracted parameters
+    check_positive(fps=fps, beta=beta, gamma=gamma, max_dur_thr=max_dur_thr)
+    check_nonnegative(sigma=sigma, eps=eps, scale_length_thr=scale_length_thr,
+                     max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
 
     wavelet = Wavelet(
         ("gmw", {"gamma": gamma, "beta": beta, "centered_scale": True}), N=8196
@@ -589,8 +749,7 @@ def events_to_ts_array_numba(
     min_event_dur,
     max_event_dur,
 ):
-    """
-    Numba-optimized version of events_to_ts_array.
+    """Numba-optimized version of events_to_ts_array.
     
     Low-level implementation for converting event indices to binary time series.
     Uses flattened arrays for compatibility with Numba JIT compilation.
@@ -601,9 +760,9 @@ def events_to_ts_array_numba(
         Length of output time series in frames.
     ncells : int
         Number of neurons/cells.
-    st_ev_inds_flat : np.ndarray
+    st_ev_inds_flat : np.ndarray of shape (total_events,)
         Flattened array of all event start indices.
-    end_ev_inds_flat : np.ndarray
+    end_ev_inds_flat : np.ndarray of shape (total_events,)
         Flattened array of all event end indices.
     event_counts : np.ndarray
         Number of events per neuron, shape (ncells,).
@@ -619,11 +778,36 @@ def events_to_ts_array_numba(
     np.ndarray
         Binary array of shape (ncells, length) where 1 indicates active event.
         
+    Raises
+    ------
+    ValueError
+        If parameters are invalid or array lengths don't match.
+        
     Notes
     -----
     Called internally by events_to_ts_array. Event duration constraints are
     enforced as described in the parent function.
+    
+    DOC_VERIFIED
     """
+    # Validate parameters
+    check_positive(length=length, ncells=ncells, fps=fps, 
+                  min_event_dur=min_event_dur, max_event_dur=max_event_dur)
+    
+    # Validate arrays
+    st_ev_inds_flat = np.asarray(st_ev_inds_flat)
+    end_ev_inds_flat = np.asarray(end_ev_inds_flat)
+    event_counts = np.asarray(event_counts)
+    
+    if len(st_ev_inds_flat) != len(end_ev_inds_flat):
+        raise ValueError(f"st_ev_inds_flat and end_ev_inds_flat must have same length, got {len(st_ev_inds_flat)} and {len(end_ev_inds_flat)}")
+    
+    if len(event_counts) != ncells:
+        raise ValueError(f"event_counts length ({len(event_counts)}) must equal ncells ({ncells})")
+        
+    if np.sum(event_counts) != len(st_ev_inds_flat):
+        raise ValueError(f"Sum of event_counts ({np.sum(event_counts)}) must equal length of flattened arrays ({len(st_ev_inds_flat)})")
+    
     spikes = np.zeros((ncells, length))
 
     mindur = int(min_event_dur * fps)
@@ -642,7 +826,10 @@ def events_to_ts_array_numba(
                 spikes[i, start_ : start_ + maxdur] = 1
             else:
                 middle = (start_ + end_) // 2
-                spikes[i, int(middle - mindur // 2) : int(middle + mindur // 2)] = 1
+                # Ensure indices stay within bounds
+                start_idx = max(0, int(middle - mindur // 2))
+                end_idx = min(length, int(middle + mindur // 2))
+                spikes[i, start_idx:end_idx] = 1
             event_idx += 1
 
     return spikes
@@ -671,18 +858,49 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     ndarray
         Binary array of shape (n_neurons, length) where 1 indicates an event.
         
+    Raises
+    ------
+    ValueError
+        If length is not positive, fps is not positive, or st_ev_inds and 
+        end_ev_inds have different structures.
+        
     Notes
     -----
     Events are adjusted to have durations between MIN_EVENT_DUR (0.5s) and
     MAX_EVENT_DUR (2.5s). Events shorter than minimum are extended from their
     center, while events longer than maximum are truncated.
+    
+    DOC_VERIFIED
     """
+    # Validate parameters
+    check_positive(length=length, fps=fps)
+    
+    # Validate structure
+    if not isinstance(st_ev_inds, list) or not isinstance(end_ev_inds, list):
+        raise TypeError("st_ev_inds and end_ev_inds must be lists")
+        
+    if len(st_ev_inds) != len(end_ev_inds):
+        raise ValueError(f"st_ev_inds and end_ev_inds must have same length, got {len(st_ev_inds)} and {len(end_ev_inds)}")
+        
     ncells = len(end_ev_inds)
+    if ncells == 0:
+        raise ValueError("Must have at least one neuron")
 
+    # Check that sublists have matching lengths
+    for i in range(ncells):
+        if len(st_ev_inds[i]) != len(end_ev_inds[i]):
+            raise ValueError(f"Neuron {i}: st_ev_inds and end_ev_inds sublists must have same length, got {len(st_ev_inds[i])} and {len(end_ev_inds[i])}")
+    
     # Flatten the jagged arrays for numba
     event_counts = np.array([len(st_ev_inds[i]) for i in range(ncells)])
-    st_ev_inds_flat = np.concatenate([st_ev_inds[i] for i in range(ncells)])
-    end_ev_inds_flat = np.concatenate([end_ev_inds[i] for i in range(ncells)])
+    
+    # Handle case where some neurons have no events
+    if np.sum(event_counts) == 0:
+        # No events, return zeros
+        return np.zeros((ncells, length))
+    
+    st_ev_inds_flat = np.concatenate([st_ev_inds[i] for i in range(ncells) if len(st_ev_inds[i]) > 0])
+    end_ev_inds_flat = np.concatenate([end_ev_inds[i] for i in range(ncells) if len(end_ev_inds[i]) > 0])
 
     # Call numba function
     return events_to_ts_array_numba(

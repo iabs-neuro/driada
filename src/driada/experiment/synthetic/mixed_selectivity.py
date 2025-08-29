@@ -16,32 +16,29 @@ from .time_series import (
 )
 from ..exp_base import Experiment
 from ...information.info_base import TimeSeries, aggregate_multiple_ts
+from ...utils.data import check_positive, check_nonnegative, check_unit
 
 
 def generate_multiselectivity_patterns(
     n_neurons,
     n_features,
-    mode="random",
     selectivity_prob=0.3,
     multi_select_prob=0.4,
     weights_mode="random",
     seed=None,
 ):
-    """
-    Generate selectivity patterns for neurons with mixed selectivity support.
+    """Generate selectivity patterns for neurons with mixed selectivity support.
 
     Parameters
     ----------
     n_neurons : int
-        Number of neurons.
+        Number of neurons. Must be positive.
     n_features : int
-        Number of features.
-    mode : str, optional
-        Pattern generation mode: 'random', 'structured'. Default: 'random'.
+        Number of features. Must be positive.
     selectivity_prob : float, optional
-        Probability of a neuron being selective to any feature. Default: 0.3.
+        Probability of a neuron being selective to any feature. Must be in [0, 1]. Default: 0.3.
     multi_select_prob : float, optional
-        Probability of selective neuron having mixed selectivity. Default: 0.4.
+        Probability of selective neuron having mixed selectivity. Must be in [0, 1]. Default: 0.4.
     weights_mode : str, optional
         Weight generation mode: 'random', 'dominant', 'equal'. Default: 'random'.
     seed : int, optional
@@ -49,10 +46,37 @@ def generate_multiselectivity_patterns(
 
     Returns
     -------
-    selectivity_matrix : ndarray
-        Matrix of shape (n_features, n_neurons) with selectivity weights.
-        Non-zero values indicate selectivity strength.
+    ndarray of shape (n_features, n_neurons)
+        Matrix with selectivity weights. Non-zero values indicate selectivity strength.
+        Each column represents a neuron, each row represents a feature.
+        
+    Raises
+    ------
+    ValueError
+        If n_neurons or n_features are not positive.
+        If selectivity_prob or multi_select_prob are not in [0, 1].
+        If weights_mode is not one of 'random', 'dominant', 'equal'.
+        
+    Notes
+    -----
+    - Each neuron has selectivity_prob chance of being selective to any features.
+    - Selective neurons have multi_select_prob chance of mixed selectivity (2-3 features)
+      vs single selectivity (1 feature).
+    - Mixed selectivity neurons select 2 or 3 features with probability [0.7, 0.3].
+    - Weights are assigned using Dirichlet distribution for natural weight distributions.
+    - Setting numpy random state for reproducibility when seed is provided.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_neurons=n_neurons, n_features=n_features)
+    
+    check_unit(selectivity_prob=selectivity_prob, multi_select_prob=multi_select_prob)
+    
+    valid_weights_modes = ['random', 'dominant', 'equal']
+    if weights_mode not in valid_weights_modes:
+        raise ValueError(f"weights_mode must be one of {valid_weights_modes}, got {weights_mode}")
+    
     if seed is not None:
         np.random.seed(seed)
 
@@ -105,26 +129,69 @@ def generate_mixed_selective_signal(
     noise_std=0.1,
     seed=None,
 ):
-    """
-    Generate neural signal selective to multiple features.
+    """Generate neural signal selective to multiple features.
 
     Parameters
     ----------
-    features : list of arrays
-        List of feature time series.
+    features : list of array-like
+        List of feature time series. Each must be array-like of same length.
     weights : array-like
-        Weights for each feature contribution.
+        Weights for each feature contribution. Must have same length as features.
+        Values should be non-negative.
     duration : float
-        Signal duration in seconds.
+        Signal duration in seconds. Must be positive.
     sampling_rate : float
-        Sampling rate in Hz.
-    Other parameters same as generate_pseudo_calcium_signal.
+        Sampling rate in Hz. Must be positive.
+    rate_0 : float, optional
+        Baseline spike rate in Hz. Must be non-negative. Default: 0.1.
+    rate_1 : float, optional
+        Maximum spike rate in Hz. Must be non-negative. Default: 1.0.
+    skip_prob : float, optional
+        Probability of skipping spike islands. Must be in [0, 1]. Default: 0.1.
+    ampl_range : tuple, optional
+        Range of spike amplitudes (min, max). Default: (0.5, 2).
+    decay_time : float, optional
+        Calcium decay time constant in seconds. Must be positive. Default: 2.
+    noise_std : float, optional
+        Standard deviation of additive noise. Must be non-negative. Default: 0.1.
+    seed : int, optional
+        Random seed for reproducibility.
 
     Returns
     -------
-    signal : array
+    ndarray of shape (int(duration * sampling_rate),)
         Generated calcium signal.
+        
+    Raises
+    ------
+    ValueError
+        If features and weights have different lengths.
+        If duration or sampling_rate are not positive.
+        If rate_0, rate_1, or noise_std are negative.
+        If skip_prob is not in [0, 1].
+        If decay_time is not positive.
+        
+    Notes
+    -----
+    - Uses OR logic for feature activation: neuron fires if ANY feature is active.
+    - Firing rate is modulated by sum of active feature weights (capped at 1.0).
+    - Continuous features are discretized using ROI-based method.
+    - Setting numpy random state for reproducibility when seed is provided.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(duration=duration, sampling_rate=sampling_rate, decay_time=decay_time)
+    check_nonnegative(rate_0=rate_0, rate_1=rate_1, noise_std=noise_std)
+    
+    # Check array lengths match
+    features = list(features)  # Ensure it's a list
+    weights = np.asarray(weights)
+    if len(features) != len(weights):
+        raise ValueError(f"features and weights must have same length: {len(features)} vs {len(weights)}")
+    
+    check_unit(skip_prob=skip_prob)
+    
     if seed is not None:
         np.random.seed(seed)
 
@@ -190,14 +257,12 @@ def generate_mixed_selective_signal(
     if skip_prob > 0:
         all_events = delete_one_islands(all_events.astype(int), skip_prob).astype(float)
 
-    # Generate calcium signal with stronger response
-    # Use larger amplitude range for better detectability
-    enhanced_ampl_range = (ampl_range[0] * 1.5, ampl_range[1] * 1.5)
+    # Generate calcium signal
     calcium_signal = generate_pseudo_calcium_signal(
         duration=duration,
         events=all_events,
         sampling_rate=sampling_rate,
-        amplitude_range=enhanced_ampl_range,
+        amplitude_range=ampl_range,
         decay_time=decay_time,
         noise_std=noise_std,
     )
@@ -220,28 +285,86 @@ def generate_synthetic_data_mixed_selectivity(
     noise_std=0.1,
     verbose=True,
 ):
-    """
-    Generate synthetic data with mixed selectivity support.
+    """Generate synthetic data with mixed selectivity support.
 
     Parameters
     ----------
     features_dict : dict
-        Dictionary of feature_name: feature_array pairs.
+        Dictionary of feature_name: feature_array pairs. All arrays must have
+        length int(duration * sampling_rate).
     n_neurons : int
-        Number of neurons to generate.
+        Number of neurons to generate. Must be positive.
     selectivity_matrix : ndarray
         Matrix of shape (n_features, n_neurons) with selectivity weights.
-    Other parameters same as generate_synthetic_data.
+        n_features must match len(features_dict).
+    duration : float, optional
+        Signal duration in seconds. Must be positive. Default: 600.
+    seed : int, optional
+        Random seed for reproducibility. Default: 42.
+    sampling_rate : float, optional
+        Sampling rate in Hz. Must be positive. Default: 20.0.
+    rate_0 : float, optional
+        Baseline spike rate in Hz. Must be non-negative. Default: 0.1.
+    rate_1 : float, optional
+        Maximum spike rate in Hz. Must be non-negative. Default: 1.0.
+    skip_prob : float, optional
+        Probability of skipping spike islands. Must be in [0, 1]. Default: 0.0.
+    ampl_range : tuple, optional
+        Range of spike amplitudes (min, max). Default: (0.5, 2).
+    decay_time : float, optional
+        Calcium decay time constant in seconds. Must be positive. Default: 2.
+    noise_std : float, optional
+        Standard deviation of additive noise. Must be non-negative. Default: 0.1.
+    verbose : bool, optional
+        Print progress messages. Default: True.
 
     Returns
     -------
-    all_signals : ndarray
-        Neural signals of shape (n_neurons, n_timepoints).
+    all_signals : ndarray of shape (n_neurons, int(duration * sampling_rate))
+        Neural calcium signals.
     ground_truth : ndarray
-        Ground truth selectivity matrix (same as input selectivity_matrix).
+        The input selectivity_matrix (returned for convenience).
+        
+    Raises
+    ------
+    ValueError
+        If n_neurons is not positive.
+        If selectivity_matrix shape doesn't match (len(features_dict), n_neurons).
+        If duration or sampling_rate are not positive.
+        If rate_0, rate_1, or noise_std are negative.
+        If skip_prob is not in [0, 1].
+        If decay_time is not positive.
+        
+    Notes
+    -----
+    - Non-selective neurons (all zero weights) generate pure noise.
+    - Each neuron gets a unique seed: base_seed + neuron_index.
+    - Progress is displayed using tqdm if verbose=True.
+    - Setting numpy random state for reproducibility when seed is provided.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate, decay_time=decay_time)
+    check_nonnegative(rate_0=rate_0, rate_1=rate_1, noise_std=noise_std)
+    
+    check_unit(skip_prob=skip_prob)
+    
+    # Check features_dict
+    if not isinstance(features_dict, dict):
+        raise ValueError("features_dict must be a dictionary")
+    
     feature_names = list(features_dict.keys())
     feature_arrays = [features_dict[name] for name in feature_names]
+    
+    # Check selectivity matrix shape
+    selectivity_matrix = np.asarray(selectivity_matrix)
+    expected_shape = (len(feature_names), n_neurons)
+    if selectivity_matrix.shape != expected_shape:
+        raise ValueError(
+            f"selectivity_matrix shape {selectivity_matrix.shape} doesn't match "
+            f"expected shape {expected_shape}"
+        )
 
     if verbose:
         print("Generating mixed-selective neural signals...")
@@ -301,52 +424,60 @@ def generate_synthetic_exp_with_mixed_selectivity(
     ampl_range=(0.5, 2),
     decay_time=2,
     noise_std=0.1,
+    hurst=0.3,
+    target_active_fraction=0.05,
+    avg_active_duration=0.5,
 ):
-    """
-    Generate synthetic experiment with mixed selectivity and multifeatures.
+    """Generate synthetic experiment with mixed selectivity and multifeatures.
 
     Parameters
     ----------
-    n_discrete_feats : int
-        Number of discrete features to generate.
-    n_continuous_feats : int
-        Number of continuous features to generate.
-    n_neurons : int
-        Number of neurons to generate.
-    n_multifeatures : int
-        Number of multifeature combinations to create.
-    create_discrete_pairs : bool
-        If True, create discretized versions of continuous features.
-    selectivity_prob : float
-        Probability of a neuron being selective.
-    multi_select_prob : float
-        Probability of mixed selectivity for selective neurons.
-    weights_mode : str
-        Weight generation mode: 'random', 'dominant', 'equal'.
-    duration : float
-        Experiment duration in seconds.
-    seed : int
-        Random seed.
-    fps : float
-        Sampling rate.
-    verbose : bool
-        Print progress messages.
+    n_discrete_feats : int, optional
+        Number of discrete features to generate. Must be non-negative. Default: 4.
+    n_continuous_feats : int, optional
+        Number of continuous features to generate. Must be non-negative. Default: 4.
+    n_neurons : int, optional
+        Number of neurons to generate. Must be positive. Default: 50.
+    n_multifeatures : int, optional
+        Number of multifeature combinations to create. Must be non-negative. Default: 2.
+    create_discrete_pairs : bool, optional
+        If True, create discretized versions of continuous features. Default: True.
+    selectivity_prob : float, optional
+        Probability of a neuron being selective. Must be in [0, 1]. Default: 0.8.
+    multi_select_prob : float, optional
+        Probability of mixed selectivity for selective neurons. Must be in [0, 1]. Default: 0.5.
+    weights_mode : str, optional
+        Weight generation mode: 'random', 'dominant', 'equal'. Default: 'random'.
+    duration : float, optional
+        Experiment duration in seconds. Must be positive. Default: 1200.
+    seed : int, optional
+        Random seed for reproducibility. Default: 42.
+    fps : float, optional
+        Sampling rate in Hz. Must be positive. Default: 20.
+    verbose : bool, optional
+        Print progress messages. Default: True.
     name_convention : str, optional
         Naming convention for multifeatures. Options:
-        - 'str' (default): Use string keys like 'xy', 'speed_direction'
-        - 'tuple': Use tuple keys like ('x', 'y'), ('speed', 'head_direction') [DEPRECATED]
+        - 'str' (default): Use string keys like 'multi0', 'multi1'
+        - 'tuple': Use tuple keys like ('c_feat_0', 'c_feat_1') [DEPRECATED]
     rate_0 : float, optional
-        Baseline spike rate in Hz. Default: 0.1.
+        Baseline spike rate in Hz. Must be non-negative. Default: 0.1.
     rate_1 : float, optional
-        Active spike rate in Hz. Default: 1.0.
+        Active spike rate in Hz. Must be non-negative. Default: 1.0.
     skip_prob : float, optional
-        Probability of skipping spikes. Default: 0.1.
+        Probability of skipping spike islands. Must be in [0, 1]. Default: 0.1.
     ampl_range : tuple, optional
-        Range of spike amplitudes. Default: (0.5, 2).
+        Range of spike amplitudes (min, max). Default: (0.5, 2).
     decay_time : float, optional
-        Calcium decay time constant in seconds. Default: 2.
+        Calcium decay time constant in seconds. Must be positive. Default: 2.
     noise_std : float, optional
-        Standard deviation of additive noise. Default: 0.1.
+        Standard deviation of additive noise. Must be non-negative. Default: 0.1.
+    hurst : float, optional
+        Hurst parameter for fractional Brownian motion. Must be in (0, 1). Default: 0.3.
+    target_active_fraction : float, optional
+        Target fraction of time discrete features are active. Must be in (0, 1). Default: 0.05.
+    avg_active_duration : float, optional
+        Average duration of active periods in seconds. Must be positive. Default: 0.5.
 
     Returns
     -------
@@ -354,10 +485,54 @@ def generate_synthetic_exp_with_mixed_selectivity(
         Synthetic experiment with mixed selectivity.
     selectivity_info : dict
         Dictionary containing:
-        - 'matrix': selectivity matrix
-        - 'feature_names': ordered list of feature names
-        - 'multifeature_map': multifeature definitions
+        - 'matrix': ndarray of shape (n_features, n_neurons) - selectivity weights
+        - 'feature_names': list - ordered feature names matching matrix rows
+        - 'multifeature_map': dict - maps component tuples to multifeature names
+        
+    Raises
+    ------
+    ValueError
+        If n_neurons is not positive.
+        If n_discrete_feats, n_continuous_feats, or n_multifeatures are negative.
+        If duration or fps are not positive.
+        If probabilities are not in [0, 1].
+        If name_convention is not 'str' or 'tuple'.
+        If hurst is not in (0, 1).
+        If target_active_fraction is not in (0, 1).
+        If avg_active_duration is not positive.
+        
+    Notes
+    -----
+    - Discrete features have configurable active time and duration.
+    - Continuous features use fractional Brownian motion with configurable Hurst parameter.
+    - Multifeatures are created by pairing consecutive continuous features.
+    - Each generation stage uses a different seed offset (+100, +200, etc.).
+    - Setting numpy random state for reproducibility when seed is provided.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_neurons=n_neurons, duration=duration, fps=fps, 
+                   decay_time=decay_time, avg_active_duration=avg_active_duration)
+    check_nonnegative(n_discrete_feats=n_discrete_feats, n_continuous_feats=n_continuous_feats,
+                      n_multifeatures=n_multifeatures, rate_0=rate_0, rate_1=rate_1, 
+                      noise_std=noise_std)
+    
+    # Check probabilities and fractions
+    check_unit(selectivity_prob=selectivity_prob, multi_select_prob=multi_select_prob, 
+               skip_prob=skip_prob)
+    check_unit(left_open=True, right_open=True, target_active_fraction=target_active_fraction,
+               hurst=hurst)
+    
+    # Check other parameters
+    valid_weights_modes = ['random', 'dominant', 'equal']
+    if weights_mode not in valid_weights_modes:
+        raise ValueError(f"weights_mode must be one of {valid_weights_modes}, got {weights_mode}")
+    
+    valid_name_conventions = ['str', 'tuple']
+    if name_convention not in valid_name_conventions:
+        raise ValueError(f"name_convention must be one of {valid_name_conventions}, got {name_convention}")
+    
     if seed is not None:
         np.random.seed(seed)
 
@@ -368,9 +543,8 @@ def generate_synthetic_exp_with_mixed_selectivity(
     if verbose:
         print(f"Generating {n_discrete_feats} discrete features...")
     for i in range(n_discrete_feats):
-        # Calculate avg_islands to achieve ~5% active time
-        target_active_fraction = 0.05  # 5% active time
-        avg_duration_frames = int(0.5 * fps)  # 0.5 seconds per island
+        # Calculate avg_islands to achieve target active time
+        avg_duration_frames = int(avg_active_duration * fps)  # Convert to frames
         total_active_frames = int(length * target_active_fraction)
         avg_islands = max(1, int(total_active_frames / avg_duration_frames))
 
@@ -383,7 +557,7 @@ def generate_synthetic_exp_with_mixed_selectivity(
     if verbose:
         print(f"Generating {n_continuous_feats} continuous features...")
     for i in range(n_continuous_feats):
-        fbm_series = generate_fbm_time_series(length, hurst=0.3, seed=seed + i + 100)
+        fbm_series = generate_fbm_time_series(length, hurst=hurst, seed=seed + i + 100)
         features_dict[f"c_feat_{i}"] = fbm_series
 
         # Create discretized pairs if requested

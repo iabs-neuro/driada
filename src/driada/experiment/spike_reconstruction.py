@@ -17,6 +17,7 @@ from .wavelet_event_detection import (
     events_to_ts_array,
     ridges_to_containers,
 )
+from ..utils.data import check_positive, check_nonnegative
 
 
 def reconstruct_spikes(
@@ -27,30 +28,88 @@ def reconstruct_spikes(
 ) -> Tuple[MultiTimeSeries, Dict[str, Any]]:
     """
     Reconstruct spike trains from calcium signals.
+    
+    This function serves as a router to different spike reconstruction methods.
+    All methods operate on the scaled calcium data (values normalized to [0, 1]).
 
     Parameters
     ----------
     calcium : MultiTimeSeries
-        Calcium imaging data with each component being a neuron
-    method : str or callable
-        Reconstruction method: 'wavelet', 'threshold', or callable
-    fps : float
-        Sampling rate in frames per second
+        Calcium imaging data with each component being a neuron. Must have
+        valid scaled data accessible via calcium.scdata.
+    method : str or callable, optional
+        Reconstruction method. Options:
+        - 'wavelet': Wavelet-based detection (default)
+        - 'threshold': Simple threshold-based detection  
+        - callable: Custom function with signature (calcium, fps, params) -> (spikes, metadata)
+    fps : float, optional
+        Sampling rate in frames per second. Must be positive. Default: 20.0.
     params : dict, optional
-        Method-specific parameters
+        Method-specific parameters. Contents depend on chosen method.
+        Default: empty dict.
 
     Returns
     -------
     spikes : MultiTimeSeries
-        Reconstructed spike trains (discrete)
+        Reconstructed spike trains as binary (discrete) time series.
+        Each component represents one neuron.
     metadata : dict
-        Reconstruction metadata
+        Reconstruction metadata including:
+        - 'method': str - Method used
+        - 'parameters': dict - Parameters used
+        - Method-specific fields (see individual method docs)
+        
+    Raises
+    ------
+    ValueError
+        If method is unknown string.
+        If fps is not positive.
+    AttributeError
+        If calcium lacks required attributes (e.g., scdata).
+    TypeError  
+        If callable method has wrong signature.
+        
+    Examples
+    --------
+    >>> # Using wavelet method (default)
+    >>> spikes, meta = reconstruct_spikes(calcium_data, fps=30.0)
+    
+    >>> # Using threshold method with custom parameters
+    >>> params = {'threshold_std': 3.0, 'smooth_sigma': 1.5}
+    >>> spikes, meta = reconstruct_spikes(calcium_data, 'threshold', 30.0, params)
+    
+    >>> # Using custom reconstruction function
+    >>> def custom_method(calcium, fps, params):
+    ...     # Custom implementation
+    ...     return spike_timeseries, metadata_dict
+    >>> spikes, meta = reconstruct_spikes(calcium_data, custom_method, 30.0)
+    
+    Notes
+    -----
+    All built-in methods use the scaled calcium data (calcium.scdata) which
+    is normalized to [0, 1]. This ensures consistent behavior across different
+    calcium indicator types and experimental conditions.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(fps=fps)
+    
+    # Validate calcium has required attributes
+    if not hasattr(calcium, 'scdata'):
+        raise AttributeError("calcium must have 'scdata' attribute (scaled data)")
+        
     params = params or {}
 
     if callable(method):
         # Custom method
-        return method(calcium, fps, params)
+        try:
+            return method(calcium, fps, params)
+        except TypeError as e:
+            raise TypeError(
+                f"Custom method must have signature (calcium, fps, params) -> "
+                f"(MultiTimeSeries, dict). Error: {e}"
+            )
 
     elif method == "wavelet":
         return wavelet_reconstruction(calcium, fps, params)
@@ -70,25 +129,66 @@ def wavelet_reconstruction(
 ) -> Tuple[MultiTimeSeries, Dict[str, Any]]:
     """
     Wavelet-based spike reconstruction.
+    
+    Uses continuous wavelet transform to detect calcium transients. The method
+    operates on scaled calcium data (normalized to [0, 1]).
 
     Parameters
     ----------
     calcium : MultiTimeSeries
-        Calcium signals
+        Calcium imaging signals. Must have scdata attribute.
     fps : float
-        Sampling rate
+        Sampling rate in frames per second. Overrides default fps in parameters.
     params : dict
-        Wavelet parameters
+        Parameters that update WVT_EVENT_DETECTION_PARAMS defaults:
+        - 'sigma': int - Smoothing parameter for peak detection (frames)
+        - 'eps': int - Minimum spacing between consecutive events (frames)
+        - 'scale_length_thr': int - Min scales where ridge is present
+        - 'max_scale_thr': int - Index of scale with max ridge intensity
+        - 'max_ampl_thr': float - Max ridge intensity threshold
+        - 'max_dur_thr': int - Max event duration threshold
+        See WVT_EVENT_DETECTION_PARAMS for defaults.
 
     Returns
     -------
     spikes : MultiTimeSeries
-        Spike trains
+        Binary spike trains (discrete). Allow_zero_columns=True for empty neurons.
     metadata : dict
-        Reconstruction metadata
+        Contains:
+        - 'method': 'wavelet'
+        - 'parameters': dict - All parameters used
+        - 'start_events': list - Event start indices per neuron
+        - 'end_events': list - Event end indices per neuron
+        - 'ridges': list - Ridge information per neuron
+        
+    Raises
+    ------
+    AttributeError
+        If calcium lacks scdata attribute.
+    ValueError
+        If calcium data is empty or invalid shape.
+        
+    Notes
+    -----
+    Default parameters are defined in WVT_EVENT_DETECTION_PARAMS. The fps
+    parameter always overrides the default fps value.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(fps=fps)
+    
+    if not hasattr(calcium, 'scdata'):
+        raise AttributeError("calcium must have 'scdata' attribute")
+        
     # Get scaled calcium data as numpy array for better spike detection
     calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+    
+    # Validate data shape
+    if calcium_data.ndim != 2:
+        raise ValueError(f"calcium data must be 2D (neurons x time), got shape {calcium_data.shape}")
+    if calcium_data.size == 0:
+        raise ValueError("calcium data cannot be empty")
 
     # Set up wavelet parameters
     wvt_kwargs = WVT_EVENT_DETECTION_PARAMS.copy()
@@ -129,34 +229,74 @@ def threshold_reconstruction(
     Simple threshold-based spike reconstruction.
 
     This method detects spikes when the derivative of the calcium signal
-    exceeds a threshold, similar to classical spike detection methods.
+    exceeds a threshold. Operates on scaled calcium data (normalized to [0, 1]).
 
     Parameters
     ----------
     calcium : MultiTimeSeries
-        Calcium signals
+        Calcium signals. Must have scdata attribute.
     fps : float
-        Sampling rate
+        Sampling rate in frames per second. Must be positive.
     params : dict
         Parameters including:
-        - threshold_std : float, number of STDs above mean for detection (default: 2.5)
-        - smooth_sigma : float, gaussian smoothing sigma in frames (default: 2)
-        - min_spike_interval : float, minimum interval between spikes in seconds (default: 0.1)
+        - threshold_std : float, number of STDs above mean for detection. Must be positive. Default: 2.5.
+        - smooth_sigma : float, gaussian smoothing sigma in frames. Must be non-negative. Default: 2.
+        - min_spike_interval : float, minimum interval between spikes in seconds. Must be non-negative. Default: 0.1.
 
     Returns
     -------
     spikes : MultiTimeSeries
-        Binary spike trains
+        Binary spike trains (discrete). Allow_zero_columns=True for empty neurons.
     metadata : dict
-        Reconstruction metadata
+        Contains:
+        - 'method': 'threshold'
+        - 'parameters': dict with all parameters used including fps
+        - 'spike_times': list of arrays - Frame indices of detected spikes per neuron
+        
+    Raises
+    ------
+    AttributeError
+        If calcium lacks scdata attribute.
+    ValueError
+        If calcium data is empty or invalid shape.
+        If parameters are out of valid range.
+        If min_spike_interval * fps < 0.5 (would result in zero minimum distance).
+        
+    Notes
+    -----
+    The derivative is computed with np.diff and zero-padded at the start.
+    This affects the first frame which cannot have a spike detected.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(fps=fps)
+    
+    if not hasattr(calcium, 'scdata'):
+        raise AttributeError("calcium must have 'scdata' attribute")
+    
     # Default parameters
     threshold_std = params.get("threshold_std", 2.5)
     smooth_sigma = params.get("smooth_sigma", 2)
     min_spike_interval = params.get("min_spike_interval", 0.1)
+    
+    # Validate parameters
+    check_positive(threshold_std=threshold_std)
+    check_nonnegative(smooth_sigma=smooth_sigma, min_spike_interval=min_spike_interval)
+    
     min_spike_frames = int(min_spike_interval * fps)
+    if min_spike_interval > 0 and min_spike_frames < 1:
+        raise ValueError(f"min_spike_interval * fps = {min_spike_interval * fps:.2f} < 1, "
+                         "would result in zero minimum distance between spikes")
 
     calcium_data = np.asarray(calcium.scdata)  # Use scaled data
+    
+    # Validate data shape
+    if calcium_data.ndim != 2:
+        raise ValueError(f"calcium data must be 2D (neurons x time), got shape {calcium_data.shape}")
+    if calcium_data.size == 0:
+        raise ValueError("calcium data cannot be empty")
+        
     n_neurons, n_frames = calcium_data.shape
     spikes_data = np.zeros_like(calcium_data)
 

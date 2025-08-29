@@ -41,11 +41,14 @@ def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
     For directed graphs, shows in-degree, out-degree, and total degree
     distributions in different colors unless mode is specified.
     Log-log plots are useful for identifying power-law distributions.
+    In log-log mode, the last element is excluded to avoid log(0).
 
     Examples
     --------
     >>> net = Network.from_edgelist([(1,2), (2,3), (3,1)])
     >>> draw_degree_distr(net, log_log=1)  # Check for scale-free property
+    
+    DOC_VERIFIED
     """
     if not net.directed:
         mode = "all"
@@ -135,6 +138,8 @@ def draw_spectrum(net, mode="adj", ax=None, colors=None, cmap="plasma", nbins=No
     --------
     >>> net = Network.from_networkx(nx.karate_club_graph())
     >>> draw_spectrum(net, mode='lap')  # Laplacian spectrum
+    
+    DOC_VERIFIED
     """
     spectrum = net.get_spectrum(mode)
     data = np.array(sorted(list(set(spectrum)), key=np.abs))
@@ -167,6 +172,11 @@ def get_vector_coloring(vec, cmap="plasma"):
     -------
     numpy.ndarray
         Array of RGBA color values, shape (n, 4).
+        
+    Raises
+    ------
+    ValueError
+        If all values in vec are identical (no variation to map).
 
     Examples
     --------
@@ -174,10 +184,18 @@ def get_vector_coloring(vec, cmap="plasma"):
     >>> colors = get_vector_coloring(values, cmap='viridis')
     >>> colors.shape
     (4, 4)
+    
+    DOC_VERIFIED
     """
     cmap = plt.get_cmap(cmap)
     vec = np.array(vec).ravel()
-    colors = cmap((vec - min(vec)) / (max(vec) - min(vec)))
+    vec_min = np.min(vec)
+    vec_max = np.max(vec)
+    
+    if vec_max == vec_min:
+        raise ValueError("All values in vector are identical, cannot create color mapping")
+    
+    colors = cmap((vec - vec_min) / (vec_max - vec_min))
     return colors
 
 
@@ -230,6 +248,8 @@ def draw_eigenvectors(
     eigenvectors. Each subplot shows the network with nodes colored by
     the corresponding eigenvector's components. The subplot title shows
     the eigenvector index and its eigenvalue.
+    
+    DOC_VERIFIED
     """
     spectrum = net.get_spectrum(mode)
     eigenvectors = net.get_eigenvectors(mode)
@@ -288,6 +308,7 @@ def draw_eigenvectors(
 
     plt.tight_layout()
     plt.show()
+    return fig
 
 
 def draw_net(net, colors=None, nodesize=None, ax=None):
@@ -321,6 +342,8 @@ def draw_net(net, colors=None, nodesize=None, ax=None):
     --------
     >>> net = Network.from_edgelist([(1,2), (2,3), (3,1)])
     >>> draw_net(net, colors=[0, 1, 2])  # Color by node index
+    
+    DOC_VERIFIED
     """
     if ax is None:
         fig, ax = plt.subplots(figsize=(16, 12))
@@ -384,6 +407,8 @@ def show_mat(net, dtype=None, mode="adj", ax=None):
     >>> net = Network.from_edgelist([(0,1), (1,2), (2,0)])
     >>> show_mat(net, dtype=bool)  # Binary adjacency pattern
     >>> show_mat(net, mode='lap')  # Laplacian matrix
+    
+    DOC_VERIFIED
     """
     mat = getattr(net, mode)
     if mat is None:
@@ -395,10 +420,16 @@ def show_mat(net, dtype=None, mode="adj", ax=None):
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 10))
 
-    if dtype is not None:
-        ax.matshow(mat.astype(dtype).toarray())
+    # Convert to dense array if sparse
+    if hasattr(mat, 'toarray'):
+        mat_dense = mat.toarray()
     else:
-        ax.matshow(mat.toarray())
+        mat_dense = np.asarray(mat)
+    
+    if dtype is not None:
+        ax.matshow(mat_dense.astype(dtype))
+    else:
+        ax.matshow(mat_dense)
 
 
 def plot_lem_embedding(net, ndim, colors=None):
@@ -431,13 +462,14 @@ def plot_lem_embedding(net, ndim, colors=None):
     --------
     >>> net = Network.from_networkx(nx.karate_club_graph())
     >>> plot_lem_embedding(net, ndim=2)  # 2D embedding
+    
+    DOC_VERIFIED
     """
 
     if net.lem_emb is None:
         net.construct_lem_embedding(ndim)
 
     if colors is None:
-        colors = np.zeros(net.lem_emb.shape[1])
         colors = range(net.lem_emb.shape[1])
 
     psize = 10

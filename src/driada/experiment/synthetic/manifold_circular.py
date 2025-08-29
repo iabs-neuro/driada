@@ -10,29 +10,59 @@ from .core import validate_peak_rate, generate_pseudo_calcium_signal
 from .utils import get_effective_decay_time
 from ..exp_base import Experiment
 from ...information.info_base import TimeSeries, MultiTimeSeries
+from ...utils.data import check_positive, check_nonnegative
 
 
 def generate_circular_random_walk(length, step_std=0.1, seed=None):
     """
     Generate a random walk on a circle (head direction trajectory).
 
+    Simulates angular motion by accumulating Gaussian-distributed steps
+    and wrapping to [0, 2π). Useful for modeling head direction in
+    navigation experiments.
+
     Parameters
     ----------
     length : int
-        Number of time points.
-    step_std : float
-        Standard deviation of angular steps in radians.
+        Number of time points. Must be non-negative.
+    step_std : float, optional
+        Standard deviation of angular steps in radians. Must be non-negative.
+        Default is 0.1 radians (~5.7 degrees). Typical values: 0.05-0.5.
     seed : int, optional
-        Random seed for reproducibility.
+        Random seed for reproducibility. If None, uses current random state.
 
     Returns
     -------
     angles : ndarray
-        Array of angles in radians [0, 2π).
+        Array of angles in radians [0, 2π). Shape: (length,).
+        Returns empty array if length is 0.
+
+    Raises
+    ------
+    ValueError
+        If length is negative or step_std is negative.
+    TypeError
+        If inputs are not numeric.
+
+    Notes
+    -----
+    The walk follows: angles[t] = (Σ(i=0 to t) N(0, step_std)) mod 2π
+    where N(0, step_std) represents Gaussian noise.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    if not isinstance(length, (int, np.integer)):
+        raise TypeError("length must be an integer")
+    check_nonnegative(length=length, step_std=step_std)
+    
     if seed is not None:
         np.random.seed(seed)
 
+    # Handle edge case
+    if length == 0:
+        return np.array([])
+    
     # Generate random steps
     steps = np.random.normal(0, step_std, length)
 
@@ -49,21 +79,53 @@ def von_mises_tuning_curve(angles, preferred_direction, kappa):
     """
     Calculate neural response using Von Mises tuning curve.
 
+    Implements a normalized Von Mises (circular Gaussian) tuning curve,
+    commonly used to model head direction cells and other neurons with
+    circular selectivity.
+
     Parameters
     ----------
     angles : ndarray
-        Current head directions in radians.
+        Current head directions in radians. Can be any real values
+        (automatically handles periodicity).
     preferred_direction : float
         Preferred direction of the neuron in radians.
     kappa : float
         Concentration parameter (inverse width of tuning curve).
-        Higher kappa = narrower tuning.
+        Higher kappa = narrower tuning. Typical values: 2-8.
+        kappa=0 gives uniform response, negative kappa inverts tuning.
 
     Returns
     -------
     response : ndarray
-        Neural response (firing rate modulation).
+        Neural response (firing rate modulation) normalized to max=1.
+        Same shape as input angles. Values in range [exp(-kappa), 1].
+
+    Raises
+    ------
+    ValueError
+        If kappa is NaN or infinity.
+    TypeError
+        If inputs are not numeric types.
+
+    Notes
+    -----
+    The response follows: response = exp(κ * (cos(θ - θ_pref) - 1))
+    This is a Von Mises distribution normalized to peak at 1.
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    angles = np.asarray(angles)
+    if not np.issubdtype(angles.dtype, np.number):
+        raise TypeError("angles must be numeric")
+    if not isinstance(preferred_direction, (int, float)):
+        raise TypeError("preferred_direction must be numeric")
+    if not isinstance(kappa, (int, float)):
+        raise TypeError("kappa must be numeric")
+    if not np.isfinite(kappa):
+        raise ValueError("kappa must be finite")
+    
     # Von Mises distribution normalized to max=1
     response = np.exp(kappa * (np.cos(angles - preferred_direction) - 1))
     return response
@@ -81,47 +143,78 @@ def generate_circular_manifold_neurons(
     """
     Generate population of head direction cells with Von Mises tuning.
 
+    Creates a population of neurons with uniformly distributed preferred
+    directions on the circle, each responding to head direction with
+    Von Mises tuning curves. Includes realistic noise and ensures
+    non-negative firing rates.
+
     Parameters
     ----------
     n_neurons : int
-        Number of neurons in the population.
+        Number of neurons in the population. Must be positive.
     head_direction : ndarray
-        Head direction trajectory in radians.
-    kappa : float
+        Head direction trajectory in radians. Shape: (n_timepoints,).
+    kappa : float, optional
         Concentration parameter for Von Mises tuning curves.
-        Typical values: 2-8 (higher = narrower tuning).
-    baseline_rate : float
-        Baseline firing rate when far from preferred direction.
+        Typical values: 2-8 (higher = narrower tuning). Default is 4.0.
+    baseline_rate : float, optional
+        Baseline firing rate when far from preferred direction in Hz.
         Default is 0.1 Hz (realistic for sparse firing neurons).
-    peak_rate : float
-        Peak firing rate at preferred direction.
+    peak_rate : float, optional
+        Peak firing rate at preferred direction in Hz.
         Default is 1.0 Hz (realistic for calcium imaging).
         Values >2 Hz may cause calcium signal saturation.
-    noise_std : float
-        Standard deviation of noise in firing rates.
+    noise_std : float, optional
+        Standard deviation of Gaussian noise added to firing rates.
+        Default is 0.05. Must be non-negative.
     seed : int, optional
         Random seed for reproducibility.
 
     Returns
     -------
     firing_rates : ndarray
-        Shape (n_neurons, n_timepoints) with firing rates.
+        Shape (n_neurons, n_timepoints) with firing rates in Hz.
+        All values are non-negative.
     preferred_directions : ndarray
-        Preferred direction for each neuron in radians.
+        Preferred direction for each neuron in radians [0, 2π).
+        Shape: (n_neurons,).
+
+    Raises
+    ------
+    ValueError
+        If peak_rate is negative, NaN, or infinity.
+        If n_neurons is not positive.
+        If noise_std is negative.
+    TypeError
+        If peak_rate is not numeric.
+
+    Notes
+    -----
+    Preferred directions are uniformly distributed with small jitter
+    (σ=0.1 rad) to break symmetry. Firing rates are computed as:
+    rate = baseline + (peak - baseline) * von_mises_response + noise
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_neurons=n_neurons)
+    check_nonnegative(noise_std=noise_std)
+    
     # Validate firing rate
     validate_peak_rate(peak_rate, context="generate_circular_manifold_neurons")
 
     if seed is not None:
         np.random.seed(seed)
 
+    head_direction = np.asarray(head_direction)
     n_timepoints = len(head_direction)
 
     # Uniformly distribute preferred directions around the circle
     preferred_directions = np.linspace(0, 2 * np.pi, n_neurons, endpoint=False)
 
     # Add small random jitter to break perfect symmetry
-    jitter = np.random.normal(0, 0.1, n_neurons)
+    JITTER_STD = 0.1  # radians, approximately 5.7 degrees
+    jitter = np.random.normal(0, JITTER_STD, n_neurons)
     preferred_directions = (preferred_directions + jitter) % (2 * np.pi)
 
     # Generate firing rates for each neuron
@@ -162,45 +255,73 @@ def generate_circular_manifold_data(
     """
     Generate synthetic data with neurons on circular manifold (head direction cells).
 
+    Creates a complete dataset with head direction trajectory, neural responses
+    with Von Mises tuning, and realistic calcium imaging signals including noise.
+
     Parameters
     ----------
     n_neurons : int
-        Number of neurons.
-    duration : float
-        Duration in seconds.
-    sampling_rate : float
-        Sampling rate in Hz.
-    kappa : float
+        Number of neurons. Must be positive.
+    duration : float, optional
+        Duration in seconds. Must be positive. Default is 600.
+    sampling_rate : float, optional
+        Sampling rate in Hz. Must be positive. Default is 20.0.
+    kappa : float, optional
         Von Mises concentration parameter (tuning width).
-    step_std : float
-        Standard deviation of head direction random walk steps.
-    baseline_rate : float
-        Baseline firing rate. Default is 0.1 Hz.
-    peak_rate : float
-        Peak firing rate at preferred direction. Default is 1.0 Hz.
+        Default is 4.0. Higher values give narrower tuning.
+    step_std : float, optional
+        Standard deviation of head direction random walk steps in radians.
+        Must be non-negative. Default is 0.1.
+    baseline_rate : float, optional
+        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
+    peak_rate : float, optional
+        Peak firing rate at preferred direction in Hz. Default is 1.0.
         Values >2 Hz may cause calcium signal saturation.
-    noise_std : float
-        Noise in firing rates.
-    decay_time : float
-        Calcium decay time constant.
-    calcium_noise_std : float
-        Noise in calcium signal.
+    noise_std : float, optional
+        Noise in firing rates. Must be non-negative. Default is 0.05.
+    decay_time : float, optional
+        Calcium decay time constant in seconds. Must be positive. Default is 2.0.
+    calcium_noise_std : float, optional
+        Noise in calcium signal. Must be non-negative. Default is 0.1.
     seed : int, optional
-        Random seed.
-    verbose : bool
-        Print progress.
+        Random seed for reproducibility.
+    verbose : bool, optional
+        Print progress messages. Default is True.
 
     Returns
     -------
     calcium_signals : ndarray
         Calcium signals (n_neurons x n_timepoints).
     head_direction : ndarray
-        Head direction trajectory.
+        Head direction trajectory in radians [0, 2π).
     preferred_directions : ndarray
-        Preferred direction for each neuron.
+        Preferred direction for each neuron in radians.
     firing_rates : ndarray
-        Underlying firing rates.
+        Underlying firing rates in Hz.
+
+    Raises
+    ------
+    ValueError
+        If any positive parameters are not positive.
+        If any non-negative parameters are negative.
+
+    Notes
+    -----
+    The generation process:
+    1. Creates random walk trajectory for head direction
+    2. Generates neural responses with Von Mises tuning
+    3. Converts firing rates to spike probabilities
+    4. Samples spikes using binomial distribution
+    5. Convolves spikes with calcium kernel and adds noise
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate,
+                  decay_time=decay_time)
+    check_nonnegative(step_std=step_std, baseline_rate=baseline_rate, 
+                     noise_std=noise_std, calcium_noise_std=calcium_noise_std)
+    
     if seed is not None:
         np.random.seed(seed)
 
@@ -224,7 +345,7 @@ def generate_circular_manifold_data(
         baseline_rate,
         peak_rate,
         noise_std,
-        seed=(seed + 1) if seed else None,
+        seed=(seed + 1) if seed is not None else None,
     )
 
     # Convert firing rates to calcium signals
@@ -274,40 +395,124 @@ def generate_circular_manifold_exp(
     """
     Generate complete experiment with circular manifold (head direction cells).
 
+    Creates a synthetic experiment with head direction cells arranged on a 
+    circular manifold. Neurons have Von Mises tuning curves with uniformly 
+    distributed preferred directions.
+
     Parameters
     ----------
-    n_neurons : int
-        Number of neurons.
-    duration : float
-        Duration in seconds.
-    fps : float
-        Sampling rate (frames per second).
-    kappa : float
-        Von Mises concentration parameter.
-    step_std : float
-        Head direction random walk step size.
-    baseline_rate : float
-        Baseline firing rate. Default is 0.1 Hz.
-    peak_rate : float
-        Peak firing rate. Default is 1.0 Hz.
-    noise_std : float
-        Firing rate noise.
-    decay_time : float
-        Calcium decay time.
-    calcium_noise_std : float
-        Calcium signal noise.
-    add_mixed_features : bool
-        Whether to add circular_angle MultiTimeSeries (cos/sin representation).
+    n_neurons : int, optional
+        Number of neurons. Must be positive. Default is 100.
+    duration : float, optional
+        Duration in seconds. Must be positive. Default is 600.
+    fps : float, optional
+        Sampling rate (frames per second). Must be positive. Default is 20.0.
+    kappa : float, optional
+        Von Mises concentration parameter (tuning width).
+        Higher values give narrower tuning. Must be positive.
+        Typical values: 2-8. Default is 4.0.
+    step_std : float, optional
+        Head direction random walk step size in radians.
+        Must be non-negative. Default is 0.1 (~5.7 degrees).
+    baseline_rate : float, optional
+        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
+    peak_rate : float, optional
+        Peak firing rate at preferred direction in Hz. Must be positive
+        and greater than baseline_rate. Default is 1.0.
+        Values >2 Hz may cause calcium signal saturation.
+    noise_std : float, optional
+        Standard deviation of firing rate noise. Must be non-negative.
+        Default is 0.05.
+    decay_time : float, optional
+        Calcium indicator decay time constant in seconds.
+        Must be positive. Default is 2.0.
+        For short experiments (≤30s), automatically limited to 0.5s.
+    calcium_noise_std : float, optional
+        Standard deviation of calcium signal noise.
+        Must be non-negative. Default is 0.1.
+    add_mixed_features : bool, optional
+        Whether to add circular_angle MultiTimeSeries with cos/sin 
+        representation of head direction. Useful for algorithms that
+        cannot handle circular variables directly. Default is False.
     seed : int, optional
-        Random seed.
-    verbose : bool
-        Print progress.
+        Random seed for reproducibility. Default is None.
+    verbose : bool, optional
+        Print progress messages. Default is True.
+    return_info : bool, optional
+        If True, return additional information dictionary.
+        Default is False.
 
     Returns
     -------
     exp : Experiment
-        DRIADA Experiment object with circular manifold data.
+        DRIADA Experiment object containing:
+        - calcium signals as main data
+        - static features: fps, decay times, manifold parameters
+        - dynamic features: head_direction (and circular_angle if requested)
+        - firing_rates stored as exp.firing_rates attribute
+    info : dict, optional
+        Only returned if return_info=True. Contains:
+        - 'manifold_type': "circular"
+        - 'n_neurons': number of neurons
+        - 'head_direction': trajectory array
+        - 'preferred_directions': array of preferred directions
+        - 'firing_rates': underlying firing rates
+        - 'parameters': dict of all generation parameters
+
+    Raises
+    ------
+    ValueError
+        If any positive parameters are not positive.
+        If any non-negative parameters are negative.
+        If baseline_rate >= peak_rate.
+
+    Notes
+    -----
+    The experiment generation process:
+    1. Creates random walk trajectory for head direction
+    2. Generates neurons with Von Mises tuning curves
+    3. Converts firing rates to realistic calcium signals
+    4. Packages data into DRIADA Experiment format
+    
+    The effective decay time is automatically adjusted for short
+    experiments to ensure proper shuffle mask generation.
+    
+    Side effect: The firing_rates array is stored as an attribute
+    on the returned Experiment object (exp.firing_rates).
+
+    Examples
+    --------
+    >>> # Basic usage
+    >>> exp = generate_circular_manifold_exp(n_neurons=50, duration=300)
+    
+    >>> # With circular angle representation
+    >>> exp = generate_circular_manifold_exp(
+    ...     n_neurons=100,
+    ...     add_mixed_features=True,
+    ...     kappa=6.0  # Narrower tuning
+    ... )
+    
+    >>> # Get additional information
+    >>> exp, info = generate_circular_manifold_exp(
+    ...     n_neurons=100,
+    ...     return_info=True
+    ... )
+    >>> preferred_dirs = info['preferred_directions']
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    check_positive(n_neurons=n_neurons, duration=duration, fps=fps, kappa=kappa, 
+                  peak_rate=peak_rate, decay_time=decay_time)
+    check_nonnegative(step_std=step_std, baseline_rate=baseline_rate, 
+                     noise_std=noise_std, calcium_noise_std=calcium_noise_std)
+    
+    if not np.isfinite(kappa):
+        raise ValueError("kappa must be finite")
+    
+    if baseline_rate >= peak_rate:
+        raise ValueError(f"baseline_rate ({baseline_rate}) must be less than peak_rate ({peak_rate})")
+    
     # Calculate effective decay time for shuffle mask
     effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)
 

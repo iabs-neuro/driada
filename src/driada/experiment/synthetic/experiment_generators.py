@@ -484,13 +484,18 @@ def generate_synthetic_exp(
     else:
         all_calcium = np.vstack([calcium1, calcium2])
 
-    # Create experiment
+    # Create experiment with proper static features
+    static_features = {
+        "fps": fps,
+        "t_rise_sec": 0.5,
+        "t_off_sec": 2.0,
+    }
     exp = Experiment(
         "Synthetic",
         all_calcium,
         None,
         {},
-        {"fps": fps},
+        static_features,
         {**discr_ts, **cont_ts},
         reconstruct_spikes="wavelet" if with_spikes else None,
     )
@@ -718,7 +723,8 @@ def generate_mixed_population_exp(
                 [
                     TimeSeries(np.cos(head_direction), discrete=False),
                     TimeSeries(np.sin(head_direction), discrete=False),
-                ]
+                ],
+                allow_zero_columns=True
             )
 
             spatial_data = head_direction
@@ -756,7 +762,8 @@ def generate_mixed_population_exp(
                 [
                     TimeSeries(positions[0, :], discrete=False),
                     TimeSeries(positions[1, :], discrete=False),
-                ]
+                ],
+                allow_zero_columns=True
             )
 
             spatial_data = positions
@@ -796,7 +803,8 @@ def generate_mixed_population_exp(
                     TimeSeries(positions[0, :], discrete=False),
                     TimeSeries(positions[1, :], discrete=False),
                     TimeSeries(positions[2, :], discrete=False),
-                ]
+                ],
+                allow_zero_columns=True
             )
 
             spatial_data = positions

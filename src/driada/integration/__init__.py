@@ -5,6 +5,6 @@ This module provides components that integrate different parts of DRIADA,
 bridging single-neuron analysis (INTENSE) with population-level analysis.
 """
 
-from .selectivity_mapper import SelectivityManifoldMapper
+from .manifold_analysis import get_functional_organization, compare_embeddings
 
-__all__ = ["SelectivityManifoldMapper"]
+__all__ = ["get_functional_organization", "compare_embeddings"]

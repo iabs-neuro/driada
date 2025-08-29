@@ -71,11 +71,9 @@ from .spatial import (
     compute_rate_map,
     extract_place_fields,
     compute_spatial_information_rate,
-    compute_grid_score,
     compute_spatial_decoding_accuracy,
     compute_spatial_information,
     filter_by_speed,
-    filter_by_direction,
     analyze_spatial_coding,
     compute_spatial_metrics,
 )
@@ -139,11 +137,9 @@ __all__ = [
     "compute_rate_map",
     "extract_place_fields",
     "compute_spatial_information_rate",
-    "compute_grid_score",
     "compute_spatial_decoding_accuracy",
     "compute_spatial_information",
     "filter_by_speed",
-    "filter_by_direction",
     "analyze_spatial_coding",
     "compute_spatial_metrics",
     # Signal generation and analysis

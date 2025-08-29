@@ -23,6 +23,7 @@ except ImportError:
 from .mvu import MaximumVarianceUnfolding
 
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix
+from ..utils.data import check_positive, check_nonnegative
 
 
 class Embedding:
@@ -354,6 +355,13 @@ class Embedding:
         
         DOC_VERIFIED
         """
+        # Validate graph exists
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph not built. Call build_graph() first.")
+            
+        # Validate parameters
+        check_positive(dim=self.dim, nn=self.graph.nn)
+        
         A = self.graph.adj
         isomap_reducer = Isomap(
             n_components=self.dim, n_neighbors=self.graph.nn, metric="precomputed"
@@ -428,17 +436,42 @@ class Embedding:
         maximizing variance while preserving local distances. Solves a
         semidefinite programming problem to find the optimal embedding.
         
+        Sets self.coords to shape (dim, n_samples) embedding coordinates
+        and self.reducer_ to the fitted MVU object.
+            
+        Raises
+        ------
+        ImportError
+            If cvxpy is not installed.
+        AttributeError
+            If self.graph or required attributes are not set.
+        ValueError
+            If self.dim is not positive or if solver fails to converge.
+            
         Notes
         -----
         Requires cvxpy for convex optimization. Uses the SCS solver with
         reasonable defaults for most datasets. The embedding preserves
         local neighborhood structure while maximizing global variance.
         
-        Raises
-        ------
-        ImportError
-            If cvxpy is not installed.
+        The optimization problem maximizes tr(Y'Y) subject to:
+        - Local distance preservation: ||y_i - y_j||² = ||x_i - x_j||² for neighbors
+        - Centering: ∑y_i = 0
+        
+        Examples
+        --------
+        >>> emb.create_mvu_embedding_()
+        >>> print(emb.coords.shape)  # (reduced_dim, n_samples)
+        
+        DOC_VERIFIED
         """
+        # Validate required attributes
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph must be created before MVU embedding. Call create_graph() first.")
+        if not hasattr(self, 'dim'):
+            raise AttributeError("Embedding dimension 'dim' not set.")
+        check_positive(dim=self.dim)
+            
         try:
             import cvxpy as cp
         except ImportError:
@@ -468,7 +501,46 @@ class Embedding:
         Non-linear dimensionality reduction that assumes data lies on a
         locally linear manifold. Each point is reconstructed from its
         neighbors, and these weights are preserved in lower dimensions.
+        
+        Sets self.coords to shape (dim, n_samples) embedding coordinates
+        and self.reducer_ to the fitted sklearn LLE object.
+        
+        Raises
+        ------
+        AttributeError
+            If self.graph or required attributes are not set.
+        ValueError
+            If self.dim is not positive or n_neighbors is invalid.
+            
+        Notes
+        -----
+        Uses sklearn's LocallyLinearEmbedding implementation. The algorithm:
+        1. Finds k nearest neighbors for each point
+        2. Computes weights to reconstruct each point from neighbors
+        3. Finds low-d embedding preserving reconstruction weights
+        
+        Time complexity is O(DNlog(k)N + DNk³) for N points in D dimensions.
+        
+        Examples
+        --------
+        >>> emb.create_lle_embedding_()
+        >>> print(emb.coords.shape)  # (reduced_dim, n_samples)
+        
+        References
+        ----------
+        Roweis & Saul (2000). Nonlinear dimensionality reduction by 
+        locally linear embedding. Science 290:2323-2326.
+        
+        DOC_VERIFIED
         """
+        # Validate required attributes
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph must be created before LLE embedding. Call create_graph() first.")
+        if not hasattr(self, 'dim'):
+            raise AttributeError("Embedding dimension 'dim' not set.")
+        check_positive(dim=self.dim)
+        check_positive(n_neighbors=self.graph.nn)
+        
         lle = LocallyLinearEmbedding(n_components=self.dim, n_neighbors=self.graph.nn)
         self.coords = lle.fit_transform(self.graph.data.T).T
         self.reducer_ = lle
@@ -480,18 +552,55 @@ class Embedding:
         better preserve local geometric structure. Particularly effective
         for manifolds with varying curvature.
         
+        Sets self.coords to shape (dim, n_samples) embedding coordinates
+        and self.reducer_ to the fitted sklearn HLLE object.
+        
+        Raises
+        ------
+        AttributeError
+            If self.graph or required attributes are not set.
+        ValueError
+            If self.dim is not positive or if the constraint
+            n_neighbors > n_components * (n_components + 3) / 2 is not satisfied.
+            
         Notes
         -----
-        Sets self.coords to shape (dim, n_samples).
-        Requires n_neighbors > n_components * (n_components + 3) / 2.
-        More computationally intensive than standard LLE but often produces
-        better embeddings for complex manifolds.
+        Requires n_neighbors > n_components * (n_components + 3) / 2 for the
+        Hessian estimation. More computationally intensive than standard LLE
+        but often produces better embeddings for complex manifolds.
+        
+        The algorithm estimates the Hessian at each point to capture local
+        curvature, then finds an embedding that preserves this structure.
+        
+        Examples
+        --------
+        >>> # For 2D embedding, need at least 6 neighbors
+        >>> emb.create_graph(nn=10)
+        >>> emb.create_hlle_embedding_()
         
         References
         ----------
         Donoho, D. & Grimes, C. (2003). Hessian eigenmaps: Locally linear
         embedding techniques for high-dimensional data. PNAS.
+        
+        DOC_VERIFIED
         """
+        # Validate required attributes
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph must be created before HLLE embedding. Call create_graph() first.")
+        if not hasattr(self, 'dim'):
+            raise AttributeError("Embedding dimension 'dim' not set.")
+        check_positive(dim=self.dim)
+        check_positive(n_neighbors=self.graph.nn)
+        
+        # Check HLLE-specific constraint
+        min_neighbors = int(self.dim * (self.dim + 3) / 2) + 1
+        if self.graph.nn <= min_neighbors:
+            raise ValueError(
+                f"HLLE requires n_neighbors > {min_neighbors} for {self.dim}D embedding, "
+                f"but got n_neighbors={self.graph.nn}. Increase nn parameter."
+            )
+        
         hlle = LocallyLinearEmbedding(
             n_components=self.dim, n_neighbors=self.graph.nn, method="hessian"
         )
@@ -505,26 +614,48 @@ class Embedding:
         to embed nodes while preserving local neighborhood structure.
         Particularly effective for data lying on low-dimensional manifolds.
         
-        Notes
-        -----
         Sets self.coords to shape (dim, n_samples) containing the embedding.
-        Uses the transition matrix eigenvectors (more stable than Laplacian).
-        Normalizes eigenvectors by node degree to ensure proper embedding.
-        
-        The embedding minimizes:
-        sum_ij W_ij ||y_i - y_j||^2
-        subject to orthogonality constraints.
         
         Raises
         ------
-        Exception
-            If the graph is disconnected (multiple eigenvalues equal to 1).
+        AttributeError
+            If self.graph or required attributes are not set.
+        ValueError
+            If self.dim is not positive or if the graph is disconnected
+            (multiple eigenvalues equal to 1).
+            
+        Notes
+        -----
+        Uses the transition matrix eigenvectors (more stable than Laplacian).
+        Normalizes eigenvectors by node degree to ensure proper embedding.
+        
+        The embedding minimizes: sum_ij W_ij ||y_i - y_j||^2
+        subject to orthogonality constraints.
+        
+        The algorithm:
+        1. Computes transition matrix P = D^(-1)A
+        2. Finds top eigenvectors of P (excluding trivial)
+        3. Normalizes by degree for proper embedding
+        
+        Examples
+        --------
+        >>> emb.create_le_embedding_()
+        >>> print(emb.coords.shape)  # (reduced_dim, n_samples)
             
         References
         ----------
         Belkin, M. & Niyogi, P. (2003). Laplacian eigenmaps for
         dimensionality reduction and data representation. Neural Computation.
+        
+        DOC_VERIFIED
         """
+        # Validate required attributes
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph must be created before LE embedding. Call create_graph() first.")
+        if not hasattr(self, 'dim'):
+            raise AttributeError("Embedding dimension 'dim' not set.")
+        check_positive(dim=self.dim)
+        
         A = self.graph.adj
         dim = self.dim
         n = self.graph.n
@@ -539,8 +670,13 @@ class Embedding:
 
         eigvals = np.asarray([np.round(np.real(x), 6) for x in eigvals])
 
-        if np.count_nonzero(eigvals == 1.0) > 1:
-            raise Exception("Graph is not connected, LE will result in errors!")
+        # Check for disconnected graph (multiple eigenvalues close to 1)
+        if np.sum(np.abs(eigvals - 1.0) < 1e-10) > 1:
+            raise ValueError(
+                "Graph appears to be disconnected (multiple eigenvalues ≈ 1). "
+                "Laplacian Eigenmaps requires a connected graph. "
+                "Consider increasing nn parameter or using a different method."
+            )
         else:
             vecs = np.real(eigvecs.T[1:])
             vec_norms = np.array([np.real(sum([x * x for x in v])) for v in vecs])
@@ -554,18 +690,54 @@ class Embedding:
         Alternative implementation using sklearn's spectral_embedding function.
         More robust and handles edge cases better than the manual implementation.
         
+        Sets self.coords to shape (dim, n_samples).
+        
+        Raises
+        ------
+        AttributeError
+            If self.graph or required attributes are not set.
+        ValueError
+            If self.dim is not positive.
+        MemoryError
+            If the graph is too large to convert to dense format.
+            
         Notes
         -----
-        Sets self.coords to shape (dim, n_samples).
         Uses normalized Laplacian by default for better numerical stability.
         Automatically handles disconnected graphs by dropping the first
         eigenvector.
         
+        Warning: Converts sparse adjacency matrix to dense format, which may
+        cause memory issues for graphs with more than ~10,000 nodes.
+        
         This is the recommended method for most use cases unless you need
         fine control over the eigendecomposition process.
+        
+        Examples
+        --------
+        >>> emb.create_auto_le_embedding_()
+        >>> print(emb.coords.shape)  # (reduced_dim, n_samples)
+        
+        DOC_VERIFIED
         """
+        # Validate required attributes
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph must be created before auto LE embedding. Call create_graph() first.")
+        if not hasattr(self, 'dim'):
+            raise AttributeError("Embedding dimension 'dim' not set.")
+        check_positive(dim=self.dim)
+        
         A = self.graph.adj
         dim = self.dim
+
+        # Warn about memory usage for large graphs
+        if A.shape[0] > 10000:
+            import warnings
+            warnings.warn(
+                f"Converting sparse matrix with {A.shape[0]} nodes to dense format. "
+                "This may use significant memory. Consider using create_le_embedding_() instead.",
+                MemoryWarning
+            )
 
         A = A.asfptype()
         # Convert to numpy array instead of matrix to avoid sklearn compatibility issues
@@ -584,25 +756,54 @@ class Embedding:
     def create_dmaps_embedding_(self):
         """Create diffusion maps embedding.
         
-        This implements the standard diffusion maps algorithm with fixed bandwidth.
+        Implements the standard diffusion maps algorithm with alpha normalization
+        for anisotropic diffusion and diffusion time parameter t.
+        
+        Raises
+        ------
+        AttributeError
+            If graph is not built or required attributes are missing.
+        ValueError
+            If dim is invalid, graph has isolated nodes, or eigendecomposition fails.
+        
+        Notes
+        -----
+        The algorithm performs the following steps:
+        1. Apply alpha normalization to adjacency matrix
+        2. Create Markov transition matrix
+        3. Compute eigendecomposition
+        4. Scale eigenvectors by eigenvalues^t
         
         Future enhancement: Variable bandwidth diffusion maps
         - Berry & Harlim (2016): "Variable bandwidth diffusion kernels"
         - DOI: https://doi.org/10.1016/j.acha.2015.01.001
         - Would allow adaptive kernel bandwidth based on local density
         
-        References:
+        References
+        ----------
         - Coifman & Lafon (2006): Diffusion maps
         - DOI: https://doi.org/10.1016/j.acha.2006.04.006
+        
+        DOC_VERIFIED
         """
         import numpy as np
         from scipy.sparse import csr_matrix, diags
         from scipy.sparse.linalg import eigsh
         
-        # Get parameters
-        dim = self.dim
+        # Validate graph exists
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph not built. Call build_graph() first.")
+        
+        # Get and validate parameters
         alpha = self.dm_alpha if hasattr(self, "dm_alpha") else 0.5
         t = self.dm_t if hasattr(self, "dm_t") else 1  # Diffusion time parameter
+        check_positive(dim=self.dim, t=t)
+        check_nonnegative(alpha=alpha)
+        
+        # Check dimension validity
+        n_samples = self.graph.adj.shape[0]
+        if self.dim >= n_samples:
+            raise ValueError(f"dim ({self.dim}) must be less than n_samples ({n_samples})")
         
         # Get affinity matrix from graph
         W = self.graph.adj.astype(float)
@@ -613,15 +814,25 @@ class Embedding:
         # Apply alpha normalization (anisotropic diffusion)
         # First compute the degree matrix
         D = np.asarray(W.sum(axis=1)).flatten()
+        
+        # Check for isolated nodes
+        if np.any(D == 0):
+            raise ValueError("Graph contains isolated nodes with zero degree")
+        
         D_alpha = D ** alpha
         
         # Normalize by D^alpha from both sides
-        D_alpha_inv = 1.0 / (D_alpha + 1e-10)  # Avoid division by zero
+        D_alpha_inv = 1.0 / D_alpha
         W_alpha = diags(D_alpha_inv) @ W @ diags(D_alpha_inv)
         
         # Compute new degree matrix for normalized kernel
         D_alpha_norm = np.asarray(W_alpha.sum(axis=1)).flatten()
-        D_alpha_norm_inv = 1.0 / (D_alpha_norm + 1e-10)
+        
+        # Check for numerical issues
+        if np.any(D_alpha_norm == 0):
+            raise ValueError("Alpha normalization resulted in zero row sums")
+            
+        D_alpha_norm_inv = 1.0 / D_alpha_norm
         
         # Create Markov transition matrix
         P = diags(D_alpha_norm_inv) @ W_alpha
@@ -676,6 +887,15 @@ class Embedding:
         automatic bandwidth selection via the Berry-Harlim-Gao (BGH) method.
         More sophisticated than the manual implementation.
         
+        Raises
+        ------
+        AttributeError
+            If graph is not built.
+        ValueError
+            If parameters are invalid or pydiffmap fails.
+        ImportError
+            If pydiffmap is not installed.
+        
         Notes
         -----
         Sets self.coords to shape (dim, n_samples).
@@ -686,26 +906,44 @@ class Embedding:
         
         This method is preferred when you want automatic parameter tuning
         and don't need fine control over the diffusion process.
+        
+        DOC_VERIFIED
         """
+        # Validate graph exists
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph not built. Call build_graph() first.")
+            
+        # Validate parameters
+        check_positive(dim=self.dim, nn=self.graph.nn)
+        alpha = self.dm_alpha if hasattr(self, "dm_alpha") else 1
+        check_nonnegative(alpha=alpha)
+        
         dim = self.dim
         nn = self.graph.nn
         metric = self.graph.metric
         metric_args = self.graph.metric_args
-        alpha = self.dm_alpha if hasattr(self, "dm_alpha") else 1
 
-        mydmap = dm.DiffusionMap.from_sklearn(
-            n_evecs=dim,
-            k=nn,
-            epsilon="bgh",
-            metric=metric,
-            metric_params=metric_args,
-            alpha=alpha,
-        )
+        try:
+            from pydiffmap import diffusion_map as dm
+        except ImportError:
+            raise ImportError("pydiffmap not installed. Install with: pip install pydiffmap")
+            
+        try:
+            mydmap = dm.DiffusionMap.from_sklearn(
+                n_evecs=dim,
+                k=nn,
+                epsilon="bgh",
+                metric=metric,
+                metric_params=metric_args,
+                alpha=alpha,
+            )
 
-        dmap = mydmap.fit_transform(self.init_data.T)
+            dmap = mydmap.fit_transform(self.init_data.T)
 
-        self.coords = dmap.T
-        self.reducer_ = dmap
+            self.coords = dmap.T
+            self.reducer_ = dmap
+        except Exception as e:
+            raise ValueError(f"Diffusion maps computation failed: {str(e)}")
 
     def create_tsne_embedding_(self):
         """Create t-SNE (t-distributed Stochastic Neighbor Embedding).
@@ -713,6 +951,13 @@ class Embedding:
         Non-linear dimensionality reduction that converts similarities between
         data points to joint probabilities and minimizes KL divergence between
         high-dimensional and low-dimensional distributions.
+        
+        Raises
+        ------
+        ValueError
+            If dim is invalid or t-SNE computation fails.
+        ImportError
+            If scikit-learn is not installed.
         
         Notes
         -----
@@ -728,10 +973,26 @@ class Embedding:
         ----------
         van der Maaten, L. & Hinton, G. (2008). Visualizing data using
         t-SNE. Journal of Machine Learning Research.
+        
+        DOC_VERIFIED
         """
-        model = TSNE(n_components=self.dim, verbose=1)
-        self.coords = model.fit_transform(self.init_data.T).T
-        self.reducer_ = model
+        # Validate parameters
+        check_positive(dim=self.dim)
+        
+        try:
+            from sklearn.manifold import TSNE
+        except ImportError:
+            raise ImportError("scikit-learn not installed")
+            
+        # Use self.verbose if available, otherwise silent
+        verbose = getattr(self, 'verbose', 0)
+        
+        try:
+            model = TSNE(n_components=self.dim, verbose=verbose)
+            self.coords = model.fit_transform(self.init_data.T).T
+            self.reducer_ = model
+        except Exception as e:
+            raise ValueError(f"t-SNE computation failed: {str(e)}")
 
     def create_umap_embedding_(self):
         """Create UMAP (Uniform Manifold Approximation and Projection) embedding.
@@ -758,14 +1019,34 @@ class Embedding:
         McInnes, L., Healy, J., & Melville, J. (2018).
         UMAP: Uniform Manifold Approximation and Projection for
         Dimension Reduction. arXiv:1802.03426.
+        
+        DOC_VERIFIED
         """
-        min_dist = self.min_dist
-        reducer = umap.UMAP(
-            n_neighbors=self.graph.nn, n_components=self.dim, min_dist=min_dist
-        )
+        # Validate graph and parameters
+        if not hasattr(self, 'graph') or self.graph is None:
+            raise AttributeError("Graph not built. Call build_graph() first.")
+        if not hasattr(self, 'min_dist'):
+            raise AttributeError("min_dist attribute not set")
+            
+        check_positive(dim=self.dim, nn=self.graph.nn)
+        check_nonnegative(min_dist=self.min_dist)
+        
+        try:
+            import umap
+        except ImportError:
+            raise ImportError("umap-learn not installed. Install with: pip install umap-learn")
 
-        self.coords = reducer.fit_transform(self.graph.data.T).T
-        self.reducer_ = reducer
+        try:
+            reducer = umap.UMAP(
+                n_neighbors=self.graph.nn, 
+                n_components=self.dim, 
+                min_dist=self.min_dist
+            )
+            # Use init_data, not graph.data
+            self.coords = reducer.fit_transform(self.init_data.T).T
+            self.reducer_ = reducer
+        except Exception as e:
+            raise ValueError(f"UMAP computation failed: {str(e)}")
 
     def _prepare_data_loaders(self, batch_size, train_size, seed):
         """Prepare train and test data loaders for neural network methods.
@@ -773,11 +1054,11 @@ class Embedding:
         Parameters
         ----------
         batch_size : int
-            Batch size for data loaders
+            Batch size for data loaders. Must be positive.
         train_size : float
-            Proportion of data to use for training (0-1)
+            Proportion of data to use for training. Must be in range (0, 1).
         seed : int
-            Random seed for reproducible splits
+            Random seed for reproducible splits. Must be non-negative.
             
         Returns
         -------
@@ -787,15 +1068,39 @@ class Embedding:
             Test data loader
         device : torch.device
             Device to use for training (cuda if available, else cpu)
+            
+        Raises
+        ------
+        ValueError
+            If parameters are invalid.
+        ImportError
+            If PyTorch is not installed.
+            
+        Notes
+        -----
+        Uses sklearn's train_test_split with shuffle=False to preserve
+        temporal order in the data split.
+        
+        DOC_VERIFIED
         """
+        # Validate parameters
+        check_positive(batch_size=batch_size)
+        check_nonnegative(seed=seed)
+        if not 0 < train_size < 1:
+            raise ValueError(f"train_size must be in range (0, 1), got {train_size}")
+            
         try:
             import torch
             from torch.utils.data import DataLoader
-        except ImportError:
-            raise ImportError(
-                "PyTorch is required for autoencoder methods. "
-                "Please install it with: pip install torch"
-            )
+            from sklearn.model_selection import train_test_split
+        except ImportError as e:
+            if 'torch' in str(e):
+                raise ImportError(
+                    "PyTorch is required for autoencoder methods. "
+                    "Please install it with: pip install torch"
+                )
+            else:
+                raise ImportError("scikit-learn is required for data splitting")
             
         torch.manual_seed(seed)
         torch.backends.cudnn.benchmark = False
@@ -915,9 +1220,27 @@ class Embedding:
             Logging frequency.
         device : torch.device, optional
             Device to run on.
+            
+        Raises
+        ------
+        ValueError
+            If parameters are invalid.
+        ImportError
+            If PyTorch is not installed.
+            
+        Notes
+        -----
+        This method is deprecated in favor of create_flexible_ae_embedding_
+        which provides more flexibility and advanced loss functions.
+        
+        DOC_VERIFIED
         """
 
         # ---------------------------------------------------------------------------
+        # Validate parameters
+        check_positive(epochs=epochs, lr=lr, inter_dim=inter_dim, log_every=log_every)
+        check_nonnegative(corr_hyperweight=corr_hyperweight, mi_hyperweight=mi_hyperweight)
+        
         # Import torch dependencies (optional dependency)
         try:
             import torch
@@ -973,35 +1296,65 @@ class Embedding:
         criterion = nn.MSELoss()
 
         def correlation_loss(data):
-            # print('corr')
+            """Compute correlation loss to encourage decorrelated features.
+            
+            Parameters
+            ----------
+            data : torch.Tensor
+                Latent representations of shape (n_features, n_samples).
+                
+            Returns
+            -------
+            torch.Tensor
+                Average pairwise correlation magnitude as scalar loss.
+                
+            Notes
+            -----
+            Computes average absolute correlation between all pairs of features,
+            excluding self-correlations (diagonal).
+            
+            DOC_VERIFIED
+            """
             corr = torch.corrcoef(data)
-            # print(corr)
             nv = corr.shape[0]
             closs = torch.abs(
                 (torch.sum(torch.abs(corr)) - 1 * nv) / (nv**2 - nv)
             )  # average pairwise correlation amplitude
-            # print(closs)
             return closs
 
         def data_orthogonality_loss(data, ortdata):
-
-            # punishes big amplitude correlation coefficients between all variables from data and ortdata.
-            # ortdata is supposed fixed
-            # temporal workaround instead of MINE MI estimation
-
-            # print('ortho')
-            # print(ortdata)
+            """Compute orthogonality loss between embeddings and external data.
+            
+            Encourages embeddings to be uncorrelated with external data by
+            penalizing correlation coefficients between all variable pairs.
+            
+            Parameters
+            ----------
+            data : torch.Tensor
+                Embedding latent representations of shape (n_features, n_samples).
+            ortdata : torch.Tensor
+                External data to minimize correlation with, shape (n_features2, n_samples).
+                
+            Returns
+            -------
+            torch.Tensor
+                Average absolute correlation between data and ortdata as scalar loss.
+                
+            Notes
+            -----
+            This is a workaround for mutual information estimation. The loss
+            computes average magnitude of correlations between all pairs of
+            variables from data and ortdata.
+            
+            DOC_VERIFIED
+            """
             n1, n2 = data.shape[0], ortdata.shape[1]
             fulldata = torch.cat((data, ortdata), dim=0)
             corr = torch.corrcoef(fulldata)
-            # print(corr)
-            # print(corr[n1:, :n1])
             nvar = n1 * n2
             closs = torch.abs(
                 (torch.sum(torch.abs(corr))) / nvar
             )  # average pairwise correlation amplitude
-            # print(closs)
-            # print()
             return closs
 
         # ---------------------------------------------------------------------------
@@ -1215,9 +1568,27 @@ class Embedding:
             Logging frequency.
         **kwargs
             Additional keyword arguments.
+            
+        Raises
+        ------
+        ValueError
+            If parameters are invalid.
+        ImportError
+            If PyTorch is not installed.
+            
+        Notes
+        -----
+        This method is deprecated in favor of create_flexible_ae_embedding_
+        which provides more flexibility and advanced loss functions.
+        
+        DOC_VERIFIED
         """
 
         # ---------------------------------------------------------------------------
+        # Validate parameters
+        check_positive(epochs=epochs, lr=lr, inter_dim=inter_dim, log_every=log_every)
+        check_nonnegative(kld_weight=kld_weight)
+        
         # Import torch dependencies (optional dependency)
         try:
             import torch
@@ -1484,7 +1855,27 @@ class Embedding:
         ...         {"name": "beta_vae", "weight": 1.0, "beta": 0.1}
         ...     ]
         ... )
+        
+        Raises
+        ------
+        ValueError
+            If parameters are invalid or architecture not in ["ae", "vae"].
+        ImportError
+            If PyTorch is not installed.
+            
+        Notes
+        -----
+        This method provides a flexible framework for various autoencoder
+        architectures with modular loss composition. It replaces the
+        deprecated create_ae_embedding_ and create_vae_embedding_ methods.
+        
+        DOC_VERIFIED
         """
+        # Validate parameters
+        check_positive(epochs=epochs, lr=lr, inter_dim=inter_dim, log_every=log_every)
+        if architecture not in ["ae", "vae"]:
+            raise ValueError(f"architecture must be 'ae' or 'vae', got '{architecture}'")
+            
         # Import torch dependencies
         try:
             import torch
@@ -1669,12 +2060,49 @@ class Embedding:
         self.coords = model.get_latent_representation(input_)
         self.nn_loss = best_test_loss
 
-    def continue_learning(self, add_epochs, kwargs={}):
-        if self.all_params["e_method_name"] not in ["ae", "vae"]:
-            raise Exception("This is not a DL-based method!")
+    def continue_learning(self, add_epochs, **kwargs):
+        """Continue training an existing autoencoder model.
+        
+        Allows resuming training of a previously trained autoencoder or VAE
+        for additional epochs with potentially different parameters.
+        
+        Parameters
+        ----------
+        add_epochs : int
+            Number of additional epochs to train. Must be positive.
+        **kwargs : dict
+            Additional keyword arguments to pass to the training method.
+            These override the original training parameters.
+            
+        Raises
+        ------
+        ValueError
+            If add_epochs is not positive or method is not DL-based.
+        AttributeError
+            If no model has been trained yet.
+            
+        Notes
+        -----
+        This method requires that an autoencoder model was previously
+        trained using one of the DL-based methods (ae, vae, flexible_ae).
+        
+        DOC_VERIFIED
+        """
+        # Validate parameters
+        check_positive(add_epochs=add_epochs)
+        
+        # Check if this is a DL-based method
+        if self.all_params["e_method_name"] not in ["ae", "vae", "flexible_ae"]:
+            raise ValueError("continue_learning only works with DL-based methods (ae, vae, flexible_ae)")
+            
+        # Check if model exists
+        if not hasattr(self, 'nnmodel') or self.nnmodel is None:
+            raise AttributeError("No model to continue training. Train a model first.")
 
+        # Get the appropriate training method
         fn = getattr(self, "create_" + self.all_params["e_method_name"] + "_embedding_")
-        fn(continue_learning=1, epochs=add_epochs, kwargs=kwargs)
+        # Continue training with additional epochs
+        fn(continue_learning=1, epochs=add_epochs, **kwargs)
 
     def to_mvdata(self):
         """Convert embedding coordinates to MVData for further processing.
@@ -1688,6 +2116,11 @@ class Embedding:
             An MVData object containing the embedding coordinates as data,
             with the same labels as the original data.
 
+        Raises
+        ------
+        ValueError
+            If embedding has not been built yet.
+            
         Examples
         --------
         >>> mvdata = MVData(high_dim_data)
@@ -1695,6 +2128,8 @@ class Embedding:
         >>> # Convert embedding back to MVData for further reduction
         >>> embedding_mvdata = embedding.to_mvdata()
         >>> final_embedding = embedding_mvdata.get_embedding(method='umap', dim=2)
+        
+        DOC_VERIFIED
         """
         # Import here to avoid circular dependency
         from .data import MVData

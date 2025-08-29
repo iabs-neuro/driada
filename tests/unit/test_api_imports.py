@@ -146,7 +146,8 @@ def test_network_module_imports():
 def test_integration_module_imports():
     """Test integration module imports."""
 
-    # Check SelectivityManifoldMapper
-    from driada.integration import SelectivityManifoldMapper
+    # Check manifold analysis functions
+    from driada.integration import get_functional_organization, compare_embeddings
 
-    assert callable(SelectivityManifoldMapper)
+    assert callable(get_functional_organization)
+    assert callable(compare_embeddings)
