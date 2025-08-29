@@ -1195,7 +1195,11 @@ def compute_embedding_selectivity(
     >>> for neuron_id, components in umap_neurons.items():
     ...     print(f"Neuron {neuron_id} selective to components: {components}")
     
-    DOC_VERIFIED
+    See Also
+    --------
+    compute_cell_feat_significance : Compute selectivity for behavioral features
+    get_functional_organization : Analyze organization in embeddings
+    compare_embeddings : Compare multiple embedding methods
     """
 
     # Get list of embedding methods to analyze

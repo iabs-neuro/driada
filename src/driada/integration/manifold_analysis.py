@@ -6,13 +6,17 @@ relates to population-level manifold structure.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..experiment.exp_base import Experiment
+    from ..intense.intense_base import IntenseResults
 import numpy as np
 from collections import defaultdict
 
 
-def get_functional_organization(experiment, method_name: str, data_type: str = "calcium", 
-                               intense_results: Optional[object] = None) -> Dict:
+def get_functional_organization(experiment: 'Experiment', method_name: str, data_type: str = "calcium", 
+                               intense_results: Optional['IntenseResults'] = None) -> Dict:
     """
     Analyze functional organization in the manifold.
     
@@ -55,6 +59,16 @@ def get_functional_organization(experiment, method_name: str, data_type: str = "
         If the specified embedding method is not found.
     ValueError
         If component variances sum to zero.
+    TypeError
+        If intense_results is not an IntenseResults object when provided.
+    ValueError
+        If intense_results lacks the required 'significance' attribute.
+        
+    Notes
+    -----
+    This function reads embedding data from the experiment's stored embeddings.
+    When intense_results is provided, it performs detailed selectivity analysis
+    to identify functional clusters and neuron participation patterns.
         
     Examples
     --------
@@ -65,6 +79,11 @@ def get_functional_organization(experiment, method_name: str, data_type: str = "
     >>> org = get_functional_organization(exp, 'pca', intense_results=intense_res)
     >>> print(f"Component importance: {org['component_importance']}")
     >>> print(f"Neurons participating: {org['n_participating_neurons']}")
+    
+    See Also
+    --------
+    compare_embeddings : Compare multiple embedding methods
+    compute_embedding_selectivity : Compute selectivity for embeddings
     
     DOC_VERIFIED
     """
@@ -175,8 +194,8 @@ def get_functional_organization(experiment, method_name: str, data_type: str = "
     return organization
 
 
-def compare_embeddings(experiment, method_names: List[str], data_type: str = "calcium",
-                      intense_results_dict: Optional[Dict] = None) -> Dict:
+def compare_embeddings(experiment: 'Experiment', method_names: List[str], data_type: str = "calcium",
+                      intense_results_dict: Optional[Dict[str, 'IntenseResults']] = None) -> Dict:
     """
     Compare functional organization across different embedding methods.
     
@@ -212,9 +231,16 @@ def compare_embeddings(experiment, method_names: List[str], data_type: str = "ca
     Raises
     ------
     ValueError
-        If no valid embeddings found to compare.
+        If no valid embeddings found to compare or method_names is empty.
     TypeError
-        If method_names is not a list.
+        If method_names is not a list or intense_results_dict contains
+        non-IntenseResults values.
+        
+    Notes
+    -----
+    This function logs warnings when embeddings are not found for requested methods.
+    When only one valid embedding is found, it returns statistics for that single
+    embedding without computing overlaps.
         
     Examples
     --------
@@ -226,6 +252,11 @@ def compare_embeddings(experiment, method_names: List[str], data_type: str = "ca
     ...                 for method in results}
     >>> comparison = compare_embeddings(exp, ['pca', 'umap'], intense_results_dict=intense_dict)
     >>> print(f"Overlap: {comparison['participation_overlap']['pca_vs_umap']:.2f}")
+    
+    See Also
+    --------
+    get_functional_organization : Analyze individual embeddings
+    compute_embedding_selectivity : Compute selectivity for embeddings
     
     DOC_VERIFIED
     """

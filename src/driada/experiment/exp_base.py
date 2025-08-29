@@ -1978,18 +1978,66 @@ class Experiment:
     ):
         """
         Store dimensionality reduction embedding in the experiment.
+        
+        This method stores a computed embedding in the experiment's internal
+        embeddings dictionary. Previous embeddings with the same method_name
+        and data_type will be overwritten without warning.
 
         Parameters
         ----------
         embedding : np.ndarray
-            The embedding array, shape (n_timepoints, n_components)
+            The embedding array, shape (n_timepoints, n_components). The number
+            of timepoints must match self.n_frames or self.n_frames//ds if
+            downsampling was used.
         method_name : str
-            Name of the DR method (e.g., 'pca', 'umap', 'isomap')
-        data_type : str
-            Type of data used ('calcium' or 'spikes')
+            Name of the DR method (e.g., 'pca', 'umap', 'isomap'). This serves
+            as the key for storing and retrieving the embedding.
+        data_type : str, optional
+            Type of data used ('calcium' or 'spikes'). Default is 'calcium'.
         metadata : dict, optional
-            Additional metadata about the embedding (e.g., parameters, quality metrics)
+            Additional metadata about the embedding. Common keys include:
+            - 'ds': Downsampling factor used
+            - 'n_components': Number of components
+            - 'neuron_indices': Indices of neurons used
+            - 'method_params': Parameters specific to the DR method
             
+        Raises
+        ------
+        ValueError
+            If data_type is not 'calcium' or 'spikes'.
+        ValueError
+            If embedding timepoints don't match expected frames. The expected
+            number is self.n_frames//ds where ds is extracted from metadata
+            (default 1).
+            
+        Notes
+        -----
+        The embedding is stored in self.embeddings[data_type][method_name] as a
+        dictionary containing:
+        - 'data': The embedding array
+        - 'metadata': The provided metadata dict (or empty dict)
+        - 'timestamp': Current time when stored (np.datetime64)
+        - 'shape': Shape tuple of the embedding array
+        
+        Previous embeddings with the same method_name are silently overwritten.
+        
+        Examples
+        --------
+        >>> # Store a PCA embedding
+        >>> embedding = np.random.randn(1000, 3)  # 1000 timepoints, 3 components
+        >>> exp.store_embedding(embedding, 'pca', metadata={'n_components': 3})
+        >>> 
+        >>> # Store a downsampled UMAP embedding
+        >>> # If experiment has 5000 frames and ds=5, embedding should have 1000 rows
+        >>> downsampled_embedding = np.random.randn(1000, 2)
+        >>> exp.store_embedding(downsampled_embedding, 'umap', 
+        ...                    metadata={'ds': 5, 'n_neighbors': 30})
+        
+        See Also
+        --------
+        get_embedding : Retrieve stored embeddings
+        create_embedding : Create and store embeddings in one step
+        
         DOC_VERIFIED
         """
         if data_type not in ["calcium", "spikes"]:
@@ -2022,8 +2070,12 @@ class Experiment:
         """
         Create dimensionality reduction embedding and store it.
         
-        Note: This method modifies the experiment's state by storing the computed
+        Notes
+        -----
+        This method modifies the experiment's state by storing the computed
         embedding. Previous embeddings with the same method name will be overwritten.
+        The method uses MultiTimeSeries internally for data handling and applies
+        the dimensionality reduction through the MVData interface.
 
         Parameters
         ----------
@@ -2049,9 +2101,12 @@ class Experiment:
         Raises
         ------
         ValueError
-            If data_type is invalid or no significant neurons found.
+            If n_components is not positive, data_type is invalid, downsampling
+            factor 'ds' is not an integer, neuron indices are out of bounds,
+            significant neurons requested without selectivity analysis, or
+            embedding method drops timepoints.
         AttributeError
-            If required data (calcium/spikes) is not available.
+            If spike data requested but not available.
             
         Examples
         --------
@@ -2061,7 +2116,11 @@ class Experiment:
         >>> # Create UMAP using only significant neurons
         >>> embedding = exp.create_embedding('umap', neuron_selection='significant')
         
-        DOC_VERIFIED
+        See Also
+        --------
+        store_embedding : Store computed embeddings
+        get_embedding : Retrieve stored embeddings
+        get_significant_neurons : Get neurons with significant selectivity
         """
         from ..information.info_base import MultiTimeSeries
         from ..utils.data import check_positive
@@ -2175,19 +2234,57 @@ class Experiment:
     def get_embedding(self, method_name, data_type="calcium"):
         """
         Retrieve stored embedding.
+        
+        This method retrieves a previously stored dimensionality reduction
+        embedding from the experiment's embeddings dictionary. The returned
+        dictionary contains the embedding data along with metadata and timestamp.
 
         Parameters
         ----------
         method_name : str
-            Name of the DR method
-        data_type : str
-            Type of data used ('calcium' or 'spikes')
+            Name of the DR method to retrieve (e.g., 'pca', 'umap').
+        data_type : str, optional
+            Type of data used ('calcium' or 'spikes'). Default is 'calcium'.
 
         Returns
         -------
         dict
-            Dictionary containing 'data' and 'metadata'
+            Dictionary containing:
+            - 'data': The embedding array (n_timepoints, n_components)
+            - 'metadata': Dict with embedding parameters and settings
+            - 'timestamp': np.datetime64 when the embedding was stored
+            - 'shape': Tuple with shape of the embedding array
             
+        Raises
+        ------
+        ValueError
+            If data_type is not 'calcium' or 'spikes'.
+        KeyError
+            If no embedding found for the specified method and data type.
+            
+        Notes
+        -----
+        To see available embeddings, check exp.embeddings[data_type].keys().
+        The returned dictionary is a reference to the stored data, so
+        modifications will affect the stored embedding.
+            
+        Examples
+        --------
+        >>> # Retrieve a stored PCA embedding
+        >>> embedding_dict = exp.get_embedding('pca')
+        >>> embedding_data = embedding_dict['data']
+        >>> print(f"Embedding shape: {embedding_dict['shape']}")
+        >>> print(f"Created at: {embedding_dict['timestamp']}")
+        >>> 
+        >>> # Check available embeddings before retrieval
+        >>> available = list(exp.embeddings['calcium'].keys())
+        >>> print(f"Available embeddings: {available}")
+        
+        See Also
+        --------
+        store_embedding : Store embeddings in the experiment
+        create_embedding : Create and store embeddings in one step
+        
         DOC_VERIFIED
         """
         if data_type not in ["calcium", "spikes"]:
