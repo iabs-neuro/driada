@@ -2021,6 +2021,9 @@ class Experiment:
     ) -> np.ndarray:
         """
         Create dimensionality reduction embedding and store it.
+        
+        Note: This method modifies the experiment's state by storing the computed
+        embedding. Previous embeddings with the same method name will be overwritten.
 
         Parameters
         ----------
@@ -2089,6 +2092,12 @@ class Experiment:
                 neuron_indices = np.arange(self.n_cells)
         else:
             neuron_indices = np.array(neuron_selection)
+            # Validate neuron indices are within bounds
+            if len(neuron_indices) > 0:
+                if np.any(neuron_indices < 0) or np.any(neuron_indices >= self.n_cells):
+                    raise ValueError(
+                        f"Neuron indices must be in range [0, {self.n_cells-1}]"
+                    )
 
         # Get neural data - calcium and spikes are already MultiTimeSeries
         if data_type == "calcium":
@@ -2111,6 +2120,8 @@ class Experiment:
         ds = dr_kwargs.pop("ds", 1)  # Remove 'ds' from dr_kwargs
         if ds > 1:
             check_positive(ds=ds)
+            if not isinstance(ds, int):
+                raise ValueError("Downsampling factor 'ds' must be an integer")
             # Create downsampled MultiTimeSeries
             downsampled_data = multi_ts.data[:, ::ds]
             multi_ts = MultiTimeSeries(

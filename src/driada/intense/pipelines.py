@@ -427,8 +427,8 @@ def compute_cell_feat_significance(
     }
 
     intense_res = IntenseResults()
-    # intense_res.update('stats', computed_stats)
-    # intense_res.update('significance', computed_significance)
+    intense_res.update('stats', computed_stats)
+    intense_res.update('significance', computed_significance)
     intense_res.update("info", info)
     intense_res.update("intense_params", intense_params)
 
