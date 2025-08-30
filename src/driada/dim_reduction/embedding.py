@@ -163,6 +163,8 @@ class Embedding:
     ...     n_neighbors=15,
     ...     min_dist=0.1
     ... )
+    
+    DOC_VERIFIED
     """
 
     def __init__(self, init_data, init_distmat, labels, params, g=None):

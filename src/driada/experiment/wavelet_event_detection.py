@@ -790,9 +790,8 @@ def events_to_ts_array_numba(
     
     DOC_VERIFIED
     """
-    # Validate parameters
-    check_positive(length=length, ncells=ncells, fps=fps, 
-                  min_event_dur=min_event_dur, max_event_dur=max_event_dur)
+    # Note: Parameter validation is done in the wrapper function
+    # Cannot use check_positive inside numba-compiled functions
     
     # Validate arrays
     st_ev_inds_flat = np.asarray(st_ev_inds_flat)
@@ -873,6 +872,7 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     DOC_VERIFIED
     """
     # Validate parameters
+    from ..utils.data import check_positive
     check_positive(length=length, fps=fps)
     
     # Validate structure
@@ -901,6 +901,10 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     
     st_ev_inds_flat = np.concatenate([st_ev_inds[i] for i in range(ncells) if len(st_ev_inds[i]) > 0])
     end_ev_inds_flat = np.concatenate([end_ev_inds[i] for i in range(ncells) if len(end_ev_inds[i]) > 0])
+
+    # Validate parameters before calling numba function
+    check_positive(length=length, ncells=ncells, fps=fps, 
+                  min_event_dur=MIN_EVENT_DUR, max_event_dur=MAX_EVENT_DUR)
 
     # Call numba function
     return events_to_ts_array_numba(

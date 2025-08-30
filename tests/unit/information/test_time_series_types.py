@@ -344,7 +344,7 @@ class TestSubtypeDetection:
     def test_discrete_subtypes(self):
         """Test discrete subtype detection."""
         # Binary
-        props_binary = {"n_unique": 2, "fraction_integers": 1.0, "min": 0}
+        props_binary = {"n_unique": 2, "fraction_integers": 1.0, "uniqueness_ratio": 1.0}
         result_binary = _detect_discrete_subtype(np.array([0, 1]), props_binary)
         assert result_binary["subtype"] == "binary"
         assert result_binary["confidence"] == 1.0

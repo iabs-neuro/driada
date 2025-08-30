@@ -4,19 +4,57 @@ import numpy as np
 def generate_pseudo_calcium_signal(
     duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std
 ):
-    """
-    Generate a pseudo-calcium imaging signal with noise.
+    """Generate a pseudo-calcium imaging signal with noise.
+    
+    Simulates calcium imaging data by generating random calcium transient
+    events with exponential decay and adding Gaussian noise. Events are
+    generated using a Poisson process.
 
-    Parameters:
-    - duration: Total duration of the signal in seconds.
-    - sampling_rate: Sampling rate in Hz.
-    - event_rate: Average rate of calcium events per second.
-    - amplitude_range: Tuple of (min, max) for the amplitude of calcium events.
-    - decay_time: Time constant for the decay of calcium events in seconds.
-    - noise_std: Standard deviation of the Gaussian noise to be added.
+    Parameters
+    ----------
+    duration : float
+        Total duration of the signal in seconds.
+    sampling_rate : float
+        Sampling rate in Hz.
+    event_rate : float
+        Average rate of calcium events per second.
+    amplitude_range : tuple of float
+        Tuple of (min, max) for the amplitude of calcium events.
+    decay_time : float
+        Time constant for the exponential decay of calcium events in seconds.
+    noise_std : float
+        Standard deviation of the Gaussian noise to be added.
 
-    Returns:
-    - signal: Numpy array representing the pseudo-calcium signal.
+    Returns
+    -------
+    numpy.ndarray
+        1D array representing the pseudo-calcium signal.
+        
+    Notes
+    -----
+    The function generates calcium transients as instantaneous rises followed
+    by exponential decays. The number of events follows a Poisson distribution
+    with mean `event_rate * duration`. Event times are uniformly distributed
+    across the signal duration.
+    
+    Examples
+    --------
+    >>> signal = generate_pseudo_calcium_signal(
+    ...     duration=10.0,      # 10 seconds
+    ...     sampling_rate=30.0, # 30 Hz
+    ...     event_rate=2.0,     # 2 events per second on average
+    ...     amplitude_range=(0.5, 2.0),
+    ...     decay_time=1.0,     # 1 second decay
+    ...     noise_std=0.1
+    ... )
+    >>> signal.shape
+    (300,)
+    
+    See Also
+    --------
+    generate_pseudo_calcium_multisignal : Generate multiple calcium signals.
+    
+    DOC_VERIFIED
     """
     # Calculate number of samples
     num_samples = int(duration * sampling_rate)
@@ -34,10 +72,12 @@ def generate_pseudo_calcium_signal(
     # Add calcium events to the signal
     for t, a in zip(event_times, event_amplitudes):
         event_index = int(t * sampling_rate)
-        decay = np.exp(
-            -np.arange(num_samples - event_index) / (decay_time * sampling_rate)
-        )
-        signal[event_index:] += a * decay
+        # Ensure event_index is within bounds
+        if event_index < num_samples:
+            decay = np.exp(
+                -np.arange(num_samples - event_index) / (decay_time * sampling_rate)
+            )
+            signal[event_index:] += a * decay
 
     # Add Gaussian noise
     noise = np.random.normal(0, noise_std, num_samples)
@@ -92,6 +132,8 @@ def generate_pseudo_calcium_multisignal(
     ... )
     >>> signals.shape
     (10, 900)
+    
+    DOC_VERIFIED
     """
     sigs = []
     for i in range(n):

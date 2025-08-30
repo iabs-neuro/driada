@@ -1,0 +1,56 @@
+
+================================================================================
+DEBUGGING SPECIFIC FILES:
+================================================================================
+
+DEBUG ANALYSIS FOR: src/driada/intense/intense_base.py
+--------------------------------------------------------------------------------
+Total entities: 16
+Verified: 16
+Functions: 11, Classes: 1, Methods: 4
+
+Entity details:
+  ✅ function validate_time_series_bunches             (line 30)
+  ✅ function validate_metric                          (line 107)
+  ✅ function validate_common_parameters               (line 176)
+  ✅ function calculate_optimal_delays                 (line 232)
+  ✅ function calculate_optimal_delays_parallel        (line 315)
+  ✅ function get_calcium_feature_me_profile           (line 405)
+  ✅ function scan_pairs                               (line 568)
+  ✅ function scan_pairs_parallel                      (line 792)
+  ✅ function scan_pairs_router                        (line 939)
+  ✅ class    IntenseResults                           (line 1060)
+  ✅ method   IntenseResults.__init__                  (line 1094)
+  ✅ method   IntenseResults.update                    (line 1123)
+  ✅ method   IntenseResults.update_multiple           (line 1156)
+  ✅ method   IntenseResults.save_to_hdf5              (line 1189)
+  ✅ function compute_me_stats                         (line 1230)
+  ✅ function get_multicomp_correction_thr             (line 1760)
+
+DEBUG ANALYSIS FOR: src/driada/dimensionality/intrinsic.py
+--------------------------------------------------------------------------------
+Total entities: 3
+Verified: 3
+Functions: 3, Classes: 0, Methods: 0
+
+Entity details:
+  ✅ function nn_dimension                             (line 13)
+  ✅ function correlation_dimension                    (line 168)
+  ✅ function geodesic_dimension                       (line 292)
+
+================================================================================
+FULL REPORT:
+================================================================================
+========================================================================================================================
+DRIADA IMPROVED DOC_VERIFIED VERIFICATION REPORT
+Generated: 2025-08-30 20:36:41
+========================================================================================================================
+
+========================================================================================================================
+SUMMARY STATISTICS:
+------------------------------------------------------------------------------------------------------------------------
+Total files analyzed: 68
+Fully verified files: 68 (100.0%)
+Total entities: 580
+Verified entities: 580 (100.0%)
+Remaining entities: 0

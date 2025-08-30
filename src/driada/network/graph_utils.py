@@ -21,6 +21,17 @@ def get_giant_cc_from_graph(G):
         Subgraph containing only the nodes in the giant connected component.
         The returned graph type matches the input graph type.
 
+    Raises
+    ------
+    IndexError
+        If the graph has no nodes or no connected components.
+
+    See Also
+    --------
+    get_giant_scc_from_graph : Extract giant strongly connected component.
+    networkx.connected_components : Find all connected components.
+    networkx.weakly_connected_components : Find weakly connected components.
+
     Examples
     --------
     >>> import networkx as nx
@@ -28,6 +39,8 @@ def get_giant_cc_from_graph(G):
     >>> gcc = get_giant_cc_from_graph(G)
     >>> len(gcc) == len(G)  # Karate club is fully connected
     True
+    
+    DOC_VERIFIED
     """
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
     if nx.is_directed(G):
@@ -36,7 +49,6 @@ def get_giant_cc_from_graph(G):
         )
     else:
         connected_components = sorted(nx.connected_components(G), key=len, reverse=True)
-    # print([len(c) for c in connected_components])
     gcc = connected_components[0]
 
     return nx.subgraph(G, gcc)
@@ -63,6 +75,13 @@ def get_giant_scc_from_graph(G):
     ValueError
         If the input graph is undirected, as strongly connected components
         are only meaningful for directed graphs.
+    IndexError
+        If the graph has no nodes or no strongly connected components.
+
+    See Also
+    --------
+    get_giant_cc_from_graph : Extract giant connected component.
+    networkx.strongly_connected_components : Find all strongly connected components.
 
     Examples
     --------
@@ -71,6 +90,8 @@ def get_giant_scc_from_graph(G):
     >>> scc = get_giant_scc_from_graph(G)
     >>> sorted(scc.nodes())
     [1, 2, 3]
+    
+    DOC_VERIFIED
     """
     # for a directed graph, its largest strongly connected component is returned.
     if nx.is_directed(G):
@@ -105,6 +126,11 @@ def remove_selfloops_from_graph(graph):
         A deep copy of the input graph with all self-loops removed.
         The graph type matches the input.
 
+    See Also
+    --------
+    remove_isolates_and_selfloops_from_graph : Remove both isolates and self-loops.
+    networkx.selfloop_edges : Find all self-loop edges in a graph.
+
     Examples
     --------
     >>> import networkx as nx
@@ -112,6 +138,8 @@ def remove_selfloops_from_graph(graph):
     >>> G_clean = remove_selfloops_from_graph(G)
     >>> G_clean.number_of_edges()
     2
+    
+    DOC_VERIFIED
     """
     g = deepcopy(graph)  # NetworkX graphs are highly nested, deepcopy is safer
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
@@ -137,19 +165,30 @@ def remove_isolates_and_selfloops_from_graph(graph):
         A deep copy of the input graph with isolated nodes and self-loops removed.
         The graph type matches the input.
 
+    See Also
+    --------
+    remove_selfloops_from_graph : Remove only self-loops.
+    remove_isolates_from_graph : Remove only isolated nodes.
+    networkx.isolates : Find isolated nodes in a graph.
+    networkx.selfloop_edges : Find self-loop edges in a graph.
+
     Examples
     --------
     >>> import networkx as nx
-    >>> G = nx.Graph([(1, 1), (2, 3), (4, 4)])  # Node 4 is isolated with self-loop
-    >>> G.add_node(5)  # Add isolated node
+    >>> G = nx.Graph([(1, 1), (2, 3)])  # Node 1 has only a self-loop
+    >>> G.add_node(4)  # Add isolated node
     >>> G_clean = remove_isolates_and_selfloops_from_graph(G)
     >>> sorted(G_clean.nodes())
     [2, 3]
+    
+    DOC_VERIFIED
     """
     g = deepcopy(graph)  # NetworkX graphs are highly nested, deepcopy is safer
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
-    g.remove_nodes_from(list(nx.isolates(g)))
+    # First remove self-loops
     g.remove_edges_from(list(nx.selfloop_edges(g)))
+    # Then remove isolates (including nodes that became isolated after self-loop removal)
+    g.remove_nodes_from(list(nx.isolates(g)))
     return g
 
 
@@ -169,6 +208,11 @@ def remove_isolates_from_graph(graph):
         A deep copy of the input graph with all isolated nodes removed.
         The graph type matches the input.
 
+    See Also
+    --------
+    remove_isolates_and_selfloops_from_graph : Remove both isolates and self-loops.
+    networkx.isolates : Find isolated nodes in a graph.
+
     Examples
     --------
     >>> import networkx as nx
@@ -177,6 +221,8 @@ def remove_isolates_from_graph(graph):
     >>> G_clean = remove_isolates_from_graph(G)
     >>> sorted(G_clean.nodes())
     [1, 2, 3]
+    
+    DOC_VERIFIED
     """
     g = deepcopy(graph)  # NetworkX graphs are highly nested, deepcopy is safer
     g.remove_nodes_from(list(nx.isolates(g)))
@@ -211,8 +257,16 @@ def small_world_index(G, nrand=10, null_model="erdos-renyi"):
 
     Raises
     ------
-    Exception
+    NotImplementedError
         If 'maslov-sneppen' null model is requested (not implemented).
+    networkx.NetworkXError
+        If the input graph is not connected.
+
+    See Also
+    --------
+    networkx.average_clustering : Compute average clustering coefficient.
+    networkx.average_shortest_path_length : Compute average shortest path length.
+    networkx.watts_strogatz_graph : Generate small-world graphs.
 
     Notes
     -----
@@ -226,6 +280,8 @@ def small_world_index(G, nrand=10, null_model="erdos-renyi"):
     >>> sw = small_world_index(G, nrand=5)
     >>> sw > 1  # Should be True for small-world networks
     True
+    
+    DOC_VERIFIED
     """
     asp = nx.average_shortest_path_length(G)
     acc = nx.average_clustering(G)
@@ -236,7 +292,7 @@ def small_world_index(G, nrand=10, null_model="erdos-renyi"):
     while i < nrand:
         if null_model == "maslov-sneppen":
             # ar = adj_random_rewiring_iom_preserving(sp.csr_array(data), is_weighted=True).todense()
-            raise Exception("not implemented yet")
+            raise NotImplementedError("Maslov-Sneppen null model not implemented yet")
 
         elif null_model == "erdos-renyi":
             n = G.number_of_nodes()

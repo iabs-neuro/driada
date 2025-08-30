@@ -57,11 +57,30 @@ class Capturing(list):
     DOC_VERIFIED
     """
     def __enter__(self):
+        """Enter the context manager and start capturing stdout.
+        
+        Returns
+        -------
+        Capturing
+            Returns self to allow access to the captured output.
+            
+        DOC_VERIFIED
+        """
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
         return self
 
     def __exit__(self, *args):
+        """Exit the context manager and restore stdout.
+        
+        Parameters
+        ----------
+        *args
+            Exception information (type, value, traceback) if any.
+            These are ignored, allowing exceptions to propagate.
+            
+        DOC_VERIFIED
+        """
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio  # free up some memory
         sys.stdout = self._stdout

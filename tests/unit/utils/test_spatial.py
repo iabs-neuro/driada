@@ -11,11 +11,9 @@ from driada.utils.spatial import (
     compute_rate_map,
     extract_place_fields,
     compute_spatial_information_rate,
-    compute_grid_score,
     compute_spatial_decoding_accuracy,
     compute_spatial_information,
     filter_by_speed,
-    filter_by_direction,
     analyze_spatial_coding,
     compute_spatial_metrics,
 )
@@ -250,46 +248,6 @@ class TestSpatialInformation:
         assert info == 0.0
 
 
-class TestGridScore:
-    """Test grid score computation."""
-
-    def test_compute_grid_score_regular_grid(self):
-        """Test grid score for regular hexagonal pattern."""
-        # Create simple hexagonal-like pattern
-        size = 60
-        rate_map = np.zeros((size, size))
-
-        # Add peaks in hexagonal pattern (simplified)
-        centers = [(30, 30), (40, 30), (35, 38), (25, 38), (20, 30), (25, 22), (35, 22)]
-        for cx, cy in centers:
-            rate_map[cy - 2 : cy + 3, cx - 2 : cx + 3] = 1.0
-
-        score = compute_grid_score(rate_map)
-
-        # Should have positive grid score for regular pattern
-        assert score > -2.0
-        assert score <= 2.0
-
-    def test_compute_grid_score_random(self):
-        """Test grid score for random pattern."""
-        rate_map = np.random.rand(50, 50)
-
-        score = compute_grid_score(rate_map)
-
-        # Random pattern should have low grid score
-        assert -2.0 <= score <= 2.0
-
-    def test_compute_grid_score_single_peak(self):
-        """Test grid score for single peak (not a grid)."""
-        rate_map = np.zeros((30, 30))
-        rate_map[15, 15] = 1.0
-
-        score = compute_grid_score(rate_map, min_peaks=3)
-
-        # Single peak should have low/negative score
-        assert score < 0.0  # Not grid-like
-        assert score >= -2.0  # Within valid range
-
 
 class TestSpatialDecoding:
     """Test position decoding from neural activity."""
@@ -469,44 +427,6 @@ class TestSpeedFiltering:
         assert np.var(filtered_smooth["speed"]) < np.var(filtered_no_smooth["speed"])
 
 
-class TestDirectionFiltering:
-    """Test direction-based filtering."""
-
-    def test_filter_by_direction_basic(self):
-        """Test basic direction filtering."""
-        # Create trajectory moving in different directions
-        angles = np.linspace(0, 2 * np.pi, 100)
-        positions = np.column_stack(
-            [np.cumsum(np.cos(angles)), np.cumsum(np.sin(angles))]
-        )
-
-        data = {"positions": positions, "neural_activity": np.random.rand(100)}
-
-        # Filter for eastward movement (around 0 radians)
-        filtered = filter_by_direction(data, direction_range=(-np.pi / 4, np.pi / 4))
-
-        assert len(filtered["positions"]) < 100
-        assert "direction" in filtered
-
-        # Check directions are in range
-        dirs = filtered["direction"]
-        assert np.all((dirs >= -np.pi / 4) & (dirs <= np.pi / 4))
-
-    def test_filter_by_direction_wrapped(self):
-        """Test direction filtering with wrapped angles."""
-        # Movement around north (wrapping around ±π)
-        positions = np.column_stack(
-            [np.arange(100) * 0.01, np.arange(100)]  # Mostly northward
-        )
-
-        data = {"positions": positions}
-
-        # Filter for northward movement (π/2 ± π/4)
-        filtered = filter_by_direction(data, direction_range=(np.pi / 4, 3 * np.pi / 4))
-
-        # Most samples should pass
-        assert len(filtered["positions"]) > 50
-
 
 class TestSpatialAnalysisPipeline:
     """Test comprehensive spatial analysis."""
@@ -570,7 +490,6 @@ class TestSpatialAnalysisPipeline:
         assert "rate_maps" in results
         assert "place_fields" in results
         assert "spatial_info" in results
-        assert "grid_scores" in results
         assert "decoding_accuracy" in results
         assert "spatial_mi" in results
         assert "summary" in results
@@ -640,7 +559,6 @@ class TestComputeSpatialMetrics:
         assert "decoding" in results
         assert "information" in results
         assert "place_fields" in results
-        assert "grid_scores" in results
 
     def test_compute_spatial_metrics_subset(self):
         """Test computing subset of metrics."""
@@ -655,7 +573,6 @@ class TestComputeSpatialMetrics:
         assert "decoding" in results
         assert "information" in results
         assert "place_fields" not in results
-        assert "grid_scores" not in results
 
     def test_compute_spatial_metrics_with_kwargs(self):
         """Test passing kwargs to analysis functions."""

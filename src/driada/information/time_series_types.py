@@ -395,8 +395,7 @@ def _extract_statistical_properties(data: np.ndarray) -> Dict[str, float]:
 def _detect_periodicity(
     data: np.ndarray, properties: Dict[str, float], name: Optional[str] = None
 ) -> Dict[str, Union[float, None]]:
-    """
-    Detect general periodicity in time series (not necessarily circular).
+    """Detect general periodicity in time series (not necessarily circular).
     
     Analyzes a time series to identify periodic patterns using autocorrelation
     and Fourier analysis. This function detects any repeating patterns, whether
@@ -420,6 +419,19 @@ def _detect_periodicity(
         - 'period': Detected period length in samples, or None if no period found
         - 'confidence': Confidence score [0, 1] for the periodicity detection
         
+    Raises
+    ------
+    KeyError
+        If properties dict is missing 'max_autocorr' key.
+    ValueError
+        If data array is empty or if autocorrelation computation fails.
+        
+    See Also
+    --------
+    _detect_circular : Detects if data represents circular quantities.
+    scipy.signal.correlate : Used for autocorrelation analysis.
+    scipy.signal.find_peaks : Used to find periodic peaks.
+        
     Notes
     -----
     The function uses two complementary approaches:
@@ -429,12 +441,22 @@ def _detect_periodicity(
        clean signals with strong periodicity.
     
     Requires at least 20 samples for basic analysis and 50 for FFT analysis.
+    
+    DOC_VERIFIED
     """
     result = {"period": None, "confidence": 0.0}
-
+    
+    # Validate input
+    if len(data) == 0:
+        raise ValueError("Data array is empty")
+    
     if len(data) < 20:
         return result
 
+    # Check for required key
+    if "max_autocorr" not in properties:
+        raise KeyError("properties dict must contain 'max_autocorr' key")
+    
     # Autocorrelation analysis
     if properties["max_autocorr"] > 0.7:
         # Find the lag with maximum autocorrelation
@@ -745,8 +767,7 @@ def _detect_primary_type(
 def _detect_discrete_subtype(
     data: np.ndarray, properties: Dict[str, float]
 ) -> Dict[str, Union[str, float]]:
-    """
-    Detect discrete subtype for discrete time series data.
+    """Detect discrete subtype for discrete time series data.
     
     Classifies discrete data into specific subtypes based on characteristics
     like number of unique values, monotonicity, and spacing patterns.
@@ -756,8 +777,10 @@ def _detect_discrete_subtype(
     data : np.ndarray
         Time series data array already identified as discrete.
     properties : Dict[str, float]
-        Pre-computed properties with keys: 'n_unique', 'fraction_integers',
-        'uniqueness_ratio'.
+        Pre-computed properties with required keys: 
+        - 'n_unique': Number of unique values
+        - 'fraction_integers': Fraction of integer values
+        - 'uniqueness_ratio': Ratio of unique values to total samples
         
     Returns
     -------
@@ -769,7 +792,13 @@ def _detect_discrete_subtype(
     Raises
     ------
     KeyError
-        If properties dict is missing required keys.
+        If properties dict is missing any of the required keys: 'n_unique',
+        'fraction_integers', or 'uniqueness_ratio'.
+        
+    See Also
+    --------
+    _detect_primary_type : Parent function that determines if data is discrete.
+    _detect_continuous_subtype : Analogous function for continuous data.
         
     Notes
     -----
@@ -778,7 +807,15 @@ def _detect_discrete_subtype(
     2. Count: Monotonically non-decreasing integers (confidence=0.95)
     3. Timeline: Regularly spaced values with high uniqueness (confidence=0.95)
     4. Categorical: Default for other discrete data (confidence=0.8)
+    
+    DOC_VERIFIED
     """
+    # Check for required keys
+    required_keys = ['n_unique', 'fraction_integers', 'uniqueness_ratio']
+    missing_keys = [key for key in required_keys if key not in properties]
+    if missing_keys:
+        raise KeyError(f"properties dict missing required keys: {missing_keys}")
+    
     n_unique = properties["n_unique"]
     unique_vals = np.unique(data)
 

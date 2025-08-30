@@ -29,8 +29,14 @@ def renyi_divergence(A, B, q):
 
     Raises
     ------
-    Exception
+    ValueError
         If q <= 0.
+        If A and B have different shapes or are not square matrices.
+
+    See Also
+    --------
+    js_divergence : Quantum Jensen-Shannon divergence.
+    manual_entropy : Shannon/von Neumann entropy calculation.
 
     Notes
     -----
@@ -53,9 +59,11 @@ def renyi_divergence(A, B, q):
     >>> rho = np.array([[0.7, 0.1], [0.1, 0.3]])
     >>> sigma = np.array([[0.5, 0.0], [0.0, 0.5]])
     >>> div = renyi_divergence(rho, sigma, q=0.5)
+    
+    DOC_VERIFIED
     """
     if q <= 0:
-        raise Exception("q must be >0")
+        raise ValueError("q must be > 0")
     elif q == 1:
         answer = np.trace(
             np.dot(A, (scipy.linalg.logm(A) - scipy.linalg.logm(B)) / np.log(2.0))
@@ -85,10 +93,10 @@ def get_density_matrix(A, t, norm=0):
     Parameters
     ----------
     A : numpy.ndarray
-        Adjacency matrix of the graph.
+        Adjacency matrix of the graph (must be square).
     t : float
         Inverse temperature parameter β (also interpreted as time).
-        Controls the "quantumness" of the state.
+        Controls the "quantumness" of the state. Must be positive.
     norm : int, optional
         If 1, use normalized Laplacian. If 0, use regular Laplacian.
         Default is 0.
@@ -98,6 +106,18 @@ def get_density_matrix(A, t, norm=0):
     numpy.ndarray
         Density matrix ρ = exp(-tL) / Z(t), where L is the Laplacian
         and Z(t) = Tr[exp(-tL)] is the partition function.
+
+    Raises
+    ------
+    ValueError
+        If A is not square or t is not positive.
+
+    See Also
+    --------
+    renyi_divergence : Uses density matrices for divergence calculation.
+    js_divergence : Uses density matrices for network comparison.
+    get_laplacian : Computes graph Laplacian.
+    get_norm_laplacian : Computes normalized Laplacian.
 
     Notes
     -----
@@ -118,6 +138,8 @@ def get_density_matrix(A, t, norm=0):
     >>> rho = get_density_matrix(A, t=1.0)
     >>> np.trace(rho)  # Trace should be 1
     1.0
+    
+    DOC_VERIFIED
     """
     A = A.astype(float)
     if norm:
@@ -140,17 +162,32 @@ def manual_entropy(pr):
     Parameters
     ----------
     pr : numpy.ndarray
-        Probability distribution (should sum to 1).
+        Probability distribution. Non-negative values that should sum to 1.
+        Can also be eigenvalues of a density matrix for von Neumann entropy.
 
     Returns
     -------
     float
         Shannon entropy in bits.
 
+    See Also
+    --------
+    scipy.stats.entropy : Alternative implementation.
+    renyi_divergence : Generalized entropy measure.
+    js_divergence : Uses this for von Neumann entropy calculation.
+
     Notes
     -----
     The function filters out zero values and very small values (< 1e-15)
     to avoid numerical issues with logarithms.
+    
+    For quantum states, this computes the von Neumann entropy when given
+    eigenvalues of a density matrix: S(ρ) = -Σᵢ λᵢ log₂(λᵢ).
+
+    References
+    ----------
+    Shannon, C.E. (1948). A mathematical theory of communication.
+    Bell System Technical Journal, 27(3), 379-423.
 
     Examples
     --------
@@ -158,6 +195,8 @@ def manual_entropy(pr):
     >>> H = manual_entropy(pr)
     >>> np.isclose(H, 1.0)  # Maximum entropy for 2 equiprobable states
     True
+    
+    DOC_VERIFIED
     """
     probs = np.trim_zeros(pr)
     probs = probs[np.where(probs > 1e-15)]
@@ -173,11 +212,12 @@ def js_divergence(A, B, t, return_partial_entropies=True):
     Parameters
     ----------
     A : numpy.ndarray
-        Adjacency matrix of first graph.
+        Adjacency matrix of first graph (must be square).
     B : numpy.ndarray
-        Adjacency matrix of second graph (same size as A).
+        Adjacency matrix of second graph (must be same shape as A).
     t : float
         Inverse temperature parameter β for density matrix computation.
+        Must be positive.
     return_partial_entropies : bool, optional
         If True, return individual entropies along with JS divergence.
         Default is True.
@@ -185,9 +225,20 @@ def js_divergence(A, B, t, return_partial_entropies=True):
     Returns
     -------
     float or tuple
-        If return_partial_entropies=False: QJSD value.
+        If return_partial_entropies=False: Square root of QJSD value.
         If return_partial_entropies=True: tuple of
-        (S(ρ_mix), S(ρ_A), S(ρ_B), QJSD).
+        (S(ρ_mix), S(ρ_A), S(ρ_B), sqrt(QJSD)).
+
+    Raises
+    ------
+    ValueError
+        If A and B have different shapes or are not square matrices.
+
+    See Also
+    --------
+    renyi_divergence : Alternative quantum divergence measure.
+    get_density_matrix : Used to compute density matrices.
+    manual_entropy : Used for von Neumann entropy calculation.
 
     Notes
     -----
@@ -196,12 +247,14 @@ def js_divergence(A, B, t, return_partial_entropies=True):
     
     where S(ρ) = -Tr(ρ log₂ ρ) is the von Neumann entropy.
     
-    The square root of QJSD has been proven to be a metric on the
-    quantum state space. This measure quantifies the distinguishability
-    between two network structures in a quantum information context.
-
-    Returns 0 if calculation results in negative values due to
-    numerical precision issues (which can occur for very similar graphs).
+    **Important**: This function returns the SQUARE ROOT of QJSD, which is
+    a proper metric on the quantum state space. To get the divergence itself,
+    square the returned value.
+    
+    The function quantifies the distinguishability between two network
+    structures in a quantum information context. Returns 0 if calculation
+    results in negative values due to numerical precision issues (which
+    can occur for very similar graphs).
 
     References
     ----------
@@ -215,6 +268,8 @@ def js_divergence(A, B, t, return_partial_entropies=True):
     >>> js_div = js_divergence(A, B, t=1.0, return_partial_entropies=False)
     >>> js_div  # Should be 0 for identical graphs
     0.0
+    
+    DOC_VERIFIED
     """
     X = get_density_matrix(A, t)
     Y = get_density_matrix(B, t)

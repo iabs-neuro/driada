@@ -1,0 +1,110 @@
+========================================================================================================================
+DRIADA IMPROVED DOC_VERIFIED VERIFICATION REPORT
+Generated: 2025-08-30 16:51:36
+========================================================================================================================
+
+📋 FILES NEEDING ATTENTION:
+------------------------------------------------------------------------------------------------------------------------
+
+dim_reduction/embedding.py - 1 entities need DOC_VERIFIED:
+  ❌ class    Embedding                                (line 29)
+
+information/time_series_types.py - 2 entities need DOC_VERIFIED:
+  ❌ function _detect_periodicity                      (line 395)
+  ❌ function _detect_discrete_subtype                 (line 745)
+
+network/quantum.py - 4 entities need DOC_VERIFIED:
+  ❌ function renyi_divergence                         (line 8)
+  ❌ function get_density_matrix                       (line 79)
+  ❌ function manual_entropy                           (line 134)
+  ❌ function js_divergence                            (line 167)
+
+network/spectral.py - 3 entities need DOC_VERIFIED:
+  ❌ function free_entropy                             (line 4)
+  ❌ function q_entropy                                (line 41)
+  ❌ function spectral_entropy                         (line 109)
+
+utils/output.py - 2 entities need DOC_VERIFIED:
+  ❌ method   Capturing.__enter__                      (line 59)
+  ❌ method   Capturing.__exit__                       (line 64)
+
+utils/gif.py - 3 entities need DOC_VERIFIED:
+  ❌ function erase_all                                (line 9)
+  ❌ function save_image_series                        (line 32)
+  ❌ function create_gif_from_image_series             (line 56)
+
+utils/jit.py - 3 entities need DOC_VERIFIED:
+  ❌ function conditional_njit                         (line 51)
+  ❌ function is_jit_enabled                           (line 90)
+  ❌ function jit_info                                 (line 128)
+
+utils/matrix.py - 2 entities need DOC_VERIFIED:
+  ❌ function nearestPD                                (line 5)
+  ❌ function is_positive_definite                     (line 48)
+
+utils/naming.py - 1 entities need DOC_VERIFIED:
+  ❌ function construct_session_name                   (line 1)
+
+utils/neural.py - 2 entities need DOC_VERIFIED:
+  ❌ function generate_pseudo_calcium_signal           (line 4)
+  ❌ function generate_pseudo_calcium_multisignal      (line 49)
+
+utils/plot.py - 3 entities need DOC_VERIFIED:
+  ❌ function make_beautiful                           (line 12)
+  ❌ function create_default_figure                    (line 83)
+  ❌ function plot_mat                                 (line 138)
+
+========================================================================================================================
+SUMMARY STATISTICS:
+------------------------------------------------------------------------------------------------------------------------
+Total files analyzed: 68
+Fully verified files: 57 (83.8%)
+Total entities: 580
+Verified entities: 554 (95.5%)
+Remaining entities: 26
+
+========================================================================================================================
+PROGRESS HISTORY:
+------------------------------------------------------------------------------------------------------------------------
+
+BATCH 1 (COMPLETED): RSA Core Module - 5 functions
+- rsa/core.py: compute_rdm, compute_rdm_movie, compute_ssm_matrix, correlate_rdms, correlate_rdms_with_target
+
+BATCH 2 (COMPLETED): RSA Rest Module - 7 functions  
+- rsa/visual.py: rdm_plot, mds_plot, dendrogram_plot, model_comparison_plot, plot_model_fits
+- rsa/distances.py: mahalanobis_distance, noise_ceiling_distance
+- rsa/integration.py: cross_validated_fit, leave_one_out_fit
+- rsa/losses.py: squared_deviation
+- rsa/core_jit.py: compute_ssm_matrix_indexed_parallel
+
+BATCH 3 (COMPLETED): Network Randomization - 7 functions
+- network/randomization.py: _validate_adjacency_matrix, adj_random_rewiring_iom_preserving, 
+  random_rewiring_complete_graph, random_rewiring_dense_graph, get_single_double_edges_lists,
+  random_rewiring_IOM_preserving, randomize_graph
+
+BATCH 4 (COMPLETED): Network Graph Utils - 6 functions
+- network/graph_utils.py: get_giant_cc_from_graph, get_giant_scc_from_graph, remove_selfloops_from_graph,
+  remove_isolates_and_selfloops_from_graph, remove_isolates_from_graph, small_world_index
+- Fixed bug in remove_isolates_and_selfloops_from_graph
+- Created comprehensive test suite (34 tests, 98.21% coverage)
+
+========================================================================================================================
+RECENT ACHIEVEMENTS:
+------------------------------------------------------------------------------------------------------------------------
+
+1. Fixed critical DOC_VERIFIED placement bug affecting 14 instances across 11 files
+2. Achieved 95.5% documentation coverage (554/580 entities)
+3. Completed full documentation for RSA module (100%)
+4. Completed full documentation for Network randomization and graph_utils modules
+5. Created comprehensive test coverage for graph_utils.py (0% → 98.21%)
+
+========================================================================================================================
+NEXT STEPS:
+------------------------------------------------------------------------------------------------------------------------
+
+BATCH 5: Network Rest (4 functions from quantum.py)
+BATCH 6: Network Final (3 functions from spectral.py) 
+BATCH 7: Information & Plot (2 from time_series_types.py + 3 from plot.py)
+BATCH 8: Utils JIT & Matrix (3 from jit.py + 2 from matrix.py)
+BATCH 9: Utils GIF & Neural (3 from gif.py + 2 from neural.py)
+BATCH 10: Utils Final (2 from output.py + 1 from naming.py + 1 from embedding.py)

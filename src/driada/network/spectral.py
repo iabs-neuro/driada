@@ -1,4 +1,5 @@
 import numpy as np
+from ..utils.data import check_positive
 
 
 def free_entropy(spectrum, t):
@@ -19,6 +20,17 @@ def free_entropy(spectrum, t):
     float
         Free entropy F = log2(Z), where Z is the partition function.
 
+    Raises
+    ------
+    ValueError
+        If spectrum is empty, if t is not positive, or if all exponentials 
+        underflow to zero (partition function becomes zero).
+
+    See Also
+    --------
+    q_entropy : Rényi q-entropy from spectrum.
+    spectral_entropy : Von Neumann entropy from spectrum.
+
     Notes
     -----
     Based on equation 2 in https://www.nature.com/articles/s42005-021-00582-8#Sec10
@@ -31,10 +43,25 @@ def free_entropy(spectrum, t):
     >>> F = free_entropy(spectrum, t=1.0)
     >>> F > 0  # Free entropy is typically positive
     True
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    spectrum = np.asarray(spectrum)
+    if spectrum.size == 0:
+        raise ValueError("Spectrum array cannot be empty")
+    check_positive(t=t)
+    
     # eq.2 in https://www.nature.com/articles/s42005-021-00582-8#Sec10
     eigenvalues = np.exp(-t * spectrum)
-    F = np.log2(np.real(np.sum(eigenvalues)))
+    Z = np.sum(eigenvalues)
+    
+    # Check for underflow
+    if Z <= 0 or not np.isfinite(Z):
+        raise ValueError(f"Partition function underflow: Z = {Z}. "
+                        "This can happen with large positive eigenvalues and large t.")
+    
+    F = np.log2(np.real(Z))
     return F
 
 
@@ -61,8 +88,14 @@ def q_entropy(spectrum, t, q=1):
 
     Raises
     ------
-    Exception
-        If q <= 0 or if imaginary entropy is detected.
+    ValueError
+        If spectrum is empty, if t is not positive, if q <= 0, or if 
+        imaginary entropy is detected.
+
+    See Also
+    --------
+    free_entropy : Free entropy from spectrum.
+    spectral_entropy : Von Neumann entropy (q=1 case).
 
     Notes
     -----
@@ -88,20 +121,24 @@ def q_entropy(spectrum, t, q=1):
     --------
     >>> spectrum = np.array([0, 1, 2, 3])
     >>> S = q_entropy(spectrum, t=1.0, q=2)  # Rényi 2-entropy
+    
+    DOC_VERIFIED
     """
-
-    if q <= 0:
-        raise Exception("q must be >0")
+    # Input validation
+    spectrum = np.asarray(spectrum)
+    if spectrum.size == 0:
+        raise ValueError("Spectrum array cannot be empty")
+    check_positive(t=t, q=q)
+    
+    Z = np.sum(np.exp(-t * spectrum))
+    if q != 1:
+        eigenvalues = np.exp(-t * q * spectrum)
+        S = 1 / (1 - q) * np.log2(Z ** (-q) * np.sum(eigenvalues))
     else:
-        Z = np.sum(np.exp(-t * spectrum))
-        if q != 1:
-            eigenvalues = np.exp(-t * q * spectrum)
-            S = 1 / (1 - q) * np.log2(Z ** (-q) * np.sum(eigenvalues))
-        else:
-            S = spectral_entropy(spectrum, t, verbose=0)
+        S = spectral_entropy(spectrum, t, verbose=0)
 
     if np.imag(S) != 0:
-        raise Exception(f"Imaginary entropy detected: t={t}, q={q}, S={S}!")
+        raise ValueError(f"Imaginary entropy detected: t={t}, q={q}, S={S}!")
 
     return S
 
@@ -127,6 +164,17 @@ def spectral_entropy(spectrum, t, verbose=0):
         Von Neumann entropy S = -sum(p_i * log2(p_i)), where 
         p_i = exp(-t*λ_i) / Z and Z = sum(exp(-t*λ_i)).
 
+    Raises
+    ------
+    ValueError
+        If spectrum is empty, if t is not positive, or if partition function
+        is zero (all probabilities underflow).
+
+    See Also
+    --------
+    q_entropy : Generalized Rényi entropy (reduces to this for q=1).
+    free_entropy : Related free energy measure.
+
     Notes
     -----
     For a density matrix ρ = exp(-tL)/Z derived from Laplacian L with
@@ -150,9 +198,29 @@ def spectral_entropy(spectrum, t, verbose=0):
     >>> S = spectral_entropy(spectrum, t=1.0)
     >>> 0 <= S <= np.log2(len(spectrum))  # Entropy bounds
     True
+    
+    DOC_VERIFIED
     """
+    # Input validation
+    spectrum = np.asarray(spectrum)
+    if spectrum.size == 0:
+        raise ValueError("Spectrum array cannot be empty")
+    check_positive(t=t)
+    
     eigenvalues = np.exp(-t * spectrum)
-    norm_eigenvalues = np.trim_zeros(eigenvalues / np.sum(eigenvalues))
+    Z = np.sum(eigenvalues)
+    
+    # Check for underflow
+    if Z <= 0 or not np.isfinite(Z):
+        raise ValueError(f"Partition function underflow: Z = {Z}. "
+                        "This can happen with large positive eigenvalues and large t.")
+    
+    norm_eigenvalues = np.trim_zeros(eigenvalues / Z)
+    
+    # Handle edge case where all probabilities are trimmed
+    if len(norm_eigenvalues) == 0:
+        return 0.0
+    
     S = -np.real(np.sum(np.multiply(norm_eigenvalues, np.log2(norm_eigenvalues))))
 
     if verbose:
