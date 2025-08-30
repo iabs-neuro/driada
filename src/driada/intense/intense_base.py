@@ -1413,8 +1413,8 @@ def compute_me_stats(
     - For stage2, the final mask combines stage1 results with precomputed_mask_stage2
       using logical AND.
     - Input masks are never modified; copies are created when needed.
-    
     DOC_VERIFIED
+    
     """
 
     # FUTURE: add automatic min_shifts from autocorrelation time

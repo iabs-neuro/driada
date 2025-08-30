@@ -154,8 +154,8 @@ def generate_synthetic_data(
     ...     nfeats=2, nneurons=5, ftype='d', 
     ...     pregenerated_features=prefeats
     ... )
-    
     DOC_VERIFIED
+    
     """
     # Input validation
     check_nonnegative(nfeats=nfeats, nneurons=nneurons, duration=duration, 

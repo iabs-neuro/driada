@@ -533,8 +533,8 @@ class Network:
     - 'rwlap': Random walk Laplacian (undirected only)
     - 'lap_out': Out-Laplacian (directed only)
     - 'lap_in': In-Laplacian (directed only)
-    
     DOC_VERIFIED
+    
     """
 
     def __init__(

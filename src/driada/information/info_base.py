@@ -149,8 +149,8 @@ class TimeSeries:
     >>> mask = np.ones(1000, dtype=bool)
     >>> mask[:100] = False  # Invalid positions at start
     >>> ts_masked = TimeSeries(data, shuffle_mask=mask)
-    
     DOC_VERIFIED
+    
     """
     @staticmethod
     def define_ts_type(ts):

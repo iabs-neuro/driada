@@ -49,6 +49,8 @@ def plot_rdm(
     -------
     fig : matplotlib.Figure
         The figure object
+        
+    DOC_VERIFIED
     """
     n_items = rdm.shape[0]
 
@@ -182,6 +184,8 @@ def plot_rdm_comparison(
     -------
     fig : matplotlib.Figure
         The figure object
+        
+    DOC_VERIFIED
     """
     n_rdms = len(rdms)
     

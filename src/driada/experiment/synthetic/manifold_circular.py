@@ -498,8 +498,8 @@ def generate_circular_manifold_exp(
     ...     return_info=True
     ... )
     >>> preferred_dirs = info['preferred_directions']
-    
     DOC_VERIFIED
+    
     """
     # Input validation
     check_positive(n_neurons=n_neurons, duration=duration, fps=fps, kappa=kappa, 

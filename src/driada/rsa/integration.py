@@ -23,11 +23,15 @@ def compute_experiment_rdm(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute RDM from Experiment object using specified item definition.
+    
+    Extracts neural data from a DRIADA Experiment and computes the
+    representational dissimilarity matrix based on either behavioral
+    variables or explicit trial structure.
 
     Parameters
     ----------
     experiment : Experiment
-        DRIADA Experiment object
+        DRIADA Experiment object containing neural data
     items : str or dict
         How to define items/conditions:
         - str: name of dynamic feature to use as condition labels
@@ -42,21 +46,44 @@ def compute_experiment_rdm(
     Returns
     -------
     rdm : np.ndarray
-        Representational dissimilarity matrix
+        Representational dissimilarity matrix of shape (n_conditions, n_conditions)
     labels : np.ndarray
         The unique labels/conditions in the order they appear in RDM
+        
+    Raises
+    ------
+    ValueError
+        If experiment has no data of the specified type.
+        If dynamic feature name not found in experiment.
+        If trial structure dict missing required keys.
+        If items is not str or dict.
+        
+    Notes
+    -----
+    When using dynamic features, the function extracts the feature data
+    and uses it as condition labels for each timepoint. When using trial
+    structure, explicit trial boundaries and labels are provided.
 
     Examples
     --------
-    # Option 1: Use behavioral variable as conditions
-    rdm, labels = compute_experiment_rdm(exp, items='stimulus_type')
+    >>> # Use behavioral variable as conditions
+    >>> rdm, labels = compute_experiment_rdm(exp, items='stimulus_type')
+    >>> print(f"RDM shape: {rdm.shape}, conditions: {labels}")
 
-    # Option 2: Use explicit trial structure
-    trial_info = {
-        'trial_starts': [0, 100, 200, 300],
-        'trial_labels': ['A', 'B', 'A', 'C']
-    }
-    rdm, labels = compute_experiment_rdm(exp, items=trial_info)
+    >>> # Use explicit trial structure
+    >>> trial_info = {
+    ...     'trial_starts': [0, 100, 200, 300],
+    ...     'trial_labels': ['A', 'B', 'A', 'C']
+    ... }
+    >>> rdm, labels = compute_experiment_rdm(exp, items=trial_info)
+    
+    See Also
+    --------
+    compute_rdm_from_timeseries_labels : Lower-level function for labeled data
+    compute_rdm_from_trials : Lower-level function for trial structure
+    compute_rdm_unified : Unified interface for all data types
+    
+    DOC_VERIFIED
     """
     # Get neural data
     if data_type == "calcium":
@@ -123,24 +150,50 @@ def compute_mvdata_rdm(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute RDM from MVData object with condition labels.
+    
+    Extracts data from MVData object and computes representational
+    dissimilarity matrix based on provided condition labels.
 
     Parameters
     ----------
     mvdata : MVData
-        MVData object containing data matrix
+        MVData object containing data matrix of shape (n_features, n_timepoints)
     labels : np.ndarray
-        Condition labels for each timepoint
+        Condition labels for each timepoint, shape (n_timepoints,)
     metric : str, default 'correlation'
-        Distance metric for RDM computation
+        Distance metric for RDM computation ('correlation', 'euclidean',
+        'cosine', 'manhattan')
     average_method : str, default 'mean'
-        How to average within conditions
+        How to average within conditions ('mean' or 'median')
 
     Returns
     -------
     rdm : np.ndarray
-        Representational dissimilarity matrix
+        Representational dissimilarity matrix of shape (n_conditions, n_conditions)
     unique_labels : np.ndarray
         The unique labels in order as they appear in RDM
+        
+    Notes
+    -----
+    This is a thin wrapper around compute_rdm_from_timeseries_labels that
+    extracts data from MVData objects. MVData stores data in the expected
+    format (n_features, n_timepoints).
+    
+    Examples
+    --------
+    >>> # Create MVData and compute RDM
+    >>> data = np.random.randn(100, 500)  # 100 features, 500 timepoints
+    >>> mvdata = MVData(data)
+    >>> labels = np.repeat(['A', 'B', 'C'], [150, 200, 150])
+    >>> rdm, unique_labels = compute_mvdata_rdm(mvdata, labels)
+    >>> print(f"RDM shape: {rdm.shape}, conditions: {unique_labels}")
+    
+    See Also
+    --------
+    compute_rdm_from_timeseries_labels : Core function this wraps
+    compute_rdm_unified : Unified interface for all data types
+    
+    DOC_VERIFIED
     """
     # MVData stores data as (n_features, n_timepoints)
     data = mvdata.data
@@ -162,24 +215,30 @@ def rsa_between_experiments(
     n_bootstrap: int = 1000,
 ) -> Union[float, Dict]:
     """
-    Perform RSA between two experiments.
+    Perform RSA comparison between two experiments.
+    
+    Computes representational dissimilarity matrices for both experiments
+    and quantifies their similarity. Optionally performs bootstrap analysis
+    for statistical inference.
 
     Parameters
     ----------
     exp1 : Experiment
         First experiment
     exp2 : Experiment
-        Second experiment
+        Second experiment  
     items : str or dict
-        How to define items/conditions (must be same for both experiments)
+        How to define items/conditions (must be same for both experiments):
+        - str: name of dynamic feature to use as condition labels
+        - dict: trial structure with 'trial_starts' and 'trial_labels'
     data_type : str, default 'calcium'
-        Type of data to use
+        Type of data to use ('calcium' or 'spikes')
     metric : str, default 'correlation'
         Distance metric for RDM computation
     comparison_method : str, default 'spearman'
-        Method for comparing RDMs
+        Method for comparing RDMs ('spearman', 'pearson', 'kendall', 'cosine')
     average_method : str, default 'mean'
-        How to average within conditions
+        How to average within conditions ('mean' or 'median')
     bootstrap : bool, default False
         Whether to perform bootstrap significance testing
     n_bootstrap : int, default 1000
@@ -188,8 +247,54 @@ def rsa_between_experiments(
     Returns
     -------
     similarity : float or dict
-        If bootstrap=False: similarity score
-        If bootstrap=True: dict with bootstrap results
+        If bootstrap=False: similarity score between RDMs
+        If bootstrap=True: dict with keys:
+        - 'observed': observed similarity
+        - 'bootstrap_distribution': bootstrap values
+        - 'p_value': two-tailed p-value
+        - 'ci_lower', 'ci_upper': 95% confidence interval
+        - 'mean', 'std': bootstrap statistics
+        
+    Raises
+    ------
+    ValueError
+        If experiments have different condition labels.
+    NotImplementedError
+        If bootstrap requested with trial structure (not yet supported).
+        
+    Notes
+    -----
+    Both experiments must have the same conditions (same unique labels)
+    for meaningful comparison. The function automatically extracts the
+    appropriate data type and computes RDMs before comparing them.
+    
+    Bootstrap analysis uses within-condition resampling to maintain
+    experimental design while estimating variability.
+
+    Examples
+    --------
+    >>> # Compare visual responses between two recording sessions
+    >>> similarity = rsa_between_experiments(
+    ...     exp1, exp2, items='stimulus_id',
+    ...     comparison_method='spearman'
+    ... )
+    >>> print(f"RSA similarity: {similarity:.3f}")
+    
+    >>> # With bootstrap confidence intervals
+    >>> results = rsa_between_experiments(
+    ...     exp1, exp2, items='stimulus_id',
+    ...     bootstrap=True, n_bootstrap=1000
+    ... )
+    >>> print(f"Similarity: {results['observed']:.3f} "
+    ...       f"(95% CI: [{results['ci_lower']:.3f}, {results['ci_upper']:.3f}])")
+    
+    See Also
+    --------
+    compute_experiment_rdm : Compute RDM from single experiment
+    compare_rdms : Direct RDM comparison
+    bootstrap_rdm_comparison : Bootstrap analysis details
+    
+    DOC_VERIFIED
     """
     # Compute RDMs for each experiment
     rdm1, labels1 = compute_experiment_rdm(

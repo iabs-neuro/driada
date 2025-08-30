@@ -148,8 +148,8 @@ class ProximityGraph(Network):
     >>> # Create proximity graph
     >>> graph = ProximityGraph(data, m_params, g_params)
     >>> print(f"Graph has {graph.n} nodes and {graph.adj.nnz//2} edges")
-    
     DOC_VERIFIED
+    
     """
 
     def __init__(self, d, m_params, g_params, create_nx_graph=False, verbose=False):

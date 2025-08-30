@@ -314,6 +314,8 @@ def _extract_statistical_properties(data: np.ndarray) -> Dict[str, float]:
     - Discrete vs continuous data
     - Different discrete subtypes (binary, categorical, count)
     - Special patterns (circular, periodic)
+    
+    DOC_VERIFIED
     """
     n = len(data)
     unique_vals = np.unique(data)
@@ -386,8 +388,6 @@ def _extract_statistical_properties(data: np.ndarray) -> Dict[str, float]:
 
     # Integer check
     features["fraction_integers"] = np.mean(np.abs(data - np.round(data)) < 1e-10)
-    
-    DOC_VERIFIED
 
     return features
 
@@ -518,6 +518,7 @@ def _detect_circular(
     Important: Binary data (e.g., [0,1] spike trains) is explicitly excluded 
     from circular detection even if values fall within circular ranges, to prevent
     misclassification of discrete binary variables as circular continuous data.
+    DOC_VERIFIED
     """
     result = {"is_circular": False, "confidence": 0.0, "period": None}
 
@@ -603,7 +604,6 @@ def _detect_circular(
     )  # Higher threshold to avoid false positives
     return result
     
-    DOC_VERIFIED
 
 
 def _detect_primary_type(

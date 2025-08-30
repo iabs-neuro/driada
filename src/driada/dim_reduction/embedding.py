@@ -1868,8 +1868,8 @@ class Embedding:
         This method provides a flexible framework for various autoencoder
         architectures with modular loss composition. It replaces the
         deprecated create_ae_embedding_ and create_vae_embedding_ methods.
-        
         DOC_VERIFIED
+        
         """
         # Validate parameters
         check_positive(epochs=epochs, lr=lr, inter_dim=inter_dim, log_every=log_every)

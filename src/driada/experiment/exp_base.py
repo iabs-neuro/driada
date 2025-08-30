@@ -244,8 +244,8 @@ class Experiment:
     Individual static and dynamic features can be accessed as attributes. For
     example, if 'position' is a dynamic feature, access it via self.position.
     Protected attribute names will have an underscore prefix if conflicts occur.
-    
     DOC_VERIFIED
+    
     """
 
     def __init__(
@@ -2121,6 +2121,8 @@ class Experiment:
         store_embedding : Store computed embeddings
         get_embedding : Retrieve stored embeddings
         get_significant_neurons : Get neurons with significant selectivity
+        
+        DOC_VERIFIED
         """
         from ..information.info_base import MultiTimeSeries
         from ..utils.data import check_positive

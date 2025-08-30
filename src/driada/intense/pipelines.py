@@ -238,8 +238,8 @@ def compute_cell_feat_significance(
     ...     n_shuffles_stage2=5000,
     ...     pval_thr=0.001
     ... )
-    
     DOC_VERIFIED
+    
     """
 
     exp.check_ds(ds)
@@ -657,8 +657,8 @@ def compute_feat_feat_significance(
     - No delay optimization is performed between features
     - Supports both discrete and continuous features
     - Multifeatures are created using aggregate_multiple_ts
-    
     DOC_VERIFIED
+    
     """
     import numpy as np
 
@@ -924,8 +924,8 @@ def compute_cell_cell_significance(
     - Warns if all neurons have identical spike data
     - Computes network statistics when verbose=True
     - Synchronous activity assumed (no delay optimization)
-    
     DOC_VERIFIED
+    
     """
     import numpy as np
 
@@ -1200,6 +1200,8 @@ def compute_embedding_selectivity(
     compute_cell_feat_significance : Compute selectivity for behavioral features
     get_functional_organization : Analyze organization in embeddings
     compare_embeddings : Compare multiple embedding methods
+    DOC_VERIFIED
+    
     """
 
     # Get list of embedding methods to analyze

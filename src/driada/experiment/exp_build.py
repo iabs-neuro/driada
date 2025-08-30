@@ -124,8 +124,8 @@ def load_exp_from_aligned_data(
     ...     bad_frames=[10, 11, 12],  # Mark frames as bad
     ...     static_features={'fps': 30.0}  # Override default fps
     ... )
-    
     DOC_VERIFIED
+    
     """
 
     # Validate inputs
@@ -393,8 +393,8 @@ def load_experiment(
     ...     'custom', {'name': 'my_exp'},
     ...     data_path='/path/to/data.npz'
     ... )
-    
     DOC_VERIFIED
+    
     """
 
     if os.path.exists(root) and not os.path.isdir(root):
