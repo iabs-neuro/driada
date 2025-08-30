@@ -131,13 +131,15 @@ def create_dense_graph(n=10, completeness=0.8, weighted=True, random_state=42):
     n_edges_keep = int(n_edges_total * completeness)
     n_edges_remove = n_edges_total - n_edges_keep
 
-    # Get all possible edges
-    edges = [(i, j) for i in range(n) for j in range(n) if i != j]
+    # Get all possible edges (only upper triangle for symmetric graph)
+    edges = [(i, j) for i in range(n) for j in range(i+1, n)]
+    n_edges_remove = min(n_edges_remove // 2, len(edges))  # Divide by 2 since we'll remove symmetrically
     edges_to_remove = np.random.choice(len(edges), n_edges_remove, replace=False)
 
     for idx in edges_to_remove:
         i, j = edges[idx]
         adj[i, j] = 0
+        adj[j, i] = 0  # Make symmetric
 
     if weighted:
         weights = np.random.rand(n, n) * 0.8 + 0.2

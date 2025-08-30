@@ -326,6 +326,7 @@ def intense_params_fast():
         "enable_parallelization": False,  # Disable for faster single test execution
         "n_jobs": 1,
         "pval_thr": 0.05,  # More lenient threshold for fast tests
+        "save_computed_stats": True,  # Save results to experiment for get_significant_neurons
     }
 
 

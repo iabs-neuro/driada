@@ -257,12 +257,14 @@ def test_generate_circular_manifold_data_calcium():
     stats, significance, info_intense, results = compute_cell_feat_significance(
         exp,
         feat_bunch=["circular_angle"],  # Test circular multifeature approach
+        mode="two_stage",  # Need two_stage for significance to be computed
         find_optimal_delays=False,  # Disable delays for multifeature
         n_shuffles_stage1=10,  # Reduced shuffles
         n_shuffles_stage2=50,  # Reduced shuffles
         ds=5,  # Downsample by 5x for faster computation
         enable_parallelization=False,  # Disable parallelization
         allow_mixed_dimensions=True,  # Allow MultiTimeSeries
+        save_computed_stats=True,  # Save results to experiment
         verbose=False,
     )
 

@@ -31,6 +31,7 @@ FAST_PARAMS = {
     "ds": 5,  # Aggressive downsampling
     "enable_parallelization": False,  # Disable for small tests
     "seed": 42,
+    "save_computed_stats": True,  # Save results to experiment
 }
 
 
