@@ -844,19 +844,19 @@ class Embedding:
         try:
             # For sparse matrices, use eigsh
             if hasattr(P, 'toarray'):
-                eigenvalues, eigenvectors = eigsh(P, k=dim+1, which='LM', tol=1e-6)
+                eigenvalues, eigenvectors = eigsh(P, k=self.dim+1, which='LM', tol=1e-6)
             else:
                 # For dense matrices, convert to sparse first
                 P_sparse = csr_matrix(P)
-                eigenvalues, eigenvectors = eigsh(P_sparse, k=dim+1, which='LM', tol=1e-6)
+                eigenvalues, eigenvectors = eigsh(P_sparse, k=self.dim+1, which='LM', tol=1e-6)
         except Exception:
             # Fallback to dense computation
             P_dense = P.toarray() if hasattr(P, 'toarray') else P
             eigenvalues_all, eigenvectors_all = np.linalg.eig(P_dense)
             # Sort by magnitude
             idx = np.abs(eigenvalues_all).argsort()[::-1]
-            eigenvalues = eigenvalues_all[idx[:dim+1]]
-            eigenvectors = eigenvectors_all[:, idx[:dim+1]]
+            eigenvalues = eigenvalues_all[idx[:self.dim+1]]
+            eigenvectors = eigenvectors_all[:, idx[:self.dim+1]]
         
         # Sort eigenvalues/vectors in descending order
         idx = eigenvalues.argsort()[::-1]
@@ -864,8 +864,8 @@ class Embedding:
         eigenvectors = eigenvectors[:, idx]
         
         # Remove the first eigenvector (constant, eigenvalue=1)
-        eigenvalues = eigenvalues[1:dim+1]
-        eigenvectors = eigenvectors[:, 1:dim+1]
+        eigenvalues = eigenvalues[1:self.dim+1]
+        eigenvectors = eigenvectors[:, 1:self.dim+1]
         
         # Apply diffusion time scaling: lambda^t
         eigenvalues_t = eigenvalues ** t

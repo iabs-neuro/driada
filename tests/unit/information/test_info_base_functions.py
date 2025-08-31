@@ -348,7 +348,7 @@ class TestGet1DMI:
         ts2 = TimeSeries(data.copy(), discrete=False)  # Copy to avoid same object
 
         # With coincidence check (default) should raise error
-        with pytest.raises(ValueError, match="MI computation of a TimeSeries"):
+        with pytest.raises(ValueError, match="MI\\(X,X\\) for continuous variables is infinite"):
             mi = get_1d_mi(ts1, ts2, check_for_coincidence=True)
 
         # Without coincidence check - should compute high MI

@@ -474,20 +474,17 @@ class ProximityGraph(Network):
         dist_vals = dists[:, 1:].flatten()
         neigh_rows = np.repeat(np.arange(N), self.nn)
 
-        all_neigh_cols = np.concatenate((neigh_cols, neigh_rows))
-        all_neigh_rows = np.concatenate((neigh_rows, neigh_cols))
-        all_dist_vals = np.concatenate((dist_vals, dist_vals))
-
-        self.bin_adj = sp.csr_matrix(
-            (
-                np.array([True for _ in range(2 * N * self.nn)]),
-                (all_neigh_rows, all_neigh_cols),
-            )
-        )
-
+        # Create initial sparse matrix
         self.neigh_distmat = sp.csr_matrix(
-            (all_dist_vals, (all_neigh_rows, all_neigh_cols))
+            (dist_vals, (neigh_rows, neigh_cols)), shape=(N, N)
         )
+        
+        # Symmetrize by taking minimum (same as sklearn's approach)
+        # This avoids doubling distances when edges appear in both directions
+        self.neigh_distmat = self.neigh_distmat.minimum(self.neigh_distmat.T)
+        
+        # Create binary adjacency from distance matrix
+        self.bin_adj = (self.neigh_distmat > 0).astype(int)
 
         if self.weighted:
             self.distances_to_affinities()
@@ -774,6 +771,16 @@ class ProximityGraph(Network):
             else:
                 # Fall back to binary adjacency
                 graph_for_geodesic = self.adj
+            
+            # Warn about weighted graphs with transformations
+            if self.weighted and hasattr(self, "dist_to_aff") and self.dist_to_aff is not None:
+                import warnings
+                warnings.warn(
+                    "Geodesic dimension estimation on weighted graphs with distance-to-affinity "
+                    "transformations (e.g., heat kernel) may give different results than expected. "
+                    "Consider using an unweighted graph or raw distances for more consistent results.",
+                    RuntimeWarning
+                )
 
             logger.debug(
                 f"Using graph with shape {graph_for_geodesic.shape}, "

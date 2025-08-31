@@ -465,8 +465,12 @@ def geodesic_dimension(
         """Theoretical distribution for D-dimensional hypersphere.
 
         Based on Granata & Carnevale 2016 paper, the distribution of geodesic
-        distances near the maximum follows: D * log(sin(x * pi/2))
+        distances near the maximum follows: (D-1) * log(sin(x * pi/2))
         where x is the normalized distance and D is the intrinsic dimension.
+        
+        The paper shows that for a D-dimensional hypersphere, the probability
+        distribution is proportional to sin^(D-1)(π*r/(2*r_max)), which gives
+        log P(r) ~ (D-1) * log(sin(π*r/(2*r_max))) when taking the logarithm.
         
         Parameters
         ----------
@@ -484,7 +488,7 @@ def geodesic_dimension(
         """
         # Clip x to valid domain for sin
         x_clipped = np.clip(x, 1e-10, 1 - 1e-10)
-        return D * np.log(np.sin(x_clipped * np.pi / 2))
+        return (D - 1) * np.log(np.sin(x_clipped * np.pi / 2))
 
     # Grid search for best dimension
     dimensions = np.arange(1.0, 26.0, dim_step)
