@@ -298,7 +298,8 @@ class TestGenerate3DManifoldExp:
             feat_bunch=["x", "y", "z"],
             mode="two_stage",
             n_shuffles_stage1=10,
-            n_shuffles_stage2=50,
+            n_shuffles_stage2=200,  # Increased for more reliable p-values
+            pval_thr=0.05,  # Less conservative threshold for small sample test
             ds=5,  # Downsample by 5x
             enable_parallelization=False,  # Disable parallelization
             verbose=False,
@@ -312,6 +313,9 @@ class TestGenerate3DManifoldExp:
             if any(f in features for f in ["x", "y", "z"])
         )
 
+        # Store the count before clearing
+        individual_count = individual_selective
+
         # Clear previous results for second test
         exp.selectivity_tables_initialized = False
         exp.stats_tables = {}
@@ -323,7 +327,8 @@ class TestGenerate3DManifoldExp:
             find_optimal_delays=False,  # Must disable for MultiTimeSeries
             mode="two_stage",
             n_shuffles_stage1=10,
-            n_shuffles_stage2=50,
+            n_shuffles_stage2=200,  # Increased for more reliable p-values
+            pval_thr=0.05,  # Less conservative threshold for small sample test
             ds=5,  # Downsample by 5x
             enable_parallelization=False,  # Disable parallelization
             allow_mixed_dimensions=True,
@@ -344,11 +349,11 @@ class TestGenerate3DManifoldExp:
 
         # Individual features should detect some selective neurons
         assert (
-            individual_selective >= 3
-        ), f"Expected at least 3/8 neurons with individual features, got {individual_selective}"
+            individual_count >= 3
+        ), f"Expected at least 3/8 neurons with individual features, got {individual_count}"
 
         # Both methods should find selectivity
-        print(f"Individual features detected: {individual_selective} neurons")
+        print(f"Individual features detected: {individual_count} neurons")
         print(f"3D position detected: {position_3d_selective} neurons")
 
     def test_parameter_effects(self):

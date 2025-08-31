@@ -404,10 +404,10 @@ def test_validate_metric():
     assert validate_metric("av") == "special"
     assert validate_metric("fast_pearsonr") == "special"
 
-    # Common correlation metrics
-    assert validate_metric("spearman") == "correlation"
-    assert validate_metric("pearson") == "correlation"
-    assert validate_metric("kendall") == "correlation"
+    # Common correlation metrics (these are scipy functions)
+    assert validate_metric("spearmanr") == "scipy"
+    assert validate_metric("pearsonr") == "scipy"
+    assert validate_metric("kendalltau") == "scipy"
 
     # Full scipy names
     assert validate_metric("spearmanr") == "scipy"
@@ -1060,7 +1060,7 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
     )
     assert isinstance(me0, float)
     assert isinstance(shifted_me, list)
-    assert len(shifted_me) == 20  # window=20, ds=2
+    assert len(shifted_me) == 21  # window=20, ds=2 gives -10 to +10 inclusive = 21 values
 
     # Test new style with cbunch/fbunch
     results = get_calcium_feature_me_profile(

@@ -718,10 +718,10 @@ def cross_correlation_matrix(A, B):
 def norm_cross_corr(a, b, mode='full'):
     """Compute normalized cross-correlation between two signals.
     
-    This function computes the cross-correlation between two signals after
-    normalizing them to have zero mean and unit variance. This is useful
-    for finding similarity between signals regardless of their amplitude
-    and offset.
+    This function computes the normalized cross-correlation between two signals.
+    Each overlapping window is normalized independently to have zero mean and 
+    unit variance, making the correlation insensitive to amplitude scaling and 
+    DC offset.
     
     Parameters
     ----------
@@ -730,27 +730,40 @@ def norm_cross_corr(a, b, mode='full'):
     b : array_like
         Second signal
     mode : {'full', 'valid', 'same'}, optional
-        Mode parameter for np.correlate. Default is 'full'.
-        - 'full': returns correlation at all lags
-        - 'valid': returns only correlations without zero-padding
-        - 'same': returns correlation of same length as larger input
+        Mode parameter controlling output size. Default is 'full'.
+        - 'full': returns correlation at all lags (length: len(a) + len(b) - 1)
+        - 'valid': returns only correlations without zero-padding (length: max(len(a) - len(b) + 1, 1))
+        - 'same': returns correlation of same length as first input (length: len(a))
         
     Returns
     -------
     np.ndarray
-        Normalized cross-correlation values. Shape depends on mode parameter.
+        Normalized cross-correlation values. Values are in the range [-1, 1].
+        The lag index can be computed as: lag = index - (len(a) - 1) for 'full' mode.
 
     Raises
     ------
     ValueError
         If mode is not one of 'full', 'valid', or 'same'.
+        If either input signal is empty.
         
     Notes
     -----
-    The normalization ensures that the correlation values are in the range [-1, 1],
-    where 1 indicates perfect correlation, -1 indicates perfect anti-correlation,
-    and 0 indicates no correlation. Properly handles the number of overlapping
-    samples for each lag position.
+    The normalization is performed on each overlapping window separately, ensuring 
+    that correlation values are in the range [-1, 1], where:
+    - 1 indicates perfect positive correlation
+    - -1 indicates perfect negative correlation (anti-correlation)
+    - 0 indicates no correlation
+    
+    For constant signals (zero variance), the function returns zeros.
+    
+    Examples
+    --------
+    >>> # Detect time shift between signals
+    >>> signal = np.sin(np.linspace(0, 4*np.pi, 100))
+    >>> shifted = np.roll(signal, 10)  # Shift by 10 samples
+    >>> corr = norm_cross_corr(signal, shifted, mode='full')
+    >>> lag = np.argmax(corr) - (len(signal) - 1)  # Should be close to -10
     
     DOC_VERIFIED
     """
@@ -758,54 +771,95 @@ def norm_cross_corr(a, b, mode='full'):
         raise ValueError(f"mode must be one of 'full', 'valid', or 'same'. Got: {mode}")
     
     # Convert to numpy arrays
-    a = np.asarray(a)
-    b = np.asarray(b)
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
     
-    # Normalize signals
-    a_norm = (a - np.mean(a)) / (np.std(a) + 1e-10)  # Add small epsilon to avoid division by zero
-    b_norm = (b - np.mean(b)) / (np.std(b) + 1e-10)
+    # Check for empty signals
+    if len(a) == 0 or len(b) == 0:
+        raise ValueError("Input signals cannot be empty")
     
-    # Compute cross-correlation
-    correlation = np.correlate(a_norm, b_norm, mode=mode)
+    # Handle constant signals (zero variance)
+    a_std = np.std(a)
+    b_std = np.std(b)
     
-    # Compute normalization factor based on number of overlapping samples
+    if a_std < 1e-10 or b_std < 1e-10:
+        # Return zeros for constant signals
+        if mode == 'full':
+            return np.zeros(len(a) + len(b) - 1)
+        elif mode == 'valid':
+            return np.zeros(max(len(a) - len(b) + 1, 1))
+        else:  # 'same'
+            return np.zeros(max(len(a), len(b)))
+    
+    # For normalized cross-correlation, we need to normalize each window
     len_a = len(a)
     len_b = len(b)
     
-    if mode == 'valid':
-        # All values use same number of overlapping samples
-        norm_factor = min(len_a, len_b)
-        correlation = correlation / norm_factor
-    elif mode == 'full':
-        # Variable overlap: create normalization array
-        # For full mode, output length is len_a + len_b - 1
-        norm_factors = np.zeros(len_a + len_b - 1)
-        for i in range(len_a + len_b - 1):
-            # Calculate overlap at each lag position
-            overlap_start = max(0, i - len_b + 1)
-            overlap_end = min(i + 1, len_a)
-            norm_factors[i] = overlap_end - overlap_start
-        correlation = correlation / norm_factors
-    else:  # mode == 'same'
-        # Output length is max(len_a, len_b)
-        output_len = max(len_a, len_b)
-        norm_factors = np.zeros(output_len)
+    if mode == 'full':
+        # For full mode, slide one signal across the other
+        n = len_a + len_b - 1
+        result = np.zeros(n)
         
-        # Calculate which part of 'full' result is used
+        # Pad signal a for easier indexing
+        a_padded = np.concatenate([np.zeros(len_b - 1), a, np.zeros(len_b - 1)])
+        
+        for i in range(n):
+            # Extract overlapping portions
+            start = i
+            end = min(i + len_b, len(a_padded))
+            
+            if end > start:
+                a_window = a_padded[start:end]
+                b_window = b[:end-start]
+                
+                # Only compute if we have a valid window
+                if len(a_window) > 0 and len(b_window) > 0:
+                    # Normalize each window
+                    a_mean = np.mean(a_window)
+                    b_mean = np.mean(b_window)
+                    a_centered = a_window - a_mean
+                    b_centered = b_window - b_mean
+                    
+                    # Compute normalized correlation
+                    numerator = np.sum(a_centered * b_centered)
+                    denominator = np.sqrt(np.sum(a_centered**2) * np.sum(b_centered**2))
+                    
+                    if denominator > 1e-10:
+                        result[i] = numerator / denominator
+    
+    elif mode == 'valid':
+        # For valid mode, all windows have the same size
+        if len_a >= len_b:
+            result = np.zeros(len_a - len_b + 1)
+            for i in range(len_a - len_b + 1):
+                a_window = a[i:i + len_b]
+                
+                # Normalize each window
+                a_mean = np.mean(a_window)
+                b_mean = np.mean(b)
+                a_centered = a_window - a_mean
+                b_centered = b - b_mean
+                
+                numerator = np.sum(a_centered * b_centered)
+                denominator = np.sqrt(np.sum(a_centered**2) * np.sum(b_centered**2))
+                
+                if denominator > 1e-10:
+                    result[i] = numerator / denominator
+        else:
+            result = np.zeros(1)
+    
+    else:  # mode == 'same'
+        # For same mode, return central part of full correlation
+        full_result = norm_cross_corr(a, b, mode='full')
+        # Extract the central part
         if len_a >= len_b:
             start_idx = (len_b - 1) // 2
+            result = full_result[start_idx:start_idx + len_a]
         else:
             start_idx = (len_a - 1) // 2
-            
-        # Extract normalization factors from full calculation
-        for i in range(output_len):
-            full_idx = start_idx + i
-            overlap_start = max(0, full_idx - len_b + 1)
-            overlap_end = min(full_idx + 1, len_a)
-            norm_factors[i] = overlap_end - overlap_start
-        correlation = correlation / norm_factors
+            result = full_result[start_idx:start_idx + len_b]
     
-    return correlation
+    return result
 
 
 def to_numpy_array(data):

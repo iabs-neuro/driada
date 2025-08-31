@@ -38,7 +38,9 @@ def test_custom_metric_function():
 
     # Check that graph was constructed
     assert graph.adj is not None
-    assert graph.adj.shape == (20, 20)
+    # After giant component extraction, we may have fewer nodes
+    assert graph.adj.shape[0] <= 20
+    assert graph.adj.shape[0] == graph.adj.shape[1]  # Square matrix
     assert graph.adj.nnz > 0
     assert graph.metric is manhattan_metric
 

@@ -212,7 +212,9 @@ def test_dmaps_with_different_t():
         # Check that the time parameter was stored
         assert emb.reducer_['t'] == t
         
-        assert emb.coords.shape == (2, n_samples)
+        # After graph preprocessing, we may have fewer samples
+        assert emb.coords.shape[0] == 2  # 2D embedding
+        assert emb.coords.shape[1] <= n_samples  # May lose nodes
         assert not np.any(np.isnan(emb.coords))
     
     # Check that variance decreases with increasing t
@@ -264,14 +266,23 @@ def test_dmaps_multiscale_structure():
     
     # Check cluster separation in large t embedding
     coords_large_t = emb_large_t.coords.T
-    cluster1_center = np.mean(coords_large_t[labels == 0], axis=0)
-    cluster2_center = np.mean(coords_large_t[labels == 1], axis=0)
+    
+    # Filter labels to account for lost nodes during graph preprocessing
+    if hasattr(emb_large_t.graph, 'lost_nodes') and len(emb_large_t.graph.lost_nodes) > 0:
+        # Keep only labels for nodes that weren't lost
+        kept_nodes = [i for i in range(n_samples) if i not in emb_large_t.graph.lost_nodes]
+        labels_filtered = labels[kept_nodes]
+    else:
+        labels_filtered = labels
+    
+    cluster1_center = np.mean(coords_large_t[labels_filtered == 0], axis=0)
+    cluster2_center = np.mean(coords_large_t[labels_filtered == 1], axis=0)
     cluster_separation = np.linalg.norm(cluster1_center - cluster2_center)
     
     # Within-cluster variance (should be small for large t)
     within_cluster_var = np.mean([
-        np.var(coords_large_t[labels == 0], axis=0).sum(),
-        np.var(coords_large_t[labels == 1], axis=0).sum()
+        np.var(coords_large_t[labels_filtered == 0], axis=0).sum(),
+        np.var(coords_large_t[labels_filtered == 1], axis=0).sum()
     ])
     
     # Separation should be larger than within-cluster variance

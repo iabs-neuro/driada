@@ -2139,11 +2139,22 @@ class Embedding:
         if self.coords is None:
             raise ValueError("Embedding has not been built yet. Call build() first.")
 
+        # Handle case where graph preprocessing removed nodes
+        labels_to_use = self.labels
+        if hasattr(self, 'graph') and self.graph is not None:
+            # Check if graph has node mapping from preprocessing
+            if hasattr(self.graph, '_init_to_final_node_mapping') and self.graph._init_to_final_node_mapping:
+                # Filter labels to match the nodes that remain after preprocessing
+                node_mapping = self.graph._init_to_final_node_mapping
+                # Get the original indices that were kept
+                kept_indices = sorted(node_mapping.keys())
+                labels_to_use = self.labels[kept_indices] if self.labels is not None else None
+        
         # Create MVData with embedding coordinates
         # coords shape is (embedding_dim, n_points), which matches MVData format
         return MVData(
             data=self.coords,
-            labels=self.labels,
+            labels=labels_to_use,
             distmat=None,  # Distance matrix would need to be recomputed for embedding space
             rescale_rows=False,  # Embeddings are already scaled appropriately
             data_name=f"{self.e_method_name}_embedding",

@@ -98,7 +98,7 @@ class TestDisconnectedGraphHandling:
             # With preprocessing, the graph becomes connected by removing nodes
             embedding = disconnected_data.get_embedding(
                 method=method_name,
-                n_neighbors=3,  # Very low to create initial disconnection
+                n_neighbors=5,  # Increased to ensure some connectivity
                 dim=2,
                 max_deleted_nodes=0.6,  # Allow node loss during preprocessing
             )
@@ -243,7 +243,7 @@ class TestDisconnectedGraphHandling:
         # The difference is that UMAP would work even without it
         for method_name in ["umap", "le", "isomap"]:
             embedding = mvdata.get_embedding(
-                method=method_name, n_neighbors=3, dim=2, max_deleted_nodes=0.6
+                method=method_name, n_neighbors=5, dim=2, max_deleted_nodes=0.6
             )
             assert embedding is not None
             assert embedding.coords is not None

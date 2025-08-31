@@ -694,7 +694,7 @@ class TestGetSimAdditional:
         discrete = TimeSeries(np.array([0, 1, 2, 3, 2, 1] * 20), discrete=True)
         continuous = TimeSeries(np.random.randn(120), discrete=False)
 
-        with pytest.raises(ValueError, match="Discrete ts must be binary"):
+        with pytest.raises(ValueError, match="must be binary for metric='av'"):
             get_sim(discrete, continuous, metric="av")
 
 
@@ -814,8 +814,9 @@ class TestTheoreticalGaussianMI:
     @staticmethod
     def theoretical_mi_gaussian_1d(rho):
         """Calculate theoretical MI for bivariate Gaussian with correlation rho."""
-        # I(X;Y) = -0.5 * log(1 - rho^2)
-        return -0.5 * np.log(1 - rho**2)
+        # I(X;Y) = -0.5 * log2(1 - rho^2) in bits
+        # Both get_1d_mi estimators return MI in bits
+        return -0.5 * np.log2(1 - rho**2)
     
     @staticmethod
     def theoretical_mi_gaussian_multi(cov_matrix):
