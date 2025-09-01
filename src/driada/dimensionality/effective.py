@@ -101,8 +101,9 @@ def eff_dim(data, enable_correction, q=2, **correction_kwargs):
     
     Parameters
     ----------
-    data : array-like of shape (n_variables, n_observations)
-        Input data matrix where rows are variables and columns are observations.
+    data : array-like of shape (n_samples, n_features)
+        Input data matrix where rows are samples and columns are features.
+        This follows the standard scikit-learn convention.
     enable_correction : bool
         Whether to apply finite-sample spectrum correction to eigenvalues.
     q : float, default=2
@@ -122,21 +123,21 @@ def eff_dim(data, enable_correction, q=2, **correction_kwargs):
         
     Notes
     -----
-    When n_variables/n_observations > 0.01, spectrum correction is recommended
+    When n_features/n_samples > 0.01, spectrum correction is recommended
     to account for finite-sample biases in eigenvalue estimation.
     
-    The data should be organized with variables as rows and observations as
-    columns, following the neuroscience convention where neurons are variables
-    and time points are observations.
+    The data should be organized with samples as rows and features as
+    columns, following the standard machine learning convention. For neural
+    data, this means timepoints as rows and neurons as columns.
     
     Examples
     --------
     >>> import numpy as np
     >>> # Generate data with 3 effective dimensions
-    >>> n_vars, n_obs = 50, 1000
-    >>> latent = np.random.randn(3, n_obs)
-    >>> mixing = np.random.randn(n_vars, 3)
-    >>> data = mixing @ latent + 0.1 * np.random.randn(n_vars, n_obs)
+    >>> n_samples, n_features = 1000, 50
+    >>> latent = np.random.randn(n_samples, 3)
+    >>> mixing = np.random.randn(3, n_features)
+    >>> data = latent @ mixing + 0.1 * np.random.randn(n_samples, n_features)
     >>> 
     >>> # Compute effective dimension
     >>> eff_d = eff_dim(data, enable_correction=False, q=2)
@@ -149,23 +150,25 @@ def eff_dim(data, enable_correction, q=2, **correction_kwargs):
     if data.ndim != 2:
         raise ValueError(f"Data must be 2D, got shape {data.shape}")
     
-    n, t = data.shape
+    # Transpose to get (n_variables, n_observations) for internal computation
+    data_t = data.T
+    n, t = data_t.shape
     
     if t < 2:
-        raise ValueError(f"Need at least 2 observations, got {t}")
+        raise ValueError(f"Need at least 2 samples, got {t}")
     
     if 1.0 * n / t > DATA_SHAPE_THR and not enable_correction:
         warnings.warn(
-            f"n/t ratio is {1.0*n/t:.3f}, which is bigger than {DATA_SHAPE_THR}. "
+            f"n_features/n_samples ratio is {1.0*n/t:.3f}, which is bigger than {DATA_SHAPE_THR}. "
             "Spectrum correction is recommended (set enable_correction=True)"
         )
 
-    cmat = correlation_matrix(data)
+    cmat = correlation_matrix(data_t)
     
     # Check for NaN in correlation matrix
     if np.any(np.isnan(cmat)):
         raise ValueError("Correlation matrix contains NaN values. "
-                        "Check for constant variables or insufficient data.")
+                        "Check for constant features or insufficient data.")
     
     if enable_correction:
         corrected_eigs = correct_cov_spectrum(n, t, cmat, **correction_kwargs)

@@ -101,7 +101,7 @@ def estimate_dimensionality(neural_data, methods=None):
     # Effective dimensionality (participation ratio)
     if "participation_ratio" in methods:
         dim_estimates["participation_ratio"] = eff_dim(
-            neural_data, enable_correction=False, q=2
+            neural_data.T, enable_correction=False, q=2
         )
 
     return dim_estimates

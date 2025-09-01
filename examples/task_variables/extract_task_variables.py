@@ -275,12 +275,12 @@ def extract_population_structure(exp, neural_data=None, ds=5):
 
     # Try eff_dim with correction, fallback to without if it fails
     try:
-        eff_dim_value = eff_dim(data_t.T, enable_correction=True)
+        eff_dim_value = eff_dim(data_t, enable_correction=True)
         print(f"  - Effective dimension (corrected): {eff_dim_value:.2f}")
     except Exception:
         # Correction can fail with near-singular matrices
         try:
-            eff_dim_value = eff_dim(data_t.T, enable_correction=False)
+            eff_dim_value = eff_dim(data_t, enable_correction=False)
             print(f"  - Effective dimension: {eff_dim_value:.2f}")
         except Exception as e2:
             print(f"  - Effective dimension: Failed ({str(e2)})")
