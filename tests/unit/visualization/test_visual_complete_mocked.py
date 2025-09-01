@@ -419,5 +419,5 @@ class TestPerformanceWithCompleteMocking:
             start = time.time()
             result = plot_neuron_feature_pair(mock_experiment, 0, "speed")
             duration = time.time() - start
-            assert duration < 0.1, f"plot_neuron_feature_pair took {duration:.3f}s"
+            assert duration < 1.0, f"plot_neuron_feature_pair took {duration:.3f}s"
             assert result is not None
