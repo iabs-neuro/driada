@@ -139,14 +139,17 @@ class TestPartialDirections:
         net = Network(adj=sp.csr_matrix(A), real_world=False)
         
         # Should detect partial directionality
-        assert 0.0 < net.directed < 1.0, f"Network should detect partial directionality, got {net.directed}"
+        assert net.directed == True, f"Network should be marked as directed, got {net.directed}"
+        
+        # Check the calculated directionality fraction
+        assert 0.0 < net._calculated_directionality < 1.0, f"Should calculate fractional directionality, got {net._calculated_directionality}"
         
         # Calculate expected value
         # Total edges: 5
         # Symmetric edges: 2 (between 0-1)
         # Directed edges: 3 (0->2, 1->3, 2->3)
         expected = 3.0 / 5.0
-        assert abs(net.directed - expected) < 1e-10, f"Expected directionality {expected}, got {net.directed}"
+        assert abs(net._calculated_directionality - expected) < 1e-10, f"Expected directionality {expected}, got {net._calculated_directionality}"
 
     def test_network_init_override_directionality(self):
         """Test that user can override calculated directionality."""
@@ -182,9 +185,12 @@ class TestPartialDirections:
             [0, 0, 0]
         ])
         
-        # Real-world network should reject fractional directionality
-        with pytest.raises(Exception, match="Fractional direction is not valid"):
-            net = Network(adj=sp.csr_matrix(A), real_world=True)
+        # Real-world network should convert fractional directionality to boolean
+        net = Network(adj=sp.csr_matrix(A), real_world=True)
+        # Should be directed (True) since it has some directed edges
+        assert net.directed == True
+        # But the calculated directionality should still be fractional
+        assert 0.0 < net._calculated_directionality < 1.0
 
     def test_complex_partial_graph(self):
         """Test with a more complex partially directed graph."""
@@ -216,5 +222,6 @@ class TestPartialDirections:
         # Directed edges: 4 (0->4, 1->2, 3->4, 4->5)
         # Fraction: 4/8 = 0.5
         expected = 0.5
-        assert abs(net.directed - expected) < 1e-10, f"Expected directionality {expected}, got {net.directed}"
+        assert abs(net._calculated_directionality - expected) < 1e-10, f"Expected directionality {expected}, got {net._calculated_directionality}"
+        assert net.directed == True  # Should be marked as directed
         assert net.weighted == True

@@ -182,7 +182,8 @@ class TestTimeSeriesInitialization:
         assert isinstance(ts.entropy, dict)
         assert len(ts.entropy) == 0
         assert ts.kdtree is None
-        assert ts.kdtree_query is None
+        assert isinstance(ts.kdtree_query, dict)
+        assert len(ts.kdtree_query) == 0
 
 
 class TestTimeSeriesKDTree:
@@ -223,13 +224,13 @@ class TestTimeSeriesKDTree:
         data = np.random.randn(150)  # TimeSeries expects 1D data
         ts = TimeSeries(data)
 
-        # Initially None
-        assert ts.kdtree_query is None
+        # Initially empty dict
+        assert ts.kdtree_query == {}
 
         # Get query
         query = ts.get_kdtree_query(k=5)
         assert query is not None
-        assert ts.kdtree_query is not None
+        assert 5 in ts.kdtree_query
 
         # Should be cached
         query2 = ts.get_kdtree_query(k=5)
@@ -270,7 +271,7 @@ class TestTimeSeriesEntropy:
 
         h = ts.get_entropy()
         assert isinstance(h, float)
-        assert 0 <= h <= np.log(4)  # Max entropy for 4 states
+        assert 0 <= h <= np.log2(4)  # Max entropy for 4 states in bits
 
         # Should be cached
         assert 1 in ts.entropy  # Default ds=1

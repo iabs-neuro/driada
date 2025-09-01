@@ -111,8 +111,9 @@ class TestNeuronStaticMethods:
 
         restored = Neuron.get_restored_calcium(sp, t_rise=5, t_off=20)
 
-        assert len(restored) > len(sp)  # Convolution extends signal
+        assert len(restored) == len(sp)  # Output has same length as input
         assert restored.max() > 0  # Has positive values
+        assert np.argmax(restored) >= 20  # Peak should be at or after spike
 
     def test_calcium_preprocessing(self):
         """Test calcium signal preprocessing."""
@@ -345,9 +346,8 @@ class TestCalciumShuffling:
 
         neuron = Neuron("cell_20", ca_data, sp_data)
 
-        # The error handling in the original code has a bug - AttributeError() should be AttributeError
-        # So this will actually raise AttributeError, not UserWarning
-        with pytest.raises(AttributeError):
+        # Test that unknown methods raise ValueError
+        with pytest.raises(ValueError, match="Invalid method 'unknown_method'"):
             neuron.get_shuffled_calcium(method="unknown_method")
 
 
@@ -426,8 +426,8 @@ class TestSpikeShuffling:
 
         neuron = Neuron("cell_26", ca_data, sp_data)
 
-        # Same bug as in calcium shuffling
-        with pytest.raises(AttributeError):
+        # Test that unknown methods raise ValueError
+        with pytest.raises(ValueError, match="Invalid method 'unknown_method'"):
             neuron.get_shuffled_spikes(method="unknown_method")
 
 

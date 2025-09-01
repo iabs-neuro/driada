@@ -152,15 +152,21 @@ def test_matrix_utils_edge_cases():
 
     symm_unweighted = symmetric_component(A, is_weighted=False)
     expected_unweighted = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]])
-    assert np.allclose(symm_unweighted, expected_unweighted)
+    # Convert sparse matrix to dense for comparison
+    assert np.allclose(symm_unweighted.toarray(), expected_unweighted)
 
     symm_weighted = symmetric_component(A, is_weighted=True)
-    assert np.allclose(symm_weighted, expected_unweighted)
+    # For weighted case, convert sparse to dense for comparison
+    assert np.allclose(symm_weighted.toarray(), expected_unweighted)
 
     # Test non-symmetric component
     non_symm = non_symmetric_component(A, is_weighted=True)
     expected = np.array([[0, 0, 0], [0, 0, 2], [3, 0, 0]])
-    assert np.allclose(non_symm, expected)
+    # Convert sparse to dense if needed
+    if sp.issparse(non_symm):
+        assert np.allclose(non_symm.toarray(), expected)
+    else:
+        assert np.allclose(non_symm, expected)
 
     # Test remove duplicates
     row = np.array([0, 0, 1, 1, 2])
@@ -192,7 +198,7 @@ def test_matrix_utils_edge_cases():
 
     # Test normalized Laplacian with non-symmetric matrix
     A_nonsym = sp.csr_matrix([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
-    with pytest.raises(Exception, match="non-hermitian"):
+    with pytest.raises(Exception, match="non-symmetric"):
         get_norm_laplacian(A_nonsym)
 
 
@@ -274,7 +280,7 @@ class TestHelperFunctions:
     def test_check_adjacency_invalid(self):
         """Test check_adjacency with non-square matrix."""
         A = sp.csr_matrix([[0, 1, 0], [1, 0, 1]])
-        with pytest.raises(Exception, match="Non-square adjacency matrix"):
+        with pytest.raises(ValueError, match="Adjacency matrix must be square"):
             check_adjacency(A)
 
     def test_check_directed_valid(self):
@@ -311,7 +317,7 @@ class TestHelperFunctions:
         )  # Should pass
 
         # Test mismatch - symmetric matrix but directed=True
-        with pytest.raises(Exception, match="the adjacency matrix is symmetric"):
+        with pytest.raises(ValueError, match="the adjacency matrix is symmetric"):
             check_weights_and_directions(A_sym, weighted=False, directed=True)
 
         # Create asymmetric matrix
@@ -321,7 +327,7 @@ class TestHelperFunctions:
         )  # Should pass
 
         # Test mismatch - asymmetric matrix but directed=False
-        with pytest.raises(Exception, match="the adjacency matrix is asymmetric"):
+        with pytest.raises(ValueError, match="the adjacency matrix is asymmetric"):
             check_weights_and_directions(A_asym, weighted=False, directed=False)
 
         # Create weighted matrix
@@ -331,7 +337,7 @@ class TestHelperFunctions:
         )  # Should pass
 
         # Test mismatch - weighted matrix but weighted=False
-        with pytest.raises(Exception, match="the adjacency matrix weighted"):
+        with pytest.raises(ValueError, match="the adjacency matrix is weighted"):
             check_weights_and_directions(A_weighted, weighted=False, directed=False)
 
     def test_select_construction_pipeline(self):

@@ -46,14 +46,15 @@ class TestMultiTimeSeriesInitialization:
         assert mts.int_data.shape == (4, 80)
 
     def test_init_with_labels(self):
-        """Test initialization with labels."""
+        """Test initialization with point labels."""
         data = np.random.randn(3, 50)
-        labels = ["sensor1", "sensor2", "sensor3"]
+        # Labels should be for points (time steps), not dimensions
+        labels = np.arange(50)
 
         mts = MultiTimeSeries(data, labels=labels, discrete=False)
 
         assert np.array_equal(mts.labels, labels)
-        assert len(mts.labels) == mts.n_dim
+        assert len(mts.labels) == mts.n_points
 
     def test_init_with_downsampling(self):
         """Test initialization with downsampling."""
@@ -293,7 +294,8 @@ class TestMultiTimeSeriesFilter:
     def test_filter_preserves_attributes(self):
         """Test that filtering preserves MultiTimeSeries attributes."""
         data = np.random.randn(3, 100)
-        labels = ["a", "b", "c"]
+        # Labels should be for points, not dimensions
+        labels = np.arange(100)
         mts = MultiTimeSeries(
             data, labels=labels, data_name="test_data", discrete=False
         )

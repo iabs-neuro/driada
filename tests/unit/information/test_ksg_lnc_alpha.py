@@ -19,10 +19,24 @@ class TestLNCAlphaSelection:
         
     def test_interpolation(self):
         """Test interpolation for dimensions not in table."""
-        # For k=5, we have d=14 (0.451739) and d=15 (0.498458)
-        # d=14.5 should be approximately in between
-        alpha = get_lnc_alpha(5, 14.5)
-        assert 0.451739 < alpha < 0.498458
+        # Test interpolation for d values between table entries
+        # For k=2, we have entries for d=3,4,5,6... Let's check if d=23 interpolates
+        # since table only goes up to d=20
+        
+        # First verify exact lookups work
+        alpha_d3 = get_lnc_alpha(2, 3)
+        alpha_d4 = get_lnc_alpha(2, 4)
+        assert abs(alpha_d3 - 0.182224) < 1e-6
+        assert abs(alpha_d4 - 0.284370) < 1e-6
+        
+        # For d > 20, should use d=20 value (no interpolation, just clamping)
+        alpha_d25 = get_lnc_alpha(2, 25)
+        alpha_d20 = get_lnc_alpha(2, 20)
+        assert alpha_d25 == alpha_d20
+        
+        # Test that float d values raise error (no interpolation possible)
+        with pytest.raises(ValueError, match="d must be a positive integer"):
+            get_lnc_alpha(5, 14.5)
         
     def test_extrapolation_low_d(self):
         """Test behavior for dimensions below available range."""
@@ -40,13 +54,25 @@ class TestLNCAlphaSelection:
         
     def test_nearest_k(self):
         """Test nearest k selection for unavailable k values."""
-        # k=4 is not in table, should use k=3 or k=5
+        # k=4 is not in table, should use nearest k
+        # Available k values are: 2, 3, 5, 10
+        # k=4 is equidistant from k=3 and k=5, min() will pick k=3
         alpha_k4 = get_lnc_alpha(4, 10)
         alpha_k3 = get_lnc_alpha(3, 10)
         alpha_k5 = get_lnc_alpha(5, 10)
         
-        # Should use either k=3 or k=5
-        assert alpha_k4 in [alpha_k3, alpha_k5]
+        # k=4 should use k=3 (due to min() behavior with equal distances)
+        assert alpha_k4 == alpha_k3
+        
+        # Test other k values
+        # k=1 should use k=2 (nearest)
+        assert get_lnc_alpha(1, 10) == get_lnc_alpha(2, 10)
+        
+        # k=7 should use k=5 (nearer than k=10)
+        assert get_lnc_alpha(7, 10) == get_lnc_alpha(5, 10)
+        
+        # k=8 should use k=10 (nearer than k=5)
+        assert get_lnc_alpha(8, 10) == get_lnc_alpha(10, 10)
         
     def test_mi_with_auto_alpha(self):
         """Test mutual information estimation with automatic alpha selection."""

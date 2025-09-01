@@ -1556,8 +1556,8 @@ class Network:
         X = np.array([[np.real(x), np.imag(x)] for x in seigs])
         nbrs = NearestNeighbors(n_neighbors=3, algorithm="ball_tree").fit(X)
         distances, indices = nbrs.kneighbors(X)
-        nnbs = [seigs[x] for x in indices[:, 1]]
-        nnnbs = [seigs[x] for x in indices[:, 2]]
+        nnbs = np.array([seigs[x] for x in indices[:, 1]])
+        nnnbs = np.array([seigs[x] for x in indices[:, 2]])
         # Vectorized computation with division by zero protection
         with np.errstate(divide='ignore', invalid='ignore'):
             zlist = (nnbs - seigs) / (nnnbs - seigs)

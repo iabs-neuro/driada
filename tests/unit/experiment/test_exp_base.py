@@ -373,12 +373,12 @@ class TestExperimentMethods:
         # Normal ds - no warning
         basic_experiment.check_ds(1)
         captured = capsys.readouterr()
-        assert "too high" not in captured.out
+        assert "too high" not in captured.err
 
         # High ds - should warn
         basic_experiment.check_ds(10)
         captured = capsys.readouterr()
-        assert "too high" in captured.out
+        assert "too high" in captured.err
 
     def test_process_cbunch(self, basic_experiment):
         """Test cell bunch processing."""
@@ -579,7 +579,7 @@ class TestExperimentMethods:
         assert not np.allclose(shuffled_ca, orig_ca)
 
         # Test invalid method
-        with pytest.raises(ValueError, match="Invalid shuffling method"):
+        with pytest.raises(ValueError, match="Invalid shuffling method 'invalid_method'"):
             basic_experiment.get_multicell_shuffled_calcium(
                 cbunch=[0], method="invalid_method"
             )

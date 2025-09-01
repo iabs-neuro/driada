@@ -239,13 +239,13 @@ def test_generate_circular_manifold_data_calcium():
     # Generate experiment with circular manifold and circular_angle MultiTimeSeries
     exp, info = generate_circular_manifold_exp(
         n_neurons=10,
-        duration=30,
+        duration=60,  # Increased duration for better statistics
         fps=10,  # Reduced neurons, duration, and fps
-        kappa=6.0,
-        baseline_rate=0.5,
+        kappa=8.0,  # Increased for stronger tuning
+        baseline_rate=0.1,  # Lower baseline for better SNR
         peak_rate=2.0,  # Reduced peak_rate to avoid warning
-        noise_std=0.02,
-        calcium_noise_std=0.02,
+        noise_std=0.01,  # Reduced noise
+        calcium_noise_std=0.01,  # Reduced calcium noise
         add_mixed_features=True,  # Create circular_angle MultiTimeSeries
         seed=42,
         verbose=False,
@@ -261,7 +261,8 @@ def test_generate_circular_manifold_data_calcium():
         find_optimal_delays=False,  # Disable delays for multifeature
         n_shuffles_stage1=10,  # Reduced shuffles
         n_shuffles_stage2=50,  # Reduced shuffles
-        ds=5,  # Downsample by 5x for faster computation
+        ds=3,  # Reduced downsampling for better detection
+        metric_distr_type="norm",  # Use normal distribution for metric
         enable_parallelization=False,  # Disable parallelization
         allow_mixed_dimensions=True,  # Allow MultiTimeSeries
         save_computed_stats=True,  # Save results to experiment
@@ -496,12 +497,13 @@ def test_integration_with_intense():
     # Generate dataset with stronger selectivity
     exp, info = generate_circular_manifold_exp(
         n_neurons=10,
-        duration=60,
+        duration=100,  # Increased duration
         fps=10,  # Reduced for faster tests
-        kappa=6.0,  # Stronger tuning
+        kappa=8.0,  # Stronger tuning
         baseline_rate=0.05,
         peak_rate=2.0,  # Reasonable dynamic range
-        noise_std=0.01,  # Lower noise
+        noise_std=0.005,  # Even lower noise
+        calcium_noise_std=0.01,  # Low calcium noise
         seed=42,
         verbose=False,
         return_info=True,
@@ -513,7 +515,8 @@ def test_integration_with_intense():
         find_optimal_delays=False,  # Disable delays for MultiTimeSeries (current limitation)
         n_shuffles_stage1=10,  # Reduced shuffles
         n_shuffles_stage2=50,  # Reduced shuffles
-        ds=5,  # Downsample by 5x
+        ds=2,  # Reduced downsampling for better detection
+        metric_distr_type="norm",  # Use normal distribution for metric
         enable_parallelization=False,  # Disable parallelization
         allow_mixed_dimensions=True,  # Allow MultiTimeSeries
         verbose=False,

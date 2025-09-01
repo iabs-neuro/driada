@@ -89,7 +89,6 @@ def get_lnc_alpha(k, d):
     For (k, d) pairs not in the table:
     - If k is not in {2, 3, 5, 10}, uses nearest available k
     - If d is outside available range, uses nearest available d
-    - Interpolates between adjacent values when possible
     
     DOC_VERIFIED
     """

@@ -721,6 +721,7 @@ class Neuron:
             Neuron.ca_mse_error,
             (np.array([self.default_t_off])),
             args=(self.ca.data, self.sp.data, self.default_t_rise),
+            bounds=[(self.default_t_rise * 1.1, None)],  # t_off must be > t_rise
         )
         opt_t_off = res.x[0]
         noise_amplitude = res.fun

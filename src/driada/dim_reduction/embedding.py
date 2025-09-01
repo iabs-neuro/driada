@@ -2112,11 +2112,27 @@ class Embedding:
         This allows embeddings to be used as input for additional dimensionality
         reduction or analysis steps, enabling recursive embedding pipelines.
 
+        Label Handling
+        --------------
+        Graph-based dimensionality reduction methods (LLE, Laplacian Eigenmaps, 
+        Isomap, etc.) may remove disconnected nodes during preprocessing, resulting
+        in fewer points in the embedding than in the original data. This method
+        handles labels in the following way:
+        
+        1. If all points are preserved: Labels are passed through unchanged.
+        2. If nodes were filtered and a node mapping exists: Labels are filtered
+           to match only the kept nodes, preserving the correspondence.
+        3. If nodes were filtered but no mapping is available: Labels are set to
+           None to avoid misalignment between data points and labels.
+
         Returns
         -------
         MVData
-            An MVData object containing the embedding coordinates as data,
-            with the same labels as the original data.
+            An MVData object containing the embedding coordinates as data.
+            Labels will be:
+            - Original labels if all points preserved
+            - Filtered labels matching kept nodes if mapping available
+            - None if nodes were removed but mapping unavailable
 
         Raises
         ------
@@ -2125,11 +2141,17 @@ class Embedding:
             
         Examples
         --------
-        >>> mvdata = MVData(high_dim_data)
-        >>> embedding = mvdata.get_embedding(method='pca', dim=10)
-        >>> # Convert embedding back to MVData for further reduction
-        >>> embedding_mvdata = embedding.to_mvdata()
-        >>> final_embedding = embedding_mvdata.get_embedding(method='umap', dim=2)
+        >>> mvdata = MVData(high_dim_data, labels=['A', 'B', 'C', 'D'])
+        >>> # PCA preserves all points
+        >>> pca_emb = mvdata.get_embedding(method='pca', dim=2)
+        >>> pca_mvdata = pca_emb.to_mvdata()
+        >>> assert len(pca_mvdata.labels) == 4  # All labels preserved
+        
+        >>> # LLE might remove disconnected nodes
+        >>> lle_emb = mvdata.get_embedding(method='lle', dim=2)
+        >>> lle_mvdata = lle_emb.to_mvdata()
+        >>> # Labels either filtered to match remaining nodes or None
+        >>> assert lle_mvdata.labels is None or len(lle_mvdata.labels) == lle_mvdata.n_points
         
         DOC_VERIFIED
         """
@@ -2141,14 +2163,25 @@ class Embedding:
 
         # Handle case where graph preprocessing removed nodes
         labels_to_use = self.labels
-        if hasattr(self, 'graph') and self.graph is not None:
-            # Check if graph has node mapping from preprocessing
-            if hasattr(self.graph, '_init_to_final_node_mapping') and self.graph._init_to_final_node_mapping:
-                # Filter labels to match the nodes that remain after preprocessing
-                node_mapping = self.graph._init_to_final_node_mapping
-                # Get the original indices that were kept
-                kept_indices = sorted(node_mapping.keys())
-                labels_to_use = self.labels[kept_indices] if self.labels is not None else None
+        
+        # Check if the number of points in coords differs from labels
+        if self.labels is not None and self.coords.shape[1] != len(self.labels):
+            # If we have a graph with node mapping, use it
+            if hasattr(self, 'graph') and self.graph is not None:
+                if hasattr(self.graph, '_init_to_final_node_mapping') and self.graph._init_to_final_node_mapping:
+                    # Filter labels to match the nodes that remain after preprocessing
+                    node_mapping = self.graph._init_to_final_node_mapping
+                    # Get the original indices that were kept
+                    kept_indices = sorted(node_mapping.keys())
+                    labels_to_use = self.labels[kept_indices]
+                else:
+                    # No explicit mapping, but coords has fewer points
+                    # This can happen with graph methods that remove disconnected components
+                    # In this case, we can't recover which labels to keep, so set to None
+                    labels_to_use = None
+            else:
+                # No graph, but mismatch in sizes - set labels to None
+                labels_to_use = None
         
         # Create MVData with embedding coordinates
         # coords shape is (embedding_dim, n_points), which matches MVData format

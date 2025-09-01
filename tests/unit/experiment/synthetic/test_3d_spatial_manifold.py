@@ -275,19 +275,19 @@ class TestGenerate3DManifoldExp:
     def test_intense_analysis_compatibility(self):
         """Test that generated 3D data works with INTENSE analysis."""
         # Generate experiment with 3D place cells
-        # Use 27 neurons (3x3x3 grid) with larger fields for better coverage
+        # Use parameters that ensure strong selectivity
         exp = generate_3d_manifold_exp(
             n_neurons=8,  # 2x2x2 grid for faster tests
-            duration=60,  # Reduced duration
-            fps=10,  # Reduced fps
-            field_sigma=0.18,  # Even larger fields for better coverage
-            step_size=0.05,  # Slightly larger steps for better exploration
-            momentum=0.6,  # Less momentum for more coverage
-            peak_rate=2.0,  # Maximum recommended rate for calcium imaging
-            baseline_rate=0.02,  # Lower baseline for better SNR
-            noise_std=0.01,  # Very low noise
-            calcium_noise_std=0.03,  # Lower calcium noise
-            decay_time=1.5,  # Reasonable decay
+            duration=120,  # Longer duration for better statistics
+            fps=20,  # Higher fps for more samples
+            field_sigma=0.15,  # Tighter fields for stronger selectivity
+            step_size=0.04,  # Smaller steps for smoother trajectory
+            momentum=0.7,  # More momentum for smoother paths
+            peak_rate=5.0,  # Higher peak rate for stronger signal
+            baseline_rate=0.01,  # Very low baseline for high SNR
+            noise_std=0.001,  # Minimal noise
+            calcium_noise_std=0.01,  # Very low calcium noise
+            decay_time=1.0,  # Faster decay for sharper responses
             verbose=False,
             seed=42,
         )

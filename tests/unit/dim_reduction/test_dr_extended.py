@@ -202,7 +202,7 @@ def test_dmaps_with_different_t():
     embeddings = []
     variances = []
     
-    for t in [0.5, 1.0, 2.0, 5.0]:
+    for t in [1, 5, 10, 20]:
         # Test with different diffusion time parameters
         emb = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=t, nn=15, metric="l2")
         

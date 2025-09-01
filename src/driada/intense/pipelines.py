@@ -545,6 +545,8 @@ def compute_feat_feat_significance(
     n_jobs=-1,
     seed=42,
     duplicate_behavior="ignore",
+    # FUTURE: Add save_computed_stats=True, use_precomputed_stats=True parameters
+    # to enable caching of feat-feat results in experiment object similar to cell-feat
 ):
     """
     Compute pairwise significance between all behavioral features.
@@ -809,6 +811,8 @@ def compute_cell_cell_significance(
     n_jobs=-1,
     seed=42,
     duplicate_behavior="ignore",
+    # FUTURE: Add save_computed_stats=True, use_precomputed_stats=True parameters
+    # to enable caching of cell-cell results in experiment object similar to cell-feat
 ):
     """
     Compute pairwise functional correlations between neurons using INTENSE.

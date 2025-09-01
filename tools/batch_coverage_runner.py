@@ -58,7 +58,9 @@ class BatchCoverageRunnerV2:
             ],
             "dim_reduction": [
                 "driada/dim_reduction/",
-                "driada/dimensionality/",  # Include dimensionality module files
+            ],
+            "dimensionality": [
+                "driada/dimensionality/",
             ],
         }
 
@@ -229,20 +231,21 @@ sys.exit(pytest.main([
             # Parse coverage lines
             if in_coverage and line.strip():
                 # Match lines with coverage data
-                # Example: src/driada/network/net_base.py    379    179    168     36  50.09%
+                # Examples:
+                # src/driada/network/net_base.py    379    179    168     36  50.09%
+                # driada/utils/visual.py             341    328    190      0   2.45%
                 match = re.match(
-                    r"\s*(src/)?(driada/[\w/]+\.py)\s+(\d+)\s+(\d+)(?:\s+\d+\s+\d+)?\s+([\d.]+)%",
+                    r"\s*(?:src/)?(driada/[\w/]+\.py)\s+(\d+)\s+(\d+)(?:\s+\d+\s+\d+)?\s+([\d.]+)%",
                     line,
                 )
                 if match:
-                    file_path = match.group(2)  # Group 2 is now the driada/... path
-                    statements = int(match.group(3))
-                    missed = int(match.group(4))
-                    coverage_pct = float(match.group(5))
+                    file_path = match.group(1)  # driada/... path (src/ prefix is non-capturing)
+                    statements = int(match.group(2))
+                    missed = int(match.group(3))
+                    coverage_pct = float(match.group(4))
 
-                    module_path = "driada." + file_path.replace("/", ".").replace(
-                        ".py", ""
-                    )
+                    # Create module path without duplication
+                    module_path = file_path.replace("/", ".").replace(".py", "")
 
                     coverage_data[module_path] = {
                         "file_path": file_path,

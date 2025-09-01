@@ -267,13 +267,13 @@ class TestKSGMutualInformation:
         x = np.random.randn(100)
         y = np.random.randn(50)  # Different length
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="Arrays should have same length"):
             nonparam_mi_cc(x, y)
 
         # k too large
         x = np.random.randn(10)
         y = np.random.randn(10)
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="k must be less than n_samples"):
             nonparam_mi_cc(x, y, k=10)
 
 
@@ -471,11 +471,11 @@ class TestKSGMixedType:
     def test_edge_cases(self):
         """Test edge cases and input validation."""
         # Test with too few samples
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="k must be less than n_samples"):
             nonparam_mi_cd(np.array([1, 2, 3]), np.array([0, 1, 0]), k=5)
             
         # Test with mismatched lengths
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="Arrays should have same length"):
             nonparam_mi_cd(np.random.randn(10), np.random.randint(0, 2, 8))
             
         # Test with single class

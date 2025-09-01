@@ -836,8 +836,8 @@ class TestTheoreticalGaussianMI:
         det_x = np.linalg.det(cov_x)
         det_y = cov_y[0, 0]  # scalar for 1D Y
         
-        # MI in nats
-        mi = 0.5 * np.log(det_x * det_y / det_joint)
+        # MI in bits (to match the estimators which return bits)
+        mi = 0.5 * np.log2(det_x * det_y / det_joint)
         return mi
     
     def test_1d_gaussian_independent(self):
