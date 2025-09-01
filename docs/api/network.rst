@@ -6,6 +6,14 @@ Network Analysis Module
    :undoc-members:
    :show-inheritance:
 
+Core Network Class
+------------------
+
+.. automodule:: driada.network.net_base
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Graph Utilities
 ---------------
 

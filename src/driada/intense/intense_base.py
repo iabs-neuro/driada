@@ -579,6 +579,7 @@ def scan_pairs(
     seed=None,
     allow_mixed_dimensions=False,
     enable_progressbar=True,
+    start_index=0,
 ):
     """
     Calculate similarity metric and shuffled distributions for pairs of time series.
@@ -618,6 +619,9 @@ def scan_pairs(
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
     enable_progressbar : bool, default=True
         Whether to show progress bar during computation.
+    start_index : int, default=0
+        Global starting index for ts_bunch1. Used internally by parallel processing
+        to ensure deterministic random number generation.
 
     Returns
     -------
@@ -686,8 +690,15 @@ def scan_pairs(
 
     # fill random shifts according to the allowed shuffles masks of both time series
     for i, ts1 in enumerate(ts_bunch1):
+        # Use global index for deterministic seeding
+        global_i = start_index + i
+        
         if joint_distr:
-            np.random.seed(seed)
+            # Create deterministic seed for this specific (global_i, 0) pair
+            # This ensures same results regardless of parallel execution
+            pair_seed = seed + global_i * 10000 if seed is not None else None
+            pair_rng = np.random.RandomState(pair_seed)
+            
             # Combine shuffle masks from ts1 and all ts in tsbunch2
             combined_shuffle_mask = ts1.shuffle_mask.copy()
             for ts2 in ts_bunch2:
@@ -697,11 +708,15 @@ def scan_pairs(
                 combined_shuffle_mask, int(optimal_delays[i, 0])
             )
             indices_to_select = np.arange(t)[combined_shuffle_mask]
-            random_shifts[i, 0, :] = np.random.choice(indices_to_select, size=nsh) // ds
+            random_shifts[i, 0, :] = pair_rng.choice(indices_to_select, size=nsh) // ds
 
         else:
             for j, ts2 in enumerate(ts_bunch2):
-                np.random.seed(seed)
+                # Create deterministic seed for this specific (global_i, j) pair
+                # This ensures same results regardless of parallel execution
+                pair_seed = seed + global_i * 10000 + j * 100 if seed is not None else None
+                pair_rng = np.random.RandomState(pair_seed)
+                
                 combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
                 # move shuffle mask according to optimal shift
                 combined_shuffle_mask = np.roll(
@@ -709,7 +724,7 @@ def scan_pairs(
                 )
                 indices_to_select = np.arange(t)[combined_shuffle_mask]
                 random_shifts[i, j, :] = (
-                    np.random.choice(indices_to_select, size=nsh) // ds
+                    pair_rng.choice(indices_to_select, size=nsh) // ds
                 )
 
     # calculate similarity metric arrays
@@ -720,8 +735,8 @@ def scan_pairs(
         leave=True,
         disable=not enable_progressbar,
     ):
-
-        np.random.seed(seed)
+        # Use global index for deterministic seeding
+        global_i = start_index + i
 
         # DEPRECATED: This joint_distr branch is deprecated and will be removed in v2.0
         # Use MultiTimeSeries for joint distribution handling instead
@@ -734,13 +749,16 @@ def scan_pairs(
                 me0 = get_multi_mi(
                     ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0] // ds, estimator=mi_estimator
                 )
+                # Use deterministic RNG for this pair
+                pair_seed = seed + global_i * 10000 if seed is not None else None
+                pair_rng = np.random.RandomState(pair_seed)
+                
                 me_table[i, 0] = (
-                    me0 + np.random.random() * noise_const
+                    me0 + pair_rng.random() * noise_const
                 )  # add small noise for better fitting
 
-                np.random.seed(seed)
                 random_noise = (
-                    np.random.random(size=len(random_shifts[i, 0, :])) * noise_const
+                    pair_rng.random(size=len(random_shifts[i, 0, :])) * noise_const
                 )  # add small noise for better fitting
                 for k, shift in enumerate(random_shifts[i, 0, :]):
                     mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift, estimator=mi_estimator)
@@ -763,18 +781,19 @@ def scan_pairs(
                         check_for_coincidence=True,
                     )  # default metric without shuffling
 
-                    np.random.seed(seed)
+                    # Use deterministic RNG for this pair
+                    pair_seed = seed + global_i * 10000 + j * 100 if seed is not None else None
+                    pair_rng = np.random.RandomState(pair_seed)
+                    
                     me_table[i, j] = (
-                        me0 + np.random.random() * noise_const
+                        me0 + pair_rng.random() * noise_const
                     )  # add small noise for better fitting
 
-                    np.random.seed(seed)
                     random_noise = (
-                        np.random.random(size=len(random_shifts[i, j, :])) * noise_const
+                        pair_rng.random(size=len(random_shifts[i, j, :])) * noise_const
                     )  # add small noise for better fitting
 
                     for k, shift in enumerate(random_shifts[i, j, :]):
-                        np.random.seed(seed)
                         # mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
                         me = get_sim(ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator)
 
@@ -915,17 +934,18 @@ def scan_pairs_parallel(
             ts_bunch2,
             metric,
             nsh,
-            split_optimal_delays[_],
+            split_optimal_delays[worker_idx],
             mi_estimator,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
-            mask=split_mask[_],
+            mask=split_mask[worker_idx],
             noise_const=noise_const,
             seed=seed,
             enable_progressbar=False,
+            start_index=split_ts_bunch1_inds[worker_idx][0],
         )
-        for _, small_ts_bunch in enumerate(split_ts_bunch1)
+        for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
     )
 
     for i in range(n_jobs):
