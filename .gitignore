@@ -98,3 +98,6 @@ tools/
 
 # Text files folder
 text/
+
+# Internal documentation
+docs_internal/
