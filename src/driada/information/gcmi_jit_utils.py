@@ -10,9 +10,6 @@ from ..utils.jit import conditional_njit
 @conditional_njit
 def ctransform_jit(x):
     """Transform data to uniform marginals using empirical CDF.
-
-    DOC_VERIFIED
-
     Efficient O(n log n) implementation using sorting-based ranking. This function
     converts continuous data to uniform marginals on (0, 1) by computing the 
     empirical cumulative distribution function (CDF). The transformation preserves
@@ -92,9 +89,6 @@ def ctransform_jit(x):
 @conditional_njit
 def ctransform_2d_jit(x):
     """Transform 2D array to uniform marginals using empirical CDF.
-
-    DOC_VERIFIED
-
     Applies copula transformation independently to each row of a 2D array. This is
     commonly used when transforming multiple variables simultaneously, where each
     variable (row) has its own empirical distribution.
@@ -153,9 +147,6 @@ def ctransform_2d_jit(x):
 @conditional_njit
 def ndtri_approx(p):
     """Compute inverse normal CDF (quantile function) using rational approximation.
-
-    DOC_VERIFIED
-
     Implements the inverse of the standard normal cumulative distribution function
     (probit function) using a rational polynomial approximation suitable for JIT
     compilation. This provides a fast approximation of scipy.special.ndtri.
@@ -267,9 +258,6 @@ def ndtri_approx(p):
 @conditional_njit
 def copnorm_jit(x):
     """Transform data to standard normal using copula-normalization.
-
-    DOC_VERIFIED
-
     Combines copula transformation with inverse normal CDF to convert arbitrary
     continuous data to standard normal distribution while preserving rank
     relationships. This is a key preprocessing step for Gaussian Copula methods.
@@ -330,9 +318,6 @@ def copnorm_jit(x):
 @conditional_njit
 def copnorm_2d_jit(x):
     """Transform 2D array to standard normal using copula-normalization.
-
-    DOC_VERIFIED
-
     Applies copula-normalization independently to each row of a 2D array. This
     transforms multivariate data where each variable (row) is converted to standard
     normal marginals while preserving the dependence structure between variables.
@@ -402,9 +387,6 @@ def copnorm_2d_jit(x):
 @conditional_njit
 def mi_gg_jit(x, y, biascorrect=True, demeaned=False):
     """JIT-compiled Gaussian mutual information between two variables.
-
-    DOC_VERIFIED
-
     Computes mutual information between two multivariate Gaussian variables
     using entropy-based calculations with optional small-sample bias correction.
     This is the core computational function used by higher-level GCMI methods.
@@ -539,9 +521,6 @@ def mi_gg_jit(x, y, biascorrect=True, demeaned=False):
 @conditional_njit
 def cmi_ggg_jit(x, y, z, biascorrect=True, demeaned=False):
     """JIT-compiled conditional mutual information for Gaussian variables.
-
-    DOC_VERIFIED
-
     Computes conditional mutual information I(X;Y|Z) between continuous
     Gaussian variables X and Y given conditioning variable Z. Measures
     the information shared between X and Y that is not explained by Z.
@@ -723,9 +702,6 @@ def cmi_ggg_jit(x, y, z, biascorrect=True, demeaned=False):
 @conditional_njit
 def digamma_approx(x):
     """Approximate digamma function for JIT compilation.
-
-    DOC_VERIFIED
-
     Computes the digamma (psi) function ψ(x) = d/dx[log(Γ(x))] using
     asymptotic expansion for large values and recurrence relation for
     smaller values. Optimized for JIT compilation in bias correction.
@@ -796,9 +772,6 @@ def digamma_approx(x):
 @conditional_njit
 def gcmi_cc_jit(x, y):
     """JIT-compiled Gaussian-Copula MI between continuous variables.
-
-    DOC_VERIFIED
-
     Computes mutual information between continuous variables using the
     Gaussian Copula method. This is the main user-facing function for
     MI estimation between continuous variables of any distribution.
@@ -882,9 +855,6 @@ def gcmi_cc_jit(x, y):
 def gccmi_ccd_jit(x, y, z, Zm):
     """JIT-compiled Gaussian-Copula CMI between 2 continuous variables 
     conditioned on a discrete variable.
-    
-    DOC_VERIFIED
-    
     Computes conditional mutual information I(X;Y|Z) where X and Y are
     continuous variables and Z is discrete. Uses Gaussian copula transform
     for robustness to non-Gaussian marginals.

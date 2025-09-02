@@ -162,14 +162,25 @@ class Embedding:
     ...     dim=2,
     ...     n_neighbors=15,
     ...     min_dist=0.1
-    ... )
-    
-    DOC_VERIFIED
-    """
+    ... )    """
 
     def __init__(self, init_data, init_distmat, labels, params, g=None):
-        """
-        Parameters already documented in class docstring.
+        """Initialize Embedding object.
+        
+        Parameters
+        ----------
+        init_data : array-like
+            Initial data matrix with shape (n_features, n_samples)
+        init_distmat : array-like or None
+            Pre-computed distance matrix, optional
+        labels : array-like
+            Labels for each data point
+        params : dict
+            Dictionary of embedding parameters, must include 'e_method', 
+            'e_method_name', and method-specific parameters
+        g : ProximityGraph, optional
+            Pre-computed proximity graph. If None, may be computed later
+            depending on the embedding method
         
         Raises
         ------
@@ -191,8 +202,6 @@ class Embedding:
         >>> labels = np.repeat([0, 1], 25)
         >>> params = {'e_method': pca_method, 'e_method_name': 'pca', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
-        
-        DOC_VERIFIED
         """
         if g is not None:
             if isinstance(g, ProximityGraph):
@@ -254,10 +263,7 @@ class Embedding:
         >>> # For graph methods, build graph first:
         >>> emb.graph = ProximityGraph(data, nn=10)
         >>> emb.graph.build()
-        >>> emb.build()  # Now can use Isomap, LLE, etc.
-        
-        DOC_VERIFIED
-        """
+        >>> emb.build()  # Now can use Isomap, LLE, etc.        """
         if kwargs is None:
             kwargs = dict()
         fn = getattr(self, "create_" + self.e_method_name + "_embedding_")
@@ -307,10 +313,7 @@ class Embedding:
         >>> params = {'e_method_name': 'pca', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
         >>> emb.create_pca_embedding_(verbose=False)
-        >>> print(emb.coords.shape)  # (2, n_samples)
-        
-        DOC_VERIFIED
-        """
+        >>> print(emb.coords.shape)  # (2, n_samples)        """
         if verbose:
             print("Calculating PCA embedding...")
 
@@ -353,10 +356,7 @@ class Embedding:
         >>> emb.graph = ProximityGraph(data, nn=10)
         >>> emb.graph.build()
         >>> emb.create_isomap_embedding_()
-        >>> print(emb.coords.shape)  # (dim, n_samples)
-        
-        DOC_VERIFIED
-        """
+        >>> print(emb.coords.shape)  # (dim, n_samples)        """
         # Validate graph exists
         if not hasattr(self, 'graph') or self.graph is None:
             raise AttributeError("Graph not built. Call build_graph() first.")
@@ -411,10 +411,7 @@ class Embedding:
         >>> from scipy.spatial.distance import pdist, squareform
         >>> distmat = squareform(pdist(data.T))
         >>> emb = Embedding(data, distmat, labels, params)
-        >>> emb.create_mds_embedding_()
-        
-        DOC_VERIFIED
-        """
+        >>> emb.create_mds_embedding_()        """
         from sklearn.manifold import MDS
 
         # MDS typically uses a distance matrix
@@ -463,10 +460,7 @@ class Embedding:
         Examples
         --------
         >>> emb.create_mvu_embedding_()
-        >>> print(emb.coords.shape)  # (reduced_dim, n_samples)
-        
-        DOC_VERIFIED
-        """
+        >>> print(emb.coords.shape)  # (reduced_dim, n_samples)        """
         # Validate required attributes
         if not hasattr(self, 'graph') or self.graph is None:
             raise AttributeError("Graph must be created before MVU embedding. Call create_graph() first.")
@@ -531,10 +525,7 @@ class Embedding:
         References
         ----------
         Roweis & Saul (2000). Nonlinear dimensionality reduction by 
-        locally linear embedding. Science 290:2323-2326.
-        
-        DOC_VERIFIED
-        """
+        locally linear embedding. Science 290:2323-2326.        """
         # Validate required attributes
         if not hasattr(self, 'graph') or self.graph is None:
             raise AttributeError("Graph must be created before LLE embedding. Call create_graph() first.")
@@ -583,10 +574,7 @@ class Embedding:
         References
         ----------
         Donoho, D. & Grimes, C. (2003). Hessian eigenmaps: Locally linear
-        embedding techniques for high-dimensional data. PNAS.
-        
-        DOC_VERIFIED
-        """
+        embedding techniques for high-dimensional data. PNAS.        """
         # Validate required attributes
         if not hasattr(self, 'graph') or self.graph is None:
             raise AttributeError("Graph must be created before HLLE embedding. Call create_graph() first.")
@@ -647,10 +635,7 @@ class Embedding:
         References
         ----------
         Belkin, M. & Niyogi, P. (2003). Laplacian eigenmaps for
-        dimensionality reduction and data representation. Neural Computation.
-        
-        DOC_VERIFIED
-        """
+        dimensionality reduction and data representation. Neural Computation.        """
         # Validate required attributes
         if not hasattr(self, 'graph') or self.graph is None:
             raise AttributeError("Graph must be created before LE embedding. Call create_graph() first.")
@@ -718,10 +703,7 @@ class Embedding:
         Examples
         --------
         >>> emb.create_auto_le_embedding_()
-        >>> print(emb.coords.shape)  # (reduced_dim, n_samples)
-        
-        DOC_VERIFIED
-        """
+        >>> print(emb.coords.shape)  # (reduced_dim, n_samples)        """
         # Validate required attributes
         if not hasattr(self, 'graph') or self.graph is None:
             raise AttributeError("Graph must be created before auto LE embedding. Call create_graph() first.")
@@ -784,10 +766,7 @@ class Embedding:
         References
         ----------
         - Coifman & Lafon (2006): Diffusion maps
-        - DOI: https://doi.org/10.1016/j.acha.2006.04.006
-        
-        DOC_VERIFIED
-        """
+        - DOI: https://doi.org/10.1016/j.acha.2006.04.006        """
         import numpy as np
         from scipy.sparse import csr_matrix, diags
         from scipy.sparse.linalg import eigsh
@@ -907,10 +886,7 @@ class Embedding:
         Fokker-Planck normalization).
         
         This method is preferred when you want automatic parameter tuning
-        and don't need fine control over the diffusion process.
-        
-        DOC_VERIFIED
-        """
+        and don't need fine control over the diffusion process.        """
         # Validate graph exists
         if not hasattr(self, 'graph') or self.graph is None:
             raise AttributeError("Graph not built. Call build_graph() first.")
@@ -974,10 +950,7 @@ class Embedding:
         References
         ----------
         van der Maaten, L. & Hinton, G. (2008). Visualizing data using
-        t-SNE. Journal of Machine Learning Research.
-        
-        DOC_VERIFIED
-        """
+        t-SNE. Journal of Machine Learning Research.        """
         # Validate parameters
         check_positive(dim=self.dim)
         
@@ -1020,10 +993,7 @@ class Embedding:
         ----------
         McInnes, L., Healy, J., & Melville, J. (2018).
         UMAP: Uniform Manifold Approximation and Projection for
-        Dimension Reduction. arXiv:1802.03426.
-        
-        DOC_VERIFIED
-        """
+        Dimension Reduction. arXiv:1802.03426.        """
         # Validate graph and parameters
         if not hasattr(self, 'graph') or self.graph is None:
             raise AttributeError("Graph not built. Call build_graph() first.")
@@ -1081,10 +1051,7 @@ class Embedding:
         Notes
         -----
         Uses sklearn's train_test_split with shuffle=False to preserve
-        temporal order in the data split.
-        
-        DOC_VERIFIED
-        """
+        temporal order in the data split.        """
         # Validate parameters
         check_positive(batch_size=batch_size)
         check_nonnegative(seed=seed)
@@ -1233,10 +1200,7 @@ class Embedding:
         Notes
         -----
         This method is deprecated in favor of create_flexible_ae_embedding_
-        which provides more flexibility and advanced loss functions.
-        
-        DOC_VERIFIED
-        """
+        which provides more flexibility and advanced loss functions.        """
 
         # ---------------------------------------------------------------------------
         # Validate parameters
@@ -1313,10 +1277,7 @@ class Embedding:
             Notes
             -----
             Computes average absolute correlation between all pairs of features,
-            excluding self-correlations (diagonal).
-            
-            DOC_VERIFIED
-            """
+            excluding self-correlations (diagonal).            """
             corr = torch.corrcoef(data)
             nv = corr.shape[0]
             closs = torch.abs(
@@ -1346,10 +1307,7 @@ class Embedding:
             -----
             This is a workaround for mutual information estimation. The loss
             computes average magnitude of correlations between all pairs of
-            variables from data and ortdata.
-            
-            DOC_VERIFIED
-            """
+            variables from data and ortdata.            """
             n1, n2 = data.shape[0], ortdata.shape[1]
             fulldata = torch.cat((data, ortdata), dim=0)
             corr = torch.corrcoef(fulldata)
@@ -1581,10 +1539,7 @@ class Embedding:
         Notes
         -----
         This method is deprecated in favor of create_flexible_ae_embedding_
-        which provides more flexibility and advanced loss functions.
-        
-        DOC_VERIFIED
-        """
+        which provides more flexibility and advanced loss functions.        """
 
         # ---------------------------------------------------------------------------
         # Validate parameters
@@ -1869,10 +1824,7 @@ class Embedding:
         -----
         This method provides a flexible framework for various autoencoder
         architectures with modular loss composition. It replaces the
-        deprecated create_ae_embedding_ and create_vae_embedding_ methods.
-        DOC_VERIFIED
-        
-        """
+        deprecated create_ae_embedding_ and create_vae_embedding_ methods.        """
         # Validate parameters
         check_positive(epochs=epochs, lr=lr, inter_dim=inter_dim, log_every=log_every)
         if architecture not in ["ae", "vae"]:
@@ -2072,7 +2024,7 @@ class Embedding:
         ----------
         add_epochs : int
             Number of additional epochs to train. Must be positive.
-        **kwargs : dict
+        **kwargs
             Additional keyword arguments to pass to the training method.
             These override the original training parameters.
             
@@ -2086,10 +2038,7 @@ class Embedding:
         Notes
         -----
         This method requires that an autoencoder model was previously
-        trained using one of the DL-based methods (ae, vae, flexible_ae).
-        
-        DOC_VERIFIED
-        """
+        trained using one of the DL-based methods (ae, vae, flexible_ae).        """
         # Validate parameters
         check_positive(add_epochs=add_epochs)
         
@@ -2151,10 +2100,7 @@ class Embedding:
         >>> lle_emb = mvdata.get_embedding(method='lle', dim=2)
         >>> lle_mvdata = lle_emb.to_mvdata()
         >>> # Labels either filtered to match remaining nodes or None
-        >>> assert lle_mvdata.labels is None or len(lle_mvdata.labels) == lle_mvdata.n_points
-        
-        DOC_VERIFIED
-        """
+        >>> assert lle_mvdata.labels is None or len(lle_mvdata.labels) == lle_mvdata.n_points        """
         # Import here to avoid circular dependency
         from .data import MVData
 

@@ -74,10 +74,7 @@ def plot_embedding_comparison(
     Notes
     -----
     Methods not found in embeddings dict are silently skipped.
-    KDE computation failures are caught and contours are omitted.
-    
-    DOC_VERIFIED
-    """
+    KDE computation failures are caught and contours are omitted.    """
     # Validate embeddings
     for method, embedding in embeddings.items():
         if embedding.ndim != 2:
@@ -337,10 +334,7 @@ def plot_trajectories(
     Raises
     ------
     ValueError
-        If embeddings are not 2D arrays with at least 2 components
-    
-    DOC_VERIFIED
-    """
+        If embeddings are not 2D arrays with at least 2 components    """
     # Validate embeddings
     for method, embedding in embeddings.items():
         if embedding.ndim != 2:
@@ -503,10 +497,7 @@ def plot_component_interpretation(
     Raises
     ------
     ValueError
-        If MI matrices are not 2D or contain negative values
-    
-    DOC_VERIFIED
-    """
+        If MI matrices are not 2D or contain negative values    """
     # Validate MI matrices
     for method, mi_matrix in mi_matrices.items():
         if mi_matrix.ndim != 2:
@@ -666,10 +657,7 @@ def plot_embeddings_grid(
     Raises
     ------
     ValueError
-        If embeddings are not 2D or label lengths mismatch
-    
-    DOC_VERIFIED
-    """
+        If embeddings are not 2D or label lengths mismatch    """
     if methods is None:
         methods = list(embeddings.keys())
 
@@ -810,10 +798,7 @@ def plot_neuron_selectivity_summary(
     Raises
     ------
     ValueError
-        If total_neurons <= 0 or counts are invalid
-    
-    DOC_VERIFIED
-    """
+        If total_neurons <= 0 or counts are invalid    """
     # Validate inputs using utility functions
     check_positive(total_neurons=total_neurons)
     
@@ -930,10 +915,7 @@ def plot_component_selectivity_heatmap(
     ------
     ValueError
         If selectivity_matrix is not 2D, contains negative values,
-        methods list is empty, or component counts don't match matrix
-    
-    DOC_VERIFIED
-    """
+        methods list is empty, or component counts don't match matrix    """
     # Validate inputs
     if selectivity_matrix.ndim != 2:
         raise ValueError(f"selectivity_matrix must be 2D, got shape {selectivity_matrix.shape}")

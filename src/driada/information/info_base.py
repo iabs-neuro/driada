@@ -148,10 +148,7 @@ class TimeSeries:
     >>> data = np.sin(np.linspace(0, 10*np.pi, 1000))
     >>> mask = np.ones(1000, dtype=bool)
     >>> mask[:100] = False  # Invalid positions at start
-    >>> ts_masked = TimeSeries(data, shuffle_mask=mask)
-    DOC_VERIFIED
-    
-    """
+    >>> ts_masked = TimeSeries(data, shuffle_mask=mask)    """
     @staticmethod
     def define_ts_type(ts):
         """Legacy method for backward compatibility. Use is_discrete_time_series instead.
@@ -187,10 +184,7 @@ class TimeSeries:
         - > 0.70: classified as continuous  
         - Between: ambiguous, defaults to continuous
         
-        The new type detection system is much more sophisticated and accurate.
-        
-        DOC_VERIFIED
-        """
+        The new type detection system is much more sophisticated and accurate.        """
         warnings.warn(
             "TimeSeries.define_ts_type is deprecated. "
             "Use driada.information.time_series_types.is_discrete_time_series instead.",
@@ -232,10 +226,7 @@ class TimeSeries:
         Raises
         ------
         ValueError
-            If data validation fails
-            
-        DOC_VERIFIED
-        """
+            If data validation fails        """
         # Check data is numpy array
         if not isinstance(self.data, np.ndarray):
             raise ValueError("Time series data must be a numpy array")
@@ -295,10 +286,7 @@ class TimeSeries:
         >>> ts.tstype.primary_type
         'discrete'
         >>> ts.tstype.subtype
-        'binary'
-        
-        DOC_VERIFIED
-        """
+        'binary'        """
         type_str = type_str.lower()
 
         # Map string to primary type and subtype
@@ -389,10 +377,7 @@ class TimeSeries:
         ValueError
             If data is not a numpy array, not 1D, has less than 2 points,
             contains NaN or infinite values, or if shuffle_mask has invalid
-            length or values.
-            
-        DOC_VERIFIED
-        """
+            length or values.        """
         self.data = to_numpy_array(data)
         self.name = name
         self.shuffle_mask = shuffle_mask
@@ -501,10 +486,7 @@ class TimeSeries:
         
         See Also
         --------
-        get_kdtree_query : Query the KDTree for k-nearest neighbors.
-        
-        DOC_VERIFIED
-        """
+        get_kdtree_query : Query the KDTree for k-nearest neighbors.        """
         if self.kdtree is None:
             tree = self._compute_kdtree()
             self.kdtree = tree
@@ -526,10 +508,7 @@ class TimeSeries:
         Notes
         -----
         Called lazily by get_kdtree() and cached for efficiency.
-        Uses build_tree from ksg module which wraps sklearn's KDTree.
-        
-        DOC_VERIFIED
-        """
+        Uses build_tree from ksg module which wraps sklearn's KDTree.        """
         d = self.data.reshape(self.data.shape[0], -1)
         return build_tree(d)
 
@@ -563,10 +542,7 @@ class TimeSeries:
         
         See Also
         --------
-        get_kdtree : Build or retrieve the KDTree structure.
-        
-        DOC_VERIFIED
-        """
+        get_kdtree : Build or retrieve the KDTree structure.        """
         if k not in self.kdtree_query:
             q = self._compute_kdtree_query(k=k)
             self.kdtree_query[k] = q
@@ -596,10 +572,7 @@ class TimeSeries:
         Notes
         -----
         Triggers KDTree construction via get_kdtree() if not already built.
-        Results are cached by get_kdtree_query() for each k value.
-        
-        DOC_VERIFIED
-        """
+        Results are cached by get_kdtree_query() for each k value.        """
         tree = self.get_kdtree()
         # Reshape data for query - KDTree expects 2D
         d = self.data.reshape(self.data.shape[0], -1)
@@ -640,10 +613,7 @@ class TimeSeries:
         See Also
         --------
         entropy_d : Discrete entropy calculation.
-        nonparam_entropy_c : Continuous entropy estimation using KSG method.
-        
-        DOC_VERIFIED
-        """
+        nonparam_entropy_c : Continuous entropy estimation using KSG method.        """
         # Validate downsampling factor
         if not isinstance(ds, int) or ds < 1:
             raise ValueError(f"Downsampling factor ds must be a positive integer, got {ds}")
@@ -676,10 +646,7 @@ class TimeSeries:
         
         Side Effects
         ------------
-        Modifies self.entropy dictionary by adding entry for key ds.
-        
-        DOC_VERIFIED
-        """
+        Modifies self.entropy dictionary by adding entry for key ds.        """
         if self.discrete:
             # Use entropy_d with int_data for efficient computation
             # entropy_d already returns bits, no conversion needed
@@ -699,7 +666,7 @@ class TimeSeries:
         ----------
         method : str
             Filtering method: 'gaussian', 'savgol', 'wavelet', or 'none'
-        **kwargs : dict
+        **kwargs
             Method-specific parameters:
             - gaussian: sigma (default: 1.0)
             - savgol: window_length (default: 5), polyorder (default: 2)
@@ -708,10 +675,7 @@ class TimeSeries:
         Returns
         -------
         TimeSeries
-            New TimeSeries object with filtered data
-        
-        DOC_VERIFIED
-        """
+            New TimeSeries object with filtered data        """
         from ..utils.signals import filter_1d_timeseries
 
         if method == "none":
@@ -771,10 +735,7 @@ class TimeSeries:
         --------
         >>> ts = TimeSeries(np.random.randn(1000), discrete=False)
         >>> apen = ts.approximate_entropy(m=2)
-        >>> print(f"Approximate entropy: {apen:.3f}")
-        
-        DOC_VERIFIED
-        """
+        >>> print(f"Approximate entropy: {apen:.3f}")        """
         if self.discrete:
             raise ValueError(
                 "approximate_entropy is only valid for continuous time series"
@@ -882,10 +843,7 @@ class MultiTimeSeries(MVData):
     >>> embedding = mts.get_embedding(method='pca', dim=2)
     >>> 
     >>> # Filter all time series
-    >>> mts_filtered = mts.filter(method='gaussian', sigma=2.0)
-    
-    DOC_VERIFIED
-    """
+    >>> mts_filtered = mts.filter(method='gaussian', sigma=2.0)    """
 
     def __init__(
         self,
@@ -901,15 +859,33 @@ class MultiTimeSeries(MVData):
     ):
         """Initialize MultiTimeSeries object.
         
-        See class docstring for detailed parameter descriptions.
+        Parameters
+        ----------
+        data_or_tslist : ndarray or list of TimeSeries
+            Either a 2D numpy array of shape (n_series, n_timepoints) or
+            a list of TimeSeries objects (must all be same type)
+        labels : array-like, optional
+            Labels for dimensionality reduction visualization
+        distmat : array-like, optional
+            Precomputed distance matrix
+        rescale_rows : bool, default=False
+            Whether to rescale each time series to [0, 1]
+        data_name : str, optional
+            Name for the dataset
+        downsampling : int, optional
+            Downsampling factor
+        discrete : bool, optional
+            Required when passing numpy array. Specifies if all series are discrete
+        shuffle_mask : array-like, optional
+            Boolean mask for valid shuffle positions
+        allow_zero_columns : bool, default=False
+            Whether to allow time points where all series are zero
         
         Notes
         -----
         This method handles both numpy array and list of TimeSeries inputs,
         validates compatibility, combines data and metadata, and initializes
         the parent MVData class for dimensionality reduction capabilities.
-        
-        DOC_VERIFIED
         """
         # Handle both numpy array and list of TimeSeries inputs
         if isinstance(data_or_tslist, np.ndarray):
@@ -1015,10 +991,7 @@ class MultiTimeSeries(MVData):
         Returns
         -------
         tuple of int
-            Shape as (n_variables, n_timepoints).
-        
-        DOC_VERIFIED
-        """
+            Shape as (n_variables, n_timepoints).        """
         return self.data.shape
 
     def _check_input(self, tslist):
@@ -1047,10 +1020,7 @@ class MultiTimeSeries(MVData):
         -----
         All components must be either all discrete or all continuous.
         The discrete/continuous nature is determined from the first element
-        and verified against all others.
-        
-        DOC_VERIFIED
-        """
+        and verified against all others.        """
         is_ts = np.array([isinstance(ts, TimeSeries) for ts in tslist])
         if not np.all(is_ts):
             raise ValueError("Input to MultiTimeSeries must be iterable of TimeSeries")
@@ -1109,10 +1079,7 @@ class MultiTimeSeries(MVData):
         --------
         entropy_d : Single discrete variable entropy.
         joint_entropy_dd : Joint entropy for 2 discrete variables.
-        ent_g : Gaussian copula entropy for continuous multivariate data.
-        
-        DOC_VERIFIED
-        """
+        ent_g : Gaussian copula entropy for continuous multivariate data.        """
         if ds not in self.entropy.keys():
             self._compute_entropy(ds=ds)
         return self.entropy[ds]
@@ -1144,10 +1111,7 @@ class MultiTimeSeries(MVData):
         Side Effects
         ------------
         Modifies self.entropy dictionary by adding entry for key ds.
-        May import joint_entropy_dd lazily for 2-variable discrete case.
-        
-        DOC_VERIFIED
-        """
+        May import joint_entropy_dd lazily for 2-variable discrete case.        """
         if self.discrete:
             # All components are discrete - compute joint entropy
             if self.n_dim == 1:
@@ -1177,16 +1141,13 @@ class MultiTimeSeries(MVData):
         ----------
         method : str
             Filtering method: 'gaussian', 'savgol', 'wavelet', or 'none'
-        **kwargs : dict
+        **kwargs
             Method-specific parameters (see TimeSeries.filter for details)
 
         Returns
         -------
         MultiTimeSeries
-            New MultiTimeSeries object with all components filtered
-        
-        DOC_VERIFIED
-        """
+            New MultiTimeSeries object with all components filtered        """
         from ..utils.signals import filter_signals
 
         if method == "none":
@@ -1242,10 +1203,7 @@ def get_stats_function(sname):
     Examples
     --------
     >>> func = get_stats_function('pearsonr')
-    >>> r, p = func([1, 2, 3], [2, 4, 6])
-    
-    DOC_VERIFIED
-    """
+    >>> r, p = func([1, 2, 3], [2, 4, 6])    """
     try:
         return getattr(scipy.stats, sname)
     except AttributeError:
@@ -1279,10 +1237,7 @@ def calc_signal_ratio(binary_ts, continuous_ts):
     >>> continuous = np.array([1, 1, 5, 6, 2, 1, 4, 5])
     >>> ratio = calc_signal_ratio(binary, continuous)
     >>> print(f"Signal is {ratio:.1f}x higher when ON")
-    Signal is 3.8x higher when ON
-    
-    DOC_VERIFIED
-    """
+    Signal is 3.8x higher when ON    """
     # Calculate average of continuous_ts when binary_ts is 1 or 0
     avg_on = np.mean(continuous_ts[binary_ts == 1])
     avg_off = np.mean(continuous_ts[binary_ts == 0])
@@ -1345,10 +1300,7 @@ def get_sim(
         one binary and one continuous variable).
         If trying to use correlation metrics with multivariate data.
     Exception
-        If multidimensional inputs are not provided as MultiTimeSeries.
-
-    DOC_VERIFIED
-    """
+        If multidimensional inputs are not provided as MultiTimeSeries.    """
 
     def _check_input(ts):
         """Convert array input to TimeSeries/MultiTimeSeries if needed.
@@ -1368,10 +1320,7 @@ def get_sim(
         Raises
         ------
         Exception
-            If multidimensional array not provided as MultiTimeSeries.
-            
-        DOC_VERIFIED
-        """
+            If multidimensional array not provided as MultiTimeSeries.        """
         if not isinstance(ts, TimeSeries) and not isinstance(ts, MultiTimeSeries):
             if np.ndim(ts) == 1:
                 ts = TimeSeries(ts)
@@ -1536,10 +1485,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
     get_1d_mi : MI for univariate time series (called internally)
     get_multi_mi : MI between multiple and single time series
     get_tdmi : Time-delayed MI for finding optimal embedding delays
-    conditional_mi : Conditional mutual information I(X;Y|Z)
-    
-    DOC_VERIFIED
-    """
+    conditional_mi : Conditional mutual information I(X;Y|Z)    """
 
     def _check_input(ts):
         """Convert array input to TimeSeries/MultiTimeSeries if needed.
@@ -1559,10 +1505,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
         Raises
         ------
         Exception
-            If multidimensional array not provided as MultiTimeSeries.
-            
-        DOC_VERIFIED
-        """
+            If multidimensional array not provided as MultiTimeSeries.        """
         if not isinstance(ts, TimeSeries) and not isinstance(ts, MultiTimeSeries):
             if np.ndim(ts) == 1:
                 ts = TimeSeries(ts)
@@ -1617,10 +1560,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
         -----
         Uses Gaussian copula MI (GCMI) estimation for efficiency. The data is
         transformed to a Gaussian copula representation before MI calculation.
-        For discrete Y, uses the mixed continuous-discrete GCMI estimator.
-        
-        DOC_VERIFIED
-        """
+        For discrete Y, uses the mixed continuous-discrete GCMI estimator.        """
         if estimator == "ksg":
             raise NotImplementedError("KSG estimator is not supported for dim>1 yet")
 
@@ -1706,10 +1646,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
         transformed to a Gaussian copula representation before MI calculation.
         The GCMI method is particularly well-suited for high-dimensional data
         as it avoids the curse of dimensionality associated with kernel-based
-        estimators.
-        
-        DOC_VERIFIED
-        """
+        estimators.        """
         if estimator == "ksg":
             raise NotImplementedError("KSG estimator is not supported for dim>1 yet")
 
@@ -1787,15 +1724,17 @@ def get_1d_mi(
 
     Parameters
     ----------
-    ts1: TimeSeries/MultiTimeSeries instance or numpy array
-    ts2: TimeSeries/MultiTimeSeries instance or numpy array
-    shift: int
+    ts1 : TimeSeries/MultiTimeSeries instance or numpy array
+        First time series or variable
+    ts2 : TimeSeries/MultiTimeSeries instance or numpy array
+        Second time series or variable
+    shift : int, default=0
         ts2 will be roll-moved by the number 'shift' after downsampling by 'ds' factor
-    ds: int
+    ds : int, default=1
         downsampling constant (take every 'ds'-th point)
-    k: int
+    k : int, default=5
         number of neighbors for ksg estimator
-    estimator: str
+    estimator : str, default='gcmi'
         Estimation method. Should be 'ksg' (accurate but slow) and 'gcmi' (fast, but estimates the lower bound on MI).
         In most cases 'gcmi' should be preferred.
         
@@ -1803,7 +1742,7 @@ def get_1d_mi(
         is applied to the full data before downsampling. This is an approximation that works well for
         small downsampling factors (ds ≤ 5) and smooth signals, but may introduce inaccuracies for
         large downsampling factors or highly variable signals.
-    check_for_coincidence : bool, optional
+    check_for_coincidence : bool, default=True
         If True, checks for MI(X,X) computation at zero shift:
         - For discrete variables: returns H(X)
         - For continuous variables: raises ValueError (MI is infinite)
@@ -1813,10 +1752,7 @@ def get_1d_mi(
     -------
     mi: float
         Mutual information in bits (or its lower bound in case of 'gcmi' estimator) 
-        between ts1 and (possibly) shifted ts2. Both estimators return values in bits.
-    
-    DOC_VERIFIED
-    """
+        between ts1 and (possibly) shifted ts2. Both estimators return values in bits.    """
 
     def _check_input(ts):
         """Convert array input to TimeSeries/MultiTimeSeries if needed.
@@ -1836,10 +1772,7 @@ def get_1d_mi(
         Raises
         ------
         Exception
-            If multidimensional array not provided as MultiTimeSeries.
-            
-        DOC_VERIFIED
-        """
+            If multidimensional array not provided as MultiTimeSeries.        """
         if not isinstance(ts, TimeSeries) and not isinstance(ts, MultiTimeSeries):
             if np.ndim(ts) == 1:
                 ts = TimeSeries(ts)
@@ -2009,10 +1942,7 @@ def get_tdmi(data, min_shift=1, max_shift=100, nn=DEFAULT_NN, estimator='gcmi'):
     >>> optimal_delay = np.argmin(tdmi) + 1  # First minimum
     >>> 
     >>> # Using KSG for more accuracy
-    >>> tdmi_ksg = get_tdmi(data, min_shift=1, max_shift=50, estimator='ksg')
-    
-    DOC_VERIFIED
-    """
+    >>> tdmi_ksg = get_tdmi(data, min_shift=1, max_shift=50, estimator='ksg')    """
     ts = TimeSeries(data, discrete=False)
     tdmi = [
         get_1d_mi(ts, ts, shift=shift, k=nn, estimator=estimator) for shift in range(min_shift, max_shift)
@@ -2048,10 +1978,7 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator="gcmi"):
     Returns
     -------
     float
-        Mutual information I(X;Y) in bits where X is the multivariate input from tslist
-    
-    DOC_VERIFIED
-    """
+        Mutual information I(X;Y) in bits where X is the multivariate input from tslist    """
     
     # Check if all variables are continuous
     all_continuous = all(not ts.discrete for ts in tslist) and not ts2.discrete
@@ -2098,8 +2025,8 @@ def aggregate_multiple_ts(*ts_args, noise=1e-5):
     ----------
     *ts_args : TimeSeries
         Variable number of TimeSeries objects to aggregate.
-    noise : float, optional
-        Amount of noise to add to break degeneracy. Default: 1e-5.
+    noise : float, default=1e-5
+        Amount of noise to add to break degeneracy.
 
     Returns
     -------
@@ -2115,10 +2042,7 @@ def aggregate_multiple_ts(*ts_args, noise=1e-5):
     --------
     >>> ts1 = TimeSeries(np.random.randn(100), discrete=False)
     >>> ts2 = TimeSeries(np.random.randn(100), discrete=False)
-    >>> mts = aggregate_multiple_ts(ts1, ts2)
-    
-    DOC_VERIFIED
-    """
+    >>> mts = aggregate_multiple_ts(ts1, ts2)    """
     # add small noise to break degeneracy
     mod_tslist = []
     for ts in ts_args:
@@ -2183,10 +2107,7 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
     - Large negatives (> 10% of scale): Raises ValueError
     
     The CDD case is particularly prone to negative biases due to mixed
-    estimators and receives more lenient treatment.
-    
-    DOC_VERIFIED
-    """
+    estimators and receives more lenient treatment.    """
     if ts1.discrete:
         raise ValueError(
             "conditional MI(X,Y|Z) is currently implemented for continuous X only"
@@ -2355,10 +2276,7 @@ def interaction_information(ts1, ts2, ts3, ds=1, k=5):
     II(X;Y;Z) = I(X;Y|Z) - I(X;Y) = I(X;Z|Y) - I(X;Z)
 
     This implementation assumes X is the target variable (e.g., neural activity)
-    and Y, Z are predictor variables (e.g., behavioral features).
-    
-    DOC_VERIFIED
-    """
+    and Y, Z are predictor variables (e.g., behavioral features).    """
     # Compute pairwise mutual information
     mi_xy = get_mi(ts1, ts2, ds=ds)
     mi_xz = get_mi(ts1, ts3, ds=ds)

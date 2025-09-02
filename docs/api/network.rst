@@ -2,56 +2,60 @@ Network Analysis Module
 =======================
 
 .. automodule:: driada.network
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   :no-members:
+   :noindex:
 
-Core Network Class
-------------------
+Tools for analyzing functional networks in neural data, including graph-based analysis,
+spectral methods, and network visualization.
 
-.. automodule:: driada.network.net_base
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. note::
+   As of version 1.0.0, all major functions are now exported at the module level.
+   You can use ``from driada.network import get_giant_cc_from_graph`` etc.
 
-Graph Utilities
----------------
-
-.. automodule:: driada.network.graph_utils
-   :members:
-   :undoc-members:
-
-Matrix Utilities
-----------------
-
-.. automodule:: driada.network.matrix_utils
-   :members:
-   :undoc-members:
-
-Spectral Analysis
+Module Components
 -----------------
 
-.. automodule:: driada.network.spectral
-   :members:
-   :undoc-members:
+.. toctree::
+   :maxdepth: 1
 
-Quantum-Inspired Methods
-------------------------
+   network/core
+   network/graph_utils
+   network/matrix_utils
+   network/spectral
+   network/quantum
+   network/randomization
+   network/visualization
 
-.. automodule:: driada.network.quantum
-   :members:
-   :undoc-members:
+Quick Links
+-----------
 
-Graph Randomization
--------------------
+**Core Class**
+   * :class:`~driada.network.Network` - Main network analysis class
+   * :doc:`network/core` - Network construction and basic properties
 
-.. automodule:: driada.network.randomization
-   :members:
-   :undoc-members:
+**Graph Operations**
+   * :doc:`network/graph_utils` - Component extraction, cleaning
+   * :doc:`network/matrix_utils` - Adjacency matrix operations
 
-Visualization
+**Advanced Analysis**
+   * :doc:`network/spectral` - Spectral entropy and analysis
+   * :doc:`network/quantum` - Quantum-inspired network methods
+   * :doc:`network/randomization` - Network randomization algorithms
+
+**Visualization**
+   * :doc:`network/visualization` - Network plotting utilities
+
+Usage Example
 -------------
 
-.. automodule:: driada.network.drawing
-   :members:
-   :undoc-members:
+.. code-block:: python
+
+   from driada.network import Network
+   from driada.network.graph_utils import get_giant_cc_from_graph
+   
+   # Create network from adjacency matrix
+   net = Network(adj=adjacency_matrix, preprocessing='giant_cc')
+   
+   # Analyze network properties
+   print(f"Nodes: {net.n_nodes}, Edges: {net.n_edges}")
+   print(f"Clustering coefficient: {net.clustering:.3f}")

@@ -58,10 +58,7 @@ def entropy_d(x):
     -----
     For small datasets (< 1000 elements), automatically uses JIT-compiled
     implementation if available. For larger datasets, uses optimized numpy
-    implementation to avoid JIT compilation overhead.
-    
-    DOC_VERIFIED
-    """
+    implementation to avoid JIT compilation overhead.    """
     x = np.asarray(x)
     
     # Verify input is numeric
@@ -105,10 +102,7 @@ def probs_to_entropy(p):
     -----
     Probabilities are automatically normalized to sum to 1. A small epsilon 
     (1e-10) is added before taking logarithm to avoid numerical issues with 
-    log(0) and ensure numerical stability.
-    
-    DOC_VERIFIED
-    """
+    log(0) and ensure numerical stability.    """
     p = np.asarray(p)
     p = p / np.sum(p)  # Normalize to sum to 1
     return -np.sum(p * np.log2(p + 1e-10))  # Add small value to avoid log(0)
@@ -143,10 +137,7 @@ def joint_entropy_dd(x, y):
     -----
     When JIT compilation is available, always uses the JIT version as it is
     consistently faster. Falls back to histogram2d-based implementation
-    if JIT is not available.
-    
-    DOC_VERIFIED
-    """
+    if JIT is not available.    """
     x = np.asarray(x)
     y = np.asarray(y)
 
@@ -202,10 +193,7 @@ def conditional_entropy_cdd(z, x, y, k=5, estimator='gcmi'):
     Notes
     -----
     GCMI estimator is faster but assumes data follows Gaussian distribution.
-    KSG estimator is slower but works for arbitrary continuous distributions.
-    
-    DOC_VERIFIED
-    """
+    KSG estimator is slower but works for arbitrary continuous distributions.    """
     z = np.asarray(z)
     x = np.asarray(x)
     y = np.asarray(y)
@@ -268,10 +256,7 @@ def conditional_entropy_cd(z, x, k=5, estimator='gcmi'):
     Notes
     -----
     GCMI estimator is faster but assumes data follows Gaussian distribution.
-    KSG estimator is slower but works for arbitrary continuous distributions.
-    
-    DOC_VERIFIED
-    """
+    KSG estimator is slower but works for arbitrary continuous distributions.    """
     z = np.asarray(z)
     x = np.asarray(x)
     
@@ -334,10 +319,7 @@ def joint_entropy_cdd(x, y, z, k=5, estimator='gcmi'):
     Notes
     -----
     Discrete component H(X,Y) is computed exactly. Continuous component H(Z|X,Y)
-    uses the specified estimator. Chain rule ensures mathematical correctness.
-    
-    DOC_VERIFIED
-    """
+    uses the specified estimator. Chain rule ensures mathematical correctness.    """
     x = np.asarray(x)
     y = np.asarray(y)
     z = np.asarray(z)
@@ -385,10 +367,7 @@ def joint_entropy_cd(x, z, k=5, estimator='gcmi'):
     Notes
     -----
     Discrete component H(X) is computed exactly. Continuous component H(Z|X)
-    uses the specified estimator. Chain rule ensures mathematical correctness.
-    
-    DOC_VERIFIED
-    """
+    uses the specified estimator. Chain rule ensures mathematical correctness.    """
     x = np.asarray(x)
     z = np.asarray(z)
     

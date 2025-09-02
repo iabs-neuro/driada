@@ -45,26 +45,21 @@ def compute_cell_feat_significance(
 
     Parameters
     ----------
-    exp: Experiment instance
+    exp : Experiment
         Experiment object to read and write data from
-
-    cell_bunch: int, iterable or None
+    cell_bunch : int, iterable or None, optional
         Neuron indices. By default, (cell_bunch=None), all neurons will be taken
-
-    feat_bunch: str, iterable or None
+    feat_bunch : str, iterable or None, optional
         Feature names. By default, (feat_bunch=None), all single features will be taken
+    data_type : str, optional
+        Data type used for INTENSE computations. Can be 'calcium' or 'spikes'. Default is 'calcium'
+    metric : str, optional
+        Similarity metric between TimeSeries. Default is 'mi'
 
-    data_type: str
-        Data type used for INTENSE computations. Can be 'calcium' or 'spikes'
-
-    metric: similarity metric between TimeSeries
-        default: 'mi'
-
-    mi_estimator: str
-        Mutual information estimator to use when metric='mi'. Options: 'gcmi' or 'ksg'
-        default: 'gcmi'
-
-    mode: str
+    mi_estimator : str, optional
+        Mutual information estimator to use when metric='mi'. Options: 'gcmi' or 'ksg'.
+        Default is 'gcmi'
+    mode : str, optional
         Computation mode. 3 modes are available:
         'stage1': perform preliminary scanning with "n_shuffles_stage1" shuffles only.
                   Rejects strictly non-significant neuron-feature pairs, does not give definite results
@@ -74,111 +69,98 @@ def compute_cell_feat_significance(
                   of multiple comparison tests, since the number of hypotheses is very high.
         'two_stage': prune non-significant pairs during stage 1 and perform thorough testing for the rest during stage 2.
                      Recommended mode.
-        default: 'two-stage'
+        Default is 'two_stage'
 
-    n_shuffles_stage1: int
-        number of shuffles for first stage
-        default: 100
-
-    n_shuffles_stage2: int
-        number of shuffles for second stage
-        default: 10000
-
-    joint_distr: bool
-        if True, ALL features in feat_bunch will be treated as components of a single multifeature
+    n_shuffles_stage1 : int, optional
+        Number of shuffles for first stage. Default is 100
+    n_shuffles_stage2 : int, optional
+        Number of shuffles for second stage. Default is 10000
+    joint_distr : bool, optional
+        If True, ALL features in feat_bunch will be treated as components of a single multifeature.
         For example, 'x' and 'y' features will be put together into ('x','y') multifeature.
         Note: This parameter is marked for deprecation. Use allow_mixed_dimensions instead.
-        default: False
+        Default is False
+    allow_mixed_dimensions : bool, optional
+        If True, both TimeSeries and MultiTimeSeries can be provided as signals.
+        This parameter overrides "joint_distr". Default is False
 
-    allow_mixed_dimensions: bool
-        if True, both TimeSeries and MultiTimeSeries can be provided as signals.
-        This parameter overrides "joint_distr"
-
-    metric_distr_type: str
-        Distribution type for shuffled metric distribution fit. Supported options are distributions from scipy.stats
+    metric_distr_type : str, optional
+        Distribution type for shuffled metric distribution fit. Supported options are distributions from scipy.stats.
         Note: While 'gamma' is theoretically appropriate for MI distributions, empirical testing shows
         that 'norm' (normal distribution) often performs better due to its conservative p-values when
         fitting poorly to the skewed MI data. This conservatism reduces false positives.
-        default: "gamma"
-
-    noise_ampl: float
-        Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit
-        default: 1e-3
-
-    ds: int
+        Default is "gamma"
+    noise_ampl : float, optional
+        Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit.
+        Default is 1e-3
+    ds : int, optional
         Downsampling constant. Every "ds" point will be taken from the data time series.
         Reduces the computational load, but needs caution since with large "ds" some important information may be lost.
         Experiment class performs an internal check for this effect.
-        default: 1
+        Default is 1
 
-    use_precomputed_stats: bool
+    use_precomputed_stats : bool, optional
         Whether to use stats saved in Experiment instance. Stats are accumulated separately for stage1 and stage2.
         Notes on stats data rewriting (if save_computed_stats=True):
         If you want to recalculate stage1 results only, use "use_precomputed_stats=False" and "mode='stage1'".
         Stage 2 stats will be erased since they will become irrelevant.
         If you want to recalculate stage2 results only, use "use_precomputed_stats=True" and "mode='stage2'" or "mode='two-stage'"
-        If you want to recalculate everything, use "use_precomputed_stats=False" and "mode='two-stage'"
-        default: True
-
-    save_computed_stats: bool
-        Whether to save computed stats to Experiment instance
-        default: True
-
-    force_update: bool
+        If you want to recalculate everything, use "use_precomputed_stats=False" and "mode='two-stage'".
+        Default is True
+    save_computed_stats : bool, optional
+        Whether to save computed stats to Experiment instance. Default is True
+    force_update : bool, optional
         Whether to force saved statistics data update in case the collision between actual data hashes and
         saved stats data hashes is found (for example, if neuronal or behavior data has been changed externally).
-        default: False
+        Default is False
 
-    topk1: int
-        true MI for stage 1 should be among topk1 MI shuffles
-        default: 1
+    topk1 : int, optional
+        True MI for stage 1 should be among topk1 MI shuffles. Default is 1
+    topk2 : int, optional
+        True MI for stage 2 should be among topk2 MI shuffles. Default is 5
+    multicomp_correction : str or None, optional
+        Type of multiple comparison correction. Supported types are None (no correction),
+        "bonferroni" and "holm". Default is 'holm'
+    pval_thr : float, optional
+        P-value threshold. If multicomp_correction=None, this is a p-value for a single pair.
+        Otherwise it is a FWER significance level. Default is 0.01
 
-    topk2: int
-        true MI for stage 2 should be among topk2 MI shuffles
-        default: 5
-
-    multicomp_correction: str or None
-        type of multiple comparison correction. Supported types are None (no correction),
-        "bonferroni" and "holm".
-        default: 'holm'
-
-    pval_thr: float
-        pvalue threshold. if multicomp_correction=None, this is a p-value for a single pair.
-        Otherwise it is a FWER significance level.
-
-    find_optimal_delays: bool
+    find_optimal_delays : bool, optional
         Allows slight shifting (not more than +- shift_window) of time series,
-        selects a shift with the highest MI as default.
-        default: True
-
-    skip_delays: list
+        selects a shift with the highest MI as default. Default is True
+    skip_delays : list, optional
         List of features for which delays are not applied (set to 0).
         Only features that exist in feat_bunch will be processed.
-        Has no effect if find_optimal_delays = False
-
-    shift_window: int
+        Has no effect if find_optimal_delays = False. Default is []
+    shift_window : int, optional
         Window for optimal shift search (seconds). Optimal shift (in frames) will lie in the range
-        -shift_window*fps <= opt_shift <= shift_window*fps
-        Has no effect if find_optimal_delays = False
+        -shift_window*fps <= opt_shift <= shift_window*fps.
+        Has no effect if find_optimal_delays = False. Default is 5
 
-    with_disentanglement: bool
+    verbose : bool, optional
+        Whether to print progress messages. Default is True
+    enable_parallelization : bool, optional
+        Whether to enable parallel processing. Default is True
+    n_jobs : int, optional
+        Number of parallel jobs. -1 means use all processors. Default is -1
+    seed : int, optional
+        Random seed for reproducibility. Default is 42
+    with_disentanglement : bool, optional
         If True, performs a full INTENSE pipeline with mixed selectivity analysis:
         1. Computes behavioral feature-feature significance
         2. Computes neuron-feature significance
-        3. Disentangles mixed selectivities using behavioral correlations
-        default: False
-
-    multifeature_map: dict or None
+        3. Disentangles mixed selectivities using behavioral correlations.
+        Default is False
+    multifeature_map : dict or None, optional
         Mapping from multifeature tuples to aggregated names for disentanglement.
         If None, uses DEFAULT_MULTIFEATURE_MAP from disentanglement module.
-        Only used when with_disentanglement=True.
-        default: None
-
-    duplicate_behavior: str
+        Only used when with_disentanglement=True. Default is None
+    duplicate_behavior : str, optional
         How to handle duplicate TimeSeries in neuron or feature bunches.
         - 'ignore': Process duplicates normally (default)
         - 'raise': Raise an error if duplicates are found
-        - 'warn': Print a warning but continue processing
+        - 'warn': Print a warning but continue processing.
+        Default is 'ignore'
 
     Returns
     -------
@@ -237,10 +219,7 @@ def compute_cell_feat_significance(
     ...     metric_distr_type='norm',
     ...     n_shuffles_stage2=5000,
     ...     pval_thr=0.001
-    ... )
-    DOC_VERIFIED
-    
-    """
+    ... )    """
 
     exp.check_ds(ds)
 
@@ -658,10 +637,7 @@ def compute_feat_feat_significance(
     - Diagonal elements are always zero (self-similarity prevented)
     - No delay optimization is performed between features
     - Supports both discrete and continuous features
-    - Multifeatures are created using aggregate_multiple_ts
-    DOC_VERIFIED
-    
-    """
+    - Multifeatures are created using aggregate_multiple_ts    """
     import numpy as np
 
     # Process feature bunch - default is all features
@@ -927,10 +903,7 @@ def compute_cell_cell_significance(
     - Only upper triangle is computed for efficiency (matrix is symmetric)
     - Warns if all neurons have identical spike data
     - Computes network statistics when verbose=True
-    - Synchronous activity assumed (no delay optimization)
-    DOC_VERIFIED
-    
-    """
+    - Synchronous activity assumed (no delay optimization)    """
     import numpy as np
 
     # Check downsampling
@@ -1203,10 +1176,7 @@ def compute_embedding_selectivity(
     --------
     compute_cell_feat_significance : Compute selectivity for behavioral features
     get_functional_organization : Analyze organization in embeddings
-    compare_embeddings : Compare multiple embedding methods
-    DOC_VERIFIED
-    
-    """
+    compare_embeddings : Compare multiple embedding methods    """
 
     # Get list of embedding methods to analyze
     if embedding_methods is None:

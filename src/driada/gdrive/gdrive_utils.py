@@ -17,10 +17,7 @@ class GoogleDriveFile(object):
     type: str
         MIME type, or application/vnd.google-apps.folder if it is a folder
     children: List[GoogleDriveFile]
-        If it is a directory, it contains the folder files/directories
-
-    DOC_VERIFIED
-    """
+        If it is a directory, it contains the folder files/directories    """
 
     def __init__(self, id, name, type, children=None):
         """Initialize GoogleDriveFile instance.
@@ -34,10 +31,7 @@ class GoogleDriveFile(object):
         type : str
             MIME type of the file, or 'application/vnd.google-apps.folder' for folders.
         children : List[GoogleDriveFile], optional
-            Child items if this is a folder. Default is empty list.
-            
-        DOC_VERIFIED
-        """
+            Child items if this is a folder. Default is empty list.        """
         self.id = id
         self.name = name
         self.type = type
@@ -53,10 +47,7 @@ class GoogleDriveFile(object):
             
         Notes
         -----
-        Uses the global folder_type constant for comparison.
-        
-        DOC_VERIFIED
-        """
+        Uses the global folder_type constant for comparison.        """
         return self.type == folder_type
 
     def __repr__(self):
@@ -69,10 +60,7 @@ class GoogleDriveFile(object):
             
         Notes
         -----
-        May produce long output if there are many children.
-        
-        DOC_VERIFIED
-        """
+        May produce long output if there are many children.        """
         template = "(id={id}, name={name}, type={type}, children={children})"
         return "GoogleDriveFile" + template.format(
             id=self.id,
@@ -110,10 +98,7 @@ def parse_google_drive_file(folder, content, use_cookies=True):
     Notes
     -----
     Parses JavaScript data embedded in Google Drive HTML.
-    Expects specific HTML structure and may break with Google Drive updates.
-    
-    DOC_VERIFIED
-    """
+    Expects specific HTML structure and may break with Google Drive updates.    """
     folder_soup = BeautifulSoup(content, features="html.parser")
 
     if not use_cookies:
@@ -196,10 +181,7 @@ def download_and_parse_google_drive_link(
     Notes
     -----
     Recursively processes subfolders. Limited to 50 items per folder
-    due to Google Drive API restrictions.
-    
-    DOC_VERIFIED
-    """
+    due to Google Drive API restrictions.    """
     return_code = True
 
     folder_page = client.get(folder)
@@ -294,10 +276,7 @@ def id_from_link(link):
     Notes
     -----
     Does not validate the extracted ID format. May return empty string
-    or invalid IDs for malformed URLs.
-    
-    DOC_VERIFIED
-    """
+    or invalid IDs for malformed URLs.    """
     if "http" not in link:
         raise ValueError("Wrong link format")
 

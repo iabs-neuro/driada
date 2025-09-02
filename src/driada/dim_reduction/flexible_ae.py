@@ -67,10 +67,7 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
     - Encoder/decoder architecture
     - encode() method signature
     - forward() method signature
-    - Specific loss computation logic
-    
-    DOC_VERIFIED
-    """
+    - Specific loss computation logic    """
     
     def __init__(
         self,
@@ -87,10 +84,7 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         device : torch.device, optional
             Device for computations. If None, auto-selects CUDA if available.
         logger : logging.Logger, optional
-            Logger instance. If None, creates default logger.
-            
-        DOC_VERIFIED
-        """
+            Logger instance. If None, creates default logger.        """
         super().__init__()
         
         # Setup device
@@ -121,10 +115,7 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         Raises
         ------
         ValueError
-            If loss component is malformed or loss name not registered.
-            
-        DOC_VERIFIED
-        """
+            If loss component is malformed or loss name not registered.        """
         for i, loss_config in enumerate(loss_components):
             if not isinstance(loss_config, dict):
                 raise ValueError(f"Loss component {i} must be a dict, got {type(loss_config)}")
@@ -152,10 +143,7 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
             
         Returns
         -------
-        Latent representation (type depends on subclass).
-        
-        DOC_VERIFIED
-        """
+        Latent representation (type depends on subclass).        """
         pass
     
     @abstractmethod
@@ -169,10 +157,7 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
             
         Returns
         -------
-        Output (type depends on subclass).
-        
-        DOC_VERIFIED
-        """
+        Output (type depends on subclass).        """
         pass
     
     @abstractmethod
@@ -198,10 +183,7 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         total_loss : torch.Tensor
             Weighted sum of all loss components.
         loss_dict : dict
-            Individual loss values for logging.
-            
-        DOC_VERIFIED
-        """
+            Individual loss values for logging.        """
         pass
     
     def _aggregate_losses(
@@ -226,10 +208,7 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         Notes
         -----
         Subclasses can use this for common loss aggregation logic,
-        passing appropriate inputs based on their architecture.
-        
-        DOC_VERIFIED
-        """
+        passing appropriate inputs based on their architecture.        """
         total_loss = torch.tensor(0.0, device=self.device)
         loss_dict = {}
         
@@ -331,10 +310,7 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
     See Also
     --------
     FlexibleVAE : Variational version with probabilistic encoding.
-    LossRegistry : Available loss components.
-    
-    DOC_VERIFIED
-    """
+    LossRegistry : Available loss components.    """
     
     def __init__(
         self,
@@ -373,10 +349,7 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
         ValueError
             If any dimension is not positive.
             If loss component name is not registered.
-            If loss component dict is malformed.
-            
-        DOC_VERIFIED
-        """
+            If loss component dict is malformed.        """
         # Add default reconstruction loss if no components specified
         if not loss_components:
             loss_components = [{"name": "reconstruction", "weight": 1.0}]
@@ -433,10 +406,7 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
         Notes
         -----
         Applies encoder then decoder. Behavior affected by training/eval mode
-        (dropout). No input validation performed.
-        
-        DOC_VERIFIED
-        """
+        (dropout). No input validation performed.        """
         code = self.encoder(x)
         recon = self.decoder(code)
         return recon
@@ -457,10 +427,7 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
         Notes
         -----
         Direct passthrough to encoder network. Applies Linear->ReLU->Dropout->Linear.
-        Behavior affected by training/eval mode.
-        
-        DOC_VERIFIED
-        """
+        Behavior affected by training/eval mode.        """
         return self.encoder(x)
     
     def decode(self, z: torch.Tensor) -> torch.Tensor:
@@ -480,10 +447,7 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
         Notes
         -----
         Direct passthrough to decoder network. Final sigmoid activation
-        constrains output to [0, 1] range.
-        
-        DOC_VERIFIED
-        """
+        constrains output to [0, 1] range.        """
         return self.decoder(z)
     
     def compute_loss(
@@ -514,10 +478,7 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
         Notes
         -----
         Performs encode->decode forward pass. Uses base class helper for
-        loss aggregation. All extra_args passed to every loss component.
-        
-        DOC_VERIFIED
-        """
+        loss aggregation. All extra_args passed to every loss component.        """
         # Forward pass
         code = self.encode(inputs)
         recon = self.decode(code)
@@ -551,10 +512,7 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
             
         Notes
         -----
-        Runs in no_grad mode. Returns detached numpy array on CPU.
-        
-        DOC_VERIFIED
-        """
+        Runs in no_grad mode. Returns detached numpy array on CPU.        """
         with torch.no_grad():
             code = self.encode(x)
             return code.detach().cpu().numpy().T
@@ -613,10 +571,7 @@ class FlexibleVAE(FlexibleAutoencoderBase):
     ...         {"name": "reconstruction", "weight": 1.0},
     ...         {"name": "tc_vae", "weight": 1.0, "alpha": 1.0, "beta": 5.0, "gamma": 1.0}
     ...     ]
-    ... )
-    
-    DOC_VERIFIED
-    """
+    ... )    """
     
     def __init__(
         self,
@@ -653,10 +608,7 @@ class FlexibleVAE(FlexibleAutoencoderBase):
         Notes
         -----
         Uses VAEEncoder with 2*latent_dim output for mean and log variance.
-        Default loss configuration includes both reconstruction and KL divergence.
-        
-        DOC_VERIFIED
-        """
+        Default loss configuration includes both reconstruction and KL divergence.        """
         # VAE requires at least reconstruction loss
         if not loss_components:
             loss_components = [
@@ -719,10 +671,7 @@ class FlexibleVAE(FlexibleAutoencoderBase):
         -----
         Always samples stochastically. No numerical stability checks for
         extreme log_var values. Use get_latent_representation(use_mean=True)
-        for deterministic behavior.
-        
-        DOC_VERIFIED
-        """
+        for deterministic behavior.        """
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return mu + eps * std
@@ -744,10 +693,7 @@ class FlexibleVAE(FlexibleAutoencoderBase):
         Notes
         -----
         Direct passthrough to decoder network. Final sigmoid activation
-        constrains output to [0, 1] range.
-        
-        DOC_VERIFIED
-        """
+        constrains output to [0, 1] range.        """
         return self.decoder(z)
     
     def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -771,10 +717,7 @@ class FlexibleVAE(FlexibleAutoencoderBase):
         -----
         Encoder must output exactly 2*latent_dim features. First half is
         interpreted as mean, second half as log variance. Always samples
-        via reparameterization.
-        
-        DOC_VERIFIED
-        """
+        via reparameterization.        """
         # Get distribution parameters
         h = self.encoder(x)
         h = h.view(-1, 2, self.latent_dim)
@@ -807,10 +750,7 @@ class FlexibleVAE(FlexibleAutoencoderBase):
         Notes
         -----
         Returns tuple unlike parent's single tensor. Always uses sampled z
-        for reconstruction, not the mean.
-        
-        DOC_VERIFIED
-        """
+        for reconstruction, not the mean.        """
         z, mu, log_var = self.encode(x)
         recon = self.decode(z)
         return recon, mu, log_var
@@ -842,10 +782,7 @@ class FlexibleVAE(FlexibleAutoencoderBase):
         Notes
         -----
         Performs single forward pass. Passes mu and log_var to all loss
-        components. Uses base class aggregation helper.
-        
-        DOC_VERIFIED
-        """
+        components. Uses base class aggregation helper.        """
         # Forward pass - single encoding
         z, mu, log_var = self.encode(inputs)
         recon = self.decode(z)
@@ -885,10 +822,7 @@ class FlexibleVAE(FlexibleAutoencoderBase):
         Notes
         -----
         Default behavior is deterministic (use_mean=True) for reproducible
-        embeddings. Set use_mean=False to capture uncertainty via sampling.
-        
-        DOC_VERIFIED
-        """
+        embeddings. Set use_mean=False to capture uncertainty via sampling.        """
         with torch.no_grad():
             z, mu, log_var = self.encode(x)
             if use_mean:

@@ -53,10 +53,7 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
       based on pairwise MI and conditional MI values
     - If II > 0 (synergy), uses different criteria for special cases
 
-    See README_INTENSE.md for theoretical background.
-    
-    DOC_VERIFIED
-    """
+    See README_INTENSE.md for theoretical background.    """
     # Compute pairwise mutual information
     mi12 = get_mi(ts1, ts2, ds=ds)  # MI(neuron, behavior1)
     mi13 = get_mi(ts1, ts3, ds=ds)  # MI(neuron, behavior2)
@@ -188,10 +185,7 @@ def disentangle_all_selectivities(
     AttributeError
         If required attributes are missing from the experiment.
     KeyError
-        If expected keys are missing from data structures.
-    
-    DOC_VERIFIED
-    """
+        If expected keys are missing from data structures.    """
     # Use default multifeature mapping if none provided
     if multifeature_map is None:
         multifeature_map = DEFAULT_MULTIFEATURE_MAP.copy()
@@ -314,10 +308,7 @@ def create_multifeature_map(exp, mapping_dict):
     Raises
     ------
     ValueError
-        If any component features don't exist in the experiment.
-    
-    DOC_VERIFIED
-    """
+        If any component features don't exist in the experiment.    """
     validated_map = {}
 
     for mf_tuple, agg_name in mapping_dict.items():
@@ -369,10 +360,7 @@ def get_disentanglement_summary(
     - Undistinguishable cases: Both features contribute (disentangle result 0.5)
     
     Undistinguishable cases are identified by fractional values in the 
-    disentanglement matrix, as each such case contributes 0.5 to both features.
-    
-    DOC_VERIFIED
-    """
+    disentanglement matrix, as each such case contributes 0.5 to both features.    """
     summary = {"feature_pairs": {}, "overall_stats": {}}
 
     n_features = len(feat_names)

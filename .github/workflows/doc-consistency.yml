@@ -1,0 +1,47 @@
+name: Documentation Consistency Check
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+  workflow_dispatch:
+
+jobs:
+  doc-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Check documentation consistency
+      run: |
+        python tools/doc_consistency_checker.py src/driada --format text
+      continue-on-error: true
+    
+    - name: Upload consistency report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: doc-consistency-report
+        path: |
+          .doc_consistency_cache.json
+    
+    - name: Comment PR (if applicable)
+      if: github.event_name == 'pull_request' && failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('doc_consistency_report.txt', 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '## Documentation Consistency Check\n\n' + report
+          })

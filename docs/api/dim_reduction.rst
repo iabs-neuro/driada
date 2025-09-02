@@ -2,121 +2,62 @@ Dimensionality Reduction Module
 ================================
 
 .. automodule:: driada.dim_reduction
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   :no-members:
+   :noindex:
 
-Main Functions
---------------
+Comprehensive dimensionality reduction tools for analyzing high-dimensional neural data,
+including classical methods (PCA, FA), manifold learning (Isomap, UMAP), and neural network
+approaches (autoencoders).
 
-.. autofunction:: driada.dim_reduction.dr_sequence
+Module Components
+-----------------
 
-Core Classes
-------------
+.. toctree::
+   :maxdepth: 1
 
-.. autoclass:: driada.dim_reduction.MVData
-   :members:
-   :special-members: __init__
+   dim_reduction/data_structures
+   dim_reduction/algorithms
+   dim_reduction/manifold_metrics
+   dim_reduction/neural_methods
+   dim_reduction/utilities
 
-.. autoclass:: driada.dim_reduction.ProximityGraph
-   :members:
-   :special-members: __init__
+Quick Links
+-----------
 
-.. autoclass:: driada.dim_reduction.Embedding
-   :members:
-   :special-members: __init__
+**Core Classes**
+   * :class:`~driada.dim_reduction.MVData` - Multivariate data container
+   * :class:`~driada.dim_reduction.Embedding` - Embedding results
+   * :class:`~driada.dim_reduction.ProximityGraph` - Graph-based methods
+   * :class:`~driada.dim_reduction.DRMethod` - Method base class
 
-.. autoclass:: driada.dim_reduction.DRMethod
-   :members:
+**Main Functions**
+   * :func:`~driada.dim_reduction.dr_sequence` - Sequential DR pipeline
+   * See :data:`~driada.dim_reduction.METHODS_DICT` for available methods
 
-Constants
----------
+**Manifold Quality Metrics**
+   * :doc:`dim_reduction/manifold_metrics` - Comprehensive validation tools
+   * Preservation metrics (k-NN, trustworthiness, continuity)
+   * Reconstruction accuracy metrics
+   * Structure preservation measures
 
-.. autodata:: driada.dim_reduction.METHODS_DICT
+**Neural Network Methods**
+   * :doc:`dim_reduction/neural_methods` - Autoencoder implementations
+   * Flexible architecture design
+   * Custom loss functions
 
-Manifold Metrics
-----------------
+Usage Example
+-------------
 
-.. autofunction:: driada.dim_reduction.compute_distance_matrix
-.. autofunction:: driada.dim_reduction.knn_preservation_rate
-.. autofunction:: driada.dim_reduction.trustworthiness
-.. autofunction:: driada.dim_reduction.continuity
-.. autofunction:: driada.dim_reduction.geodesic_distance_correlation
-.. autofunction:: driada.dim_reduction.stress
-.. autofunction:: driada.dim_reduction.circular_structure_preservation
-.. autofunction:: driada.dim_reduction.procrustes_analysis
-.. autofunction:: driada.dim_reduction.manifold_preservation_score
+.. code-block:: python
 
-Reconstruction Validation
--------------------------
-
-.. autofunction:: driada.dim_reduction.circular_distance
-.. autofunction:: driada.dim_reduction.extract_angles_from_embedding
-.. autofunction:: driada.dim_reduction.compute_reconstruction_error
-.. autofunction:: driada.dim_reduction.compute_embedding_alignment_metrics
-.. autofunction:: driada.dim_reduction.compute_decoding_accuracy
-.. autofunction:: driada.dim_reduction.manifold_reconstruction_score
-
-Submodules
-----------
-
-Data Structures
-^^^^^^^^^^^^^^^
-
-.. automodule:: driada.dim_reduction.data
-   :members:
-   :undoc-members:
-
-Base Classes
-^^^^^^^^^^^^
-
-.. automodule:: driada.dim_reduction.dr_base
-   :members:
-   :undoc-members:
-
-Graph-Based Methods
-^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: driada.dim_reduction.graph
-   :members:
-   :undoc-members:
-
-.. automodule:: driada.dim_reduction.embedding
-   :members:
-   :undoc-members:
-
-Neural Network Methods
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: driada.dim_reduction.neural
-   :members:
-   :undoc-members:
-
-.. automodule:: driada.dim_reduction.flexible_ae
-   :members:
-   :undoc-members:
-
-.. automodule:: driada.dim_reduction.losses
-   :members:
-   :undoc-members:
-
-Optimization-Based Methods
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: driada.dim_reduction.mvu
-   :members:
-   :undoc-members:
-
-Sequence Processing
-^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: driada.dim_reduction.sequences
-   :members:
-   :undoc-members:
-
-Manifold Metrics
-^^^^^^^^^^^^^^^^
-
-.. automodule:: driada.dim_reduction.manifold_metrics
-   :members:
-   :undoc-members:
+   from driada.dim_reduction import MVData
+   
+   # Create data container
+   mvdata = MVData(neural_data, downsampling=5)
+   
+   # Apply dimensionality reduction
+   embedding = mvdata.get_embedding(method='umap', n_components=3)
+   
+   # Validate quality
+   from driada.dim_reduction import knn_preservation_rate
+   quality = knn_preservation_rate(neural_data, embedding.coords.T, k=10)

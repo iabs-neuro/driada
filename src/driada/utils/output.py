@@ -52,20 +52,14 @@ class Capturing(list):
     Notes
     -----
     Memory usage scales with output size. For very large outputs, consider
-    alternative approaches like writing to temporary files.
-    
-    DOC_VERIFIED
-    """
+    alternative approaches like writing to temporary files.    """
     def __enter__(self):
         """Enter the context manager and start capturing stdout.
         
         Returns
         -------
         Capturing
-            Returns self to allow access to the captured output.
-            
-        DOC_VERIFIED
-        """
+            Returns self to allow access to the captured output.        """
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
         return self
@@ -77,10 +71,7 @@ class Capturing(list):
         ----------
         *args
             Exception information (type, value, traceback) if any.
-            These are ignored, allowing exceptions to propagate.
-            
-        DOC_VERIFIED
-        """
+            These are ignored, allowing exceptions to propagate.        """
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio  # free up some memory
         sys.stdout = self._stdout
@@ -127,10 +118,7 @@ def show_output(output: List[str]) -> None:
     Notes
     -----
     This function is designed to work with the output from Capturing
-    context manager but can display any list of strings.
-    
-    DOC_VERIFIED
-    """
+    context manager but can display any list of strings.    """
     if len(output) == 0:
         print("log is empty")
     else:

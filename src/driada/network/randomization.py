@@ -57,10 +57,7 @@ def _validate_adjacency_matrix(
     
     >>> import scipy.sparse as sp
     >>> sparse_adj = sp.csr_matrix(adj)
-    >>> _validate_adjacency_matrix(sparse_adj)  # No error
-        
-    DOC_VERIFIED
-    """
+    >>> _validate_adjacency_matrix(sparse_adj)  # No error    """
     if not (isinstance(a, np.ndarray) or sp.issparse(a)):
         raise ValueError("Input must be a numpy array or scipy sparse matrix")
 
@@ -144,10 +141,7 @@ def adj_random_rewiring_iom_preserving(
     See Also
     --------
     random_rewiring_complete_graph : For complete graphs
-    random_rewiring_dense_graph : For dense graphs with gap filling
-    
-    DOC_VERIFIED
-    """
+    random_rewiring_dense_graph : For dense graphs with gap filling    """
     # Setup
     logger = logger or logging.getLogger(__name__)
     _validate_adjacency_matrix(a)
@@ -359,10 +353,7 @@ def random_rewiring_complete_graph(
     >>> randomized = random_rewiring_complete_graph(a, p=0.5)
     >>> # Check that it's still complete
     >>> np.all((randomized > 0) == (a > 0))  # Same structure
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
     logger = logger or logging.getLogger(__name__)
     _validate_adjacency_matrix(a)
 
@@ -465,10 +456,7 @@ def random_rewiring_dense_graph(
     >>> randomized = random_rewiring_dense_graph(a)
     >>> # Verify degree sequence is preserved
     >>> np.allclose(np.sum(a, axis=0), np.sum(randomized, axis=0))
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
     logger = logger or logging.getLogger(__name__)
     _validate_adjacency_matrix(a)
     
@@ -557,10 +545,7 @@ def get_single_double_edges_lists(
     >>> print(f"Single edges: {single}")  # [(1, 2)]
     Single edges: [(1, 2)]
     >>> print(f"Double edges: {double}")  # [(0, 1)]
-    Double edges: [(0, 1)]
-    
-    DOC_VERIFIED
-    """
+    Double edges: [(0, 1)]    """
     single_edges = []
     double_edges = []
     h = nx.to_undirected(g).copy()
@@ -600,10 +585,7 @@ def random_rewiring_IOM_preserving(G: nx.Graph, r: int = 10) -> nx.Graph:
     Warnings
     --------
     This function is deprecated and will be removed in v2.0.
-    Use adj_random_rewiring_iom_preserving() with nx.adjacency_matrix() instead.
-    
-    DOC_VERIFIED
-    """
+    Use adj_random_rewiring_iom_preserving() with nx.adjacency_matrix() instead.    """
     warnings.warn(
         "random_rewiring_IOM_preserving is deprecated and will be removed in v2.0. "
         "Use adj_random_rewiring_iom_preserving() instead.",
@@ -840,10 +822,7 @@ def randomize_graph(
     >>> rand_adj = randomize_graph(adj, method='iom', random_state=42)
     >>>
     >>> # Randomize complete graph weights
-    >>> rand_adj = randomize_graph(adj, method='complete', p=0.5)
-    
-    DOC_VERIFIED
-    """
+    >>> rand_adj = randomize_graph(adj, method='complete', p=0.5)    """
     logger = logger or logging.getLogger(__name__)
 
     if method == "iom":

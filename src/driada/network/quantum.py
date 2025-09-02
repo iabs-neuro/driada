@@ -58,10 +58,7 @@ def renyi_divergence(A, B, q):
     --------
     >>> rho = np.array([[0.7, 0.1], [0.1, 0.3]])
     >>> sigma = np.array([[0.5, 0.0], [0.0, 0.5]])
-    >>> div = renyi_divergence(rho, sigma, q=0.5)
-    
-    DOC_VERIFIED
-    """
+    >>> div = renyi_divergence(rho, sigma, q=0.5)    """
     if q <= 0:
         raise ValueError("q must be > 0")
     elif q == 1:
@@ -137,10 +134,7 @@ def get_density_matrix(A, t, norm=0):
     >>> A = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
     >>> rho = get_density_matrix(A, t=1.0)
     >>> np.trace(rho)  # Trace should be 1
-    1.0
-    
-    DOC_VERIFIED
-    """
+    1.0    """
     A = A.astype(float)
     if norm:
         X = get_norm_laplacian(A)
@@ -194,10 +188,7 @@ def manual_entropy(pr):
     >>> pr = np.array([0.5, 0.5, 0.0])
     >>> H = manual_entropy(pr)
     >>> np.isclose(H, 1.0)  # Maximum entropy for 2 equiprobable states
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
     probs = np.trim_zeros(pr)
     probs = probs[np.where(probs > 1e-15)]
     return -np.real(np.sum(np.multiply(probs, np.log2(probs))))
@@ -267,10 +258,7 @@ def js_divergence(A, B, t, return_partial_entropies=True):
     >>> B = np.array([[0, 1], [1, 0]])
     >>> js_div = js_divergence(A, B, t=1.0, return_partial_entropies=False)
     >>> js_div  # Should be 0 for identical graphs
-    0.0
-    
-    DOC_VERIFIED
-    """
+    0.0    """
     X = get_density_matrix(A, t)
     Y = get_density_matrix(B, t)
 

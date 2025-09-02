@@ -104,7 +104,7 @@ __all__ = [
     "read_hdf5_to_dict",
     # Matrix operations
     "nearestPD",
-    "isPD",
+    "is_positive_definite",
     # Neural data
     "generate_pseudo_calcium_signal",
     "generate_pseudo_calcium_multisignal",
@@ -128,10 +128,6 @@ __all__ = [
     "erase_all",
     "save_image_series",
     "create_gif_from_image_series",
-    # Repository
-    "clone_org_repo",
-    "reload_module",
-    "import_external_repositories",
     # Spatial analysis
     "compute_occupancy_map",
     "compute_rate_map",

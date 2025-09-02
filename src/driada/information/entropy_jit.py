@@ -41,10 +41,7 @@ def entropy_d_jit(x):
     -----
     Uses Shannon entropy formula H = -Σ(p*log2(p)) where p are the
     probabilities of each unique value. The implementation sorts the
-    input array to efficiently count unique values.
-    
-    DOC_VERIFIED
-    """
+    input array to efficiently count unique values.    """
     n = x.size
     if n == 0:
         return 0.0
@@ -111,10 +108,7 @@ def joint_entropy_dd_jit(x, y):
     -----
     Creates a joint encoding of (x,y) pairs and calculates entropy of
     the joint distribution. Uses overflow-safe encoding with automatic
-    fallback to Cantor pairing for large value ranges.
-    
-    DOC_VERIFIED
-    """
+    fallback to Cantor pairing for large value ranges.    """
     n = x.size
     
     # Validate inputs

@@ -75,10 +75,7 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     Raises
     ------
     ValueError
-        If inputs are invalid, sample size too small, or duplicate points exist.
-        
-    DOC_VERIFIED
-    """
+        If inputs are invalid, sample size too small, or duplicate points exist.    """
     # Validate inputs
     if data is None and precomputed_graph is None:
         raise ValueError("Either data or precomputed_graph must be provided")
@@ -221,10 +218,7 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     >>> # For noisy data, specify scaling range
     >>> noisy_data = data + 0.01 * np.random.randn(*data.shape)
     >>> d_est = correlation_dimension(noisy_data, r_min=0.05, r_max=0.5)
-    >>> print(f"Correlation dimension: {d_est:.2f}")
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"Correlation dimension: {d_est:.2f}")    """
     from scipy.spatial.distance import pdist
     
     data = np.asarray(data)
@@ -367,10 +361,7 @@ def geodesic_dimension(
     ValueError
         If inputs are invalid or graph is too disconnected.
     RuntimeWarning
-        If graph is disconnected (infinite distances found).
-        
-    DOC_VERIFIED
-    """
+        If graph is disconnected (infinite distances found).    """
     import scipy.sparse as sp
     from scipy.sparse.csgraph import shortest_path
     from sklearn.neighbors import kneighbors_graph
@@ -482,10 +473,7 @@ def geodesic_dimension(
         Returns
         -------
         array_like
-            Log probability values for the theoretical distribution.
-            
-        DOC_VERIFIED
-        """
+            Log probability values for the theoretical distribution.        """
         # Clip x to valid domain for sin
         x_clipped = np.clip(x, 1e-10, 1 - 1e-10)
         return (D - 1) * np.log(np.sin(x_clipped * np.pi / 2))

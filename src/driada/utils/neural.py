@@ -52,10 +52,7 @@ def generate_pseudo_calcium_signal(
     
     See Also
     --------
-    generate_pseudo_calcium_multisignal : Generate multiple calcium signals.
-    
-    DOC_VERIFIED
-    """
+    generate_pseudo_calcium_multisignal : Generate multiple calcium signals.    """
     # Calculate number of samples
     num_samples = int(duration * sampling_rate)
 
@@ -131,10 +128,7 @@ def generate_pseudo_calcium_multisignal(
     ...     decay_time=1.0, noise_std=0.1
     ... )
     >>> signals.shape
-    (10, 900)
-    
-    DOC_VERIFIED
-    """
+    (10, 900)    """
     sigs = []
     for i in range(n):
         sig = generate_pseudo_calcium_signal(

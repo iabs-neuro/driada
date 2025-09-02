@@ -123,10 +123,7 @@ def load_exp_from_aligned_data(
     ...     force_continuous=['trial_type'],
     ...     bad_frames=[10, 11, 12],  # Mark frames as bad
     ...     static_features={'fps': 30.0}  # Override default fps
-    ... )
-    DOC_VERIFIED
-    
-    """
+    ... )    """
 
     # Validate inputs
     if not isinstance(data, dict):
@@ -171,10 +168,7 @@ def load_exp_from_aligned_data(
             
         Notes
         -----
-        Used to filter out uninformative features from dynamic data.
-        
-        DOC_VERIFIED
-        """
+        Used to filter out uninformative features from dynamic data.        """
         if len(vals) == 0:
             return True
         # Convert to numpy array for consistent handling
@@ -392,10 +386,7 @@ def load_experiment(
     >>> exp, log = load_experiment(
     ...     'custom', {'name': 'my_exp'},
     ...     data_path='/path/to/data.npz'
-    ... )
-    DOC_VERIFIED
-    
-    """
+    ... )    """
 
     if os.path.exists(root) and not os.path.isdir(root):
         raise ValueError("Root must be a folder!")
@@ -500,10 +491,7 @@ def save_exp_to_pickle(exp, path, verbose=True):
     Notes
     -----
     Uses Python's pickle module with default protocol.
-    Creates parent directories if they don't exist.
-    
-    DOC_VERIFIED
-    """
+    Creates parent directories if they don't exist.    """
     # Create parent directories if they don't exist
     parent_dir = os.path.dirname(path)
     if parent_dir:
@@ -551,10 +539,7 @@ def load_exp_from_pickle(path, verbose=True):
     Notes
     -----
     Uses Python's pickle module for deserialization.
-    Prints experiment signature upon successful load if verbose=True.
-    
-    DOC_VERIFIED
-    """
+    Prints experiment signature upon successful load if verbose=True.    """
     with open(path, "rb") as f:
         exp = pickle.load(
             f,

@@ -64,10 +64,7 @@ class Neuron:
     Notes
     -----
     The class assumes spike data is binary (0 or 1 values). Non-binary 
-    spike data may produce incorrect results in spike counting.
-    
-    DOC_VERIFIED
-    """
+    spike data may produce incorrect results in spike counting.    """
 
     @staticmethod
     def spike_form(t, t_rise, t_off):
@@ -98,10 +95,7 @@ class Neuron:
         Notes
         -----
         The kernel has the form: (1 - exp(-t/τ_rise)) * exp(-t/τ_off)
-        normalized to have maximum value of 1.
-        
-        DOC_VERIFIED
-        """
+        normalized to have maximum value of 1.        """
         # Input validation
         check_positive(t_rise=t_rise, t_off=t_off)
             
@@ -138,10 +132,7 @@ class Neuron:
         Notes
         -----
         Input validation is performed in the wrapper function spike_form().
-        JIT compilation provides ~10-100x speedup for large arrays.
-        
-        DOC_VERIFIED
-        """
+        JIT compilation provides ~10-100x speedup for large arrays.        """
         form = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
         max_val = np.max(form)
         if max_val == 0:
@@ -178,10 +169,7 @@ class Neuron:
         Notes
         -----
         Uses a kernel of length 1000 frames, which should be sufficient
-        for most calcium indicators (5x decay time for t_off ≤ 200 frames).
-        
-        DOC_VERIFIED
-        """
+        for most calcium indicators (5x decay time for t_off ≤ 200 frames).        """
         # Input validation
         sp = np.asarray(sp)
         if sp.size == 0:
@@ -225,10 +213,7 @@ class Neuron:
         Notes
         -----
         Parameter order (t_off first) is optimized for scipy.optimize.minimize
-        where t_off is the parameter being optimized.
-        
-        DOC_VERIFIED
-        """
+        where t_off is the parameter being optimized.        """
         # Input validation
         ca = np.asarray(ca)
         spk = np.asarray(spk)
@@ -269,10 +254,7 @@ class Neuron:
         Notes
         -----
         The small noise (1e-8 scale) prevents division by zero and other
-        numerical issues in downstream spike reconstruction algorithms.
-        
-        DOC_VERIFIED
-        """
+        numerical issues in downstream spike reconstruction algorithms.        """
         # Input validation
         ca = np.asarray(ca)
         if ca.size == 0:
@@ -313,10 +295,7 @@ class Neuron:
         Side Effects
         ------------
         Uses np.random without explicit state management. Set seed
-        externally for reproducibility.
-        
-        DOC_VERIFIED
-        """
+        externally for reproducibility.        """
         # Ensure we're working with float array to avoid dtype casting issues
         ca = ca.astype(np.float64)
         ca[ca < 0] = 0  # More efficient than np.where
@@ -365,10 +344,7 @@ class Neuron:
         Notes
         -----
         The shuffle mask excludes MIN_CA_SHIFT * t_off frames from each end
-        to prevent artifacts in temporal shuffling analyses.
-        
-        DOC_VERIFIED
-        """
+        to prevent artifacts in temporal shuffling analyses.        """
         # Input validation
         ca = np.asarray(ca)
         if ca.size == 0:
@@ -431,23 +407,23 @@ class Neuron:
         method : str, optional
             Reconstruction method: 'wavelet' or 'threshold'.
             Default is 'wavelet'.
-        **kwargs : dict, optional
+        **kwargs
             Additional parameters depend on method:
             
             For 'wavelet':
-            - fps : float, optional
+            * fps : float, optional
                 Sampling rate in Hz. Default is DEFAULT_FPS (20.0 Hz).
-            - min_event_dur : float, optional
+            * min_event_dur : float, optional
                 Minimum event duration in seconds. Default is 0.5.
-            - max_event_dur : float, optional
+            * max_event_dur : float, optional
                 Maximum event duration in seconds. Default is 2.5.
                 
             For 'threshold':
-            - threshold_std : float, optional
+            * threshold_std : float, optional
                 Number of standard deviations above mean. Default is 2.5.
-            - smooth_sigma : float, optional
+            * smooth_sigma : float, optional
                 Gaussian smoothing sigma in frames. Default is 2.
-            - min_spike_interval : float, optional
+            * min_spike_interval : float, optional
                 Minimum interval between spikes in seconds. Default is 0.1.
             
         Returns
@@ -466,10 +442,7 @@ class Neuron:
         -----
         The wavelet method uses continuous wavelet transform to detect
         calcium transient events. The threshold method uses derivative-based
-        spike detection with Gaussian smoothing.
-        
-        DOC_VERIFIED
-        """
+        spike detection with Gaussian smoothing.        """
         if method == "wavelet":
             # Get parameters with defaults
             fps = kwargs.get("fps", DEFAULT_FPS)
@@ -546,10 +519,7 @@ class Neuron:
         -----
         MAD is more robust to outliers than standard deviation, making it
         ideal for noise estimation in calcium imaging data which often
-        contains spike-related transients.
-        
-        DOC_VERIFIED
-        """
+        contains spike-related transients.        """
         if self.mad is None:
             try:
                 self.snr, self.mad = self._calc_snr()
@@ -577,10 +547,7 @@ class Neuron:
         Notes
         -----
         Requires spike data to be available. The SNR provides a measure
-        of calcium signal quality relative to baseline noise.
-        
-        DOC_VERIFIED
-        """
+        of calcium signal quality relative to baseline noise.        """
         if self.snr is None:
             self.snr, self.mad = self._calc_snr()
         return self.snr
@@ -602,10 +569,7 @@ class Neuron:
         ------
         ValueError
             If no spikes are present, if MAD is zero, or if SNR 
-            calculation results in NaN.
-            
-        DOC_VERIFIED
-        """
+            calculation results in NaN.        """
         if self.sp is None:
             raise ValueError("No spike data available")
             
@@ -645,10 +609,7 @@ class Neuron:
         Notes
         -----
         Uses scipy.optimize.minimize to find the optimal t_off value
-        that minimizes the RMSE between observed and reconstructed calcium.
-        
-        DOC_VERIFIED
-        """
+        that minimizes the RMSE between observed and reconstructed calcium.        """
         if self.t_off is None:
             self.t_off, self.noise_ampl = self._fit_t_off()
 
@@ -676,10 +637,7 @@ class Neuron:
         -----
         This is different from MAD, as it specifically measures the
         residual error after optimal spike-to-calcium reconstruction.
-        The value is cached after first computation.
-        
-        DOC_VERIFIED
-        """
+        The value is cached after first computation.        """
         if self.noise_ampl is None:
             self.t_off, self.noise_ampl = self._fit_t_off()
 
@@ -707,10 +665,7 @@ class Neuron:
         -----
         If the fitted t_off exceeds 5x the default value, it is capped
         and a warning is logged, as this typically indicates signal
-        quality issues.
-        
-        DOC_VERIFIED
-        """
+        quality issues.        """
         # FUTURE: fit for an arbitrary kernel form.
         # FUTURE: add nonlinear summation fit if needed
         
@@ -789,10 +744,7 @@ class Neuron:
         Different methods preserve different signal properties:
         - roll_based: Preserves all autocorrelations
         - waveform_based: Preserves spike waveform shapes  
-        - chunks_based: Preserves local signal structure within chunks
-        
-        DOC_VERIFIED
-        """
+        - chunks_based: Preserves local signal structure within chunks        """
         valid_methods = ['roll_based', 'waveform_based', 'chunks_based']
         if method not in valid_methods:
             raise ValueError(f"Invalid method '{method}'. Must be one of {valid_methods}")
@@ -816,6 +768,8 @@ class Neuron:
         ----------
         seed : int, optional
             Random seed for reproducible shuffling.
+        **kwargs
+            Additional arguments (for compatibility with shuffle interface).
             
         Returns
         -------
@@ -825,10 +779,7 @@ class Neuron:
         Raises
         ------
         ValueError
-            If spike data is not available.
-            
-        DOC_VERIFIED
-        """
+            If spike data is not available.        """
         if self.sp is None:
             raise ValueError("Spike data required for waveform-based shuffling")
             
@@ -872,10 +823,7 @@ class Neuron:
         - Chunks may have unequal sizes if signal length not divisible by n
         - Preserves local dynamics (within-chunk patterns)
         - Destroys global temporal structure
-        - Useful for testing significance of long-range correlations
-        
-        DOC_VERIFIED
-        """
+        - Useful for testing significance of long-range correlations        """
         # Validate input
         check_positive(n=n)
         
@@ -907,6 +855,8 @@ class Neuron:
             3*t_off and n_frames-3*t_off.
         seed : int, optional
             Random seed for reproducible shuffling.
+        **kwargs
+            Additional arguments (for compatibility with shuffle interface).
             
         Returns
         -------
@@ -916,10 +866,7 @@ class Neuron:
         Raises
         ------
         ValueError
-            If signal is too short for valid shuffling range.
-            
-        DOC_VERIFIED
-        """
+            If signal is too short for valid shuffling range.        """
         opt_t_off = self.get_t_off()
         
         if shift is None:
@@ -982,10 +929,7 @@ class Neuron:
         Notes
         -----
         The ISI-based method preserves the distribution of inter-spike
-        intervals while randomizing spike positions.
-        
-        DOC_VERIFIED
-        """
+        intervals while randomizing spike positions.        """
         if self.sp is None:
             raise AttributeError("Unable to shuffle spikes without spikes data")
 
@@ -1023,10 +967,7 @@ class Neuron:
         - Preserves ISI distribution but not ISI sequence order
         - First spike position is randomized within valid range
         - Handles edge cases: empty spike trains, boundary conditions
-        - May produce different temporal patterns despite same ISI distribution
-        
-        DOC_VERIFIED
-        """
+        - May produce different temporal patterns despite same ISI distribution        """
         # Set seed for reproducibility
         if seed is not None:
             np.random.seed(seed)

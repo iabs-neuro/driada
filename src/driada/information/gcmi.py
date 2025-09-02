@@ -32,7 +32,7 @@ def _prepare_for_jit(*arrays):
     
     Parameters
     ----------
-    *arrays : ndarray
+    *arrays
         Variable number of arrays to prepare. Can be any dtype or memory layout.
         
     Returns
@@ -62,10 +62,7 @@ def _prepare_for_jit(*arrays):
     >>> y = np.array([1.0, 2.0])
     >>> x_prep, y_prep = _prepare_for_jit(x, y)
     >>> x_prep.flags.c_contiguous
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
     prepared = []
     for arr in arrays:
         # Ensure contiguous
@@ -141,10 +138,7 @@ def ctransform(x):
     
     See Also
     --------
-    copnorm : Complete copula normalization to standard normal
-    
-    DOC_VERIFIED
-    """
+    copnorm : Complete copula normalization to standard normal    """
     x = np.atleast_2d(x)
 
     # Use JIT version if available
@@ -219,10 +213,7 @@ def copnorm(x):
     ----------
     Ince, R. A., et al. (2017). A statistical framework for neuroimaging data
     analysis based on mutual information estimated via a Gaussian copula.
-    Human Brain Mapping, 38(3), 1541-1573.
-    
-    DOC_VERIFIED
-    """
+    Human Brain Mapping, 38(3), 1541-1573.    """
     x = np.atleast_2d(x)
 
     # Use JIT version if available
@@ -278,10 +269,7 @@ def demean(x):
     >>> # Verify zero mean
     >>> demeaned = demean(x)
     >>> np.allclose(demeaned.mean(axis=1), 0)
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
     # Get the number of rows
     num_rows = x.shape[0]
 
@@ -341,10 +329,7 @@ def regularized_cholesky(C, regularization=1e-12):
     >>> # Near-singular matrix
     >>> C = np.array([[1.0, 0.99999], [0.99999, 1.0]])
     >>> L = regularized_cholesky(C)  # Applies regularization
-    >>> # Result is stable despite near-singularity
-    
-    DOC_VERIFIED
-    """
+    >>> # Result is stable despite near-singularity    """
     # Check matrix conditioning using determinant
     det_C = np.linalg.det(C)
     trace_C = np.trace(C)
@@ -435,10 +420,7 @@ def ent_g(x, biascorrect=True):
     
     References
     ----------
-    Cover, T. M., & Thomas, J. A. (2006). Elements of information theory.
-    
-    DOC_VERIFIED
-    """
+    Cover, T. M., & Thomas, J. A. (2006). Elements of information theory.    """
     x = np.atleast_2d(x)
     if x.ndim > 2:
         raise ValueError("x must be a 1D or 2D array with shape (n_features, n_samples)")
@@ -551,10 +533,7 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
     ----------
     Ince, R. A., et al. (2017). A statistical framework for neuroimaging data
     analysis based on mutual information estimated via a Gaussian copula.
-    Human Brain Mapping, 38(3), 1541-1573.
-    
-    DOC_VERIFIED
-    """
+    Human Brain Mapping, 38(3), 1541-1573.    """
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
@@ -661,10 +640,7 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
     See Also
     --------
     mi_mixture_gd : MI estimation using mixture of Gaussians model.
-    ent_g : Gaussian entropy estimation
-    
-    DOC_VERIFIED
-    """
+    ent_g : Gaussian entropy estimation    """
 
     x = np.atleast_2d(x)
     # y = np.squeeze(y)
@@ -691,7 +667,23 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
 def _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned):
     """JIT-compiled implementation of mi_model_gd.
     
-    DOC_VERIFIED
+    Parameters
+    ----------
+    x : ndarray
+        Continuous data array of shape (n_features, n_trials)
+    y : ndarray
+        Discrete labels array of shape (n_trials,)
+    Ym : int
+        Number of unique discrete values in y
+    biascorrect : bool
+        Whether to apply bias correction
+    demeaned : bool
+        Whether the data is already demeaned
+    
+    Returns
+    -------
+    float
+        Mutual information in bits
     """
     Ntrl = x.shape[1]
     Nvarx = x.shape[0]
@@ -819,10 +811,7 @@ def gcmi_cc(x, y):
     ----------
     Ince, R. A., et al. (2017). A statistical framework for neuroimaging data
     analysis based on mutual information estimated via a Gaussian copula.
-    Human Brain Mapping, 38(3), 1541-1573.
-    
-    DOC_VERIFIED
-    """
+    Human Brain Mapping, 38(3), 1541-1573.    """
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
@@ -943,10 +932,7 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     
     References
     ----------
-    Cover, T. M., & Thomas, J. A. (2006). Elements of information theory.
-    
-    DOC_VERIFIED
-    """
+    Cover, T. M., & Thomas, J. A. (2006). Elements of information theory.    """
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
@@ -1109,10 +1095,7 @@ def gccmi_ccd(x, y, z, Zm=None):
     ----------
     Ince, R. A., et al. (2017). A statistical framework for neuroimaging data
     analysis based on mutual information estimated via a Gaussian copula.
-    Human Brain Mapping, 38(3), 1541-1573.
-    
-    DOC_VERIFIED
-    """
+    Human Brain Mapping, 38(3), 1541-1573.    """
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)

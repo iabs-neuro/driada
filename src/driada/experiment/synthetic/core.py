@@ -53,10 +53,7 @@ def validate_peak_rate(peak_rate, context=""):
     maximum of 2.0 Hz for calcium imaging...
     
     >>> validate_peak_rate(-1.0)
-    ValueError: peak_rate must be non-negative, got -1.0
-    
-    DOC_VERIFIED
-    """
+    ValueError: peak_rate must be non-negative, got -1.0    """
     # Validate input
     try:
         peak_rate = float(peak_rate)
@@ -154,10 +151,7 @@ def generate_pseudo_calcium_signal(
     >>> # Generate from specific spike times
     >>> spikes = np.zeros(1000)
     >>> spikes[[100, 200, 300]] = 1  # 3 spike events at sample indices
-    >>> signal = generate_pseudo_calcium_signal(events=spikes)
-    
-    DOC_VERIFIED
-    """
+    >>> signal = generate_pseudo_calcium_signal(events=spikes)    """
 
     # Input validation
     if sampling_rate <= 0:
@@ -277,10 +271,7 @@ def generate_pseudo_calcium_multisignal(
     
     >>> # Generate with specific events per neuron
     >>> events = np.random.binomial(1, 0.01, size=(3, 1000))
-    >>> signals = generate_pseudo_calcium_multisignal(3, events=events)
-    
-    DOC_VERIFIED
-    """
+    >>> signals = generate_pseudo_calcium_multisignal(3, events=events)    """
     # Input validation
     if n < 0:
         raise ValueError(f"n must be non-negative, got {n}")

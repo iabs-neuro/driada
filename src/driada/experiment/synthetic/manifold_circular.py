@@ -47,10 +47,7 @@ def generate_circular_random_walk(length, step_std=0.1, seed=None):
     Notes
     -----
     The walk follows: angles[t] = (Σ(i=0 to t) N(0, step_std)) mod 2π
-    where N(0, step_std) represents Gaussian noise.
-    
-    DOC_VERIFIED
-    """
+    where N(0, step_std) represents Gaussian noise.    """
     # Input validation
     if not isinstance(length, (int, np.integer)):
         raise TypeError("length must be an integer")
@@ -111,10 +108,7 @@ def von_mises_tuning_curve(angles, preferred_direction, kappa):
     Notes
     -----
     The response follows: response = exp(κ * (cos(θ - θ_pref) - 1))
-    This is a Von Mises distribution normalized to peak at 1.
-    
-    DOC_VERIFIED
-    """
+    This is a Von Mises distribution normalized to peak at 1.    """
     # Input validation
     angles = np.asarray(angles)
     if not np.issubdtype(angles.dtype, np.number):
@@ -192,10 +186,7 @@ def generate_circular_manifold_neurons(
     -----
     Preferred directions are uniformly distributed with small jitter
     (σ=0.1 rad) to break symmetry. Firing rates are computed as:
-    rate = baseline + (peak - baseline) * von_mises_response + noise
-    
-    DOC_VERIFIED
-    """
+    rate = baseline + (peak - baseline) * von_mises_response + noise    """
     # Input validation
     check_positive(n_neurons=n_neurons)
     check_nonnegative(noise_std=noise_std)
@@ -312,10 +303,7 @@ def generate_circular_manifold_data(
     2. Generates neural responses with Von Mises tuning
     3. Converts firing rates to spike probabilities
     4. Samples spikes using binomial distribution
-    5. Convolves spikes with calcium kernel and adds noise
-    
-    DOC_VERIFIED
-    """
+    5. Convolves spikes with calcium kernel and adds noise    """
     # Input validation
     check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate,
                   decay_time=decay_time)
@@ -497,10 +485,7 @@ def generate_circular_manifold_exp(
     ...     n_neurons=100,
     ...     return_info=True
     ... )
-    >>> preferred_dirs = info['preferred_directions']
-    DOC_VERIFIED
-    
-    """
+    >>> preferred_dirs = info['preferred_directions']    """
     # Input validation
     check_positive(n_neurons=n_neurons, duration=duration, fps=fps, kappa=kappa, 
                   peak_rate=peak_rate, decay_time=decay_time)

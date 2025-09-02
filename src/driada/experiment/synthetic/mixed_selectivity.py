@@ -64,10 +64,7 @@ def generate_multiselectivity_patterns(
       vs single selectivity (1 feature).
     - Mixed selectivity neurons select 2 or 3 features with probability [0.7, 0.3].
     - Weights are assigned using Dirichlet distribution for natural weight distributions.
-    - Setting numpy random state for reproducibility when seed is provided.
-    
-    DOC_VERIFIED
-    """
+    - Setting numpy random state for reproducibility when seed is provided.    """
     # Input validation
     check_positive(n_neurons=n_neurons, n_features=n_features)
     
@@ -176,10 +173,7 @@ def generate_mixed_selective_signal(
     - Uses OR logic for feature activation: neuron fires if ANY feature is active.
     - Firing rate is modulated by sum of active feature weights (capped at 1.0).
     - Continuous features are discretized using ROI-based method.
-    - Setting numpy random state for reproducibility when seed is provided.
-    
-    DOC_VERIFIED
-    """
+    - Setting numpy random state for reproducibility when seed is provided.    """
     # Input validation
     check_positive(duration=duration, sampling_rate=sampling_rate, decay_time=decay_time)
     check_nonnegative(rate_0=rate_0, rate_1=rate_1, noise_std=noise_std)
@@ -340,10 +334,7 @@ def generate_synthetic_data_mixed_selectivity(
     - Non-selective neurons (all zero weights) generate pure noise.
     - Each neuron gets a unique seed: base_seed + neuron_index.
     - Progress is displayed using tqdm if verbose=True.
-    - Setting numpy random state for reproducibility when seed is provided.
-    
-    DOC_VERIFIED
-    """
+    - Setting numpy random state for reproducibility when seed is provided.    """
     # Input validation
     check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate, decay_time=decay_time)
     check_nonnegative(rate_0=rate_0, rate_1=rate_1, noise_std=noise_std)
@@ -507,10 +498,7 @@ def generate_synthetic_exp_with_mixed_selectivity(
     - Continuous features use fractional Brownian motion with configurable Hurst parameter.
     - Multifeatures are created by pairing consecutive continuous features.
     - Each generation stage uses a different seed offset (+100, +200, etc.).
-    - Setting numpy random state for reproducibility when seed is provided.
-    
-    DOC_VERIFIED
-    """
+    - Setting numpy random state for reproducibility when seed is provided.    """
     # Input validation
     check_positive(n_neurons=n_neurons, duration=duration, fps=fps, 
                    decay_time=decay_time, avg_active_duration=avg_active_duration)

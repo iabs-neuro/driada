@@ -52,10 +52,7 @@ def pca_dimension(data, threshold=0.95, standardize=True):
     >>> data = np.random.randn(1000, 10)
     >>> data[:, 3:] *= 0.1  # Make dimensions 4-10 have small variance
     >>> n_dim = pca_dimension(data, threshold=0.95)
-    >>> print(f"Number of components for 95% variance: {n_dim}")
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"Number of components for 95% variance: {n_dim}")    """
     if not 0 < threshold <= 1:
         raise ValueError(f"threshold must be between 0 and 1, got {threshold}")
 
@@ -124,10 +121,7 @@ def pca_dimension_profile(data, thresholds=None, standardize=True):
     >>> data = np.random.randn(1000, 20)
     >>> profile = pca_dimension_profile(data)
     >>> for thresh, n_comp in zip(profile['thresholds'], profile['n_components']):
-    ...     print(f"{thresh*100:.0f}% variance: {n_comp} components")
-    
-    DOC_VERIFIED
-    """
+    ...     print(f"{thresh*100:.0f}% variance: {n_comp} components")    """
     if thresholds is None:
         thresholds = np.array([0.5, 0.8, 0.9, 0.95, 0.99])
     else:
@@ -202,10 +196,7 @@ def effective_rank(data, standardize=True):
     >>> # Full rank matrix
     >>> data = np.random.randn(100, 10)
     >>> eff_r = effective_rank(data)
-    >>> print(f"Effective rank: {eff_r:.2f}")
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"Effective rank: {eff_r:.2f}")    """
     data = np.asarray(data)
 
     # Standardize if requested

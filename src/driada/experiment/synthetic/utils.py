@@ -39,10 +39,7 @@ def get_effective_decay_time(decay_time, duration, verbose=True):
     Notes
     -----
     The 30-second threshold and 0.5-second maximum are empirically
-    determined values that work well for most calcium imaging experiments.
-    
-    DOC_VERIFIED
-    """
+    determined values that work well for most calcium imaging experiments.    """
     # Input validation
     check_positive(decay_time=decay_time, duration=duration)
     

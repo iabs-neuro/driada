@@ -68,10 +68,7 @@ def retrieve_relevant_ids(
     The function recursively searches through subfolders and applies the same
     filtering criteria to all levels of the folder hierarchy. Network errors
     during recursive searches are caught and reported but don't stop the
-    overall operation.
-    
-    DOC_VERIFIED
-    """
+    overall operation.    """
 
     return_code = True
     folder_page = client.get(folder)
@@ -202,10 +199,7 @@ def download_part_of_folder(
     ...     folder='https://drive.google.com/drive/folders/...',
     ...     key='experiment',
     ...     extensions=['.csv']
-    ... )
-    
-    DOC_VERIFIED
-    """
+    ... )    """
 
     os.makedirs(output, exist_ok=True)
 
@@ -326,10 +320,7 @@ def download_gdrive_data(
     for organizing downloaded files. Data types excluded by default are:
     'Эксперимент', 'Краткое описание', 'Video', 'Aligned data', 'Computation results'.
     
-    Empty directories are automatically removed after download attempts.
-    
-    DOC_VERIFIED
-    """
+    Empty directories are automatically removed after download attempts.    """
 
     # Validate inputs
     if not isinstance(data_router, pd.DataFrame):
@@ -450,10 +441,7 @@ def initialize_iabs_router(root="/content"):
     - 'Краткое описание' (Brief description)
     - 'Video'
     - 'Aligned data'
-    - 'Computation results'
-    
-    DOC_VERIFIED
-    """
+    - 'Computation results'    """
     router_name = "IABS data router.xlsx"
     router_path = join(root, router_name)
     os.makedirs(root, exist_ok=True)

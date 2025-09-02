@@ -42,10 +42,7 @@ def nearestPD(A):
     
     See Also
     --------
-    is_positive_definite : Check if a matrix is positive-definite.
-    
-    DOC_VERIFIED
-    """
+    is_positive_definite : Check if a matrix is positive-definite.    """
 
     B = (A + A.T) / 2
     _, s, V = la.svd(B)
@@ -115,10 +112,7 @@ def is_positive_definite(B):
     See Also
     --------
     nearestPD : Find the nearest positive-definite matrix.
-    numpy.linalg.cholesky : Cholesky decomposition.
-    
-    DOC_VERIFIED
-    """
+    numpy.linalg.cholesky : Cholesky decomposition.    """
     try:
         _ = la.cholesky(B)
         return True

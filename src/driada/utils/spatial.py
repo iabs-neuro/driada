@@ -72,10 +72,7 @@ def compute_occupancy_map(
     >>> positions = np.random.rand(1000, 2)  # 1000 frames
     >>> # With 30 fps recording
     >>> occ_map, x_edges, y_edges = compute_occupancy_map(positions, fps=30.0)
-    >>> # occ_map contains time in seconds per bin
-    
-    DOC_VERIFIED
-    """
+    >>> # occ_map contains time in seconds per bin    """
     if positions.shape[1] != 2:
         raise ValueError(f"Positions must be 2D, got shape {positions.shape}")
     
@@ -160,10 +157,7 @@ def compute_rate_map(
     >>> occ_map, x_edges, y_edges = compute_occupancy_map(positions, fps=30.0)
     >>> # Then compute rate map
     >>> rate_map = compute_rate_map(neural_signal, positions, occ_map, 
-    ...                            x_edges, y_edges, fps=30.0)
-    
-    DOC_VERIFIED
-    """
+    ...                            x_edges, y_edges, fps=30.0)    """
     # Validate inputs
     if len(neural_signal) != len(positions):
         raise ValueError(f"neural_signal length ({len(neural_signal)}) must match "
@@ -248,10 +242,7 @@ def extract_place_fields(
     Examples
     --------
     >>> rate_map = np.random.rand(40, 40)
-    >>> fields = extract_place_fields(rate_map, min_peak_rate=0.8)
-    
-    DOC_VERIFIED
-    """
+    >>> fields = extract_place_fields(rate_map, min_peak_rate=0.8)    """
     # Validate inputs
     check_positive(min_peak_rate=min_peak_rate, min_field_size=min_field_size, 
                    peak_to_mean_ratio=peak_to_mean_ratio)
@@ -325,10 +316,7 @@ def compute_spatial_information_rate(
     --------
     >>> occ_map, x_edges, y_edges = compute_occupancy_map(positions, fps=30.0)
     >>> rate_map = compute_rate_map(signal, positions, occ_map, x_edges, y_edges, fps=30.0)
-    >>> si = compute_spatial_information_rate(rate_map, occ_map)
-    
-    DOC_VERIFIED
-    """
+    >>> si = compute_spatial_information_rate(rate_map, occ_map)    """
     # Normalize occupancy to get probability
     valid_mask = ~np.isnan(occupancy_map)
     p_i = occupancy_map[valid_mask] / np.sum(occupancy_map[valid_mask])
@@ -406,10 +394,7 @@ def compute_spatial_decoding_accuracy(
     Examples
     --------
     >>> metrics = compute_spatial_decoding_accuracy(neural_data, positions)
-    >>> print(f"Decoding R²: {metrics['r2_avg']:.3f}")
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"Decoding R²: {metrics['r2_avg']:.3f}")    """
     # Validate inputs
     if neural_activity.shape[1] != positions.shape[0]:
         raise ValueError(f"Shape mismatch: neural_activity has {neural_activity.shape[1]} "
@@ -502,10 +487,7 @@ def compute_spatial_information(
     Examples
     --------
     >>> mi_metrics = compute_spatial_information(neural_data, positions)
-    >>> print(f"MI with position: {mi_metrics['mi_total']:.3f} bits")
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"MI with position: {mi_metrics['mi_total']:.3f} bits")    """
     # Convert to TimeSeries if needed
     if isinstance(neural_activity, np.ndarray):
         if neural_activity.ndim == 1:
@@ -589,10 +571,7 @@ def filter_by_speed(
     --------
     >>> data = {'positions': positions, 'neural_activity': activity}
     >>> # Keep only when animal is moving
-    >>> filtered = filter_by_speed(data, speed_range=(0.05, np.inf))
-    
-    DOC_VERIFIED
-    """
+    >>> filtered = filter_by_speed(data, speed_range=(0.05, np.inf))    """
     # Validate inputs
     if position_key not in data:
         raise KeyError(f"position_key '{position_key}' not found in data")
@@ -694,10 +673,7 @@ def analyze_spatial_coding(
     Examples
     --------
     >>> results = analyze_spatial_coding(neural_data, positions, fps=30.0)
-    >>> print(f"Found {results['summary']['n_place_cells']} place cells")
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"Found {results['summary']['n_place_cells']} place cells")    """
     # Validate inputs
     if neural_activity.shape[1] != positions.shape[0]:
         raise ValueError(f"Shape mismatch: neural_activity has {neural_activity.shape[1]} "
@@ -813,10 +789,7 @@ def compute_spatial_metrics(
     >>> results = compute_spatial_metrics(neural_data, positions, 
     ...                                  metrics=['decoding'], fps=30.0)
     >>> # Compute all metrics
-    >>> results = compute_spatial_metrics(neural_data, positions, fps=30.0)
-    
-    DOC_VERIFIED
-    """
+    >>> results = compute_spatial_metrics(neural_data, positions, fps=30.0)    """
     if metrics is None:
         metrics = ["decoding", "information", "place_fields"]
     

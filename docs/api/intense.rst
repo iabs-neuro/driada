@@ -2,36 +2,49 @@ INTENSE Module
 ==============
 
 .. automodule:: driada.intense
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   :no-members:
+   :noindex:
 
-Core Functions
---------------
+Information-Theoretic Evaluation of Neuronal Selectivity (INTENSE) provides tools for analyzing
+how individual neurons encode behavioral and task variables using mutual information.
 
-.. autofunction:: driada.intense.compute_cell_feat_significance
-.. autofunction:: driada.intense.compute_feat_feat_significance
+Module Components
+-----------------
 
-Related Classes
----------------
+.. toctree::
+   :maxdepth: 1
 
-See :class:`driada.information.MultiTimeSeries` for the main data structure used by INTENSE functions.
+   intense/pipelines
+   intense/stats
+   intense/visual
+   intense/disentanglement
+   intense/base
 
-Submodules
-----------
+Quick Links
+-----------
 
-.. automodule:: driada.intense.pipelines
-   :members:
-   :undoc-members:
+**Main Analysis Pipelines**
+   * :doc:`intense/pipelines` - High-level functions for significance testing
+   * :func:`~driada.intense.compute_cell_feat_significance` - Neuron-feature analysis
+   * :func:`~driada.intense.compute_feat_feat_significance` - Feature-feature dependencies
+   * :func:`~driada.intense.compute_cell_cell_significance` - Neuron-neuron connectivity
 
-.. automodule:: driada.intense.stats
-   :members:
-   :undoc-members:
+**Statistical Tools**
+   * :doc:`intense/stats` - Statistical testing and p-value computation
+   * Distribution fitting and testing
+   * Multiple comparison corrections
 
-.. automodule:: driada.intense.visual
-   :members:
-   :undoc-members:
+**Visualization**
+   * :doc:`intense/visual` - Plotting functions for INTENSE results
+   * Selectivity heatmaps and summaries
+   * Neuron-feature pair visualization
 
-.. automodule:: driada.intense.disentanglement
-   :members:
-   :undoc-members:
+**Advanced Analysis**
+   * :doc:`intense/disentanglement` - Mixed selectivity disentanglement
+   * Feature correlation analysis
+   * Selectivity decomposition
+
+**Core Implementation**
+   * :doc:`intense/base` - Low-level computation functions
+   * Mutual information computation
+   * Delay optimization algorithms

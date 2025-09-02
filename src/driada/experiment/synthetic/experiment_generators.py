@@ -153,10 +153,7 @@ def generate_synthetic_data(
     >>> f, s, gt = generate_synthetic_data(
     ...     nfeats=2, nneurons=5, ftype='d', 
     ...     pregenerated_features=prefeats
-    ... )
-    DOC_VERIFIED
-    
-    """
+    ... )    """
     # Input validation
     check_nonnegative(nfeats=nfeats, nneurons=nneurons, duration=duration, 
                       sampling_rate=sampling_rate, rate_0=rate_0, rate_1=rate_1,
@@ -409,10 +406,7 @@ def generate_synthetic_exp(
     -----
     - Neurons split evenly between feature types (extra neuron to discrete if odd)
     - If one feature type has 0 features, all neurons allocated to other type
-    - Uses different seeds for discrete (seed) and continuous (seed+1000) features
-    
-    DOC_VERIFIED
-    """
+    - Uses different seeds for discrete (seed) and continuous (seed+1000) features    """
     # Input validation
     check_nonnegative(n_dfeats=n_dfeats, n_cfeats=n_cfeats, nneurons=nneurons,
                       fps=fps, duration=duration)
@@ -611,10 +605,7 @@ def generate_mixed_population_exp(
     - When selectivity_prob < 1.0, some neurons will be "silent" (not in output)
     - Feature-selective neuron count affected by feature_params['selectivity_prob']
     - Spatial correlations model location-dependent behavioral variables
-    - Seed offsets: manifold (+1000), features (+2000), selectivity (+3000)
-    
-    DOC_VERIFIED
-    """
+    - Seed offsets: manifold (+1000), features (+2000), selectivity (+3000)    """
     # Input validation
     check_nonnegative(n_neurons=n_neurons, manifold_fraction=manifold_fraction,
                       n_discrete_features=n_discrete_features,

@@ -26,8 +26,6 @@ def check_data_for_errors(d, verbose=True):
     ------
     ValueError
         If data contains columns with all zeros.
-    
-    DOC_VERIFIED
     """
     # Handle both dense and sparse matrices
     if sp.issparse(d):
@@ -86,9 +84,6 @@ class MVData(object):
     allow_zero_columns : bool, default=False
         Whether to allow columns with all zero values. If False, raises ValueError
         when zero columns are detected.
-        
-    DOC_VERIFIED
-        
     Attributes
     ----------
     data : np.ndarray
@@ -123,8 +118,6 @@ class MVData(object):
     - Data is downsampled by taking every ds-th column
     - If rescale_rows=True, each row is rescaled to [0,1] range
     - Labels default to zeros if not provided
-    
-    DOC_VERIFIED
     """
 
     def __init__(
@@ -138,6 +131,27 @@ class MVData(object):
         verbose=False,
         allow_zero_columns=False,
     ):
+        """Initialize MVData object with multi-dimensional data.
+        
+        Parameters
+        ----------
+        data : array-like
+            Data matrix with shape (n_features, n_samples)
+        labels : array-like, optional
+            Labels for each sample. Defaults to zeros if not provided
+        distmat : array-like, optional
+            Pre-computed distance matrix with shape (n_points, n_points)
+        rescale_rows : bool, default=False
+            Whether to rescale each row to [0,1] range
+        data_name : str, optional
+            Name for the dataset
+        downsampling : int, optional
+            Downsampling factor
+        verbose : bool, default=False
+            Whether to print progress messages
+        allow_zero_columns : bool, default=False
+            Whether to allow columns with all zero values
+        """
 
         if downsampling is None:
             self.ds = 1
@@ -206,8 +220,6 @@ class MVData(object):
         - For sparse matrices, converts to dense for filtering then back to sparse
         - Warning: Converting large sparse matrices to dense may cause memory issues
         - The window parameter is passed directly to scipy.signal.medfilt
-        
-        DOC_VERIFIED
         """
         from scipy.signal import medfilt
 
@@ -239,8 +251,6 @@ class MVData(object):
         -------
         np.ndarray
             Correlation matrix
-            
-        DOC_VERIFIED
         """
         if axis == 0:
             cm = correlation_matrix(self.data)
@@ -276,8 +286,6 @@ class MVData(object):
         - The metric 'l2' is automatically converted to 'euclidean' for scipy compatibility
         - Distances are computed on transposed data (between columns/samples)
         - Result is stored in self.distmat
-        
-        DOC_VERIFIED
         """
         from scipy.spatial.distance import pdist, squareform
 
@@ -362,8 +370,6 @@ class MVData(object):
         # New simplified format
         >>> emb = mvdata.get_embedding(method='pca', dim=3)
         >>> emb = mvdata.get_embedding(method='umap', n_components=2, n_neighbors=30)
-        
-        DOC_VERIFIED
         """
         # Handle new simplified API
         if method is not None:
@@ -479,8 +485,6 @@ class MVData(object):
         See Also
         --------
         ProximityGraph : The graph construction class.
-        
-        DOC_VERIFIED
         """
         if g_params["g_method_name"] not in GRAPH_CONSTRUCTION_METHODS:
             raise Exception("Unknown graph construction method!")

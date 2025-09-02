@@ -42,10 +42,7 @@ def free_entropy(spectrum, t):
     >>> spectrum = np.array([0, 1, 2, 3])
     >>> F = free_entropy(spectrum, t=1.0)
     >>> F > 0  # Free entropy is typically positive
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
     # Input validation
     spectrum = np.asarray(spectrum)
     if spectrum.size == 0:
@@ -120,10 +117,7 @@ def q_entropy(spectrum, t, q=1):
     Examples
     --------
     >>> spectrum = np.array([0, 1, 2, 3])
-    >>> S = q_entropy(spectrum, t=1.0, q=2)  # Rényi 2-entropy
-    
-    DOC_VERIFIED
-    """
+    >>> S = q_entropy(spectrum, t=1.0, q=2)  # Rényi 2-entropy    """
     # Input validation
     spectrum = np.asarray(spectrum)
     if spectrum.size == 0:
@@ -197,10 +191,7 @@ def spectral_entropy(spectrum, t, verbose=0):
     >>> spectrum = np.array([0, 1, 1, 2])  # Laplacian eigenvalues
     >>> S = spectral_entropy(spectrum, t=1.0)
     >>> 0 <= S <= np.log2(len(spectrum))  # Entropy bounds
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
     # Input validation
     spectrum = np.asarray(spectrum)
     if spectrum.size == 0:

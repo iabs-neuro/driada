@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath('../src'))
 project = 'DRIADA'
 copyright = '2025, DRIADA Contributors'
 author = 'DRIADA Contributors'
-release = '0.4.0'
+release = '1.0.0'
 
 # -- General configuration ---------------------------------------------------
 extensions = [

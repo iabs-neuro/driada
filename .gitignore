@@ -101,3 +101,6 @@ text/
 
 # Internal documentation
 docs_internal/
+
+# Documentation consistency cache
+.doc_consistency_cache.json

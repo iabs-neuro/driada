@@ -88,10 +88,7 @@ def reconstruct_spikes(
     -----
     All built-in methods use the scaled calcium data (calcium.scdata) which
     is normalized to [0, 1]. This ensures consistent behavior across different
-    calcium indicator types and experimental conditions.
-    
-    DOC_VERIFIED
-    """
+    calcium indicator types and experimental conditions.    """
     # Input validation
     check_positive(fps=fps)
     
@@ -171,10 +168,7 @@ def wavelet_reconstruction(
     Notes
     -----
     Default parameters are defined in WVT_EVENT_DETECTION_PARAMS. The fps
-    parameter always overrides the default fps value.
-    
-    DOC_VERIFIED
-    """
+    parameter always overrides the default fps value.    """
     # Input validation
     check_positive(fps=fps)
     
@@ -239,9 +233,10 @@ def threshold_reconstruction(
         Sampling rate in frames per second. Must be positive.
     params : dict
         Parameters including:
-        - threshold_std : float, number of STDs above mean for detection. Must be positive. Default: 2.5.
-        - smooth_sigma : float, gaussian smoothing sigma in frames. Must be non-negative. Default: 2.
-        - min_spike_interval : float, minimum interval between spikes in seconds. Must be non-negative. Default: 0.1.
+        
+        * threshold_std : float, number of STDs above mean for detection. Must be positive. Default: 2.5.
+        * smooth_sigma : float, gaussian smoothing sigma in frames. Must be non-negative. Default: 2.
+        * min_spike_interval : float, minimum interval between spikes in seconds. Must be non-negative. Default: 0.1.
 
     Returns
     -------
@@ -265,10 +260,7 @@ def threshold_reconstruction(
     Notes
     -----
     The derivative is computed with np.diff and zero-padded at the start.
-    This affects the first frame which cannot have a spike detected.
-    
-    DOC_VERIFIED
-    """
+    This affects the first frame which cannot have a spike detected.    """
     # Input validation
     check_positive(fps=fps)
     

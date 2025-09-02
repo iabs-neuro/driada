@@ -67,10 +67,7 @@ def check_matrix_type(mode, is_directed):
     Notes
     -----
     Directed networks support: 'adj', 'lap_out', 'lap_in'.
-    Undirected networks support: 'adj', 'trans', 'lap', 'nlap', 'rwlap'.
-    
-    DOC_VERIFIED
-    """
+    Undirected networks support: 'adj', 'trans', 'lap', 'nlap', 'rwlap'.    """
     if mode not in MATRIX_TYPES:
         raise ValueError(
             f"Matrix type {mode} is not in allowed matrix types: {MATRIX_TYPES}"
@@ -106,10 +103,7 @@ def check_adjacency(a):
     -----
     This function only checks if the matrix is square. It does not
     validate other adjacency matrix properties like non-negativity
-    or symmetry.
-    
-    DOC_VERIFIED
-    """
+    or symmetry.    """
     if a.shape[0] != a.shape[1]:
         raise ValueError(f"Adjacency matrix must be square. Got shape {a.shape}")
 
@@ -134,10 +128,7 @@ def check_directed(directed, real_world):
     Notes
     -----
     Real-world networks must have directed in {0, 1}.
-    Synthetic networks can have 0 <= directed <= 1.
-    
-    DOC_VERIFIED
-    """
+    Synthetic networks can have 0 <= directed <= 1.    """
     if real_world:
         if directed not in [0, 1]:
             raise ValueError("Fractional direction is not valid for a real network")
@@ -169,10 +160,7 @@ def check_weights_and_directions(a, weighted, directed):
     -----
     - Directed: matrix is not symmetric (A != A^T)
     - Weighted: matrix has non-binary values
-    - For sparse matrices, checks are done without converting to dense
-    
-    DOC_VERIFIED
-    """
+    - For sparse matrices, checks are done without converting to dense    """
     # Check if matrix is symmetric (directed property)
     if sp.issparse(a):
         is_directed = (a != a.T).nnz > 0
@@ -226,10 +214,7 @@ def calculate_directionality_fraction(adj):
     considered symmetric if w1 == w2.
     
     The function works efficiently with sparse matrices without converting
-    to dense format when possible.
-    
-    DOC_VERIFIED
-    """
+    to dense format when possible.    """
     # For sparse matrices, work directly with COO format
     if sp.issparse(adj):
         # Convert to COO format for easy access to (row, col, data)
@@ -316,10 +301,7 @@ def select_construction_pipeline(a, graph):
     -----
     The directed_fraction is always calculated and never None. For undirected
     NetworkX graphs, it returns 0.0. For directed graphs and adjacency matrices,
-    it calculates the actual fraction of asymmetric edges.
-    
-    DOC_VERIFIED
-    """
+    it calculates the actual fraction of asymmetric edges.    """
     directed_fraction = None
     
     if a is None:
@@ -532,10 +514,7 @@ class Network:
     - 'nlap': Normalized Laplacian (undirected only)
     - 'rwlap': Random walk Laplacian (undirected only)
     - 'lap_out': Out-Laplacian (directed only)
-    - 'lap_in': In-Laplacian (directed only)
-    DOC_VERIFIED
-    
-    """
+    - 'lap_in': In-Laplacian (directed only)    """
 
     def __init__(
         self,
@@ -564,10 +543,11 @@ class Network:
             NetworkX graph object. Mutually exclusive with adj parameter.
         preprocessing : str or None, default="giant_cc"
             Preprocessing method:
-            - None: No preprocessing
-            - "remove_isolates": Remove isolated nodes
-            - "giant_cc": Extract giant connected component
-            - "giant_scc": Extract giant strongly connected component (directed only)
+            
+            * None: No preprocessing
+            * "remove_isolates": Remove isolated nodes
+            * "giant_cc": Extract giant connected component
+            * "giant_scc": Extract giant strongly connected component (directed only)
         name : str, default=""
             Name identifier for the network.
         pos : dict or None
@@ -580,11 +560,12 @@ class Network:
             Node attributes as {node: {attr: value}} nested dictionary.
         logger : logging.Logger or None
             Logger instance for logging messages.
-        **network_args : dict
+        **network_args
             Additional network parameters:
-            - directed : bool or None (auto-detected if None)
-            - weighted : bool or None (auto-detected if None)
-            - real_world : bool (affects directionality validation)
+            
+            * directed : bool or None (auto-detected if None)
+            * weighted : bool or None (auto-detected if None)
+            * real_world : bool (affects directionality validation)
             
         Attributes
         ----------
@@ -630,10 +611,7 @@ class Network:
         -----
         The constructor automatically computes node degrees after initialization.
         For large sparse matrices, auto-detection of directed/weighted properties
-        uses efficient sparse operations to avoid memory issues.
-        
-        DOC_VERIFIED
-        """
+        uses efficient sparse operations to avoid memory issues.        """
         self.name = name
         self.verbose = verbose
         self.network_params = network_args
@@ -746,10 +724,7 @@ class Network:
         - self.n_cc: Number of connected components (only for 'giant_cc' mode)
         - self.n_scc: Number of strongly connected components (only for 'giant_scc' mode)
         
-        When verbose=True, prints information about removed nodes and edges.
-        
-        DOC_VERIFIED
-        """
+        When verbose=True, prints information about removed nodes and edges.        """
         if preprocessing is None:
             if self.verbose:
                 print(
@@ -837,10 +812,7 @@ class Network:
         - self.graph: Set to None when create_graph=False
         - self.n_cc/n_scc: Set conditionally based on preprocessing mode
         
-        When verbose=True, prints information about removed nodes and edges.
-        
-        DOC_VERIFIED
-        """
+        When verbose=True, prints information about removed nodes and edges.        """
         # if NetworkX graph should be created, we revert to graph-based initialization for simplicity
         if create_graph:
             gtype = nx.DiGraph if self.directed else nx.Graph
@@ -919,10 +891,7 @@ class Network:
         Returns
         -------
         bool
-            True if the network has only one connected component, False otherwise.
-            
-        DOC_VERIFIED
-        """
+            True if the network has only one connected component, False otherwise.        """
         ccs = list(get_ccs_from_adj(self.adj))
         return len(ccs) == 1
 
@@ -950,10 +919,7 @@ class Network:
         IOM methods preserve in-degree, out-degree, and mutual (reciprocal) degree
         sequences for each node. This maintains the local connectivity patterns
         while randomizing the global structure.
-        Shuffle method only preserves edge density.
-        
-        DOC_VERIFIED
-        """
+        Shuffle method only preserves edge density.        """
         if rmode == "graph_iom":
             if self.graph is None:
                 raise ValueError("NetworkX graph not available. Use 'adj_iom' mode instead.")
@@ -1009,10 +975,7 @@ class Network:
         scaled_outdeg : np.ndarray
             Out-degrees scaled to [0, 1].
         scaled_indeg : np.ndarray
-            In-degrees scaled to [0, 1].
-            
-        DOC_VERIFIED
-        """
+            In-degrees scaled to [0, 1].        """
         # convert sparse matrix to 0-1 format and sum over specific axis
         self.outdeg = np.array(self.adj.astype(bool).astype(int).sum(axis=0)).ravel()
         self.indeg = np.array(self.adj.astype(bool).astype(int).sum(axis=1)).ravel()
@@ -1058,10 +1021,7 @@ class Network:
         Raises
         ------
         ValueError
-            If mode is not recognized.
-            
-        DOC_VERIFIED
-        """
+            If mode is not recognized.        """
         if mode == "all":
             deg = self.deg
         elif mode == "out":
@@ -1104,10 +1064,7 @@ class Network:
             
         Notes
         -----
-        Matrices are computed lazily and cached as instance attributes.
-        
-        DOC_VERIFIED
-        """
+        Matrices are computed lazily and cached as instance attributes.        """
         check_matrix_type(mode, self.directed)
         matrix = getattr(self, mode)
         if matrix is None:
@@ -1146,10 +1103,7 @@ class Network:
             
         Notes
         -----
-        Calls diagonalize() if spectrum not already computed.
-        
-        DOC_VERIFIED
-        """
+        Calls diagonalize() if spectrum not already computed.        """
         check_matrix_type(mode, self.directed)
         spectrum = getattr(self, mode + "_spectrum")
         if spectrum is None:
@@ -1177,10 +1131,7 @@ class Network:
             
         Notes
         -----
-        Calls diagonalize() if eigenvectors not already computed.
-        
-        DOC_VERIFIED
-        """
+        Calls diagonalize() if eigenvectors not already computed.        """
         check_matrix_type(mode, self.directed)
         eigenvectors = getattr(self, mode + "_eigenvectors")
         if eigenvectors is None:
@@ -1209,10 +1160,7 @@ class Network:
         -----
         IPR = sum(|v_i|^4) / (sum(|v_i|^2))^2
         For normalized eigenvectors, this simplifies to IPR = sum(|v_i|^4).
-        Range: 1/n <= IPR <= 1, where n is the number of nodes.
-        
-        DOC_VERIFIED
-        """
+        Range: 1/n <= IPR <= 1, where n is the number of nodes.        """
         check_matrix_type(mode, self.directed)
         ipr = getattr(self, mode + "_ipr")
         if ipr is None:
@@ -1258,10 +1206,7 @@ class Network:
         
         Sá, L., Ribeiro, P., & Prosen, T. (2020). Complex spacing ratios:
         A signature of dissipative quantum chaos. Physical Review X, 10(2),
-        021019. https://link.aps.org/doi/10.1103/PhysRevX.10.021019
-        
-        DOC_VERIFIED
-        """
+        021019. https://link.aps.org/doi/10.1103/PhysRevX.10.021019        """
         check_matrix_type(mode, self.directed)
         zvals = getattr(self, mode + "_zvalues")
         if zvals is None:
@@ -1286,10 +1231,7 @@ class Network:
         Raises
         ------
         NotImplementedError
-            This function is not yet implemented.
-            
-        DOC_VERIFIED
-        """
+            This function is not yet implemented.        """
         raise NotImplementedError("Partial diagonalization is not yet implemented")
 
     def diagonalize(self, mode="lap", verbose=None):
@@ -1318,10 +1260,7 @@ class Network:
         The method uses scipy.linalg.eigh for symmetric matrices and
         scipy.linalg.eig for non-symmetric matrices. Complex eigenvalues
         and eigenvectors are allowed for directed networks but will raise
-        an error for undirected networks.
-        
-        DOC_VERIFIED
-        """
+        an error for undirected networks.        """
         if verbose is None:
             verbose = self.verbose
 
@@ -1434,10 +1373,7 @@ class Network:
         Notes
         -----
         Warning: For large graphs, this precomputes ALL shortest paths which
-        requires O(n²) memory. Use with caution on graphs with >10k nodes.
-        
-        DOC_VERIFIED
-        """
+        requires O(n²) memory. Use with caution on graphs with >10k nodes.        """
         import random
         
         # Ensure we have a NetworkX graph
@@ -1535,8 +1471,6 @@ class Network:
         See Also
         --------
         get_z_values : Public interface to retrieve calculated z-values
-        
-        DOC_VERIFIED
         """
         spectrum = self.get_spectrum(mode)
         seigs = sorted(list(set(spectrum)), key=np.abs)
@@ -1602,8 +1536,6 @@ class Network:
         -----
         Also computes Shannon entropy of eigenvectors internally but does not
         store it. This may be changed in future versions.
-        
-        DOC_VERIFIED
         """
         eigenvectors = self.get_eigenvectors(mode)
         nvecs = eigenvectors.shape[1]
@@ -1635,10 +1567,7 @@ class Network:
         Raises
         ------
         NotImplementedError
-            If normalized Laplacian requested for directed network.
-            
-        DOC_VERIFIED
-        """
+            If normalized Laplacian requested for directed network.        """
         if not self.directed:
             if norm:
                 spectrum = self.get_spectrum("nlap")  # could be rwlap as well
@@ -1699,10 +1628,7 @@ class Network:
         See Also
         --------
         calculate_free_entropy : Free entropy (log partition function)
-        calculate_q_entropy : Generalized Rényi entropy
-        
-        DOC_VERIFIED
-        """
+        calculate_q_entropy : Generalized Rényi entropy        """
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [spectral_entropy(spectrum, t, verbose=verbose) for t in tlist]
         return res
@@ -1752,10 +1678,7 @@ class Network:
         See Also
         --------
         calculate_thermodynamic_entropy : Von Neumann entropy
-        calculate_q_entropy : Generalized Rényi entropy
-        
-        DOC_VERIFIED
-        """
+        calculate_q_entropy : Generalized Rényi entropy        """
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [free_entropy(spectrum, t) for t in tlist]
         return res
@@ -1812,10 +1735,7 @@ class Network:
         See Also
         --------
         calculate_thermodynamic_entropy : Von Neumann entropy (q=1 case)
-        calculate_free_entropy : Free entropy (log partition function)
-        
-        DOC_VERIFIED
-        """
+        calculate_free_entropy : Free entropy (log partition function)        """
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [q_entropy(spectrum, t, q=q) for t in tlist]
         return res
@@ -1840,10 +1760,7 @@ class Network:
         References
         ----------
         Estrada, E., & Hatano, N. (2008). Communicability in complex networks.
-        Physical Review E, 77(3), 036111.
-        
-        DOC_VERIFIED
-        """
+        Physical Review E, 77(3), 036111.        """
         adj_spectrum = self.get_spectrum("adj")
         self.estrada_communicability = sum([np.exp(e) for e in adj_spectrum])
         return self.estrada_communicability
@@ -1868,10 +1785,7 @@ class Network:
         References
         ----------
         Estrada, E., & Rodríguez-Velázquez, J. A. (2005). Spectral measures of
-        bipartivity in complex networks. Physical Review E, 72(4), 046105.
-        
-        DOC_VERIFIED
-        """
+        bipartivity in complex networks. Physical Review E, 72(4), 046105.        """
         adj_spectrum = self.get_spectrum("adj")
         esi1 = sum([np.exp(-e) for e in adj_spectrum])
         esi2 = sum([np.exp(e) for e in adj_spectrum])
@@ -1901,10 +1815,7 @@ class Network:
         Localized states typically show different statistical properties
         in their eigenvalue spacing ratios compared to extended states.
         
-        Requires prior calculation of z-values via calculate_z_values().
-        
-        DOC_VERIFIED
-        """
+        Requires prior calculation of z-values via calculate_z_values().        """
         zvals = self.get_z_values(mode)
 
         mean_cos_phi = np.mean(np.array([np.cos(np.angle(x)) for x in zvals]))
@@ -1949,10 +1860,7 @@ class Network:
         References
         ----------
         Belkin, M., & Niyogi, P. (2003). Laplacian eigenmaps for dimensionality
-        reduction and data representation. Neural computation, 15(6), 1373-1396.
-        
-        DOC_VERIFIED
-        """
+        reduction and data representation. Neural computation, 15(6), 1373-1396.        """
         if self.directed:
             raise Exception("LEM embedding is not implemented for directed graphs")
 

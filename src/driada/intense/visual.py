@@ -92,10 +92,7 @@ def plot_pc_activity(exp, cell_ind, place_key=("x", "y"), ds=5, ax=None,
     ...                      cmap='viridis', marker_color='red')
     
     >>> # Using different spatial features
-    >>> ax = plot_pc_activity(exp, cell_ind=3, place_key=("x_grid", "y_grid"))
-    
-    DOC_VERIFIED
-    """
+    >>> ax = plot_pc_activity(exp, cell_ind=3, place_key=("x_grid", "y_grid"))    """
     # Validate inputs
     if cell_ind < 0 or cell_ind >= exp.n_cells:
         raise IndexError(f"cell_ind {cell_ind} out of range [0, {exp.n_cells})")
@@ -238,10 +235,7 @@ def plot_neuron_feature_density(
     
     >>> # With Wasserstein distance for binary features
     >>> ax = plot_neuron_feature_density(exp, 'calcium', 10, 'reward', 
-    ...                                 compute_wsd=True)
-    
-    DOC_VERIFIED
-    """
+    ...                                 compute_wsd=True)    """
     ind2 = min(exp.n_frames, ind2)
 
     if data_type == "calcium":
@@ -373,10 +367,7 @@ def plot_neuron_feature_pair(
     
     >>> # Custom time range
     >>> fig = plot_neuron_feature_pair(exp, 3, 'reward', 
-    ...                               ind1=1000, ind2=5000, ds=2)
-    
-    DOC_VERIFIED
-    """
+    ...                               ind1=1000, ind2=5000, ds=2)    """
 
     ind2 = min(exp.n_frames, ind2)
     ca = exp.neurons[cell_id].ca.scdata[ind1:ind2][::ds]
@@ -543,10 +534,7 @@ def plot_disentanglement_heatmap(
     ...     disent_mat, count_mat, features,
     ...     title="My Analysis", cmap='RdYlGn',
     ...     figsize=(8, 6), dpi=150
-    ... )
-    
-    DOC_VERIFIED
-    """
+    ... )    """
     import seaborn as sns
     from matplotlib.colors import LinearSegmentedColormap
     import pandas as pd
@@ -675,10 +663,7 @@ def plot_disentanglement_summary(
     >>> fig = plot_disentanglement_summary(
     ...     [disent1, disent2], [count1, count2], features,
     ...     title_prefix="Combined: "
-    ... )
-    
-    DOC_VERIFIED
-    """
+    ... )    """
     # Handle multiple experiments
     if isinstance(disent_matrix, list):
         total_disent = np.sum(disent_matrix, axis=0)
@@ -848,10 +833,7 @@ def plot_selectivity_heatmap(
     ...     exp, significant_neurons,
     ...     cmap='hot', vmin=0, vmax=0.5,
     ...     figsize=(12, 10)
-    ... )
-    
-    DOC_VERIFIED
-    """
+    ... )    """
     # Get all features and create ordered lists
     all_features = sorted(
         [f for f in exp.dynamic_features.keys() if isinstance(f, str)]

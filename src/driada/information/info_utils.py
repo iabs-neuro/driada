@@ -32,10 +32,7 @@ def py_fast_digamma_arr(data):
     where the series expansion is accurate (x > 5), then applies
     an asymptotic expansion with correction terms.
     
-    For x <= 0, the function returns NaN to avoid infinite loops.
-    
-    DOC_VERIFIED
-    """
+    For x <= 0, the function returns NaN to avoid infinite loops.    """
     res = np.zeros(len(data))
     for i, x in enumerate(data):
         # Handle non-positive values to avoid infinite loop
@@ -105,10 +102,7 @@ def py_fast_digamma(x):
     1. Recurrence relation psi(x) = psi(x+1) - 1/x to shift to x > 5
     2. Asymptotic expansion for large x with Bernoulli number corrections
     
-    For x <= 0, the function returns NaN to avoid infinite loops.
-    
-    DOC_VERIFIED
-    """
+    For x <= 0, the function returns NaN to avoid infinite loops.    """
     # Handle non-positive values to avoid infinite loop
     if x <= 0:
         return np.nan
@@ -177,10 +171,7 @@ def binary_mi_score(contingency):
     This implementation:
     - Handles sparse contingency tables efficiently by only computing over non-zero entries
     - Returns 0 for degenerate cases (single cluster)
-    - Clips negative values due to numerical errors to 0
-    
-    DOC_VERIFIED
-    """
+    - Clips negative values due to numerical errors to 0    """
     # Input validation
     contingency = np.asarray(contingency)
     if contingency.ndim != 2:

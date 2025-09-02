@@ -83,10 +83,7 @@ def brownian(
     >>> # Generate multiple paths with different initial conditions
     >>> paths = brownian([0.0, 1.0, -1.0], 1000, dt=0.01)
     >>> paths.shape
-    (3, 1000)
-    
-    DOC_VERIFIED
-    """
+    (3, 1000)    """
     # Validate inputs
     if not isinstance(n, (int, np.integer)) or n <= 0:
         raise ValueError(f"n must be a positive integer, got {n}")
@@ -173,10 +170,7 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
     >>> random_signal = np.random.randn(100)
     >>> apen = approximate_entropy(random_signal, m=2, r=0.2 * np.std(random_signal))
     >>> apen > 0.5  # Typically true for random signals
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
 
     # Validate inputs
     U = np.asarray(U)
@@ -189,11 +183,35 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
     check_nonnegative(r=r)
     
     def _maxdist(x_i, x_j):
-        """Calculate maximum distance between two patterns."""
+        """Calculate maximum distance between two patterns.
+        
+        Parameters
+        ----------
+        x_i : list
+            First pattern of values
+        x_j : list
+            Second pattern of values
+            
+        Returns
+        -------
+        float
+            Maximum absolute difference between corresponding elements
+        """
         return max([abs(ua - va) for ua, va in zip(x_i, x_j)])
 
     def _phi(m):
-        """Calculate phi(m) - the logarithmic frequency of patterns."""
+        """Calculate phi(m) - the logarithmic frequency of patterns.
+        
+        Parameters
+        ----------
+        m : int
+            Pattern length
+            
+        Returns
+        -------
+        float
+            Average logarithm of matching pattern frequencies
+        """
         # Extract all patterns of length m
         patterns = [[U[j] for j in range(i, i + m)] for i in range(N - m + 1)]
 
@@ -259,10 +277,7 @@ def filter_1d_timeseries(
     >>> filtered = filter_1d_timeseries(data, method='savgol', window_length=5)
 
     >>> # Wavelet denoising for multi-scale noise removal
-    >>> filtered = filter_1d_timeseries(data, method='wavelet', wavelet='db4')
-    
-    DOC_VERIFIED
-    """
+    >>> filtered = filter_1d_timeseries(data, method='wavelet', wavelet='db4')    """
     if method == "none":
         return data.copy()
 
@@ -375,10 +390,7 @@ def filter_signals(data: np.ndarray, method: str = "gaussian", **kwargs) -> np.n
     
     >>> # Also works with 1D arrays
     >>> signal = np.random.randn(1000)
-    >>> filtered = filter_signals(signal, method='savgol')
-    
-    DOC_VERIFIED
-    """
+    >>> filtered = filter_signals(signal, method='savgol')    """
     if data.ndim == 1:
         return filter_1d_timeseries(data, method=method, **kwargs)
 
@@ -422,10 +434,7 @@ def adaptive_filter_signals(data: np.ndarray, snr_threshold: float = 2.0) -> np.
     >>> filtered = adaptive_filter_signals(signals, snr_threshold=3.0)
     
     >>> # Lower threshold applies stronger filtering to more signals
-    >>> filtered = adaptive_filter_signals(signals, snr_threshold=1.0)
-    
-    DOC_VERIFIED
-    """
+    >>> filtered = adaptive_filter_signals(signals, snr_threshold=1.0)    """
     # Validate inputs
     if data.ndim != 2:
         raise ValueError(f"Data must be 2D, got shape {data.shape}")

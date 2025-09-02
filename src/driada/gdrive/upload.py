@@ -18,10 +18,7 @@ def get_datetime():
     Examples
     --------
     >>> get_datetime()
-    '15-03-2024 14:30:45'
-    
-    DOC_VERIFIED
-    """
+    '15-03-2024 14:30:45'    """
     tz = pytz.timezone("Europe/Moscow")
     now = datetime.now(tz)
 
@@ -94,10 +91,7 @@ def save_file_to_gdrive(
     >>> save_file_to_gdrive(
     ...     data_router, 'exp001', './results.csv',
     ...     destination='Results', force_rewriting=True, gauth=auth
-    ... )
-    
-    DOC_VERIFIED
-    """
+    ... )    """
 
     drive = GoogleDrive(gauth)
 

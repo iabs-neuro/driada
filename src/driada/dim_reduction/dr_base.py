@@ -27,10 +27,7 @@ class DRMethod(object):
     Notes
     -----
     Boolean attributes are stored internally but accept 0/1 integer values
-    for backward compatibility.
-    
-    DOC_VERIFIED
-    """
+    for backward compatibility.    """
 
     def __init__(
         self,
@@ -62,10 +59,7 @@ class DRMethod(object):
         default_graph_params : dict or None, default=None
             Default graph construction parameters (if requires_graph).
         default_metric_params : dict or None, default=None
-            Default metric parameters (if requires weights).
-            
-        DOC_VERIFIED
-        """
+            Default metric parameters (if requires weights).        """
         self.is_linear = bool(is_linear)
         self.requires_graph = bool(requires_graph)
         self.requires_distmat = bool(requires_distmat)
@@ -229,10 +223,7 @@ def m_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     Notes
     -----
     The special metric 'hyperbolic' is supported in addition to the standard
-    pynndescent named_distances. Custom callable metrics are also supported.
-    
-    DOC_VERIFIED
-    """
+    pynndescent named_distances. Custom callable metrics are also supported.    """
     name = para["metric_name"]
     appr_keys = ["metric_name"]
 
@@ -295,10 +286,7 @@ def g_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     All methods support: 'g_method_name', 'max_deleted_nodes', 'weighted',
     'dist_to_aff', 'graph_preprocessing'.
     
-    Unknown methods are accepted and will receive only the base parameters.
-    
-    DOC_VERIFIED
-    """
+    Unknown methods are accepted and will receive only the base parameters.    """
     gmethod = para["g_method_name"]
     appr_keys = ["g_method_name", "max_deleted_nodes", "weighted", "dist_to_aff", "graph_preprocessing"]
 
@@ -350,10 +338,7 @@ def e_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     - 'dmaps', 'auto_dmaps': adds 'dm_alpha' (diffusion maps alpha parameter)
       and 'dm_t' (diffusion time)
       
-    Unknown methods are accepted and will receive only the base parameters.
-    
-    DOC_VERIFIED
-    """
+    Unknown methods are accepted and will receive only the base parameters.    """
     appr_keys = ["e_method", "e_method_name", "dim"]
 
     if para["e_method_name"] == "umap":
@@ -406,10 +391,7 @@ def merge_params_with_defaults(
     The function also sets graph_preprocessing based on the method's
     handles_disconnected_graphs property:
     - If True: graph_preprocessing = None
-    - If False: graph_preprocessing = 'giant_cc'
-    
-    DOC_VERIFIED
-    """
+    - If False: graph_preprocessing = 'giant_cc'    """
     if method_name not in METHODS_DICT:
         raise ValueError(f"Unknown method: {method_name}")
 

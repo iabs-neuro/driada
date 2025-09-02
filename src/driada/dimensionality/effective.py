@@ -50,10 +50,7 @@ def _eff_dim(corr_eigs, q=2):
     >>> # Example with eigenvalues from PCA
     >>> eigenvalues = np.array([5.0, 3.0, 1.0, 0.5, 0.3, 0.2])
     >>> eff_d = _eff_dim(eigenvalues, q=2)
-    >>> print(f"Effective dimension (q=2): {eff_d:.2f}")
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"Effective dimension (q=2): {eff_d:.2f}")    """
     if q < 0:
         raise ValueError("Renyi entropy is undefined for q<0")
     
@@ -108,7 +105,7 @@ def eff_dim(data, enable_correction, q=2, **correction_kwargs):
         Whether to apply finite-sample spectrum correction to eigenvalues.
     q : float, default=2
         Order of Renyi entropy (see _eff_dim for details).
-    **correction_kwargs : dict
+    **correction_kwargs
         Additional arguments for spectrum correction (see correct_cov_spectrum).
         
     Returns
@@ -141,10 +138,7 @@ def eff_dim(data, enable_correction, q=2, **correction_kwargs):
     >>> 
     >>> # Compute effective dimension
     >>> eff_d = eff_dim(data, enable_correction=False, q=2)
-    >>> print(f"Effective dimension: {eff_d:.2f}")  # Should be close to 3
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"Effective dimension: {eff_d:.2f}")  # Should be close to 3    """
     data = np.asarray(data)
     
     if data.ndim != 2:

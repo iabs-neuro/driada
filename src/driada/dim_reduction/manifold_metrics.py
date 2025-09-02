@@ -65,10 +65,7 @@ def compute_distance_matrix(X: np.ndarray, metric: str = "euclidean") -> np.ndar
         
     Notes
     -----
-    For empty arrays, returns a (1, 1) matrix due to scipy's squareform behavior.
-    
-    DOC_VERIFIED
-    """
+    For empty arrays, returns a (1, 1) matrix due to scipy's squareform behavior.    """
     if X.ndim != 2:
         raise ValueError(f"X must be 2D array, got shape {X.shape}")
 
@@ -128,10 +125,7 @@ def knn_preservation_rate(
     See Also
     --------
     trustworthiness : Focuses on avoiding false neighbors in the embedding
-    continuity : Focuses on preserving true neighbors from the original space
-    
-    DOC_VERIFIED
-    """
+    continuity : Focuses on preserving true neighbors from the original space    """
     if X_high.shape[0] != X_low.shape[0]:
         raise ValueError("X_high and X_low must have same number of samples")
 
@@ -210,10 +204,7 @@ def trustworthiness(X_high: np.ndarray, X_low: np.ndarray, k: int = 10) -> float
     References
     ----------
     Venna, J., & Kaski, S. (2006). Local multidimensional scaling. 
-    Neural Networks, 19(6-7), 889-899.
-    
-    DOC_VERIFIED
-    """
+    Neural Networks, 19(6-7), 889-899.    """
     if X_high.shape[0] != X_low.shape[0]:
         raise ValueError("X_high and X_low must have same number of samples")
 
@@ -308,10 +299,7 @@ def continuity(X_high: np.ndarray, X_low: np.ndarray, k: int = 10) -> float:
     References
     ----------
     Venna, J., & Kaski, S. (2006). Local multidimensional scaling. 
-    Neural Networks, 19(6-7), 889-899.
-    
-    DOC_VERIFIED
-    """
+    Neural Networks, 19(6-7), 889-899.    """
     if X_high.shape[0] != X_low.shape[0]:
         raise ValueError("X_high and X_low must have same number of samples")
 
@@ -384,10 +372,7 @@ def geodesic_distance_correlation(
     ------
     ValueError
         If X_high and X_low have different number of samples
-        If k_neighbors >= n_samples
-        
-    DOC_VERIFIED
-    """
+        If k_neighbors >= n_samples    """
     from sklearn.neighbors import kneighbors_graph
     from scipy.sparse.csgraph import shortest_path
     
@@ -465,10 +450,7 @@ def stress(X_high: np.ndarray, X_low: np.ndarray, normalized: bool = True) -> fl
     Notes
     -----
     Stress = Σ(d_ij^high - d_ij^low)² / Σ(d_ij^high)² if normalized,
-    otherwise just Σ(d_ij^high - d_ij^low)²
-    
-    DOC_VERIFIED
-    """
+    otherwise just Σ(d_ij^high - d_ij^low)²    """
     # Validate input shapes
     if X_high.shape[0] != X_low.shape[0]:
         raise ValueError("X_high and X_low must have same number of samples")
@@ -519,10 +501,7 @@ def circular_structure_preservation(
     ValueError
         If X_low is not 2D (shape[1] != 2)
         If k_neighbors >= n_samples
-        If all points are at the center (degenerate circle)
-        
-    DOC_VERIFIED
-    """
+        If all points are at the center (degenerate circle)    """
     if X_low.shape[1] != 2:
         raise ValueError("Circular analysis requires 2D embedding")
 
@@ -615,10 +594,7 @@ def procrustes_analysis(
     Notes
     -----
     When reflection=False and a reflection is detected, the rotation matrix
-    is corrected using SVD decomposition to remove the reflection component.
-    
-    DOC_VERIFIED
-    """
+    is corrected using SVD decomposition to remove the reflection component.    """
     if X.shape != Y.shape:
         raise ValueError("X and Y must have the same shape")
 
@@ -704,10 +680,7 @@ def manifold_preservation_score(
     Notes
     -----
     Input validation is performed by the individual metric functions.
-    NaN values in geodesic_correlation are replaced with 0.0.
-    
-    DOC_VERIFIED
-    """
+    NaN values in geodesic_correlation are replaced with 0.0.    """
     if weights is None:
         weights = {
             "knn_preservation": 0.25,
@@ -765,10 +738,7 @@ def circular_distance(angles1: np.ndarray, angles2: np.ndarray) -> np.ndarray:
     Notes
     -----
     Uses the formula: |arctan2(sin(θ₁-θ₂), cos(θ₁-θ₂))| to ensure
-    the result is the shortest distance on the circle.
-    
-    DOC_VERIFIED
-    """
+    the result is the shortest distance on the circle.    """
     diff = angles1 - angles2
     return np.abs(np.arctan2(np.sin(diff), np.cos(diff)))
 
@@ -800,10 +770,7 @@ def circular_diff(angles: np.ndarray) -> np.ndarray:
     >>> angles = np.array([0, 3*np.pi/2, np.pi/4])  # 0°, 270°, 45°
     >>> diffs = circular_diff(angles)
     >>> # First diff: 270° - 0° = -90° (shortest path)
-    >>> # Second diff: 45° - 270° = 135° (forward wrap)
-    
-    DOC_VERIFIED
-    """
+    >>> # Second diff: 45° - 270° = 135° (forward wrap)    """
     # Input validation
     if angles.ndim != 1:
         raise ValueError(f"angles must be 1D array, got shape {angles.shape}")
@@ -839,10 +806,7 @@ def extract_angles_from_embedding(embedding: np.ndarray) -> np.ndarray:
     ------
     ValueError
         If embedding does not have exactly 2 dimensions (columns)
-        If embedding is empty
-        
-    DOC_VERIFIED
-    """
+        If embedding is empty    """
     if embedding.ndim != 2 or embedding.shape[1] != 2:
         raise ValueError(f"Embedding must be 2D with shape (n_samples, 2), got shape {embedding.shape}")
     if embedding.shape[0] == 0:
@@ -888,10 +852,7 @@ def find_optimal_circular_alignment(
     Notes
     -----
     Uses grid search with 1-degree resolution for rotation offset.
-    For higher precision, consider using scipy.optimize.minimize_scalar.
-    
-    DOC_VERIFIED
-    """
+    For higher precision, consider using scipy.optimize.minimize_scalar.    """
 
     def compute_mean_circular_distance(angles1, angles2, offset=0):
         """Compute mean circular distance between two sets of angles.
@@ -923,10 +884,7 @@ def find_optimal_circular_alignment(
         3. Absolute value taken and averaged
         
         This metric is symmetric and rotation-invariant when offset is optimized.
-        No input validation is performed - arrays must have compatible shapes.
-        
-        DOC_VERIFIED
-        """
+        No input validation is performed - arrays must have compatible shapes.        """
         diff = angles1 - (angles2 + offset)
         return np.mean(np.abs(np.arctan2(np.sin(diff), np.cos(diff))))
 
@@ -998,10 +956,7 @@ def compute_circular_correlation(
     Notes
     -----
     Uses complex representation z = exp(i*angle) and computes correlation
-    in complex plane. Result is the absolute value of complex correlation.
-    
-    DOC_VERIFIED
-    """
+    in complex plane. Result is the absolute value of complex correlation.    """
     # Input validation
     if len(angles1) != len(angles2):
         raise ValueError(f"angles1 and angles2 must have same length, got {len(angles1)} and {len(angles2)}")
@@ -1070,10 +1025,7 @@ def compute_reconstruction_error(
     Raises
     ------
     ValueError
-        If manifold_type is not 'circular' or 'spatial'.
-        
-    DOC_VERIFIED
-    """
+        If manifold_type is not 'circular' or 'spatial'.    """
     if manifold_type == "circular":
         # Extract angles from embedding
         reconstructed_angles = extract_angles_from_embedding(embedding)
@@ -1169,10 +1121,7 @@ def compute_embedding_alignment_metrics(
         For circular manifolds:
         - If fewer than 3 points (cannot compute velocity correlation)
         - If velocity correlation is NaN (no variation in velocities)
-        - If true variable has zero circular variance (all points at same angle)
-    
-    DOC_VERIFIED
-    """
+        - If true variable has zero circular variance (all points at same angle)    """
     # Get reconstruction metrics with alignment
     metrics = compute_reconstruction_error(
         embedding,
@@ -1254,10 +1203,7 @@ def train_simple_decoder(
     -----
     For circular manifolds, trains separate regressors for sin and cos components.
     For spatial manifolds, performs direct regression. The embedding is always
-    standardized before training.
-    
-    DOC_VERIFIED
-    """
+    standardized before training.    """
     from sklearn.linear_model import LinearRegression
     from sklearn.preprocessing import StandardScaler
 
@@ -1313,10 +1259,7 @@ def train_simple_decoder(
             - sin_regressor: LinearRegression for sin component
             - cos_regressor: LinearRegression for cos component
             
-            The two-component prediction avoids discontinuities at ±π.
-            
-            DOC_VERIFIED
-            """
+            The two-component prediction avoids discontinuities at ±π.            """
             new_embedding_scaled = scaler.transform(new_embedding)
             pred_sin = sin_regressor.predict(new_embedding_scaled)
             pred_cos = cos_regressor.predict(new_embedding_scaled)
@@ -1359,10 +1302,7 @@ def train_simple_decoder(
             - regressor: LinearRegression for direct prediction
             
             Assumes linear relationship between embedding and coordinates.
-            Quality depends on how well this assumption holds.
-            
-            DOC_VERIFIED
-            """
+            Quality depends on how well this assumption holds.            """
             new_embedding_scaled = scaler.transform(new_embedding)
             return regressor.predict(new_embedding_scaled)
 
@@ -1412,10 +1352,7 @@ def compute_embedding_quality(
     Notes
     -----
     Uses sequential (not random) split of data. The alignment is computed
-    separately for train and test sets.
-    
-    DOC_VERIFIED
-    """
+    separately for train and test sets.    """
     n_samples = embedding.shape[0]
     n_train = int(n_samples * train_fraction)
 
@@ -1488,10 +1425,7 @@ def compute_decoding_accuracy(
     Notes
     -----
     Uses sequential (not random) split of data. The first `train_fraction`
-    of samples are used for training, the rest for testing.
-    
-    DOC_VERIFIED
-    """
+    of samples are used for training, the rest for testing.    """
     n_samples = embedding.shape[0]
     n_train = int(n_samples * train_fraction)
 
@@ -1574,10 +1508,7 @@ def manifold_reconstruction_score(
     -----
     For spatial manifolds, assumes data is normalized to unit scale for
     error normalization. Negative correlations are treated as 0 in scoring.
-    The overall score is normalized to [0, 1] range where 1 is perfect.
-    
-    DOC_VERIFIED
-    """
+    The overall score is normalized to [0, 1] range where 1 is perfect.    """
     # Validate weights if provided
     if weights is not None:
         required_keys = {"reconstruction_error", "correlation", "decoding_accuracy"}

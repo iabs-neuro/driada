@@ -43,10 +43,7 @@ def generate_binary_time_series(length, avg_islands, avg_duration, seed=None):
     Uses exponential distribution for gaps between islands and normal
     distribution (std = avg_duration/3) for island durations. Automatically
     adjusts number of islands if they don't fit in the requested length.
-    Starting state (0 or 1) is randomly chosen.
-    
-    DOC_VERIFIED
-    """
+    Starting state (0 or 1) is randomly chosen.    """
     # Input validation
     check_positive(length=length, avg_duration=avg_duration)
     check_nonnegative(avg_islands=avg_islands)
@@ -134,10 +131,7 @@ def apply_poisson_to_binary_series(binary_series, rate_0, rate_1, seed=None):
     Notes
     -----
     Uses itertools.groupby to efficiently process runs of identical values.
-    Each run is sampled from Poisson distribution with the appropriate rate.
-    
-    DOC_VERIFIED
-    """
+    Each run is sampled from Poisson distribution with the appropriate rate.    """
     # Input validation
     binary_series = np.asarray(binary_series)
     if not np.all(np.isin(binary_series, [0, 1])):
@@ -194,10 +188,7 @@ def delete_one_islands(binary_ts, probability, seed=None):
     Notes
     -----
     Creates a copy of the input array. Each island of 1s has an independent
-    probability of being deleted (set to 0s).
-    
-    DOC_VERIFIED
-    """
+    probability of being deleted (set to 0s).    """
     # Input validation
     if not np.all(np.isin(binary_ts, [0, 1])):
         raise ValueError("binary_ts must be binary (0s and 1s)")
@@ -251,10 +242,7 @@ def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
     Notes
     -----
     Uses Davies-Harte method for efficient FBM generation. The FBM library
-    is initialized with n=length-1 to generate exactly 'length' points.
-    
-    DOC_VERIFIED
-    """
+    is initialized with n=length-1 to generate exactly 'length' points.    """
     # Input validation
     check_positive(length=length)
     if not 0 < hurst < 1:
@@ -300,10 +288,7 @@ def select_signal_roi(values, seed=None, target_fraction=0.15):
     Notes
     -----
     Selects a random window containing target_fraction of sorted values.
-    Adds epsilon=1e-10 to boundaries to avoid numerical edge cases.
-    
-    DOC_VERIFIED
-    """
+    Adds epsilon=1e-10 to boundaries to avoid numerical edge cases.    """
     # Input validation
     values = np.asarray(values)
     if values.size == 0:
@@ -364,10 +349,7 @@ def discretize_via_roi(continuous_signal, seed=None):
     Notes
     -----
     Uses select_signal_roi with default target_fraction=0.15. Returns 1 where
-    signal values fall within the selected ROI boundaries (inclusive).
-    
-    DOC_VERIFIED
-    """
+    signal values fall within the selected ROI boundaries (inclusive).    """
     # Input validation
     continuous_signal = np.asarray(continuous_signal)
     if continuous_signal.size == 0:

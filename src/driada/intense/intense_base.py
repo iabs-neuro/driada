@@ -50,10 +50,7 @@ def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=Fa
     -----
     When allow_mixed_dimensions=False, both bunches must contain only TimeSeries
     objects. All time series within each bunch must have the same length, and
-    both bunches must have matching lengths.
-    
-    DOC_VERIFIED
-    """
+    both bunches must have matching lengths.    """
     if len(ts_bunch1) == 0:
         raise ValueError("ts_bunch1 cannot be empty")
     if len(ts_bunch2) == 0:
@@ -136,10 +133,7 @@ def validate_metric(metric, allow_scipy=True):
     Notes
     -----
     The function validates that scipy.stats attributes are callable to prevent
-    accepting non-function attributes like constants or data arrays.
-    
-    DOC_VERIFIED
-    """
+    accepting non-function attributes like constants or data arrays.    """
     # Built-in metrics
     if metric == "mi":
         return "mi"
@@ -200,10 +194,7 @@ def validate_common_parameters(shift_window=None, ds=None, nsh=None, noise_const
     Notes
     -----
     This function validates parameter types using isinstance checks for numpy
-    compatibility (accepts both Python int and numpy integer types).
-    
-    DOC_VERIFIED
-    """
+    compatibility (accepts both Python int and numpy integer types).    """
     if shift_window is not None:
         if not isinstance(shift_window, (int, np.integer)):
             raise TypeError(f"shift_window must be integer, got {type(shift_window).__name__}")
@@ -282,10 +273,7 @@ def calculate_optimal_delays(
     >>> behaviors = [speed_ts, direction_ts]  # behavioral variables
     >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi',
     ...                                   shift_window=100, ds=1)
-    >>> print(f"Neuron 1 optimal delay with speed: {delays[0, 0]} frames")
-    
-    DOC_VERIFIED
-    """
+    >>> print(f"Neuron 1 optimal delay with speed: {delays[0, 0]} frames")    """
     # Validate inputs
     validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
     validate_metric(metric)
@@ -362,10 +350,7 @@ def calculate_optimal_delays_parallel(
     >>> behaviors = [exp.speed, exp.direction]
     >>> # Use 8 cores for faster computation
     >>> delays = calculate_optimal_delays_parallel(neurons, behaviors, 'mi',
-    ...                                            shift_window=100, ds=1, n_jobs=8)
-    
-    DOC_VERIFIED
-    """
+    ...                                            shift_window=100, ds=1, n_jobs=8)    """
     # Validate inputs
     validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
     validate_metric(metric)
@@ -477,10 +462,7 @@ def get_calcium_feature_me_profile(
     >>> results = get_calcium_feature_me_profile(exp, cbunch=None, fbunch=None)
     >>>
     >>> # Multi-feature joint mutual information
-    >>> results = get_calcium_feature_me_profile(exp, cbunch=[0], fbunch=[('x', 'y')])
-    
-    DOC_VERIFIED
-    """
+    >>> results = get_calcium_feature_me_profile(exp, cbunch=[0], fbunch=[('x', 'y')])    """
     # Validate inputs
     validate_common_parameters(ds=ds)
     validate_metric(metric)
@@ -638,10 +620,7 @@ def scan_pairs(
     - True metric values: me_total[:,:,0]
     - Shuffled values: me_total[:,:,1:]
     - Random shifts are drawn uniformly from time series length
-    - Noise is added as: value * (1 + noise_const * U(-1,1))
-    
-    DOC_VERIFIED
-    """
+    - Noise is added as: value * (1 + noise_const * U(-1,1))    """
 
     # Validate inputs
     validate_time_series_bunches(
@@ -890,10 +869,7 @@ def scan_pairs_parallel(
     >>> behaviors = [exp.speed, exp.direction]
     >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi', 100, 1)
     >>> shifts, metrics = scan_pairs_parallel(neurons, behaviors, 'mi', 
-    ...                                      100, delays, n_jobs=4)
-    
-    DOC_VERIFIED
-    """
+    ...                                      100, delays, n_jobs=4)    """
 
     # Validate inputs
     validate_time_series_bunches(
@@ -1036,10 +1012,7 @@ def scan_pairs_router(
     >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi', 100, 1)
     >>> # Automatically use parallel processing
     >>> shifts, metrics = scan_pairs_router(neurons, behaviors, 'mi', 
-    ...                                    100, delays)
-    
-    DOC_VERIFIED
-    """
+    ...                                    100, delays)    """
 
     if enable_parallelization:
         random_shifts, me_total = scan_pairs_parallel(
@@ -1106,10 +1079,7 @@ class IntenseResults(object):
     >>> results = IntenseResults()
     >>> results.update('stats', computed_stats)
     >>> results.update('info', {'optimal_delays': delays})
-    >>> results.save_to_hdf5('intense_results.h5')
-    
-    DOC_VERIFIED
-    """
+    >>> results.save_to_hdf5('intense_results.h5')    """
 
     def __init__(self):
         """
@@ -1134,10 +1104,7 @@ class IntenseResults(object):
         --------
         compute_cell_feat_significance : Main function that returns IntenseResults
         update : Method to add properties to the results
-        save_to_hdf5 : Method to persist results to disk
-        
-        DOC_VERIFIED
-        """
+        save_to_hdf5 : Method to persist results to disk        """
         pass
 
     def update(self, property_name, data):
@@ -1167,10 +1134,7 @@ class IntenseResults(object):
         Notes
         -----
         Property names should be valid Python identifiers. Existing properties
-        will be overwritten without warning.
-        
-        DOC_VERIFIED
-        """
+        will be overwritten without warning.        """
         setattr(self, property_name, data)
 
     def update_multiple(self, datadict):
@@ -1199,10 +1163,7 @@ class IntenseResults(object):
         
         See Also
         --------
-        update : Add single property
-        
-        DOC_VERIFIED
-        """
+        update : Add single property        """
         for dname, data in datadict.items():
             setattr(self, dname, data)
 
@@ -1239,10 +1200,7 @@ class IntenseResults(object):
         
         See Also
         --------
-        driada.utils.data.write_dict_to_hdf5 : Underlying function used
-        
-        DOC_VERIFIED
-        """
+        driada.utils.data.write_dict_to_hdf5 : Underlying function used        """
         dict_repr = self.__dict__
         write_dict_to_hdf5(dict_repr, fname)
 
@@ -1282,17 +1240,19 @@ def compute_me_stats(
 
     Parameters
     ----------
-    ts_bunch1: list of TimeSeries objects
+    ts_bunch1 : list of TimeSeries objects
+        First set of time series
 
-    ts_bunch2: list of TimeSeries objects
+    ts_bunch2 : list of TimeSeries objects
+        Second set of time series
 
-    names1: list of str
+    names1 : list of str, optional
         names than will be given to time series from tsbunch1 in final results
 
-    names2: list of str
+    names2 : list of str, optional
         names than will be given to time series from tsbunch2 in final results
 
-    mode: str
+    mode : str, default='two_stage'
         Computation mode. 3 modes are available:
         'stage1': perform preliminary scanning with "n_shuffles_stage1" shuffles only.
                   Rejects strictly non-significant neuron-feature pairs, does not give definite results
@@ -1302,96 +1262,91 @@ def compute_me_stats(
                   of multiple comparison tests, since the number of hypotheses is very high.
         'two_stage': prune non-significant pairs during stage 1 and perform thorough testing for the rest during stage 2.
                      Recommended mode.
-        default: 'two-stage'
 
-    metric: similarity metric between TimeSeries
-        default: 'mi'
+    metric : str, default='mi'
+        similarity metric between TimeSeries
 
-    mi_estimator: str
+    mi_estimator : str, default='gcmi'
         Mutual information estimator to use when metric='mi'. Options: 'gcmi' or 'ksg'
-        default: 'gcmi'
 
-    precomputed_mask_stage1: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
-          precomputed mask for skipping some of possible pairs in stage 1.
-          0 in mask values means calculation will be skipped.
-          1 in mask values means calculation will proceed.
+    precomputed_mask_stage1 : np.array, optional
+        precomputed mask for skipping some of possible pairs in stage 1.
+        Shape: (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
+        0 in mask values means calculation will be skipped.
+        1 in mask values means calculation will proceed.
 
-    precomputed_mask_stage2: np.array of shape (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
-          precomputed mask for skipping some of possible pairs in stage 2.
-          0 in mask values means calculation will be skipped.
-          1 in mask values means calculation will proceed.
+    precomputed_mask_stage2 : np.array, optional
+        precomputed mask for skipping some of possible pairs in stage 2.
+        Shape: (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
+        0 in mask values means calculation will be skipped.
+        1 in mask values means calculation will proceed.
 
-    n_shuffles_stage1: int
+    n_shuffles_stage1 : int, default=100
         number of shuffles for first stage
-        default: 100
 
-    n_shuffles_stage2: int
+    n_shuffles_stage2 : int, default=10000
         number of shuffles for second stage
-        default: 10000
 
-    joint_distr: bool
+    joint_distr : bool, default=False
         if joint_distr=True, ALL features in feat_bunch will be treated as components of a single multifeature
         For example, 'x' and 'y' features will be put together into ('x','y') multifeature.
-        default: False
 
-    allow_mixed_dimensions: bool
+    allow_mixed_dimensions : bool, default=False
         if True, both TimeSeries and MultiTimeSeries can be provided as signals.
         This parameter overrides "joint_distr"
-        default: False
 
-    metric_distr_type: str
+    metric_distr_type : str, default="gamma"
         Distribution type for shuffled metric distribution fit. Supported options are distributions from scipy.stats
         Note: While 'gamma' is theoretically appropriate for MI distributions, empirical testing shows
         that 'norm' (normal distribution) often performs better due to its conservative p-values when
         fitting poorly to the skewed MI data. This conservatism reduces false positives.
-        default: "gamma"
 
-    noise_ampl: float
+    noise_ampl : float, default=1e-3
         Small noise amplitude, which is added to metrics to improve numerical fit
-        default: 1e-3
 
-    ds: int
+    ds : int, default=1
         Downsampling constant. Every "ds" point will be taken from the data time series.
-        default: 1
 
-    topk1: int
+    topk1 : int, default=1
         true MI for stage 1 should be among topk1 MI shuffles
-        default: 1
 
-    topk2: int
+    topk2 : int, default=5
         true MI for stage 2 should be among topk2 MI shuffles
-        default: 5
 
-    multicomp_correction: str or None
+    multicomp_correction : str or None, default='holm'
         type of multiple comparisons correction. Supported types are None (no correction),
         "bonferroni", "holm", and "fdr_bh".
-        default: 'holm'
 
-    pval_thr: float
+    pval_thr : float, default=0.01
         pvalue threshold. if multicomp_correction=None, this is a p-value for a single pair.
         For FWER methods (bonferroni, holm), this is the family-wise error rate.
         For FDR methods (fdr_bh), this is the false discovery rate.
 
-    find_optimal_delays: bool
+    find_optimal_delays : bool, default=False
         Allows slight shifting (not more than +- shift_window) of time series,
         selects a shift with the highest MI as default.
-        default: False
 
-    skip_delays: list
+    skip_delays : list, default=[]
         List of indices from ts_bunch2 for which delays are not applied (set to 0).
         Has no effect if find_optimal_delays = False
 
-    shift_window: int
+    shift_window : int, default=100
         Window for optimal shift search (frames). Optimal shift will lie in the range
         -shift_window <= opt_shift <= shift_window
 
-    verbose: bool
+    verbose : bool, default=True
         whether to print intermediate information
 
-    seed: int
+    seed : int, optional
         random seed for reproducibility
 
-    duplicate_behavior: str
+    enable_parallelization : bool, default=True
+        whether to use parallel processing for computations
+
+    n_jobs : int, default=-1
+        number of parallel jobs to use. -1 means use all available processors
+
+    duplicate_behavior : str, default='ignore'
         How to handle duplicate TimeSeries in ts_bunch1 or ts_bunch2.
         - 'ignore': Process duplicates normally (default)
         - 'raise': Raise an error if duplicates are found
@@ -1399,19 +1354,19 @@ def compute_me_stats(
 
     Returns
     -------
-    stats: dict of dict of dicts
+    stats : dict of dict of dicts
         Outer dict keys: indices of tsbunch1 or names1, if given
         Inner dict keys: indices or tsbunch2 or names2, if given
         Last dict: dictionary of stats variables.
         Can be easily converted to pandas DataFrame by pd.DataFrame(stats)
 
-    significance: dict of dict of dicts
+    significance : dict of dict of dicts
         Outer dict keys: indices of tsbunch1 or names1, if given
         Inner dict keys: indices or tsbunch2 or names2, if given
         Last dict: dictionary of significance-related variables.
         Can be easily converted to pandas DataFrame by pd.DataFrame(significance)
 
-    accumulated_info: dict
+    accumulated_info : dict
         Data collected during computation.
         
     Raises
@@ -1432,10 +1387,7 @@ def compute_me_stats(
       to maintain consistency in the return format.
     - For stage2, the final mask combines stage1 results with precomputed_mask_stage2
       using logical AND.
-    - Input masks are never modified; copies are created when needed.
-    DOC_VERIFIED
-    
-    """
+    - Input masks are never modified; copies are created when needed.    """
 
     # FUTURE: add automatic min_shifts from autocorrelation time
 
@@ -1792,7 +1744,7 @@ def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
         - 'bonferroni': Bonferroni correction (FWER control)
         - 'holm': Holm-Bonferroni correction (FWER control, more powerful)
         - 'fdr_bh': Benjamini-Hochberg FDR correction
-    **multicomp_kwargs : dict
+    **multicomp_kwargs
         Additional arguments for correction method:
         - For 'bonferroni': nhyp (int) - number of hypotheses, must be > 0
         - For 'holm': all_pvals (list) - all p-values to be tested
@@ -1829,10 +1781,7 @@ def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
     >>> thr = get_multicomp_correction_thr(0.05, mode='holm', all_pvals=pvals)
     >>>
     >>> # FDR correction
-    >>> thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)
-    
-    DOC_VERIFIED
-    """
+    >>> thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)    """
     # Validate fwer parameter
     if not 0 <= fwer <= 1:
         raise ValueError(f"fwer must be between 0 and 1, got {fwer}")

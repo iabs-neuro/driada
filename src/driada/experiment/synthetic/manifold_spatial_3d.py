@@ -60,10 +60,7 @@ def generate_3d_random_walk(
     position[t] = position[t-1] + velocity
     
     When hitting boundaries, the relevant velocity component is reversed
-    to simulate elastic collision.
-    
-    DOC_VERIFIED
-    """
+    to simulate elastic collision.    """
     # Input validation
     if not isinstance(length, (int, np.integer)):
         raise TypeError("length must be an integer")
@@ -150,10 +147,7 @@ def gaussian_place_field_3d(positions, center, sigma=0.1):
     
     This function flexibly handles both common position formats:
     - (3, n_timepoints): positions as columns
-    - (n_positions, 3): positions as rows
-    
-    DOC_VERIFIED
-    """
+    - (n_positions, 3): positions as rows    """
     # Input validation
     positions = np.asarray(positions)
     center = np.asarray(center)
@@ -251,10 +245,7 @@ def generate_3d_manifold_neurons(
     jitter (std=0.02) to break regularity.
     
     Firing rates are computed as:
-    rate = baseline + (peak - baseline) * gaussian_place_field_3d + noise
-    
-    DOC_VERIFIED
-    """
+    rate = baseline + (peak - baseline) * gaussian_place_field_3d + noise    """
     # Input validation
     check_positive(n_neurons=n_neurons, field_sigma=field_sigma)
     check_nonnegative(baseline_rate=baseline_rate, noise_std=noise_std)
@@ -410,10 +401,7 @@ def generate_3d_manifold_data(
     2. Generates place cell responses based on 3D distance to place fields
     3. Converts firing rates to spike probabilities
     4. Samples spikes using binomial distribution
-    5. Convolves spikes with calcium kernel and adds noise
-    
-    DOC_VERIFIED
-    """
+    5. Convolves spikes with calcium kernel and adds noise    """
     # Input validation
     check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate,
                   field_sigma=field_sigma, step_size=step_size, decay_time=decay_time)
@@ -573,10 +561,7 @@ def generate_3d_manifold_exp(
     - Underlying firing rates attached to exp object
     
     For short experiments (duration ≤ 30s), the decay time is automatically
-    adjusted to prevent shuffle mask issues.
-    
-    DOC_VERIFIED
-    """
+    adjusted to prevent shuffle mask issues.    """
     # Calculate effective decay time for shuffle mask
     effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)
 

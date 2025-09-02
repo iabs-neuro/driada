@@ -88,10 +88,7 @@ def get_lnc_alpha(k, d):
     
     For (k, d) pairs not in the table:
     - If k is not in {2, 3, 5, 10}, uses nearest available k
-    - If d is outside available range, uses nearest available d
-    
-    DOC_VERIFIED
-    """
+    - If d is outside available range, uses nearest available d    """
     # Validate inputs
     if not isinstance(k, (int, np.integer)) or k <= 0:
         raise ValueError(f"k must be a positive integer, got {k}")
@@ -179,10 +176,7 @@ def add_noise(x, ampl=1e-10):
     References
     ----------
     Kraskov, A., Stögbauer, H., & Grassberger, P. (2004). Estimating mutual
-    information. Physical Review E, 69(6), 066138.
-    
-    DOC_VERIFIED
-    """
+    information. Physical Review E, 69(6), 066138.    """
     # Validate inputs
     x = np.asarray(x)
     if ampl < 0:
@@ -215,10 +209,7 @@ def query_neighbors(tree, x, k):
     Raises
     ------
     ValueError
-        If k is not a positive integer.
-        
-    DOC_VERIFIED
-    """
+        If k is not a positive integer.    """
     # Validate inputs
     if not isinstance(k, (int, np.integer)) or k <= 0:
         raise ValueError(f"k must be a positive integer, got {k}")
@@ -258,10 +249,7 @@ def _count_neighbors_single(tree, x, radii, ind):
     Notes
     -----
     This is a legacy single-point implementation. Use count_neighbors
-    for efficient vectorized computation.
-    
-    DOC_VERIFIED
-    """
+    for efficient vectorized computation.    """
     # Validate inputs
     x = np.asarray(x)
     radii = np.asarray(radii)
@@ -302,10 +290,7 @@ def count_neighbors(tree, x, radii):
     Notes
     -----
     Uses efficient vectorized radius query. The count includes the
-    query point itself, so subtract 1 if self-exclusion is needed.
-    
-    DOC_VERIFIED
-    """
+    query point itself, so subtract 1 if self-exclusion is needed.    """
     # Validate inputs
     x = np.asarray(x)
     radii = np.asarray(radii)
@@ -348,10 +333,7 @@ def build_tree(points, lf=5):
     -----
     - Uses BallTree for high dimensions (>=20) as KDTree performance
       degrades exponentially with dimension.
-    - Chebyshev metric is used for compatibility with KSG estimator.
-    
-    DOC_VERIFIED
-    """
+    - Chebyshev metric is used for compatibility with KSG estimator.    """
     # Validate inputs
     points = np.asarray(points)
     if points.ndim != 2:
@@ -404,10 +386,7 @@ def avgdigamma(points, dvec, lf=30, tree=None):
     -----
     - Subtracts small epsilon (1e-15) from radii to handle boundary cases
     - Points with zero neighbors are assigned count of 0.5 to avoid
-      numerical issues with digamma function
-    
-    DOC_VERIFIED
-    """
+      numerical issues with digamma function    """
     # Validate inputs
     points = np.asarray(points)
     dvec = np.asarray(dvec)
@@ -508,10 +487,7 @@ def nonparam_entropy_c(x, k=DEFAULT_NN, base=np.e):
     >>> print(f"Estimated entropy: {h:.3f} nats")
     
     >>> # Entropy in bits
-    >>> h_bits = nonparam_entropy_c(x, base=2)
-    
-    DOC_VERIFIED
-    """
+    >>> h_bits = nonparam_entropy_c(x, base=2)    """
     # Validate inputs
     x = np.asarray(x)
     if x.size == 0:
@@ -577,10 +553,7 @@ def nonparam_cond_entropy_cc(x, y, k=DEFAULT_NN, base=np.e):
     Raises
     ------
     ValueError
-        If x or y are empty or have different numbers of samples.
-        
-    DOC_VERIFIED
-    """
+        If x or y are empty or have different numbers of samples.    """
     # Validate inputs
     x = np.asarray(x)
     y = np.asarray(y)
@@ -691,10 +664,7 @@ def nonparam_mi_cc(
     Raises
     ------
     ValueError
-        If arrays have different lengths, k is invalid, or base is not positive.
-        
-    DOC_VERIFIED
-    """
+        If arrays have different lengths, k is invalid, or base is not positive.    """
 
     # Validate inputs
     if not isinstance(k, (int, np.integer)) or k <= 0:
@@ -827,10 +797,7 @@ def lnc_correction(tree, points, k, alpha):
     References
     ----------
     Gao et al. (2015). Efficient estimation of mutual information for strongly
-    dependent variables. AISTATS.
-    
-    DOC_VERIFIED
-    """
+    dependent variables. AISTATS.    """
     # Validate inputs
     points = np.asarray(points)
     if points.ndim != 2:
@@ -908,10 +875,7 @@ def nonparam_mi_cd(x_continuous, y_discrete, k=DEFAULT_NN, base=np.e):
     -----
     Computes MI as I(X;Y) = H(X) - H(X|Y) where H(X|Y) is the weighted average
     of conditional entropies. Categories with fewer than k+1 samples are skipped,
-    which may introduce bias for small sample sizes.
-    
-    DOC_VERIFIED
-    """
+    which may introduce bias for small sample sizes.    """
     # Validate inputs
     if not isinstance(k, (int, np.integer)) or k <= 0:
         raise ValueError(f"k must be positive integer, got {k}")
@@ -986,10 +950,7 @@ def nonparam_mi_dc(x_discrete, y_continuous, k=DEFAULT_NN, base=np.e):
     Notes
     -----
     MI is symmetric, so this function simply swaps the arguments and calls
-    nonparam_mi_cd. See that function for implementation details.
-    
-    DOC_VERIFIED
-    """
+    nonparam_mi_cd. See that function for implementation details.    """
     # MI is symmetric, so we can just swap the arguments
     return nonparam_mi_cd(y_continuous, x_discrete, k=k, base=base)
 

@@ -81,10 +81,7 @@ def compute_experiment_rdm(
     --------
     compute_rdm_from_timeseries_labels : Lower-level function for labeled data
     compute_rdm_from_trials : Lower-level function for trial structure
-    compute_rdm_unified : Unified interface for all data types
-    
-    DOC_VERIFIED
-    """
+    compute_rdm_unified : Unified interface for all data types    """
     # Get neural data
     if data_type == "calcium":
         if not hasattr(experiment, "calcium") or experiment.calcium is None:
@@ -191,10 +188,7 @@ def compute_mvdata_rdm(
     See Also
     --------
     compute_rdm_from_timeseries_labels : Core function this wraps
-    compute_rdm_unified : Unified interface for all data types
-    
-    DOC_VERIFIED
-    """
+    compute_rdm_unified : Unified interface for all data types    """
     # MVData stores data as (n_features, n_timepoints)
     data = mvdata.data
 
@@ -292,10 +286,7 @@ def rsa_between_experiments(
     --------
     compute_experiment_rdm : Compute RDM from single experiment
     compare_rdms : Direct RDM comparison
-    bootstrap_rdm_comparison : Bootstrap analysis details
-    
-    DOC_VERIFIED
-    """
+    bootstrap_rdm_comparison : Bootstrap analysis details    """
     # Compute RDMs for each experiment
     rdm1, labels1 = compute_experiment_rdm(
         exp1, items, data_type, metric, average_method

@@ -72,10 +72,7 @@ def check_dynamic_features(dynamic_features):
     Notes
     -----
     For numpy arrays, the last dimension is always interpreted as the time
-    dimension, consistent with the shape convention (n_features, n_timepoints).
-    
-    DOC_VERIFIED
-    """
+    dimension, consistent with the shape convention (n_features, n_timepoints).    """
     if not dynamic_features:
         return  # Handle empty features gracefully
 
@@ -243,10 +240,7 @@ class Experiment:
     
     Individual static and dynamic features can be accessed as attributes. For
     example, if 'position' is a dynamic feature, access it via self.position.
-    Protected attribute names will have an underscore prefix if conflicts occur.
-    DOC_VERIFIED
-    
-    """
+    Protected attribute names will have an underscore prefix if conflicts occur.    """
 
     def __init__(
         self,
@@ -288,7 +282,7 @@ class Experiment:
             Time-varying behavioral features (e.g., position, speed).
             Values should be array-like with time dimension matching n_frames.
             Keys become accessible via self.dynamic_features.
-        **kwargs : dict
+        **kwargs
             Additional parameters:
             - fit_individual_t_off (bool): Fit decay time per neuron. Default False.
             - reconstruct_spikes (str): Method for spike reconstruction ('wavelet').
@@ -353,10 +347,7 @@ class Experiment:
         ...     None,
         ...     reconstruct_spikes='wavelet',
         ...     spike_kwargs={'threshold': 2.0}
-        ... )
-        
-        DOC_VERIFIED
-        """
+        ... )        """
         fit_individual_t_off = kwargs.get("fit_individual_t_off", False)
         reconstruct_spikes = kwargs.get("reconstruct_spikes", "wavelet")
         bad_frames_mask = kwargs.get("bad_frames_mask", None)
@@ -580,10 +571,7 @@ class Experiment:
         -----
         The time gap is calculated as (1/fps) * ds seconds. For example,
         with fps=20 and ds=10, the time gap would be 0.5 seconds, which
-        exceeds the 0.25 second threshold and triggers a warning.
-        
-        DOC_VERIFIED
-        """
+        exceeds the 0.25 second threshold and triggers a warning.        """
         # Validate ds parameter
         if not isinstance(ds, (int, np.integer)):
             raise TypeError(f"Downsampling factor ds must be an integer, got {type(ds).__name__}")
@@ -625,10 +613,7 @@ class Experiment:
         
         Sets self.selectivity_tables_initialized to True.
         
-        Warning: Overwrites existing tables without preserving data.
-        
-        DOC_VERIFIED
-        """
+        Warning: Overwrites existing tables without preserving data.        """
         # neuron-feature pair statistics
         stats_table = self._populate_cell_feat_dict(
             DEFAULT_STATS, fbunch=fbunch, cbunch=cbunch
@@ -678,10 +663,7 @@ class Experiment:
         Notes
         -----
         Uses SHA256 hashing on raw numpy arrays. Multiple features are sorted
-        alphabetically before hashing to ensure order-independent results.
-        
-        DOC_VERIFIED
-        """
+        alphabetically before hashing to ensure order-independent results.        """
         if mode == "calcium":
             act = self.neurons[cell_id].ca.data
         elif mode == "spikes":
@@ -730,10 +712,7 @@ class Experiment:
         Where hash_tuple is from _build_pair_hash(cell_id, feat_id, mode).
         
         Warning: Calling this method multiple times for the same mode will
-        completely recreate all hashes, overwriting existing data.
-        
-        DOC_VERIFIED
-        """
+        completely recreate all hashes, overwriting existing data.        """
         # Create default hashes structure for this mode only
         if not hasattr(self, "_data_hashes"):
             self._data_hashes = {}
@@ -790,10 +769,7 @@ class Experiment:
         Notes
         -----
         For multi-dimensional arrays, assumes time is the second dimension.
-        For 1D arrays or unknown types, assumes time is the last dimension.
-        
-        DOC_VERIFIED
-        """
+        For 1D arrays or unknown types, assumes time is the last dimension.        """
 
         if not force_filter and self.filtered_flag:
             raise AttributeError(
@@ -859,10 +835,7 @@ class Experiment:
         Checks include:
         - Minimum signal length based on decay time and shuffle requirements
         - Proper data orientation (neurons × timepoints)
-        - Consistency of all feature dimensions with n_frames
-        
-        DOC_VERIFIED
-        """
+        - Consistency of all feature dimensions with n_frames        """
         # Check minimal length for proper shuffle mask creation
         t_off_sec = getattr(self, "t_off_sec", DEFAULT_T_OFF)
         fps = getattr(self, "fps", DEFAULT_FPS)
@@ -929,10 +902,7 @@ class Experiment:
         Returns
         -------
         dict
-            Nested dictionary with structure: {feature_id: {cell_id: content}}
-            
-        DOC_VERIFIED
-        """
+            Nested dictionary with structure: {feature_id: {cell_id: content}}        """
         cell_ids = self._process_cbunch(cbunch)
         feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True)
         nested_dict = populate_nested_dict(content, feat_ids, cell_ids)
@@ -952,10 +922,7 @@ class Experiment:
         Returns
         -------
         list of int
-            List of cell IDs to process.
-            
-        DOC_VERIFIED
-        """
+            List of cell IDs to process.        """
         if isinstance(cbunch, int):
             cell_ids = [cbunch]
         elif cbunch is None:
@@ -989,10 +956,7 @@ class Experiment:
         Raises
         ------
         ValueError
-            If multi-features are provided but not allowed.
-            
-        DOC_VERIFIED
-        """
+            If multi-features are provided but not allowed.        """
         if isinstance(fbunch, str):
             feat_ids = [fbunch]
 
@@ -1047,10 +1011,7 @@ class Experiment:
         Notes
         -----
         Single strings are returned as-is without validation.
-        Iterables have invalid entries filtered out silently.
-        
-        DOC_VERIFIED
-        """
+        Iterables have invalid entries filtered out silently.        """
         if significance_mode:
             default_list = SIGNIFICANCE_VARS
         else:
@@ -1085,10 +1046,7 @@ class Experiment:
         Notes
         -----
         Only adds if feature not already in data hashes.
-        No validation performed on feat_id existence.
-        
-        DOC_VERIFIED
-        """
+        No validation performed on feat_id existence.        """
         if feat_id not in self._data_hashes[mode]:
             self._data_hashes[mode][feat_id] = {}
             # Add hashes for all cells
@@ -1118,10 +1076,7 @@ class Experiment:
         -----
         Only adds if feature not already in stats tables.
         Creates deep copies of DEFAULT_STATS and DEFAULT_SIGNIFICANCE
-        for each cell to prevent aliasing.
-        
-        DOC_VERIFIED
-        """
+        for each cell to prevent aliasing.        """
         if feat_id not in self.stats_tables[mode]:
             # Initialize stats for all cells
             self.stats_tables[mode][feat_id] = {}
@@ -1161,10 +1116,7 @@ class Experiment:
         Notes
         -----
         Multi-features are stored as sorted tuples. Existing entries ignored.
-        The mode parameter is now properly passed to _build_pair_hash.
-        
-        DOC_VERIFIED
-        """
+        The mode parameter is now properly passed to _build_pair_hash.        """
         if isinstance(feat_id, str):
             raise ValueError("This method is for multifeature update only. Use _add_single_feature_to_data_hashes for single features.")
         
@@ -1215,10 +1167,7 @@ class Experiment:
         Notes
         -----
         Multi-features are normalized to sorted tuples. Only prints verbose 
-        message for new features using the sorted tuple representation.
-        
-        DOC_VERIFIED
-        """
+        message for new features using the sorted tuple representation.        """
         if isinstance(feat_id, str):
             raise ValueError("This method is for multifeature update only. Use _add_single_feature_to_stats for single features.")
         
@@ -1274,10 +1223,7 @@ class Experiment:
         Raises
         ------
         ValueError
-            If single feature not in self.dynamic_features.
-            
-        DOC_VERIFIED
-        """
+            If single feature not in self.dynamic_features.        """
 
         if not isinstance(feat_id, str):
             feat_id = tuple(sorted(list(feat_id)))
@@ -1341,9 +1287,20 @@ class Experiment:
         self, stats, mode, cell_id, feat_id, stage2_only
     ):
         """
-        Updates stats table and linked significance table to erase irrelevant data properly
+        Updates stats table and linked significance table to erase irrelevant data properly.
         
-        DOC_VERIFIED
+        Parameters
+        ----------
+        stats : dict
+            Statistics dictionary to update the table with
+        mode : str
+            Mode of data processing (e.g., 'calcium')
+        cell_id : int
+            Cell identifier
+        feat_id : str or tuple
+            Feature identifier or tuple of feature identifiers
+        stage2_only : bool
+            If True, only update stage 2 significance data
         """
         # update statistics
         self.stats_tables[mode][feat_id][cell_id].update(stats)
@@ -1369,10 +1326,24 @@ class Experiment:
     ):
         """
         Updates calcium-feature pair statistics.
+        
         feat_id should be a string or an iterable of strings (in case of joint MI calculation).
         This function allows multifeatures.
         
-        DOC_VERIFIED
+        Parameters
+        ----------
+        stats : dict
+            Statistics dictionary containing the updates
+        cell_id : int
+            Cell identifier
+        feat_id : str or iterable of str
+            Feature identifier(s). Can be a string or iterable of strings for joint MI calculation
+        mode : str, optional
+            Data processing mode. Default is "calcium"
+        force_update : bool, optional
+            If True, force update even if data hashes match. Default is False
+        stage2_only : bool, optional
+            If True, only update stage 2 statistics. Default is False
         """
 
         if not isinstance(feat_id, str):
@@ -1398,10 +1369,20 @@ class Experiment:
     ):
         """
         Updates calcium-feature pair significance data.
+        
         feat_id should be a string or an iterable of strings (in case of joint MI calculation).
         This function allows multifeatures.
         
-        DOC_VERIFIED
+        Parameters
+        ----------
+        sig : dict
+            Significance data to update
+        cell_id : int
+            Cell identifier
+        feat_id : str or iterable of str
+            Feature identifier(s). Can be a string or iterable of strings for joint MI calculation
+        mode : str, optional
+            Data processing mode. Default is "calcium"
         """
         if not isinstance(feat_id, str):
             self._add_multifeature_to_data_hashes(feat_id, mode=mode)
@@ -1450,10 +1431,7 @@ class Experiment:
         .. note::
             Despite the 'get' name, this method can trigger side effects via
             _check_stats_relevance which may add new features to tables.
-            This behavior will be removed after tuple multifeature deprecation.
-        
-        DOC_VERIFIED
-        """
+            This behavior will be removed after tuple multifeature deprecation.        """
         stats = None
         if self._check_stats_relevance(cell_id, feat_id, mode=mode):
             stats = self.stats_tables[mode][feat_id][cell_id]
@@ -1496,10 +1474,7 @@ class Experiment:
         .. note::
             Despite the 'get' name, this method can trigger side effects via
             _check_stats_relevance which may add new features to tables.
-            This behavior will be removed after tuple multifeature deprecation.
-        
-        DOC_VERIFIED
-        """
+            This behavior will be removed after tuple multifeature deprecation.        """
         sig = None
         if self._check_stats_relevance(cell_id, feat_id, mode=mode):
             sig = self.significance_tables[mode][feat_id][cell_id]
@@ -1530,10 +1505,7 @@ class Experiment:
         -------
         np.ndarray or MultiTimeSeries
             If return_array=True: Shuffled calcium data with shape (n_cells, n_frames)
-            If return_array=False: MultiTimeSeries object containing shuffled data
-
-        DOC_VERIFIED
-        """
+            If return_array=False: MultiTimeSeries object containing shuffled data        """
         # Validate method
         valid_methods = ["roll_based", "waveform_based", "chunks_based"]
         if method not in valid_methods:
@@ -1589,10 +1561,7 @@ class Experiment:
         -------
         np.ndarray or MultiTimeSeries
             If return_array=True: Shuffled spike data with shape (n_cells, n_frames)
-            If return_array=False: MultiTimeSeries object containing shuffled spike data
-
-        DOC_VERIFIED
-        """
+            If return_array=False: MultiTimeSeries object containing shuffled spike data        """
         # Check if spikes data is meaningful (not all zeros)
         if not np.any(self.spikes.data):
             raise AttributeError(
@@ -1643,9 +1612,27 @@ class Experiment:
         mode="calcium",
     ):
         """
-        returns slice of accumulated statistics data (or significance data if "significance_mode=True")
+        Returns slice of accumulated statistics data (or significance data if "significance_mode=True").
         
-        DOC_VERIFIED
+        Parameters
+        ----------
+        table_to_scan : dict, optional
+            Specific table to scan. If None, uses default stats or significance table
+        cbunch : int, list, or None, optional
+            Cell identifiers to include. If None, includes all cells
+        fbunch : str, list, or None, optional
+            Feature identifiers to include. If None, includes all features
+        sbunch : str, list, or None, optional
+            Statistics keys to include. If None, includes all statistics
+        significance_mode : bool, optional
+            If True, returns significance data instead of statistics. Default is False
+        mode : str, optional
+            Data processing mode. Default is "calcium"
+            
+        Returns
+        -------
+        dict
+            Nested dictionary with structure table[feat_id][cell_id][stat_key]
         """
         cell_ids = self._process_cbunch(cbunch)
         feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True, mode=mode)
@@ -1707,10 +1694,7 @@ class Experiment:
         ...     cbunch=[0, 1, 2, 3, 4, 5],
         ...     fbunch=['running_speed'],
         ...     sbunch=['pval']
-        ... )
-        
-        DOC_VERIFIED
-        """
+        ... )        """
         return self.get_stats_slice(
             cbunch=cbunch,
             fbunch=fbunch,
@@ -1741,10 +1725,7 @@ class Experiment:
         - Single features use their native get_entropy() method
         - Tuples calculate joint entropy for exactly 2 variables
         - Joint entropy of 3+ variables is not supported (use MultiTimeSeries instead)
-        - Continuous variables may return negative entropy values
-        
-        DOC_VERIFIED
-        """
+        - Continuous variables may return negative entropy values        """
         if isinstance(feat_id, str):
             # Single feature - use its get_entropy method
             fts = self.dynamic_features[feat_id]
@@ -1825,10 +1806,7 @@ class Experiment:
         Returns
         -------
         spikes : np.ndarray
-            Reconstructed spike trains
-            
-        DOC_VERIFIED
-        """
+            Reconstructed spike trains        """
         from .spike_reconstruction import reconstruct_spikes
 
         # Convert calcium to MultiTimeSeries if needed
@@ -1893,10 +1871,7 @@ class Experiment:
         Returns
         -------
         dict
-            Dictionary with neuron IDs as keys and lists of significant features as values
-            
-        DOC_VERIFIED
-        """
+            Dictionary with neuron IDs as keys and lists of significant features as values        """
         cell_ids = self._process_cbunch(cbunch)
         feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True, mode=mode)
 
@@ -2036,10 +2011,7 @@ class Experiment:
         See Also
         --------
         get_embedding : Retrieve stored embeddings
-        create_embedding : Create and store embeddings in one step
-        
-        DOC_VERIFIED
-        """
+        create_embedding : Create and store embeddings in one step        """
         if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
 
@@ -2120,10 +2092,7 @@ class Experiment:
         --------
         store_embedding : Store computed embeddings
         get_embedding : Retrieve stored embeddings
-        get_significant_neurons : Get neurons with significant selectivity
-        
-        DOC_VERIFIED
-        """
+        get_significant_neurons : Get neurons with significant selectivity        """
         from ..information.info_base import MultiTimeSeries
         from ..utils.data import check_positive
         
@@ -2285,10 +2254,7 @@ class Experiment:
         See Also
         --------
         store_embedding : Store embeddings in the experiment
-        create_embedding : Create and store embeddings in one step
-        
-        DOC_VERIFIED
-        """
+        create_embedding : Create and store embeddings in one step        """
         if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
 
@@ -2328,10 +2294,7 @@ class Experiment:
         rdm : np.ndarray
             Representational dissimilarity matrix
         labels : np.ndarray
-            The unique labels/conditions
-            
-        DOC_VERIFIED
-        """
+            The unique labels/conditions        """
         # Generate cache key
         cache_key = (items, data_type, metric, average_method)
 
@@ -2386,9 +2349,6 @@ class Experiment:
         >>> # Clear cache after updating embeddings
         >>> exp.store_embedding(new_embedding, 'pca')
         >>> exp.clear_rdm_cache()
-        >>> rdm, labels = exp.compute_rdm('neurons')  # Will recompute
-        
-        DOC_VERIFIED
-        """
+        >>> rdm, labels = exp.compute_rdm('neurons')  # Will recompute        """
         self._rdm_cache = {}
 

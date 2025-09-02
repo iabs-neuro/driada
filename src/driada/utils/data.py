@@ -59,10 +59,7 @@ def create_correlated_gaussian_data(
     >>> data.shape
     (3, 100)
     >>> np.allclose(corr.diagonal(), 1.0)
-    True
-    
-    DOC_VERIFIED
-    """
+    True    """
     # Input validation
     check_positive(n_features=n_features)
     check_nonnegative(n_samples=n_samples)
@@ -136,10 +133,7 @@ def populate_nested_dict(content, outer, inner):
     >>> # Each entry is a separate copy
     >>> nested['A']['x']['value'] = 5
     >>> nested['B']['x']['value']
-    0
-    
-    DOC_VERIFIED
-    """
+    0    """
     if not hasattr(content, 'copy'):
         raise AttributeError(f"Content of type {type(content).__name__} does not have a .copy() method")
     
@@ -202,10 +196,7 @@ def nested_dict_to_seq_of_tables(datadict, ordered_names1=None, ordered_names2=N
     >>> tables['metric1']
     array([[1., 3.],
            [5., 7.]])
-    >>> # Rows are ['A', 'B'], columns are ['x', 'y']
-    
-    DOC_VERIFIED
-    """
+    >>> # Rows are ['A', 'B'], columns are ['x', 'y']    """
     # Validate input
     if not datadict:
         raise ValueError("Cannot process empty dictionary")
@@ -288,10 +279,7 @@ def add_names_to_nested_dict(datadict, names1, names2):
     - Uses .update() to merge inner dictionaries.
     - Returns original dict if both names are None.
     - Assumes all outer keys contain the same inner keys (e.g., if datadict[0] has keys [0,1,2],
-      then datadict[1], datadict[2], etc. must also have keys [0,1,2]).
-    
-    DOC_VERIFIED
-    """
+      then datadict[1], datadict[2], etc. must also have keys [0,1,2]).    """
     if names1 is None and names2 is None:
         return datadict
     
@@ -342,9 +330,10 @@ def retrieve_relevant_from_nested_dict(
         when using ">" or "<" operations.
     operation : {"=", ">", "<"}, default="="
         Comparison operation to use:
-        - "=" : Find entries where target_key equals target_value
-        - ">" : Find entries where target_key is greater than target_value
-        - "<" : Find entries where target_key is less than target_value
+        
+        * "=" : Find entries where target_key equals target_value
+        * ">" : Find entries where target_key is greater than target_value  
+        * "<" : Find entries where target_key is less than target_value
     allow_missing_keys : bool, default=False
         If True, skip entries where target_key is missing instead of raising
         an error. Missing keys are treated as not matching any criteria.
@@ -382,10 +371,7 @@ def retrieve_relevant_from_nested_dict(
     For ">" and "<" operations:
     - Missing keys (when allow_missing_keys=True) are treated as not matching
     - None values are treated as not matching (since None comparisons would fail)  
-    - Incomparable types (e.g., string vs number) will raise TypeError
-    
-    DOC_VERIFIED
-    """
+    - Incomparable types (e.g., string vs number) will raise TypeError    """
     if operation not in ['=', '>', '<']:
         raise ValueError(f"Operation must be one of '=', '>', '<'. Got: {operation}")
     
@@ -464,10 +450,7 @@ def rescale(data):
     ...     rescale(data2d)
     ... except ValueError as e:
     ...     print(f"Error: {e}")
-    Error: Input data must be 1-dimensional, got shape (2, 2)
-    
-    DOC_VERIFIED
-    """
+    Error: Input data must be 1-dimensional, got shape (2, 2)    """
     data = np.asarray(data)
     if data.ndim > 1:
         raise ValueError(f"Input data must be 1-dimensional, got shape {data.shape}")
@@ -507,10 +490,7 @@ def get_hash(data):
     >>> arr_reshaped = arr.reshape(3, 1)
     >>> hash2 = get_hash(arr_reshaped)
     >>> hash1 == hash2  # Different shapes produce different hashes
-    False
-
-    DOC_VERIFIED
-    """
+    False    """
     if isinstance(data, np.ndarray):
         # For numpy arrays, use the raw bytes for consistent hashing
         # Include shape and dtype in the hash to distinguish reshaped arrays
@@ -578,10 +558,7 @@ def phase_synchrony(vec1, vec2):
     
     See Also
     --------
-    scipy.signal.hilbert : Hilbert transform used to extract phases
-    
-    DOC_VERIFIED
-    """
+    scipy.signal.hilbert : Hilbert transform used to extract phases    """
     vec1 = np.asarray(vec1)
     vec2 = np.asarray(vec2)
     
@@ -621,10 +598,7 @@ def correlation_matrix(A):
     >>> A = np.array([[1, 2, 3], [4, 5, 6]])
     >>> corr = correlation_matrix(A)
     >>> corr.shape
-    (2, 2)
-    
-    DOC_VERIFIED
-    """
+    (2, 2)    """
     # Center the data
     am = A - np.mean(A, axis=1, keepdims=True)
 
@@ -686,10 +660,7 @@ def cross_correlation_matrix(A, B):
     >>> B = np.array([[7, 8, 9], [10, 11, 12]])  # 2 variables, 3 observations
     >>> cross_corr = cross_correlation_matrix(A, B)
     >>> cross_corr.shape
-    (2, 2)
-    
-    DOC_VERIFIED
-    """
+    (2, 2)    """
     if A.shape[1] != B.shape[1]:
         raise ValueError(f"A and B must have same number of observations. Got {A.shape[1]} and {B.shape[1]}")
     
@@ -763,10 +734,7 @@ def norm_cross_corr(a, b, mode='full'):
     >>> signal = np.sin(np.linspace(0, 4*np.pi, 100))
     >>> shifted = np.roll(signal, 10)  # Shift by 10 samples
     >>> corr = norm_cross_corr(signal, shifted, mode='full')
-    >>> lag = np.argmax(corr) - (len(signal) - 1)  # Should be close to -10
-    
-    DOC_VERIFIED
-    """
+    >>> lag = np.argmax(corr) - (len(signal) - 1)  # Should be close to -10    """
     if mode not in ['full', 'valid', 'same']:
         raise ValueError(f"mode must be one of 'full', 'valid', or 'same'. Got: {mode}")
     
@@ -893,10 +861,7 @@ def to_numpy_array(data):
     >>> dense = to_numpy_array(sparse_data)
     >>> dense.toarray() if hasattr(dense, 'toarray') else dense
     array([[1, 0, 0],
-           [0, 2, 0]])
-           
-    DOC_VERIFIED
-    """
+           [0, 2, 0]])    """
     if ssp.issparse(data):
         return data.toarray()
     else:
@@ -959,10 +924,7 @@ def remove_outliers(data, method='zscore', threshold=3.0, quantile_range=(0.05, 
     >>> indices, cleaned = remove_outliers(data, method='iqr', threshold=1.5)
     
     >>> # Quantile method
-    >>> indices, cleaned = remove_outliers(data, method='quantile', quantile_range=(0.1, 0.9))
-    
-    DOC_VERIFIED
-    """
+    >>> indices, cleaned = remove_outliers(data, method='quantile', quantile_range=(0.1, 0.9))    """
     data = np.asarray(data).ravel()
     n = len(data)
     
@@ -1070,10 +1032,7 @@ def write_dict_to_hdf5(data, hdf5_file, group_name=""):
     Examples
     --------
     >>> data = {'group1': {'array': np.array([1, 2, 3]), 'value': 42}}
-    >>> write_dict_to_hdf5(data, 'output.h5')
-
-    DOC_VERIFIED
-    """
+    >>> write_dict_to_hdf5(data, 'output.h5')    """
     with h5py.File(hdf5_file, "a") as f:
         # Create a new group or get existing one
         group = f.create_group(group_name) if group_name else f
@@ -1117,20 +1076,21 @@ def read_hdf5_to_dict(hdf5_file):
     --------
     >>> data_dict = read_hdf5_to_dict('input.h5')
     >>> data_dict['group1']['array']
-    array([1, 2, 3])
-
-    DOC_VERIFIED
-    """
+    array([1, 2, 3])    """
 
     def _read_group(group):
         """
         Recursively reads an HDF5 group and converts it to a dictionary.
 
-        Parameters:
-            group (h5py.Group): The HDF5 group to read.
+        Parameters
+        ----------
+        group : h5py.Group
+            The HDF5 group to read.
 
-        Returns:
-            dict: A dictionary representation of the group.
+        Returns
+        -------
+        dict
+            A dictionary representation of the group.
         """
         data = {}
 
@@ -1164,7 +1124,7 @@ def check_nonnegative(**kwargs):
     
     Parameters
     ----------
-    **kwargs : dict
+    **kwargs
         Parameter name to value mappings. All values should be numeric.
         
     Raises
@@ -1181,10 +1141,7 @@ def check_nonnegative(**kwargs):
     ValueError: rate must be non-negative, got -0.5
     
     >>> check_nonnegative(count=5, prob=np.nan)
-    ValueError: prob must be non-negative, got nan
-    
-    DOC_VERIFIED
-    """
+    ValueError: prob must be non-negative, got nan    """
     for name, value in kwargs.items():
         if value is None:
             continue  # Skip None values
@@ -1214,7 +1171,7 @@ def check_unit(left_open=False, right_open=False, **kwargs):
         If True, left bound is open (0, 1]. If False, closed [0, 1]. Default: False.
     right_open : bool, optional
         If True, right bound is open [0, 1). If False, closed [0, 1]. Default: False.
-    **kwargs : dict
+    **kwargs
         Parameter name to value mappings. All values should be numeric in [0, 1].
         
     Raises
@@ -1233,10 +1190,7 @@ def check_unit(left_open=False, right_open=False, **kwargs):
     >>> check_unit(left_open=True, rate=0.0)
     ValueError: rate must be in (0, 1], got 0.0
     
-    >>> check_unit(left_open=True, right_open=True, value=0.5)  # No error
-    
-    DOC_VERIFIED
-    """
+    >>> check_unit(left_open=True, right_open=True, value=0.5)  # No error    """
     # Determine bounds description
     left_bracket = "(" if left_open else "["
     right_bracket = ")" if right_open else "]"
@@ -1277,7 +1231,7 @@ def check_positive(**kwargs):
     
     Parameters
     ----------
-    **kwargs : dict
+    **kwargs
         Parameter name to value mappings. All values should be numeric.
         
     Raises
@@ -1294,10 +1248,7 @@ def check_positive(**kwargs):
     ValueError: n_neurons must be positive, got 0
     
     >>> check_positive(dim=-5)
-    ValueError: dim must be positive, got -5
-    
-    DOC_VERIFIED
-    """
+    ValueError: dim must be positive, got -5    """
     for name, value in kwargs.items():
         if value is None:
             continue  # Skip None values

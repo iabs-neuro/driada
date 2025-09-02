@@ -147,10 +147,7 @@ class ProximityGraph(Network):
     ... }
     >>> # Create proximity graph
     >>> graph = ProximityGraph(data, m_params, g_params)
-    >>> print(f"Graph has {graph.n} nodes and {graph.adj.nnz//2} edges")
-    DOC_VERIFIED
-    
-    """
+    >>> print(f"Graph has {graph.n} nodes and {graph.adj.nnz//2} edges")    """
 
     def __init__(self, d, m_params, g_params, create_nx_graph=False, verbose=False):
         """Initialize proximity graph from data.
@@ -177,10 +174,7 @@ class ProximityGraph(Network):
         Notes
         -----
         lost_nodes attribute is always set (even if empty).
-        Data shape assumes (features, samples) format.
-        
-        DOC_VERIFIED
-        """
+        Data shape assumes (features, samples) format.        """
         # Validate input data
         d = np.asarray(d)
         if d.ndim != 2:
@@ -278,10 +272,7 @@ class ProximityGraph(Network):
         -----
         Only applies to weighted graphs. The resulting affinity matrix
         is symmetrized to ensure undirected graph structure.
-        Mean distance uses only non-zero entries.
-        
-        DOC_VERIFIED
-        """
+        Mean distance uses only non-zero entries.        """
         if self.neigh_distmat is None:
             raise RuntimeError("distances between nearest neighbors not available")
 
@@ -316,10 +307,7 @@ class ProximityGraph(Network):
         ValueError
             If g_method_name contains invalid characters.
         AttributeError
-            If the specified graph construction method doesn't exist.
-            
-        DOC_VERIFIED
-        """
+            If the specified graph construction method doesn't exist.        """
         # Validate method name
         if not self.g_method_name.replace('_', '').isalnum():
             raise ValueError(f"Invalid g_method_name: {self.g_method_name}")
@@ -344,10 +332,7 @@ class ProximityGraph(Network):
             
         Notes
         -----
-        Validates that matrices are symmetric within tolerance.
-        
-        DOC_VERIFIED
-        """
+        Validates that matrices are symmetric within tolerance.        """
         if self.adj is not None:
             if not sp.issparse(self.adj):
                 # check for sparsity violation
@@ -390,10 +375,7 @@ class ProximityGraph(Network):
         The resulting graph has weighted edges representing fuzzy set membership.
         Sets self.adj (weighted), self.bin_adj (binary), and self.neigh_distmat.
         Uses fixed seed=42 for reproducibility.
-        Data is transposed to match UMAP's expected (n_samples, n_features) format.
-        
-        DOC_VERIFIED
-        """
+        Data is transposed to match UMAP's expected (n_samples, n_features) format.        """
         # TODO: Make seed configurable via g_params
         RAND = np.random.RandomState(42)
         adj, _, _, dists = fuzzy_simplicial_set(
@@ -434,10 +416,7 @@ class ProximityGraph(Network):
         - Creates both weighted and binary adjacency matrices
         - Uses diversify_prob=1.0 and pruning_degree_multiplier=1.5
         - Data is transposed to match pynndescent expected format
-        - Excludes self-connections (uses nn+1 neighbors then skips first)
-        
-        DOC_VERIFIED
-        """
+        - Excludes self-connections (uses nn+1 neighbors then skips first)        """
         N = self.data.shape[1]
         if self.nn >= N:
             raise ValueError(f"nn ({self.nn}) must be less than number of samples ({N})")
@@ -509,10 +488,7 @@ class ProximityGraph(Network):
         - Sets diagonal to 0 to exclude self-connections
         - Does not store knn_indices or knn_distances
         - Data is transposed to match sklearn expected format
-        - Symmetrizes by A = A + A.T
-        
-        DOC_VERIFIED
-        """
+        - Symmetrizes by A = A + A.T        """
         N = self.data.shape[1]
         if self.nn >= N:
             raise ValueError(f"nn ({self.nn}) must be less than number of samples ({N})")
@@ -553,10 +529,7 @@ class ProximityGraph(Network):
         self.neigh_distmat (distances for weighted graphs, zero matrix otherwise).
         For weighted graphs, distances are converted to affinities.
         Does not store knn_indices or knn_distances.
-        Data is transposed to match sklearn expected format.
-        
-        DOC_VERIFIED
-        """
+        Data is transposed to match sklearn expected format.        """
         if self.eps <= 0:
             raise ValueError(f"eps must be positive, got {self.eps}")
         if not 0 < self.min_density <= 1:
@@ -639,10 +612,7 @@ class ProximityGraph(Network):
         This provides a simple graph structure summary. The first elements 
         indicate local connectivity while later elements show longer-range
         connections. Regular lattices show characteristic patterns.
-        Uses sparse matrix operations to avoid memory issues with large graphs.
-        
-        DOC_VERIFIED
-        """
+        Uses sparse matrix operations to avoid memory issues with large graphs.        """
         # Work with sparse binary adjacency matrix
         mat = self.bin_adj.astype(bool)
         diagsums = []
@@ -687,7 +657,7 @@ class ProximityGraph(Network):
         logger : logging.Logger, optional
             Logger instance for logging messages. If None, creates a default logger.
 
-        **kwargs : dict
+        **kwargs
             Additional parameters passed to the dimension estimation method:
             - For 'geodesic': mode ('full'/'fast'), factor (subsampling factor)
 
@@ -722,10 +692,7 @@ class ProximityGraph(Network):
         >>> # Or using nn method (only if k-NN graph was used)
         >>> dim_nn = graph.get_int_dim(method='nn')
         >>> # Access all computed dimensions
-        >>> print(graph.intrinsic_dimensions)
-        
-        DOC_VERIFIED
-        """
+        >>> print(graph.intrinsic_dimensions)        """
         import logging
         from ..dimensionality import geodesic_dimension, nn_dimension
 

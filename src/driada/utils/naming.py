@@ -47,10 +47,7 @@ def construct_session_name(data_source, exp_params, allow_unknown=True):
     Different tracks have different naming conventions:
     - Old tracks (HT, RT, FS): Use legacy naming patterns
     - Standard tracks (FcOY, STFP, AP, NOF, Trace, CC): Use {track}_{animal}_{session}
-    - Unknown tracks: Use standard pattern if allow_unknown=True
-    
-    DOC_VERIFIED
-    """
+    - Unknown tracks: Use standard pattern if allow_unknown=True    """
     if data_source == "IABS":
         track = exp_params["track"]
         animal_id, session = exp_params["animal_id"], exp_params["session"]

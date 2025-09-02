@@ -57,10 +57,7 @@ def maxpos_numba(x):
     Notes
     -----
     This function is JIT-compiled when numba is available for performance.
-    Handles both regular Python lists and numba typed lists.
-    
-    DOC_VERIFIED
-    """
+    Handles both regular Python lists and numba typed lists.    """
     if not x:
         raise ValueError("Cannot find maximum of empty sequence")
         
@@ -118,10 +115,7 @@ if is_jit_enabled():
         Notes
         -----
         This class uses numba's JIT compilation when available for performance.
-        The class is compiled with specific type annotations for optimal speed.
-        
-        DOC_VERIFIED
-        """
+        The class is compiled with specific type annotations for optimal speed.        """
         def __init__(self, start_index, ampl, start_scale, wvt_time):
             """Initialize a new Ridge object.
             
@@ -139,10 +133,7 @@ if is_jit_enabled():
             Notes
             -----
             All summary statistics (length, max_ampl, etc.) are initialized
-            to -1 and will be computed when terminate() is called.
-            
-            DOC_VERIFIED
-            """
+            to -1 and will be computed when terminate() is called.            """
             self.indices = typed.List.empty_list(types.float64)
             self.indices.append(start_index)
 
@@ -192,10 +183,7 @@ if is_jit_enabled():
             Notes
             -----
             The order of appending is important for maintaining consistency
-            across all ridge attributes.
-            
-            DOC_VERIFIED
-            """
+            across all ridge attributes.            """
             if not self.terminated:
                 self.scales.append(scale)
                 self.ampls.append(ampl)
@@ -220,10 +208,7 @@ if is_jit_enabled():
             Notes
             -----
             This is typically used during ridge construction to determine
-            where to look for the next potential ridge point.
-            
-            DOC_VERIFIED
-            """
+            where to look for the next potential ridge point.            """
             return self.indices[-1]
 
         def terminate(self):
@@ -244,10 +229,7 @@ if is_jit_enabled():
             - max_ampl: Maximum amplitude value
             - start: Starting time index
             - end: Ending time index
-            - duration: Time span of the ridge
-            
-            DOC_VERIFIED
-            """
+            - duration: Time span of the ridge            """
             if self.terminated:
                 pass
             else:
@@ -299,10 +281,7 @@ else:
             
         Notes
         -----
-        This is the pure Python implementation used when numba is not available.
-        
-        DOC_VERIFIED
-        """
+        This is the pure Python implementation used when numba is not available.        """
         def __init__(self, start_index, ampl, start_scale, wvt_time):
             """Initialize a new Ridge object.
             
@@ -320,10 +299,7 @@ else:
             Notes
             -----
             All summary statistics (length, max_ampl, etc.) are initialized
-            to -1 and will be computed when terminate() is called.
-            
-            DOC_VERIFIED
-            """
+            to -1 and will be computed when terminate() is called.            """
             self.indices = [start_index]
             self.ampls = [ampl]
             self.birth_scale = start_scale
@@ -363,10 +339,7 @@ else:
             Notes
             -----
             The order of appending is important for maintaining consistency
-            across all ridge attributes.
-            
-            DOC_VERIFIED
-            """
+            across all ridge attributes.            """
             if not self.terminated:
                 self.scales.append(scale)
                 self.ampls.append(ampl)
@@ -391,10 +364,7 @@ else:
             Notes
             -----
             This is typically used during ridge construction to determine
-            where to look for the next potential ridge point.
-            
-            DOC_VERIFIED
-            """
+            where to look for the next potential ridge point.            """
             return self.indices[-1]
 
         def terminate(self):
@@ -415,10 +385,7 @@ else:
             - max_ampl: Maximum amplitude value
             - start: Starting time index
             - end: Ending time index
-            - duration: Time span of the ridge
-            
-            DOC_VERIFIED
-            """
+            - duration: Time span of the ridge            """
             if self.terminated:
                 pass
             else:
@@ -500,11 +467,26 @@ class RidgeInfoContainer(object):
     Notes
     -----
     All input arrays are converted to numpy arrays. The class assumes
-    the ridge data comes from a terminated Ridge object.
-    
-    DOC_VERIFIED
-    """
+    the ridge data comes from a terminated Ridge object.    """
     def __init__(self, indices, ampls, scales, wvt_times):
+        """Initialize ExtractedRidge with ridge data.
+        
+        Parameters
+        ----------
+        indices : array-like
+            Indices of the ridge points in the wavelet transform.
+        ampls : array-like
+            Amplitudes at the ridge points.
+        scales : array-like
+            Scales at the ridge points.
+        wvt_times : array-like
+            Time points corresponding to the ridge in wavelet space.
+        
+        Raises
+        ------
+        ValueError
+            If any input array is empty.
+        """
         # Convert to arrays
         self.indices = np.array(indices)
         self.ampls = np.array(ampls)
@@ -576,10 +558,7 @@ def ridges_to_containers(ridges):
     Notes
     -----
     The function assumes all ridges have been properly terminated before
-    conversion. Unterminated ridges may have incomplete attribute data.
-    
-    DOC_VERIFIED
-    """
+    conversion. Unterminated ridges may have incomplete attribute data.    """
     rcs = [
         RidgeInfoContainer(ridge.indices, ridge.ampls, ridge.scales, ridge.wvt_times)
         for ridge in ridges

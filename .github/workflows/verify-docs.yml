@@ -1,0 +1,41 @@
+name: Verify Documentation References
+
+on:
+  push:
+    branches: [ main, dev ]
+    paths:
+      - 'docs/**/*.rst'
+      - 'src/**/*.py'
+  pull_request:
+    branches: [ main, dev ]
+    paths:
+      - 'docs/**/*.rst'
+      - 'src/**/*.py'
+
+jobs:
+  verify-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+    
+    - name: Verify documentation references
+      run: |
+        python tools/verify_doc_references.py
+    
+    - name: Upload verification report
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: doc-verification-report
+        path: tools/doc_verification_report.txt

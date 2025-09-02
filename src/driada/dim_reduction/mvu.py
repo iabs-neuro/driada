@@ -71,10 +71,7 @@ class MaximumVarianceUnfolding(object):
     References
     ----------
     Weinberger, K. Q., & Saul, L. K. (2006). An introduction to nonlinear
-    dimensionality reduction by maximum variance unfolding. AAAI.
-    
-    DOC_VERIFIED
-    """
+    dimensionality reduction by maximum variance unfolding. AAAI.    """
 
     def __init__(
         self,
@@ -125,10 +122,7 @@ class MaximumVarianceUnfolding(object):
         -----
         The Berkeley formulation often provides better numerical stability
         than the Wikipedia formulation. SCS solver is recommended for most
-        cases as it handles large problems efficiently.
-        
-        DOC_VERIFIED
-        """
+        cases as it handles large problems efficiently.        """
         if not CVXPY_AVAILABLE:
             raise ImportError(
                 "cvxpy is required for MVU but not installed. "
@@ -195,10 +189,7 @@ class MaximumVarianceUnfolding(object):
         - Q is positive semidefinite
         - Sum of each row is zero (centering constraint)
         - For neighbors i,j: ||x_i - x_j||² = ||y_i - y_j||²
-          where x are original points and y are embedded points
-          
-        DOC_VERIFIED
-        """
+          where x are original points and y are embedded points        """
         # Number of data points in the set
         n = data.shape[0]
 
@@ -341,10 +332,7 @@ class MaximumVarianceUnfolding(object):
         where Lambda_top and V_top are the top 'dim' eigenvalues/vectors.
         
         Small negative eigenvalues may appear due to numerical errors in the
-        SDP solution. These are thresholded to zero using eig_tol parameter.
-        
-        DOC_VERIFIED
-        """
+        SDP solution. These are thresholded to zero using eig_tol parameter.        """
 
         embedded_gramian = self.fit(data, k)
 

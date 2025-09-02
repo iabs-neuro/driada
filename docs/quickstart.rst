@@ -66,7 +66,7 @@ Discover which neurons encode which variables:
 
    # Discover which neurons encode which variables
    from driada.intense import compute_cell_feat_significance
-   
+
    stats, significance, info, results = compute_cell_feat_significance(
        exp,
        n_shuffles_stage1=100,    # Quick screening
@@ -82,6 +82,9 @@ Discover which neurons encode which variables:
    # Visualize selectivity
    if significant_neurons:
        from driada.intense.visual import plot_neuron_feature_pair
+
+   # Assume exp is an Experiment object already created
+   # exp = Experiment(...) # See Experiment docs for full parameters
        neuron_id = list(significant_neurons.keys())[0]
        feature = significant_neurons[neuron_id][0]
        plot_neuron_feature_pair(exp, neuron_id, feature)
@@ -95,23 +98,26 @@ Before applying dimensionality reduction, estimate the intrinsic dimensionality:
 
    # Multiple methods for dimensionality estimation
    from driada.dimensionality import (
+
+   # Assume exp is an Experiment object already created
+   # exp = Experiment(...) # See Experiment docs for full parameters
        eff_dim, pca_dimension, nn_dimension, correlation_dimension
    )
-   
+
    # Get neural activity data (n_samples, n_features)
    neural_data = exp.calcium.scdata.T  # Transpose to standard format
-   
+
    # Linear methods
    pca_90 = pca_dimension(neural_data, threshold=0.90)
    pca_95 = pca_dimension(neural_data, threshold=0.95)
-   
+
    # Effective dimension (participation ratio)
    eff_d = eff_dim(neural_data, enable_correction=True, q=2)
-   
+
    # Nonlinear methods
    nn_dim = nn_dimension(neural_data, k=5)
    corr_dim = correlation_dimension(neural_data)
-   
+
    print(f"PCA 90%: {pca_90} dims, PCA 95%: {pca_95} dims")
    print(f"Effective dim: {eff_d:.2f}")
    print(f"k-NN dimension: {nn_dim:.2f}")
@@ -186,7 +192,7 @@ Analyze how single neurons contribute to population embeddings:
 
    # First, compute INTENSE selectivity for embedding components
    from driada.intense import compute_embedding_selectivity
-   
+
    # Analyze how neurons contribute to embedding components
    emb_results = compute_embedding_selectivity(
        exp, 
@@ -194,42 +200,45 @@ Analyze how single neurons contribute to population embeddings:
        n_shuffles=100,
        ds=5
    )
-   
+
    # Extract INTENSE results for functional organization analysis
    from driada.integration import get_functional_organization
-   
+
    # Analyze PCA functional organization
    pca_org = get_functional_organization(
        exp, 
        'pca',
        intense_results=emb_results['pca']['intense_results']
    )
-   
+
    print(f"Component importance: {pca_org['component_importance']}")
    print(f"Neurons participating: {pca_org['n_participating_neurons']}")
-   
+
    # Compare multiple embeddings
    from driada.integration import compare_embeddings
-   
+
    intense_dict = {
        'pca': emb_results['pca']['intense_results'],
        'umap': emb_results['umap']['intense_results']
    }
-   
+
    comparison = compare_embeddings(
        exp, 
        ['pca', 'umap'],
        intense_results_dict=intense_dict
    )
-   
+
    # Visualize embeddings with features
    from driada.utils.visual import plot_embedding_comparison
-   
+
+   # Assume exp is an Experiment object already created
+   # exp = Experiment(...) # See Experiment docs for full parameters
+
    embeddings = {
        'PCA': pca_emb.coords.T,
        'UMAP': umap_emb.coords.T
    }
-   
+
    # Color by a behavioral feature (ensure lengths match)
    features = {}
    if 'position_2d' in exp.dynamic_features:
@@ -241,7 +250,7 @@ Analyze how single neurons contribute to population embeddings:
            features['angle'] = angle[::ds]
        else:
            features['angle'] = angle
-   
+
    fig = plot_embedding_comparison(
        embeddings=embeddings,
        features=features,
@@ -445,26 +454,45 @@ Next Steps
 
 Explore comprehensive examples demonstrating real-world workflows:
 
-**Core Workflows:**
+**Getting Started:**
+
+- ``examples/basic_usage/basic_usage.py`` - Basic DRIADA workflow with synthetic data
+- ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple dimensionality reduction API usage
+
+**Core Analysis Workflows:**
 
 - ``examples/circular_manifold/extract_circular_manifold.py`` - Extract ring attractor structure from head direction cells
-- ``examples/task_variables/extract_task_variables.py`` - Decode task variables from mixed selectivity populations  
+- ``examples/circular_manifold/test_metrics.py`` - Validate circular manifold reconstruction quality
+- ``examples/spatial_map/extract_spatial_map.py`` - Analyze place cells and spatial representations
+- ``examples/spatial_analysis/visualize_spatial_maps.py`` - Visualize spatial coding properties
+- ``examples/task_variables/extract_task_variables.py`` - Decode task variables from mixed selectivity populations
 - ``examples/network_analysis/cell_cell_network_example.py`` - Build and analyze functional networks
 
-**Analysis Pipelines:**
+**Dimensionality Reduction:**
 
-- ``examples/full_pipeline/full_pipeline.py`` - Complete INTENSE + DR workflow
+- ``examples/compare_dr_methods/compare_dr_methods.py`` - Systematic comparison of DR algorithms
+- ``examples/dr_sequence/dr_sequence_neural_example.py`` - Sequential DR pipeline for optimal results
+- ``examples/recursive_embedding/recursive_embedding_example.py`` - Multi-scale manifold analysis
+
+**Complete Pipelines:**
+
+- ``examples/full_pipeline/full_pipeline.py`` - Complete INTENSE + DR workflow from start to finish
 - ``examples/intense_dr_pipeline/intense_dr_pipeline.py`` - Integration of single-cell and population analysis
 - ``examples/mixed_selectivity/mixed_selectivity.py`` - Analyze neurons with mixed feature selectivity
 
 **Advanced Techniques:**
 
-- ``examples/dr_sequence/dr_sequence_neural_example.py`` - Compare multiple DR methods systematically
-- ``examples/recursive_embedding/recursive_embedding_example.py`` - Multi-scale manifold analysis
-- ``examples/rsa/rsa_example.py`` - Representational similarity analysis
+- ``examples/spike_reconstruction/spike_reconstruction_comparison.py`` - Compare spike deconvolution methods
+- ``examples/rsa/rsa_example.py`` - Representational similarity analysis for comparing neural codes
+- ``examples/visual_utils/visual_utils_demo.py`` - Advanced visualization utilities and techniques
+
+**Experimental (Under Construction):**
+
+- ``examples/under_construction/selectivity_manifold_mapper/`` - Map selectivity to manifold structure
 
 For more information:
 
 - Read the :doc:`api/index` for comprehensive documentation
 - Check out :doc:`tutorials` for in-depth guides
+- Visit our `GitHub repository <https://github.com/iabs-neuro/driada>`_ for latest updates
 - Join our community for support and discussions

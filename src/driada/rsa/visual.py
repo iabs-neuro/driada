@@ -48,10 +48,7 @@ def plot_rdm(
     Returns
     -------
     fig : matplotlib.Figure
-        The figure object
-        
-    DOC_VERIFIED
-    """
+        The figure object    """
     n_items = rdm.shape[0]
 
     if labels is None:
@@ -183,10 +180,7 @@ def plot_rdm_comparison(
     Returns
     -------
     fig : matplotlib.Figure
-        The figure object
-        
-    DOC_VERIFIED
-    """
+        The figure object    """
     n_rdms = len(rdms)
     
     # Validate that all RDMs have the same shape

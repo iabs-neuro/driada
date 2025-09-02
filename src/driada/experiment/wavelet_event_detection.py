@@ -56,10 +56,7 @@ def wvt_viz(x, Wx):
     Notes
     -----
     The wavelet transform is displayed as magnitude (absolute value)
-    using the 'turbo' colormap.
-    
-    DOC_VERIFIED
-    """
+    using the 'turbo' colormap.    """
     # Validate inputs
     x = np.asarray(x)
     if x.ndim != 1:
@@ -130,10 +127,7 @@ def get_cwt_ridges(
     See Also
     --------
     get_cwt_ridges_fast : Numba-accelerated version
-    Ridge : Ridge object storing ridge properties
-    
-    DOC_VERIFIED
-    """
+    Ridge : Ridge object storing ridge properties    """
     # Validate parameters
     check_positive(fps=fps)
     check_nonnegative(scmin=scmin, scmax=scmax)
@@ -266,10 +260,7 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
     See Also
     --------
     get_cwt_ridges : Original implementation
-    events_from_trace : High-level function using this for event detection
-    
-    DOC_VERIFIED
-    """
+    events_from_trace : High-level function using this for event detection    """
     # Validate inputs (before JIT compilation)
     wvtdata = np.asarray(wvtdata)
     peaks = np.asarray(peaks)
@@ -395,10 +386,7 @@ def passing_criterion(
     - ridge.duration <= max_dur_thr
     
     Typical calcium transients have specific scale and duration
-    characteristics that distinguish them from noise or artifacts.
-    
-    DOC_VERIFIED
-    """
+    characteristics that distinguish them from noise or artifacts.    """
     # Validate parameters
     check_nonnegative(scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
     check_positive(max_dur_thr=max_dur_thr)
@@ -457,10 +445,7 @@ def get_events_from_ridges(
     See Also
     --------
     passing_criterion : Function that evaluates ridge quality
-    events_from_trace : High-level event detection function
-    
-    DOC_VERIFIED
-    """
+    events_from_trace : High-level event detection function    """
     # Validate parameters
     check_nonnegative(scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
     check_positive(max_dur_thr=max_dur_thr)
@@ -567,10 +552,7 @@ def events_from_trace(
     See Also
     --------
     extract_wvt_events : Batch processing for multiple neurons
-    WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary
-    
-    DOC_VERIFIED
-    """
+    WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary    """
     # Validate parameters
     check_positive(fps=fps, max_dur_thr=max_dur_thr)
     check_nonnegative(sigma=sigma, eps=eps, scale_length_thr=scale_length_thr, 
@@ -633,16 +615,17 @@ def extract_wvt_events(traces, wvt_kwargs):
         2D array of calcium traces (neurons x time).
     wvt_kwargs : dict
         Wavelet detection parameters:
-        - fps : float, frame rate in Hz (default: 20)
-        - beta : float, GMW beta parameter (default: 2)
-        - gamma : float, GMW gamma parameter (default: 3)
-        - sigma : float, Gaussian smoothing sigma in frames (default: 8)
-        - eps : int, minimum spacing between events in frames (default: 10)
-        - manual_scales : array, wavelet scales to use
-        - scale_length_thr : int, minimum ridge length (default: 40)
-        - max_scale_thr : int, max scale index threshold (default: 7)
-        - max_ampl_thr : float, minimum ridge amplitude (default: 0.05)
-        - max_dur_thr : int, maximum event duration in frames (default: 200)
+        
+        * fps : float, frame rate in Hz (default: 20)
+        * beta : float, GMW beta parameter (default: 2)
+        * gamma : float, GMW gamma parameter (default: 3)
+        * sigma : float, Gaussian smoothing sigma in frames (default: 8)
+        * eps : int, minimum spacing between events in frames (default: 10)
+        * manual_scales : array, wavelet scales to use
+        * scale_length_thr : int, minimum ridge length (default: 40)
+        * max_scale_thr : int, max scale index threshold (default: 7)
+        * max_ampl_thr : float, minimum ridge amplitude (default: 0.05)
+        * max_dur_thr : int, maximum event duration in frames (default: 200)
         
     Returns
     -------
@@ -672,10 +655,7 @@ def extract_wvt_events(traces, wvt_kwargs):
     Ridge filtering removes noise and artifacts by requiring events to:
     - Persist across multiple scales (scale_length_thr)
     - Have sufficient amplitude (max_ampl_thr)
-    - Have reasonable duration (max_dur_thr)
-    
-    DOC_VERIFIED
-    """
+    - Have reasonable duration (max_dur_thr)    """
     # Validate inputs
     traces = np.asarray(traces)
     if traces.ndim != 2:
@@ -786,10 +766,7 @@ def events_to_ts_array_numba(
     Notes
     -----
     Called internally by events_to_ts_array. Event duration constraints are
-    enforced as described in the parent function.
-    
-    DOC_VERIFIED
-    """
+    enforced as described in the parent function.    """
     # Note: Parameter validation is done in the wrapper function
     # Cannot use check_positive inside numba-compiled functions
     
@@ -867,10 +844,7 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     -----
     Events are adjusted to have durations between MIN_EVENT_DUR (0.5s) and
     MAX_EVENT_DUR (2.5s). Events shorter than minimum are extended from their
-    center, while events longer than maximum are truncated.
-    
-    DOC_VERIFIED
-    """
+    center, while events longer than maximum are truncated.    """
     # Validate parameters
     from ..utils.data import check_positive
     check_positive(length=length, fps=fps)

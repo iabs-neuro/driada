@@ -96,10 +96,7 @@ def dr_sequence(
     - Progress logged with actual dimensions for each step
     - Pre-validates all method names before execution
     - Optional dimension compatibility checking available
-    - Memory-efficient by default (keep_intermediate=False)
-    
-    DOC_VERIFIED
-    """
+    - Memory-efficient by default (keep_intermediate=False)    """
     if not steps:
         raise ValueError("At least one reduction step must be provided")
 
@@ -231,10 +228,7 @@ def validate_sequence_dimensions(
     -----
     - Logs dimension changes for each step via provided or module logger
     - Warns when a step attempts to increase dimensions
-    - Does not perform actual reductions, only predicts dimensions
-    
-    DOC_VERIFIED
-    """
+    - Does not perform actual reductions, only predicts dimensions    """
     if logger is None:
         logger = logging.getLogger(__name__)
         

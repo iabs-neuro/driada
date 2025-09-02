@@ -6,7 +6,14 @@ utilities for analyzing high-dimensional neural data.
 """
 
 from .data import MVData
-from .dr_base import METHODS_DICT, DRMethod
+from .dr_base import (
+    METHODS_DICT,
+    DRMethod,
+    merge_params_with_defaults,
+    e_param_filter,
+    g_param_filter,
+    m_param_filter,
+)
 from .embedding import Embedding
 from .graph import ProximityGraph
 from .sequences import dr_sequence
@@ -40,6 +47,10 @@ __all__ = [
     "ProximityGraph",
     # Functions
     "dr_sequence",
+    "merge_params_with_defaults",
+    "e_param_filter",
+    "g_param_filter",
+    "m_param_filter",
     # Manifold metrics
     "compute_distance_matrix",
     "knn_preservation_rate",

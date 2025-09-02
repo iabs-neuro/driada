@@ -28,10 +28,7 @@ def res_var_metric(all_dists, emb_dists):
     Notes
     -----
     This metric quantifies how much variance in the original distances
-    is NOT explained by the embedding distances.
-    
-    DOC_VERIFIED
-    """
+    is NOT explained by the embedding distances.    """
     all_dists = np.asarray(all_dists)
     emb_dists = np.asarray(emb_dists)
     
@@ -96,10 +93,7 @@ def correct_cov_spectrum(
     ----------
     Duan, J., Popescu, I., & Matzinger, H. (2022). Recover the spectrum of 
     covariance matrix: a non-asymptotic iterative method. arXiv preprint 
-    arXiv:2201.00230.
-    
-    DOC_VERIFIED
-    """
+    arXiv:2201.00230.    """
     eigs = eigh(cmat, eigvals_only=True)
 
     # Check for negative eigenvalues and clip them

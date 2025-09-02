@@ -78,10 +78,7 @@ class TimeSeriesType:
     -----
     The detection algorithm uses multiple statistical tests and heuristics
     to determine the most likely type. For ambiguous cases (e.g., discretized
-    continuous data), the confidence score helps indicate uncertainty.
-    
-    DOC_VERIFIED
-    """
+    continuous data), the confidence score helps indicate uncertainty.    """
 
     primary_type: Literal["discrete", "continuous", "ambiguous"]
     subtype: Optional[
@@ -100,10 +97,7 @@ class TimeSeriesType:
         Returns
         -------
         bool
-            True if the primary type is discrete, False otherwise.
-            
-        DOC_VERIFIED
-        """
+            True if the primary type is discrete, False otherwise.        """
         return self.primary_type == "discrete"
 
     @property
@@ -113,10 +107,7 @@ class TimeSeriesType:
         Returns
         -------
         bool
-            True if the primary type is continuous, False otherwise.
-            
-        DOC_VERIFIED
-        """
+            True if the primary type is continuous, False otherwise.        """
         return self.primary_type == "continuous"
 
     @property
@@ -127,10 +118,7 @@ class TimeSeriesType:
         -------
         bool
             True if the type detection was ambiguous (could not confidently
-            classify as discrete or continuous), False otherwise.
-            
-        DOC_VERIFIED
-        """
+            classify as discrete or continuous), False otherwise.        """
         return self.primary_type == "ambiguous"
 
     @property
@@ -145,10 +133,7 @@ class TimeSeriesType:
             
         Notes
         -----
-        Returns True only for valid positive finite periods.
-        
-        DOC_VERIFIED
-        """
+        Returns True only for valid positive finite periods.        """
         return (self.periodicity is not None and 
                 self.periodicity > 0 and 
                 np.isfinite(self.periodicity))
@@ -187,10 +172,7 @@ def analyze_time_series_type(
     ValueError
         If data is empty, contains non-numeric values, or contains NaN/Inf values.
     TypeError
-        If data cannot be converted to numpy array.
-        
-    DOC_VERIFIED
-    """
+        If data cannot be converted to numpy array.    """
     # Convert to array and validate
     try:
         data = np.asarray(data).ravel()
@@ -313,10 +295,7 @@ def _extract_statistical_properties(data: np.ndarray) -> Dict[str, float]:
     These features are designed to distinguish between:
     - Discrete vs continuous data
     - Different discrete subtypes (binary, categorical, count)
-    - Special patterns (circular, periodic)
-    
-    DOC_VERIFIED
-    """
+    - Special patterns (circular, periodic)    """
     n = len(data)
     unique_vals = np.unique(data)
     n_unique = len(unique_vals)
@@ -440,10 +419,7 @@ def _detect_periodicity(
     2. FFT: Identifies dominant frequencies in the frequency domain. Better for
        clean signals with strong periodicity.
     
-    Requires at least 20 samples for basic analysis and 50 for FFT analysis.
-    
-    DOC_VERIFIED
-    """
+    Requires at least 20 samples for basic analysis and 50 for FFT analysis.    """
     result = {"period": None, "confidence": 0.0}
     
     # Validate input
@@ -488,10 +464,6 @@ def _detect_periodicity(
                 result["confidence"] = max(result["confidence"], 0.8)
 
     return result
-    
-    DOC_VERIFIED
-
-
 def _detect_circular(
     data: np.ndarray, properties: Dict[str, float], name: Optional[str] = None
 ) -> Dict[str, Union[bool, float, None]]:
@@ -539,9 +511,7 @@ def _detect_circular(
     
     Important: Binary data (e.g., [0,1] spike trains) is explicitly excluded 
     from circular detection even if values fall within circular ranges, to prevent
-    misclassification of discrete binary variables as circular continuous data.
-    DOC_VERIFIED
-    """
+    misclassification of discrete binary variables as circular continuous data.    """
     result = {"is_circular": False, "confidence": 0.0, "period": None}
 
     # Context-based detection from name
@@ -658,10 +628,7 @@ def _detect_primary_type(
     Raises
     ------
     KeyError
-        If properties dict is missing required keys.
-        
-    DOC_VERIFIED
-    """
+        If properties dict is missing required keys.    """
     # Strong discrete indicators (binary, small categorical)
     if properties["n_unique"] == 2:
         # Binary data - check if truly binary (allowing small numerical errors)
@@ -806,10 +773,7 @@ def _detect_discrete_subtype(
     1. Binary: Exactly 2 unique values (confidence=1.0)
     2. Count: Monotonically non-decreasing integers (confidence=0.95)
     3. Timeline: Regularly spaced values with high uniqueness (confidence=0.95)
-    4. Categorical: Default for other discrete data (confidence=0.8)
-    
-    DOC_VERIFIED
-    """
+    4. Categorical: Default for other discrete data (confidence=0.8)    """
     # Check for required keys
     required_keys = ['n_unique', 'fraction_integers', 'uniqueness_ratio']
     missing_keys = [key for key in required_keys if key not in properties]
@@ -843,10 +807,6 @@ def _detect_discrete_subtype(
 
     # Default to categorical
     return {"subtype": "categorical", "confidence": 0.8}
-    
-    DOC_VERIFIED
-
-
 def _detect_continuous_subtype(
     data: np.ndarray,
     properties: Dict[str, float],
@@ -890,10 +850,7 @@ def _detect_continuous_subtype(
     -----
     Circular takes precedence if detected with high confidence.
     Linear is the default for all other continuous data.
-    Timeline detection is handled as a discrete subtype, not continuous.
-    
-    DOC_VERIFIED
-    """
+    Timeline detection is handled as a discrete subtype, not continuous.    """
     # Check if circular (angles, phases, directions)
     if circular_result["is_circular"]:
         return {"subtype": "circular", "confidence": circular_result["confidence"]}
@@ -947,10 +904,7 @@ def _print_detection_details(
     Notes
     -----
     Useful for understanding why a particular classification was made
-    and for debugging edge cases in type detection.
-    
-    DOC_VERIFIED
-    """
+    and for debugging edge cases in type detection.    """
     print("\n=== Time Series Type Detection ===")
     print(f"Samples: {len(data)}")
     print(
@@ -1001,10 +955,7 @@ def is_discrete_time_series(
     ValueError
         If data is empty, contains non-numeric values, or contains NaN/Inf values.
     TypeError
-        If data cannot be converted to numpy array.
-        
-    DOC_VERIFIED
-    """
+        If data cannot be converted to numpy array.    """
     result = analyze_time_series_type(ts, confidence_threshold=0.5)
 
     if return_confidence:

@@ -43,10 +43,7 @@ def compute_rdm(
     Returns
     -------
     rdm : np.ndarray
-        Representational dissimilarity matrix (n_items, n_items)
-        
-    DOC_VERIFIED
-    """
+        Representational dissimilarity matrix (n_items, n_items)    """
     # Convert to MVData if needed
     if isinstance(patterns, np.ndarray):
         # MVData expects (n_features, n_items) so transpose
@@ -124,10 +121,7 @@ def compute_rdm_from_timeseries_labels(
     rdm : np.ndarray
         Representational dissimilarity matrix
     unique_labels : np.ndarray
-        The unique labels in order as they appear in the RDM
-        
-    DOC_VERIFIED
-    """
+        The unique labels in order as they appear in the RDM    """
     # Get unique labels (conditions)
     unique_labels = np.unique(labels)
 
@@ -190,10 +184,7 @@ def compute_rdm_from_trials(
     rdm : np.ndarray
         Representational dissimilarity matrix
     unique_labels : np.ndarray
-        The unique trial labels in order as they appear in the RDM
-        
-    DOC_VERIFIED
-    """
+        The unique trial labels in order as they appear in the RDM    """
     # Check if trial_starts are sorted
     if len(trial_starts) > 1 and not np.all(np.diff(trial_starts) > 0):
         raise ValueError("trial_starts must be sorted in ascending order")
@@ -348,10 +339,7 @@ def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -
     --------
     compute_rdm : Compute RDMs from neural patterns
     bootstrap_rdm_comparison : Statistical comparison with confidence intervals
-    rsa_compare : High-level interface for comparing datasets
-    
-    DOC_VERIFIED
-    """
+    rsa_compare : High-level interface for comparing datasets    """
     # Ensure RDMs are same shape
     if rdm1.shape != rdm2.shape:
         raise ValueError(
@@ -497,10 +485,7 @@ def bootstrap_rdm_comparison(
     --------
     compare_rdms : Direct RDM comparison without bootstrap
     compute_rdm_from_timeseries_labels : Compute RDM from labeled data
-    rsa_compare : High-level interface with multiple data types
-    
-    DOC_VERIFIED
-    """
+    rsa_compare : High-level interface with multiple data types    """
     # Create a local random number generator to avoid modifying global state
     if random_state is not None:
         rng = np.random.RandomState(random_state)
@@ -677,10 +662,7 @@ def compute_rdm_unified(
     compute_rdm : Direct RDM computation from patterns
     compute_rdm_from_timeseries_labels : RDM from labeled timeseries
     compute_rdm_from_trials : RDM from trial structure
-    rsa.integration.compute_experiment_rdm : RDM from Experiment objects
-    
-    DOC_VERIFIED
-    """
+    rsa.integration.compute_experiment_rdm : RDM from Experiment objects    """
     # Import here to avoid circular dependency
     from ..experiment import Experiment
     from ..dim_reduction.embedding import Embedding
@@ -850,10 +832,7 @@ def rsa_compare(
     --------
     compute_rdm_unified : Unified RDM computation interface
     compare_rdms : Direct comparison of RDM matrices
-    bootstrap_rdm_comparison : Statistical comparison with confidence intervals
-    
-    DOC_VERIFIED
-    """
+    bootstrap_rdm_comparison : Statistical comparison with confidence intervals    """
     # Import here to avoid circular dependency
     from ..experiment import Experiment
     from ..dim_reduction.embedding import Embedding

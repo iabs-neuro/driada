@@ -26,10 +26,7 @@ class AELoss(ABC):
     
     Each loss component computes a specific objective (e.g., reconstruction,
     disentanglement, sparsity) and has an associated weight for balancing
-    multiple objectives.
-    
-    DOC_VERIFIED
-    """
+    multiple objectives.    """
     
     def __init__(self, weight: float = 1.0, **kwargs):
         """Initialize loss component.
@@ -39,10 +36,7 @@ class AELoss(ABC):
         weight : float, default=1.0
             Weight for this loss component when combining multiple losses.
         **kwargs
-            Additional parameters specific to each loss type.
-            
-        DOC_VERIFIED
-        """
+            Additional parameters specific to each loss type.        """
         self._weight = weight
         self.kwargs = kwargs
     
@@ -71,10 +65,7 @@ class AELoss(ABC):
         Returns
         -------
         torch.Tensor
-            Scalar loss value.
-            
-        DOC_VERIFIED
-        """
+            Scalar loss value.        """
         pass
     
     @property
@@ -89,10 +80,7 @@ class AELoss(ABC):
         Returns
         -------
         float
-            Current weight value for this loss component.
-            
-        DOC_VERIFIED
-        """
+            Current weight value for this loss component.        """
         return self._weight
     
     @weight.setter
@@ -114,10 +102,7 @@ class AELoss(ABC):
         Raises
         ------
         ValueError
-            If value is negative.
-            
-        DOC_VERIFIED
-        """
+            If value is negative.        """
         if value < 0:
             raise ValueError(f"Weight must be non-negative, got {value}")
         self._weight = value
@@ -149,10 +134,7 @@ class LossRegistry:
     ...     def compute(self, code, recon, inputs, **kwargs):
     ...         return torch.tensor(0.0)
     >>> registry.register('custom', MyCustomLoss)
-    >>> custom_loss = registry.create('custom', weight=2.0)
-    
-    DOC_VERIFIED
-    """
+    >>> custom_loss = registry.create('custom', weight=2.0)    """
     
     def __init__(self):
         """
@@ -166,10 +148,7 @@ class LossRegistry:
         - 'activity': L1/L2 activity regularization
         - 'jacobian': Jacobian regularization for contractive autoencoders
         
-        The registry can be extended with custom losses after initialization.
-        
-        DOC_VERIFIED
-        """
+        The registry can be extended with custom losses after initialization.        """
         self.losses: Dict[str, Type[AELoss]] = {}
         self._logger = logging.getLogger(self.__class__.__name__)
         self._register_defaults()
@@ -186,10 +165,7 @@ class LossRegistry:
         - factor_vae: Factor-VAE with discriminator
         - sparse: Sparsity-inducing loss
         - contractive: Contractive autoencoder loss
-        - mmd: Maximum Mean Discrepancy loss
-        
-        DOC_VERIFIED
-        """
+        - mmd: Maximum Mean Discrepancy loss        """
         # Register all default losses
         defaults = {
             "reconstruction": ReconstructionLoss,
@@ -219,10 +195,7 @@ class LossRegistry:
         Raises
         ------
         ValueError
-            If loss_class does not inherit from AELoss.
-            
-        DOC_VERIFIED
-        """
+            If loss_class does not inherit from AELoss.        """
         if not issubclass(loss_class, AELoss):
             raise ValueError(f"Loss class must inherit from AELoss, got {loss_class}")
         
@@ -247,10 +220,7 @@ class LossRegistry:
         Raises
         ------
         ValueError
-            If the loss name is not registered.
-            
-        DOC_VERIFIED
-        """
+            If the loss name is not registered.        """
         if name not in self.losses:
             raise ValueError(
                 f"Unknown loss '{name}'. Available: {list(self.losses.keys())}"
@@ -289,10 +259,7 @@ class ReconstructionLoss(AELoss):
     >>> loss = ReconstructionLoss(loss_type='mse', weight=1.0)
     >>> 
     >>> # For binary or probabilistic data
-    >>> loss = ReconstructionLoss(loss_type='bce', weight=2.0)
-    
-    DOC_VERIFIED
-    """
+    >>> loss = ReconstructionLoss(loss_type='bce', weight=2.0)    """
     
     def __init__(self, loss_type: str = "mse", weight: float = 1.0):
         """Initialize reconstruction loss.
@@ -307,10 +274,7 @@ class ReconstructionLoss(AELoss):
         Raises
         ------
         ValueError
-            If loss_type is not 'mse' or 'bce'.
-            
-        DOC_VERIFIED
-        """
+            If loss_type is not 'mse' or 'bce'.        """
         super().__init__(weight=weight)
         self.loss_type = loss_type
         
@@ -339,10 +303,7 @@ class ReconstructionLoss(AELoss):
         -------
         torch.Tensor
             Scalar loss value. MSE for continuous data or BCE for binary data,
-            depending on loss_type specified in __init__.
-            
-        DOC_VERIFIED
-        """
+            depending on loss_type specified in __init__.        """
         return self.criterion(recon, inputs)
 
 
@@ -377,10 +338,7 @@ class CorrelationLoss(AELoss):
     Notes
     -----
     The correlation is computed across the batch dimension, so larger batch
-    sizes provide more accurate correlation estimates. Requires batch_size >= 2.
-    
-    DOC_VERIFIED
-    """
+    sizes provide more accurate correlation estimates. Requires batch_size >= 2.    """
     
     def __init__(self, weight: float = 1.0):
         """Initialize correlation loss.
@@ -388,10 +346,7 @@ class CorrelationLoss(AELoss):
         Parameters
         ----------
         weight : float, default=1.0
-            Loss weight.
-            
-        DOC_VERIFIED
-        """
+            Loss weight.        """
         super().__init__(weight=weight)
     
     def compute(self, code, recon, inputs, **kwargs):
@@ -420,10 +375,7 @@ class CorrelationLoss(AELoss):
         Notes
         -----
         Requires batch_size >= 2 for correlation computation. Returns 0 for
-        single-sample batches.
-        
-        DOC_VERIFIED
-        """
+        single-sample batches.        """
         # Handle single feature case
         if code.shape[1] == 1:
             return torch.tensor(0.0, device=code.device)
@@ -453,10 +405,7 @@ class OrthogonalityLoss(AELoss):
     
     FUTURE: Replace correlation-based approach with proper mutual information
     estimation (e.g., using GCMI or KSG estimators from information module).
-    Current implementation uses correlation as a crude proxy for MI.
-    
-    DOC_VERIFIED
-    """
+    Current implementation uses correlation as a crude proxy for MI.    """
     
     def __init__(self, external_data: Optional[np.ndarray] = None, weight: float = 1.0):
         """Initialize orthogonality loss.
@@ -466,10 +415,7 @@ class OrthogonalityLoss(AELoss):
         external_data : np.ndarray, optional
             External data to minimize correlation with, shape (n_features, n_samples).
         weight : float, default=1.0
-            Loss weight.
-            
-        DOC_VERIFIED
-        """
+            Loss weight.        """
         super().__init__(weight=weight)
         self.external_data = external_data
         self._external_tensor = None
@@ -507,10 +453,7 @@ class OrthogonalityLoss(AELoss):
         Notes
         -----
         External data should have shape (n_features, n_samples) where n_samples
-        should be >= batch_size if indices is None.
-        
-        DOC_VERIFIED
-        """
+        should be >= batch_size if indices is None.        """
         if self.external_data is None:
             return torch.tensor(0.0, device=code.device)
         
@@ -572,10 +515,7 @@ class BetaVAELoss(AELoss):
     References
     ----------
     Higgins, I., et al. (2017). β-VAE: Learning Basic Visual Concepts with
-    a Constrained Variational Framework. ICLR 2017.
-    
-    DOC_VERIFIED
-    """
+    a Constrained Variational Framework. ICLR 2017.    """
     
     def __init__(self, beta: float = 4.0, weight: float = 1.0):
         """Initialize β-VAE loss.
@@ -591,10 +531,7 @@ class BetaVAELoss(AELoss):
         Raises
         ------
         ValueError
-            If beta <= 0.
-            
-        DOC_VERIFIED
-        """
+            If beta <= 0.        """
         super().__init__(weight=weight)
         if beta <= 0:
             raise ValueError(f"Beta must be positive for disentanglement, got {beta}")
@@ -642,10 +579,7 @@ class BetaVAELoss(AELoss):
         References
         ----------
         Higgins, I., et al. (2017). β-VAE: Learning Basic Visual Concepts with
-        a Constrained Variational Framework. ICLR 2017.
-        
-        DOC_VERIFIED
-        """
+        a Constrained Variational Framework. ICLR 2017.        """
         if mu is None or log_var is None:
             raise ValueError("β-VAE loss requires mu and log_var")
         
@@ -679,10 +613,7 @@ class TCVAELoss(AELoss):
     References
     ----------
     Chen, T. Q., et al. (2018). Isolating Sources of Disentanglement in
-    Variational Autoencoders. NeurIPS 2018.
-    
-    DOC_VERIFIED
-    """
+    Variational Autoencoders. NeurIPS 2018.    """
     
     def __init__(
         self, 
@@ -708,10 +639,7 @@ class TCVAELoss(AELoss):
         -----
         The decomposition is:
         KL[q(z|x)||p(z)] = I(x;z) + TC(z) + Σ KL[q(z_i)||p(z_i)]
-        where I(x;z) is mutual information, TC(z) is total correlation.
-        
-        DOC_VERIFIED
-        """
+        where I(x;z) is mutual information, TC(z) is total correlation.        """
         super().__init__(weight=weight)
         self.alpha = alpha
         self.beta = beta
@@ -747,10 +675,7 @@ class TCVAELoss(AELoss):
         Raises
         ------
         ValueError
-            If mu or log_var are not provided.
-            
-        DOC_VERIFIED
-        """
+            If mu or log_var are not provided.        """
         if mu is None or log_var is None:
             raise ValueError("TC-VAE loss requires mu and log_var")
         
@@ -803,10 +728,7 @@ class TCVAELoss(AELoss):
         Notes
         -----
         Uses log variance for numerical stability. The log probability is:
-        log p(x|μ,σ²) = -0.5 * [log(2π) + log(σ²) + (x-μ)²/σ²]
-        
-        DOC_VERIFIED
-        """
+        log p(x|μ,σ²) = -0.5 * [log(2π) + log(σ²) + (x-μ)²/σ²]        """
         normalization = -0.5 * (np.log(2 * np.pi) + log_var)
         inv_var = torch.exp(-log_var)
         log_density = normalization - 0.5 * ((x - mu).pow(2) * inv_var)
@@ -836,10 +758,7 @@ class TCVAELoss(AELoss):
         Notes
         -----
         Used for estimating log q(z) ≈ log(1/N Σ_j q(z|x_j)) via importance
-        sampling, which is needed for the TC-VAE decomposition.
-        
-        DOC_VERIFIED
-        """
+        sampling, which is needed for the TC-VAE decomposition.        """
         batch_size, latent_dim = batch.shape
         
         # Expand for broadcasting
@@ -882,10 +801,7 @@ class FactorVAELoss(AELoss):
     
     References
     ----------
-    Kim, H., & Mnih, A. (2018). Disentangling by Factorising. ICML 2018.
-    
-    DOC_VERIFIED
-    """
+    Kim, H., & Mnih, A. (2018). Disentangling by Factorising. ICML 2018.    """
     
     def __init__(
         self, 
@@ -905,10 +821,7 @@ class FactorVAELoss(AELoss):
         weight : float, default=1.0
             Loss weight.
         device : torch.device, optional
-            Device for discriminator.
-            
-        DOC_VERIFIED
-        """
+            Device for discriminator.        """
         super().__init__(weight=weight)
         self.gamma = gamma
         self.discriminator_dims = discriminator_dims or [256, 256]
@@ -935,10 +848,7 @@ class FactorVAELoss(AELoss):
         - Output: 2 classes (real vs permuted)
         - Activation: LeakyReLU with dropout for regularization
         
-        The discriminator requires separate optimization in the training loop.
-        
-        DOC_VERIFIED
-        """
+        The discriminator requires separate optimization in the training loop.        """
         layers = []
         in_dim = latent_dim
         
@@ -985,10 +895,7 @@ class FactorVAELoss(AELoss):
         The permutation breaks dependencies between latent dimensions,
         approximating samples from the product of marginals Π q(z_i).
         The discriminator's confidence in classifying real samples
-        indicates the strength of the total correlation.
-        
-        DOC_VERIFIED
-        """
+        indicates the strength of the total correlation.        """
         batch_size = code.shape[0]
         latent_dim = code.shape[1]
         
@@ -1034,10 +941,7 @@ class SparsityLoss(AELoss):
     
     References
     ----------
-    Ng, A. (2011). Sparse autoencoder. CS294A Lecture notes, Stanford University.
-    
-    DOC_VERIFIED
-    """
+    Ng, A. (2011). Sparse autoencoder. CS294A Lecture notes, Stanford University.    """
     
     def __init__(self, sparsity_target: float = 0.05, weight: float = 1.0):
         """Initialize sparsity loss.
@@ -1047,10 +951,7 @@ class SparsityLoss(AELoss):
         sparsity_target : float, default=0.05
             Target average activation level.
         weight : float, default=1.0
-            Loss weight.
-            
-        DOC_VERIFIED
-        """
+            Loss weight.        """
         super().__init__(weight=weight)
         self.sparsity_target = sparsity_target
     
@@ -1084,10 +985,7 @@ class SparsityLoss(AELoss):
         KL(ρ||ρ̂_j) = ρ log(ρ/ρ̂_j) + (1-ρ) log((1-ρ)/(1-ρ̂_j))
         where ρ̂_j is the average activation of unit j over the batch.
         
-        Uses clamping for numerical stability to avoid log(0).
-        
-        DOC_VERIFIED
-        """
+        Uses clamping for numerical stability to avoid log(0).        """
         # Average activation per latent dimension
         avg_activation = torch.mean(code, dim=0)
         
@@ -1125,10 +1023,7 @@ class ContractiveLoss(AELoss):
     References
     ----------
     Rifai, S., et al. (2011). Contractive Auto-Encoders: Explicit Invariance
-    During Feature Extraction. ICML 2011.
-    
-    DOC_VERIFIED
-    """
+    During Feature Extraction. ICML 2011.    """
     
     def __init__(self, lambda_c: float = 0.01, weight: float = 1.0):
         """Initialize contractive loss.
@@ -1138,10 +1033,7 @@ class ContractiveLoss(AELoss):
         lambda_c : float, default=0.01
             Contraction strength parameter.
         weight : float, default=1.0
-            Loss weight.
-            
-        DOC_VERIFIED
-        """
+            Loss weight.        """
         super().__init__(weight=weight)
         self.lambda_c = lambda_c
     
@@ -1181,10 +1073,7 @@ class ContractiveLoss(AELoss):
         or alternative regularization methods.
         
         For efficiency, we compute Tr(J^T J) = Σ_i ||∂h/∂x_i||² instead of
-        forming the full Jacobian matrix.
-        
-        DOC_VERIFIED
-        """
+        forming the full Jacobian matrix.        """
         if encoder is None:
             raise ValueError("Contractive loss requires encoder module")
         
@@ -1248,10 +1137,7 @@ class MMDLoss(AELoss):
     Journal of Machine Learning Research, 13(1), 723-773.
     
     Tolstikhin, I., et al. (2018). Wasserstein Auto-Encoders. ICLR 2018.
-    (Note: WAE paper uses MMD as an alternative to Wasserstein distance)
-    
-    DOC_VERIFIED
-    """
+    (Note: WAE paper uses MMD as an alternative to Wasserstein distance)    """
     
     def __init__(self, mmd_weight: float = 1.0, weight: float = 1.0):
         """Initialize MMD loss.
@@ -1261,10 +1147,7 @@ class MMDLoss(AELoss):
         mmd_weight : float, default=1.0
             Weight for Maximum Mean Discrepancy term.
         weight : float, default=1.0
-            Loss weight.
-            
-        DOC_VERIFIED
-        """
+            Loss weight.        """
         super().__init__(weight=weight)
         self.mmd_weight = mmd_weight
     
@@ -1295,10 +1178,7 @@ class MMDLoss(AELoss):
         Uses empirical estimates:
         - q(z): empirical distribution from encoder outputs
         - p(z): samples from N(0,I) prior
-        The kernel bandwidth is fixed at 1.0 by default.
-        
-        DOC_VERIFIED
-        """
+        The kernel bandwidth is fixed at 1.0 by default.        """
         batch_size = code.shape[0]
         latent_dim = code.shape[1]
         
@@ -1336,10 +1216,7 @@ class MMDLoss(AELoss):
         Uses the unbiased U-statistic estimator that excludes diagonal terms:
         MMD² = (1/(n(n-1)))Σᵢ≠ⱼ k(xᵢ,xⱼ) + (1/(m(m-1)))Σᵢ≠ⱼ k(yᵢ,yⱼ) - (2/(nm))Σᵢⱼ k(xᵢ,yⱼ)
         
-        This gives an unbiased estimate of the population MMD.
-        
-        DOC_VERIFIED
-        """
+        This gives an unbiased estimate of the population MMD.        """
         n = x.shape[0]
         m = y.shape[0]
         
@@ -1400,10 +1277,7 @@ class MMDLoss(AELoss):
         -----
         RBF kernel: k(x,y) = exp(-||x-y||² / (2σ²))
         Bandwidth selection is important: too small may overfit, too large may
-        underfit. Common heuristics use median pairwise distance.
-        
-        DOC_VERIFIED
-        """
+        underfit. Common heuristics use median pairwise distance.        """
         if kernel == 'rbf':
             # RBF kernel
             x_size = x.shape[0]

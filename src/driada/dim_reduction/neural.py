@@ -70,10 +70,7 @@ class Encoder(nn.Module):
     See Also
     --------
     Decoder : The corresponding decoder network.
-    VAEEncoder : Variational encoder for probabilistic latent representations.
-    
-    DOC_VERIFIED
-    """
+    VAEEncoder : Variational encoder for probabilistic latent representations.    """
 
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
         """Initialize the encoder network.
@@ -97,10 +94,7 @@ class Encoder(nn.Module):
         Raises
         ------
         ValueError
-            If dropout rate is not in the range [0, 1).
-            
-        DOC_VERIFIED
-        """
+            If dropout rate is not in the range [0, 1).        """
         super().__init__()
         dropout = kwargs.get("dropout", None)
 
@@ -153,10 +147,7 @@ class Encoder(nn.Module):
         4. Linear transformation to latent dimension
         
         The output is unbounded to allow full representational capacity
-        in the latent space.
-        
-        DOC_VERIFIED
-        """
+        in the latent space.        """
         activation = self.encoder_hidden_layer(features)
         activation = self.dropout(activation)
         activation = F.leaky_relu(activation)
@@ -222,10 +213,7 @@ class VAEEncoder(nn.Module):
     See Also
     --------
     VAE : Complete variational autoencoder that uses this encoder.
-    Encoder : Standard encoder with bounded outputs.
-    
-    DOC_VERIFIED
-    """
+    Encoder : Standard encoder with bounded outputs.    """
 
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
         """Initialize the variational encoder network.
@@ -249,10 +237,7 @@ class VAEEncoder(nn.Module):
         Raises
         ------
         ValueError
-            If dropout rate is not in the range [0, 1).
-            
-        DOC_VERIFIED
-        """
+            If dropout rate is not in the range [0, 1).        """
         super().__init__()
         dropout = kwargs.get("dropout", None)
 
@@ -301,10 +286,7 @@ class VAEEncoder(nn.Module):
         -----
         Unlike standard encoders, VAE encoders output unconstrained values
         (no sigmoid activation) since they represent distribution parameters.
-        The output should be reshaped to extract means and log variances.
-        
-        DOC_VERIFIED
-        """
+        The output should be reshaped to extract means and log variances.        """
         activation = self.encoder_hidden_layer(features)
         activation = self.dropout(activation)
         activation = F.leaky_relu(activation)
@@ -367,10 +349,7 @@ class Decoder(nn.Module):
     See Also
     --------
     Encoder : The corresponding encoder network.
-    AE : Complete autoencoder using this decoder.
-    
-    DOC_VERIFIED
-    """
+    AE : Complete autoencoder using this decoder.    """
 
     def __init__(self, code_dim, inter_dim, orig_dim, kwargs, device=None):
         """Initialize the decoder network.
@@ -394,10 +373,7 @@ class Decoder(nn.Module):
         Raises
         ------
         ValueError
-            If dropout rate is not in the range [0, 1).
-            
-        DOC_VERIFIED
-        """
+            If dropout rate is not in the range [0, 1).        """
         super().__init__()
         dropout = kwargs.get("dropout", None)
 
@@ -447,10 +423,7 @@ class Decoder(nn.Module):
         2. Dropout regularization (if enabled)
         3. LeakyReLU activation
         4. Linear transformation to original dimension
-        5. No output activation (unbounded reconstruction)
-        
-        DOC_VERIFIED
-        """
+        5. No output activation (unbounded reconstruction)        """
         activation = self.decoder_hidden_layer(features)
         activation = self.dropout(activation)
         activation = F.leaky_relu(activation)
@@ -518,10 +491,7 @@ class AE(nn.Module):
     --------
     VAE : Variational autoencoder for probabilistic encoding.
     Encoder : The encoder component.
-    Decoder : The decoder component.
-    
-    DOC_VERIFIED
-    """
+    Decoder : The decoder component.    """
 
     def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs, dec_kwargs, device):
         """Initialize the autoencoder.
@@ -541,10 +511,7 @@ class AE(nn.Module):
         dec_kwargs : dict
             Decoder parameters (e.g., {'dropout': 0.2}).
         device : torch.device
-            Device for computations.
-            
-        DOC_VERIFIED
-        """
+            Device for computations.        """
         super(AE, self).__init__()
 
         self.encoder = Encoder(
@@ -585,10 +552,7 @@ class AE(nn.Module):
         Notes
         -----
         The forward pass performs: input → encoder → latent → decoder → reconstruction.
-        Both latent codes and reconstructions are unbounded.
-        
-        DOC_VERIFIED
-        """
+        Both latent codes and reconstructions are unbounded.        """
         code = self.encoder.forward(features)
         reconstructed = self.decoder.forward(code)
         return reconstructed
@@ -611,10 +575,7 @@ class AE(nn.Module):
         -----
         This method only runs the encoder portion and returns the latent
         codes as a numpy array. The transpose operation converts from
-        PyTorch's (batch, features) to DRIADA's (features, samples) format.
-        
-        DOC_VERIFIED
-        """
+        PyTorch's (batch, features) to DRIADA's (features, samples) format.        """
         encoder = self.encoder
         embedding = encoder.forward(input_)
         return embedding.detach().cpu().numpy().T
@@ -685,10 +646,7 @@ class VAE(nn.Module):
     See Also
     --------
     AE : Standard deterministic autoencoder.
-    VAEEncoder : The probabilistic encoder component.
-    
-    DOC_VERIFIED
-    """
+    VAEEncoder : The probabilistic encoder component.    """
 
     def __init__(
         self,
@@ -728,10 +686,7 @@ class VAE(nn.Module):
         The encoder output dimension is set to 2 * code_dim to enable the
         VAE to learn both mean and log variance parameters for the latent
         Gaussian distribution. These parameters are later split in the
-        get_code method.
-        
-        DOC_VERIFIED
-        """
+        get_code method.        """
         super(VAE, self).__init__()
 
         # Use VAEEncoder instead of regular Encoder
@@ -786,10 +741,7 @@ class VAE(nn.Module):
         z = mu + sigma * epsilon, where epsilon ~ N(0, I)
         
         This allows gradients to flow through mu and log_var during backpropagation
-        while maintaining the stochasticity through the random epsilon.
-        
-        DOC_VERIFIED
-        """
+        while maintaining the stochasticity through the random epsilon.        """
         std = torch.exp(0.5 * log_var)  # standard deviation
         eps = torch.randn_like(std)  # sample from N(0, I)
         sample = mu + (eps * std)  # reparameterized sample
@@ -827,10 +779,7 @@ class VAE(nn.Module):
         The encoder outputs a tensor of shape (batch_size, 2 * code_dim) which
         is reshaped to (batch_size, 2, code_dim) where:
         - [:, 0, :] contains the mean parameters
-        - [:, 1, :] contains the log variance parameters
-        
-        DOC_VERIFIED
-        """
+        - [:, 1, :] contains the log variance parameters        """
         x = self.encoder.forward(features)
         
         # Reshape to separate mean and log variance
@@ -885,10 +834,7 @@ class VAE(nn.Module):
         See Also
         --------
         get_code : For encoding only without reconstruction.
-        reparameterization : The sampling mechanism.
-        
-        DOC_VERIFIED
-        """
+        reparameterization : The sampling mechanism.        """
         # encoding
         code, mu, log_var = self.get_code(features)
 
@@ -939,10 +885,7 @@ class VAE(nn.Module):
         See Also
         --------
         get_code : Returns code, mean, and log variance as tensors.
-        AE.get_code_embedding : Always deterministic (standard autoencoder).
-        
-        DOC_VERIFIED
-        """
+        AE.get_code_embedding : Always deterministic (standard autoencoder).        """
         code, mu, log_var = self.get_code(input_)
         if use_mean:
             return mu.detach().cpu().numpy().T
@@ -987,10 +930,7 @@ class NeuroDataset(Dataset):
     Notes
     -----
     The dataset returns tuples of (sample, index) where the index can be
-    used for tracking which samples were selected during training.
-    
-    DOC_VERIFIED
-    """
+    used for tracking which samples were selected during training.    """
 
     def __init__(self, data, transform=None):
         """Initialize the neural dataset.
@@ -1003,10 +943,7 @@ class NeuroDataset(Dataset):
         data : ndarray
             Input data matrix of shape (n_features, n_samples).
         transform : callable, optional
-            Optional transform function to apply to each sample.
-            
-        DOC_VERIFIED
-        """
+            Optional transform function to apply to each sample.        """
         self.data = data.T
         self.transform = transform
 
@@ -1016,10 +953,7 @@ class NeuroDataset(Dataset):
         Returns
         -------
         int
-            Number of samples (n_samples).
-            
-        DOC_VERIFIED
-        """
+            Number of samples (n_samples).        """
         return len(self.data)
 
     def __getitem__(self, idx):
@@ -1043,10 +977,7 @@ class NeuroDataset(Dataset):
         -----
         Returns both the sample and its index to allow tracking of which
         samples were used during training. This can be useful for debugging
-        or sample weighting schemes.
-        
-        DOC_VERIFIED
-        """
+        or sample weighting schemes.        """
         if torch.is_tensor(idx):
             idx = idx.tolist()
         
