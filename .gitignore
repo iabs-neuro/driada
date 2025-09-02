@@ -68,6 +68,8 @@ Thumbs.db
 
 # Data and logs
 *.log
+*.pkl
+*.pickle
 data/
 logs/
 wandb/
