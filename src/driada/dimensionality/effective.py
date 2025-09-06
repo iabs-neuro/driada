@@ -50,7 +50,9 @@ def _eff_dim(corr_eigs, q=2):
     >>> # Example with eigenvalues from PCA
     >>> eigenvalues = np.array([5.0, 3.0, 1.0, 0.5, 0.3, 0.2])
     >>> eff_d = _eff_dim(eigenvalues, q=2)
-    >>> print(f"Effective dimension (q=2): {eff_d:.2f}")    """
+    >>> print(f"Effective dimension (q=2): {eff_d:.2f}")
+    Effective dimension (q=2): 2.83
+    """
     if q < 0:
         raise ValueError("Renyi entropy is undefined for q<0")
     
@@ -132,13 +134,16 @@ def eff_dim(data, enable_correction, q=2, **correction_kwargs):
     >>> import numpy as np
     >>> # Generate data with 3 effective dimensions
     >>> n_samples, n_features = 1000, 50
+    >>> np.random.seed(42)  # For reproducible results
     >>> latent = np.random.randn(n_samples, 3)
     >>> mixing = np.random.randn(3, n_features)
     >>> data = latent @ mixing + 0.1 * np.random.randn(n_samples, n_features)
     >>> 
     >>> # Compute effective dimension
     >>> eff_d = eff_dim(data, enable_correction=False, q=2)
-    >>> print(f"Effective dimension: {eff_d:.2f}")  # Should be close to 3    """
+    >>> print(f"Effective dimension: {eff_d:.2f}")  # Should be close to 3
+    Effective dimension: 3.00
+    """
     data = np.asarray(data)
     
     if data.ndim != 2:

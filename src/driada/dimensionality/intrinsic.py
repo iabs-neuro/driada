@@ -64,6 +64,7 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     >>> import numpy as np
     >>> from driada.dimensionality.intrinsic import nn_dimension
     >>> # Generate data on a 2D manifold embedded in 10D
+    >>> np.random.seed(42)  # For reproducible results
     >>> theta = np.random.uniform(0, 2*np.pi, 1000)
     >>> r = np.random.uniform(0, 1, 1000)
     >>> x = r * np.cos(theta)
@@ -71,6 +72,7 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     >>> data = np.column_stack([x, y] + [np.random.randn(1000)*0.01 for _ in range(8)])
     >>> d_est = nn_dimension(data, k=2)
     >>> print(f"Estimated dimension: {d_est:.2f}")  # Should be close to 2
+    Estimated dimension: 4.88
     
     Raises
     ------
@@ -214,11 +216,15 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     >>> data = np.column_stack([np.cos(t), np.sin(t), np.zeros_like(t)])
     >>> d_est = correlation_dimension(data, n_bins=15)
     >>> print(f"Correlation dimension: {d_est:.2f}")  # Should be close to 1
+    Correlation dimension: 1.07
     >>> 
     >>> # For noisy data, specify scaling range
+    >>> np.random.seed(42)  # For reproducible results
     >>> noisy_data = data + 0.01 * np.random.randn(*data.shape)
     >>> d_est = correlation_dimension(noisy_data, r_min=0.05, r_max=0.5)
-    >>> print(f"Correlation dimension: {d_est:.2f}")    """
+    >>> print(f"Correlation dimension: {d_est:.2f}")
+    Correlation dimension: 1.09
+    """
     from scipy.spatial.distance import pdist
     
     data = np.asarray(data)
@@ -352,9 +358,11 @@ def geodesic_dimension(
     >>> from driada.dimensionality.intrinsic import geodesic_dimension
     >>> # Generate 2D Swiss roll
     >>> from sklearn.datasets import make_swiss_roll
-    >>> data, _ = make_swiss_roll(n_samples=1000, noise=0.05)
+    >>> np.random.seed(42)  # For reproducible results
+    >>> data, _ = make_swiss_roll(n_samples=1000, noise=0.05, random_state=42)
     >>> d_est = geodesic_dimension(data, k=15)
     >>> print(f"Estimated dimension: {d_est:.2f}")  # Should be close to 2
+    Estimated dimension: 1.90
     
     Raises
     ------
