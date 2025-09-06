@@ -84,15 +84,29 @@ def plot_pc_activity(exp, cell_ind, place_key=("x", "y"), ds=5, ax=None,
     
     Examples
     --------
-    >>> # Basic place cell plot
-    >>> ax = plot_pc_activity(exp, cell_ind=5)
-    
-    >>> # Custom styling with trajectory
-    >>> ax = plot_pc_activity(exp, cell_ind=10, show_trajectory=True,
-    ...                      cmap='viridis', marker_color='red')
-    
-    >>> # Using different spatial features
-    >>> ax = plot_pc_activity(exp, cell_ind=3, place_key=("x_grid", "y_grid"))    """
+    >>> import matplotlib.pyplot as plt
+    >>> from driada.experiment import load_demo_experiment
+    >>> 
+    >>> # Basic place cell plot with position data
+    >>> exp = load_demo_experiment(verbose=False)
+    >>> # Use x_pos and y_pos which are available in demo data
+    >>> # Note: Demo data doesn't have spike data, so we disable spike display
+    >>> ax = plot_pc_activity(exp, cell_ind=5, place_key=("x_pos", "y_pos"),
+    ...                      show_spikes=False, show_stats=False)
+    >>> plt.close()  # Suppress display
+    >>> 
+    >>> # Using separate x,y features with custom styling
+    >>> ax = plot_pc_activity(exp, cell_ind=10, place_key=("x_pos", "y_pos"),
+    ...                      show_trajectory=True, cmap='viridis', 
+    ...                      marker_color='red', show_stats=False, 
+    ...                      show_spikes=False, ds=20)
+    >>> plt.close()
+    >>> 
+    >>> # Custom styling example
+    >>> ax = plot_pc_activity(exp, cell_ind=3, place_key=("x_pos", "y_pos"),
+    ...                      ds=10, show_stats=False, show_spikes=False)
+    >>> plt.close()
+    """
     # Validate inputs
     if cell_ind < 0 or cell_ind >= exp.n_cells:
         raise IndexError(f"cell_ind {cell_ind} out of range [0, {exp.n_cells})")
@@ -133,7 +147,7 @@ def plot_pc_activity(exp, cell_ind, place_key=("x", "y"), ds=5, ax=None,
         lenx = max(x_data) - min(x_data)
         leny = max(y_data) - min(y_data)
         xyratio = max(lenx / leny, leny / lenx)
-        fig, ax = create_default_figure(figsize_base * xyratio, figsize_base)
+        fig, ax = create_default_figure(figsize=(figsize_base * xyratio, figsize_base))
 
     # Get neural activity
     neur = rescale(np.log(exp.neurons[cell_ind].ca.data + 1e-10))
@@ -230,12 +244,19 @@ def plot_neuron_feature_density(
     
     Examples
     --------
-    >>> # Plot calcium vs binary feature density
-    >>> ax = plot_neuron_feature_density(exp, 'calcium', 5, 'licking')
-    
-    >>> # With Wasserstein distance for binary features
-    >>> ax = plot_neuron_feature_density(exp, 'calcium', 10, 'reward', 
-    ...                                 compute_wsd=True)    """
+    >>> import matplotlib.pyplot as plt
+    >>> from driada.experiment import load_demo_experiment
+    >>> 
+    >>> # Plot calcium vs feature density
+    >>> exp = load_demo_experiment(verbose=False)
+    >>> # Using 'speed' feature which is available in demo data
+    >>> ax = plot_neuron_feature_density(exp, 'calcium', 5, 'speed')
+    >>> plt.close()  # Suppress display
+    >>> 
+    >>> # For binary features (if available in your data)
+    >>> # ax = plot_neuron_feature_density(exp, 'calcium', 10, 'licking', 
+    >>> #                                 compute_wsd=True)
+    """
     ind2 = min(exp.n_frames, ind2)
 
     if data_type == "calcium":
@@ -358,16 +379,24 @@ def plot_neuron_feature_pair(
     
     Examples
     --------
+    >>> import matplotlib.pyplot as plt
+    >>> from driada.experiment import load_demo_experiment
+    >>> 
     >>> # Basic time series plot
+    >>> exp = load_demo_experiment(verbose=False)
     >>> fig = plot_neuron_feature_pair(exp, 5, 'speed')
-    
+    >>> plt.close(fig)  # Suppress display
+    >>> 
     >>> # Without density subplot
-    >>> fig = plot_neuron_feature_pair(exp, 10, 'licking', 
+    >>> fig = plot_neuron_feature_pair(exp, 10, 'speed', 
     ...                               add_density_plot=False)
-    
+    >>> plt.close(fig)
+    >>> 
     >>> # Custom time range
-    >>> fig = plot_neuron_feature_pair(exp, 3, 'reward', 
-    ...                               ind1=1000, ind2=5000, ds=2)    """
+    >>> fig = plot_neuron_feature_pair(exp, 3, 'speed', 
+    ...                               ind1=1000, ind2=5000, ds=2)
+    >>> plt.close(fig)
+    """
 
     ind2 = min(exp.n_frames, ind2)
     ca = exp.neurons[cell_id].ca.scdata[ind1:ind2][::ds]
@@ -526,15 +555,42 @@ def plot_disentanglement_heatmap(
     
     Examples
     --------
+    >>> import numpy as np
+    >>> import matplotlib.pyplot as plt
+    >>> 
+    >>> # Create synthetic data for demonstration
+    >>> n_features = 4
+    >>> features = ['speed', 'position', 'direction', 'licking']
+    >>> 
+    >>> # Create synthetic matrices
+    >>> # disent_matrix[i,j] = how many times feature i was primary vs j
+    >>> disent_mat = np.array([
+    ...     [0, 15, 8, 20],
+    ...     [5, 0, 12, 18],
+    ...     [12, 8, 0, 10],
+    ...     [10, 7, 15, 0]
+    ... ])
+    >>> 
+    >>> # count_matrix[i,j] = total comparisons between features i and j
+    >>> count_mat = np.array([
+    ...     [0, 20, 20, 30],
+    ...     [20, 0, 20, 25],
+    ...     [20, 20, 0, 25],
+    ...     [30, 25, 25, 0]
+    ... ])
+    >>> 
     >>> # Basic heatmap
     >>> fig, ax = plot_disentanglement_heatmap(disent_mat, count_mat, features)
-    
+    >>> plt.close(fig)  # Suppress display
+    >>> 
     >>> # Custom styling
     >>> fig, ax = plot_disentanglement_heatmap(
     ...     disent_mat, count_mat, features,
     ...     title="My Analysis", cmap='RdYlGn',
     ...     figsize=(8, 6), dpi=150
-    ... )    """
+    ... )
+    >>> plt.close(fig)
+    """
     import seaborn as sns
     from matplotlib.colors import LinearSegmentedColormap
     import pandas as pd
@@ -656,14 +712,39 @@ def plot_disentanglement_summary(
     
     Examples
     --------
+    >>> import numpy as np
+    >>> import matplotlib.pyplot as plt
+    >>> 
+    >>> # Create synthetic data
+    >>> features = ['speed', 'position', 'direction', 'licking']
+    >>> 
+    >>> # Synthetic matrices as before
+    >>> disent_mat = np.array([
+    ...     [0, 15, 8, 20],
+    ...     [5, 0, 12, 18],
+    ...     [12, 8, 0, 10],
+    ...     [10, 7, 15, 0]
+    ... ])
+    >>> count_mat = np.array([
+    ...     [0, 20, 20, 30],
+    ...     [20, 0, 20, 25],
+    ...     [20, 20, 0, 25],
+    ...     [30, 25, 25, 0]
+    ... ])
+    >>> 
     >>> # Single experiment summary
     >>> fig = plot_disentanglement_summary(disent_mat, count_mat, features)
-    
+    >>> plt.close(fig)  # Suppress display
+    >>> 
     >>> # Multiple experiments (matrices will be summed)
+    >>> disent2 = disent_mat * 0.8  # Second synthetic experiment
+    >>> count2 = count_mat  # Same comparison counts
     >>> fig = plot_disentanglement_summary(
-    ...     [disent1, disent2], [count1, count2], features,
+    ...     [disent_mat, disent2], [count_mat, count2], features,
     ...     title_prefix="Combined: "
-    ... )    """
+    ... )
+    >>> plt.close(fig)
+    """
     # Handle multiple experiments
     if isinstance(disent_matrix, list):
         total_disent = np.sum(disent_matrix, axis=0)
@@ -818,22 +899,84 @@ def plot_selectivity_heatmap(
     
     Examples
     --------
+    >>> import matplotlib.pyplot as plt
+    >>> from driada.experiment import load_demo_experiment
+    >>> 
+    >>> # Load demo experiment and create synthetic selectivity data
+    >>> exp = load_demo_experiment(verbose=False)
+    >>> 
+    >>> # Create synthetic significant_neurons dict
+    >>> # In real usage, this comes from INTENSE analysis
+    >>> significant_neurons = {
+    ...     5: ['speed', 'x_pos'],   # Neuron 5 selective for speed and x_pos
+    ...     10: ['speed'],           # Neuron 10 selective for speed only
+    ...     15: ['x_pos', 'y_pos'],  # Neuron 15 selective for spatial features
+    ...     20: ['speed', 'y_pos'],
+    ...     25: ['x_pos']
+    ... }
+    >>> 
+    >>> # Initialize stats_tables if not present
+    >>> if not hasattr(exp, 'stats_tables'):
+    ...     exp.stats_tables = {}
+    >>> if 'calcium' not in exp.stats_tables:
+    ...     exp.stats_tables['calcium'] = {}
+    >>> 
+    >>> # Add minimal stats to experiment for the example
+    >>> # Using features that exist in demo data
+    >>> # Each stat entry needs data_hash and other required fields
+    >>> import numpy as np
+    >>> hash_val = 'demo_hash'
+    >>> exp.stats_tables['calcium']['speed'] = {
+    ...     5: {'me': 0.3, 'pval': 0.001, 'rval': 0.5, 'data_hash': hash_val,
+    ...         'opt_delay': 0, 'pre_pval': 0.1, 'pre_rval': 0.3, 
+    ...         'rel_me_beh': 0.2, 'rel_me_ca': 0.15}, 
+    ...     10: {'me': 0.4, 'pval': 0.0001, 'rval': 0.6, 'data_hash': hash_val,
+    ...          'opt_delay': 0, 'pre_pval': 0.05, 'pre_rval': 0.4,
+    ...          'rel_me_beh': 0.3, 'rel_me_ca': 0.2}, 
+    ...     20: {'me': 0.25, 'pval': 0.005, 'rval': 0.4, 'data_hash': hash_val,
+    ...          'opt_delay': 0, 'pre_pval': 0.2, 'pre_rval': 0.25,
+    ...          'rel_me_beh': 0.15, 'rel_me_ca': 0.1}
+    ... }
+    >>> exp.stats_tables['calcium']['x_pos'] = {
+    ...     5: {'me': 0.35, 'pval': 0.002, 'rval': 0.55, 'data_hash': hash_val,
+    ...         'opt_delay': 0, 'pre_pval': 0.15, 'pre_rval': 0.35,
+    ...         'rel_me_beh': 0.25, 'rel_me_ca': 0.2}, 
+    ...     15: {'me': 0.45, 'pval': 0.0001, 'rval': 0.7, 'data_hash': hash_val,
+    ...          'opt_delay': 0, 'pre_pval': 0.08, 'pre_rval': 0.5,
+    ...          'rel_me_beh': 0.35, 'rel_me_ca': 0.3}, 
+    ...     25: {'me': 0.3, 'pval': 0.003, 'rval': 0.5, 'data_hash': hash_val,
+    ...          'opt_delay': 0, 'pre_pval': 0.18, 'pre_rval': 0.3,
+    ...          'rel_me_beh': 0.2, 'rel_me_ca': 0.15}
+    ... }
+    >>> exp.stats_tables['calcium']['y_pos'] = {
+    ...     15: {'me': 0.2, 'pval': 0.01, 'rval': 0.3, 'data_hash': hash_val,
+    ...          'opt_delay': 0, 'pre_pval': 0.25, 'pre_rval': 0.15,
+    ...          'rel_me_beh': 0.1, 'rel_me_ca': 0.08}, 
+    ...     20: {'me': 0.15, 'pval': 0.02, 'rval': 0.25, 'data_hash': hash_val,
+    ...          'opt_delay': 0, 'pre_pval': 0.3, 'pre_rval': 0.12,
+    ...          'rel_me_beh': 0.08, 'rel_me_ca': 0.05}
+    ... }
+    >>> 
     >>> # Basic selectivity heatmap
     >>> fig, ax, stats = plot_selectivity_heatmap(exp, significant_neurons)
-    
+    >>> plt.close(fig)  # Suppress display
+    >>> 
     >>> # With log scale and p-value filtering
     >>> fig, ax, stats = plot_selectivity_heatmap(
     ...     exp, significant_neurons,
     ...     use_log_scale=True,
-    ...     significance_threshold=0.001
+    ...     significance_threshold=0.01
     ... )
-    
+    >>> plt.close(fig)
+    >>> 
     >>> # Custom visualization
     >>> fig, ax, stats = plot_selectivity_heatmap(
     ...     exp, significant_neurons,
     ...     cmap='hot', vmin=0, vmax=0.5,
     ...     figsize=(12, 10)
-    ... )    """
+    ... )
+    >>> plt.close(fig)
+    """
     # Get all features and create ordered lists
     all_features = sorted(
         [f for f in exp.dynamic_features.keys() if isinstance(f, str)]
@@ -854,22 +997,30 @@ def plot_selectivity_heatmap(
                 and feat_name in significant_neurons[cell_id]
             ):
                 # Get the statistics for this pair
-                pair_stats = exp.get_neuron_feature_pair_stats(
-                    cell_id, feat_name, mode="calcium"
-                )
-
-                # Check significance threshold if provided
-                if significance_threshold is not None:
-                    pval = pair_stats.get("pval", None)
-                    # Skip if pval is None (failed stage 1) or above threshold
-                    if pval is None or pval > significance_threshold:
+                try:
+                    pair_stats = exp.get_neuron_feature_pair_stats(
+                        cell_id, feat_name, mode="calcium"
+                    )
+                    
+                    # Skip if stats not available
+                    if pair_stats is None:
                         continue
 
-                # Get the metric value - 'me' contains the metric value for whichever metric was used
-                value = pair_stats.get("me", 0)
+                    # Check significance threshold if provided
+                    if significance_threshold is not None:
+                        pval = pair_stats.get("pval", None)
+                        # Skip if pval is None (failed stage 1) or above threshold
+                        if pval is None or pval > significance_threshold:
+                            continue
 
-                selectivity_matrix[neuron_idx, feat_idx] = value
-                all_metric_values.append(value)
+                    # Get the metric value - 'me' contains the metric value for whichever metric was used
+                    value = pair_stats.get("me", 0)
+
+                    selectivity_matrix[neuron_idx, feat_idx] = value
+                    all_metric_values.append(value)
+                except (KeyError, AttributeError):
+                    # Skip if stats not available for this pair
+                    continue
 
     # Apply log scale if requested
     if use_log_scale and len(all_metric_values) > 0:
