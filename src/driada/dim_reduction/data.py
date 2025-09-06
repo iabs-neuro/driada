@@ -364,12 +364,17 @@ class MVData(object):
             
         Examples
         --------
-        # Legacy format (still supported)
-        >>> emb = mvdata.get_embedding(e_params, g_params, m_params)
-
-        # New simplified format
-        >>> emb = mvdata.get_embedding(method='pca', dim=3)
-        >>> emb = mvdata.get_embedding(method='umap', n_components=2, n_neighbors=30)
+        >>> import numpy as np
+        >>> # Create data: 20 features, 100 samples
+        >>> data = np.random.randn(20, 100)
+        >>> mvdata = MVData(data)
+        >>> 
+        >>> # Get PCA embedding
+        >>> emb = mvdata.get_embedding(method='pca', dim=3, verbose=False)
+        >>> type(emb).__name__
+        'Embedding'
+        >>> emb.coords.shape  # (3 dimensions, 100 samples)
+        (3, 100)
         """
         # Handle new simplified API
         if method is not None:

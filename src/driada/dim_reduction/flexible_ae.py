@@ -291,6 +291,8 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
     ... )
     
     >>> # Autoencoder with sparsity and orthogonality constraints
+    >>> import numpy as np
+    >>> data = np.random.randn(100, 1000)  # 100 features, 1000 samples
     >>> ae = ModularAutoencoder(
     ...     input_dim=100, latent_dim=10,
     ...     loss_components=[
