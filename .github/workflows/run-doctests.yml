@@ -68,9 +68,13 @@ jobs:
         python tools/run_doctests.py ${{ matrix.module }} --timeout 60
       continue-on-error: true
     
+    - name: Set artifact name
+      id: artifact-name
+      run: echo "name=doctest-report-$(echo '${{ matrix.module }}' | tr '/' '-')" >> $GITHUB_OUTPUT
+    
     - name: Upload test report
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: doctest-report-${{ matrix.module }}
+        name: ${{ steps.artifact-name.outputs.name }}
         path: tools/doctest_report.txt
