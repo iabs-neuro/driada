@@ -8,7 +8,7 @@ This module provides functions for downloading files and folders from Google Dri
 Functions
 ---------
 
-.. autofunction:: driada.gdrive.download_gdrive_data
+.. autofunction:: driada.gdrive.download.download_gdrive_data
 .. autofunction:: driada.gdrive.download_part_of_folder
 .. autofunction:: driada.gdrive.initialize_iabs_router
 
@@ -23,7 +23,7 @@ Basic File Download
    from driada.gdrive import desktop_auth, download_gdrive_data
    
    # Authenticate
-   auth = desktop_auth()
+   auth = desktop_auth('path/to/client_secrets.json')
    
    # Download a single file
    file_url = 'https://drive.google.com/file/d/1abc123.../view'
@@ -39,10 +39,13 @@ Folder Download
 .. code-block:: python
 
    # Download entire folder
+   from driada.gdrive import desktop_auth, download_gdrive_data
+   
+   auth = desktop_auth('path/to/client_secrets.json')
    folder_url = 'https://drive.google.com/drive/folders/1xyz789...'
-   download_gdrive_data(
-       auth, 
-       folder_url, 
+   success, log = download_gdrive_data(
+       auth,
+       folder_url,
        'local_data/experiment_folder/',
        recursive=True  # Include subfolders
    )
@@ -56,21 +59,15 @@ Selective Download
    
    # Download only specific files from folder
    download_part_of_folder(
-       auth,
-       folder_id='1xyz789...',
-       local_path='local_data/',
-       file_pattern='*.mat',  # Only MATLAB files
-       max_files=10          # Limit number of files
+       output='local_data/',
+       folder='https://drive.google.com/drive/folders/1xyz789...',
+       key='experiment',  # Files containing 'experiment'
+       extensions=['.mat', '.npz'],  # Only these file types
+       via_pydrive=True,
+       gauth=auth,
+       maxfiles=10
    )
    
-   # Download with filters
-   download_part_of_folder(
-       auth,
-       folder_id='1xyz789...',
-       local_path='local_data/',
-       file_filter=lambda f: f['size'] < 1e9,  # Files < 1GB
-       recursive=True
-   )
 
 
 IABS Router Setup
@@ -80,113 +77,38 @@ IABS Router Setup
 
    from driada.gdrive import initialize_iabs_router
    
-   # Setup router for IABS data
-   router = initialize_iabs_router(
-       auth,
-       data_root='IABS_data/',
-       cache_metadata=True
-   )
+   # IMPORTANT: Requires config.py setup first:
+   # 1. Copy src/driada/gdrive/config_template.py to config.py
+   # 2. Set IABS_ROUTER_URL to your Google Sheets export URL
+   # 3. Add config.py to .gitignore
    
-   # Use router to access data
-   experiment = router.get_experiment('mouse1/day1')
-   calcium_data = router.get_calcium_data('mouse1/day1/calcium.h5')
-
-Advanced Features
------------------
-
-Resumable Downloads
-^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   # Resume interrupted downloads
-   from driada.gdrive import ResumableDownload
+   # Download and initialize IABS data router
+   router_df, data_pieces = initialize_iabs_router(root='/content')
    
-   downloader = ResumableDownload(
-       auth,
-       file_id='1abc123...',
-       local_path='large_file.h5'
-   )
-   
-   # Start/resume download
-   downloader.download()
-   
-   # Check if complete
-   if downloader.is_complete():
-       print("Download finished!")
+   # router_df contains experiment metadata with Drive links
+   # data_pieces lists downloadable data columns
 
-Checksum Verification
-^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   # Verify file integrity
-   download_gdrive_data(
-       auth,
-       file_id,
-       local_path,
-       verify_checksum=True  # Verify MD5 after download
-   )
 
 
 Error Handling
 --------------
 
-Retry Logic
-^^^^^^^^^^^
+Basic error handling example:
 
 .. code-block:: python
 
-   from driada.gdrive import download_with_retry
+   import time
    
-   # Automatic retry on failure
-   download_with_retry(
-       auth,
-       file_id,
-       local_path,
-       max_retries=5,
-       backoff_factor=2.0,  # Exponential backoff
-       retry_on=[500, 502, 503, 504]  # HTTP errors to retry
-   )
-
-Handling Quota Errors
-^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   from driada.gdrive import handle_quota_error
-   
-   @handle_quota_error(wait_time=60)  # Wait 60s on quota error
-   def download_many_files(auth, file_list):
-       for file_id, path in file_list:
-           download_gdrive_data(auth, file_id, path)
-
-Performance Tips
-----------------
-
-1. **Batch Operations**: Use batch_download for multiple files
-2. **Parallel Downloads**: Enable parallel mode for large datasets
-3. **Chunk Size**: Adjust chunk_size based on connection speed
-4. **Caching**: Cache metadata to avoid repeated API calls
-
-.. code-block:: python
-
-   # Optimized for large datasets
-   from driada.gdrive import OptimizedDownloader
-   
-   downloader = OptimizedDownloader(
-       auth,
-       cache_dir='.gdrive_cache',
-       parallel_downloads=4,
-       chunk_size=10*1024*1024  # 10MB chunks
-   )
-   
-   # Download entire dataset
-   downloader.download_dataset(
-       dataset_folder_id,
-       local_root='./data',
-       skip_existing=True
-   )
+   def download_with_retry(auth, file_id, local_path, max_retries=3):
+       for attempt in range(max_retries):
+           try:
+               download_gdrive_data(auth, file_id, local_path)
+               return True
+           except Exception as e:
+               print(f"Attempt {attempt + 1} failed: {e}")
+               if attempt < max_retries - 1:
+                   time.sleep(2 ** attempt)  # Exponential backoff
+       return False
 
 Common Use Cases
 ----------------
@@ -196,17 +118,20 @@ Common Use Cases
 .. code-block:: python
 
    # Standard workflow for DRIADA data
-   auth = desktop_auth()
+   from driada.gdrive import desktop_auth, download_gdrive_data
+   
+   auth = desktop_auth('path/to/client_secrets.json')
    
    # Download experiment folder
    exp_folder = 'https://drive.google.com/drive/folders/...'
-   download_gdrive_data(
+   success, log = download_gdrive_data(
        auth,
        exp_folder,
        'experiments/mouse1_day1/',
        recursive=True
    )
    
-   # Load the experiment
+   # Load the experiment (requires exp_params)
    from driada.experiment import load_experiment
-   exp = load_experiment('experiments/mouse1_day1/data.mat')
+   exp_params = {'mouse': 'mouse1', 'date': 'day1', 'session': 1}
+   exp = load_experiment('local', exp_params, data_path='experiments/mouse1_day1/data.mat')

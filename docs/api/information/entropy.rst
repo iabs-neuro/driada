@@ -22,6 +22,7 @@ Joint Entropy
 .. code-block:: python
 
    from driada.information.entropy import joint_entropy_dd
+   import numpy as np
    
    # Joint entropy of two variables
    x = np.random.randint(0, 4, 1000)
@@ -36,105 +37,42 @@ Conditional Entropy
 .. code-block:: python
 
    from driada.information.entropy import conditional_entropy_cdd
+   import numpy as np
    
-   # H(Y|X) - uncertainty in Y given X
-   x = np.random.randint(0, 3, 1000)
-   y = x + np.random.randint(0, 2, 1000)  # Y depends on X
+   # H(Z|X,Y) - uncertainty in continuous Z given discrete X,Y
+   x = np.random.randint(0, 3, 1000)  # Discrete
+   y = np.random.randint(0, 2, 1000)  # Discrete
+   z = np.random.randn(1000) + x  # Continuous, depends on X
    
-   H_y_given_x = conditional_entropy_cdd(y, x)
-   print(f"H(Y|X) = {H_y_given_x:.3f} bits")
+   H_z_given_xy = conditional_entropy_cdd(z, x, y)
+   print(f"H(Z|X,Y) = {H_z_given_xy:.3f} bits")
 
-
-Advanced Features
------------------
-
-
-Block Entropy
-^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   from driada.information.entropy import block_entropy
-   
-   # Entropy of sequences
-   sequence = np.random.randint(0, 2, 1000)
-   
-   # Single symbol entropy
-   H1 = block_entropy(sequence, block_size=1)
-   
-   # Pair entropy
-   H2 = block_entropy(sequence, block_size=2)
-   
-   # Entropy rate
-   h = H2 - H1
-   print(f"Entropy rate: {h:.3f} bits/symbol")
-
-Cross Entropy
-^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   from driada.information.entropy import cross_entropy
-   
-   # Cross entropy for classification
-   true_labels = np.array([0, 1, 1, 0, 1])
-   predictions = np.array([
-       [0.9, 0.1],  # Correct
-       [0.2, 0.8],  # Correct
-       [0.3, 0.7],  # Correct
-       [0.6, 0.4],  # Wrong
-       [0.1, 0.9],  # Correct
-   ])
-   
-   ce = cross_entropy(true_labels, predictions)
-   print(f"Cross entropy: {ce:.3f} bits")
-
-Performance Optimization
-------------------------
-
-
-Batch Processing
-^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   # Compute entropy for multiple time series efficiently
-   from concurrent.futures import ProcessPoolExecutor
-   
-   # Example of batch processing pattern
-   # (actual entropy functions should be imported as shown above)
 
 Theory
 ------
 
 **Shannon Entropy**:
 
-For discrete variable X with probability distribution p(x):
+For discrete random variable X:
 
 .. math::
 
-   H(X) = -\sum_{x} p(x) \log_2 p(x)
+   H(X) = -\sum_{i} p(x_i) \log_2 p(x_i)
 
-**Differential Entropy**:
-
-For continuous variable X with probability density f(x):
+For continuous random variable X:
 
 .. math::
 
-   h(X) = -\int_{-\infty}^{\infty} f(x) \log_2 f(x) dx
+   h(X) = -\int p(x) \log_2 p(x) dx
 
-**Properties**:
+**Conditional Entropy**:
 
-- Non-negative for discrete variables
-- Can be negative for continuous variables
-- Maximum when distribution is uniform
-- Invariant under reordering
-- Additive for independent variables
+.. math::
 
-Best Practices
---------------
+   H(X|Y) = H(X,Y) - H(Y)
 
-1. **Sample Size**: Ensure sufficient samples (>100 per state)
-2. **Bias Correction**: Use for small samples or many states
-3. **Continuous Data**: Consider discretization vs k-NN estimators
-4. **Numerical Stability**: Use log-sum-exp trick for small probabilities
+**Mutual Information**:
+
+.. math::
+
+   I(X;Y) = H(X) + H(Y) - H(X,Y)

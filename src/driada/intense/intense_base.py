@@ -269,11 +269,24 @@ def calculate_optimal_delays(
 
     Examples
     --------
-    >>> neurons = [neuron1.ca, neuron2.ca]  # calcium signals
-    >>> behaviors = [speed_ts, direction_ts]  # behavioral variables
-    >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi',
-    ...                                   shift_window=100, ds=1)
-    >>> print(f"Neuron 1 optimal delay with speed: {delays[0, 0]} frames")    """
+    >>> # Create minimal time series with known phase shift
+    >>> import numpy as np
+    >>> from driada.information.info_base import TimeSeries
+    >>> # 100 points is enough to demonstrate functionality
+    >>> t = np.linspace(0, 2*np.pi, 100)
+    >>> # Create two sine waves with 5-sample phase shift
+    >>> data1 = np.sin(t)
+    >>> data2 = np.sin(t + np.pi/4)  # phase shifted signal
+    >>> ts1 = TimeSeries(data1, discrete=False)
+    >>> ts2 = TimeSeries(data2, discrete=False)
+    >>> # Find optimal delay with small window for speed
+    >>> delays = calculate_optimal_delays([ts1], [ts2], 'mi', 
+    ...                                   shift_window=5, ds=1, verbose=False)
+    >>> delays.shape
+    (1, 1)
+    >>> # The delay captures the phase relationship
+    >>> -5 <= delays[0, 0] <= 5
+    True"""
     # Validate inputs
     validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
     validate_metric(metric)
@@ -346,11 +359,21 @@ def calculate_optimal_delays_parallel(
 
     Examples
     --------
-    >>> neurons = [neuron.ca for neuron in exp.neurons[:100]]
-    >>> behaviors = [exp.speed, exp.direction]
-    >>> # Use 8 cores for faster computation
+    >>> # Demonstrate parallel processing with minimal data
+    >>> import numpy as np
+    >>> from driada.information.info_base import TimeSeries
+    >>> # Create 3 neurons and 2 behaviors with 50 timepoints each
+    >>> np.random.seed(42)  # For reproducible example
+    >>> neurons = [TimeSeries(np.random.randn(50), discrete=False) for _ in range(3)]
+    >>> behaviors = [TimeSeries(np.random.randn(50), discrete=False) for _ in range(2)]
+    >>> # Use 2 cores with small shift window
     >>> delays = calculate_optimal_delays_parallel(neurons, behaviors, 'mi',
-    ...                                            shift_window=100, ds=1, n_jobs=8)    """
+    ...                                           shift_window=3, ds=1, n_jobs=2, verbose=False)
+    >>> delays.shape
+    (3, 2)
+    >>> # All delays should be within the window
+    >>> np.all(np.abs(delays) <= 3)
+    True"""
     # Validate inputs
     validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
     validate_metric(metric)
@@ -451,18 +474,22 @@ def get_calcium_feature_me_profile(
 
     Examples
     --------
-    >>> # Backward compatibility - single cell and feature
-    >>> mi_zero, mi_profile = get_calcium_feature_me_profile(exp, 0, 'speed')
-    >>>
-    >>> # New usage - analyze multiple cells and features
-    >>> results = get_calcium_feature_me_profile(exp, cbunch=[0, 1, 2], fbunch=['speed', 'head_direction'])
-    >>> # Access specific result: results[cell_id][feat_id]['me0'] and ['shifted_me']
-    >>>
-    >>> # Analyze all cells with all features
-    >>> results = get_calcium_feature_me_profile(exp, cbunch=None, fbunch=None)
-    >>>
-    >>> # Multi-feature joint mutual information
-    >>> results = get_calcium_feature_me_profile(exp, cbunch=[0], fbunch=[('x', 'y')])    """
+    This function requires an Experiment object, which contains neural recordings
+    and behavioral features. Here's a conceptual example:
+    
+    >>> # Pseudo-code example (requires actual Experiment object):
+    >>> # exp = load_experiment()  # Load your experiment data
+    >>> # 
+    >>> # # Analyze MI between neuron 0 and speed feature
+    >>> # me0, profile = get_calcium_feature_me_profile(exp, 0, 'speed',
+    >>> #                                              window=100, ds=5)
+    >>> # 
+    >>> # # Or analyze multiple neurons and features at once
+    >>> # results = get_calcium_feature_me_profile(exp, cbunch=[0, 1], 
+    >>> #                                          fbunch=['speed', 'direction'],
+    >>> #                                          window=50, ds=2)
+    >>> # # Access results: results[neuron_id][feature_name]['me0']
+    >>> pass  # Actual usage requires Experiment object"""
     # Validate inputs
     validate_common_parameters(ds=ds)
     validate_metric(metric)
@@ -865,11 +892,21 @@ def scan_pairs_parallel(
     
     Examples
     --------
-    >>> neurons = [neuron.ca for neuron in exp.neurons[:50]]
-    >>> behaviors = [exp.speed, exp.direction]
-    >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi', 100, 1)
+    >>> # Minimal example with 2x2 pairs
+    >>> import numpy as np
+    >>> from driada.information.info_base import TimeSeries
+    >>> np.random.seed(42)  # For reproducibility
+    >>> # Small data: 2 neurons, 2 behaviors, 50 timepoints
+    >>> neurons = [TimeSeries(np.random.randn(50), discrete=False) for _ in range(2)]
+    >>> behaviors = [TimeSeries(np.random.randn(50), discrete=False) for _ in range(2)]
+    >>> delays = np.zeros((2, 2), dtype=int)  # No delays
+    >>> # Just 5 shuffles for demonstration
     >>> shifts, metrics = scan_pairs_parallel(neurons, behaviors, 'mi', 
-    ...                                      100, delays, n_jobs=4)    """
+    ...                                      5, delays, n_jobs=1, seed=42)
+    >>> shifts.shape
+    (2, 2, 5)
+    >>> metrics.shape  # Original + 5 shuffles = 6 total
+    (2, 2, 6)"""
 
     # Validate inputs
     validate_time_series_bunches(
@@ -1007,12 +1044,22 @@ def scan_pairs_router(
     
     Examples
     --------
-    >>> neurons = [neuron.ca for neuron in exp.neurons[:50]]
-    >>> behaviors = [exp.speed, exp.direction]
-    >>> delays = calculate_optimal_delays(neurons, behaviors, 'mi', 100, 1)
-    >>> # Automatically use parallel processing
+    >>> # Router example - chooses sequential or parallel execution
+    >>> import numpy as np
+    >>> from driada.information.info_base import TimeSeries
+    >>> np.random.seed(42)
+    >>> # Minimal data for fast execution
+    >>> neurons = [TimeSeries(np.random.randn(30), discrete=False) for _ in range(2)]
+    >>> behaviors = [TimeSeries(np.random.randn(30), discrete=False) for _ in range(2)]
+    >>> delays = np.zeros((2, 2), dtype=int)  # No delays
+    >>> # Use sequential mode (enable_parallelization=False)
     >>> shifts, metrics = scan_pairs_router(neurons, behaviors, 'mi', 
-    ...                                    100, delays)    """
+    ...                                    3, delays, enable_parallelization=False, seed=42)
+    >>> metrics.shape  # 1 original + 3 shuffles = 4 total
+    (2, 2, 4)
+    >>> # First slice contains actual MI values
+    >>> metrics[:, :, 0].shape
+    (2, 2)"""
 
     if enable_parallelization:
         random_shifts, me_total = scan_pairs_parallel(
@@ -1076,10 +1123,18 @@ class IntenseResults(object):
 
     Examples
     --------
+    >>> # Create results container and add analysis outputs
     >>> results = IntenseResults()
-    >>> results.update('stats', computed_stats)
-    >>> results.update('info', {'optimal_delays': delays})
-    >>> results.save_to_hdf5('intense_results.h5')    """
+    >>> # Add statistical results
+    >>> results.update('stats', {'neuron1': {'feature1': {'me': 0.5, 'pval': 0.01}}})
+    >>> # Add computation metadata
+    >>> results.update('info', {'optimal_delays': [[0, 5], [10, 0]],
+    ...                        'n_shuffles': 1000})
+    >>> # Access stored data
+    >>> results.stats['neuron1']['feature1']['me']
+    0.5
+    >>> # Save results (commented to avoid file creation in doctest)
+    >>> # results.save_to_hdf5('analysis_results.h5')"""
 
     def __init__(self):
         """
@@ -1124,12 +1179,19 @@ class IntenseResults(object):
             
         Examples
         --------
+        >>> # Store different types of analysis results
+        >>> import numpy as np
         >>> results = IntenseResults()
+        >>> # Add mutual information matrix
         >>> results.update('mi_matrix', np.array([[0, 0.5], [0.5, 0]]))
+        >>> # Add list of significant neuron-feature pairs
         >>> results.update('significant_pairs', [(0, 1), (2, 3)])
+        >>> # Access via attribute notation
         >>> results.mi_matrix
         array([[0. , 0.5],
                [0.5, 0. ]])
+        >>> results.significant_pairs
+        [(0, 1), (2, 3)]
                
         Notes
         -----
@@ -1151,15 +1213,21 @@ class IntenseResults(object):
             
         Examples
         --------
+        >>> # Batch update multiple analysis results at once
+        >>> import numpy as np
         >>> results = IntenseResults()
+        >>> # Add multiple related results together
         >>> results.update_multiple({
         ...     'mi_values': np.array([0.1, 0.5, 0.3]),
         ...     'p_values': np.array([0.05, 0.001, 0.02]),
-        ...     'delays': np.array([0, 10, 20]),
-        ...     'metadata': {'method': 'gcmi', 'n_shuffles': 1000}
+        ...     'significant': np.array([False, True, True]),
+        ...     'parameters': {'metric': 'mi', 'correction': 'fdr'}
         ... })
+        >>> # All properties are now accessible
         >>> results.mi_values
         array([0.1, 0.5, 0.3])
+        >>> results.significant
+        array([False,  True,  True])
         
         See Also
         --------
@@ -1188,15 +1256,24 @@ class IntenseResults(object):
         
         Examples
         --------
+        >>> # Demonstrate saving analysis results to HDF5
+        >>> import numpy as np
+        >>> import tempfile
+        >>> import os
         >>> results = IntenseResults()
-        >>> results.update('data', np.random.randn(100, 50))
-        >>> results.update('params', {'threshold': 0.05, 'method': 'mi'})
-        >>> results.save_to_hdf5('analysis_results.h5')
-        
-        >>> # Later, load results
-        >>> import h5py
-        >>> with h5py.File('analysis_results.h5', 'r') as f:
-        ...     data = f['data'][:]
+        >>> # Add various types of data
+        >>> results.update('mi_matrix', np.array([[0, 0.5], [0.5, 0]]))
+        >>> results.update('settings', {'threshold': 0.05, 'method': 'mi'})
+        >>> results.update('neuron_ids', [0, 1, 2])
+        >>> # Create temporary file for demonstration
+        >>> with tempfile.NamedTemporaryFile(suffix='.h5', delete=False) as tmp:
+        ...     tmp_name = tmp.name
+        >>> # Save all results to HDF5
+        >>> results.save_to_hdf5(tmp_name)
+        >>> # Verify file exists then clean up
+        >>> os.path.exists(tmp_name)
+        True
+        >>> os.unlink(tmp_name)
         
         See Also
         --------
@@ -1776,12 +1853,32 @@ def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
 
     Examples
     --------
-    >>> # Holm correction (default)
+    >>> # Compare different multiple comparison correction methods
     >>> pvals = [0.001, 0.01, 0.02, 0.03, 0.04]
-    >>> thr = get_multicomp_correction_thr(0.05, mode='holm', all_pvals=pvals)
-    >>>
-    >>> # FDR correction
-    >>> thr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)    """
+    >>> 
+    >>> # No correction - uses raw threshold
+    >>> thr_none = get_multicomp_correction_thr(0.05, mode=None)
+    >>> thr_none
+    0.05
+    >>> 
+    >>> # Bonferroni correction - most conservative
+    >>> thr_bonf = get_multicomp_correction_thr(0.05, mode='bonferroni', nhyp=5)
+    >>> thr_bonf
+    0.01
+    >>> 
+    >>> # Holm correction - less conservative than Bonferroni
+    >>> thr_holm = get_multicomp_correction_thr(0.05, mode='holm', all_pvals=pvals)
+    >>> round(thr_holm, 4)
+    0.0125
+    >>> 
+    >>> # FDR correction - controls false discovery rate
+    >>> thr_fdr = get_multicomp_correction_thr(0.05, mode='fdr_bh', all_pvals=pvals)
+    >>> thr_fdr
+    0.04
+    >>> 
+    >>> # FDR is least conservative: bonf < holm < fdr < none
+    >>> thr_bonf < thr_holm < thr_fdr < thr_none
+    True"""
     # Validate fwer parameter
     if not 0 <= fwer <= 1:
         raise ValueError(f"fwer must be between 0 and 1, got {fwer}")

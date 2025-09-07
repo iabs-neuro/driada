@@ -470,10 +470,11 @@ class AE(nn.Module):
     Examples
     --------
     >>> import torch
+    >>> device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     >>> ae = AE(orig_dim=100, inter_dim=50, code_dim=10, 
     ...         enc_kwargs={'dropout': 0.2}, dec_kwargs={'dropout': 0.2},
-    ...         device=torch.device('cuda'))
-    >>> data = torch.randn(32, 100).cuda()
+    ...         device=device)
+    >>> data = torch.randn(32, 100).to(device)
     >>> reconstructed = ae(data)
     >>> print(reconstructed.shape)
     torch.Size([32, 100])
@@ -729,9 +730,13 @@ class VAE(nn.Module):
             
         Examples
         --------
+        >>> import torch
+        >>> # Create a VAE instance to access the method
+        >>> vae = VAE(orig_dim=100, inter_dim=50, code_dim=20,
+        ...           enc_kwargs={}, dec_kwargs={}, device=torch.device('cpu'))
         >>> mu = torch.zeros(32, 10)
         >>> log_var = torch.ones(32, 10) * -2  # Small variance
-        >>> z = self.reparameterization(mu, log_var)
+        >>> z = vae.reparameterization(mu, log_var)
         >>> print(z.shape)
         torch.Size([32, 10])
         
@@ -768,11 +773,15 @@ class VAE(nn.Module):
             
         Examples
         --------
+        >>> import torch
+        >>> # Create a VAE with latent dimension 10 (code_dim=20 for mean+logvar)
+        >>> vae = VAE(orig_dim=100, inter_dim=50, code_dim=20,
+        ...           enc_kwargs={}, dec_kwargs={}, 
+        ...           device=torch.device('cpu'))
         >>> features = torch.randn(32, 100)
         >>> code, mu, log_var = vae.get_code(features)
-        >>> assert code.shape == (32, 10)  # Assuming code_dim=10
-        >>> assert mu.shape == (32, 10)
-        >>> assert log_var.shape == (32, 10)
+        >>> print(code.shape, mu.shape, log_var.shape)
+        torch.Size([32, 20]) torch.Size([32, 20]) torch.Size([32, 20])
         
         Notes
         -----
@@ -816,12 +825,24 @@ class VAE(nn.Module):
             
         Examples
         --------
+        >>> import torch
+        >>> import torch.nn.functional as F
+        >>> # Create a simple VAE instance for demonstration
+        >>> vae = VAE(orig_dim=100, inter_dim=50, code_dim=20,
+        ...           enc_kwargs={}, dec_kwargs={}, 
+        ...           device=torch.device('cpu'))
         >>> data = torch.randn(32, 100)
         >>> recon, mu, log_var = vae(data)
         >>> # Compute VAE loss
         >>> recon_loss = F.mse_loss(recon, data)
         >>> kl_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
         >>> vae_loss = recon_loss + kl_loss
+        >>> print(f"Reconstruction shape: {recon.shape}")
+        Reconstruction shape: torch.Size([32, 100])
+        >>> print(f"Latent mean shape: {mu.shape}")
+        Latent mean shape: torch.Size([32, 20])
+        >>> print(f"Latent log variance shape: {log_var.shape}")
+        Latent log variance shape: torch.Size([32, 20])
             
         Notes
         -----
@@ -863,17 +884,28 @@ class VAE(nn.Module):
             
         Examples
         --------
+        >>> import torch
+        >>> import numpy as np
+        >>> from driada.dim_reduction.neural import VAE
+        >>> # Create VAE
+        >>> vae = VAE(orig_dim=100, inter_dim=50, code_dim=20,
+        ...           enc_kwargs={}, dec_kwargs={}, 
+        ...           device=torch.device('cpu'))
         >>> data = torch.randn(32, 100)
         >>> # Get deterministic embedding (mean)
         >>> embedding = vae.get_code_embedding(data, use_mean=True)
         >>> embedding2 = vae.get_code_embedding(data, use_mean=True)
-        >>> np.allclose(embedding, embedding2)  # True - deterministic
+        >>> print(np.allclose(embedding, embedding2))  # True - deterministic
         True
         >>> # Get stochastic embedding (sampled)
+        >>> _ = torch.manual_seed(42)  # For reproducibility in doctest
         >>> embedding3 = vae.get_code_embedding(data, use_mean=False)
+        >>> _ = torch.manual_seed(43)  # Different seed
         >>> embedding4 = vae.get_code_embedding(data, use_mean=False)
-        >>> np.allclose(embedding3, embedding4)  # False - different samples
+        >>> print(np.allclose(embedding3, embedding4))  # False - different samples
         False
+        >>> print(embedding.shape)  # Note: transposed output
+        (20, 32)
             
         Notes
         -----
@@ -926,6 +958,7 @@ class NeuroDataset(Dataset):
     >>> for batch_data, batch_idx in loader:
     ...     print(batch_data.shape)  # (32, 100) - batch_size x n_features
     ...     break
+    torch.Size([32, 100])
     
     Notes
     -----

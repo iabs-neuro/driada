@@ -30,7 +30,7 @@ Quick Links
 -----------
 
 **Core Class**
-   * :class:`~driada.network.Network` - Main network analysis class
+   * :class:`~driada.network.net_base.Network` - Main network analysis class
    * :doc:`network/core` - Network construction and basic properties
 
 **Graph Operations**
@@ -52,10 +52,17 @@ Usage Example
 
    from driada.network import Network
    from driada.network.graph_utils import get_giant_cc_from_graph
+   import numpy as np
+   import scipy.sparse as sp
+   
+   # Create example adjacency matrix
+   n_nodes = 20
+   adjacency_matrix = sp.random(n_nodes, n_nodes, density=0.1, format='csr')
+   adjacency_matrix = adjacency_matrix + adjacency_matrix.T  # Make symmetric
    
    # Create network from adjacency matrix
    net = Network(adj=adjacency_matrix, preprocessing='giant_cc')
    
    # Analyze network properties
-   print(f"Nodes: {net.n_nodes}, Edges: {net.n_edges}")
-   print(f"Clustering coefficient: {net.clustering:.3f}")
+   print(f"Nodes: {net.n}, Edges: {net.graph.number_of_edges()}")
+   print(f"Mean degree: {net.deg.mean():.2f}")

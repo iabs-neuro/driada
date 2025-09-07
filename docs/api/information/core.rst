@@ -8,12 +8,12 @@ This module contains the core data structures and main functions for information
 Classes
 -------
 
-.. autoclass:: driada.information.TimeSeries
+.. autoclass:: driada.information.info_base.TimeSeries
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: driada.information.MultiTimeSeries
+.. autoclass:: driada.information.info_base.MultiTimeSeries
    :members:
    :undoc-members:
    :show-inheritance:
@@ -21,9 +21,9 @@ Classes
 Main Functions
 --------------
 
-.. autofunction:: driada.information.get_mi
-.. autofunction:: driada.information.conditional_mi
-.. autofunction:: driada.information.interaction_information
+.. autofunction:: driada.information.info_base.get_mi
+.. autofunction:: driada.information.info_base.conditional_mi
+.. autofunction:: driada.information.info_base.interaction_information
 
 Usage Examples
 --------------
@@ -45,9 +45,9 @@ TimeSeries Objects
    ts_continuous = TimeSeries(lfp_signal, discrete=False)
    
    # Access properties
-   print(f"Length: {len(ts_discrete)}")
    print(f"Is discrete: {ts_discrete.discrete}")
    print(f"Data shape: {ts_discrete.data.shape}")
+   print(f"Data length: {ts_discrete.data.shape[0]}")
 
 MultiTimeSeries Objects
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -60,16 +60,13 @@ MultiTimeSeries Objects
    neural_data = np.random.randn(50, 10000)  # 50 neurons, 10000 timepoints
    mts = MultiTimeSeries(neural_data, discrete=False)
    
-   # Access individual time series
-   neuron_5 = mts[5]  # Returns TimeSeries for neuron 5
-   
-   # Slice multiple neurons
-   subset = mts[10:20]  # Returns MultiTimeSeries with neurons 10-19
-   
    # Properties
-   print(f"Number of series: {mts.n_series}")
-   print(f"Length: {mts.n_timepoints}")
-   print(f"Shape: {mts.shape}")
+   print(f"Number of series: {mts.n_dim}")  # n_dim = number of rows/series
+   print(f"Number of timepoints: {mts.n_points}")  # n_points = number of columns/timepoints
+   print(f"Data shape: {mts.data.shape}")  # Access numpy array shape directly
+   
+   # Access individual series data
+   neuron_5_data = mts.data[5, :]  # Returns numpy array for neuron 5
 
 Basic Mutual Information
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -89,7 +86,7 @@ Basic Mutual Information
    x_discrete = TimeSeries(np.random.randint(0, 5, 1000), discrete=True)
    y_discrete = TimeSeries(np.random.randint(0, 3, 1000), discrete=True)
    
-   mi_discrete = get_mi(x_discrete, y_discrete, estimator='discrete')
+   mi_discrete = get_mi(x_discrete, y_discrete)  # Default estimator handles discrete data
    print(f"MI (discrete): {mi_discrete:.3f} bits")
 
 Conditional Mutual Information
@@ -104,12 +101,8 @@ Conditional Mutual Information
    y = TimeSeries(np.random.randn(1000), discrete=False)
    z = TimeSeries(np.random.randn(1000), discrete=False)
    
-   cmi = conditional_mi(x, y, z, estimator='gcmi')
+   cmi = conditional_mi(x, y, z)
    print(f"I(X;Y|Z) = {cmi:.3f} bits")
-   
-   # Multiple conditioning variables
-   z_multi = MultiTimeSeries(np.random.randn(3, 1000), discrete=False)
-   cmi_multi = conditional_mi(x, y, z_multi, estimator='gcmi')
 
 Interaction Information
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -123,7 +116,7 @@ Interaction Information
    y = TimeSeries(np.random.randn(1000), discrete=False)
    z = TimeSeries(np.random.randn(1000), discrete=False)
    
-   ii = interaction_information([x, y, z], estimator='gcmi')
+   ii = interaction_information(x, y, z)
    print(f"Interaction information: {ii:.3f} bits")
    
    # Interpretation:
@@ -138,26 +131,25 @@ Time-lagged MI
 
 .. code-block:: python
 
-   from driada.information import get_mi
+   from driada.information import get_tdmi
    
-   # Compute MI at different lags
-   x = TimeSeries(np.random.randn(1000), discrete=False)
-   y = TimeSeries(np.random.randn(1000), discrete=False)
+   # Compute time-delayed mutual information
+   signal = np.random.randn(1000)
    
-   lags = range(-10, 11)
-   mi_values = []
+   # Calculate TDMI for lags 1 to 50
+   tdmi_values = get_tdmi(signal, min_shift=1, max_shift=50)
    
-   for lag in lags:
-       if lag > 0:
-           mi = get_mi(x[:-lag], y[lag:])
-       elif lag < 0:
-           mi = get_mi(x[-lag:], y[:lag])
-       else:
-           mi = get_mi(x, y)
-       mi_values.append(mi)
+   # Find optimal embedding delay (first local minimum)
+   from scipy.signal import argrelmin
+   minima = argrelmin(np.array(tdmi_values))[0]
+   if len(minima) > 0:
+       optimal_delay = minima[0] + 1  # +1 because min_shift=1
    
-   # Find optimal lag
-   optimal_lag = lags[np.argmax(mi_values)]
+   # Plot TDMI curve
+   import matplotlib.pyplot as plt
+   plt.plot(range(1, 50), tdmi_values)
+   plt.xlabel('Time lag')
+   plt.ylabel('TDMI (bits)')
 
 Multivariate MI
 ^^^^^^^^^^^^^^^
@@ -177,14 +169,14 @@ Estimator Selection
 .. code-block:: python
 
    # Compare different estimators
-   estimators = ['gcmi', 'ksg', 'discrete']
+   x = TimeSeries(np.random.randn(1000), discrete=False)
+   y = TimeSeries(np.random.randn(1000), discrete=False)
+   
+   estimators = ['gcmi', 'ksg']  # Both work for continuous data
    
    for est in estimators:
-       try:
-           mi = get_mi(x, y, estimator=est)
-           print(f"{est}: {mi:.3f} bits")
-       except ValueError as e:
-           print(f"{est}: Not applicable - {e}")
+       mi = get_mi(x, y, estimator=est)
+       print(f"{est}: {mi:.3f} bits")
 
 Best Practices
 --------------

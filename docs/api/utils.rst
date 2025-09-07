@@ -64,19 +64,37 @@ Usage Example
        compute_rate_map, brownian
    )
    
-   # Data manipulation
-   normalized_data = rescale(data, 0, 1)
+   # Data manipulation - rescales 1D data to [0, 1]
+   import numpy as np
+   data = np.random.randn(1000)
+   normalized_data = rescale(data)
    
    # Visualization
+   import matplotlib.pyplot as plt
    fig, ax = plt.subplots()
    make_beautiful(ax)
    
    # Spatial analysis
-   rate_map = compute_rate_map(
-       spike_times, 
+   from driada.utils import compute_occupancy_map, compute_rate_map
+   
+   # First compute occupancy
+   positions = np.random.randn(1000, 2)  # x,y positions
+   neural_signal = np.random.randn(1000)  # neural activity
+   occupancy, x_edges, y_edges = compute_occupancy_map(
        positions, 
-       bin_size=5
+       bin_size=0.1,
+       fps=30.0
+   )
+   
+   # Then compute rate map
+   rate_map = compute_rate_map(
+       neural_signal,
+       positions,
+       occupancy,
+       x_edges,
+       y_edges,
+       fps=30.0
    )
    
    # Signal generation
-   random_walk = brownian(n_steps=1000, dt=0.1)
+   random_walk = brownian(x0=0.0, n=1000, dt=0.1)

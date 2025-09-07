@@ -45,8 +45,20 @@ def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
 
     Examples
     --------
-    >>> net = Network.from_edgelist([(1,2), (2,3), (3,1)])
-    >>> draw_degree_distr(net, log_log=1)  # Check for scale-free property    """
+    >>> import matplotlib
+    >>> matplotlib.use('Agg')  # Use non-interactive backend for testing
+    >>> from driada.network import Network
+    >>> import networkx as nx
+    >>> # Create a simple directed network with a triangle
+    >>> edges = [(0, 1), (1, 2), (2, 0)]
+    >>> graph = nx.DiGraph(edges)
+    >>> net = Network(graph=graph)
+    >>> # Draw degree distribution (will show uniform degree of 2)
+    >>> draw_degree_distr(net)  # doctest: +SKIP
+    >>> # For undirected network
+    >>> graph_undir = nx.Graph(edges)
+    >>> net_undir = Network(graph=graph_undir)
+    >>> draw_degree_distr(net_undir, log_log=1)  # doctest: +SKIP"""
     if not net.directed:
         mode = "all"
 
@@ -133,8 +145,17 @@ def draw_spectrum(net, mode="adj", ax=None, colors=None, cmap="plasma", nbins=No
 
     Examples
     --------
-    >>> net = Network.from_networkx(nx.karate_club_graph())
-    >>> draw_spectrum(net, mode='lap')  # Laplacian spectrum    """
+    >>> import matplotlib
+    >>> matplotlib.use('Agg')  # Use non-interactive backend for testing
+    >>> from driada.network import Network
+    >>> import networkx as nx
+    >>> # Create a small cycle graph
+    >>> graph = nx.cycle_graph(5)
+    >>> net = Network(graph=graph)
+    >>> # Draw adjacency matrix spectrum
+    >>> draw_spectrum(net, mode='adj')  # doctest: +SKIP
+    >>> # Draw Laplacian spectrum - eigenvalues should be non-negative
+    >>> draw_spectrum(net, mode='lap')  # doctest: +SKIP"""
     spectrum = net.get_spectrum(mode)
     data = np.array(sorted(list(set(spectrum)), key=np.abs))
 
@@ -174,10 +195,19 @@ def get_vector_coloring(vec, cmap="plasma"):
 
     Examples
     --------
+    >>> import numpy as np
     >>> values = [0.1, 0.5, 0.9, 0.3]
     >>> colors = get_vector_coloring(values, cmap='viridis')
     >>> colors.shape
-    (4, 4)    """
+    (4, 4)
+    >>> # Colors are RGBA values in range [0, 1]
+    >>> assert np.all(colors >= 0) and np.all(colors <= 1)
+    >>> # Test with uniform values - should raise error
+    >>> try:
+    ...     get_vector_coloring([1.0, 1.0, 1.0])
+    ... except ValueError as e:
+    ...     print("Error:", str(e))
+    Error: All values in vector are identical, cannot create color mapping"""
     cmap = plt.get_cmap(cmap)
     vec = np.array(vec).ravel()
     vec_min = np.min(vec)
@@ -238,7 +268,22 @@ def draw_eigenvectors(
     The function creates a grid of subplots arranged to fit all requested
     eigenvectors. Each subplot shows the network with nodes colored by
     the corresponding eigenvector's components. The subplot title shows
-    the eigenvector index and its eigenvalue.    """
+    the eigenvector index and its eigenvalue.
+    
+    Examples
+    --------
+    >>> import matplotlib
+    >>> matplotlib.use('Agg')  # Use non-interactive backend for testing
+    >>> from driada.network import Network
+    >>> import networkx as nx
+    >>> # Create a graph with interesting spectral properties
+    >>> graph = nx.cycle_graph(8)
+    >>> net = Network(graph=graph)
+    >>> # Visualize first 4 eigenvectors of adjacency matrix
+    >>> draw_eigenvectors(net, 0, 3, mode='adj')  # doctest: +SKIP
+    >>> # Visualize Laplacian eigenvectors (Fiedler vector is at index 1)
+    >>> draw_eigenvectors(net, 1, 2, mode='lap')  # doctest: +SKIP
+    """
     spectrum = net.get_spectrum(mode)
     eigenvectors = net.get_eigenvectors(mode)
 
@@ -328,8 +373,20 @@ def draw_net(net, colors=None, nodesize=None, ax=None):
 
     Examples
     --------
-    >>> net = Network.from_edgelist([(1,2), (2,3), (3,1)])
-    >>> draw_net(net, colors=[0, 1, 2])  # Color by node index    """
+    >>> import matplotlib
+    >>> matplotlib.use('Agg')  # Use non-interactive backend for testing
+    >>> from driada.network import Network
+    >>> import networkx as nx
+    >>> import numpy as np
+    >>> # Create a small network with a path
+    >>> edges = [(0, 1), (1, 2)]
+    >>> graph = nx.Graph(edges)
+    >>> net = Network(graph=graph, create_nx_graph=True)
+    >>> # Draw network with default settings
+    >>> draw_net(net)  # doctest: +SKIP
+    >>> # Draw with custom colors based on node index
+    >>> colors = [0, 0.5, 1]  # Three nodes with gradient colors
+    >>> draw_net(net, colors=colors)  # doctest: +SKIP"""
     if ax is None:
         fig, ax = plt.subplots(figsize=(16, 12))
 
@@ -389,9 +446,23 @@ def show_mat(net, dtype=None, mode="adj", ax=None):
 
     Examples
     --------
-    >>> net = Network.from_edgelist([(0,1), (1,2), (2,0)])
-    >>> show_mat(net, dtype=bool)  # Binary adjacency pattern
-    >>> show_mat(net, mode='lap')  # Laplacian matrix    """
+    >>> import matplotlib
+    >>> matplotlib.use('Agg')  # Use non-interactive backend for testing
+    >>> from driada.network import Network
+    >>> import networkx as nx
+    >>> import numpy as np
+    >>> # Create a small cycle graph
+    >>> edges = [(0, 1), (1, 2), (2, 0)]
+    >>> graph = nx.Graph(edges)
+    >>> net = Network(graph=graph)
+    >>> # Show adjacency matrix as binary (shows connections)
+    >>> show_mat(net, dtype=bool)  # doctest: +SKIP
+    >>> # Show Laplacian matrix (degree matrix minus adjacency)
+    >>> show_mat(net, mode='lap')  # doctest: +SKIP
+    >>> # For a directed graph
+    >>> digraph = nx.DiGraph(edges)
+    >>> net_dir = Network(graph=digraph)
+    >>> show_mat(net_dir, mode='adj')  # doctest: +SKIP"""
     mat = getattr(net, mode)
     if mat is None:
         if mode in ["lap", "lap_out"]:
@@ -442,8 +513,19 @@ def plot_lem_embedding(net, ndim, colors=None):
 
     Examples
     --------
-    >>> net = Network.from_networkx(nx.karate_club_graph())
-    >>> plot_lem_embedding(net, ndim=2)  # 2D embedding    """
+    >>> import matplotlib
+    >>> matplotlib.use('Agg')  # Use non-interactive backend for testing
+    >>> from driada.network import Network
+    >>> import networkx as nx
+    >>> # Create a small network that can be well-embedded
+    >>> graph = nx.cycle_graph(6)
+    >>> net = Network(graph=graph)
+    >>> # Create 2D Laplacian Eigenmaps embedding
+    >>> plot_lem_embedding(net, ndim=2)  # doctest: +SKIP
+    >>> # Create 3D embedding for more complex visualization
+    >>> graph_3d = nx.complete_graph(5)
+    >>> net_3d = Network(graph=graph_3d)
+    >>> plot_lem_embedding(net_3d, ndim=3)  # doctest: +SKIP"""
 
     if net.lem_emb is None:
         net.construct_lem_embedding(ndim)

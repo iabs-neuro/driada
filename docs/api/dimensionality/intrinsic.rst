@@ -45,7 +45,7 @@ Correlation Dimension
    from driada.dimensionality import correlation_dimension
    
    # Estimate correlation dimension
-   dim_corr = correlation_dimension(data, scales=np.logspace(-2, 0, 20))
+   dim_corr = correlation_dimension(data, r_min=0.01, r_max=1.0, n_bins=20)
    print(f"Correlation dimension: {dim_corr:.2f}")
 
 

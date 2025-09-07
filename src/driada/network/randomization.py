@@ -453,7 +453,7 @@ def random_rewiring_dense_graph(
     >>> import numpy as np
     >>> # Create a dense symmetric graph
     >>> a = np.array([[0, 2, 3], [2, 0, 1], [3, 1, 0]])
-    >>> randomized = random_rewiring_dense_graph(a)
+    >>> randomized = random_rewiring_dense_graph(a, random_state=42)
     >>> # Verify degree sequence is preserved
     >>> np.allclose(np.sum(a, axis=0), np.sum(randomized, axis=0))
     True    """

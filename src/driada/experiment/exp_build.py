@@ -5,7 +5,7 @@ import numpy as np
 import pickle
 
 from .exp_base import Experiment
-from ..information.info_base import TimeSeries
+from ..information.info_base import TimeSeries, MultiTimeSeries
 from ..utils.naming import construct_session_name
 from ..utils.output import show_output
 from .neuron import DEFAULT_FPS, DEFAULT_T_OFF, DEFAULT_T_RISE
@@ -43,7 +43,9 @@ def load_exp_from_aligned_data(
         Dictionary containing aligned data with keys:
         - 'calcium' or 'Calcium': 2D array of calcium signals (neurons x time)
         - 'spikes' or 'Spikes': 2D array of spike data (optional)
-        - Other keys: behavioral variables as 1D arrays (time)
+        - Other keys: behavioral variables as 1D or 2D arrays
+          * 1D arrays (time,): treated as single time series
+          * 2D arrays (components, time): treated as MultiTimeSeries
     force_continuous : list, optional
         List of feature names to force as continuous variables.
         By default, features are automatically classified based on their values.
@@ -94,14 +96,18 @@ def load_exp_from_aligned_data(
     - Creates a deep copy of input data to avoid modifying the original
     - The experiment name is constructed using construct_session_name()
     - Bad frames create a boolean mask; indices beyond data length are ignored
+    - Scalar values (0D arrays) are ignored with a warning - use static_features instead
+    - Non-numeric features (strings, objects) are ignored with a warning
+    - 2D arrays are automatically converted to MultiTimeSeries objects
     
     Examples
     --------
     >>> # Basic usage with minimal data
+    >>> np.random.seed(42)  # For reproducibility
     >>> data = {
     ...     'calcium': np.random.rand(50, 1000),  # 50 neurons, 1000 frames
     ...     'position': np.linspace(0, 100, 1000),  # Linear track position
-    ...     'speed': np.abs(np.diff(np.linspace(0, 100, 1001)))[:1000],
+    ...     'speed': np.random.rand(1000) * 10,  # Random speeds
     ...     'trial_type': np.repeat([0, 1, 0, 1], 250)  # Discrete variable
     ... }
     >>> exp_params = {
@@ -109,21 +115,25 @@ def load_exp_from_aligned_data(
     ...     'animal_id': 'mouse01', 
     ...     'session': 'day1'
     ... }
-    >>> exp = load_exp_from_aligned_data('IABS', exp_params, data)
-    Building experiment linear_track_mouse01_day1...
-    behaviour variables:
-    
-    'position' continuous
-    'speed' continuous  
-    'trial_type' discrete
+    >>> exp = load_exp_from_aligned_data('IABS', exp_params, data, verbose=False)
+    >>> exp.signature
+    'Exp linear_track_mouse01_day1'
+    >>> sorted(exp.dynamic_features.keys())
+    ['position', 'speed', 'trial_type']
     
     >>> # Force discrete variable to be continuous
     >>> exp2 = load_exp_from_aligned_data(
     ...     'IABS', exp_params, data,
     ...     force_continuous=['trial_type'],
     ...     bad_frames=[10, 11, 12],  # Mark frames as bad
-    ...     static_features={'fps': 30.0}  # Override default fps
-    ... )    """
+    ...     static_features={'fps': 30.0},  # Override default fps
+    ...     verbose=False
+    ... )
+    >>> exp2.static_features['fps']
+    30.0
+    >>> exp2.dynamic_features['trial_type'].discrete  # Should be False due to force_continuous
+    False
+    """
 
     # Validate inputs
     if not isinstance(data, dict):
@@ -169,32 +179,75 @@ def load_exp_from_aligned_data(
         Notes
         -----
         Used to filter out uninformative features from dynamic data.        """
-        if len(vals) == 0:
-            return True
         # Convert to numpy array for consistent handling
         arr = np.asarray(vals)
+        
+        # Check if empty
+        if arr.size == 0:
+            return True
+            
         # Check if all NaN or all same value (ignoring NaN)
-        return np.all(np.isnan(arr)) or (len(np.unique(arr[~np.isnan(arr)])) <= 1)
+        nan_mask = np.isnan(arr)
+        return np.all(nan_mask) or (len(np.unique(arr[~nan_mask])) <= 1)
 
-    if len(force_continuous) != 0:
-        feat_is_continuous = {f: f in force_continuous for f in dyn_features.keys()}
-        filt_dyn_features = {
-            f: TimeSeries(vals, discrete=not feat_is_continuous[f])
-            for f, vals in dyn_features.items()
-            if not is_garbage(vals)
-        }
-    else:
-        filt_dyn_features = {
-            f: TimeSeries(vals)
-            for f, vals in dyn_features.items()
-            if not is_garbage(vals)
-        }
+    # Process dynamic features, handling multidimensional arrays
+    filt_dyn_features = {}
+    feat_is_continuous = {f: f in force_continuous for f in dyn_features.keys()} if force_continuous else {}
+    
+    for f, vals in dyn_features.items():
+        # Convert to numpy array to check dimensions
+        vals_array = np.asarray(vals)
+        
+        # Skip scalar values with warning
+        if vals_array.ndim == 0:
+            if verbose:
+                print(f"Warning: Ignoring scalar value '{f}' found in NPZ file. "
+                      f"Scalar values should be provided via static_features parameter.")
+            continue
+        
+        # Skip non-numeric features with warning
+        if vals_array.dtype.kind in ['U', 'S', 'O']:  # Unicode, bytes, or object
+            if verbose:
+                print(f"Warning: Ignoring non-numeric feature '{f}' with dtype {vals_array.dtype}. "
+                      f"Only numeric features are supported.")
+            continue
+            
+        if is_garbage(vals):
+            continue
+        
+        # Handle based on dimensionality
+        if vals_array.ndim == 1:
+            # 1D -> TimeSeries
+            if f in force_continuous:
+                # User explicitly wants this to be continuous
+                filt_dyn_features[f] = TimeSeries(vals_array, discrete=False)
+            else:
+                # Let TimeSeries auto-detect the type
+                filt_dyn_features[f] = TimeSeries(vals_array)
+            
+        elif vals_array.ndim == 2:
+            # 2D -> MultiTimeSeries (each row is a component)
+            # This matches Experiment.__init__ behavior
+            ts_list = [
+                TimeSeries(vals_array[i, :], discrete=False)
+                for i in range(vals_array.shape[0])
+            ]
+            filt_dyn_features[f] = MultiTimeSeries(ts_list)
+            
+        else:
+            # Skip features with unsupported dimensions
+            if verbose:
+                print(f"Warning: Skipping feature '{f}' with unsupported {vals_array.ndim}D shape")
 
     if verbose:
         print("behaviour variables:")
         print()
         for f, ts in filt_dyn_features.items():
-            print(f"'{f}'", "discrete" if ts.discrete else "continuous")
+            if isinstance(ts, MultiTimeSeries):
+                dtype = "discrete" if ts.discrete else "continuous"
+                print(f"'{f}' {dtype} multi-dimensional ({ts.n_dim}D)")
+            else:
+                print(f"'{f}'", "discrete" if ts.discrete else "continuous")
 
     # check for constant features
     constfeats = set(dyn_features.keys()) - set(filt_dyn_features.keys())
@@ -255,6 +308,7 @@ def load_exp_from_aligned_data(
         reconstruct_spikes=reconstruct_spikes,
         # bad_frames_mask: True = bad frame to remove, False = good frame to keep
         bad_frames_mask=np.array([i in bad_frames for i in range(calcium.shape[1])]),
+        verbose=verbose,
     )
 
     return exp
@@ -287,8 +341,9 @@ def load_experiment(
     Parameters
     ----------
     data_source : str
-        Data source identifier. Currently only 'IABS' is supported for
-        automatic cloud download. Other sources must provide data_path.
+        Data source identifier. 'IABS' enables automatic cloud download.
+        Other sources (e.g., 'MyLab') require data_path parameter pointing
+        to a local NPZ file.
     exp_params : dict
         Experiment parameters dictionary. See load_exp_from_aligned_data
         for required fields based on data_source.
@@ -309,7 +364,8 @@ def load_experiment(
         Custom path for experiment pickle file. If None, uses standard
         naming: {root}/{expname}/Exp {expname}.pickle
     data_path : str, optional
-        Custom path for data file. If None, uses standard naming:
+        Path to NPZ data file. Required for non-IABS data sources.
+        For IABS, if None, uses standard naming:
         {root}/{expname}/Aligned data/{expname} syn data.npz
     force_continuous : list, optional
         Feature names to force as continuous. See load_exp_from_aligned_data.
@@ -365,28 +421,48 @@ def load_experiment(
     
     Examples
     --------
-    >>> # Load IABS experiment with automatic download
-    >>> exp_params = {
-    ...     'track': 'linear_track',
-    ...     'animal_id': 'mouse01',
-    ...     'session': 'day1'
+    >>> # Load external lab data from NPZ file
+    >>> import tempfile
+    >>> import numpy as np
+    >>> 
+    >>> # Create test data file
+    >>> with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
+    ...     temp_data = f.name
+    >>> test_data = {
+    ...     'calcium': np.random.rand(30, 500),
+    ...     'position': np.random.rand(500) * 100
     ... }
-    >>> exp, log = load_experiment('IABS', exp_params)
-    Loading experiment linear_track_mouse01_day1 from pickle...
-    
-    >>> # Force rebuild from data
-    >>> exp, log = load_experiment(
-    ...     'IABS', exp_params, 
-    ...     force_rebuild=True,
-    ...     save_to_pickle=True  # Cache for next time
+    >>> np.savez(temp_data, **test_data)
+    >>> 
+    >>> # Load from local file
+    >>> exp, _ = load_experiment(
+    ...     'MyLab',
+    ...     {'name': 'test_exp'},
+    ...     data_path=temp_data,
+    ...     verbose=False
     ... )
-    Building experiment linear_track_mouse01_day1...
-    
-    >>> # Custom data source with local file
-    >>> exp, log = load_experiment(
-    ...     'custom', {'name': 'my_exp'},
-    ...     data_path='/path/to/data.npz'
-    ... )    """
+    >>> exp.signature
+    'Exp test_exp'
+    >>> exp.n_cells
+    30
+    >>> 
+    >>> # Force rebuild even if pickle exists
+    >>> with tempfile.TemporaryDirectory() as tmpdir:
+    ...     exp2, _ = load_experiment(
+    ...         'MyLab',
+    ...         {'name': 'rebuild_test'},
+    ...         data_path=temp_data,
+    ...         root=tmpdir,
+    ...         force_rebuild=True,
+    ...         save_to_pickle=True,
+    ...         verbose=False
+    ...     )
+    >>> exp2.n_cells
+    30
+    >>> 
+    >>> # Cleanup
+    >>> import os
+    >>> os.unlink(temp_data)    """
 
     if os.path.exists(root) and not os.path.isdir(root):
         raise ValueError("Root must be a folder!")
@@ -457,7 +533,55 @@ def load_experiment(
             return Exp, load_log
 
         else:
-            raise ValueError("External data sources are not yet supported")
+            # Support for external (non-IABS) data sources loading from local files
+            if data_path is None:
+                raise ValueError(
+                    f"For data source '{data_source}', you must provide the 'data_path' parameter "
+                    "pointing to your NPZ data file."
+                )
+            
+            if not os.path.exists(data_path):
+                raise FileNotFoundError(f"Data file not found: {data_path}")
+            
+            if verbose:
+                print(f"Loading data from: {data_path}")
+            
+            # Load the NPZ file
+            try:
+                aligned_data = dict(np.load(data_path, allow_pickle=True))
+            except Exception as e:
+                raise ValueError(f"Failed to load NPZ file: {e}")
+            
+            # Check for required 'calcium' key
+            if 'calcium' not in aligned_data:
+                raise ValueError("NPZ file must contain 'calcium' key with neural data")
+            
+            # Create experiment using the existing function
+            Exp = load_exp_from_aligned_data(
+                data_source,
+                exp_params,
+                aligned_data,
+                force_continuous=force_continuous,
+                static_features=static_features,
+                verbose=verbose,
+                bad_frames=bad_frames,
+                reconstruct_spikes=reconstruct_spikes,
+            )
+            
+            # Save to pickle if requested
+            if save_to_pickle:
+                # Create experiment name and path if not provided
+                if exp_path is None:
+                    expname = construct_session_name(data_source, exp_params)
+                    # Create a reasonable default path
+                    exp_dir = os.path.join(root, data_source, expname)
+                    os.makedirs(exp_dir, exist_ok=True)
+                    exp_path = os.path.join(exp_dir, f"Exp {expname}.pickle")
+                
+                save_exp_to_pickle(Exp, exp_path, verbose=verbose)
+            
+            # No load_log for external data sources
+            return Exp, None
 
 
 def save_exp_to_pickle(exp, path, verbose=True):
@@ -481,12 +605,23 @@ def save_exp_to_pickle(exp, path, verbose=True):
         
     Examples
     --------
-    >>> # Save experiment to file
-    >>> save_exp_to_pickle(exp, 'data/experiments/exp1.pkl')
-    Experiment EXP001 saved to data/experiments/exp1.pkl
+    >>> # Create a test experiment
+    >>> import tempfile
+    >>> import os
+    >>> from driada.experiment import load_demo_experiment
+    >>> exp = load_demo_experiment(verbose=False)
+    >>> 
+    >>> # Save experiment to temporary file
+    >>> with tempfile.NamedTemporaryFile(delete=False, suffix='.pkl') as f:
+    ...     temp_path = f.name
+    >>> save_exp_to_pickle(exp, temp_path)  # doctest: +ELLIPSIS
+    Experiment Exp demo saved to ...
     
     >>> # Save without verbose output
-    >>> save_exp_to_pickle(exp, 'exp2.pkl', verbose=False)
+    >>> save_exp_to_pickle(exp, temp_path, verbose=False)
+    >>> 
+    >>> # Cleanup
+    >>> os.unlink(temp_path)
     
     Notes
     -----
@@ -529,12 +664,26 @@ def load_exp_from_pickle(path, verbose=True):
         
     Examples
     --------
+    >>> # Create and save a test experiment first
+    >>> import tempfile
+    >>> from driada.experiment import load_demo_experiment
+    >>> test_exp = load_demo_experiment(verbose=False)
+    >>> with tempfile.NamedTemporaryFile(delete=False, suffix='.pkl') as f:
+    ...     temp_path = f.name
+    >>> save_exp_to_pickle(test_exp, temp_path, verbose=False)
+    >>> 
     >>> # Load experiment from file
-    >>> exp = load_exp_from_pickle('data/experiments/exp1.pkl')
-    Experiment EXP001 loaded from data/experiments/exp1.pkl
+    >>> exp = load_exp_from_pickle(temp_path)  # doctest: +ELLIPSIS
+    Experiment Exp demo loaded from ...
     
     >>> # Load without verbose output
-    >>> exp = load_exp_from_pickle('exp2.pkl', verbose=False)
+    >>> exp = load_exp_from_pickle(temp_path, verbose=False)
+    >>> exp.signature
+    'Exp demo'
+    >>> 
+    >>> # Cleanup
+    >>> import os
+    >>> os.unlink(temp_path)
     
     Notes
     -----
@@ -546,4 +695,70 @@ def load_exp_from_pickle(path, verbose=True):
         )
         if verbose:
             print(f"Experiment {exp.signature} loaded from {path}\n")
+    return exp
+
+
+def load_demo_experiment(name="demo", verbose=False):
+    """Load a demonstration experiment for documentation and testing.
+    
+    This is a convenience function for loading sample data in documentation
+    examples and tests. It loads a synthetically generated calcium imaging dataset
+    with behavioral data.
+    
+    Parameters
+    ----------
+    name : str, default='demo'
+        Name identifier for the demo experiment. This becomes part of the
+        experiment's signature. Common values:
+        - 'demo': Basic demonstration
+        - 'test': For unit tests
+        - Any descriptive name for specific examples
+    verbose : bool, default=False
+        Whether to print loading messages.
+        
+    Returns
+    -------
+    Experiment
+        A loaded Experiment object with:
+        - 50 neurons
+        - 10000 time points
+        - Sample behavioral features (position, speed, etc.)
+        - No spike reconstruction (for speed)
+        
+    Examples
+    --------
+    >>> from driada.experiment import load_demo_experiment
+    >>> 
+    >>> # Basic usage
+    >>> exp = load_demo_experiment()
+    >>> print(f"Loaded {exp.n_cells} neurons, {exp.n_frames} frames")
+    Loaded 50 neurons, 10000 frames
+    >>> 
+    >>> # With custom name
+    >>> exp = load_demo_experiment('pca_analysis')
+    >>> print(exp.signature)
+    Exp pca_analysis
+    >>> 
+    >>> # Access data
+    >>> calcium_data = exp.calcium.data  # (50, 10000) array
+    >>> position = exp.position  # MultiTimeSeries with x,y coordinates
+    
+    Notes
+    -----
+    The demo data is located at 'examples/example_data/sample_recording.npz'
+    relative to the DRIADA installation directory.
+    
+    See Also
+    --------
+    load_experiment : Full experiment loading with all options
+    generate_synthetic_exp : Generate synthetic data with custom properties
+    """
+    exp, _ = load_experiment(
+        'MyLab',
+        {'name': name},
+        data_path='examples/example_data/sample_recording.npz',
+        reconstruct_spikes=False,
+        verbose=verbose,
+        save_to_pickle=False
+    )
     return exp

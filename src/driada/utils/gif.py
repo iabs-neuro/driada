@@ -92,10 +92,10 @@ def save_image_series(path, figures, im_ext="png"):
     >>> figs = []
     >>> for i in range(5):
     ...     fig, ax = plt.subplots()
-    ...     ax.plot([1, 2, 3], [i, i+1, i+2])
-    ...     fig.suptitle(f'Plot_{i}')
+    ...     _ = ax.plot([1, 2, 3], [i, i+1, i+2])
+    ...     _ = fig.suptitle(f'Plot_{i}')
     ...     figs.append(fig)
-    >>> save_image_series('/tmp/plots', figs, im_ext='png')
+    >>> # save_image_series('/tmp/plots', figs, im_ext='png')
     
     See Also
     --------
@@ -162,21 +162,23 @@ def create_gif_from_image_series(
     
     Examples
     --------
-    >>> # Create GIF from all PNG images containing 'frame' in the name
-    >>> gif_path = create_gif_from_image_series(
-    ...     '/tmp/images', 
-    ...     signature='frame',
-    ...     gifname='animation',
-    ...     duration=0.5
-    ... )
+    Create GIF from all PNG images containing 'frame' in the name::
     
-    >>> # Keep source images after creating GIF
-    >>> gif_path = create_gif_from_image_series(
-    ...     '/tmp/images',
-    ...     signature='plot_',
-    ...     gifname='results',
-    ...     erase_prev=False
-    ... )
+        gif_path = create_gif_from_image_series(
+            '/tmp/images', 
+            signature='frame',
+            gifname='animation',
+            duration=0.5
+        )
+    
+    Keep source images after creating GIF::
+    
+        gif_path = create_gif_from_image_series(
+            '/tmp/images',
+            signature='plot_',
+            gifname='results',
+            erase_prev=False
+        )
     
     See Also
     --------

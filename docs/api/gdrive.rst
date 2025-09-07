@@ -23,22 +23,22 @@ Quick Links
 -----------
 
 **Authentication**
-   * :func:`~driada.gdrive.desktop_auth` - Authenticate on desktop
-   * :func:`~driada.gdrive.google_colab_auth` - Authenticate in Colab
+   * :func:`~driada.gdrive.auth.desktop_auth` - Authenticate on desktop
+   * :func:`~driada.gdrive.auth.google_colab_auth` - Authenticate in Colab
    * :doc:`gdrive/auth` - Authentication utilities
 
 **Download Functions**
-   * :func:`~driada.gdrive.download_gdrive_data` - Download files/folders
+   * :func:`~driada.gdrive.download.download_gdrive_data` - Download files/folders
    * :func:`~driada.gdrive.download_part_of_folder` - Selective download
    * :func:`~driada.gdrive.initialize_iabs_router` - Setup IABS router
    * :doc:`gdrive/download` - All download utilities
 
 **Upload Functions**
-   * :func:`~driada.gdrive.save_file_to_gdrive` - Upload files
+   * :func:`~driada.gdrive.upload.save_file_to_gdrive` - Upload files
    * :doc:`gdrive/upload` - Upload utilities
 
 **Utilities**
-   * :class:`~driada.gdrive.GoogleDriveFile` - File wrapper class
+   * :class:`~driada.gdrive.gdrive_utils.GoogleDriveFile` - File wrapper class
    * :func:`~driada.gdrive.parse_google_drive_file` - Parse Drive files
    * :func:`~driada.gdrive.id_from_link` - Extract ID from URL
    * :doc:`gdrive/utils` - General utilities
@@ -55,17 +55,17 @@ Usage Example
    )
    
    # Authenticate
-   auth = desktop_auth()
+   auth = desktop_auth('path/to/client_secrets.json')
    
    # Download data
-   download_gdrive_data(
+   success, log = download_gdrive_data(
        auth,
        'https://drive.google.com/file/d/...',
        'local_path/'
    )
    
    # Upload results
-   save_file_to_gdrive(
+   file_id = save_file_to_gdrive(
        auth,
        'results.h5',
        folder_id='...'

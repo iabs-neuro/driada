@@ -194,7 +194,7 @@ def download_part_of_folder(
     Examples
     --------
     >>> # Download CSV files containing 'experiment' in name
-    >>> success, files, log = download_part_of_folder(
+    >>> success, files, log = download_part_of_folder(  # doctest: +SKIP
     ...     output='./data',
     ...     folder='https://drive.google.com/drive/folders/...',
     ...     key='experiment',

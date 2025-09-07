@@ -317,6 +317,7 @@ def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -
     
     Examples
     --------
+    >>> import numpy as np
     >>> # Create two similar RDMs
     >>> rdm1 = np.array([[0, 0.5, 0.8], [0.5, 0, 0.3], [0.8, 0.3, 0]])
     >>> rdm2 = np.array([[0, 0.6, 0.7], [0.6, 0, 0.4], [0.7, 0.4, 0]])
@@ -324,7 +325,7 @@ def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -
     >>> # Compare using different methods
     >>> pearson_sim = compare_rdms(rdm1, rdm2, method='pearson')
     >>> print(f"Pearson correlation: {pearson_sim:.3f}")
-    Pearson correlation: 0.982
+    Pearson correlation: 0.954
     
     >>> spearman_sim = compare_rdms(rdm1, rdm2, method='spearman')
     >>> print(f"Spearman correlation: {spearman_sim:.3f}")
@@ -333,7 +334,7 @@ def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -
     >>> # Cosine similarity
     >>> cosine_sim = compare_rdms(rdm1, rdm2, method='cosine')
     >>> print(f"Cosine similarity: {cosine_sim:.3f}")
-    Cosine similarity: 0.994
+    Cosine similarity: 0.985
     
     See Also
     --------
@@ -466,20 +467,32 @@ def bootstrap_rdm_comparison(
     
     Examples
     --------
-    >>> # Compare visual cortex areas V1 and V2
-    >>> v1_data = np.random.randn(100, 500)  # 100 V1 neurons, 500 timepoints
-    >>> v2_data = np.random.randn(80, 500)   # 80 V2 neurons, same times
-    >>> # 3 conditions presented multiple times
-    >>> labels = np.tile(['face', 'house', 'object'], 167)[:500]
+    >>> import numpy as np
+    >>> # Create two datasets with different patterns but similar structure
+    >>> np.random.seed(42)
+    >>> n_features = 20
+    >>> n_timepoints = 90
     >>> 
+    >>> # 3 conditions, 30 samples each
+    >>> labels = np.repeat(['A', 'B', 'C'], 30)
+    >>> 
+    >>> # Create data with condition-specific patterns
+    >>> v1_data = np.random.randn(n_features, n_timepoints)
+    >>> v2_data = np.random.randn(n_features, n_timepoints)
+    >>> 
+    >>> # Bootstrap will resample and compute similarity distribution
     >>> results = bootstrap_rdm_comparison(
     ...     v1_data, v2_data, labels, labels,
-    ...     n_bootstrap=100, random_state=42
+    ...     n_bootstrap=50, random_state=42
     ... )
     >>> 
-    >>> print(f"Observed similarity: {results['observed']:.3f}")
-    >>> print(f"95% CI: [{results['ci_lower']:.3f}, {results['ci_upper']:.3f}]")
-    >>> print(f"Bootstrap mean: {results['mean']:.3f} ± {results['std']:.3f}")
+    >>> # Check that results contain expected keys
+    >>> print('Keys:', sorted(results.keys()))
+    Keys: ['bootstrap_distribution', 'ci_lower', 'ci_upper', 'mean', 'observed', 'p_value', 'std']
+    >>> 
+    >>> # Random data should give low correlation
+    >>> print(f"Observed between -1 and 1: {-1 <= results['observed'] <= 1}")
+    Observed between -1 and 1: True
     
     See Also
     --------
@@ -641,28 +654,33 @@ def compute_rdm_unified(
 
     Examples
     --------
+    >>> import numpy as np
     >>> # Direct pattern RDM (pre-averaged data)
     >>> patterns = np.random.randn(10, 50)  # 10 items, 50 features
     >>> rdm, _ = compute_rdm_unified(patterns)
+    >>> print(f"RDM shape: {rdm.shape}")
+    RDM shape: (10, 10)
 
     >>> # From time series with labels
     >>> data = np.random.randn(100, 1000)  # 100 features, 1000 timepoints
     >>> labels = np.repeat([0, 1, 2, 3], 250)
     >>> rdm, unique_labels = compute_rdm_unified(data, labels)
+    >>> print(f"RDM shape: {rdm.shape}, unique labels: {unique_labels}")
+    RDM shape: (4, 4), unique labels: [0 1 2 3]
 
-    >>> # From Experiment with behavioral variable
-    >>> rdm, labels = compute_rdm_unified(exp, items='stimulus_type')
-
-    >>> # From Experiment with trial structure
-    >>> trial_info = {'trial_starts': [0, 100, 200], 'trial_labels': ['A', 'B', 'A']}
-    >>> rdm, labels = compute_rdm_unified(exp, items=trial_info)
+    >>> # From MVData object
+    >>> from driada.dim_reduction.data import MVData
+    >>> mvdata = MVData(np.random.randn(50, 100))  # 50 features, 100 samples
+    >>> rdm, _ = compute_rdm_unified(mvdata)
+    >>> print(f"RDM shape: {rdm.shape}")
+    RDM shape: (100, 100)
     
     See Also
     --------
     compute_rdm : Direct RDM computation from patterns
     compute_rdm_from_timeseries_labels : RDM from labeled timeseries
     compute_rdm_from_trials : RDM from trial structure
-    rsa.integration.compute_experiment_rdm : RDM from Experiment objects    """
+    driada.rsa.integration.compute_experiment_rdm : RDM from Experiment objects    """
     # Import here to avoid circular dependency
     from ..experiment import Experiment
     from ..dim_reduction.embedding import Embedding
@@ -815,18 +833,49 @@ def rsa_compare(
 
     Examples
     --------
-    >>> # Compare V1 and V2 representations (arrays)
-    >>> v1_data = np.random.randn(10, 100)  # 10 stimuli, 100 neurons
-    >>> v2_data = np.random.randn(10, 150)  # 10 stimuli, 150 neurons
-    >>> similarity = rsa_compare(v1_data, v2_data)
+    >>> import numpy as np
+    >>> # Compare two brain areas with structured data
+    >>> np.random.seed(42)
+    >>> n_stimuli = 5
+    >>> n_neurons_v1, n_neurons_v2 = 20, 15
+    >>> 
+    >>> # Create orthogonal patterns for each stimulus
+    >>> v1_data = np.zeros((n_stimuli, n_neurons_v1))
+    >>> v2_data = np.zeros((n_stimuli, n_neurons_v2))
+    >>> 
+    >>> # Each stimulus activates different neurons in both areas
+    >>> for i in range(n_stimuli):
+    ...     # V1: each stimulus activates 4 specific neurons
+    ...     v1_data[i, i*4:(i+1)*4] = 1.0
+    ...     # V2: similar pattern with 3 neurons per stimulus
+    ...     v2_data[i, i*3:(i+1)*3] = 1.0
+    >>> 
+    >>> # Add small noise for realism
+    >>> v1_data += 0.1 * np.random.randn(n_stimuli, n_neurons_v1)
+    >>> v2_data += 0.1 * np.random.randn(n_stimuli, n_neurons_v2)
+    >>> 
+    >>> # This creates similar RDM structure in both areas
+    >>> similarity = rsa_compare(v1_data, v2_data, comparison='spearman')
     >>> print(f"RSA similarity: {similarity:.3f}")
+    RSA similarity: 0.479
 
-    >>> # Compare two experiments
-    >>> similarity = rsa_compare(exp1, exp2, items='stimulus_type')
-
-    >>> # Compare with trial structure
-    >>> trials = {'trial_starts': [0, 100, 200], 'trial_labels': ['A', 'B', 'A']}
-    >>> similarity = rsa_compare(exp1, exp2, items=trials)
+    >>> # Compare using compute_rdm_unified first
+    >>> from driada.rsa import compute_rdm_unified
+    >>> np.random.seed(123)
+    >>> data1 = np.random.randn(50, 90)  # 50 features, 90 timepoints
+    >>> data2 = np.random.randn(40, 90)  # 40 features, same timepoints
+    >>> labels = np.repeat(['A', 'B', 'C'], 30)  # 30 samples per condition
+    >>> # First compute RDMs with labels
+    >>> rdm1, _ = compute_rdm_unified(data1, items=labels)
+    >>> rdm2, _ = compute_rdm_unified(data2, items=labels) 
+    >>> # Both RDMs now have shape (3, 3) for the 3 conditions
+    >>> print(f"RDM shapes: {rdm1.shape}, {rdm2.shape}")
+    RDM shapes: (3, 3), (3, 3)
+    >>> # Compare the RDMs
+    >>> from driada.rsa import compare_rdms
+    >>> similarity = compare_rdms(rdm1, rdm2)
+    >>> print(f"RSA similarity between -1 and 1: {-1 <= similarity <= 1}")
+    RSA similarity between -1 and 1: True
     
     See Also
     --------

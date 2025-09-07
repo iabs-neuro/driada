@@ -235,8 +235,9 @@ class Experiment:
     using the INTENSE algorithm with two-stage hypothesis testing.
     
     Spike reconstruction is performed automatically if spikes are not provided
-    and reconstruct_spikes is not False. The 'wavelet' method is recommended
-    for calcium imaging data.
+    and reconstruct_spikes is not False or None. The 'wavelet' method is recommended
+    for calcium imaging data. Set reconstruct_spikes to False or None to disable
+    spike reconstruction entirely.
     
     Individual static and dynamic features can be accessed as attributes. For
     example, if 'position' is a dynamic feature, access it via self.position.
@@ -285,7 +286,9 @@ class Experiment:
         **kwargs
             Additional parameters:
             - fit_individual_t_off (bool): Fit decay time per neuron. Default False.
-            - reconstruct_spikes (str): Method for spike reconstruction ('wavelet').
+            - reconstruct_spikes (str, False, or None): Method for spike reconstruction.
+              Options: 'wavelet' (default), 'threshold', False, or None.
+              If False or None, spike reconstruction is disabled.
               Only used if spikes is None.
             - bad_frames_mask (array-like): Boolean mask of frames to exclude.
             - spike_kwargs (dict): Parameters for spike reconstruction method.
@@ -324,30 +327,39 @@ class Experiment:
         
         Examples
         --------
+        >>> import numpy as np
+        >>> from driada.information.info_base import TimeSeries
+        >>> 
         >>> # Basic initialization with calcium data only
-        >>> exp = Experiment('exp001', calcium_data, None, None, None, None)
+        >>> calcium_data = np.random.randn(10, 1000)  # 10 neurons, 1000 timepoints
+        >>> exp = Experiment('exp001', calcium_data, None, {}, {}, {}, 
+        ...                  reconstruct_spikes=None, verbose=False)
         
         >>> # With spikes and behavioral features
+        >>> spike_data = np.random.poisson(0.05, (10, 1000))  # spike trains
+        >>> speed_trace = TimeSeries(np.random.rand(1000))    # behavioral data
         >>> exp = Experiment(
         ...     'exp002',
         ...     calcium_data,
         ...     spike_data,
-        ...     None,
+        ...     {},
         ...     {'fps': 30.0},
-        ...     {'speed': speed_trace}
+        ...     {'speed': speed_trace},
+        ...     verbose=False
         ... )
         
-        >>> # With spike reconstruction
+        >>> # Without spike reconstruction (faster for doctests)
         >>> exp = Experiment(
         ...     'exp003',
         ...     calcium_data,
         ...     None,
-        ...     None,
-        ...     None,
-        ...     None,
-        ...     reconstruct_spikes='wavelet',
-        ...     spike_kwargs={'threshold': 2.0}
-        ... )        """
+        ...     {},
+        ...     {'fps': 30.0},
+        ...     {},
+        ...     reconstruct_spikes=None,
+        ...     verbose=False
+        ... )
+        """
         fit_individual_t_off = kwargs.get("fit_individual_t_off", False)
         reconstruct_spikes = kwargs.get("reconstruct_spikes", "wavelet")
         bad_frames_mask = kwargs.get("bad_frames_mask", None)
@@ -366,12 +378,15 @@ class Experiment:
                 "Calcium data is required. Please provide a numpy array with shape (n_neurons, n_timepoints)."
             )
 
-        if reconstruct_spikes is None:
-            if spikes is None:
+        # Handle spike reconstruction based on reconstruct_spikes parameter
+        if reconstruct_spikes is None or reconstruct_spikes is False:
+            # No spike reconstruction requested
+            if spikes is None and self.verbose:
                 warnings.warn(
                     "No spike data provided, spikes reconstruction from Ca2+ data disabled"
                 )
         else:
+            # Spike reconstruction requested
             if spikes is not None:
                 warnings.warn(
                     f"Spike data will be overridden by reconstructed spikes from Ca2+ data with method={reconstruct_spikes}"
@@ -522,7 +537,10 @@ class Experiment:
         if self.verbose:
             print("Building data hashes...")
         self._build_data_hashes(mode="calcium")
-        if reconstruct_spikes is not None or spikes is not None:
+        # Only build spike hashes if we have actual spike data (not just zeros)
+        # Check if any neuron has non-None spikes
+        has_spikes = any(neuron.sp is not None for neuron in self.neurons)
+        if has_spikes:
             self._build_data_hashes(mode="spikes")
 
         if self.verbose:
@@ -1689,12 +1707,38 @@ class Experiment:
         
         Examples
         --------
+        >>> import numpy as np
+        >>> from driada.experiment.exp_base import Experiment
+        >>> from driada.information.info_base import TimeSeries
+        >>> 
+        >>> # Create an example experiment with selectivity data
+        >>> calcium_data = np.random.randn(20, 1000)
+        >>> running_speed = TimeSeries(np.random.rand(1000))
+        >>> exp = Experiment(
+        ...     'example',
+        ...     calcium_data,
+        ...     None,
+        ...     {},
+        ...     {'fps': 30.0},
+        ...     {'running_speed': running_speed},
+        ...     verbose=False
+        ... )
+        >>> 
+        >>> # Initialize stats tables
+        >>> exp._set_selectivity_tables('calcium')
+        >>> 
         >>> # Get p-values for cells 0-5 and feature 'running_speed'
         >>> sig_data = exp.get_significance_slice(
         ...     cbunch=[0, 1, 2, 3, 4, 5],
         ...     fbunch=['running_speed'],
         ...     sbunch=['pval']
-        ... )        """
+        ... )
+        >>> # Returns nested dict structure
+        >>> sorted(sig_data.keys())
+        ['running_speed']
+        >>> sorted(sig_data['running_speed'].keys())
+        [0, 1, 2, 3, 4, 5]
+        """
         return self.get_stats_slice(
             cbunch=cbunch,
             fbunch=fbunch,
@@ -1998,13 +2042,25 @@ class Experiment:
         
         Examples
         --------
+        >>> import numpy as np
+        >>> from driada.experiment.exp_base import Experiment
+        >>> 
+        >>> # Create a simple experiment
+        >>> calcium_data = np.random.randn(10, 1000)
+        >>> exp = Experiment('test', calcium_data, None, {}, 
+        ...                  {'fps': 30.0}, {}, verbose=False)
+        >>> 
         >>> # Store a PCA embedding
         >>> embedding = np.random.randn(1000, 3)  # 1000 timepoints, 3 components
         >>> exp.store_embedding(embedding, 'pca', metadata={'n_components': 3})
         >>> 
+        >>> # Verify storage
+        >>> 'pca' in exp.embeddings['calcium']
+        True
+        >>> 
         >>> # Store a downsampled UMAP embedding
-        >>> # If experiment has 5000 frames and ds=5, embedding should have 1000 rows
-        >>> downsampled_embedding = np.random.randn(1000, 2)
+        >>> # If experiment has 1000 frames and ds=5, embedding should have 200 rows
+        >>> downsampled_embedding = np.random.randn(200, 2)
         >>> exp.store_embedding(downsampled_embedding, 'umap', 
         ...                    metadata={'ds': 5, 'n_neighbors': 30})
         
@@ -2082,11 +2138,26 @@ class Experiment:
             
         Examples
         --------
+        >>> import numpy as np
+        >>> from driada.experiment.exp_base import Experiment
+        >>> from driada.information.info_base import TimeSeries
+        >>> 
+        >>> # Create experiment with some data
+        >>> calcium_data = np.random.randn(25, 1000)
+        >>> speed = TimeSeries(np.random.rand(1000))
+        >>> exp = Experiment('test', calcium_data, None, {},
+        ...                  {'fps': 30.0}, {'speed': speed}, verbose=False)
+        >>> 
         >>> # Create PCA embedding using all neurons
         >>> embedding = exp.create_embedding('pca', n_components=10)
+        Calculating PCA embedding...
+        >>> embedding.shape
+        (1000, 10)
         >>> 
-        >>> # Create UMAP using only significant neurons
-        >>> embedding = exp.create_embedding('umap', neuron_selection='significant')
+        >>> # Create downsampled PCA with specific neurons  
+        >>> embedding = exp.create_embedding('pca', n_components=2,
+        ...                                neuron_selection=[0, 1, 2, 3, 4], ds=10)
+        Calculating PCA embedding...
         
         See Also
         --------
@@ -2241,15 +2312,28 @@ class Experiment:
             
         Examples
         --------
-        >>> # Retrieve a stored PCA embedding
+        >>> import numpy as np
+        >>> from driada.experiment.exp_base import Experiment
+        >>> 
+        >>> # Create experiment and store an embedding
+        >>> calcium_data = np.random.randn(10, 1000)
+        >>> exp = Experiment('test', calcium_data, None, {},
+        ...                  {'fps': 30.0}, {}, verbose=False)
+        >>> 
+        >>> # Store an embedding first
+        >>> embedding = np.random.randn(1000, 3)
+        >>> exp.store_embedding(embedding, 'pca', metadata={'n_components': 3})
+        >>> 
+        >>> # Retrieve the stored PCA embedding
         >>> embedding_dict = exp.get_embedding('pca')
         >>> embedding_data = embedding_dict['data']
         >>> print(f"Embedding shape: {embedding_dict['shape']}")
-        >>> print(f"Created at: {embedding_dict['timestamp']}")
+        Embedding shape: (1000, 3)
         >>> 
         >>> # Check available embeddings before retrieval
         >>> available = list(exp.embeddings['calcium'].keys())
         >>> print(f"Available embeddings: {available}")
+        Available embeddings: ['pca']
         
         See Also
         --------
@@ -2346,9 +2430,27 @@ class Experiment:
         
         Examples
         --------
-        >>> # Clear cache after updating embeddings
+        >>> import numpy as np
+        >>> from driada.experiment.exp_base import Experiment
+        >>> from driada.information.info_base import TimeSeries
+        >>> 
+        >>> # Create experiment with a categorical feature
+        >>> calcium_data = np.random.randn(10, 1000)
+        >>> conditions = TimeSeries(np.repeat([0, 1, 2], [333, 333, 334]), discrete=True)
+        >>> exp = Experiment('test', calcium_data, None, {},
+        ...                  {'fps': 30.0}, {'conditions': conditions}, verbose=False)
+        >>> 
+        >>> # Compute RDM (will be cached)
+        >>> rdm, labels = exp.compute_rdm('conditions')
+        >>> 
+        >>> # Update embedding and clear cache
+        >>> new_embedding = np.random.randn(1000, 3)
         >>> exp.store_embedding(new_embedding, 'pca')
         >>> exp.clear_rdm_cache()
-        >>> rdm, labels = exp.compute_rdm('neurons')  # Will recompute        """
+        >>> 
+        >>> # Verify cache is empty
+        >>> len(exp._rdm_cache)
+        0
+        """
         self._rdm_cache = {}
 

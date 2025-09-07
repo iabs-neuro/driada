@@ -47,8 +47,10 @@ def desktop_auth(secret_path):
 
     Examples
     --------
-    >>> gauth = desktop_auth('./client_secrets.json')
-    >>> drive = GoogleDrive(gauth)    """
+    >>> # Requires actual client_secrets.json file
+    >>> gauth = desktop_auth('./client_secrets.json')  # doctest: +SKIP
+    >>> from pydrive2.drive import GoogleDrive  # doctest: +SKIP
+    >>> drive = GoogleDrive(gauth)  # doctest: +SKIP    """
     import os
     import json
     
@@ -101,9 +103,9 @@ def google_colab_auth():
     Examples
     --------
     >>> # In a Google Colab notebook:
-    >>> gauth = google_colab_auth()
-    >>> drive = GoogleDrive(gauth)
-    >>> # Now you can use drive to upload/download files    """
+    >>> gauth = google_colab_auth()  # doctest: +SKIP
+    >>> from pydrive2.drive import GoogleDrive  # doctest: +SKIP
+    >>> drive = GoogleDrive(gauth)  # doctest: +SKIP    """
     from google.colab import auth
     from oauth2client.client import GoogleCredentials
 

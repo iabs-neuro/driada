@@ -197,29 +197,43 @@ def compute_cell_feat_significance(
     
     Examples
     --------
-    >>> # Basic neuron-feature analysis
+    >>> from driada.experiment.synthetic import generate_synthetic_exp
+    >>> import numpy as np
+    >>> 
+    >>> # Create small test experiment
+    >>> exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=1, nneurons=3, 
+    ...                              duration=60, fps=10, seed=42, verbose=False)
+    >>> 
+    >>> # Basic neuron-feature analysis (stage1 for speed)
     >>> stats, sig, info, res = compute_cell_feat_significance(
     ...     exp, 
-    ...     cell_bunch=[0, 1, 2],
-    ...     feat_bunch=['speed', 'head_direction']
-    ... )
+    ...     cell_bunch=[0, 1],
+    ...     feat_bunch=['d_feat_0'],
+    ...     mode='stage1',
+    ...     n_shuffles_stage1=10,
+    ...     verbose=False
+    ... )  # doctest: +ELLIPSIS
+    ...
+    >>> len(stats)  # Number of neurons analyzed
+    2
+    >>> 'd_feat_0' in stats[0]  # Feature present in results
+    True
     >>> 
-    >>> # With disentanglement analysis for mixed selectivity
-    >>> stats, sig, info, res, disent = compute_cell_feat_significance(
+    >>> # With disentanglement analysis
+    >>> result = compute_cell_feat_significance(
     ...     exp,
-    ...     feat_bunch=['x', 'y', 'speed'],
+    ...     cell_bunch=[0, 1],
+    ...     mode='stage1',
+    ...     n_shuffles_stage1=10,
     ...     with_disentanglement=True,
-    ...     multifeature_map={('x', 'y'): 'place'}
-    ... )
-    >>> 
-    >>> # Using spike data with custom parameters
-    >>> stats, sig, info, res = compute_cell_feat_significance(
-    ...     exp,
-    ...     data_type='spikes',
-    ...     metric_distr_type='norm',
-    ...     n_shuffles_stage2=5000,
-    ...     pval_thr=0.001
-    ... )    """
+    ...     verbose=False
+    ... )  # doctest: +ELLIPSIS
+    ...
+    >>> len(result)  # Returns 5 values with disentanglement
+    5
+    >>> stats, sig, info, res, disent = result
+    >>> 'disent_matrix' in disent
+    True    """
 
     exp.check_ds(ds)
 
@@ -274,7 +288,8 @@ def compute_cell_feat_significance(
         exp._set_selectivity_tables(data_type, cbunch=cell_ids, fbunch=feat_ids)
 
     if use_precomputed_stats:
-        print("Retrieving saved stats data...")
+        if verbose:
+            print("Retrieving saved stats data...")
         # 0 in mask values means precomputed results are found, calculation will be skipped.
         # 1 in mask values means precomputed results are not found or incomplete, calculation will proceed.
 
@@ -608,23 +623,34 @@ def compute_feat_feat_significance(
 
     Examples
     --------
-    >>> # Compute MI between all behavioral variables (default)
-    >>> sim_mat, sig_mat, pval_mat, features, info = compute_feat_feat_significance(exp)
-    >>>
-    >>> # Analyze only specific features
-    >>> sim_mat, sig_mat, pval_mat, features, info = compute_feat_feat_significance(
-    ...     exp,
-    ...     feat_bunch=['speed', 'head_direction', ('x', 'y')]
-    ... )
+    >>> from driada.experiment.synthetic import generate_synthetic_exp
     >>> 
-    >>> # Find significant correlations with custom parameters
+    >>> # Create test experiment
+    >>> exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=3,
+    ...                              duration=60, fps=10, seed=42, verbose=False)
+    >>> 
+    >>> # Compute feature-feature correlations
     >>> sim_mat, sig_mat, pval_mat, features, info = compute_feat_feat_significance(
     ...     exp,
-    ...     feat_bunch=['lick_rate', 'reward', 'speed'],
-    ...     n_shuffles_stage2=5000,
-    ...     pval_thr=0.001,
-    ...     multicomp_correction='bonferroni'
+    ...     mode='stage1',
+    ...     n_shuffles_stage1=10,
+    ...     verbose=False
     ... )
+    >>> sim_mat.shape == (4, 4)  # 2 discrete + 2 continuous features
+    True
+    >>> np.allclose(np.diag(sim_mat), 0)  # Diagonal is zero
+    True
+    >>> 
+    >>> # Analyze specific features only  
+    >>> sim_mat2, sig_mat2, pval_mat2, features2, info2 = compute_feat_feat_significance(
+    ...     exp,
+    ...     feat_bunch=['d_feat_0', 'd_feat_1'],
+    ...     mode='stage1',
+    ...     n_shuffles_stage1=10,
+    ...     verbose=False
+    ... )
+    >>> sim_mat2.shape == (2, 2)
+    True
     
     Raises
     ------
@@ -870,27 +896,34 @@ def compute_cell_cell_significance(
 
     Examples
     --------
-    >>> # Compute functional correlations between all neurons
-    >>> sim_mat, sig_mat, pval_mat, cells, info = compute_cell_cell_significance(exp)
-    >>>
-    >>> # Analyze only specific neurons
-    >>> sim_mat, sig_mat, pval_mat, cells, info = compute_cell_cell_significance(
-    ...     exp,
-    ...     cell_bunch=[0, 5, 10, 15, 20],
-    ...     data_type='spikes'
+    >>> from driada.experiment.synthetic import generate_synthetic_exp
+    >>> from driada.information.info_base import TimeSeries
+    >>> import numpy as np
+    >>> 
+    >>> # Create experiment with correlated neurons
+    >>> exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=1, nneurons=3,
+    ...                              duration=60, fps=10, seed=42, verbose=False)
+    >>> 
+    >>> # Make neurons 0 and 1 correlated
+    >>> noise = np.random.RandomState(42).randn(len(exp.neurons[0].ca.data)) * 0.1
+    >>> exp.neurons[1].ca = TimeSeries(
+    ...     exp.neurons[0].ca.data + noise, discrete=False
     ... )
     >>> 
-    >>> # Identify functional assemblies with strict criteria
+    >>> # Compute neuron-neuron correlations
     >>> sim_mat, sig_mat, pval_mat, cells, info = compute_cell_cell_significance(
     ...     exp,
-    ...     n_shuffles_stage2=5000,
-    ...     pval_thr=0.001,
-    ...     multicomp_correction='bonferroni'
+    ...     cell_bunch=[0, 1, 2],
+    ...     mode='stage1',
+    ...     n_shuffles_stage1=10,
+    ...     verbose=False
     ... )
-    >>> # Post-process to find network modules
-    >>> import networkx as nx
-    >>> G = nx.from_numpy_array(sig_mat)
-    >>> modules = list(nx.connected_components(G))
+    >>> sim_mat.shape == (3, 3)
+    True
+    >>> np.allclose(np.diag(sim_mat), 0)  # Self-correlation is zero
+    True
+    >>> sim_mat[0, 1] > sim_mat[0, 2]  # Neurons 0,1 more correlated than 0,2
+    True
     
     Raises
     ------
@@ -1150,27 +1183,37 @@ def compute_embedding_selectivity(
     
     Examples
     --------
-    >>> # Analyze all stored embeddings
-    >>> results = compute_embedding_selectivity(exp)
+    >>> from driada.experiment.synthetic import generate_synthetic_exp
+    >>> from sklearn.decomposition import PCA
+    >>> import numpy as np
     >>> 
-    >>> # Analyze specific embedding method
+    >>> # Create experiment
+    >>> exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=1, nneurons=5,
+    ...                              duration=60, fps=10, seed=42, verbose=False)
+    >>> 
+    >>> # Create and store PCA embedding
+    >>> neural_data = np.array([exp.neurons[i].ca.data for i in range(5)]).T
+    >>> pca = PCA(n_components=2, random_state=42)
+    >>> embedding = pca.fit_transform(neural_data)
+    >>> exp.store_embedding(embedding, method_name='pca', data_type='calcium')
+    >>> 
+    >>> # Compute embedding selectivity
     >>> results = compute_embedding_selectivity(
     ...     exp,
-    ...     embedding_methods='pca',
-    ...     cell_bunch=[0, 1, 2, 3, 4]
-    ... )
+    ...     embedding_methods=['pca'],
+    ...     cell_bunch=[0, 1, 2],
+    ...     mode='stage1',
+    ...     n_shuffles_stage1=10,
+    ...     verbose=False
+    ... )  # doctest: +ELLIPSIS
+    ...
     >>> 
-    >>> # Find neurons selective to UMAP manifold components
-    >>> results = compute_embedding_selectivity(
-    ...     exp,
-    ...     embedding_methods=['umap', 'tsne'],
-    ...     n_shuffles_stage2=5000,
-    ...     pval_thr=0.001
-    ... )
-    >>> # Extract UMAP-selective neurons
-    >>> umap_neurons = results['umap']['significant_neurons']
-    >>> for neuron_id, components in umap_neurons.items():
-    ...     print(f"Neuron {neuron_id} selective to components: {components}")
+    >>> 'pca' in results
+    True
+    >>> results['pca']['n_components']
+    2
+    >>> 'component_selectivity' in results['pca']
+    True
     
     See Also
     --------

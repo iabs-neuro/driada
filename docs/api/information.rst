@@ -24,14 +24,14 @@ Quick Links
 -----------
 
 **Core Data Structures**
-   * :class:`~driada.information.TimeSeries` - Single time series container
-   * :class:`~driada.information.MultiTimeSeries` - Multi-dimensional time series
+   * :class:`~driada.information.info_base.TimeSeries` - Single time series container
+   * :class:`~driada.information.info_base.MultiTimeSeries` - Multi-dimensional time series
    * :doc:`information/core` - Base classes and main MI functions
 
 **Mutual Information**
-   * :func:`~driada.information.get_mi` - Main MI computation function
-   * :func:`~driada.information.conditional_mi` - Conditional MI
-   * :func:`~driada.information.interaction_information` - Multi-variable interactions
+   * :func:`~driada.information.info_base.get_mi` - Main MI computation function
+   * :func:`~driada.information.info_base.conditional_mi` - Conditional MI
+   * :func:`~driada.information.info_base.interaction_information` - Multi-variable interactions
    * :doc:`information/mutual_information` - All MI-related functions
 
 **Entropy Estimation**
@@ -49,14 +49,26 @@ Usage Example
 .. code-block:: python
 
    from driada.information import TimeSeries, get_mi
+   import numpy as np
    
-   # Create time series
+   # Create time series with matching lengths
+   n_samples = 1000
+   
+   # Generate example data
+   spike_counts = np.random.poisson(3, n_samples)  # Discrete spike counts
+   position = np.cumsum(np.random.randn(n_samples) * 0.1)  # Continuous position
+   
+   # Ensure data has no extreme outliers for GCMI
+   position = np.clip(position, np.percentile(position, 1), np.percentile(position, 99))
+   
    neural_data = TimeSeries(spike_counts, discrete=True)
    behavior = TimeSeries(position, discrete=False)
    
-   # Compute mutual information
+   # Compute mutual information  
    mi_value = get_mi(neural_data, behavior, estimator='gcmi')
    
-   # Conditional MI
+   # Conditional MI (X must be continuous)
    from driada.information import conditional_mi
-   cmi = conditional_mi(neural_data, behavior, condition=speed)
+   speed = np.abs(np.diff(position, prepend=position[0]))  # Speed from position
+   speed_ts = TimeSeries(speed[:n_samples], discrete=False)
+   cmi = conditional_mi(behavior, neural_data, speed_ts)  # I(position; spikes | speed)

@@ -41,6 +41,7 @@ from .information import (
 # Experiment utilities
 from .experiment import (
     load_experiment,
+    load_exp_from_aligned_data,
     save_exp_to_pickle,
     load_exp_from_pickle,
     generate_synthetic_exp,
@@ -85,6 +86,7 @@ __all__ = [
     "interaction_information",
     # Experiment utilities
     "load_experiment",
+    "load_exp_from_aligned_data",
     "save_exp_to_pickle",
     "load_exp_from_pickle",
     "generate_synthetic_exp",

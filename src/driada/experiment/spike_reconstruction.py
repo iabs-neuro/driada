@@ -71,18 +71,42 @@ def reconstruct_spikes(
         
     Examples
     --------
+    >>> # Create example calcium data
+    >>> import numpy as np
+    >>> from driada.information import TimeSeries, MultiTimeSeries
+    >>> n_neurons, n_frames = 5, 1000
+    >>> raw_data = np.random.rand(n_neurons, n_frames)
+    >>> calcium_ts_list = [TimeSeries(raw_data[i], discrete=False) for i in range(n_neurons)]
+    >>> calcium_data = MultiTimeSeries(calcium_ts_list)
+    >>> 
     >>> # Using wavelet method (default)
     >>> spikes, meta = reconstruct_spikes(calcium_data, fps=30.0)
+    >>> meta['method']
+    'wavelet'
+    >>> spikes.n_dim == n_neurons
+    True
     
     >>> # Using threshold method with custom parameters
     >>> params = {'threshold_std': 3.0, 'smooth_sigma': 1.5}
     >>> spikes, meta = reconstruct_spikes(calcium_data, 'threshold', 30.0, params)
+    >>> meta['method']
+    'threshold'
+    >>> meta['parameters']['threshold_std']
+    3.0
     
     >>> # Using custom reconstruction function
     >>> def custom_method(calcium, fps, params):
-    ...     # Custom implementation
-    ...     return spike_timeseries, metadata_dict
+    ...     # Simple mock implementation
+    ...     n_neurons, n_frames = calcium.scdata.shape
+    ...     spike_data = np.zeros((n_neurons, n_frames))
+    ...     # Add a few spikes to avoid zero columns error
+    ...     for i in range(n_neurons):
+    ...         spike_data[i, i*10:(i+1)*10] = 1
+    ...     spike_ts = [TimeSeries(spike_data[i], discrete=True) for i in range(n_neurons)]
+    ...     return MultiTimeSeries(spike_ts, allow_zero_columns=True), {'custom_info': 'test'}
     >>> spikes, meta = reconstruct_spikes(calcium_data, custom_method, 30.0)
+    >>> meta['custom_info']
+    'test'
     
     Notes
     -----

@@ -24,26 +24,26 @@ Quick Links
 -----------
 
 **Core Classes**
-   * :class:`~driada.experiment.Experiment` - Main experiment container
-   * :class:`~driada.experiment.Neuron` - Single neuron analysis
+   * :class:`~driada.experiment.exp_base.Experiment` - Main experiment container
+   * :class:`~driada.experiment.neuron.Neuron` - Single neuron analysis
    * :doc:`experiment/core` - Experiment management
 
 **Loading and Saving**
-   * :func:`~driada.experiment.load_experiment` - Load from various formats
-   * :func:`~driada.experiment.load_exp_from_aligned_data` - Load pre-aligned data
-   * :func:`~driada.experiment.save_exp_to_pickle` - Save experiments
-   * :func:`~driada.experiment.load_exp_from_pickle` - Load pickled experiments
+   * :func:`~driada.experiment.exp_build.load_experiment` - Load from various formats
+   * :func:`~driada.experiment.exp_build.load_exp_from_aligned_data` - Load pre-aligned data
+   * :func:`~driada.experiment.exp_build.save_exp_to_pickle` - Save experiments
+   * :func:`~driada.experiment.exp_build.load_exp_from_pickle` - Load pickled experiments
    * :doc:`experiment/loading` - All I/O functions
 
 **Spike Reconstruction**
-   * :func:`~driada.experiment.reconstruct_spikes` - Main reconstruction function
-   * :func:`~driada.experiment.wavelet_reconstruction` - Wavelet-based method
-   * :func:`~driada.experiment.threshold_reconstruction` - Threshold-based method
+   * :func:`~driada.experiment.spike_reconstruction.reconstruct_spikes` - Main reconstruction function
+   * :func:`~driada.experiment.spike_reconstruction.wavelet_reconstruction` - Wavelet-based method
+   * :func:`~driada.experiment.spike_reconstruction.threshold_reconstruction` - Threshold-based method
    * :doc:`experiment/reconstruction` - Spike deconvolution methods
 
 **Wavelet Analysis**
-   * :func:`~driada.experiment.extract_wvt_events` - Extract wavelet events
-   * :func:`~driada.experiment.get_cwt_ridges` - Find CWT ridges
+   * :func:`~driada.experiment.wavelet_event_detection.extract_wvt_events` - Extract wavelet events
+   * :func:`~driada.experiment.wavelet_event_detection.get_cwt_ridges` - Find CWT ridges
    * :doc:`experiment/wavelet` - Wavelet event detection
 
 **Synthetic Data Generation**
@@ -59,10 +59,12 @@ Usage Example
 
 .. code-block:: python
 
-   from driada.experiment import Experiment, load_experiment
+   from driada.experiment import Experiment, load_exp_from_pickle
    
-   # Load experimental data
-   exp = load_experiment('path/to/data.mat')
+   # Load saved experiment
+   # Replace with your actual experiment file path
+   # sample_pkl_path = "path/to/your/experiment.pkl"
+   # exp = load_exp_from_pickle(sample_pkl_path)
    
    # Or create synthetic data
    from driada.experiment import generate_circular_manifold_exp

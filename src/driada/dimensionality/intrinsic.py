@@ -15,8 +15,19 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     Estimate intrinsic dimension using the k-NN algorithm.
 
     This method estimates the intrinsic dimensionality by analyzing the ratios
-    of distances to the k-th and (k-1)-th nearest neighbors. For k=2, this
-    is the TWO-NN algorithm [1].
+    of distances to successive nearest neighbors using maximum likelihood 
+    estimation. When k=2, this implements the TWO-NN algorithm [1], where 
+    "TWO" refers to using the 1st and 2nd nearest neighbors to compute 
+    distance ratios.
+
+    The algorithm works by:
+    1. For each point, computing the ratio r_i = d_2 / d_1 (for k=2), where 
+       d_1 and d_2 are distances to the 1st and 2nd nearest neighbors
+    2. Using maximum likelihood to estimate dimension from the distribution 
+       of these ratios, which follows a specific form dependent on the 
+       intrinsic dimension
+    3. For k>2, extending to use multiple successive neighbor ratios 
+       (d_2/d_1, d_3/d_2, ..., d_k/d_{k-1}) for more robust estimation
 
     Parameters
     ----------
@@ -63,16 +74,46 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     --------
     >>> import numpy as np
     >>> from driada.dimensionality.intrinsic import nn_dimension
-    >>> # Generate data on a 2D manifold embedded in 10D
-    >>> np.random.seed(42)  # For reproducible results
+    >>> 
+    >>> # Example 1: Clean low-dimensional data
+    >>> np.random.seed(42)
+    >>> # Generate 2D Swiss roll
+    >>> n = 1000
+    >>> t = 1.5 * np.pi * (1 + 2 * np.random.rand(n))  
+    >>> height = 30 * np.random.rand(n)
+    >>> X = np.zeros((n, 3))
+    >>> X[:, 0] = t * np.cos(t)
+    >>> X[:, 1] = height
+    >>> X[:, 2] = t * np.sin(t)
+    >>> d_est = nn_dimension(X, k=10)
+    >>> print(f"Swiss roll (true dim=2): {d_est:.2f}")
+    Swiss roll (true dim=2): 1.94
+    >>> 
+    >>> # Example 2: Impact of ambient noise
+    >>> # The TWO-NN estimator (k=2) can overestimate dimension when data
+    >>> # has noise in ambient dimensions. This is because noise affects
+    >>> # the ratios of nearest neighbor distances.
+    >>> 
+    >>> # Pure 2D data: accurate estimate
     >>> theta = np.random.uniform(0, 2*np.pi, 1000)
-    >>> r = np.random.uniform(0, 1, 1000)
-    >>> x = r * np.cos(theta)
-    >>> y = r * np.sin(theta)
-    >>> data = np.column_stack([x, y] + [np.random.randn(1000)*0.01 for _ in range(8)])
-    >>> d_est = nn_dimension(data, k=2)
-    >>> print(f"Estimated dimension: {d_est:.2f}")  # Should be close to 2
-    Estimated dimension: 4.88
+    >>> r = np.sqrt(np.random.uniform(0, 1, 1000))  # Uniform distribution on disk
+    >>> data_2d = np.column_stack([r * np.cos(theta), r * np.sin(theta)])
+    >>> d_est = nn_dimension(data_2d, k=2)
+    >>> print(f"Pure 2D disk: {d_est:.2f}")
+    Pure 2D disk: 2.01
+    >>> 
+    >>> # Same data with small noise in extra dimensions: overestimates
+    >>> # This happens because even small noise changes neighbor relationships
+    >>> noise = 0.01 * np.random.randn(1000, 8)
+    >>> data_10d = np.hstack([data_2d, noise])
+    >>> d_est = nn_dimension(data_10d, k=2)
+    >>> print(f"2D disk in 10D with noise: {d_est:.2f}")  # Overestimates due to noise
+    2D disk in 10D with noise: 4.73
+    >>> 
+    >>> # For noisy high-dimensional data:
+    >>> # 1. Use higher k values (more robust but may underestimate)
+    >>> # 2. Consider denoising or PCA preprocessing
+    >>> # 3. Use alternative methods like correlation_dimension
     
     Raises
     ------

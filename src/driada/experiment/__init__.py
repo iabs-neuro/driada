@@ -14,6 +14,7 @@ from .exp_build import (
     load_exp_from_aligned_data,
     save_exp_to_pickle,
     load_exp_from_pickle,
+    load_demo_experiment,
 )
 
 # Synthetic data generation
@@ -76,6 +77,7 @@ __all__ = [
     "load_exp_from_aligned_data",
     "save_exp_to_pickle",
     "load_exp_from_pickle",
+    "load_demo_experiment",
     # Synthetic data
     "generate_synthetic_exp",
     "generate_synthetic_exp_with_mixed_selectivity",

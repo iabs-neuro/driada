@@ -25,9 +25,10 @@ Quick Links
 
 **Main Analysis Pipelines**
    * :doc:`intense/pipelines` - High-level functions for significance testing
-   * :func:`~driada.intense.compute_cell_feat_significance` - Neuron-feature analysis
-   * :func:`~driada.intense.compute_feat_feat_significance` - Feature-feature dependencies
-   * :func:`~driada.intense.compute_cell_cell_significance` - Neuron-neuron connectivity
+   * :func:`~driada.intense.pipelines.compute_cell_feat_significance` - Neuron-feature analysis
+   * :func:`~driada.intense.pipelines.compute_feat_feat_significance` - Feature-feature dependencies
+   * :func:`~driada.intense.pipelines.compute_cell_cell_significance` - Neuron-neuron connectivity
+   * :func:`~driada.intense.pipelines.compute_embedding_selectivity` - Embedding dimension selectivity
 
 **Statistical Tools**
    * :doc:`intense/stats` - Statistical testing and p-value computation

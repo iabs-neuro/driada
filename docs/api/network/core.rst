@@ -8,7 +8,7 @@ Core network class and validation functions.
 Network Class
 -------------
 
-.. autoclass:: driada.network.Network
+.. autoclass:: driada.network.net_base.Network
    :members:
    :special-members: __init__
    :inherited-members:

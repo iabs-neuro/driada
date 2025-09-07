@@ -170,18 +170,24 @@ class MaximumVarianceUnfolding(object):
         Examples
         --------
         >>> import numpy as np
-        >>> # Create sample data on a curve
-        >>> t = np.linspace(0, 4*np.pi, 50)
-        >>> data = np.column_stack([t*np.cos(t), t*np.sin(t), t])
+        >>> # Create simple line data - MVU should preserve distances perfectly
+        >>> np.random.seed(42)
+        >>> n_points = 30
+        >>> t = np.linspace(0, 2*np.pi, n_points)
+        >>> # Circle in 3D space
+        >>> data = np.column_stack([np.cos(t), np.sin(t), 0.1*np.sin(3*t)])
         >>> # Initialize and fit MVU
-        >>> mvu = MaximumVarianceUnfolding(equation='berkley')
-        >>> gram_matrix = mvu.fit(data, k=5)
+        >>> mvu = MaximumVarianceUnfolding(equation='berkley', solver_tol=1e-4)
+        >>> gram_matrix = mvu.fit(data, k=6)
         >>> print(gram_matrix.shape)
-        (50, 50)
-        >>> # Check that Gram matrix is PSD (small negative eigenvalues are numerical errors)
+        (30, 30)
+        >>> # Check that Gram matrix eigenvalues are reasonable
+        >>> # Small negative values are expected numerical errors from SDP solvers
         >>> eigvals = np.linalg.eigvalsh(gram_matrix)
-        >>> print(f"Min eigenvalue: {eigvals.min():.2e}")
-        Min eigenvalue: 1.23e-08
+        >>> # Verify the matrix is approximately PSD (within solver tolerance)
+        >>> num_significant_negative = np.sum(eigvals < -1e-3)
+        >>> print(f"Number of eigenvalues < -1e-3: {num_significant_negative}")
+        Number of eigenvalues < -1e-3: 0
             
         Notes
         -----

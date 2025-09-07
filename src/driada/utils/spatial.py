@@ -22,8 +22,13 @@ from sklearn.metrics import r2_score
 from typing import Optional, Tuple, Dict, List, Union
 import logging
 
-from ..information import TimeSeries, MultiTimeSeries, get_sim
-from .data import check_positive
+try:
+    from ..information import TimeSeries, MultiTimeSeries, get_sim
+    from .data import check_positive
+except ImportError:
+    # For standalone module execution (e.g., doctests)
+    from driada.information import TimeSeries, MultiTimeSeries, get_sim
+    from driada.utils.data import check_positive
 
 
 def compute_occupancy_map(
@@ -153,6 +158,11 @@ def compute_rate_map(
     
     Examples
     --------
+    >>> # Generate sample data
+    >>> import numpy as np
+    >>> positions = np.random.rand(1000, 2)  # 1000 frames of 2D positions
+    >>> neural_signal = np.random.rand(1000)  # Corresponding neural activity
+    
     >>> # Compute occupancy first
     >>> occ_map, x_edges, y_edges = compute_occupancy_map(positions, fps=30.0)
     >>> # Then compute rate map
@@ -314,6 +324,9 @@ def compute_spatial_information_rate(
     
     Examples
     --------
+    >>> import numpy as np
+    >>> positions = np.random.rand(1000, 2)
+    >>> signal = np.random.rand(1000)  # Neural signal
     >>> occ_map, x_edges, y_edges = compute_occupancy_map(positions, fps=30.0)
     >>> rate_map = compute_rate_map(signal, positions, occ_map, x_edges, y_edges, fps=30.0)
     >>> si = compute_spatial_information_rate(rate_map, occ_map)    """
@@ -393,8 +406,14 @@ def compute_spatial_decoding_accuracy(
     
     Examples
     --------
+    >>> import numpy as np
+    >>> # Create sample data: 10 neurons, 1000 time points
+    >>> neural_data = np.random.rand(10, 1000)
+    >>> positions = np.random.rand(1000, 2)
     >>> metrics = compute_spatial_decoding_accuracy(neural_data, positions)
-    >>> print(f"Decoding R²: {metrics['r2_avg']:.3f}")    """
+    >>> print(f"Decoding R²: {metrics['r2_avg']:.3f}")  # doctest: +ELLIPSIS
+    Decoding R²: ...
+    """
     # Validate inputs
     if neural_activity.shape[1] != positions.shape[0]:
         raise ValueError(f"Shape mismatch: neural_activity has {neural_activity.shape[1]} "
@@ -486,8 +505,14 @@ def compute_spatial_information(
     
     Examples
     --------
+    >>> import numpy as np
+    >>> # Create sample data: 5 neurons, 500 time points
+    >>> neural_data = np.random.rand(5, 500)
+    >>> positions = np.random.rand(500, 2)
     >>> mi_metrics = compute_spatial_information(neural_data, positions)
-    >>> print(f"MI with position: {mi_metrics['mi_total']:.3f} bits")    """
+    >>> print(f"MI with position: {mi_metrics['mi_total']:.3f} bits")  # doctest: +ELLIPSIS
+    MI with position: ... bits
+    """
     # Convert to TimeSeries if needed
     if isinstance(neural_activity, np.ndarray):
         if neural_activity.ndim == 1:
@@ -569,7 +594,10 @@ def filter_by_speed(
     
     Examples
     --------
-    >>> data = {'positions': positions, 'neural_activity': activity}
+    >>> import numpy as np
+    >>> positions = np.random.rand(1000, 2)
+    >>> activity = np.random.rand(1000, 10)  # 10 neurons
+    >>> data = {\'positions\': positions, \'neural_activity\': activity}
     >>> # Keep only when animal is moving
     >>> filtered = filter_by_speed(data, speed_range=(0.05, np.inf))    """
     # Validate inputs
@@ -672,8 +700,27 @@ def analyze_spatial_coding(
     
     Examples
     --------
+    >>> import numpy as np
+    >>> # Create sample data with spatial structure for more realistic example
+    >>> # 20 neurons, 3000 frames at 30fps = 100 seconds
+    >>> np.random.seed(42)  # For reproducible example
+    >>> t = np.linspace(0, 100, 3000)
+    >>> # Create circular trajectory
+    >>> positions = np.column_stack([
+    ...     0.5 + 0.3 * np.cos(0.1 * t) + 0.05 * np.random.randn(3000),
+    ...     0.5 + 0.3 * np.sin(0.1 * t) + 0.05 * np.random.randn(3000)
+    ... ])
+    >>> # Create neural activity with spatial tuning
+    >>> neural_data = np.zeros((20, 3000))
+    >>> for i in range(20):
+    ...     # Each neuron has a preferred location
+    ...     pref_x, pref_y = np.random.rand(2)
+    ...     distance = np.sqrt((positions[:, 0] - pref_x)**2 + (positions[:, 1] - pref_y)**2)
+    ...     neural_data[i] = np.exp(-distance**2 / 0.1) + 0.1 * np.random.randn(3000)
     >>> results = analyze_spatial_coding(neural_data, positions, fps=30.0)
-    >>> print(f"Found {results['summary']['n_place_cells']} place cells")    """
+    >>> print(f"Found {results['summary']['n_place_cells']} place cells")  # doctest: +ELLIPSIS
+    Found ... place cells
+    """
     # Validate inputs
     if neural_activity.shape[1] != positions.shape[0]:
         raise ValueError(f"Shape mismatch: neural_activity has {neural_activity.shape[1]} "
@@ -786,10 +833,16 @@ def compute_spatial_metrics(
     Examples
     --------
     >>> # Compute only decoding accuracy
+    >>> import numpy as np
+    >>> neural_data = np.random.rand(15, 2000)  # 15 neurons, 2000 samples
+    >>> positions = np.random.rand(2000, 2)
     >>> results = compute_spatial_metrics(neural_data, positions, 
-    ...                                  metrics=['decoding'], fps=30.0)
+    ...                                  metrics=['decoding'])
     >>> # Compute all metrics
-    >>> results = compute_spatial_metrics(neural_data, positions, fps=30.0)    """
+    >>> import numpy as np
+    >>> neural_data = np.random.rand(15, 2000)
+    >>> positions = np.random.rand(2000, 2)
+    >>> results = compute_spatial_metrics(neural_data, positions)    """
     if metrics is None:
         metrics = ["decoding", "information", "place_fields"]
     

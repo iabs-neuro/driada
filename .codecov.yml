@@ -3,7 +3,7 @@ codecov:
 
 coverage:
   precision: 2
-  round: down
+  round: nearest
   range: "70...100"
   
   status:

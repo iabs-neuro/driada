@@ -72,13 +72,68 @@ def get_functional_organization(experiment: 'Experiment', method_name: str, data
         
     Examples
     --------
-    >>> # Analyze functional organization in PCA embedding
-    >>> from driada.intense import compute_embedding_selectivity
-    >>> results = compute_embedding_selectivity(exp, embedding_methods='pca')
-    >>> intense_res = results['pca']['intense_results']
-    >>> org = get_functional_organization(exp, 'pca', intense_results=intense_res)
-    >>> print(f"Component importance: {org['component_importance']}")
-    >>> print(f"Neurons participating: {org['n_participating_neurons']}")
+    Basic usage without selectivity analysis:
+    
+    >>> # Create a simple synthetic experiment with circular manifold
+    >>> import numpy as np
+    >>> from driada.experiment.synthetic import generate_circular_manifold_exp
+    >>> np.random.seed(42)
+    >>> 
+    >>> # Generate experiment with head direction cells
+    >>> exp = generate_circular_manifold_exp(
+    ...     n_neurons=20,
+    ...     duration=30,  # Short duration for example
+    ...     fps=10.0,
+    ...     kappa=4.0,  # Moderate tuning width
+    ...     verbose=False
+    ... )
+    >>> 
+    >>> # Create PCA embedding (automatically stores it)
+    >>> embedding = exp.create_embedding('pca', n_components=5, verbose=False)
+    >>> 
+    >>> # Basic analysis without selectivity (just component importance)
+    >>> org_basic = get_functional_organization(exp, 'pca')
+    >>> print(f"Number of components: {org_basic['n_components']}")
+    Number of components: 5
+    >>> print(f"Component importance shape: {org_basic['component_importance'].shape}")
+    Component importance shape: (5,)
+    >>> print(f"Neurons used: {org_basic['n_neurons_used']}")
+    Neurons used: 20
+    
+    Advanced usage with selectivity analysis (intensive computation):
+    
+    >>> # The following example shows how to use with selectivity analysis
+    >>> # Note: This requires intensive computation and is skipped in doctests
+    >>> from driada.intense import compute_embedding_selectivity  # doctest: +SKIP
+    >>> 
+    >>> # For real analysis, use longer experiments:
+    >>> exp_long = generate_circular_manifold_exp(  # doctest: +SKIP
+    ...     n_neurons=50, duration=300, verbose=False)
+    >>> 
+    >>> # Compute PCA embedding
+    >>> exp_long.create_embedding('pca', n_components=5, verbose=False)  # doctest: +SKIP
+    >>> 
+    >>> # Compute selectivity with full parameters
+    >>> results = compute_embedding_selectivity(  # doctest: +SKIP
+    ...     exp_long, 
+    ...     embedding_methods='pca',
+    ...     n_shuffles_stage1=100,
+    ...     n_shuffles_stage2=500,
+    ...     mode='two_stage',
+    ...     verbose=False
+    ... )
+    >>> 
+    >>> # Extract the IntenseResults object
+    >>> intense_res = results['pca']['intense_results']  # doctest: +SKIP
+    >>> 
+    >>> # Full functional organization analysis with selectivity
+    >>> org_full = get_functional_organization(  # doctest: +SKIP
+    ...     exp_long, 'pca', intense_results=intense_res)
+    >>> 
+    >>> # Access detailed selectivity information
+    >>> print(f"Participating neurons: {org_full['n_participating_neurons']}")  # doctest: +SKIP
+    >>> print(f"Mean components per neuron: {org_full['mean_components_per_neuron']:.2f}")  # doctest: +SKIP
+    >>> print(f"Number of functional clusters: {len(org_full['functional_clusters'])}")  # doctest: +SKIP
     
     See Also
     --------
@@ -241,14 +296,87 @@ def compare_embeddings(experiment: 'Experiment', method_names: List[str], data_t
         
     Examples
     --------
-    >>> # Compare PCA and UMAP embeddings
-    >>> from driada.intense import compute_embedding_selectivity
-    >>> results = compute_embedding_selectivity(exp, embedding_methods=['pca', 'umap'])
-    >>> # Extract IntenseResults objects
-    >>> intense_dict = {method: results[method]['intense_results'] 
-    ...                 for method in results}
-    >>> comparison = compare_embeddings(exp, ['pca', 'umap'], intense_results_dict=intense_dict)
-    >>> print(f"Overlap: {comparison['participation_overlap']['pca_vs_umap']:.2f}")
+    Basic comparison without selectivity:
+    
+    >>> # Create a simple synthetic experiment for comparison
+    >>> import numpy as np
+    >>> from driada.experiment.synthetic import generate_circular_manifold_exp
+    >>> np.random.seed(42)
+    >>> 
+    >>> # Generate experiment with 20 neurons, 500 frames
+    >>> exp = generate_circular_manifold_exp(
+    ...     n_neurons=20,
+    ...     duration=50,  # 50 seconds at 10 fps = 500 frames
+    ...     fps=10.0,
+    ...     kappa=4.0,  # Moderate tuning width
+    ...     verbose=False
+    ... )
+    >>> 
+    >>> # Create PCA embedding
+    >>> pca_embedding = exp.create_embedding('pca', n_components=3, verbose=False)
+    >>> 
+    >>> # Create t-SNE embedding  
+    >>> tsne_embedding = exp.create_embedding('tsne', n_components=3, 
+    ...                                       perplexity=10, random_state=42)
+    >>> 
+    >>> # Basic comparison without selectivity
+    >>> comparison_basic = compare_embeddings(exp, ['pca', 'tsne'])
+    >>> print(f"Methods compared: {sorted(comparison_basic['methods'])}")
+    Methods compared: ['pca', 'tsne']
+    >>> print(f"Components: PCA={comparison_basic['n_components']['pca']}, "
+    ...       f"t-SNE={comparison_basic['n_components']['tsne']}")
+    Components: PCA=3, t-SNE=3
+    >>> print(f"Mean components per neuron (no selectivity): "
+    ...       f"PCA={comparison_basic['mean_components_per_neuron']['pca']}, "
+    ...       f"t-SNE={comparison_basic['mean_components_per_neuron']['tsne']}")
+    Mean components per neuron (no selectivity): PCA=0, t-SNE=0
+    
+    Advanced comparison with selectivity analysis:
+    
+    >>> # The following example shows comparison with selectivity analysis
+    >>> # Note: This requires intensive computation and is skipped in doctests
+    >>> from driada.intense import compute_embedding_selectivity  # doctest: +SKIP
+    >>> 
+    >>> # Compute selectivity for both methods
+    >>> results = compute_embedding_selectivity(  # doctest: +SKIP
+    ...     exp, 
+    ...     embedding_methods=['pca', 'tsne'],
+    ...     n_shuffles_stage1=100,
+    ...     n_shuffles_stage2=500,
+    ...     mode='two_stage',
+    ...     verbose=False
+    ... )
+    >>> 
+    >>> # Extract IntenseResults objects (not the full dict)
+    >>> intense_dict = {  # doctest: +SKIP
+    ...     method: results[method]['intense_results'] 
+    ...     for method in ['pca', 'tsne']
+    ... }
+    >>> 
+    >>> # Full comparison with selectivity
+    >>> comparison_full = compare_embeddings(  # doctest: +SKIP
+    ...     exp, ['pca', 'tsne'], 
+    ...     intense_results_dict=intense_dict
+    ... )
+    >>> 
+    >>> # Access detailed comparison metrics
+    >>> print(f"Participating neurons: PCA={comparison_full['n_participating_neurons']['pca']}, "  # doctest: +SKIP
+    ...       f"t-SNE={comparison_full['n_participating_neurons']['tsne']}")
+    >>> print(f"Participation overlap: {comparison_full['participation_overlap']['pca_vs_tsne']:.2f}")  # doctest: +SKIP
+    
+    Error handling:
+    
+    >>> # Test error handling
+    >>> try:
+    ...     compare_embeddings(exp, [])  # Empty list
+    ... except ValueError as e:
+    ...     print(f"Error: {str(e)}")
+    Error: method_names cannot be empty
+    >>> 
+    >>> # Test with non-existent embedding (requesting a method not computed)
+    >>> comparison_missing = compare_embeddings(exp, ['pca', 'umap'])  # umap not computed
+    >>> print(f"Valid methods found: {sorted(comparison_missing['methods'])}")
+    Valid methods found: ['pca']
     
     See Also
     --------

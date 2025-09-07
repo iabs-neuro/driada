@@ -37,8 +37,11 @@ def nearestPD(A):
     >>> import numpy as np
     >>> A = np.array([[1, -1], [-1, 0]])  # Not positive-definite
     >>> A_pd = nearestPD(A)
-    >>> np.linalg.eigvals(A_pd)  # All eigenvalues positive
-    array([1.618..., 0.381...])
+    >>> eigvals = np.linalg.eigvals(A_pd)
+    >>> np.all(eigvals >= 0)  # All eigenvalues are non-negative
+    True
+    >>> is_positive_definite(A_pd)  # Result is positive-definite
+    True
     
     See Also
     --------

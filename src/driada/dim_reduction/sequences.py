@@ -58,37 +58,62 @@ def dr_sequence(
 
     Examples
     --------
-    >>> # Simple two-step reduction
-    >>> embedding = dr_sequence(
-    ...     mvdata,
-    ...     steps=[
-    ...         ('pca', {'dim': 50}),
-    ...         ('umap', {'dim': 2, 'n_neighbors': 30})
-    ...     ]
-    ... )
-
-    >>> # Using default parameters
-    >>> embedding = dr_sequence(
-    ...     mvdata,
-    ...     steps=['pca', 'tsne']
-    ... )
-
-    >>> # Three-step reduction with mixed format
-    >>> embedding = dr_sequence(
-    ...     mvdata,
-    ...     steps=[
-    ...         ('pca', {'dim': 100}),
-    ...         'lle',  # Use defaults
-    ...         ('umap', {'dim': 2, 'min_dist': 0.1})
-    ...     ]
-    ... )
+    Create sample data and perform sequential reduction:
     
-    >>> # Keep intermediate results for analysis
+    >>> import numpy as np
+    >>> from driada.dim_reduction import MVData, dr_sequence
+    >>> np.random.seed(42)
+    >>> 
+    >>> # Create sample high-dimensional data (100 samples, 50 features)
+    >>> data = np.random.randn(50, 100)
+    >>> mvdata = MVData(data)
+    >>> 
+    >>> # Simple two-step reduction: PCA then t-SNE
+    >>> import logging
+    >>> # Suppress output for clean doctest
+    >>> null_logger = logging.getLogger('null')
+    >>> null_logger.setLevel(logging.CRITICAL)
+    >>> embedding = dr_sequence(
+    ...     mvdata,
+    ...     steps=[
+    ...         ('pca', {'dim': 10}),
+    ...         ('tsne', {'dim': 2, 'perplexity': 20, 'random_state': 42})
+    ...     ],
+    ...     logger=null_logger
+    ... )  # doctest: +ELLIPSIS
+    Calculating PCA embedding...
+    >>> embedding.coords.shape
+    (2, 100)
+
+    Using default parameters with a simpler sequence:
+    
+    >>> # Just PCA reduction
+    >>> embedding_pca = dr_sequence(
+    ...     mvdata,
+    ...     steps=['pca'],
+    ...     logger=null_logger
+    ... )  # doctest: +ELLIPSIS
+    Calculating PCA embedding...
+    >>> embedding_pca.coords.shape  # Default is 2D
+    (2, 100)
+
+    Keep intermediate results for analysis:
+    
+    >>> # Two-step reduction keeping intermediates
     >>> final_emb, intermediates = dr_sequence(
     ...     mvdata,
-    ...     steps=[('pca', {'dim': 50}), ('umap', {'dim': 2})],
-    ...     keep_intermediate=True
-    ... )
+    ...     steps=[('pca', {'dim': 20}), ('pca', {'dim': 3})],
+    ...     keep_intermediate=True,
+    ...     logger=null_logger
+    ... )  # doctest: +ELLIPSIS
+    Calculating PCA embedding...
+    Calculating PCA embedding...
+    >>> len(intermediates)
+    2
+    >>> intermediates[0].coords.shape
+    (20, 100)
+    >>> final_emb.coords.shape
+    (3, 100)
     
     Notes
     -----
@@ -216,13 +241,15 @@ def validate_sequence_dimensions(
         
     Examples
     --------
+    >>> from driada.dim_reduction.sequences import validate_sequence_dimensions
+    >>> 
     >>> # Check dimension flow before running expensive computation
     >>> flow = validate_sequence_dimensions(
-    ...     [('pca', {'dim': 50}), 'umap'],
+    ...     [('pca', {'dim': 50}), 'tsne'],
     ...     initial_dim=1000
     ... )
-    >>> print(flow)
-    [('pca', 1000, 50), ('umap', 50, 2)]
+    >>> flow
+    [('pca', 1000, 50), ('tsne', 50, 2)]
     
     Notes
     -----

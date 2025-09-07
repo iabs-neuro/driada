@@ -139,20 +139,20 @@ def generate_synthetic_data(
     --------
     >>> # Generate 10 neurons selective to 3 continuous features
     >>> features, signals, gt = generate_synthetic_data(
-    ...     nfeats=3, nneurons=10, ftype='c', duration=100, seed=0
+    ...     nfeats=3, nneurons=10, ftype='c', duration=100, seed=0, verbose=False
     ... )
     >>> features.shape
-    (3, 2000)  # 3 features, 100s * 20Hz
+    (3, 2000)
     >>> signals.shape  
-    (10, 2000)  # 10 neurons
-    >>> np.sum(gt)  # Each neuron assigned to one feature
+    (10, 2000)
+    >>> int(np.sum(gt))  # Each neuron assigned to one feature
     10
     
     >>> # Use pre-generated discrete features
     >>> prefeats = [np.random.randint(0, 2, 1000) for _ in range(2)]
     >>> f, s, gt = generate_synthetic_data(
     ...     nfeats=2, nneurons=5, ftype='d', 
-    ...     pregenerated_features=prefeats
+    ...     pregenerated_features=prefeats, verbose=False
     ... )    """
     # Input validation
     check_nonnegative(nfeats=nfeats, nneurons=nneurons, duration=duration, 
@@ -392,14 +392,14 @@ def generate_synthetic_exp(
     Examples
     --------
     >>> # Basic usage with default parameters
-    >>> exp = generate_synthetic_exp(n_dfeats=10, n_cfeats=10, nneurons=100)
+    >>> exp = generate_synthetic_exp(n_dfeats=10, n_cfeats=10, nneurons=100, verbose=False)
     >>> exp.calcium.shape
-    (100, 24000)  # 100 neurons, 1200s * 20Hz
+    (100, 24000)
     
     >>> # Custom parameters via kwargs
     >>> exp = generate_synthetic_exp(
     ...     n_dfeats=5, n_cfeats=5, nneurons=50,
-    ...     duration=600, fps=10, hurst=0.7, rate_1=2.0
+    ...     duration=600, fps=10, hurst=0.7, rate_1=2.0, verbose=False
     ... )
     
     Notes
@@ -492,6 +492,7 @@ def generate_synthetic_exp(
         static_features,
         {**discr_ts, **cont_ts},
         reconstruct_spikes="wavelet" if with_spikes else None,
+        verbose=kwargs.get('verbose', True),
     )
 
     return exp
@@ -592,12 +593,13 @@ def generate_mixed_population_exp(
     ...     manifold_fraction=0.6,
     ...     manifold_type='2d_spatial',
     ...     correlation_mode='spatial_correlated',
-    ...     return_info=True
+    ...     return_info=True,
+    ...     verbose=False
     ... )
-
-    >>> # Check population composition
-    >>> print(f"Manifold cells: {info['population_composition']['n_manifold']}")
-    >>> print(f"Feature-selective: {info['population_composition']['n_feature_selective']}")
+    >>> info['population_composition']['n_manifold']
+    30
+    >>> info['population_composition']['n_feature_selective']
+    20
 
     Notes
     -----
@@ -1190,6 +1192,7 @@ def generate_mixed_population_exp(
         static_features,
         dynamic_features,
         reconstruct_spikes=None,
+        verbose=verbose,
     )
 
     # Prepare comprehensive info dictionary

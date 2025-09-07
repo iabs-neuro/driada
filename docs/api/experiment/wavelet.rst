@@ -8,8 +8,8 @@ This module provides wavelet-based methods for detecting events in neural time s
 Functions
 ---------
 
-.. autofunction:: driada.experiment.extract_wvt_events
-.. autofunction:: driada.experiment.get_cwt_ridges
+.. autofunction:: driada.experiment.wavelet_event_detection.extract_wvt_events
+.. autofunction:: driada.experiment.wavelet_event_detection.get_cwt_ridges
 
 Usage Examples
 --------------
@@ -19,98 +19,131 @@ Basic Event Detection
 
 .. code-block:: python
 
-   from driada.experiment import extract_wvt_events
+   from driada.experiment import extract_wvt_events, load_demo_experiment
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
    
    # Extract events from calcium traces
-   events = extract_wvt_events(
-       exp.calcium,
-       fps=exp.fps,
-       wavelet='morse',
-       threshold='otsu'
+   wvt_kwargs = {
+       'fps': exp.fps,
+       'sigma': 8,  # smoothing parameter (frames)
+       'eps': 10    # minimum spacing between events (frames)
+   }
+   st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(
+       exp.calcium.scdata,  # scaled data as numpy array
+       wvt_kwargs
    )
    
-   # events is a list of event dictionaries per neuron
-   neuron_0_events = events[0]
+   # Results are lists of start/end indices per neuron
+   neuron_0_events = st_ev_inds[0]
    print(f"Neuron 0: {len(neuron_0_events)} events detected")
 
-Continuous Wavelet Transform Ridges
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Single Neuron Event Detection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
-   from driada.experiment import get_cwt_ridges
+   from driada.experiment import events_from_trace, load_demo_experiment
+   from ssqueezepy import Wavelet
    import numpy as np
    
-   # Get single neuron trace
-   trace = exp.calcium.data[0, :]
+   # Load sample experiment
+   exp = load_demo_experiment()
    
-   # Find CWT ridges
-   ridges, cwt_matrix = get_cwt_ridges(
-       trace,
-       fps=exp.fps,
-       wavelet='morlet',
-       scales=np.arange(1, 20),
-       return_cwt=True
+   # Get single neuron trace (scaled data)
+   trace = exp.calcium.scdata[0, :]
+   
+   # Setup wavelet and scales for calcium imaging
+   wavelet = Wavelet(
+       ("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), 
+       N=8196
+   )
+   manual_scales = np.logspace(2.5, 5.5, 50, base=2)  # calcium-appropriate scales
+   
+   # Precompute time resolutions
+   from ssqueezepy import time_resolution
+   rel_wvt_times = [
+       time_resolution(wavelet, scale=sc, nondim=False, min_decay=200)
+       for sc in manual_scales
+   ]
+   
+   # Detect events
+   all_ridges, st_ev, end_ev = events_from_trace(
+       trace, wavelet, manual_scales, rel_wvt_times, 
+       fps=exp.fps, sigma=8, eps=10
    )
    
-   # Plot wavelet transform with ridges
-   import matplotlib.pyplot as plt
-   plt.imshow(np.abs(cwt_matrix), aspect='auto', cmap='hot')
-   for ridge in ridges:
-       plt.plot(ridge, 'b-', linewidth=2)
-   plt.xlabel('Time (frames)')
-   plt.ylabel('Scale')
+   print(f"Found {len(st_ev)} events")
+   for i, (start, end) in enumerate(zip(st_ev[:3], end_ev[:3])):
+       duration_ms = (end - start) / exp.fps * 1000
+       print(f"Event {i}: frames {start}-{end} ({duration_ms:.0f} ms)")
 
 
 Advanced Usage
 --------------
 
-Custom Wavelet Analysis
-^^^^^^^^^^^^^^^^^^^^^^^
+Custom Event Detection Parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
-   # Full control over wavelet transform
-   from scipy import signal
-
-   # Assume exp is an Experiment object already created
-   # exp = Experiment(...) # See Experiment docs for full parameters
-
-   # Create custom wavelet
-   wavelet = signal.morlet2
-   scales = np.logspace(0, 1.5, 30)
-
-   # Apply CWT
-   cwt_matrix = signal.cwt(trace, wavelet, scales)
-
-   # Use with ridge detection
-   ridges = get_cwt_ridges(
-       trace,
-       fps=exp.fps,
-       precomputed_cwt=cwt_matrix,
-       scales=scales
+   # Customize event detection parameters
+   from driada.experiment import extract_wvt_events, load_demo_experiment
+   from driada.experiment.wavelet_event_detection import WVT_EVENT_DETECTION_PARAMS
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
+   
+   # Customize parameters for more/less sensitive detection
+   custom_params = WVT_EVENT_DETECTION_PARAMS.copy()
+   custom_params.update({
+       'fps': exp.fps,
+       'sigma': 4,             # less smoothing for sharper events
+       'eps': 20,              # require more spacing between events
+       'max_ampl_thr': 0.1,    # higher threshold, fewer events
+       'scale_length_thr': 30  # events must persist across 30+ scales
+   })
+   
+   # Extract events with custom parameters
+   st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(
+       exp.calcium.scdata,
+       custom_params
    )
+   
+   # Compare default vs custom
+   default_params = {'fps': exp.fps}
+   st_def, _, _ = extract_wvt_events(exp.calcium.scdata, default_params)
+   
+   print(f"Default params: {sum(len(s) for s in st_def)} total events")
+   print(f"Custom params: {sum(len(s) for s in st_ev_inds)} total events")
 
 Batch Processing
 ^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
-   # Process all neurons in parallel
-   from concurrent.futures import ProcessPoolExecutor
+   # Process all neurons
+   from driada.experiment import extract_wvt_events, load_demo_experiment
 
-   # Assume exp is an Experiment object already created
-   # exp = Experiment(...) # See Experiment docs for full parameters
+   # Load sample experiment
+   exp = load_demo_experiment()
 
-   def process_neuron(args):
-       trace, fps = args
-       return extract_wvt_events(trace, fps=fps)
-
-   # Parallel processing
-   with ProcessPoolExecutor() as executor:
-       args = [(exp.calcium.data[i, :], exp.fps) 
-               for i in range(exp.n_neurons)]
-       all_events = list(executor.map(process_neuron, args))
+   # Extract events for all neurons
+   wvt_kwargs = {
+       'fps': exp.fps,
+       'sigma': 8,   # default smoothing
+       'eps': 10     # default spacing
+   }
+   st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(
+       exp.calcium.scdata,  # pass all neurons at once
+       wvt_kwargs
+   )
+   
+   # Analyze results
+   n_events_per_neuron = [len(events) for events in st_ev_inds]
+   print(f"Average events per neuron: {np.mean(n_events_per_neuron):.1f}")
+   print(f"Total events detected: {sum(n_events_per_neuron)}")
 
 Theory
 ------

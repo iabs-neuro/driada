@@ -24,11 +24,11 @@ Participation Ratio Method
    # Neural population data
    neural_data = np.random.randn(1000, 100)  # 1000 timepoints, 100 neurons
    
-   # Basic effective dimension
-   d_eff = eff_dim(neural_data)
+   # Basic effective dimension (no correction)
+   d_eff = eff_dim(neural_data, enable_correction=False)
    print(f"Effective dimensionality: {d_eff:.2f}")
    
-   # With bias correction
+   # With bias correction (recommended for finite samples)
    d_eff_corrected = eff_dim(neural_data, enable_correction=True)
    print(f"Corrected effective dim: {d_eff_corrected:.2f}")
 

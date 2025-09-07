@@ -95,13 +95,17 @@ def conditional_njit(*args, **kwargs):
     ... def fast_computation(x):
     ...     return x ** 2
 
-    >>> # With numba parameters
-    >>> @conditional_njit(parallel=True, cache=True)
-    ... def parallel_computation(x):
-    ...     return x ** 2
+    With numba parameters::
+    
+        @conditional_njit(parallel=True)
+        def parallel_computation(x):
+            return x ** 2
         
-    >>> # Direct decoration (less common)
-    >>> fast_func = conditional_njit(my_function)
+    Direct decoration (less common)::
+    
+        def my_function(x):
+            return x ** 3
+        fast_func = conditional_njit(my_function)
     
     See Also
     --------
@@ -145,14 +149,14 @@ def is_jit_enabled():
         
     Examples
     --------
-    >>> is_jit_enabled()
+    >>> is_jit_enabled()  # doctest: +SKIP
     True  # If Numba is installed and not disabled
     
-    >>> # Disable JIT via environment
-    >>> import os
-    >>> os.environ['DRIADA_DISABLE_NUMBA'] = '1'
-    >>> is_jit_enabled()
-    False
+    Disable JIT via environment::
+    
+        import os
+        os.environ['DRIADA_DISABLE_NUMBA'] = '1'
+        is_jit_enabled()  # Returns False
     
     Notes
     -----
@@ -184,19 +188,11 @@ def jit_info():
     
     Examples
     --------
-    >>> jit_info()
+    >>> jit_info()  # doctest: +SKIP
     Numba available: True
     JIT disabled by environment: False
     JIT enabled: True
-    Numba version: 0.57.0
-    
-    >>> # With JIT disabled
-    >>> os.environ['DRIADA_DISABLE_NUMBA'] = '1'
-    >>> jit_info()
-    Numba available: True
-    JIT disabled by environment: True
-    JIT enabled: False
-    Numba version: 0.57.0
+    Numba version: 0.60.0
     
     Notes
     -----

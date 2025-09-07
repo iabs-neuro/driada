@@ -8,32 +8,31 @@ This module provides functions for loading experimental data from various format
 Functions
 ---------
 
-.. autofunction:: driada.experiment.load_experiment
-.. autofunction:: driada.experiment.load_exp_from_aligned_data
-.. autofunction:: driada.experiment.save_exp_to_pickle
-.. autofunction:: driada.experiment.load_exp_from_pickle
+.. autofunction:: driada.experiment.exp_build.load_experiment
+.. autofunction:: driada.experiment.exp_build.load_exp_from_aligned_data
+.. autofunction:: driada.experiment.exp_build.save_exp_to_pickle
+.. autofunction:: driada.experiment.exp_build.load_exp_from_pickle
 
 Usage Examples
 --------------
 
-Loading from Different Formats
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Loading from IABS Data
+^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
    from driada.experiment import load_experiment
    
-   # Load from MATLAB file
-   exp_mat = load_experiment('data/experiment.mat')
+   # Define experiment parameters for IABS data
+   exp_params = {
+       'track': 'STFP',
+       'animal_id': 'M123',
+       'session': '1'
+   }
    
-   # Load from NWB file
-   exp_nwb = load_experiment('data/experiment.nwb')
-   
-   # Load from pickle
-   exp_pkl = load_experiment('data/experiment.pkl')
-   
-   # Auto-detect format based on extension
-   exp = load_experiment('path/to/data.mat')
+   # Load from Google Drive (IABS data)
+   # Note: Requires config.py with IABS_ROUTER_URL set
+   # exp_gdrive = load_experiment('IABS', exp_params, via_pydrive=True)
 
 Loading Pre-aligned Data
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -43,20 +42,81 @@ Loading Pre-aligned Data
    from driada.experiment import load_exp_from_aligned_data
    import numpy as np
    
-   # Prepare aligned data
-   calcium = np.random.randn(50, 10000)  # 50 neurons, 10000 timepoints
-   behavior = {
-       'position': np.random.randn(2, 10000),
-       'velocity': np.random.randn(2, 10000)
+   # Prepare aligned data dictionary
+   # Note: Dynamic features should be 1D arrays
+   data = {
+       'calcium': np.random.randn(50, 10000),  # 50 neurons, 10000 timepoints
+       'position_x': np.random.randn(10000),   # x coordinates
+       'position_y': np.random.randn(10000),   # y coordinates
+       'velocity_x': np.random.randn(10000),   # x velocity
+       'velocity_y': np.random.randn(10000),   # y velocity
    }
    
-   # Create experiment
+   # Create experiment from IABS-style data
    exp = load_exp_from_aligned_data(
-       calcium=calcium,
-       behavior=behavior,
-       fps=30.0,
-       info={'mouse': 'M001', 'session': 'day1'}
+       data_source='IABS',
+       exp_params={
+           'track': 'STFP',
+           'animal_id': 'M001', 
+           'session': '1'
+       },
+       data=data,
+       static_features={'fps': 30.0}  # Pass fps as static feature
    )
+
+Loading from Generic Lab Data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from driada.experiment import load_experiment
+   
+   # Load from NPZ file for non-IABS labs
+   # Using example data file from the repository
+   exp, _ = load_experiment(
+       'MyLab',
+       {'name': 'spatial_navigation_task'},
+       data_path='examples/example_data/sample_recording.npz',
+       reconstruct_spikes=False,  # Disable for speed
+       verbose=False
+   )
+   
+   # Load with custom naming based on parameters
+   exp2, _ = load_experiment(
+       'NeuroLab',
+       {'subject': 'rat42', 'session': 'day3', 'experiment': 'maze'},
+       data_path='examples/example_data/sample_recording.npz',
+       reconstruct_spikes=False,  # Disable for speed
+       save_to_pickle=False,
+       verbose=False
+   )
+   
+   # NPZ files automatically handle multidimensional features
+   # 2D arrays become MultiTimeSeries objects
+   # Scalar and non-numeric values are ignored with warnings
+
+Handling Multidimensional Features
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   # 2D features (e.g., position) are automatically handled
+   data = {
+       'calcium': np.random.randn(50, 10000),
+       'position': np.random.randn(2, 10000),  # 2D trajectory -> MultiTimeSeries
+       'speed': np.random.randn(10000),        # 1D -> TimeSeries
+   }
+   
+   # Create experiment - 2D arrays automatically become MultiTimeSeries
+   exp = load_exp_from_aligned_data(
+       data_source='MyLab',
+       exp_params={'name': 'test_exp'},
+       data=data
+   )
+   
+   # Access multidimensional features
+   print(exp.position.n_dim)  # 2
+   print(exp.position.data.shape)  # (2, 10000)
 
 Saving and Loading Experiments
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -64,6 +124,15 @@ Saving and Loading Experiments
 .. code-block:: python
 
    from driada.experiment import save_exp_to_pickle, load_exp_from_pickle
+   
+   # First create/load an experiment
+   import numpy as np
+   from driada.experiment import load_exp_from_aligned_data
+   data = {
+       'calcium': np.random.rand(10, 1000),
+       'position': np.random.rand(1000)
+   }
+   exp = load_exp_from_aligned_data('MyLab', {'name': 'test'}, data, verbose=False)
    
    # Save experiment
    save_exp_to_pickle(exp, 'processed_experiment.pkl')
@@ -91,18 +160,6 @@ Expected structure for MATLAB files:
    data.behavior.velocity = [2 x n_timepoints]; % Velocity data
    data.info.mouse_id = 'M001';                % Metadata
 
-NWB File Support
-^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   # NWB files are automatically parsed
-   exp = load_experiment('recording.nwb')
-   
-   # Access standard NWB data
-   # - Calcium imaging from ophys processing module
-   # - Behavior from behavior processing module
-   # - Metadata from file metadata
 
 Custom Loaders
 ^^^^^^^^^^^^^^
@@ -128,11 +185,41 @@ Custom Loaders
            fps=data['sampling_rate']
        )
 
+Error Handling
+^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   # Missing data_path for non-IABS sources
+   try:
+       exp, _ = load_experiment('MyLab', {'name': 'test'})
+   except ValueError as e:
+       print(e)  # "For data source 'MyLab', you must provide the 'data_path' parameter"
+   
+   # Missing calcium data
+   try:
+       data = {'position': np.random.randn(1000)}  # No calcium!
+       exp = load_exp_from_aligned_data('MyLab', {}, data)
+   except ValueError as e:
+       print(e)  # "No calcium data found!"
+   
+   # Warnings for invalid data types
+   data = {
+       'calcium': np.random.randn(50, 1000),
+       'fps': 30.0,  # Scalar - will be ignored with warning
+       'labels': np.array(['A', 'B', 'C'] * 333 + ['A'])  # Non-numeric - ignored
+   }
+   exp = load_exp_from_aligned_data('MyLab', {}, data)
+   # Warning: Ignoring scalar value 'fps' found in NPZ file
+   # Warning: Ignoring non-numeric feature 'labels' with dtype <U1
+
 Best Practices
 --------------
 
 1. **Data Organization**: Keep calcium and behavior data time-aligned
-2. **Metadata**: Include as much metadata as possible in the info dictionary
-3. **File Formats**: Use pickle for processed data, original formats for raw data
+2. **Metadata**: Include as much metadata as possible in exp_params
+3. **File Formats**: Use NPZ for raw data, pickle for processed experiments
 4. **Compression**: Pickle files are compressed by default
 5. **Large Files**: Consider HDF5 for very large datasets
+6. **Static Features**: Pass constants like fps via static_features parameter
+7. **Multidimensional Data**: Store as 2D arrays (components x time) in NPZ files

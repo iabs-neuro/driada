@@ -134,6 +134,7 @@ class ProximityGraph(Network):
     >>> import numpy as np
     >>> from driada.dim_reduction.graph import ProximityGraph
     >>> # Generate sample data
+    >>> np.random.seed(42)  # For reproducible results
     >>> data = np.random.randn(3, 100)  # 100 points in 3D
     >>> # Define metric parameters
     >>> m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
@@ -147,7 +148,10 @@ class ProximityGraph(Network):
     ... }
     >>> # Create proximity graph
     >>> graph = ProximityGraph(data, m_params, g_params)
-    >>> print(f"Graph has {graph.n} nodes and {graph.adj.nnz//2} edges")    """
+    >>> edges = graph.adj.nnz//2
+    >>> print(f"Graph has {graph.n} nodes and {edges} edges")  # doctest: +ELLIPSIS
+    Graph has 100 nodes and ... edges
+    """
 
     def __init__(self, d, m_params, g_params, create_nx_graph=False, verbose=False):
         """Initialize proximity graph from data.
@@ -677,7 +681,8 @@ class ProximityGraph(Network):
         >>> from driada.dim_reduction.graph import ProximityGraph
         >>> # Generate Swiss roll data
         >>> from sklearn.datasets import make_swiss_roll
-        >>> data, _ = make_swiss_roll(n_samples=500)
+        >>> np.random.seed(42)  # For reproducible results
+        >>> data, _ = make_swiss_roll(n_samples=500, random_state=42)
         >>> # Create proximity graph
         >>> m_params = {'metric_name': 'euclidean', 'sigma': 1.0}
         >>> g_params = {'g_method_name': 'knn', 'nn': 15, 'weighted': True,
@@ -692,7 +697,10 @@ class ProximityGraph(Network):
         >>> # Or using nn method (only if k-NN graph was used)
         >>> dim_nn = graph.get_int_dim(method='nn')
         >>> # Access all computed dimensions
-        >>> print(graph.intrinsic_dimensions)        """
+        >>> dims = sorted(graph.intrinsic_dimensions.keys())
+        >>> print(dims)
+        ['geodesic_full_f2', 'nn']
+        """
         import logging
         from ..dimensionality import geodesic_dimension, nn_dimension
 

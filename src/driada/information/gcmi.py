@@ -591,6 +591,9 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
     a discrete variable y using ANOVA-style model comparison. For 1D x this 
     provides a lower bound to the mutual information.
     
+    Note: Each discrete class must have at least 2 samples for covariance 
+    estimation. Classes with fewer samples will be skipped with a warning.
+    
     Parameters
     ----------
     x : array_like, shape (n_features, n_samples) or (n_samples,)
@@ -621,6 +624,13 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
         If y is not a 1D array.
         If number of samples don't match between x and y.
         If Ym is not an integer.
+        
+    Warnings
+    --------
+    RuntimeWarning
+        If any class has fewer than 2 samples. These classes will be skipped
+        in the MI calculation as covariance estimation requires at least 2 
+        samples per class.
     
     Examples
     --------
@@ -658,6 +668,15 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
         if int(Ym) != Ym:
             raise ValueError("Ym should be an integer")
         Ym = int(Ym)
+    
+    # Check for classes with too few samples
+    import warnings
+    for yi in range(Ym):
+        n_samples = np.sum(y == yi)
+        if n_samples == 0:
+            warnings.warn(f"Class {yi} has no samples and will be skipped", RuntimeWarning)
+        elif n_samples == 1:
+            warnings.warn(f"Class {yi} has only 1 sample and will be skipped. At least 2 samples per class are required for covariance estimation.", RuntimeWarning)
 
     # Call JIT-compiled implementation
     return _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned)
@@ -703,6 +722,13 @@ def _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned):
         idx = y == yi
         xm = x[:, idx]
         Ntrl_y[yi] = xm.shape[1]
+        
+        # Skip classes with too few samples
+        if Ntrl_y[yi] < 2:
+            # Set weight to 0 and entropy to 0 for this class
+            Hcond[yi] = 0.0
+            continue
+            
         xm = demean(xm)
         Cm = np.dot(xm, xm.T) / float(Ntrl_y[yi] - 1)
         chCm = regularized_cholesky(Cm)
@@ -724,12 +750,18 @@ def _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned):
         dterm = (ln2 - np.log(float(Ntrl - 1))) / 2.0
         Hunc = Hunc - Nvarx * dterm - psiterms.sum()
 
-        dterm = (ln2 - np.log((Ntrl_y - 1))) / 2.0
-        psiterms = np.zeros(Ym)
-        for vi in vars:
-            idx = Ntrl_y - vi
-            psiterms = psiterms + py_fast_digamma_arr(idx / 2.0)
-        Hcond = Hcond - Nvarx * dterm - (psiterms / 2.0)
+        # For bias correction, handle each class separately
+        for yi in range(Ym):
+            if Ntrl_y[yi] < 2:
+                # Skip bias correction for classes with insufficient samples
+                continue
+            dterm_yi = (ln2 - np.log(float(Ntrl_y[yi] - 1))) / 2.0
+            psiterm_yi = 0.0
+            for vi in vars:
+                if Ntrl_y[yi] > vi:
+                    idx = Ntrl_y[yi] - vi
+                    psiterm_yi += py_fast_digamma_arr(np.array([idx / 2.0]))[0]
+            Hcond[yi] = Hcond[yi] - Nvarx * dterm_yi - (psiterm_yi / 2.0)
 
     # MI in bits
     I = (Hunc - np.sum(w * Hcond)) / ln2

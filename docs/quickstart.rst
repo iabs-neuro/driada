@@ -31,7 +31,7 @@ Start by generating synthetic data to understand DRIADA's capabilities:
    # Generate a population with head direction cells
    exp = generate_circular_manifold_exp(
        n_neurons=50,           # 50 head direction cells
-       duration=600,           # 10 minutes of recording
+       duration=60,            # 1 minute of recording (for demo)
        noise_std=0.1,          # 10% noise (std deviation)
        seed=42
    )
@@ -66,13 +66,17 @@ Discover which neurons encode which variables:
 
    # Discover which neurons encode which variables
    from driada.intense import compute_cell_feat_significance
+   from driada.experiment import load_demo_experiment
 
+   exp = load_demo_experiment()  # Load sample experiment
    stats, significance, info, results = compute_cell_feat_significance(
        exp,
        n_shuffles_stage1=100,    # Quick screening
        n_shuffles_stage2=1000,   # Rigorous validation
        ds=5,                     # Downsample by factor of 5 for speed
-       verbose=True
+       verbose=True,
+       allow_mixed_dimensions=True,
+       find_optimal_delays=False # Skip temporal alignment for demo
    )
 
    # View results
@@ -82,12 +86,10 @@ Discover which neurons encode which variables:
    # Visualize selectivity
    if significant_neurons:
        from driada.intense.visual import plot_neuron_feature_pair
-
-   # Assume exp is an Experiment object already created
-   # exp = Experiment(...) # See Experiment docs for full parameters
+       
        neuron_id = list(significant_neurons.keys())[0]
-       feature = significant_neurons[neuron_id][0]
-       plot_neuron_feature_pair(exp, neuron_id, feature)
+       feature_name = significant_neurons[neuron_id][0]
+       plot_neuron_feature_pair(exp, neuron_id, feature_name)
 
 3. Estimate Intrinsic Dimensionality
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -98,11 +100,12 @@ Before applying dimensionality reduction, estimate the intrinsic dimensionality:
 
    # Multiple methods for dimensionality estimation
    from driada.dimensionality import (
-
-   # Assume exp is an Experiment object already created
-   # exp = Experiment(...) # See Experiment docs for full parameters
        eff_dim, pca_dimension, nn_dimension, correlation_dimension
    )
+   from driada.experiment import load_demo_experiment
+
+   # Load sample experiment
+   exp = load_demo_experiment()
 
    # Get neural activity data (n_samples, n_features)
    neural_data = exp.calcium.scdata.T  # Transpose to standard format
@@ -114,9 +117,10 @@ Before applying dimensionality reduction, estimate the intrinsic dimensionality:
    # Effective dimension (participation ratio)
    eff_d = eff_dim(neural_data, enable_correction=True, q=2)
 
-   # Nonlinear methods
-   nn_dim = nn_dimension(neural_data, k=5)
-   corr_dim = correlation_dimension(neural_data)
+   # Nonlinear methods - add small noise to avoid duplicate points
+   neural_data_noisy = neural_data + 1e-8 * np.random.randn(*neural_data.shape)
+   nn_dim = nn_dimension(neural_data_noisy, k=5)
+   corr_dim = correlation_dimension(neural_data_noisy)
 
    print(f"PCA 90%: {pca_90} dims, PCA 95%: {pca_95} dims")
    print(f"Effective dim: {eff_d:.2f}")
@@ -130,6 +134,16 @@ Extract low-dimensional representations of population activity:
 
 .. code-block:: python
 
+   from driada.experiment import load_demo_experiment
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
+   
+   # Two approaches for dimensionality reduction:
+   # 1. Direct method: exp.calcium.get_embedding() returns Embedding objects
+   # 2. Experiment method: exp.create_embedding() returns numpy arrays and stores them
+   
+   # Approach 1: Direct dimensionality reduction on calcium data
    # exp.calcium is a MultiTimeSeries, which inherits from MVData
    # So it directly supports all dimensionality reduction methods!
    
@@ -141,19 +155,29 @@ Extract low-dimensional representations of population activity:
    iso_emb = exp.calcium.get_embedding(method='isomap', dim=2, n_neighbors=30)
    
    # UMAP - preserves local and global structure
-   umap_emb = exp.calcium.get_embedding(method='umap', n_components=2, 
+   umap_emb = exp.calcium.get_embedding(method='umap', dim=2, 
                                        n_neighbors=50, min_dist=0.1)
    
    # t-SNE - emphasizes local structure
    tsne_emb = exp.calcium.get_embedding(method='tsne', dim=2, perplexity=30)
    
-   # Access the coordinates
+   # Access the coordinates from the Embedding object
    coords = pca_emb.coords.T  # (n_samples, n_dims)
    
    # For custom downsampling, create new MVData
    from driada.dim_reduction import MVData
-   mvdata_ds = MVData(exp.calcium.scdata, downsampling=5)
+   mvdata_ds = MVData(exp.calcium.data, downsampling=5)
    pca_ds = mvdata_ds.get_embedding(method='pca', dim=3)
+   
+   # Approach 2: Use experiment's create_embedding() to store embeddings
+   # This is required for INTENSE analysis (compute_embedding_selectivity)
+   # Returns numpy arrays instead of Embedding objects
+   pca_array = exp.create_embedding('pca', n_components=3)
+   umap_array = exp.create_embedding('umap', n_components=2)
+   
+   # These are now stored in exp.embeddings and can be retrieved:
+   stored_pca = exp.get_embedding('pca')  # Returns dict with 'data' key
+   print(f"Stored PCA shape: {stored_pca['data'].shape}")
 
 5. Validate Manifold Quality
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -165,10 +189,16 @@ Assess how well the embedding preserves the original structure:
    from driada.dim_reduction import (
        knn_preservation_rate, trustworthiness, continuity
    )
+   from driada.experiment import load_demo_experiment
+   
+   # Load sample experiment and create embedding
+   exp = load_demo_experiment()
+   pca_emb = exp.calcium.get_embedding(method='pca', dim=3)
    
    # Compare high-D and low-D representations
-   high_d = neural_data  # Original high-dimensional data
-   low_d = coords        # Low-dimensional embedding
+   # Need to transpose calcium data to get (n_samples, n_features)
+   high_d = exp.calcium.scdata.T  # Original high-dimensional data
+   low_d = pca_emb.coords.T        # Low-dimensional embedding from above
    
    # k-NN preservation: how many neighbors stay the same
    knn_score = knn_preservation_rate(high_d, low_d, k=10)
@@ -192,13 +222,25 @@ Analyze how single neurons contribute to population embeddings:
 
    # First, compute INTENSE selectivity for embedding components
    from driada.intense import compute_embedding_selectivity
+   from driada.experiment import load_demo_experiment
 
-   # Analyze how neurons contribute to embedding components
+   # Load sample experiment
+   exp = load_demo_experiment()
+   
+   # First, store embeddings using create_embedding() if not already done
+   # This returns numpy arrays and stores them for INTENSE analysis
+   if 'pca' not in exp.embeddings['calcium']:
+       exp.create_embedding('pca', n_components=3)
+   if 'umap' not in exp.embeddings['calcium']:
+       exp.create_embedding('umap', n_components=2)
+
+   # Then analyze how neurons contribute to embedding components
    emb_results = compute_embedding_selectivity(
        exp, 
        embedding_methods=['pca', 'umap'],
-       n_shuffles=100,
-       ds=5
+       n_shuffles_stage1=100,
+       n_shuffles_stage2=1000,
+       find_optimal_delays=False  # Skip temporal alignment for demo
    )
 
    # Extract INTENSE results for functional organization analysis
@@ -231,12 +273,19 @@ Analyze how single neurons contribute to population embeddings:
    # Visualize embeddings with features
    from driada.utils.visual import plot_embedding_comparison
 
-   # Assume exp is an Experiment object already created
-   # exp = Experiment(...) # See Experiment docs for full parameters
+   # Load experiment and create embeddings if needed
+   exp = load_demo_experiment()
+   
+   # First create the embeddings if not already done
+   if 'pca' not in exp.embeddings['calcium']:
+       exp.create_embedding('pca', n_components=3)
+   if 'umap' not in exp.embeddings['calcium']:
+       exp.create_embedding('umap', n_components=2)
 
+   # Get the stored numpy arrays from the experiment
    embeddings = {
-       'PCA': pca_emb.coords.T,
-       'UMAP': umap_emb.coords.T
+       'PCA': exp.get_embedding('pca')['data'],  # Get stored numpy array
+       'UMAP': exp.get_embedding('umap')['data']  # Get stored numpy array
    }
 
    # Color by a behavioral feature (ensure lengths match)
@@ -267,7 +316,11 @@ Identify functional networks by analyzing pairwise neural correlations:
 
    from driada.intense import compute_cell_cell_significance
    from driada.network import Network
+   from driada.experiment import load_demo_experiment
    import scipy.sparse as sp
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
    
    # Compute pairwise functional connectivity
    # Uses mutual information to measure dependencies
@@ -291,14 +344,13 @@ Identify functional networks by analyzing pairwise neural correlations:
    net = Network(adj=sig_sparse, preprocessing='giant_cc')
    
    # Analyze network properties
-   print(f"Network has {net.n_nodes} nodes in giant component")
-   print(f"Average degree: {net.degrees.mean():.2f}")
-   print(f"Clustering coefficient: {net.clustering:.3f}")
+   print(f"Network has {net.n} nodes in giant component")
+   print(f"Average degree: {net.deg.mean():.2f}")
    
    # Detect functional modules
    from sklearn.cluster import SpectralClustering
    
-   if net.n_nodes > 10:
+   if net.n > 10:
        # Use spectral clustering on the network
        clustering = SpectralClustering(
            n_clusters=3, 
@@ -310,7 +362,7 @@ Identify functional networks by analyzing pairwise neural correlations:
        print(f"Detected {len(np.unique(modules))} functional modules")
    
    # Visualize network (for smaller networks)
-   if net.n_nodes < 50:
+   if net.n < 50:
        import networkx as nx
        import matplotlib.pyplot as plt
        
@@ -322,7 +374,7 @@ Identify functional networks by analyzing pairwise neural correlations:
                               node_color='lightblue', alpha=0.7)
        nx.draw_networkx_edges(G, pos, alpha=0.5)
        nx.draw_networkx_labels(G, pos, font_size=8)
-       plt.title(f"Functional Network ({net.n_nodes} neurons)")
+       plt.title(f"Functional Network ({net.n} neurons)")
        plt.axis('off')
        plt.tight_layout()
 
@@ -337,18 +389,21 @@ Load and analyze your own neural recordings:
    from driada import load_exp_from_aligned_data
    
    # Load data from NPZ file (recommended format)
-   data = dict(np.load('your_recording.npz'))
-   # Expected structure:
-   # - data['calcium']: (n_neurons, n_timepoints) - REQUIRED
-   # - data['position']: (n_timepoints,) or (2, n_timepoints) for x,y
-   # - data['speed']: (n_timepoints,)
-   # - data['trial_type']: (n_timepoints,) - discrete labels
-   # - Any other behavioral variables...
+   data = dict(np.load(sample_npz_path))
+   # Expected structure in sample_recording.npz:
+   # - data['calcium']: (50, 10000) - neural activity, REQUIRED
+   # - data['position']: (2, 10000) - 2D trajectory (x,y coordinates)
+   # - data['x_pos']: (10000,) - x coordinate
+   # - data['y_pos']: (10000,) - y coordinate  
+   # - data['speed']: (10000,) - movement speed
+   # - data['trial_type']: (10000,) - discrete labels ('A', 'B', 'C', 'D')
+   # - data['head_direction']: (10000,) - circular variable (radians)
+   # - data['fps']: scalar - frame rate (30.0)
    
    # Create experiment with automatic feature detection
    exp = load_exp_from_aligned_data(
-       data_source='my_lab',  # Your lab/dataset identifier
-       exp_params={'animal_id': 'mouse01', 'session': 'day1'},
+       data_source='MyLab',  # Can be any lab identifier (e.g., 'MyLab', 'NeuroLab')
+       exp_params={'name': 'my_experiment'},  # For custom labs, use 'name' key
        data=data,
        static_features={'fps': 30.0},  # Recording frame rate
        force_continuous=['trial_type'],  # Override auto-detection if needed
@@ -356,10 +411,14 @@ Load and analyze your own neural recordings:
        reconstruct_spikes='wavelet'  # Automatic spike deconvolution
    )
    
-   # For HDF5 files
-   from driada.utils.data import read_hdf5_to_dict
-   data = read_hdf5_to_dict('recording.h5')
-   exp = load_exp_from_aligned_data(data_source='my_lab', data=data)
+   # For HDF5 files (example with your own file)
+   # from driada.utils.data import read_hdf5_to_dict
+   # data = read_hdf5_to_dict('path/to/your/recording.h5')
+   # exp = load_exp_from_aligned_data(
+   #     data_source='my_lab', 
+   #     exp_params={'name': 'my_experiment'},
+   #     data=data
+   # )
    
    # For multi-dimensional features (e.g., 2D position)
    from driada.information.info_base import MultiTimeSeries
@@ -367,15 +426,17 @@ Load and analyze your own neural recordings:
    # Combine x,y coordinates into single feature
    spatial_data = np.stack([data['x_pos'], data['y_pos']])
    spatial_feature = MultiTimeSeries(
-       spatial_data, 
-       names=['x', 'y'],
-       fps=30.0,
+       spatial_data,
        discrete=False
    )
    
    # Add to data dictionary
    data['position_2d'] = spatial_feature
-   exp = load_exp_from_aligned_data(data_source='my_lab', data=data)
+   exp = load_exp_from_aligned_data(
+       data_source='my_lab',
+       exp_params={'name': 'my_experiment'},
+       data=data
+   )
 
 9. Advanced Analysis Workflows
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -386,22 +447,25 @@ Leverage DRIADA's advanced capabilities:
 
    # Sequential dimensionality reduction pipeline
    from driada.dim_reduction import dr_sequence
+   from driada.experiment import load_demo_experiment
+   
+   exp = load_demo_experiment()
    
    # Chain multiple DR methods for optimal results
    embedding = dr_sequence(
        exp.calcium,
        steps=[
-           ('pca', {'dim': 50}),     # Initial denoising
-           ('fa', {'dim': 20}),      # Factor analysis
-           ('umap', {'dim': 3, 'n_neighbors': 30})  # Final embedding
+           ('pca', {'dim': 20}),     # Initial denoising
+           ('umap', {'dim': 3, 'n_neighbors': 15})  # Final embedding
        ],
        keep_intermediate=True  # Access results from each step
    )
    
-   # Access intermediate results
-   pca_result = embedding.intermediate_results[0]
-   fa_result = embedding.intermediate_results[1]
-   final_result = embedding.coords.T
+   # Access intermediate results (returns tuple when keep_intermediate=True)
+   final_embedding, intermediate_results = embedding
+   pca_result = intermediate_results[0]
+   umap_result = intermediate_results[1]
+   final_coords = final_embedding.coords.T
    
    # High-precision INTENSE analysis with mixed features
    from driada.intense import compute_cell_feat_significance
@@ -412,7 +476,7 @@ Leverage DRIADA's advanced capabilities:
        n_shuffles_stage1=100,     # Pre-screening
        n_shuffles_stage2=5000,    # High precision
        allow_mixed_dimensions=True,  # Handle MultiTimeSeries
-       skip_delays={'position_2d': True},  # Don't optimize delays for some features
+       find_optimal_delays=False,  # Skip temporal alignment
        ds=5,  # Downsample for speed
        verbose=True
    )
@@ -422,32 +486,22 @@ Leverage DRIADA's advanced capabilities:
    
    # Package all results
    analysis_results = {
-       'experiment_params': exp.exp_params,
+       'experiment_signature': exp.signature,
        'intense_stats': results[0],
        'intense_significance': results[1],
-       'embeddings': {
-           'pca': pca_result,
-           'umap': final_result
+       'embedding_coords': {
+           'pca': pca_result.coords.T,  # Convert to numpy array
+           'umap': final_embedding.coords.T  # Convert to numpy array
        },
        'significant_neurons': exp.get_significant_neurons()
    }
    
-   # Save to HDF5
+   # Save to HDF5 (remove file if exists for clean save)
+   import os
+   if os.path.exists('analysis_results.h5'):
+       os.remove('analysis_results.h5')
    write_dict_to_hdf5(analysis_results, 'analysis_results.h5')
    
-   # For batch processing multiple sessions
-   sessions = ['day1.npz', 'day2.npz', 'day3.npz']
-   all_results = []
-   
-   for session_file in sessions:
-       data = dict(np.load(session_file))
-       exp = load_exp_from_aligned_data(
-           data_source='my_lab',
-           exp_params={'session': session_file},
-           data=data
-       )
-       results = compute_cell_feat_significance(exp, ds=10)
-       all_results.append(results)
 
 Next Steps
 ----------

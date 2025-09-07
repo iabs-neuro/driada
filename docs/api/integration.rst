@@ -11,8 +11,8 @@ dimensionality reduction, enabling integrated analysis of neural data.
 Main Functions
 --------------
 
-.. autofunction:: driada.integration.get_functional_organization
-.. autofunction:: driada.integration.compare_embeddings
+.. autofunction:: driada.integration.manifold_analysis.get_functional_organization
+.. autofunction:: driada.integration.manifold_analysis.compare_embeddings
 
 Usage Example
 -------------
@@ -21,16 +21,21 @@ Usage Example
 
    from driada.integration import get_functional_organization, compare_embeddings
    from driada.intense import compute_cell_feat_significance
+   from driada.experiment import load_demo_experiment
 
-   # Assume exp is an Experiment object already created
-   # exp = Experiment(...) # See Experiment docs for full parameters
+   # Load sample experiment
+   exp = load_demo_experiment()
 
    # First, run INTENSE analysis
-   stats, sig, info, intense_results = compute_cell_feat_significance(exp)
+   stats, sig, info, intense_results = compute_cell_feat_significance(
+       exp,
+       allow_mixed_dimensions=True,
+       find_optimal_delays=False  # Skip temporal alignment for demo
+   )
 
-   # Then create embeddings
-   pca_emb = exp.calcium.get_embedding(method='pca', dim=3)
-   umap_emb = exp.calcium.get_embedding(method='umap', n_components=2)
+   # Then create and store embeddings
+   pca_array = exp.create_embedding('pca', n_components=3)
+   umap_array = exp.create_embedding('umap', n_components=2)
 
    # Analyze functional organization in PCA space
    pca_org = get_functional_organization(
@@ -49,5 +54,5 @@ Usage Example
        }
    )
 
-   print(f"PCA captures {pca_org['variance_explained']:.1%} of selectivity")
-   print(f"UMAP similarity to PCA: {comparison['similarity_matrix'][0,1]:.3f}")
+   print(f"Component importance: {pca_org['component_importance']}")
+   print(f"PCA vs UMAP overlap: {comparison['participation_overlap']['pca_vs_umap']:.3f}")

@@ -39,6 +39,7 @@ REMAINING CONSIDERATIONS:
 import numpy as np
 import pytest
 import time
+import warnings
 from driada.information.gcmi import (
     demean,
     ent_g,
@@ -941,6 +942,64 @@ class TestGCMIJIT:
         # I(X;Z|Y) should be close to 0 for a chain
         cmi = conditional_mi(ts_x, ts_z, ts_y)
         assert cmi < 0.1, f"CMI too high for chain structure: {cmi}"
+
+
+class TestGCMIEdgeCases:
+    """Test edge cases for GCMI implementation."""
+    
+    def test_single_sample_class(self):
+        """Test that GCMI handles classes with only 1 sample correctly."""
+        # Create data where one class has only 1 sample
+        x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]])
+        y = np.array([0, 0, 1, 1, 2, 2, 3])  # Class 3 has only 1 sample
+        
+        # Should issue warning but not crash
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mi = mi_model_gd(x, y)
+            assert mi >= 0  # MI should be non-negative
+            assert len(w) == 1  # Should have warning
+            assert "Class 3 has only 1 sample" in str(w[0].message)
+    
+    def test_empty_class(self):
+        """Test that GCMI handles empty classes correctly."""
+        x = np.array([[1.0, 2.0, 3.0, 4.0]])  
+        y = np.array([0, 0, 1, 1])
+        
+        # Specify Ym=3 but only have classes 0 and 1
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mi = mi_model_gd(x, y, Ym=3)
+            assert mi >= 0
+            assert len(w) == 1
+            assert "Class 2 has no samples" in str(w[0].message)
+    
+    def test_multiple_single_sample_classes(self):
+        """Test GCMI with multiple classes having single samples."""
+        x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0]])
+        y = np.array([0, 1, 2, 3, 4])  # Each class has only 1 sample
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mi = mi_model_gd(x, y)
+            assert mi >= 0
+            # Should have warnings for all 5 classes
+            assert len(w) == 5
+            for i in range(5):
+                assert f"Class {i} has only 1 sample" in str(w[i].message)
+    
+    def test_bias_correction_with_small_samples(self):
+        """Test bias correction doesn't crash with small sample sizes."""
+        # Minimum viable case: 2 samples per class
+        x = np.array([[1.0, 1.2, 2.0, 2.2]])
+        y = np.array([0, 0, 1, 1])
+        
+        # Both with and without bias correction should work
+        mi_with_bias = mi_model_gd(x, y, biascorrect=True)
+        mi_without_bias = mi_model_gd(x, y, biascorrect=False)
+        
+        assert mi_with_bias >= 0
+        assert mi_without_bias >= 0
 
 
 def test_jit_availability():

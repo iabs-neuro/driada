@@ -471,21 +471,27 @@ def generate_circular_manifold_exp(
     Examples
     --------
     >>> # Basic usage
-    >>> exp = generate_circular_manifold_exp(n_neurons=50, duration=300)
+    >>> exp = generate_circular_manifold_exp(n_neurons=10, duration=10, verbose=False)
     
     >>> # With circular angle representation
     >>> exp = generate_circular_manifold_exp(
-    ...     n_neurons=100,
+    ...     n_neurons=10,
+    ...     duration=10,
     ...     add_mixed_features=True,
-    ...     kappa=6.0  # Narrower tuning
+    ...     kappa=6.0,  # Narrower tuning
+    ...     verbose=False
     ... )
     
     >>> # Get additional information
     >>> exp, info = generate_circular_manifold_exp(
-    ...     n_neurons=100,
-    ...     return_info=True
+    ...     n_neurons=10,
+    ...     duration=10,
+    ...     return_info=True,
+    ...     verbose=False
     ... )
-    >>> preferred_dirs = info['preferred_directions']    """
+    >>> len(info['preferred_directions']) == 10
+    True
+    """
     # Input validation
     check_positive(n_neurons=n_neurons, duration=duration, fps=fps, kappa=kappa, 
                   peak_rate=peak_rate, decay_time=decay_time)
@@ -564,6 +570,7 @@ def generate_circular_manifold_exp(
             "n_neurons": n_neurons,
             "duration": duration,
         },
+        verbose=verbose,
     )
 
     # Store firing rates as additional data

@@ -8,8 +8,8 @@ This module handles authentication for Google Drive API access.
 Functions
 ---------
 
-.. autofunction:: driada.gdrive.desktop_auth
-.. autofunction:: driada.gdrive.google_colab_auth
+.. autofunction:: driada.gdrive.auth.desktop_auth
+.. autofunction:: driada.gdrive.auth.google_colab_auth
 
 Usage Examples
 --------------
@@ -21,8 +21,8 @@ Desktop Authentication
 
    from driada.gdrive import desktop_auth
    
-   # Authenticate on desktop/laptop
-   auth = desktop_auth()
+   # Authenticate on desktop/laptop  
+   auth = desktop_auth('path/to/client_secrets.json')
    
    # This will:
    # 1. Open a browser window for Google login
@@ -71,14 +71,9 @@ First-time Setup
 
    .. code-block:: python
    
-      # Create config file (first time only)
-      from driada.gdrive import create_config
-      
-      create_config(
-          client_id='your-client-id',
-          client_secret='your-client-secret',
-          redirect_uri='http://localhost:8080'
-      )
+      # OAuth credentials should be set via environment variables:
+      # export GDRIVE_CLIENT_ID="your-client-id"
+      # export GDRIVE_CLIENT_SECRET="your-client-secret"
 
 Environment Variables
 ^^^^^^^^^^^^^^^^^^^^^
@@ -105,34 +100,16 @@ Common Issues
 
 **"Access blocked" error**:
 
-.. code-block:: python
+- Ensure your OAuth2 credentials are properly configured in Google Cloud Console
+- Check that redirect URIs include http://localhost:8080/
+- Try using a different browser or clearing browser cache
 
-   # Use desktop auth with specific port
-   auth = desktop_auth(port=8090)  # Try different port
+**Note on Desktop Authentication**:
 
-**"Quota exceeded" error**:
-
-.. code-block:: python
-
-   # Add retry logic
-   from driada.gdrive import auth_with_retry
+Desktop authentication (``desktop_auth``) is primarily tested within IABS lab environment 
+and may throw unexpected errors in other setups. For most users, we recommend using 
+Google Colab authentication or setting up service accounts.
    
-   auth = auth_with_retry(
-       max_retries=3,
-       backoff_factor=2.0
-   )
-
-**Token expired**:
-
-.. code-block:: python
-
-   # Auto-refresh on operations
-   from driada.gdrive import auto_refresh_decorator
-   
-   @auto_refresh_decorator
-   def my_operation(auth):
-       # Your code here
-       pass
 
 Security Best Practices
 -----------------------
@@ -143,9 +120,9 @@ Security Best Practices
 
    .. code-block:: python
    
-      auth = desktop_auth(
-          scopes=['https://www.googleapis.com/auth/drive.readonly']
-      )
+      # Scopes are configured in your OAuth2 client setup in Google Cloud Console
+      from driada.gdrive import desktop_auth
+      auth = desktop_auth('path/to/client_secrets.json')
 
 4. **Rotate credentials** regularly
 5. **Monitor API usage** in Cloud Console
@@ -160,14 +137,4 @@ Available scopes for different access levels:
 - **Full access**: ``drive``
 - **Metadata only**: ``drive.metadata.readonly``
 
-Example with limited scope:
-
-.. code-block:: python
-
-   # Only request what you need
-   auth = desktop_auth(
-       scopes=[
-           'https://www.googleapis.com/auth/drive.readonly',
-           'https://www.googleapis.com/auth/drive.metadata'
-       ]
-   )
+To limit scope, configure it when creating OAuth2 credentials in Google Cloud Console.

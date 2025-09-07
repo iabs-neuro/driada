@@ -44,10 +44,11 @@ class Capturing(list):
     >>> output
     ['Hello', 'World']
     
-    >>> # Using with functions that print
-    >>> with Capturing() as log:
-    ...     some_verbose_function()
-    >>> show_output(log)  # Display captured output
+    Using with functions that print::
+    
+        with Capturing() as log:
+            some_verbose_function()
+        show_output(log)  # Display captured output
     
     Notes
     -----

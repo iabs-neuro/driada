@@ -462,7 +462,7 @@ class RidgeInfoContainer(object):
     >>> ridge_info.max_ampl
     0.9
     >>> ridge_info.duration
-    3.0
+    3
     
     Notes
     -----

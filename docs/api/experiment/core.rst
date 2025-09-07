@@ -8,12 +8,12 @@ This module contains the core data structures for managing neural experiments.
 Classes
 -------
 
-.. autoclass:: driada.experiment.Experiment
+.. autoclass:: driada.experiment.exp_base.Experiment
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: driada.experiment.Neuron
+.. autoclass:: driada.experiment.neuron.Neuron
    :members:
    :undoc-members:
    :show-inheritance:
@@ -26,72 +26,71 @@ Creating an Experiment
 
 .. code-block:: python
 
-   from driada.experiment import Experiment
+   from driada.experiment import Experiment, load_demo_experiment
    from driada.information import MultiTimeSeries
    import numpy as np
    
-   # Create calcium imaging data
-   n_neurons = 50
-   n_timepoints = 10000
-   calcium_data = np.random.randn(n_neurons, n_timepoints)
+   # Load sample experiment
+   exp = load_demo_experiment()
    
-   # Note: Experiment requires multiple parameters
-   # exp = Experiment(signature, calcium, spikes, exp_identificators, static_features, dynamic_features)
-   # For this example, assume exp is already created
-   exp.fps = 30.0  # 30 Hz sampling rate
+   # Access and modify experiment properties
+   print(f"Sampling rate: {exp.fps} Hz")
    
-   # Add behavior data
+   # Add behavior data as dynamic features
+   n_timepoints = exp.n_frames  # Get number of timepoints from experiment
    position = np.random.randn(2, n_timepoints)  # x, y coordinates
-   exp.behavior = {'position': position}
+   exp.dynamic_features['position'] = position
    
-   # Add metadata
-   exp.info = {
-       'mouse_id': 'M001',
-       'session': 'day1',
-       'brain_region': 'CA1'
-   }
+   # Access metadata
+   # Note: exp_identificators is set during experiment creation
+   # and contains experiment parameters like mouse_id, session, etc.
 
 Working with Neurons
 ^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
-   from driada.experiment import Neuron
+   from driada.experiment import Neuron, load_demo_experiment
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
    
    # Create neuron analyzer for first cell
-   neuron = Neuron(exp, cell_id=0)
+   # Neuron takes calcium data and spike data directly
+   neuron = Neuron(
+       cell_id=0,
+       ca=exp.calcium.scdata[0],  # calcium trace for neuron 0
+       sp=None,  # spike data (optional)
+       fps=exp.fps
+   )
    
-   # Get neuron's activity
-   activity = neuron.get_activity()
-   
-   # Compute firing rate
-   firing_rate = neuron.compute_firing_rate()
-   
-   # Get selectivity profile (if INTENSE analysis done)
-   if hasattr(neuron, 'selectivity'):
-       selectivity = neuron.get_selectivity()
+   # Access neuron's data
+   ca_trace = neuron.ca  # Raw calcium data
+   sp_trace = neuron.sp  # Spike data (if provided)
 
 Experiment Properties
 ^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
-   # Assume exp is an Experiment object already created
-   # exp = Experiment(...) # See Experiment docs for full parameters
+   from driada.experiment import load_demo_experiment
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
 
    # Core data access
    calcium_matrix = exp.calcium.data  # (n_neurons, n_time)
    sampling_rate = exp.fps
 
    # Duration and time
-   duration = exp.duration  # in seconds
-   time_vector = exp.get_time_vector()
+   duration = exp.n_frames / exp.fps  # compute duration in seconds
+   time_vector = np.arange(exp.n_frames) / exp.fps  # compute time vector
 
    # Neuron count
-   n_neurons = exp.n_neurons
+   n_neurons = exp.n_cells
 
    # Check for spike data
-   if exp.has_spikes:
+   if exp.spikes is not None:
        spikes = exp.spikes.data
 
 Data Organization

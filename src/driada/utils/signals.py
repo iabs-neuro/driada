@@ -21,7 +21,11 @@ from scipy.ndimage import gaussian_filter1d
 import pywt
 from typing import Optional, Union, List
 
-from .data import check_positive, check_nonnegative
+try:
+    from .data import check_positive, check_nonnegative
+except ImportError:
+    # For standalone module execution (e.g., doctests)
+    from driada.utils.data import check_positive, check_nonnegative
 
 
 def brownian(
@@ -270,14 +274,26 @@ def filter_1d_timeseries(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> np.random.seed(42)
+    >>> # Create noisy signal
+    >>> t = np.linspace(0, 1, 100)
+    >>> data = np.sin(2 * np.pi * 5 * t) + 0.2 * np.random.randn(100)
+    
     >>> # Gaussian smoothing for general noise reduction
     >>> filtered = filter_1d_timeseries(data, method='gaussian', sigma=1.5)
+    >>> filtered.shape
+    (100,)
 
     >>> # Savitzky-Golay for preserving peaks while smoothing
     >>> filtered = filter_1d_timeseries(data, method='savgol', window_length=5)
+    >>> filtered.shape
+    (100,)
 
     >>> # Wavelet denoising for multi-scale noise removal
-    >>> filtered = filter_1d_timeseries(data, method='wavelet', wavelet='db4')    """
+    >>> filtered = filter_1d_timeseries(data, method='wavelet', wavelet='db4')
+    >>> filtered.shape
+    (100,)    """
     if method == "none":
         return data.copy()
 

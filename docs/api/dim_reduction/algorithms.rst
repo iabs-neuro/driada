@@ -6,36 +6,42 @@ Core algorithms and method registry for dimensionality reduction.
 Method Registry
 ---------------
 
-.. autodata:: driada.dim_reduction.METHODS_DICT
-   :annotation: = {'pca': DRMethod(...), 'le': DRMethod(...), ...}
+.. data:: driada.dim_reduction.dr_base.METHODS_DICT
+   :annotation: = dict
 
-   Dictionary mapping method names to DRMethod instances. Available methods include:
+   Dictionary mapping method names to their DRMethod configurations.
+   
+   Available methods:
    
    * ``pca`` - Principal Component Analysis
-   * ``le`` - Laplacian Eigenmaps
-   * ``auto_le`` - Auto-tuned Laplacian Eigenmaps
-   * ``dmaps`` - Diffusion Maps
+   * ``mds`` - Multi-dimensional Scaling  
    * ``isomap`` - Isometric Feature Mapping
+   * ``lle`` - Locally Linear Embedding
+   * ``hlle`` - Hessian Locally Linear Embedding
+   * ``le`` - Laplacian Eigenmaps
+   * ``dmaps`` - Diffusion Maps
+   * ``mvu`` - Maximum Variance Unfolding
    * ``tsne`` - t-Distributed Stochastic Neighbor Embedding
    * ``umap`` - Uniform Manifold Approximation and Projection
-   * (and others - see source for complete list)
+   * ``ae`` - Autoencoder
+   * ``vae`` - Variational Autoencoder
 
 Base Classes
 ------------
 
-.. autoclass:: driada.dim_reduction.DRMethod
+.. autoclass:: driada.dim_reduction.dr_base.DRMethod
    :members:
    :special-members: __init__
 
 Sequential Processing
 ---------------------
 
-.. autofunction:: driada.dim_reduction.dr_sequence
+.. autofunction:: driada.dim_reduction.sequences.dr_sequence
 
 Helper Functions
 ----------------
 
-.. autofunction:: driada.dim_reduction.merge_params_with_defaults
-.. autofunction:: driada.dim_reduction.e_param_filter
-.. autofunction:: driada.dim_reduction.g_param_filter
-.. autofunction:: driada.dim_reduction.m_param_filter
+.. autofunction:: driada.dim_reduction.dr_base.merge_params_with_defaults
+.. autofunction:: driada.dim_reduction.dr_base.e_param_filter
+.. autofunction:: driada.dim_reduction.dr_base.g_param_filter
+.. autofunction:: driada.dim_reduction.dr_base.m_param_filter

@@ -66,14 +66,14 @@ def make_beautiful(
     --------
     >>> import matplotlib.pyplot as plt
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [1, 4, 9])
-    >>> make_beautiful(ax)  # Apply styling
+    >>> _ = ax.plot([1, 2, 3], [1, 4, 9])
+    >>> _ = make_beautiful(ax)  # Apply styling
     >>> plt.show()
     
     >>> # With custom styling
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [1, 4, 9])
-    >>> make_beautiful(ax, spine_width=2, tick_labelsize=14)
+    >>> _ = ax.plot([1, 2, 3], [1, 4, 9])
+    >>> _ = make_beautiful(ax, spine_width=2, tick_labelsize=14)
     
     See Also
     --------
@@ -153,14 +153,14 @@ def create_default_figure(
     --------
     >>> # Single subplot with default styling
     >>> fig, ax = create_default_figure()
-    >>> ax.plot([1, 2, 3], [1, 4, 9])
+    >>> _ = ax.plot([1, 2, 3], [1, 4, 9])
     >>> plt.show()
     
     >>> # Multiple subplots with custom styling
     >>> fig, axes = create_default_figure(nrows=2, ncols=2, figsize=(20, 16),
     ...                                   spine_width=2, tick_labelsize=14)
     >>> for ax in axes.flat:
-    ...     ax.plot(np.random.randn(100))
+    ...     _ = ax.plot(np.random.randn(100))
     
     See Also
     --------
@@ -239,7 +239,7 @@ def plot_mat(
     >>> # Plot a random matrix
     >>> mat = np.random.randn(10, 10)
     >>> fig, ax = plot_mat(mat)
-    >>> ax.set_title('Random Matrix')
+    >>> _ = ax.set_title('Random Matrix')
     >>> plt.show()
     
     >>> # Plot on existing axis without colorbar

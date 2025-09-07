@@ -48,12 +48,14 @@ def ctransform_jit(x):
     >>> # Simple example with unique values
     >>> x = np.array([3.0, 1.0, 4.0, 2.0])
     >>> ct = ctransform_jit(x)
-    >>> print(ct)  # [0.6, 0.2, 0.8, 0.4]
+    >>> print(ct)
+    [0.6 0.2 0.8 0.4]
     >>> 
     >>> # Example with tied values
     >>> x_tied = np.array([1.0, 2.0, 2.0, 3.0])
     >>> ct_tied = ctransform_jit(x_tied)
-    >>> print(ct_tied)  # Each tied value gets unique rank
+    >>> print(ct_tied)
+    [0.2 0.4 0.6 0.8]
     """
     n = x.size
 
@@ -130,10 +132,13 @@ def ctransform_2d_jit(x):
     >>> x = np.array([[1.0, 3.0, 2.0, 4.0],   # Variable 1
     ...               [10.0, 30.0, 20.0, 40.0]])  # Variable 2
     >>> ct = ctransform_2d_jit(x)
-    >>> print(ct.shape)  # (2, 4)
+    >>> print(ct.shape)
+    (2, 4)
     >>> # Each row is transformed to uniform (0, 1)
-    >>> print(ct[0])  # [0.2, 0.6, 0.4, 0.8]
-    >>> print(ct[1])  # [0.2, 0.6, 0.4, 0.8]
+    >>> print(ct[0])
+    [0.2 0.6 0.4 0.8]
+    >>> print(ct[1])
+    [0.2 0.6 0.4 0.8]
     """
     n_vars, n_samples = x.shape
     result = np.empty_like(x)
@@ -193,16 +198,22 @@ def ndtri_approx(p):
     >>> 
     >>> # Single value
     >>> z = ndtri_approx(0.975)  # 95% quantile
-    >>> print(f"{z:.4f}")  # ≈ 1.96
+    >>> print(f"{z:.4f}")
+    1.9604
     >>> 
     >>> # Array of probabilities
     >>> probs = np.array([0.025, 0.5, 0.975])
     >>> z_scores = ndtri_approx(probs)
-    >>> print(z_scores)  # ≈ [-1.96, 0.0, 1.96]
+    >>> # Round to avoid tiny numerical differences around 0
+    >>> z_scores_rounded = np.round(z_scores, 4)
+    >>> print(z_scores_rounded)
+    [-1.9604 -0.      1.9604]
     >>> 
     >>> # Edge cases
-    >>> print(ndtri_approx(0.0))   # -inf
-    >>> print(ndtri_approx(1.0))   # +inf
+    >>> print(ndtri_approx(0.0))
+    -inf
+    >>> print(ndtri_approx(1.0))
+    inf
     """
     # Handle array input
     if hasattr(p, "shape"):
@@ -302,14 +313,18 @@ def copnorm_jit(x):
     >>> z = copnorm_jit(x_exp)
     >>> 
     >>> # Check properties
-    >>> print(f"Mean: {np.mean(z):.3f}")      # ≈ 0
-    >>> print(f"Std: {np.std(z):.3f}")        # ≈ 1
-    >>> print(f"Ranks preserved: {np.all(np.argsort(x_exp) == np.argsort(z))}")  # True
+    >>> print(f"Mean: {np.mean(z):.3f}")
+    Mean: -0.000
+    >>> print(f"Std: {np.std(z):.3f}")
+    Std: 0.961
+    >>> print(f"Ranks preserved: {np.all(np.argsort(x_exp) == np.argsort(z))}")
+    Ranks preserved: True
     >>> 
     >>> # Works with any continuous distribution
     >>> x_uniform = np.random.uniform(0, 10, size=50)
     >>> z_uniform = copnorm_jit(x_uniform)
     >>> print(f"Output range: [{np.min(z_uniform):.2f}, {np.max(z_uniform):.2f}]")
+    Output range: [-2.06, 2.06]
     """
     cx = ctransform_jit(x)
     return ndtri_approx(cx)
@@ -371,6 +386,9 @@ def copnorm_2d_jit(x):
     >>> # Check each variable is approximately N(0,1)
     >>> for i in range(3):
     ...     print(f"Var {i}: mean={np.mean(z[i]):.3f}, std={np.std(z[i]):.3f}")
+    Var 0: mean=-0.000, std=0.961
+    Var 1: mean=-0.000, std=0.961
+    Var 2: mean=-0.000, std=0.961
     >>> 
     >>> # Dependencies between variables are preserved
     >>> # (correlation structure remains similar)
@@ -439,17 +457,20 @@ def mi_gg_jit(x, y, biascorrect=True, demeaned=False):
     >>> from driada.information.gcmi_jit_utils import mi_gg_jit
     >>> 
     >>> # Independent Gaussian variables - MI ≈ 0
-    >>> np.random.seed(42)
+    >>> np.random.seed(1)
     >>> x = np.random.randn(2, 100)  # 2 variables, 100 samples
     >>> y = np.random.randn(3, 100)  # 3 variables, 100 samples
     >>> mi = mi_gg_jit(x, y)
-    >>> print(f"MI (independent): {mi:.4f} bits")  # ≈ 0
+    >>> print(f"MI (independent): {mi:.3f} bits")
+    MI (independent): 0.003 bits
     >>> 
     >>> # Correlated variables - MI > 0
+    >>> np.random.seed(2)
     >>> x = np.random.randn(1, 100)
     >>> y = x + 0.5 * np.random.randn(1, 100)  # y depends on x
     >>> mi = mi_gg_jit(x, y)
-    >>> print(f"MI (dependent): {mi:.4f} bits")  # > 0
+    >>> print(f"MI (dependent): {mi:.2f} bits")
+    MI (dependent): 1.10 bits
     >>> 
     >>> # Pre-demeaned data
     >>> x_centered = x - np.mean(x, axis=1, keepdims=True)
@@ -578,14 +599,16 @@ def cmi_ggg_jit(x, y, z, biascorrect=True, demeaned=False):
     >>> x = z + 0.5 * np.random.randn(1, 100)  # X depends on Z
     >>> y = z + 0.5 * np.random.randn(1, 100)  # Y depends on Z
     >>> cmi = cmi_ggg_jit(x, y, z)
-    >>> print(f"CMI (conditionally independent): {cmi:.4f} bits")  # ≈ 0
+    >>> print(f"CMI (conditionally independent): {cmi:.4f} bits")
+    CMI (conditionally independent): -0.0074 bits
     >>> 
     >>> # Example 2: X and Y have dependence beyond Z
     >>> z = np.random.randn(1, 100)
     >>> x = z + np.random.randn(1, 100)
     >>> y = x + z + 0.5 * np.random.randn(1, 100)  # Y depends on both X and Z
     >>> cmi = cmi_ggg_jit(x, y, z)
-    >>> print(f"CMI (conditionally dependent): {cmi:.4f} bits")  # > 0
+    >>> print(f"CMI (conditionally dependent): {cmi:.4f} bits")
+    CMI (conditionally dependent): 1.2443 bits
     >>> 
     >>> # Example 3: Multivariate case
     >>> x = np.random.randn(2, 100)  # 2D variable
@@ -595,6 +618,7 @@ def cmi_ggg_jit(x, y, z, biascorrect=True, demeaned=False):
     >>> y[0] += 0.5 * x[0]  # y[0] depends on x[0]
     >>> cmi = cmi_ggg_jit(x, y, z)
     >>> print(f"Multivariate CMI: {cmi:.4f} bits")
+    Multivariate CMI: 0.3231 bits
     """
     if x.shape[1] != y.shape[1] or x.shape[1] != z.shape[1]:
         raise ValueError("Number of samples must match")
@@ -740,15 +764,23 @@ def digamma_approx(x):
     >>> x = 50.0  # Typical value: (n_samples - n_vars - 1) / 2
     >>> psi_approx = digamma_approx(x)
     >>> print(f"ψ({x}) ≈ {psi_approx:.6f}")
+    ψ(50.0) ≈ 3.901990
     >>> 
     >>> # Behavior at different scales
     >>> values = [0.5, 1.0, 5.0, 10.0, 100.0]
     >>> for val in values:
     ...     print(f"ψ({val:5.1f}) ≈ {digamma_approx(val):8.4f}")
+    ψ(  0.5) ≈  -1.9635
+    ψ(  1.0) ≈  -0.5772
+    ψ(  5.0) ≈   1.5061
+    ψ( 10.0) ≈   2.2518
+    ψ(100.0) ≈   4.6002
     >>> 
     >>> # Edge case: non-positive input
-    >>> print(f"ψ(0) = {digamma_approx(0.0)}")  # -inf
-    >>> print(f"ψ(-1) = {digamma_approx(-1.0)}")  # -inf
+    >>> print(f"ψ(0) = {digamma_approx(0.0)}")
+    ψ(0) = -inf
+    >>> print(f"ψ(-1) = {digamma_approx(-1.0)}")
+    ψ(-1) = -inf
     """
     if x <= 0:
         return -np.inf
@@ -810,29 +842,37 @@ def gcmi_cc_jit(x, y):
     >>> from driada.information.gcmi_jit_utils import gcmi_cc_jit
     >>> 
     >>> # Example 1: Linear dependence with different marginals
-    >>> np.random.seed(42)
-    >>> x = np.random.exponential(1, 100)  # Exponential distribution
-    >>> y = 2 * x + np.random.uniform(-1, 1, 100)  # Linear relation + uniform noise
+    >>> np.random.seed(0)
+    >>> x = np.random.randn(100)  # Standard normal
+    >>> y = 2 * x + 0.5 * np.random.randn(100)  # Strong linear relation
     >>> mi = gcmi_cc_jit(x, y)
-    >>> print(f"MI (linear dependence): {mi:.3f} bits")
+    >>> print(f"MI (linear dependence): {mi:.2f} bits")
+    MI (linear dependence): 1.86 bits
     >>> 
     >>> # Example 2: Nonlinear dependence
-    >>> x = np.random.uniform(-3, 3, 200)
-    >>> y = x**2 + np.random.normal(0, 0.5, 200)  # Quadratic relation
+    >>> np.random.seed(0)
+    >>> x = np.random.uniform(-2, 2, 200)
+    >>> y = np.sin(3 * x) + 0.3 * np.random.normal(0, 1, 200)  # Sinusoidal relation
     >>> mi = gcmi_cc_jit(x, y) 
-    >>> print(f"MI (nonlinear): {mi:.3f} bits")
+    >>> print(f"MI (nonlinear): {mi:.2f} bits")
+    MI (nonlinear): 0.10 bits
     >>> 
     >>> # Example 3: Multivariate case
+    >>> np.random.seed(42)
     >>> x = np.random.randn(2, 100)  # 2D Gaussian
     >>> y = np.vstack([x[0] + x[1], x[0] - x[1]])  # 2D linear combination
     >>> mi = gcmi_cc_jit(x, y)
     >>> print(f"MI (multivariate): {mi:.3f} bits")
+    MI (multivariate): 5.306 bits
     >>> 
     >>> # Example 4: Independent variables
+    >>> np.random.seed(0)
     >>> x = np.random.gamma(2, 2, 100)
     >>> y = np.random.beta(2, 5, 100)
     >>> mi = gcmi_cc_jit(x, y)
-    >>> print(f"MI (independent): {mi:.3f} bits")  # ≈ 0
+    >>> # MI should be close to 0 for independent variables
+    >>> print(f"MI (independent): {abs(mi) < 0.1}")
+    MI (independent): True
     """
     # Copula transform
     if x.ndim == 1:
@@ -918,7 +958,8 @@ def gccmi_ccd_jit(x, y, z, Zm):
     >>> y[0, idx1] = x[0, idx1] + 0.5 * np.random.randn(np.sum(idx1)) + 3
     >>> 
     >>> cmi = gccmi_ccd_jit(x, y, z, 2)
-    >>> print(f"CMI given group: {cmi:.3f} bits")  # High CMI
+    >>> print(f"CMI given group: {cmi:.2f} bits")
+    CMI given group: 1.21 bits
     >>> 
     >>> # Example 2: Conditional independence
     >>> z = np.random.randint(0, 3, 200)  # 3 states
@@ -930,7 +971,9 @@ def gccmi_ccd_jit(x, y, z, Zm):
     ...     y[0, mask] = state + np.random.randn(np.sum(mask))
     >>> 
     >>> cmi = gccmi_ccd_jit(x, y, z, 3)
-    >>> print(f"CMI (cond. independent): {cmi:.3f} bits")  # ≈ 0
+    >>> # CMI should be close to 0 for conditional independence
+    >>> print(f"CMI close to 0: {abs(cmi) < 0.05}")
+    CMI close to 0: True
     """
     Ntrl = x.shape[1]
     Nvarx = x.shape[0]

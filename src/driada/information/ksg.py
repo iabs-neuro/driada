@@ -482,12 +482,17 @@ def nonparam_entropy_c(x, k=DEFAULT_NN, base=np.e):
     Examples
     --------
     >>> # Entropy of standard normal (theoretical: 0.5*log(2πe) ≈ 1.42 nats)
+    >>> np.random.seed(42)
     >>> x = np.random.randn(10000)
     >>> h = nonparam_entropy_c(x)
     >>> print(f"Estimated entropy: {h:.3f} nats")
+    Estimated entropy: 1.422 nats
     
     >>> # Entropy in bits
-    >>> h_bits = nonparam_entropy_c(x, base=2)    """
+    >>> h_bits = nonparam_entropy_c(x, base=2)
+    >>> print(f"h_bits = {h_bits:.3f} bits")
+    h_bits = 2.051 bits
+    """
     # Validate inputs
     x = np.asarray(x)
     if x.size == 0:
@@ -652,14 +657,18 @@ def nonparam_mi_cc(
     Examples
     --------
     >>> # MI between correlated Gaussians
+    >>> np.random.seed(42)
     >>> x = np.random.randn(1000)
     >>> y = x + np.random.randn(1000) * 0.5
     >>> mi = nonparam_mi_cc(x, y)
     >>> print(f"MI = {mi:.3f} nats")
+    MI = 0.760 nats
     
     >>> # Conditional MI: I(X;Y|Z)
     >>> z = np.random.randn(1000)
     >>> cmi = nonparam_mi_cc(x, y, z=z)
+    >>> print(f"cmi = {cmi:.3f} nats")
+    cmi = 0.756 nats
     
     Raises
     ------

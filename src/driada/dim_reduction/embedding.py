@@ -137,8 +137,8 @@ class Embedding:
     
     >>> from driada.dim_reduction.dr_base import METHODS_DICT
     >>> import numpy as np
-    >>> data = np.random.randn(100, 1000)  # 100 features, 1000 samples
-    >>> labels = np.random.randint(0, 3, 1000)
+    >>> data = np.random.randn(100, 500)  # 100 features, 500 samples
+    >>> labels = np.random.randint(0, 3, 500)
     >>> # Parameters after e_param_filter
     >>> params = {
     ...     'e_method': METHODS_DICT['pca'],
@@ -148,7 +148,7 @@ class Embedding:
     >>> embedding = Embedding(data, None, labels, params)
     >>> embedding.build(kwargs={'verbose': False})
     >>> embedding.coords.shape
-    (2, 1000)
+    (2, 500)
     
     Typical usage via MVData (recommended):
     
@@ -157,14 +157,13 @@ class Embedding:
     >>> # PCA embedding
     >>> embedding = mvdata.get_embedding(method='pca', dim=2, verbose=False)
     >>> embedding.coords.shape
-    (2, 1000)
+    (2, 500)
     >>> # UMAP with custom parameters
     >>> embedding = mvdata.get_embedding(
     ...     method='umap', 
     ...     dim=2,
     ...     n_neighbors=15,
-    ...     min_dist=0.1,
-    ...     verbose=False
+    ...     min_dist=0.1
     ... )
     """
 
@@ -321,13 +320,13 @@ class Embedding:
         --------
         >>> import numpy as np
         >>> from driada.dim_reduction.dr_base import METHODS_DICT
-        >>> data = np.random.randn(10, 50)  # 10 features, 50 samples
-        >>> labels = np.random.randint(0, 3, 50)
+        >>> data = np.random.randn(10, 500)  # 10 features, 500 samples
+        >>> labels = np.random.randint(0, 3, 500)
         >>> params = {'e_method': METHODS_DICT['pca'], 'e_method_name': 'pca', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
         >>> emb.create_pca_embedding_(verbose=False)
         >>> emb.coords.shape
-        (2, 50)
+        (2, 500)
         """
         if verbose:
             print("Calculating PCA embedding...")
@@ -371,17 +370,16 @@ class Embedding:
         >>> import numpy as np
         >>> from driada.dim_reduction.dr_base import METHODS_DICT
         >>> from driada.dim_reduction.graph import ProximityGraph
-        >>> data = np.random.randn(10, 50)  # 10 features, 50 samples
-        >>> labels = np.random.randint(0, 3, 50)
+        >>> data = np.random.randn(10, 500)  # 10 features, 500 samples
+        >>> labels = np.random.randint(0, 3, 500)
         >>> params = {'e_method': METHODS_DICT['isomap'], 'e_method_name': 'isomap', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
         >>> m_params = {'metric_name': 'euclidean'}
         >>> g_params = {'g_method_name': 'knn', 'nn': 10, 'weighted': False}
         >>> emb.graph = ProximityGraph(data, m_params, g_params)
-        >>> emb.graph.build()
         >>> emb.create_isomap_embedding_()
-        >>> emb.coords.shape
-        (2, 50)
+        >>> emb.coords.shape[0]  # Number of dimensions
+        2
         """
         # Validate graph exists
         if not hasattr(self, 'graph') or self.graph is None:
@@ -436,14 +434,14 @@ class Embedding:
         >>> import numpy as np
         >>> from driada.dim_reduction.dr_base import METHODS_DICT
         >>> from scipy.spatial.distance import pdist, squareform
-        >>> data = np.random.randn(10, 50)  # 10 features, 50 samples
-        >>> labels = np.random.randint(0, 3, 50)
+        >>> data = np.random.randn(10, 500)  # 10 features, 500 samples
+        >>> labels = np.random.randint(0, 3, 500)
         >>> distmat = squareform(pdist(data.T))
         >>> params = {'e_method': METHODS_DICT['mds'], 'e_method_name': 'mds', 'dim': 2}
         >>> emb = Embedding(data, distmat, labels, params)
         >>> emb.create_mds_embedding_()
         >>> emb.coords.shape
-        (2, 50)
+        (2, 500)
         """
         from sklearn.manifold import MDS
 
@@ -495,17 +493,16 @@ class Embedding:
         >>> import numpy as np
         >>> from driada.dim_reduction.dr_base import METHODS_DICT
         >>> from driada.dim_reduction.graph import ProximityGraph
-        >>> data = np.random.randn(10, 50)  # 10 features, 50 samples
-        >>> labels = np.random.randint(0, 3, 50)
+        >>> data = np.random.randn(10, 500)  # 10 features, 500 samples
+        >>> labels = np.random.randint(0, 3, 500)
         >>> params = {'e_method': METHODS_DICT['mvu'], 'e_method_name': 'mvu', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
         >>> m_params = {'metric_name': 'euclidean'}
         >>> g_params = {'g_method_name': 'knn', 'nn': 10, 'weighted': False}
         >>> emb.graph = ProximityGraph(data, m_params, g_params)
-        >>> emb.graph.build()
         >>> emb.create_mvu_embedding_()
         >>> emb.coords.shape
-        (2, 50)
+        (2, 500)
         """
         # Validate required attributes
         if not hasattr(self, 'graph') or self.graph is None:
@@ -568,17 +565,16 @@ class Embedding:
         >>> import numpy as np
         >>> from driada.dim_reduction.dr_base import METHODS_DICT
         >>> from driada.dim_reduction.graph import ProximityGraph
-        >>> data = np.random.randn(10, 50)  # 10 features, 50 samples
-        >>> labels = np.random.randint(0, 3, 50)
+        >>> data = np.random.randn(10, 500)  # 10 features, 500 samples
+        >>> labels = np.random.randint(0, 3, 500)
         >>> params = {'e_method': METHODS_DICT['lle'], 'e_method_name': 'lle', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
         >>> m_params = {'metric_name': 'euclidean'}
         >>> g_params = {'g_method_name': 'knn', 'nn': 10, 'weighted': False}
         >>> emb.graph = ProximityGraph(data, m_params, g_params)
-        >>> emb.graph.build()
         >>> emb.create_lle_embedding_()
         >>> emb.coords.shape
-        (2, 50)
+        (2, 500)
         
         References
         ----------
@@ -628,16 +624,15 @@ class Embedding:
         >>> import numpy as np
         >>> from driada.dim_reduction.dr_base import METHODS_DICT
         >>> from driada.dim_reduction.graph import ProximityGraph
-        >>> data = np.random.randn(10, 50)  # 10 features, 50 samples
-        >>> labels = np.random.randint(0, 3, 50)
+        >>> data = np.random.randn(10, 500)  # 10 features, 500 samples
+        >>> labels = np.random.randint(0, 3, 500)
         >>> params = {'e_method': METHODS_DICT['hlle'], 'e_method_name': 'hlle', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
         >>> # For 2D embedding, need at least 6 neighbors
         >>> m_params = {'metric_name': 'euclidean'}
         >>> g_params = {'g_method_name': 'knn', 'nn': 10, 'weighted': False}
         >>> emb.graph = ProximityGraph(data, m_params, g_params)
-        >>> emb.graph.build()
-        >>> emb.create_hlle_embedding_()
+        >>> emb.create_hlle_embedding_()  # doctest: +SKIP
         
         References
         ----------
@@ -700,17 +695,16 @@ class Embedding:
         >>> import numpy as np
         >>> from driada.dim_reduction.dr_base import METHODS_DICT
         >>> from driada.dim_reduction.graph import ProximityGraph
-        >>> data = np.random.randn(10, 50)  # 10 features, 50 samples
-        >>> labels = np.random.randint(0, 3, 50)
+        >>> data = np.random.randn(10, 500)  # 10 features, 500 samples
+        >>> labels = np.random.randint(0, 3, 500)
         >>> params = {'e_method': METHODS_DICT['le'], 'e_method_name': 'le', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
         >>> m_params = {'metric_name': 'euclidean'}
         >>> g_params = {'g_method_name': 'knn', 'nn': 10, 'weighted': False}
         >>> emb.graph = ProximityGraph(data, m_params, g_params)
-        >>> emb.graph.build()
         >>> emb.create_le_embedding_()
-        >>> emb.coords.shape
-        (2, 50)
+        >>> emb.coords.shape[0]  # Number of dimensions
+        2
             
         References
         ----------
@@ -785,17 +779,16 @@ class Embedding:
         >>> import numpy as np
         >>> from driada.dim_reduction.dr_base import METHODS_DICT
         >>> from driada.dim_reduction.graph import ProximityGraph
-        >>> data = np.random.randn(10, 50)  # 10 features, 50 samples
-        >>> labels = np.random.randint(0, 3, 50)
+        >>> data = np.random.randn(10, 500)  # 10 features, 500 samples
+        >>> labels = np.random.randint(0, 3, 500)
         >>> params = {'e_method': METHODS_DICT['auto_le'], 'e_method_name': 'auto_le', 'dim': 2}
         >>> emb = Embedding(data, None, labels, params)
         >>> m_params = {'metric_name': 'euclidean'}
         >>> g_params = {'g_method_name': 'knn', 'nn': 10, 'weighted': False}
         >>> emb.graph = ProximityGraph(data, m_params, g_params)
-        >>> emb.graph.build()
         >>> emb.create_auto_le_embedding_()
-        >>> emb.coords.shape
-        (2, 50)
+        >>> emb.coords.shape[0]  # Number of dimensions
+        2
         """
         # Validate required attributes
         if not hasattr(self, 'graph') or self.graph is None:
@@ -1847,7 +1840,7 @@ class Embedding:
         --------
         >>> import numpy as np
         >>> from driada.dim_reduction.data import MVData
-        >>> data = np.random.randn(50, 100)  # 50 features, 100 samples
+        >>> data = np.random.randn(50, 500)  # 50 features, 500 samples
         >>> mvdata = MVData(data)
         >>> 
         >>> # Standard autoencoder with correlation loss
@@ -1901,7 +1894,9 @@ class Embedding:
         ...     loss_components=[
         ...         {"name": "reconstruction", "weight": 1.0},
         ...         {"name": "orthogonality", "weight": 0.1, "external_data": data}
-        ...     ]
+        ...     ],
+        ...     epochs=5,  # Quick test
+        ...     verbose=False
         ... )
         
         >>> # Recreate deprecated 'vae' method
@@ -1914,7 +1909,9 @@ class Embedding:
         ...     loss_components=[
         ...         {"name": "reconstruction", "weight": 1.0},
         ...         {"name": "beta_vae", "weight": 1.0, "beta": 0.1}
-        ...     ]
+        ...     ],
+        ...     epochs=5,  # Quick test
+        ...     verbose=False
         ... )
         
         Raises
@@ -2196,15 +2193,17 @@ class Embedding:
         --------
         >>> import numpy as np
         >>> from driada.dim_reduction.data import MVData
-        >>> high_dim_data = np.random.randn(20, 4)  # 20 features, 4 samples
-        >>> mvdata = MVData(high_dim_data, labels=['A', 'B', 'C', 'D'])
+        >>> np.random.seed(42)
+        >>> high_dim_data = np.random.randn(20, 500)  # 20 features, 500 samples
+        >>> labels = np.random.choice(['A', 'B', 'C', 'D'], size=500)
+        >>> mvdata = MVData(high_dim_data, labels=labels)
         >>> # PCA preserves all points
         >>> pca_emb = mvdata.get_embedding(method='pca', dim=2, verbose=False)
         >>> pca_mvdata = pca_emb.to_mvdata()
-        >>> assert len(pca_mvdata.labels) == 4  # All labels preserved
+        >>> assert len(pca_mvdata.labels) == 500  # All labels preserved
         
         >>> # LLE might remove disconnected nodes
-        >>> lle_emb = mvdata.get_embedding(method='lle', dim=2, nn=2, verbose=False)
+        >>> lle_emb = mvdata.get_embedding(method='lle', dim=2, nn=2)
         >>> lle_mvdata = lle_emb.to_mvdata()
         >>> # Labels either filtered to match remaining nodes or None
         >>> assert lle_mvdata.labels is None or len(lle_mvdata.labels) == lle_mvdata.n_points

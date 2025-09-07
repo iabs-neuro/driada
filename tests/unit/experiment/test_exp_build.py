@@ -427,12 +427,12 @@ class TestLoadExperiment:
                             verbose=False,
                         )
 
-    def test_non_iabs_source(self, temp_dir):
-        """Test error for non-IABS data sources."""
+    def test_non_iabs_source_requires_data_path(self, temp_dir):
+        """Test error when non-IABS source is used without data_path."""
         with pytest.raises(
-            NotImplementedError, match="Other data sources are not yet supported"
+            ValueError, match="For data source 'MyLab', you must provide the 'data_path' parameter"
         ):
-            load_experiment("OTHER_SOURCE", {}, root=temp_dir)
+            load_experiment("MyLab", {'name': 'test'}, root=temp_dir)
 
     def test_save_to_pickle_option(self, temp_dir):
         """Test save_to_pickle parameter."""
@@ -506,6 +506,194 @@ class TestLoadExperiment:
 
         with pytest.raises(ValueError, match="Root must be a folder"):
             load_experiment("IABS", {}, root=root_file)
+    
+    def test_generic_lab_loading(self, temp_dir):
+        """Test loading experiment from generic (non-IABS) lab data."""
+        # Create NPZ file with required data
+        data_path = os.path.join(temp_dir, "my_data.npz")
+        np.savez(
+            data_path,
+            calcium=np.random.rand(10, 1000),
+            position=np.random.rand(1000),
+            speed=np.random.rand(1000),
+            trial_type=np.tile([0, 1, 2, 3], 250)  # Numeric discrete data
+        )
+        
+        exp, log = load_experiment(
+            "MyLab",
+            {"name": "test_experiment"},
+            data_path=data_path,
+            root=temp_dir,
+            verbose=False
+        )
+        
+        assert exp.n_cells == 10
+        assert exp.n_frames == 1000
+        assert hasattr(exp, "position")
+        assert hasattr(exp, "speed")
+        assert hasattr(exp, "trial_type")
+        assert log is None  # No download log for local files
+    
+    def test_generic_lab_multidimensional_features(self, temp_dir):
+        """Test handling of 2D features in generic lab data."""
+        # Create NPZ with 2D position data
+        data_path = os.path.join(temp_dir, "2d_data.npz")
+        np.savez(
+            data_path,
+            calcium=np.random.rand(10, 1000),  # More neurons and frames to avoid shuffle issues
+            position=np.random.rand(2, 1000),  # 2D trajectory
+            x_pos=np.random.rand(1000),
+            y_pos=np.random.rand(1000)
+        )
+        
+        exp, _ = load_experiment(
+            "NeuroLab",
+            {"subject": "rat1", "session": "day1"},
+            data_path=data_path,
+            root=temp_dir,
+            static_features={"fps": 30.0},
+            verbose=False
+        )
+        
+        assert hasattr(exp, "position")
+        assert exp.position.n_dim == 2  # Should be MultiTimeSeries with 2 components
+        assert hasattr(exp, "x_pos")
+        assert hasattr(exp, "y_pos")
+    
+    def test_generic_lab_scalar_warning(self, temp_dir, capsys):
+        """Test warning for scalar values in NPZ file."""
+        # Create NPZ with scalar value that should be ignored
+        data_path = os.path.join(temp_dir, "scalar_data.npz")
+        np.savez(
+            data_path,
+            calcium=np.random.rand(10, 1000),  # More neurons/frames to avoid issues
+            position=np.random.rand(1000),
+            fps=30.0,  # Scalar - should trigger warning
+            description="test"  # Another scalar
+        )
+        
+        exp, _ = load_experiment(
+            "MyLab",
+            {"name": "test"},
+            data_path=data_path,
+            root=temp_dir,
+            static_features={"fps": 30.0},
+            verbose=True
+        )
+        
+        captured = capsys.readouterr()
+        assert "Ignoring scalar value 'fps'" in captured.out
+        assert "Ignoring scalar value 'description'" in captured.out
+        # fps should exist as static feature (default or provided), just not as dynamic
+        assert hasattr(exp, "fps")  # Should exist as static feature
+        assert exp.fps == 30.0  # Should use the provided static value
+        # description should not exist at all (not static or dynamic)
+        assert not hasattr(exp, "description")
+    
+    def test_generic_lab_non_numeric_warning(self, temp_dir, capsys):
+        """Test warning for non-numeric features in NPZ file."""
+        # Create NPZ with string data that should be ignored
+        data_path = os.path.join(temp_dir, "string_data.npz")
+        
+        # We need to use object dtype to store strings in numpy arrays
+        trial_labels = np.array(['A', 'B', 'C', 'D'] * 125, dtype=object)
+        
+        np.savez(
+            data_path,
+            calcium=np.random.rand(10, 1000),  # More neurons/frames to avoid issues
+            position=np.random.rand(1000),
+            trial_labels=trial_labels  # String data - should trigger warning
+        )
+        
+        exp, _ = load_experiment(
+            "MyLab",
+            {"name": "test"},
+            data_path=data_path,
+            root=temp_dir,
+            verbose=True
+        )
+        
+        captured = capsys.readouterr()
+        assert "Ignoring non-numeric feature 'trial_labels'" in captured.out
+        assert not hasattr(exp, "trial_labels")  # Should not be added
+    
+    def test_generic_lab_save_pickle(self, temp_dir):
+        """Test saving generic lab experiment to pickle."""
+        # Create NPZ file
+        data_path = os.path.join(temp_dir, "data.npz")
+        np.savez(
+            data_path,
+            calcium=np.random.rand(10, 1000),  # More neurons/frames
+            position=np.random.rand(1000)
+        )
+        
+        exp, _ = load_experiment(
+            "MyLab",
+            {"experiment": "navigation", "animal_id": "m1"},
+            data_path=data_path,
+            root=temp_dir,
+            save_to_pickle=True,
+            verbose=False
+        )
+        
+        # Check pickle was created in expected location
+        # Note: load_experiment creates path as root/expname/Exp expname.pickle
+        expected_path = os.path.join(
+            temp_dir, "navigation_m1", "Exp navigation_m1.pickle"
+        )
+        assert os.path.exists(expected_path)
+        
+        # Verify we can load from pickle
+        exp2, _ = load_experiment(
+            "MyLab",
+            {"experiment": "navigation", "animal_id": "m1"},
+            root=temp_dir,
+            verbose=False
+        )
+        assert exp2.n_cells == exp.n_cells
+        assert exp2.n_frames == exp.n_frames
+    
+    def test_generic_lab_missing_calcium(self, temp_dir):
+        """Test error when calcium data is missing from NPZ."""
+        data_path = os.path.join(temp_dir, "no_calcium.npz")
+        np.savez(
+            data_path,
+            position=np.random.rand(500),
+            speed=np.random.rand(500)
+        )
+        
+        with pytest.raises(ValueError, match="NPZ file must contain 'calcium' key"):
+            load_experiment(
+                "MyLab",
+                {"name": "test"},
+                data_path=data_path,
+                root=temp_dir
+            )
+    
+    def test_generic_lab_invalid_npz(self, temp_dir):
+        """Test error handling for invalid NPZ file."""
+        # Create invalid file
+        bad_path = os.path.join(temp_dir, "bad.npz")
+        with open(bad_path, "w") as f:
+            f.write("not a valid npz file")
+        
+        with pytest.raises(ValueError, match="Failed to load NPZ file"):
+            load_experiment(
+                "MyLab", 
+                {"name": "test"},
+                data_path=bad_path,
+                root=temp_dir
+            )
+    
+    def test_generic_lab_file_not_found(self, temp_dir):
+        """Test error when data file doesn't exist."""
+        with pytest.raises(FileNotFoundError, match="Data file not found"):
+            load_experiment(
+                "MyLab",
+                {"name": "test"}, 
+                data_path="/non/existent/file.npz",
+                root=temp_dir
+            )
 
 
 class TestPickleFunctions:

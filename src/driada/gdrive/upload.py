@@ -17,8 +17,11 @@ def get_datetime():
 
     Examples
     --------
-    >>> get_datetime()
-    '15-03-2024 14:30:45'    """
+    >>> import re
+    >>> datetime_str = get_datetime()
+    >>> bool(re.match(r'\\d{2}-\\d{2}-\\d{4} \\d{2}:\\d{2}:\\d{2}', datetime_str))
+    True
+    """
     tz = pytz.timezone("Europe/Moscow")
     now = datetime.now(tz)
 
@@ -82,16 +85,17 @@ def save_file_to_gdrive(
     Examples
     --------
     >>> # Upload with timestamp
-    >>> save_file_to_gdrive(
+    >>> save_file_to_gdrive(  # doctest: +SKIP
     ...     data_router, 'exp001', './results.csv',
     ...     destination='Results', gauth=auth
     ... )
     
     >>> # Overwrite existing file
-    >>> save_file_to_gdrive(
+    >>> save_file_to_gdrive(  # doctest: +SKIP
     ...     data_router, 'exp001', './results.csv',
     ...     destination='Results', force_rewriting=True, gauth=auth
-    ... )    """
+    ... )
+    """
 
     drive = GoogleDrive(gauth)
 

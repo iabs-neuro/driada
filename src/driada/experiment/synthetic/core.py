@@ -48,12 +48,18 @@ def validate_peak_rate(peak_rate, context=""):
     --------
     >>> validate_peak_rate(1.5)  # No warning, physiologically realistic
     
-    >>> validate_peak_rate(5.0, context="Place cell simulation")
-    UserWarning: Place cell simulation: peak_rate=5.0 Hz exceeds recommended 
-    maximum of 2.0 Hz for calcium imaging...
+    >>> import warnings
+    >>> with warnings.catch_warnings(record=True) as w:
+    ...     warnings.simplefilter("always")
+    ...     validate_peak_rate(5.0, context="Place cell simulation")
+    ...     len(w) > 0 and "exceeds recommended maximum" in str(w[0].message)
+    True
     
     >>> validate_peak_rate(-1.0)
-    ValueError: peak_rate must be non-negative, got -1.0    """
+    Traceback (most recent call last):
+        ...
+    ValueError: peak_rate must be non-negative, got -1.0
+    """
     # Validate input
     try:
         peak_rate = float(peak_rate)
@@ -146,7 +152,7 @@ def generate_pseudo_calcium_signal(
     >>> # Generate random calcium signal
     >>> signal = generate_pseudo_calcium_signal(duration=100, event_rate=0.5)
     >>> signal.shape
-    (2000,)  # 100 seconds * 20 Hz
+    (2000,)
     
     >>> # Generate from specific spike times
     >>> spikes = np.zeros(1000)
@@ -267,7 +273,7 @@ def generate_pseudo_calcium_multisignal(
     >>> # Generate 5 neurons with random events
     >>> signals = generate_pseudo_calcium_multisignal(5, duration=100)
     >>> signals.shape
-    (5, 2000)  # 5 neurons, 100s * 20Hz
+    (5, 2000)
     
     >>> # Generate with specific events per neuron
     >>> events = np.random.binomial(1, 0.01, size=(3, 1000))

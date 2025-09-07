@@ -86,8 +86,8 @@ class TimeSeries:
         Copula-normalized data (continuous only).
     int_data : ndarray or None
         Integer representation (discrete only).
-    is_binary : bool or None
-        True if discrete with exactly 2 unique values.
+    is_binary : bool
+        True if discrete with exactly 2 unique values, False otherwise.
     bool_data : ndarray or None
         Boolean representation (binary discrete only).
     shuffle_mask : ndarray
@@ -137,12 +137,14 @@ class TimeSeries:
     >>> import numpy as np
     >>> # Continuous time series
     >>> ts = TimeSeries(np.random.randn(1000))
-    >>> print(ts.discrete)  # False
+    >>> print(ts.discrete)
+    False
     >>> entropy = ts.get_entropy()
     >>> 
     >>> # Binary discrete time series
     >>> ts_binary = TimeSeries([0, 1, 0, 1, 1, 0], ts_type='binary')
-    >>> print(ts_binary.is_binary)  # True
+    >>> print(ts_binary.is_binary)
+    True
     >>> 
     >>> # With shuffle mask
     >>> data = np.sin(np.linspace(0, 10*np.pi, 1000))
@@ -282,11 +284,13 @@ class TimeSeries:
             
         Examples
         --------
-        >>> ts = TimeSeries(data, tstype='spike')
-        >>> ts.tstype.primary_type
+        >>> data = np.array([0, 1, 1, 0, 1, 0, 0, 1])
+        >>> ts = TimeSeries(data, ts_type='spike')
+        >>> ts.type_info.primary_type
         'discrete'
-        >>> ts.tstype.subtype
-        'binary'        """
+        >>> ts.type_info.subtype
+        'binary'
+        """
         type_str = type_str.lower()
 
         # Map string to primary type and subtype
@@ -454,6 +458,8 @@ class TimeSeries:
 
         else:
             self.copula_normal_data = copnorm(self.data).ravel()
+            # Continuous time series are never binary
+            self.is_binary = False
 
         self.entropy = dict()  # supports various downsampling constants
         self.kdtree = None
@@ -733,9 +739,12 @@ class TimeSeries:
 
         Examples
         --------
+        >>> np.random.seed(42)
         >>> ts = TimeSeries(np.random.randn(1000), discrete=False)
         >>> apen = ts.approximate_entropy(m=2)
-        >>> print(f"Approximate entropy: {apen:.3f}")        """
+        >>> print(f"Approximate entropy: {apen:.3f}")
+        Approximate entropy: 1.637
+        """
         if self.discrete:
             raise ValueError(
                 "approximate_entropy is only valid for continuous time series"
@@ -840,7 +849,8 @@ class MultiTimeSeries(MVData):
     >>> mts = MultiTimeSeries(ts_list)
     >>> 
     >>> # Apply dimensionality reduction
-    >>> embedding = mts.get_embedding(method='pca', dim=2)
+    >>> embedding = mts.get_embedding(method='pca', dim=2)  # doctest: +ELLIPSIS
+    Calculating PCA embedding...
     >>> 
     >>> # Filter all time series
     >>> mts_filtered = mts.filter(method='gaussian', sigma=2.0)    """
@@ -1237,7 +1247,8 @@ def calc_signal_ratio(binary_ts, continuous_ts):
     >>> continuous = np.array([1, 1, 5, 6, 2, 1, 4, 5])
     >>> ratio = calc_signal_ratio(binary, continuous)
     >>> print(f"Signal is {ratio:.1f}x higher when ON")
-    Signal is 3.8x higher when ON    """
+    Signal is 4.0x higher when ON
+    """
     # Calculate average of continuous_ts when binary_ts is 1 or 0
     avg_on = np.mean(continuous_ts[binary_ts == 1])
     avg_off = np.mean(continuous_ts[binary_ts == 0])
@@ -1465,10 +1476,12 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
     Examples
     --------
     >>> # Simple correlation detection
+    >>> np.random.seed(42)
     >>> x = np.random.randn(1000)
     >>> y = x + np.random.randn(1000) * 0.5
     >>> mi = get_mi(x, y)
-    >>> print(f"MI = {mi:.3f} nats")
+    >>> print(f"MI = {mi:.3f} bits")
+    MI = 1.114 bits
     
     >>> # Time-delayed mutual information
     >>> ts1 = TimeSeries(np.sin(np.linspace(0, 10*np.pi, 1000)))
@@ -1476,8 +1489,8 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
     >>> mi_delay = get_mi(ts1, ts2, shift=25)  # Check 25-sample delay
     
     >>> # Multivariate MI
-    >>> mts1 = MultiTimeSeries(np.random.randn(3, 1000))
-    >>> mts2 = MultiTimeSeries(np.random.randn(2, 1000))
+    >>> mts1 = MultiTimeSeries(np.random.randn(3, 1000), discrete=False)
+    >>> mts2 = MultiTimeSeries(np.random.randn(2, 1000), discrete=False)
     >>> mi_multi = get_mi(mts1, mts2)
     
     See Also

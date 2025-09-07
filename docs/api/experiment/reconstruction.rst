@@ -8,9 +8,9 @@ This module provides methods for reconstructing spike trains from calcium imagin
 Functions
 ---------
 
-.. autofunction:: driada.experiment.reconstruct_spikes
-.. autofunction:: driada.experiment.wavelet_reconstruction
-.. autofunction:: driada.experiment.threshold_reconstruction
+.. autofunction:: driada.experiment.spike_reconstruction.reconstruct_spikes
+.. autofunction:: driada.experiment.spike_reconstruction.wavelet_reconstruction
+.. autofunction:: driada.experiment.spike_reconstruction.threshold_reconstruction
 
 Usage Examples
 --------------
@@ -20,7 +20,10 @@ Basic Spike Reconstruction
 
 .. code-block:: python
 
-   from driada.experiment import reconstruct_spikes
+   from driada.experiment import reconstruct_spikes, load_demo_experiment
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
    
    # Reconstruct spikes using default method (wavelet)
    spikes = reconstruct_spikes(
@@ -37,36 +40,48 @@ Wavelet-based Reconstruction
 
 .. code-block:: python
 
-   from driada.experiment import wavelet_reconstruction
+   from driada.experiment import wavelet_reconstruction, load_demo_experiment
    
-   # Detailed wavelet reconstruction with custom parameters
+   # Load sample experiment
+   exp = load_demo_experiment()
+   
+   # Wavelet reconstruction with custom parameters
+   params = {
+       'sigma': 2,            # Smoothing parameter
+       'eps': 3,              # Min spacing between events
+       'scale_length_thr': 3, # Min scales for ridge
+       'max_scale_thr': 5     # Scale with max intensity
+   }
+   
    spikes, metadata = wavelet_reconstruction(
        exp.calcium,
        fps=exp.fps,
-       wavelet='morse',        # Morse wavelet
-       scales=None,           # Auto-determine scales
-       threshold_factor=3.0,  # 3 sigma threshold
-       return_metadata=True
+       params=params
    )
    
    # Access reconstruction info
-   print(f"Detected {metadata['n_events']} spike events")
-   print(f"Mean firing rate: {metadata['mean_rate']:.2f} Hz")
+   print(f"Detected {len(metadata['start_events'])} spike events")
 
 Threshold-based Method
 ^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
-   from driada.experiment import threshold_reconstruction
+   from driada.experiment import threshold_reconstruction, load_demo_experiment
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
    
    # Simple threshold-based detection
-   spikes = threshold_reconstruction(
+   params = {
+       'threshold': 3.0,      # threshold in standard deviations
+       'min_width': 2         # minimum spike width
+   }
+   
+   spikes, metadata = threshold_reconstruction(
        exp.calcium,
        fps=exp.fps,
-       threshold='adaptive',  # or fixed value
-       sigma=3.0,            # threshold in standard deviations
-       min_spike_width=2     # minimum frames between spikes
+       params=params
    )
 
 Validation and Comparison
@@ -74,12 +89,21 @@ Validation and Comparison
 
 .. code-block:: python
 
+   from driada.experiment import reconstruct_spikes, load_demo_experiment
+   
+   # Load sample experiment
+   exp = load_demo_experiment()
+   
    # Compare different methods
    methods = ['wavelet', 'threshold']
    reconstructions = {}
 
    for method in methods:
-       spikes = reconstruct_spikes(exp.calcium, exp.fps, method=method)
+       spikes, metadata = reconstruct_spikes(
+           exp.calcium, 
+           method=method,
+           fps=exp.fps
+       )
        reconstructions[method] = spikes
 
    # Compare reconstructions using correlation

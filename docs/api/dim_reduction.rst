@@ -25,14 +25,14 @@ Quick Links
 -----------
 
 **Core Classes**
-   * :class:`~driada.dim_reduction.MVData` - Multivariate data container
-   * :class:`~driada.dim_reduction.Embedding` - Embedding results
-   * :class:`~driada.dim_reduction.ProximityGraph` - Graph-based methods
-   * :class:`~driada.dim_reduction.DRMethod` - Method base class
+   * :class:`~driada.dim_reduction.data.MVData` - Multivariate data container
+   * :class:`~driada.dim_reduction.embedding.Embedding` - Embedding results
+   * :class:`~driada.dim_reduction.graph.ProximityGraph` - Graph-based methods
+   * :class:`~driada.dim_reduction.dr_base.DRMethod` - Method base class
 
 **Main Functions**
-   * :func:`~driada.dim_reduction.dr_sequence` - Sequential DR pipeline
-   * See :data:`~driada.dim_reduction.METHODS_DICT` for available methods
+   * :func:`~driada.dim_reduction.sequences.dr_sequence` - Sequential DR pipeline
+   * See :data:`~driada.dim_reduction.dr_base.METHODS_DICT` for available methods
 
 **Manifold Quality Metrics**
    * :doc:`dim_reduction/manifold_metrics` - Comprehensive validation tools
@@ -50,14 +50,19 @@ Usage Example
 
 .. code-block:: python
 
+   import numpy as np
    from driada.dim_reduction import MVData
+   
+   # Generate example neural data
+   # 100 neurons, 1000 time points
+   neural_data = np.random.randn(100, 1000)
    
    # Create data container
    mvdata = MVData(neural_data, downsampling=5)
    
    # Apply dimensionality reduction
-   embedding = mvdata.get_embedding(method='umap', n_components=3)
+   embedding = mvdata.get_embedding(method='umap', dim=3)
    
    # Validate quality
    from driada.dim_reduction import knn_preservation_rate
-   quality = knn_preservation_rate(neural_data, embedding.coords.T, k=10)
+   quality = knn_preservation_rate(mvdata.data.T, embedding.coords.T, k=10)
