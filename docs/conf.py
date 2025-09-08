@@ -4,6 +4,35 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../src'))
 
+# Mock torch for documentation build
+try:
+    import torch
+except ImportError:
+    from unittest.mock import MagicMock
+    import sys
+    
+    # Create mock for torch and its submodules
+    torch_mock = MagicMock()
+    torch_mock.nn = MagicMock()
+    torch_mock.nn.Module = MagicMock
+    torch_mock.nn.functional = MagicMock()
+    torch_mock.utils = MagicMock()
+    torch_mock.utils.data = MagicMock()
+    torch_mock.utils.data.Dataset = MagicMock
+    torch_mock.optim = MagicMock()
+    torch_mock.Tensor = MagicMock
+    torch_mock.device = MagicMock
+    torch_mock.cuda = MagicMock()
+    torch_mock.cuda.is_available = MagicMock(return_value=False)
+    
+    # Install the mock
+    sys.modules['torch'] = torch_mock
+    sys.modules['torch.nn'] = torch_mock.nn
+    sys.modules['torch.nn.functional'] = torch_mock.nn.functional
+    sys.modules['torch.utils'] = torch_mock.utils
+    sys.modules['torch.utils.data'] = torch_mock.utils.data
+    sys.modules['torch.optim'] = torch_mock.optim
+
 # -- Project information -----------------------------------------------------
 project = 'DRIADA'
 copyright = '2025, DRIADA Contributors'
@@ -44,7 +73,19 @@ autodoc_default_options = {
     'exclude-members': '__weakref__'
 }
 autodoc_typehints = 'description'
-autodoc_mock_imports = ['torch', 'tensorflow', 'sklearn', 'umap', 'numba', 'cvxpy']
+autodoc_mock_imports = [
+    'torch', 
+    'torch.nn', 
+    'torch.nn.functional',
+    'torch.utils',
+    'torch.utils.data',
+    'torch.optim',
+    'tensorflow', 
+    'sklearn', 
+    'umap', 
+    'numba', 
+    'cvxpy'
+]
 
 # Doctest configuration
 doctest_test_doctest_blocks = 'yes'
@@ -52,17 +93,6 @@ doctest_global_setup = '''
 import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
-
-# Mock imports for doctest
-try:
-    import torch
-except ImportError:
-    import sys
-    from unittest.mock import MagicMock
-    sys.modules['torch'] = MagicMock()
-    torch = sys.modules['torch']
-    torch.device = lambda x: 'cpu'
-    torch.cuda.is_available = lambda: False
 
 # Import DRIADA modules
 from driada import *
