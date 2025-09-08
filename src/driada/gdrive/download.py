@@ -273,19 +273,22 @@ def download_gdrive_data(
     tdir="DRIADA data",
     gauth=None,
 ):
-    """Download experimental data from Google Drive based on a data router table.
+    """Download experimental data from Google Drive based on a data router table or direct link.
 
     Uses a data router DataFrame to locate and download experimental data files
-    from Google Drive folders specified for each experiment.
+    from Google Drive folders specified for each experiment. Alternatively, can
+    accept a direct Google Drive share link to download from a single folder.
 
     Parameters
     ----------
-    data_router : pandas.DataFrame
-        DataFrame containing experiment names and corresponding Google Drive links
-        for different data types. Must have an 'Эксперимент' column.
+    data_router : pandas.DataFrame or str
+        Either a DataFrame containing experiment names and corresponding Google Drive links
+        for different data types (must have an 'Experiment' column), or a string containing
+        a direct Google Drive share link to download from.
     expname : str
         Name of the experiment to download data for. Must match an entry in
-        the 'Эксперимент' column of data_router.
+        the 'Experiment' column of data_router if data_router is a DataFrame.
+        Used as folder name and filename filter if data_router is a share link.
     whitelist : list of str, optional
         List of file names to always download regardless of naming patterns.
         Default is ['Timing.xlsx'].
@@ -295,6 +298,7 @@ def download_gdrive_data(
     data_pieces : list of str or None, optional
         List of data types (column names) to download. If None, downloads all
         available data types except certain excluded ones. Default is None.
+        Ignored when data_router is a share link.
     tdir : str, optional
         Target directory name for downloaded data. Default is 'DRIADA data'.
     gauth : GoogleAuth object or None, optional
@@ -311,23 +315,83 @@ def download_gdrive_data(
     Raises
     ------
     ValueError
-        If data_router is not a DataFrame or lacks required 'Эксперимент' column.
+        If data_router is not a DataFrame or string.
+        If data_router is a DataFrame but lacks required 'Experiment' column.
         If via_pydrive=True but gauth is None.
 
     Notes
     -----
-    The function creates a directory structure: tdir/expname/data_type/
-    for organizing downloaded files. Data types excluded by default are:
-    'Эксперимент', 'Краткое описание', 'Video', 'Aligned data', 'Computation results'.
+    When data_router is a DataFrame:
+        The function creates a directory structure: tdir/expname/data_type/
+        for organizing downloaded files. Data types excluded by default are:
+        'Experiment', 'Description', 'Video', 'Aligned data', 'Computation results'.
     
-    Empty directories are automatically removed after download attempts.    """
+    When data_router is a share link:
+        The function creates a directory structure: tdir/expname/
+        and downloads all files matching the expname filter.
+    
+    Empty directories are automatically removed after download attempts.
+    
+    Examples
+    --------
+    >>> # Using DataFrame router
+    >>> success, log = download_gdrive_data(  # doctest: +SKIP
+    ...     data_router=router_df,
+    ...     expname='exp001'
+    ... )
+    
+    >>> # Using direct share link
+    >>> success, log = download_gdrive_data(  # doctest: +SKIP
+    ...     data_router='https://drive.google.com/drive/folders/...',
+    ...     expname='exp001'
+    ... )    """
 
     # Validate inputs
-    if not isinstance(data_router, pd.DataFrame):
-        raise ValueError("data_router must be a pandas DataFrame")
-    
-    if via_pydrive and gauth is None:
-        raise ValueError("gauth is required when via_pydrive=True")
+    if isinstance(data_router, str):
+        # Direct share link mode
+        if via_pydrive and gauth is None:
+            raise ValueError("gauth is required when via_pydrive=True")
+            
+        with Capturing() as load_log:
+            print("-------------------------------------------------------------")
+            print(f"Extracting data for {expname} from Google Drive share link")
+            print("-------------------------------------------------------------")
+            
+            success = False
+            output_dir = join(tdir, expname)
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Download from share link
+            return_code, rel, folder_log = download_part_of_folder(
+                output_dir,
+                data_router,  # share link
+                key=expname,
+                whitelist=whitelist,
+                via_pydrive=via_pydrive,
+                gauth=gauth,
+            )
+            
+            load_log.extend(folder_log)
+            
+            if len(rel) == 0:
+                try:
+                    os.rmdir(output_dir)
+                except OSError:
+                    pass  # Directory not empty or other error
+                print("No relevant data found at the provided link")
+            else:
+                loaded_names = [r[1] for r in rel]
+                print(f"Downloaded {len(loaded_names)} files:")
+                for n in loaded_names:
+                    print(f"  - {n}")
+                success = True
+                
+            return success, load_log
+            
+    elif isinstance(data_router, pd.DataFrame):
+        # Original DataFrame mode
+        if via_pydrive and gauth is None:
+            raise ValueError("gauth is required when via_pydrive=True")
     
     with Capturing() as load_log:
         print("-------------------------------------------------------------")
@@ -338,12 +402,19 @@ def download_gdrive_data(
             warnings.filterwarnings("ignore", category=DeprecationWarning)
 
             success = False
-            available_exp = data_router["Эксперимент"].values
+            # Support both English and Russian column names for backward compatibility
+            exp_column = "Experiment" if "Experiment" in data_router.columns else "Эксперимент"
+            desc_column = "Description" if "Description" in data_router.columns else "Краткое описание"
+            
+            if exp_column not in data_router.columns:
+                raise ValueError(f"data_router must have either 'Experiment' or 'Эксперимент' column")
+                
+            available_exp = data_router[exp_column].values
             if expname not in available_exp:
                 print(f"{expname} not found in available experiments: {available_exp}")
                 return success, load_log
 
-            row = data_router[data_router["Эксперимент"] == expname]
+            row = data_router[data_router[exp_column] == expname]
             links = dict(zip(row.columns, row.values[0]))
 
             os.makedirs(join(tdir, expname), exist_ok=True)
@@ -353,8 +424,8 @@ def download_gdrive_data(
                     for d in list(data_router.columns.values)
                     if d
                     not in [
-                        "Эксперимент",
-                        "Краткое описание",
+                        exp_column,
+                        desc_column,
                         "Video",
                         "Aligned data",
                         "Computation results",
@@ -437,8 +508,8 @@ def initialize_iabs_router(root="/content"):
 
     The following columns are excluded from data_pieces as they contain
     metadata rather than downloadable data:
-    - 'Эксперимент' (Experiment name)
-    - 'Краткое описание' (Brief description)
+    - 'Experiment'
+    - 'Description'
     - 'Video'
     - 'Aligned data'
     - 'Computation results'    """
@@ -476,13 +547,17 @@ def initialize_iabs_router(root="/content"):
     # data_router.fillna(method='ffill', inplace=True)
     data_router = data_router.replace("", None).ffill()
 
+    # Support both English and Russian column names for backward compatibility
+    exp_column = "Experiment" if "Experiment" in data_router.columns else "Эксперимент"
+    desc_column = "Description" if "Description" in data_router.columns else "Краткое описание"
+    
     data_pieces = [
         d
         for d in list(data_router.columns.values)
         if d
         not in [
-            "Эксперимент",
-            "Краткое описание",
+            exp_column,
+            desc_column,
             "Video",
             "Aligned data",
             "Computation results",
