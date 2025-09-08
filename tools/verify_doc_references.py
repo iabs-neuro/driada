@@ -18,9 +18,36 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Set
 import importlib
 from collections import defaultdict
+from unittest.mock import MagicMock
 
 # Add src to path to import driada
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+# Mock torch for documentation verification on systems without PyTorch
+try:
+    import torch
+except ImportError:
+    # Create comprehensive torch mock
+    torch_mock = MagicMock()
+    torch_mock.nn = MagicMock()
+    torch_mock.nn.Module = MagicMock
+    torch_mock.nn.functional = MagicMock()
+    torch_mock.utils = MagicMock()
+    torch_mock.utils.data = MagicMock()
+    torch_mock.utils.data.Dataset = MagicMock
+    torch_mock.optim = MagicMock()
+    torch_mock.Tensor = MagicMock
+    torch_mock.device = MagicMock
+    torch_mock.cuda = MagicMock()
+    torch_mock.cuda.is_available = MagicMock(return_value=False)
+    
+    # Install the mock
+    sys.modules['torch'] = torch_mock
+    sys.modules['torch.nn'] = torch_mock.nn
+    sys.modules['torch.nn.functional'] = torch_mock.nn.functional
+    sys.modules['torch.utils'] = torch_mock.utils
+    sys.modules['torch.utils.data'] = torch_mock.utils.data
+    sys.modules['torch.optim'] = torch_mock.optim
 
 
 def find_rst_files(docs_dir: Path) -> List[Path]:

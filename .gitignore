@@ -106,3 +106,6 @@ docs_internal/
 
 # Documentation consistency cache
 .doc_consistency_cache.json
+
+# Tool-generated reports
+*_report.txt
