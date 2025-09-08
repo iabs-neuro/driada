@@ -330,6 +330,7 @@ def load_experiment(
     reconstruct_spikes="wavelet",
     save_to_pickle=False,
     verbose=True,
+    router_source=None,
 ):
     """Load or create an Experiment object with automatic caching and cloud support.
     
@@ -379,6 +380,12 @@ def load_experiment(
         Whether to save the experiment to pickle after creation.
     verbose : bool, default=True
         Print progress messages.
+    router_source : str, pandas.DataFrame, or None, optional
+        Source of the router data for IABS experiments:
+        - None: Downloads from URL in config.py (default behavior)
+        - str: Direct Google Sheets export URL
+        - pandas.DataFrame: Pre-loaded router DataFrame
+        Only used when data_source='IABS' and downloading from cloud.
         
     Returns
     -------
@@ -421,6 +428,15 @@ def load_experiment(
     
     Examples
     --------
+    >>> # Load IABS data with custom router URL
+    >>> url = "https://docs.google.com/spreadsheets/d/.../export?format=xlsx"
+    >>> exp, _ = load_experiment(  # doctest: +SKIP
+    ...     'IABS',
+    ...     {'track': 'linear', 'animal_id': 'CA1_01', 'session': '1'},
+    ...     router_source=url,
+    ...     verbose=False
+    ... )
+    
     >>> # Load external lab data from NPZ file
     >>> import tempfile
     >>> import numpy as np
@@ -495,7 +511,7 @@ def load_experiment(
             if force_reload or not data_exists:
                 if verbose:
                     print("Loading data from cloud storage...")
-                data_router, data_pieces = initialize_iabs_router(root=root)
+                data_router, data_pieces = initialize_iabs_router(root=root, router_source=router_source)
                 success, load_log = download_gdrive_data(
                     data_router,
                     expname,
