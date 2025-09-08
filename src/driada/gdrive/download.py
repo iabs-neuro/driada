@@ -464,17 +464,24 @@ def download_gdrive_data(
             return success, load_log
 
 
-def initialize_iabs_router(root="/content"):
-    """Download and initialize the IABS data router from Google Sheets.
+def initialize_iabs_router(root="/content", router_source=None):
+    """Initialize the IABS data router from Google Sheets, URL, or DataFrame.
 
-    Downloads the IABS (Institute for Advanced Brain Studies) data router
-    spreadsheet from Google Drive and prepares it for use in data downloading.
+    Initializes the IABS (Institute for Advanced Brain Studies) data router
+    from various sources: config file URL, direct Google Sheets URL, or 
+    pre-loaded DataFrame.
 
     Parameters
     ----------
     root : str, optional
-        Root directory where the router file will be saved.
+        Root directory where the router file will be saved (if downloading).
         Default is '/content' (typically for Google Colab).
+    router_source : str, pandas.DataFrame, or None, optional
+        Source of the router data:
+        - None: Downloads from URL in config.py (default behavior)
+        - str: Direct Google Sheets export URL (e.g., 'https://docs.google.com/.../export?format=xlsx')
+        - pandas.DataFrame: Pre-loaded router DataFrame with experiment data
+        Default is None.
 
     Returns
     -------
@@ -512,39 +519,85 @@ def initialize_iabs_router(root="/content"):
     - 'Description'
     - 'Video'
     - 'Aligned data'
-    - 'Computation results'    """
-    router_name = "IABS data router.xlsx"
-    router_path = join(root, router_name)
-    os.makedirs(root, exist_ok=True)
-    if router_name in os.listdir(root):
-        os.remove(router_path)
-
-    # Import URL from config
-    try:
-        from .config import IABS_ROUTER_URL
-    except ImportError:
-        raise ImportError(
-            "config.py not found. Please copy config_template.py to config.py "
-            "and set IABS_ROUTER_URL to your Google Sheets export URL. "
-            "Make sure to add config.py to .gitignore."
-        )
-    except AttributeError:
-        raise ImportError(
-            "IABS_ROUTER_URL not found in config.py. Please check config_template.py "
-            "for the required format."
-        )
+    - 'Computation results'
     
-    # Download router file
-    try:
-        wget.download(IABS_ROUTER_URL, out=router_path)
-    except Exception as e:
-        raise requests.RequestException(f"Failed to download router file: {e}")
+    Examples
+    --------
+    >>> # Using config file URL (default)
+    >>> router, pieces = initialize_iabs_router()  # doctest: +SKIP
+    
+    >>> # Using direct Google Sheets URL
+    >>> url = "https://docs.google.com/spreadsheets/d/.../export?format=xlsx"
+    >>> router, pieces = initialize_iabs_router(router_source=url)  # doctest: +SKIP
+    
+    >>> # Using pre-loaded DataFrame
+    >>> df = pd.read_excel("my_router.xlsx")  # doctest: +SKIP
+    >>> router, pieces = initialize_iabs_router(router_source=df)  # doctest: +SKIP
+    """
+    
+    # Handle different router sources
+    if isinstance(router_source, pd.DataFrame):
+        # Use provided DataFrame directly
+        data_router = router_source.copy()
+        
+    elif isinstance(router_source, str):
+        # Download from provided URL
+        router_name = "IABS data router.xlsx"
+        router_path = join(root, router_name)
+        os.makedirs(root, exist_ok=True)
+        
+        # Remove existing file if present
+        if os.path.exists(router_path):
+            os.remove(router_path)
+        
+        # Download from provided URL
+        try:
+            if router_source.endswith('/export?format=xlsx'):
+                # Direct Google Sheets export URL
+                data_router = pd.read_excel(router_source)
+            else:
+                # Regular download URL
+                wget.download(router_source, out=router_path)
+                data_router = pd.read_excel(router_path)
+        except Exception as e:
+            raise requests.RequestException(f"Failed to download/parse router from URL: {e}")
+            
+    else:
+        # Default behavior: download from config URL
+        router_name = "IABS data router.xlsx"
+        router_path = join(root, router_name)
+        os.makedirs(root, exist_ok=True)
+        
+        if router_name in os.listdir(root):
+            os.remove(router_path)
 
-    try:
-        data_router = pd.read_excel(router_path)
-    except Exception as e:
-        raise pd.errors.ParserError(f"Failed to parse router Excel file: {e}")
-    # data_router.fillna(method='ffill', inplace=True)
+        # Import URL from config
+        try:
+            from .config import IABS_ROUTER_URL
+        except ImportError:
+            raise ImportError(
+                "config.py not found. Please copy config_template.py to config.py "
+                "and set IABS_ROUTER_URL to your Google Sheets export URL. "
+                "Make sure to add config.py to .gitignore."
+            )
+        except AttributeError:
+            raise ImportError(
+                "IABS_ROUTER_URL not found in config.py. Please check config_template.py "
+                "for the required format."
+            )
+        
+        # Download router file
+        try:
+            wget.download(IABS_ROUTER_URL, out=router_path)
+        except Exception as e:
+            raise requests.RequestException(f"Failed to download router file: {e}")
+
+        try:
+            data_router = pd.read_excel(router_path)
+        except Exception as e:
+            raise pd.errors.ParserError(f"Failed to parse router Excel file: {e}")
+    
+    # Process the DataFrame (applies to all sources)
     data_router = data_router.replace("", None).ffill()
 
     # Support both English and Russian column names for backward compatibility
