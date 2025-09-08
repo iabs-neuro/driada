@@ -1470,7 +1470,7 @@ class Network:
         
         See Also
         --------
-        get_z_values : Public interface to retrieve calculated z-values
+        ~driada.network.net_base.get_z_values : Public interface to retrieve calculated z-values
         """
         spectrum = self.get_spectrum(mode)
         seigs = sorted(list(set(spectrum)), key=np.abs)
@@ -1529,8 +1529,8 @@ class Network:
         
         See Also
         --------
-        get_ipr : Public interface to retrieve calculated IPR values
-        get_eigenvectors : Retrieves the eigenvectors used in calculation
+        ~driada.network.net_base.get_ipr : Public interface to retrieve calculated IPR values
+        ~driada.network.net_base.get_eigenvectors : Retrieves the eigenvectors used in calculation
         
         Notes
         -----
@@ -1627,8 +1627,8 @@ class Network:
         
         See Also
         --------
-        calculate_free_entropy : Free entropy (log partition function)
-        calculate_q_entropy : Generalized Rényi entropy        """
+        ~driada.network.net_base.calculate_free_entropy : Free entropy (log partition function)
+        ~driada.network.net_base.calculate_q_entropy : Generalized Rényi entropy        """
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [spectral_entropy(spectrum, t, verbose=verbose) for t in tlist]
         return res
@@ -1677,8 +1677,8 @@ class Network:
         
         See Also
         --------
-        calculate_thermodynamic_entropy : Von Neumann entropy
-        calculate_q_entropy : Generalized Rényi entropy        """
+        ~driada.network.net_base.calculate_thermodynamic_entropy : Von Neumann entropy
+        ~driada.network.net_base.calculate_q_entropy : Generalized Rényi entropy        """
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [free_entropy(spectrum, t) for t in tlist]
         return res
@@ -1734,8 +1734,8 @@ class Network:
         
         See Also
         --------
-        calculate_thermodynamic_entropy : Von Neumann entropy (q=1 case)
-        calculate_free_entropy : Free entropy (log partition function)        """
+        ~driada.network.net_base.calculate_thermodynamic_entropy : Von Neumann entropy (q=1 case)
+        ~driada.network.net_base.calculate_free_entropy : Free entropy (log partition function)        """
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [q_entropy(spectrum, t, q=q) for t in tlist]
         return res

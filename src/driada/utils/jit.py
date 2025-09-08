@@ -109,8 +109,11 @@ def conditional_njit(*args, **kwargs):
     
     See Also
     --------
-    is_jit_enabled : Check if JIT compilation is currently enabled.
-    numba.njit : The underlying Numba JIT decorator.    """
+    ~driada.utils.jit.is_jit_enabled :
+        Check if JIT compilation is currently enabled.
+    :func:`numba.njit` :
+        The underlying Numba JIT decorator.
+    """
     if DRIADA_DISABLE_NUMBA or not NUMBA_AVAILABLE:
         # Return identity decorator
         def decorator(func):
@@ -167,8 +170,11 @@ def is_jit_enabled():
     
     See Also
     --------
-    jit_info : Print detailed JIT status information.
-    conditional_njit : Decorator that respects JIT settings.    """
+    ~driada.utils.jit.jit_info :
+        Print detailed JIT status information.
+    ~driada.utils.jit.conditional_njit :
+        Decorator that respects JIT settings.
+    """
     return NUMBA_AVAILABLE and not DRIADA_DISABLE_NUMBA
 
 
@@ -201,8 +207,11 @@ def jit_info():
     
     See Also
     --------
-    is_jit_enabled : Check JIT status programmatically.
-    conditional_njit : Decorator that respects JIT settings.    """
+    ~driada.utils.jit.is_jit_enabled :
+        Check JIT status programmatically.
+    ~driada.utils.jit.conditional_njit :
+        Decorator that respects JIT settings.
+    """
     print(f"Numba available: {NUMBA_AVAILABLE}")
     print(f"JIT disabled by environment: {DRIADA_DISABLE_NUMBA}")
     print(f"JIT enabled: {is_jit_enabled()}")

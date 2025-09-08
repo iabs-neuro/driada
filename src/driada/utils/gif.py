@@ -43,7 +43,9 @@ def erase_all(path, signature="", ext=".png"):
     
     See Also
     --------
-    save_image_series : Save multiple figures to disk.    """
+    ~driada.utils.gif.save_image_series :
+        Save multiple figures to disk.
+    """
     if not os.path.exists(path):
         return
 
@@ -99,8 +101,11 @@ def save_image_series(path, figures, im_ext="png"):
     
     See Also
     --------
-    create_gif_from_image_series : Create animated GIF from saved images.
-    erase_all : Clean up image files.    """
+    ~driada.utils.gif.create_gif_from_image_series :
+        Create animated GIF from saved images.
+    ~driada.utils.gif.erase_all :
+        Clean up image files.
+    """
     os.makedirs(path, exist_ok=True)
 
     for i in tqdm.tqdm(range(len(figures)), leave=True, position=0):
@@ -182,8 +187,11 @@ def create_gif_from_image_series(
     
     See Also
     --------
-    save_image_series : Save matplotlib figures as image series.
-    erase_all : Delete files matching specific criteria.    """
+    ~driada.utils.gif.save_image_series :
+        Save matplotlib figures as image series.
+    ~driada.utils.gif.erase_all :
+        Delete files matching specific criteria.
+    """
     images = []
     imfiles = [
         f

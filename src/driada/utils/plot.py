@@ -77,7 +77,9 @@ def make_beautiful(
     
     See Also
     --------
-    create_default_figure : Create figure with default styling applied.    """
+    ~driada.utils.plot.create_default_figure :
+        Create figure with default styling applied.
+    """
     # Style spines
     for axis in ["bottom", "left"]:
         ax.spines[axis].set_linewidth(spine_width)
@@ -164,8 +166,11 @@ def create_default_figure(
     
     See Also
     --------
-    make_beautiful : Apply styling to existing axes.
-    matplotlib.pyplot.subplots : Base function for creating subplots.    """
+    ~driada.utils.plot.make_beautiful :
+        Apply styling to existing axes.
+    matplotlib.pyplot.subplots :
+        Base function for creating subplots.
+    """
     fig, axes = plt.subplots(
         nrows=nrows,
         ncols=ncols,

@@ -137,8 +137,8 @@ def get_functional_organization(experiment: 'Experiment', method_name: str, data
     
     See Also
     --------
-    compare_embeddings : Compare multiple embedding methods
-    compute_embedding_selectivity : Compute selectivity for embeddings    """
+    ~driada.integration.manifold_analysis.compare_embeddings : Compare multiple embedding methods
+    ~driada.intense.pipelines.compute_embedding_selectivity : Compute selectivity for embeddings    """
     # Get embedding and metadata
     embedding_dict = experiment.get_embedding(method_name, data_type)
     embedding = embedding_dict["data"]
@@ -380,8 +380,8 @@ def compare_embeddings(experiment: 'Experiment', method_names: List[str], data_t
     
     See Also
     --------
-    get_functional_organization : Analyze individual embeddings
-    compute_embedding_selectivity : Compute selectivity for embeddings    """
+    ~driada.integration.manifold_analysis.get_functional_organization : Analyze individual embeddings
+    ~driada.intense.pipelines.compute_embedding_selectivity : Compute selectivity for embeddings    """
     if not isinstance(method_names, list):
         raise TypeError("method_names must be a list")
         

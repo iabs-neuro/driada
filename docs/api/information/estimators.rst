@@ -10,9 +10,10 @@ Gaussian Copula Estimators
 
 The Gaussian Copula Mutual Information (GCMI) method provides fast parametric estimation.
 
-.. autofunction:: copnorm
-.. autofunction:: ctransform
-.. autofunction:: ent_g
+.. autofunction:: driada.information.gcmi.copnorm
+.. autofunction:: driada.information.gcmi.ctransform
+.. autofunction:: driada.information.gcmi.gcmi_cc
+.. autofunction:: driada.information.gcmi.ent_g
 
 KSG Non-parametric Estimators
 ------------------------------

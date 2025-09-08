@@ -187,8 +187,8 @@ def compute_mvdata_rdm(
     
     See Also
     --------
-    driada.rsa.core.compute_rdm_from_timeseries_labels : Core function this wraps
-    driada.rsa.core.compute_rdm_unified : Unified interface for all data types    """
+    ~driada.rsa.core.compute_rdm_from_timeseries_labels : Core function this wraps
+    ~driada.rsa.core.compute_rdm_unified : Unified interface for all data types    """
     # MVData stores data as (n_features, n_timepoints)
     data = mvdata.data
 
@@ -296,9 +296,9 @@ def rsa_between_experiments(
     
     See Also
     --------
-    compute_experiment_rdm : Compute RDM from single experiment
-    driada.rsa.core.compare_rdms : Direct RDM comparison
-    driada.rsa.core.bootstrap_rdm_comparison : Bootstrap analysis details    """
+    ~driada.rsa.integration.compute_experiment_rdm : Compute RDM from single experiment
+    ~driada.rsa.core.compare_rdms : Direct RDM comparison
+    ~driada.rsa.core.bootstrap_rdm_comparison : Bootstrap analysis details    """
     # Compute RDMs for each experiment
     rdm1, labels1 = compute_experiment_rdm(
         exp1, items, data_type, metric, average_method

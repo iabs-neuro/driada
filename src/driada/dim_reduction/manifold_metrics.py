@@ -124,8 +124,8 @@ def knn_preservation_rate(
     
     See Also
     --------
-    trustworthiness : Focuses on avoiding false neighbors in the embedding
-    continuity : Focuses on preserving true neighbors from the original space    """
+    ~driada.dim_reduction.manifold_metrics.trustworthiness : Focuses on avoiding false neighbors in the embedding
+    ~driada.dim_reduction.manifold_metrics.continuity : Focuses on preserving true neighbors from the original space    """
     if X_high.shape[0] != X_low.shape[0]:
         raise ValueError("X_high and X_low must have same number of samples")
 
@@ -198,8 +198,8 @@ def trustworthiness(X_high: np.ndarray, X_low: np.ndarray, k: int = 10) -> float
     
     See Also
     --------
-    continuity : Complementary metric focusing on preserving true neighbors
-    knn_preservation_rate : Simple symmetric measure of neighborhood preservation
+    ~driada.dim_reduction.manifold_metrics.continuity : Complementary metric focusing on preserving true neighbors
+    ~driada.dim_reduction.manifold_metrics.knn_preservation_rate : Simple symmetric measure of neighborhood preservation
     
     References
     ----------
@@ -293,8 +293,8 @@ def continuity(X_high: np.ndarray, X_low: np.ndarray, k: int = 10) -> float:
     
     See Also
     --------
-    trustworthiness : Complementary metric focusing on avoiding false neighbors
-    knn_preservation_rate : Simple symmetric measure of neighborhood preservation
+    ~driada.dim_reduction.manifold_metrics.trustworthiness : Complementary metric focusing on avoiding false neighbors
+    ~driada.dim_reduction.manifold_metrics.knn_preservation_rate : Simple symmetric measure of neighborhood preservation
     
     References
     ----------

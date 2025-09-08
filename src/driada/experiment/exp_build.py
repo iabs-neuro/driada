@@ -750,8 +750,8 @@ def load_demo_experiment(name="demo", verbose=False):
     
     See Also
     --------
-    load_experiment : Full experiment loading with all options
-    generate_synthetic_exp : Generate synthetic data with custom properties
+    ~driada.experiment.exp_build.load_experiment : Full experiment loading with all options
+    ~driada.experiment.synthetic.experiment_generators.generate_synthetic_exp : Generate synthetic data with custom properties
     """
     exp, _ = load_experiment(
         'MyLab',

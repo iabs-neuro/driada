@@ -26,33 +26,33 @@ Quick Links
 
 **Data Manipulation**
    * :doc:`utils/data` - Data structures and I/O utilities
-   * :func:`~driada.utils.rescale` - Rescale data to range
-   * :func:`~driada.utils.get_hash` - Generate data hashes
-   * :func:`~driada.utils.write_dict_to_hdf5` - Save to HDF5
-   * :func:`~driada.utils.read_hdf5_to_dict` - Load from HDF5
+   * :func:`~driada.utils.data.rescale` - Rescale data to range
+   * :func:`~driada.utils.data.get_hash` - Generate data hashes
+   * :func:`~driada.utils.data.write_dict_to_hdf5` - Save to HDF5
+   * :func:`~driada.utils.data.read_hdf5_to_dict` - Load from HDF5
 
 **Visualization**
    * :doc:`utils/visualization` - Advanced plotting functions
-   * :func:`~driada.utils.plot_embedding_comparison` - Compare embeddings
-   * :func:`~driada.utils.make_beautiful` - Style matplotlib plots
-   * :func:`~driada.utils.create_default_figure` - Standard figure setup
+   * :func:`~driada.utils.visual.plot_embedding_comparison` - Compare embeddings
+   * :func:`~driada.utils.plot.make_beautiful` - Style matplotlib plots
+   * :func:`~driada.utils.plot.create_default_figure` - Standard figure setup
 
 **Signal Processing**
    * :doc:`utils/signals` - Signal analysis and generation
-   * :func:`~driada.utils.brownian` - Generate Brownian motion
-   * :func:`~driada.utils.approximate_entropy` - Compute ApEn
-   * :func:`~driada.utils.filter_signals` - Apply filters
+   * :func:`~driada.utils.signals.brownian` - Generate Brownian motion
+   * :func:`~driada.utils.signals.approximate_entropy` - Compute ApEn
+   * :func:`~driada.utils.signals.filter_signals` - Apply filters
 
 **Spatial Analysis**
    * :doc:`utils/spatial` - Place field and spatial coding
-   * :func:`~driada.utils.compute_rate_map` - Firing rate maps
-   * :func:`~driada.utils.extract_place_fields` - Find place fields
-   * :func:`~driada.utils.compute_spatial_information` - Spatial info
+   * :func:`~driada.utils.spatial.compute_rate_map` - Firing rate maps
+   * :func:`~driada.utils.spatial.extract_place_fields` - Find place fields
+   * :func:`~driada.utils.spatial.compute_spatial_information` - Spatial info
 
 **Matrix Operations**
    * :doc:`utils/matrix` - Matrix utilities
-   * :func:`~driada.utils.nearestPD` - Nearest positive definite matrix
-   * :func:`~driada.utils.is_positive_definite` - Check PD property
+   * :func:`~driada.utils.matrix.nearestPD` - Nearest positive definite matrix
+   * :func:`~driada.utils.matrix.is_positive_definite` - Check PD property
 
 Usage Example
 -------------

@@ -35,8 +35,8 @@ def renyi_divergence(A, B, q):
 
     See Also
     --------
-    js_divergence : Quantum Jensen-Shannon divergence.
-    manual_entropy : Shannon/von Neumann entropy calculation.
+    ~driada.network.quantum.js_divergence : Quantum Jensen-Shannon divergence.
+    ~driada.network.quantum.manual_entropy : Shannon/von Neumann entropy calculation.
 
     Notes
     -----
@@ -111,10 +111,10 @@ def get_density_matrix(A, t, norm=0):
 
     See Also
     --------
-    renyi_divergence : Uses density matrices for divergence calculation.
-    js_divergence : Uses density matrices for network comparison.
-    get_laplacian : Computes graph Laplacian.
-    get_norm_laplacian : Computes normalized Laplacian.
+    ~driada.network.quantum.renyi_divergence : Uses density matrices for divergence calculation.
+    ~driada.network.quantum.js_divergence : Uses density matrices for network comparison.
+    ~driada.network.matrix_utils.get_laplacian : Computes graph Laplacian.
+    ~driada.network.matrix_utils.get_norm_laplacian : Computes normalized Laplacian.
 
     Notes
     -----
@@ -166,9 +166,9 @@ def manual_entropy(pr):
 
     See Also
     --------
-    scipy.stats.entropy : Alternative implementation.
-    renyi_divergence : Generalized entropy measure.
-    js_divergence : Uses this for von Neumann entropy calculation.
+    :func:`scipy.stats.entropy` : Alternative implementation.
+    ~driada.network.quantum.renyi_divergence : Generalized entropy measure.
+    ~driada.network.quantum.js_divergence : Uses this for von Neumann entropy calculation.
 
     Notes
     -----
@@ -227,9 +227,9 @@ def js_divergence(A, B, t, return_partial_entropies=True):
 
     See Also
     --------
-    renyi_divergence : Alternative quantum divergence measure.
-    get_density_matrix : Used to compute density matrices.
-    manual_entropy : Used for von Neumann entropy calculation.
+    ~driada.network.quantum.renyi_divergence : Alternative quantum divergence measure.
+    ~driada.network.quantum.get_density_matrix : Used to compute density matrices.
+    ~driada.network.quantum.manual_entropy : Used for von Neumann entropy calculation.
 
     Notes
     -----

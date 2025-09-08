@@ -489,7 +489,7 @@ class MVData(object):
             
         See Also
         --------
-        ProximityGraph : The graph construction class.
+        ~driada.dim_reduction.graph.ProximityGraph : The graph construction class.
         """
         if g_params["g_method_name"] not in GRAPH_CONSTRUCTION_METHODS:
             raise Exception("Unknown graph construction method!")

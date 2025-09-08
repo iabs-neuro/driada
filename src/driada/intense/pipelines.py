@@ -1217,9 +1217,9 @@ def compute_embedding_selectivity(
     
     See Also
     --------
-    compute_cell_feat_significance : Compute selectivity for behavioral features
-    get_functional_organization : Analyze organization in embeddings
-    compare_embeddings : Compare multiple embedding methods    """
+    ~driada.intense.pipelines.compute_cell_feat_significance : Compute selectivity for behavioral features
+    ~driada.integration.manifold_analysis.get_functional_organization : Analyze organization in embeddings
+    ~driada.integration.manifold_analysis.compare_embeddings : Compare multiple embedding methods    """
 
     # Get list of embedding methods to analyze
     if embedding_methods is None:

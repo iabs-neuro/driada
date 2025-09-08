@@ -96,7 +96,7 @@ DOC_VERIFICATION*.txt
 test_*.py
 
 # All tools directory scripts
-tools/
+# tools/  # Commented out - CI workflows need these scripts
 
 # Text files folder
 text/

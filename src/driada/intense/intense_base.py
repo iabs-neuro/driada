@@ -355,7 +355,7 @@ def calculate_optimal_delays_parallel(
 
     See Also
     --------
-    calculate_optimal_delays : Sequential version of this function
+    ~driada.intense.intense_base.calculate_optimal_delays : Sequential version of this function
 
     Examples
     --------
@@ -887,8 +887,8 @@ def scan_pairs_parallel(
 
     See Also
     --------
-    scan_pairs : Sequential version of this function
-    scan_pairs_router : Wrapper that chooses between parallel and sequential
+    ~driada.intense.intense_base.scan_pairs : Sequential version of this function
+    ~driada.intense.intense_base.scan_pairs_router : Wrapper that chooses between parallel and sequential
     
     Examples
     --------
@@ -1039,8 +1039,8 @@ def scan_pairs_router(
 
     See Also
     --------
-    scan_pairs : Sequential implementation
-    scan_pairs_parallel : Parallel implementation
+    ~driada.intense.intense_base.scan_pairs : Sequential implementation
+    ~driada.intense.intense_base.scan_pairs_parallel : Parallel implementation
     
     Examples
     --------
@@ -1157,9 +1157,9 @@ class IntenseResults(object):
         
         See Also
         --------
-        compute_cell_feat_significance : Main function that returns IntenseResults
-        update : Method to add properties to the results
-        save_to_hdf5 : Method to persist results to disk        """
+        ~driada.intense.pipelines.compute_cell_feat_significance : Main function that returns IntenseResults
+        ~driada.intense.intense_base.update : Method to add properties to the results
+        ~driada.intense.intense_base.save_to_hdf5 : Method to persist results to disk        """
         pass
 
     def update(self, property_name, data):
@@ -1231,7 +1231,7 @@ class IntenseResults(object):
         
         See Also
         --------
-        update : Add single property        """
+        ~driada.intense.intense_base.update : Add single property        """
         for dname, data in datadict.items():
             setattr(self, dname, data)
 
@@ -1277,7 +1277,7 @@ class IntenseResults(object):
         
         See Also
         --------
-        driada.utils.data.write_dict_to_hdf5 : Underlying function used        """
+        ~driada.utils.data.write_dict_to_hdf5 : Underlying function used        """
         dict_repr = self.__dict__
         write_dict_to_hdf5(dict_repr, fname)
 

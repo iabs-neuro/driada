@@ -126,8 +126,8 @@ def get_cwt_ridges(
     
     See Also
     --------
-    get_cwt_ridges_fast : Numba-accelerated version
-    Ridge : Ridge object storing ridge properties    """
+    ~driada.experiment.wavelet_event_detection.get_cwt_ridges_fast : Numba-accelerated version
+    ~driada.experiment.wavelet_ridge.Ridge : Ridge object storing ridge properties    """
     # Validate parameters
     check_positive(fps=fps)
     check_nonnegative(scmin=scmin, scmax=scmax)
@@ -259,8 +259,8 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
     
     See Also
     --------
-    get_cwt_ridges : Original implementation
-    events_from_trace : High-level function using this for event detection    """
+    ~driada.experiment.wavelet_event_detection.get_cwt_ridges : Original implementation
+    ~driada.experiment.wavelet_event_detection.events_from_trace : High-level function using this for event detection    """
     # Validate inputs (before JIT compilation)
     wvtdata = np.asarray(wvtdata)
     peaks = np.asarray(peaks)
@@ -444,8 +444,8 @@ def get_events_from_ridges(
         
     See Also
     --------
-    passing_criterion : Function that evaluates ridge quality
-    events_from_trace : High-level event detection function    """
+    ~driada.experiment.wavelet_event_detection.passing_criterion : Function that evaluates ridge quality
+    ~driada.experiment.wavelet_event_detection.events_from_trace : High-level event detection function    """
     # Validate parameters
     check_nonnegative(scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
     check_positive(max_dur_thr=max_dur_thr)
@@ -551,8 +551,8 @@ def events_from_trace(
         
     See Also
     --------
-    extract_wvt_events : Batch processing for multiple neurons
-    WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary    """
+    ~driada.experiment.wavelet_event_detection.extract_wvt_events : Batch processing for multiple neurons
+    ~driada.experiment.wavelet_event_detection.WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary    """
     # Validate parameters
     check_positive(fps=fps, max_dur_thr=max_dur_thr)
     check_nonnegative(sigma=sigma, eps=eps, scale_length_thr=scale_length_thr, 

@@ -338,9 +338,9 @@ def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -
     
     See Also
     --------
-    compute_rdm : Compute RDMs from neural patterns
-    bootstrap_rdm_comparison : Statistical comparison with confidence intervals
-    rsa_compare : High-level interface for comparing datasets    """
+    ~driada.rsa.core.compute_rdm : Compute RDMs from neural patterns
+    ~driada.rsa.core.bootstrap_rdm_comparison : Statistical comparison with confidence intervals
+    ~driada.rsa.core.rsa_compare : High-level interface for comparing datasets    """
     # Ensure RDMs are same shape
     if rdm1.shape != rdm2.shape:
         raise ValueError(
@@ -496,9 +496,9 @@ def bootstrap_rdm_comparison(
     
     See Also
     --------
-    compare_rdms : Direct RDM comparison without bootstrap
-    compute_rdm_from_timeseries_labels : Compute RDM from labeled data
-    rsa_compare : High-level interface with multiple data types    """
+    ~driada.rsa.core.compare_rdms : Direct RDM comparison without bootstrap
+    ~driada.rsa.core.compute_rdm_from_timeseries_labels : Compute RDM from labeled data
+    ~driada.rsa.core.rsa_compare : High-level interface with multiple data types    """
     # Create a local random number generator to avoid modifying global state
     if random_state is not None:
         rng = np.random.RandomState(random_state)
@@ -677,10 +677,10 @@ def compute_rdm_unified(
     
     See Also
     --------
-    compute_rdm : Direct RDM computation from patterns
-    compute_rdm_from_timeseries_labels : RDM from labeled timeseries
-    compute_rdm_from_trials : RDM from trial structure
-    driada.rsa.integration.compute_experiment_rdm : RDM from Experiment objects    """
+    ~driada.rsa.core.compute_rdm : Direct RDM computation from patterns
+    ~driada.rsa.core.compute_rdm_from_timeseries_labels : RDM from labeled timeseries
+    ~driada.rsa.core.compute_rdm_from_trials : RDM from trial structure
+    ~driada.rsa.integration.compute_experiment_rdm : RDM from Experiment objects    """
     # Import here to avoid circular dependency
     from ..experiment import Experiment
     from ..dim_reduction.embedding import Embedding
@@ -879,9 +879,9 @@ def rsa_compare(
     
     See Also
     --------
-    compute_rdm_unified : Unified RDM computation interface
-    compare_rdms : Direct comparison of RDM matrices
-    bootstrap_rdm_comparison : Statistical comparison with confidence intervals    """
+    ~driada.rsa.core.compute_rdm_unified : Unified RDM computation interface
+    ~driada.rsa.core.compare_rdms : Direct comparison of RDM matrices
+    ~driada.rsa.core.bootstrap_rdm_comparison : Statistical comparison with confidence intervals    """
     # Import here to avoid circular dependency
     from ..experiment import Experiment
     from ..dim_reduction.embedding import Embedding

@@ -45,7 +45,9 @@ def nearestPD(A):
     
     See Also
     --------
-    is_positive_definite : Check if a matrix is positive-definite.    """
+    ~driada.utils.matrix.is_positive_definite :
+        Check if a matrix is positive-definite.
+    """
 
     B = (A + A.T) / 2
     _, s, V = la.svd(B)
@@ -114,8 +116,11 @@ def is_positive_definite(B):
     
     See Also
     --------
-    nearestPD : Find the nearest positive-definite matrix.
-    numpy.linalg.cholesky : Cholesky decomposition.    """
+    ~driada.utils.matrix.nearestPD :
+        Find the nearest positive-definite matrix.
+    :func:`numpy.linalg.cholesky` :
+        Cholesky decomposition.
+    """
     try:
         _ = la.cholesky(B)
         return True

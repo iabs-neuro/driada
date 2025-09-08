@@ -22,6 +22,9 @@ Main Functions
 --------------
 
 .. autofunction:: driada.information.info_base.get_mi
+.. autofunction:: driada.information.info_base.get_1d_mi
+.. autofunction:: driada.information.info_base.get_multi_mi
+.. autofunction:: driada.information.info_base.get_tdmi
 .. autofunction:: driada.information.info_base.conditional_mi
 .. autofunction:: driada.information.info_base.interaction_information
 

@@ -52,7 +52,9 @@ def generate_pseudo_calcium_signal(
     
     See Also
     --------
-    generate_pseudo_calcium_multisignal : Generate multiple calcium signals.    """
+    ~driada.utils.neural.generate_pseudo_calcium_multisignal :
+        Generate multiple calcium signals.
+    """
     # Calculate number of samples
     num_samples = int(duration * sampling_rate)
 
@@ -117,7 +119,8 @@ def generate_pseudo_calcium_multisignal(
         
     See Also
     --------
-    generate_pseudo_calcium_signal : Generates a single calcium signal.
+    ~driada.utils.neural.generate_pseudo_calcium_signal :
+        Generates a single calcium signal.
     
     Examples
     --------

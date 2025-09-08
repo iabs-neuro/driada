@@ -1702,8 +1702,8 @@ class Experiment:
             
         See Also
         --------
-        get_stats_slice : More general method for extracting any statistics
-        _update_stats_and_significance : Internal method that computes significance
+        ~driada.experiment.exp_base.get_stats_slice : More general method for extracting any statistics
+        ~driada.experiment.exp_base._update_stats_and_significance : Internal method that computes significance
         
         Examples
         --------
@@ -2066,8 +2066,8 @@ class Experiment:
         
         See Also
         --------
-        get_embedding : Retrieve stored embeddings
-        create_embedding : Create and store embeddings in one step        """
+        ~driada.experiment.exp_base.get_embedding : Retrieve stored embeddings
+        ~driada.experiment.exp_base.create_embedding : Create and store embeddings in one step        """
         if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
 
@@ -2161,9 +2161,9 @@ class Experiment:
         
         See Also
         --------
-        store_embedding : Store computed embeddings
-        get_embedding : Retrieve stored embeddings
-        get_significant_neurons : Get neurons with significant selectivity        """
+        ~driada.experiment.exp_base.store_embedding : Store computed embeddings
+        ~driada.experiment.exp_base.get_embedding : Retrieve stored embeddings
+        ~driada.experiment.exp_base.get_significant_neurons : Get neurons with significant selectivity        """
         from ..information.info_base import MultiTimeSeries
         from ..utils.data import check_positive
         
@@ -2337,8 +2337,8 @@ class Experiment:
         
         See Also
         --------
-        store_embedding : Store embeddings in the experiment
-        create_embedding : Create and store embeddings in one step        """
+        ~driada.experiment.exp_base.store_embedding : Store embeddings in the experiment
+        ~driada.experiment.exp_base.create_embedding : Create and store embeddings in one step        """
         if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
 
@@ -2426,7 +2426,7 @@ class Experiment:
         
         See Also
         --------
-        compute_rdm : Method that uses and populates the RDM cache
+        ~driada.experiment.exp_base.compute_rdm : Method that uses and populates the RDM cache
         
         Examples
         --------

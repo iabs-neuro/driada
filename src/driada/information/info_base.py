@@ -492,7 +492,7 @@ class TimeSeries:
         
         See Also
         --------
-        get_kdtree_query : Query the KDTree for k-nearest neighbors.        """
+        ~driada.information.info_base.get_kdtree_query : Query the KDTree for k-nearest neighbors.        """
         if self.kdtree is None:
             tree = self._compute_kdtree()
             self.kdtree = tree
@@ -548,7 +548,7 @@ class TimeSeries:
         
         See Also
         --------
-        get_kdtree : Build or retrieve the KDTree structure.        """
+        ~driada.information.info_base.get_kdtree : Build or retrieve the KDTree structure.        """
         if k not in self.kdtree_query:
             q = self._compute_kdtree_query(k=k)
             self.kdtree_query[k] = q
@@ -618,8 +618,8 @@ class TimeSeries:
         
         See Also
         --------
-        entropy_d : Discrete entropy calculation.
-        nonparam_entropy_c : Continuous entropy estimation using KSG method.        """
+        ~driada.information.entropy.entropy_d : Discrete entropy calculation.
+        ~driada.information.ksg.nonparam_entropy_c : Continuous entropy estimation using KSG method.        """
         # Validate downsampling factor
         if not isinstance(ds, int) or ds < 1:
             raise ValueError(f"Downsampling factor ds must be a positive integer, got {ds}")
@@ -1087,9 +1087,9 @@ class MultiTimeSeries(MVData):
         
         See Also
         --------
-        entropy_d : Single discrete variable entropy.
-        joint_entropy_dd : Joint entropy for 2 discrete variables.
-        ent_g : Gaussian copula entropy for continuous multivariate data.        """
+        ~driada.information.entropy.entropy_d : Single discrete variable entropy.
+        ~driada.information.entropy.joint_entropy_dd : Joint entropy for 2 discrete variables.
+        ~driada.information.gcmi.ent_g : Gaussian copula entropy for continuous multivariate data.        """
         if ds not in self.entropy.keys():
             self._compute_entropy(ds=ds)
         return self.entropy[ds]
@@ -1495,10 +1495,10 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
     
     See Also
     --------
-    get_1d_mi : MI for univariate time series (called internally)
-    get_multi_mi : MI between multiple and single time series
-    get_tdmi : Time-delayed MI for finding optimal embedding delays
-    conditional_mi : Conditional mutual information I(X;Y|Z)    """
+    ~driada.information.info_base.get_1d_mi : MI for univariate time series (called internally)
+    ~driada.information.info_base.get_multi_mi : MI between multiple and single time series
+    ~driada.information.info_base.get_tdmi : Time-delayed MI for finding optimal embedding delays
+    ~driada.information.info_base.conditional_mi : Conditional mutual information I(X;Y|Z)    """
 
     def _check_input(ts):
         """Convert array input to TimeSeries/MultiTimeSeries if needed.

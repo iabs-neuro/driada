@@ -311,8 +311,8 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
     
     See Also
     --------
-    FlexibleVAE : Variational version with probabilistic encoding.
-    LossRegistry : Available loss components.    """
+    ~driada.dim_reduction.flexible_ae.FlexibleVAE : Variational version with probabilistic encoding.
+    ~driada.dim_reduction.losses.LossRegistry : Available loss components.    """
     
     def __init__(
         self,
