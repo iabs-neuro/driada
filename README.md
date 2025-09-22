@@ -79,9 +79,7 @@ DRIADA provides a comprehensive toolkit for analyzing both individual neural sel
 - 🤖 **AI interpretability**: Understand representations in artificial neural networks
 - 🔬 **Systems neuroscience**: Bridge cellular and population-level descriptions
 
-## Quick Start
-
-### Installation
+## Installation
 
 ```bash
 # Basic installation
@@ -91,142 +89,27 @@ pip install driada
 pip install driada[gpu]
 ```
 
-### Getting Started with DRIADA
+## Quick Start
 
-#### 1. Generate Synthetic Data for Testing
+For complete code examples, tutorials, and API documentation, please visit the **[official documentation](https://driada.readthedocs.io)**.
 
-```python
-import driada
-import numpy as np
+## ⚠️ WARNING: Pre-Release Version
 
-# Generate a population with head direction cells
-exp = driada.generate_circular_manifold_exp(
-    n_neurons=50,           # 50 head direction cells
-    duration=600,           # 10 minutes of recording
-    noise_level=0.1,        # 10% noise
-    seed=42
-)
+**DRIADA is currently in pre-release stage (v0.x.x) and will be finalized to v1.0 soon.**
 
-# Or generate place cells in 2D environment
-exp = driada.generate_2d_manifold_exp(
-    n_neurons=64,           # 8x8 grid of place cells
-    duration=900,           # 15 minutes of exploration
-    environments=['env1']   # Single environment
-)
+Until the stable v1.0 release:
+- 📚 **Documentation takes precedence** over example code
+- 🔧 Examples and notebooks may be incomplete or broken
+- 🚧 API may undergo changes
+- 📖 Please refer to the [official documentation](https://driada.readthedocs.io) for the most up-to-date information
 
-# Or create mixed populations
-exp = driada.generate_mixed_population_exp(
-    n_neurons=100,
-    manifold_type='circular',
-    manifold_fraction=0.4,  # 40% manifold cells, 60% feature-selective
-    duration=600
-)
-```
+## Documentation
 
-#### 2. Analyze Single-Neuron Selectivity (INTENSE)
+📖 **[Official Documentation](https://driada.readthedocs.io)** - Complete API reference, tutorials, and guides
 
-```python
-# Discover which neurons encode which variables
-stats, significance, info, results = driada.compute_cell_feat_significance(
-    exp,
-    n_shuffles_stage1=100,    # Quick screening
-    n_shuffles_stage2=1000,   # Rigorous validation
-    verbose=True
-)
-
-# View results
-significant_neurons = exp.get_significant_neurons()
-print(f"Found {len(significant_neurons)} selective neurons")
-
-# Visualize selectivity
-if significant_neurons:
-    neuron_id = list(significant_neurons.keys())[0]
-    feature = significant_neurons[neuron_id][0]
-    driada.intense.plot_neuron_feature_pair(exp, neuron_id, feature)
-```
-
-#### 3. Extract Population-Level Manifolds
-
-```python
-# Get neural activity matrix
-neural_data = exp.calcium  # Shape: (n_neurons, n_timepoints)
-
-# Estimate intrinsic dimensionality
-from driada.dimensionality import nn_dimension, pca_dimension, effective_rank
-
-intrinsic_dim = nn_dimension(neural_data.T, k=5)      # k-NN estimator
-linear_dim = pca_dimension(neural_data.T, threshold=0.95)  # PCA 95% variance
-eff_rank = effective_rank(neural_data.T)             # Effective rank
-
-print(f"Intrinsic dimension: {intrinsic_dim:.2f}")
-print(f"Linear dimension (95%): {linear_dim}")
-print(f"Effective rank: {eff_rank:.2f}")
-
-# Apply dimensionality reduction
-from sklearn.decomposition import PCA
-from sklearn.manifold import Isomap
-import umap
-
-# Linear embedding
-pca = PCA(n_components=2)
-pca_embedding = pca.fit_transform(neural_data.T)
-
-# Nonlinear manifold learning
-isomap = Isomap(n_components=2, n_neighbors=10)
-isomap_embedding = isomap.fit_transform(neural_data.T)
-
-umap_reducer = umap.UMAP(n_components=2, random_state=42)
-umap_embedding = umap_reducer.fit_transform(neural_data.T)
-```
-
-#### 4. Using Your Own Data
-
-```python
-# Load your neural recordings
-calcium_traces = np.load('path/to/calcium_data.npy')  # Shape: (n_neurons, n_timepoints)
-
-# Load behavioral variables
-behavior_data = {
-    'position_x': np.load('path/to/x_position.npy'),
-    'position_y': np.load('path/to/y_position.npy'),
-    'head_direction': np.load('path/to/head_direction.npy'),
-    'speed': np.load('path/to/speed.npy')
-}
-
-# Create experiment object
-exp = driada.Experiment(
-    signature='MyExperiment',
-    calcium=calcium_traces,
-    dynamic_features=behavior_data,
-    static_features={'fps': 20.0}  # 20 Hz sampling rate
-)
-
-# Follow steps 2-3 above for analysis
-```
-
-## Documentation & Examples
-
-### 📚 Core Documentation
-- **[INTENSE Module Guide](README_INTENSE.md)** - Complete neural selectivity analysis documentation
-- **[API Reference](docs/)** - Detailed function and class documentation
-
-### 🔬 Working Examples
-- **[examples/basic_usage.py](examples/basic_usage.py)** - Minimal INTENSE analysis workflow
-- **[examples/full_pipeline.py](examples/full_pipeline.py)** - Complete analysis with visualizations
-- **[examples/mixed_selectivity.py](examples/mixed_selectivity.py)** - Advanced disentanglement analysis
-- **[examples/extract_circular_manifold.py](examples/extract_circular_manifold.py)** - Population manifold extraction
-
-### 📓 Interactive Notebooks
-- **[notebooks/01_quick_start.ipynb](notebooks/01_quick_start.ipynb)** - Your first DRIADA analysis
-- **[notebooks/02_understanding_results.ipynb](notebooks/02_understanding_results.ipynb)** - Interpreting INTENSE outputs
-- **[notebooks/03_real_data_workflow.ipynb](notebooks/03_real_data_workflow.ipynb)** - Working with experimental data
-
-### 🎯 Specialized Guides
-1. **Single-Neuron Analysis**: Start with [README_INTENSE.md](README_INTENSE.md) for selectivity analysis
-2. **Population Analysis**: Use [examples/extract_circular_manifold.py](examples/extract_circular_manifold.py) for manifold extraction
-3. **Interactive Learning**: Explore [notebooks/](notebooks/) for hands-on tutorials
-4. **Synthetic Data**: Generate test populations with `driada.generate_*_manifold_exp()` functions
-5. **Real Data**: Follow the "Using Your Own Data" section above
+### Additional Resources
+- **[INTENSE Module Guide](README_INTENSE.md)** - Neural selectivity analysis documentation
+- **[GitHub Issues](https://github.com/iabs-neuro/driada/issues)** - Report bugs or request features
 
 ## Requirements
 

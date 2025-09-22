@@ -72,6 +72,80 @@ class TestMakeBeautiful:
         assert len(legend_texts) > 0
         assert legend_texts[0].get_fontsize() == 20
 
+        # Check legend frame is off by default
+        assert ax.legend_.get_frame_on() == False
+
+        plt.close(fig)
+
+    def test_make_beautiful_legend_frame(self):
+        """Test legend frame customization."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label="Test")
+        ax.legend()
+
+        # Test with frame on
+        make_beautiful(ax, legend_frameon=True)
+        assert ax.legend_.get_frame_on() == True
+
+        plt.close(fig)
+
+        # Test with frame off (default)
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label="Test")
+        ax.legend()
+        make_beautiful(ax)
+        assert ax.legend_.get_frame_on() == False
+
+        plt.close(fig)
+
+    def test_make_beautiful_tight_layout(self):
+        """Test tight layout for both axes."""
+        fig, ax = plt.subplots()
+        ax.plot([0, 1, 2, 3, 4], [1, 2, 3, 4, 5])
+
+        # Test with tight layout (default)
+        make_beautiful(ax)
+        x_margins, y_margins = ax.margins()
+        assert x_margins == 0
+        assert y_margins == 0
+
+        plt.close(fig)
+
+        # Test without tight layout
+        fig, ax = plt.subplots()
+        ax.plot([0, 1, 2, 3, 4], [1, 2, 3, 4, 5])
+        original_x_margins, original_y_margins = ax.margins()
+        make_beautiful(ax, tight_layout=False)
+        # Margins should remain unchanged
+        assert ax.margins()[0] == original_x_margins
+        assert ax.margins()[1] == original_y_margins
+
+        plt.close(fig)
+
+    def test_make_beautiful_remove_origin_tick(self):
+        """Test removing ticks at origin."""
+        fig, ax = plt.subplots()
+        ax.plot([-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2])
+
+        # Test with origin tick removal
+        make_beautiful(ax, remove_origin_tick=True)
+
+        xticks = ax.get_xticks()
+        yticks = ax.get_yticks()
+
+        assert 0.0 not in xticks
+        assert 0.0 not in yticks
+
+        plt.close(fig)
+
+        # Test without origin tick removal (default)
+        fig, ax = plt.subplots()
+        ax.plot([-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2])
+        make_beautiful(ax, remove_origin_tick=False)
+
+        # May or may not have 0 depending on matplotlib's automatic tick placement
+        # Just verify no error occurs
+
         plt.close(fig)
 
     def test_make_beautiful_dpi(self):

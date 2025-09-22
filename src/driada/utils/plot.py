@@ -20,6 +20,10 @@ def make_beautiful(
     title_size: int = 30,
     legend_fontsize: int = 18,
     dpi: Optional[int] = None,
+    lowercase_labels: bool = True,
+    legend_frameon: bool = False,
+    tight_layout: bool = True,
+    remove_origin_tick: bool = False,
 ):
     """Apply publication-quality styling to a matplotlib axis.
 
@@ -45,6 +49,15 @@ def make_beautiful(
         Font size for legend (default: 18).
     dpi : int, optional
         DPI for the figure. If provided, sets the figure's DPI.
+    lowercase_labels : bool, optional
+        Whether to convert all labels and legend text to lowercase (default: True).
+        This includes axis labels, title, tick labels, and legend entries.
+    legend_frameon : bool, optional
+        Whether to draw frame around legend (default: False).
+    tight_layout : bool, optional
+        Whether to remove extra margins on both axes (default: True).
+    remove_origin_tick : bool, optional
+        Whether to remove tick labels at the origin (0,0) to avoid overlap (default: False).
 
     Returns
     -------
@@ -88,7 +101,7 @@ def make_beautiful(
         ax.spines[axis].set_linewidth(0.0)
 
     # Style ticks
-    ax.tick_params(width=tick_width, direction="in", length=tick_length, pad=tick_pad)
+    ax.tick_params(width=tick_width, direction="out", length=tick_length, pad=tick_pad)
     ax.tick_params(axis="x", which="major", labelsize=tick_labelsize)
     ax.tick_params(axis="y", which="major", labelsize=tick_labelsize)
 
@@ -96,11 +109,56 @@ def make_beautiful(
     ax.xaxis.label.set_size(label_size)
     ax.yaxis.label.set_size(label_size)
 
+    # Convert labels to lowercase if requested
+    if lowercase_labels:
+        # Axis labels
+        if ax.get_xlabel():
+            ax.set_xlabel(ax.get_xlabel().lower())
+        if ax.get_ylabel():
+            ax.set_ylabel(ax.get_ylabel().lower())
+
+        # Title
+        if ax.get_title():
+            ax.set_title(ax.get_title().lower())
+
+        # Tick labels - use formatter to avoid warnings
+        from matplotlib.ticker import FuncFormatter
+
+        def lowercase_formatter(x, pos):
+            """Format tick labels to lowercase."""
+            return f"{x}".lower()
+
+        ax.xaxis.set_major_formatter(FuncFormatter(lowercase_formatter))
+        ax.yaxis.set_major_formatter(FuncFormatter(lowercase_formatter))
+
     # Set axis-specific properties without modifying global params
     ax.title.set_size(title_size)
     if ax.legend_:
+        # Set legend frame
+        ax.legend_.set_frame_on(legend_frameon)
         for text in ax.legend_.get_texts():
             text.set_fontsize(legend_fontsize)
+            if lowercase_labels:
+                text.set_text(text.get_text().lower())
+
+    # Remove extra margins on x and y axes
+    if tight_layout:
+        ax.margins(x=0, y=0)
+        ax.autoscale(enable=True, axis='both', tight=True)
+
+    # Remove tick at origin (axis intersection) if requested
+    if remove_origin_tick:
+        # Get current ticks
+        xticks = list(ax.get_xticks())
+        yticks = list(ax.get_yticks())
+
+        # Remove 0 from both axes if present
+        if 0.0 in xticks:
+            xticks.remove(0.0)
+            ax.set_xticks(xticks)
+        if 0.0 in yticks:
+            yticks.remove(0.0)
+            ax.set_yticks(yticks)
 
     # Set DPI if provided
     if dpi is not None and hasattr(ax, "figure"):
