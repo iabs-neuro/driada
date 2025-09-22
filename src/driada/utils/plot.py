@@ -22,6 +22,9 @@ def make_beautiful(
     dpi: Optional[int] = None,
     lowercase_labels: bool = True,
     legend_frameon: bool = False,
+    legend_loc: str = 'auto',
+    legend_offset: float = 0.15,
+    legend_ncol: Optional[int] = None,
     tight_layout: bool = True,
     remove_origin_tick: bool = False,
 ):
@@ -54,6 +57,18 @@ def make_beautiful(
         This includes axis labels, title, tick labels, and legend entries.
     legend_frameon : bool, optional
         Whether to draw frame around legend (default: False).
+    legend_loc : str, optional
+        Legend location (default: 'auto'). Can be:
+        - 'auto': Use matplotlib's automatic placement
+        - 'above': Place legend above the plot, spanning full x-axis width
+        - 'below': Place legend below the plot, spanning full x-axis width
+        - Any valid matplotlib location string (e.g., 'upper right', 'center left')
+    legend_offset : float, optional
+        Vertical offset for 'above' and 'below' legend positions (default: 0.15).
+        Positive values move the legend further from the plot.
+    legend_ncol : int, optional
+        Number of columns for legend entries (default: None, auto-determined).
+        For 'above' and 'below', defaults to number of legend entries (single row).
     tight_layout : bool, optional
         Whether to remove extra margins on both axes (default: True).
     remove_origin_tick : bool, optional
@@ -134,11 +149,40 @@ def make_beautiful(
     # Set axis-specific properties without modifying global params
     ax.title.set_size(title_size)
     if ax.legend_:
-        # Set legend frame
-        ax.legend_.set_frame_on(legend_frameon)
-        for text in ax.legend_.get_texts():
-            text.set_fontsize(legend_fontsize)
-            if lowercase_labels:
+        # Determine number of columns for legend
+        if legend_ncol is None:
+            if legend_loc in ['above', 'below']:
+                # Default to single row for above/below
+                legend_ncol = len(ax.legend_.get_texts())
+            else:
+                # Default to single column for other positions
+                legend_ncol = 1
+
+        # Handle legend positioning
+        if legend_loc == 'above':
+            # Place legend above the plot
+            ax.legend(bbox_to_anchor=(0.5, 1 + legend_offset), loc='lower center',
+                     ncol=legend_ncol,
+                     frameon=legend_frameon,
+                     fontsize=legend_fontsize,
+                     borderaxespad=0.0)
+        elif legend_loc == 'below':
+            # Place legend below the plot
+            ax.legend(bbox_to_anchor=(0.5, -legend_offset), loc='upper center',
+                     ncol=legend_ncol,
+                     frameon=legend_frameon,
+                     fontsize=legend_fontsize,
+                     borderaxespad=0.0)
+        elif legend_loc == 'auto':
+            # Use matplotlib's automatic placement
+            ax.legend(frameon=legend_frameon, fontsize=legend_fontsize, ncol=legend_ncol)
+        else:
+            # Use specified matplotlib location
+            ax.legend(loc=legend_loc, frameon=legend_frameon, fontsize=legend_fontsize, ncol=legend_ncol)
+
+        # Apply lowercase to legend text if needed
+        if lowercase_labels and ax.legend_:
+            for text in ax.legend_.get_texts():
                 text.set_text(text.get_text().lower())
 
     # Remove extra margins on x and y axes

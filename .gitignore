@@ -109,3 +109,6 @@ docs_internal/
 
 # Tool-generated reports
 *_report.txt
+
+# Papers folder
+papers/

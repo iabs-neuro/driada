@@ -98,6 +98,58 @@ class TestMakeBeautiful:
 
         plt.close(fig)
 
+    def test_make_beautiful_legend_location(self):
+        """Test legend location options."""
+        # Test 'above' positioning
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label="Line 1")
+        ax.plot([0, 1], [1, 0], label="Line 2")
+        ax.legend()
+        make_beautiful(ax, legend_loc='above')
+
+        # Check that legend was repositioned
+        bbox = ax.legend_.get_bbox_to_anchor()
+        assert bbox is not None
+        # Legend should be positioned above (y > 1)
+
+        plt.close(fig)
+
+        # Test 'below' positioning
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label="Line 1")
+        ax.plot([0, 1], [1, 0], label="Line 2")
+        ax.legend()
+        make_beautiful(ax, legend_loc='below')
+
+        # Check that legend was repositioned
+        bbox = ax.legend_.get_bbox_to_anchor()
+        assert bbox is not None
+        # Legend should be positioned below (y < 0)
+
+        plt.close(fig)
+
+        # Test standard matplotlib location
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label="Test")
+        ax.legend()
+        make_beautiful(ax, legend_loc='upper left')
+
+        # Legend should be in upper left
+        assert ax.legend_._loc == 2  # 2 is the code for 'upper left'
+
+        plt.close(fig)
+
+        # Test 'auto' (default)
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [0, 1], label="Test")
+        ax.legend()
+        make_beautiful(ax, legend_loc='auto')
+
+        # Should use matplotlib's automatic placement
+        assert ax.legend_ is not None
+
+        plt.close(fig)
+
     def test_make_beautiful_tight_layout(self):
         """Test tight layout for both axes."""
         fig, ax = plt.subplots()
