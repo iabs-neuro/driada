@@ -322,6 +322,52 @@ def plot_neuron_feature_density(
     return ax
 
 
+def plot_shadowed_groups(ax, xvals, binary_series, color='gray', alpha=0.3, label='shadowed'):
+    """
+    Shade regions where binary series equals 1.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axes to plot on.
+    xvals : array-like
+        X-axis values corresponding to binary_series.
+    binary_series : array-like
+        Binary array (0s and 1s) indicating regions to shade.
+    color : str, optional
+        Color for shaded regions. Default: 'gray'.
+    alpha : float, optional
+        Transparency of shaded regions. Default: 0.3.
+    label : str, optional
+        Label for legend. Default: 'shadowed'.
+
+    Returns
+    -------
+    ax : matplotlib.axes.Axes
+        Modified axes object.
+    """
+    x = np.arange(len(binary_series))
+
+    # Find and shadow groups of 1s
+    i = 0
+    n = len(binary_series)
+    labelled = False
+    while i < n:
+        if binary_series[i] == 1:
+            x_min = xvals[i]  # Start of group
+            while i < n and binary_series[i] == 1:
+                i += 1
+            x_max = xvals[i - 1] if i > 0 else xvals[0]  # End of group
+            # Shadow the region
+            ax.axvspan(x_min, x_max + 1, alpha=alpha,
+                        color=color, label=label if not labelled else "")
+            labelled = True
+        else:
+            i += 1
+
+    return ax
+
+
 def plot_neuron_feature_pair(
     exp,
     cell_id,
@@ -332,9 +378,13 @@ def plot_neuron_feature_pair(
     add_density_plot=True,
     ax=None,
     title=None,
+    bcolor='g',
+    neuron_label=None,
+    feature_label=None,
+    non_feature_label=None
 ):
     """
-    Plot neural activity time series alongside behavioral feature.
+    Plot neural activity alongside behavioral feature with density analysis.
 
     Parameters
     ----------
@@ -356,121 +406,155 @@ def plot_neuron_feature_pair(
         Axes to plot on. Forces add_density_plot=False when provided.
     title : str, optional
         Custom title for the plot.
+    bcolor : str, optional
+        Color for feature visualization. Default: 'g'.
+    neuron_label : str, optional
+        Custom label for neuron. Default: f'neuron {cell_id}'.
+    feature_label : str, optional
+        Custom label for feature. Default: featname.
+    non_feature_label : str, optional
+        Custom label for non-feature state. Default: f'non-{featname}'.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         Figure containing the plot(s).
-    
+
     Raises
     ------
     IndexError
         If cell_id >= number of neurons
     AttributeError
         If featname not found in experiment
-    
+
     Notes
     -----
-    - Discrete features shown as red scatter points where active
-    - Uses make_beautiful() for axis styling
-    - Default title includes exp.signature
-    - When add_density_plot=True, uses 60:40 width ratio
-    - Calls plt.tight_layout() which affects figure state
-    
+    - Discrete features shown as shaded regions where active
+    - Uses make_beautiful() for axis styling with legends below
+    - Y-axis formatted to 1 decimal place
+    - Dark gray for non-feature distribution in density plot
+    - Calls plt.tight_layout() with bottom adjustment for legends
+
     Examples
     --------
     >>> import matplotlib.pyplot as plt
     >>> from driada.experiment import load_demo_experiment
-    >>> 
+    >>>
     >>> # Basic time series plot
     >>> exp = load_demo_experiment(verbose=False)
     >>> fig = plot_neuron_feature_pair(exp, 5, 'speed')
     >>> plt.close(fig)  # Suppress display
-    >>> 
-    >>> # Without density subplot
-    >>> fig = plot_neuron_feature_pair(exp, 10, 'speed', 
-    ...                               add_density_plot=False)
-    >>> plt.close(fig)
-    >>> 
-    >>> # Custom time range
-    >>> fig = plot_neuron_feature_pair(exp, 3, 'speed', 
-    ...                               ind1=1000, ind2=5000, ds=2)
+    >>>
+    >>> # With custom labels
+    >>> fig = plot_neuron_feature_pair(exp, 10, 'object1',
+    ...                               feature_label='Object Interaction',
+    ...                               non_feature_label='No Object')
     >>> plt.close(fig)
     """
 
     ind2 = min(exp.n_frames, ind2)
     ca = exp.neurons[cell_id].ca.scdata[ind1:ind2][::ds]
-    # rca = rescale(rankdata(ca))
+    rca = rescale(rankdata(ca))
     feature = getattr(exp, featname)
     bdata = feature.scdata[ind1:ind2][::ds]
     rbdata = rescale(rankdata(bdata))
 
+    # Set default labels if not provided
+    if neuron_label is None:
+        neuron_label = f'neuron {cell_id}'
+    if feature_label is None:
+        feature_label = featname
+    if non_feature_label is None:
+        non_feature_label = f'non-{featname}'
+
     if ax is None:
         if add_density_plot:
-            fig, axs = plt.subplots(1, 2, figsize=(12, 6), width_ratios=[0.6, 0.4])
+            fig, axs = plt.subplots(1, 2, figsize=(20, 6), width_ratios=[0.7, 0.3], dpi=300)
             ax0, ax1 = axs
-            ax1 = make_beautiful(ax1)
+            ax1 = make_beautiful(ax1, legend_loc='below', legend_offset=0.25, legend_ncol=1)
         else:
-            fig, ax0 = plt.subplots(figsize=(10, 6))
+            fig, ax0 = plt.subplots(figsize=(20, 6), dpi=300)
             ax1 = None
     else:
-        # When ax is provided externally, use it as ax0
         ax0 = ax
         ax1 = None
-        add_density_plot = False  # Cannot add density plot when single axis provided
-        fig = ax0.figure  # Get the figure from the provided axis
+        add_density_plot = False
+        fig = ax0.figure
 
-    ax0 = make_beautiful(ax0)
+    xvals = np.arange(ind1, ind2)[::ds]/20.0
 
-    ax0.plot(
-        np.arange(ind1, ind2)[::ds],
-        ca,
-        c="b",
-        linewidth=2,
-        alpha=0.5,
-        label=f"neuron {cell_id}",
-    )
+    ax0.plot(xvals, ca, c='b', linewidth=3, alpha=0.6, label=neuron_label)
     if feature.discrete:
-        # For discrete features, use the original data to find where feature is active (1)
-        active_indices = np.where(feature.data[ind1:ind2][::ds] == 1)[0]
-        if len(active_indices) > 0:
-            ax0.scatter(
-                np.arange(ind1, ind2)[::ds][active_indices],
-                ca[active_indices],
-                c="r",
-                s=50,
-                alpha=0.7,
-                zorder=10,
-                label=f"{featname}=1",
-            )
+        ax0 = plot_shadowed_groups(ax0, xvals,
+                                feature.scdata[ind1:ind2][::ds], color=bcolor, alpha=0.5,
+                                label=feature_label)
     else:
-        ax0.plot(np.arange(ind1, ind2)[::ds], rbdata, c="r", linewidth=2, alpha=0.5)
+        ax0.plot(xvals, rbdata, c='r', linewidth=2, alpha=0.5, label=feature_label)
 
-    if add_density_plot:
-        plot_neuron_feature_density(
-            exp,
-            "calcium",
-            cell_id,
-            featname,
-            ind1=ind1,
-            ind2=ind2,
-            ds=ds,
-            ax=ax1,
-            compute_wsd=False,
-        )
-
-    ax0.set_xlabel("timeframes", fontsize=20)
-    ax0.set_ylabel("Signal/behavior", fontsize=20)
-
-    # Add legend if we have labels
-    if feature.discrete:
-        ax0.legend(loc="upper right")
+    # Changed ncol from 2 to 1 to stack labels vertically
+    ax0.legend(fontsize=24, loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=1, frameon=False)
+    ax0.set_xlabel('time, s', fontsize=30)
+    ax0.set_ylabel('signal', fontsize=30)
 
     if title is None:
-        title = f"{exp.signature} Neuron {cell_id}, feature {featname}"
+        title = f'{exp.signature} Neuron {cell_id}, feature {featname}'
 
-    fig.suptitle(title, fontsize=20)
+    # apply styling with ncol=1 for vertical stacking
+    ax0 = make_beautiful(ax0, legend_loc='below', legend_offset=0.25, legend_fontsize=24,
+                        legend_ncol=1)
+
+    # Format y-axis tick labels to 1 decimal place with proper rounding
+    ax0.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{round(x, 6):.1f}'))
+
+    if add_density_plot:
+        if feature.discrete:
+            vals0 = np.log10(ca[np.where((rbdata == min(rbdata)) & (ca > 0))] + 1e-10)
+            vals1 = np.log10(ca[np.where((rbdata == max(rbdata)) & (ca > 0))] + 1e-10)
+            if len(vals0) > 0 and len(vals1) > 0:
+                wsd = wasserstein_distance(vals0, vals1)
+                _ = sns.kdeplot(vals0, ax=ax1, c='dimgray', label=non_feature_label, linewidth=5,
+                            bw_adjust=0.1)
+                _ = sns.kdeplot(vals1, ax=ax1, c=bcolor, label=feature_label, linewidth=5,
+                            bw_adjust=0.1)
+
+                ax1.legend(loc='upper center', bbox_to_anchor=(0.5, -0.25), fontsize=20, ncol=1,
+                        frameon=False)
+                ax1.set_xlabel(r'$\log$(signal)', fontsize=30)
+                ax1.set_ylabel('density', fontsize=30)
+
+                # apply styling with ncol=1
+                ax1 = make_beautiful(ax1, legend_loc='below', legend_offset=0.25, legend_fontsize=24,
+                                    legend_ncol=1)
+
+                ax1.set_xlim(-4.0, 0.5)
+                # Format y-axis tick labels to 1 decimal place for density plot
+                ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{round(x, 6):.1f}'))
+
+        else:
+            x0 = np.log10(ca + np.random.random(size=len(ca)) * 1e-8)
+            y0 = np.log(bdata + np.random.random(size=len(bdata)) * 1e-8)
+
+            jdata = np.vstack([x0, y0]).T
+            nbins = 100
+            k = gaussian_kde(jdata.T)
+            xi, yi = np.mgrid[x0.min():x0.max():nbins * 1j, y0.min():y0.max():nbins * 1j]
+            zi = k(np.vstack([xi.flatten(), yi.flatten()]))
+
+            # plot a density
+            ax1.pcolormesh(xi, yi, zi.reshape(xi.shape), shading='auto', cmap='coolwarm')
+            ax1.set_xlabel(r'$\log$(signal)', fontsize=30)
+            ax1.set_ylabel(fr'$\log$({featname})', fontsize=30)
+
+            # apply styling with ncol=1
+            ax1 = make_beautiful(ax1, legend_loc='below', legend_offset=0.25, legend_fontsize=24,
+                                legend_ncol=1)
+
+            # Format y-axis tick labels to 1 decimal place for density plot
+            ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.1f}'))
+
     plt.tight_layout()
+    # Add extra space at bottom for legends
+    plt.subplots_adjust(bottom=0.15)
 
     return fig
 
