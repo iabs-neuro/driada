@@ -141,7 +141,15 @@ def make_beautiful(
 
         def lowercase_formatter(x, pos):
             """Format tick labels to lowercase."""
-            return f"{x}".lower()
+            # Round to 6 decimal places to avoid floating-point precision issues
+            x_rounded = round(x, 6)
+            # Format with appropriate precision
+            if x_rounded == int(x_rounded):
+                # Display as integer if it's a whole number
+                return f"{int(x_rounded)}".lower()
+            else:
+                # Use general format that removes trailing zeros
+                return f"{x_rounded:g}".lower()
 
         ax.xaxis.set_major_formatter(FuncFormatter(lowercase_formatter))
         ax.yaxis.set_major_formatter(FuncFormatter(lowercase_formatter))

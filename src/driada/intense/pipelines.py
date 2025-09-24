@@ -687,6 +687,9 @@ def compute_feat_feat_significance(
     if verbose:
         print(f"Computing behavioral similarity matrix for {n_features} features...")
         print(f"Features: {feat_ids}")
+        # Note: computing only unique pairs (upper triangle), not all n²
+        n_unique_pairs = n_features * (n_features - 1) // 2
+        print(f"Unique pairs to compute: {n_unique_pairs} (avoiding redundancy)")
 
     # Get TimeSeries/MultiTimeSeries objects for all features
     from ..information.info_base import aggregate_multiple_ts
@@ -950,6 +953,9 @@ def compute_cell_cell_significance(
     if verbose:
         print(f"Computing neuronal similarity matrix for {n_cells} neurons...")
         print(f"Data type: {data_type}")
+        # Note: computing only unique pairs (upper triangle), not all n²
+        n_unique_pairs = n_cells * (n_cells - 1) // 2
+        print(f"Unique pairs to compute: {n_unique_pairs} (avoiding redundancy)")
 
     # Get neural signals based on data type
     if data_type == "calcium":

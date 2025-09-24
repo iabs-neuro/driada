@@ -171,7 +171,7 @@ class TestVisualFunctionsCompletelyMocked:
             ax1 = MagicMock()
             ax2 = MagicMock()
             mock_subplots.return_value = (fig, [ax1, ax2])
-            mock_beautiful.side_effect = lambda x: x  # Just return the axis
+            mock_beautiful.side_effect = lambda x, **kwargs: x  # Just return the axis
 
             # Mock axis methods
             for ax in [ax1, ax2]:
@@ -411,7 +411,7 @@ class TestPerformanceWithCompleteMocking:
             ax1 = MagicMock()
             ax2 = MagicMock()
             mock_subplots.return_value = (fig, [ax1, ax2])
-            mock_beautiful.side_effect = lambda x: x
+            mock_beautiful.side_effect = lambda x, **kwargs: x
 
             for ax in [ax1, ax2]:
                 ax.plot.return_value = [MagicMock()]
