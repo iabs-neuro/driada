@@ -49,6 +49,7 @@ def loo_dr_analysis(
     metrics_to_compute: Optional[list] = None,
     k_neighbors: int = 15,
     cbunch: Optional[list] = None,
+    downsampling: Optional[int] = None,
     verbose: bool = True
 ) -> pd.DataFrame:
     """
@@ -92,6 +93,9 @@ def loo_dr_analysis(
     cbunch : list, optional
         List of neuron indices to check. If None, checks all neurons.
         Example: [0, 5, 10] will only test neurons 0, 5, and 10.
+    downsampling : int, optional
+        Downsampling factor for temporal data. If provided, uses every
+        downsampling-th timepoint. Useful for speeding up computation.
     verbose : bool, default=True
         Print progress information
 
@@ -164,6 +168,15 @@ def loo_dr_analysis(
         if verbose:
             print(f"Detected 2D spatial manifold with x,y ground truth")
 
+    # Apply downsampling to ground truth if needed
+    if ground_truth is not None and downsampling is not None:
+        if len(ground_truth.shape) == 1:
+            ground_truth = ground_truth[::downsampling]
+        else:
+            ground_truth = ground_truth[::downsampling, :]
+        if verbose:
+            print(f"Downsampled ground truth by factor {downsampling}: new shape {ground_truth.shape}")
+
     if verbose:
         print(f"Starting LOO analysis for {n_neurons} neurons using {method}")
         print(f"Data shape: {neural_data.shape}")
@@ -207,6 +220,7 @@ def loo_dr_analysis(
         ground_truth,
         manifold_type,
         label='all',
+        downsampling=downsampling,
         verbose=verbose
     )
     results.append(baseline_metrics)
@@ -251,6 +265,7 @@ def loo_dr_analysis(
                 ground_truth,
                 manifold_type,
                 label=neuron_idx,
+                downsampling=downsampling,
                 verbose=False  # Suppress verbose for individual neurons
             )
         except Exception as e:
@@ -317,6 +332,7 @@ def _compute_embedding_metrics(
     ground_truth: Optional[np.ndarray],
     manifold_type: Optional[str],
     label: Union[int, str],
+    downsampling: Optional[int] = None,
     verbose: bool = False
 ) -> Dict[str, Any]:
     """
@@ -356,10 +372,15 @@ def _compute_embedding_metrics(
         # Create a subset using the mask
         data = data_obj.data[neuron_mask, :]
         from driada.dim_reduction import MVData
-        mvdata = MVData(data)
+        mvdata = MVData(data, downsampling=downsampling)
     else:
         # Use the full MultiTimeSeries object directly
-        mvdata = data_obj
+        if downsampling is not None:
+            # Need to create a new MVData with downsampling
+            from driada.dim_reduction import MVData
+            mvdata = MVData(data_obj.data, downsampling=downsampling)
+        else:
+            mvdata = data_obj
 
     # Get embedding
     try:
