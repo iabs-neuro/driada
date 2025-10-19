@@ -443,19 +443,36 @@ def merge_params_with_defaults(
             m_params.update(user_params["m_params"])
     else:
         # User provided flat parameters - need to distribute to appropriate dicts
+        # CRITICAL: Map ALL common parameter aliases to their correct locations
         for key, value in user_params.items():
-            if key == "n_neighbors" and g_params is not None:
-                # Map n_neighbors to nn in graph params
-                g_params["nn"] = value
-            elif key == "metric" and m_params is not None:
-                # Map metric to metric_name in metric params
-                m_params["metric_name"] = value
-            elif key == "sigma" and m_params is not None:
-                m_params["sigma"] = value
-            elif key == "max_deleted_nodes" and g_params is not None:
-                g_params["max_deleted_nodes"] = value
+            # Graph parameters (g_params)
+            if g_params is not None and key in [
+                "n_neighbors", "nn", "k",  # All aliases for number of neighbors
+                "weighted", "dist_to_aff", "graph_preprocessing",
+                "g_method_name", "max_deleted_nodes"
+            ]:
+                if key in ["n_neighbors", "k"]:  # Map aliases to nn
+                    g_params["nn"] = value
+                elif key == "nn":  # Direct nn parameter
+                    g_params["nn"] = value
+                else:  # Other graph params keep their names
+                    g_params[key] = value
+
+            # Metric parameters (m_params)
+            elif m_params is not None and key in [
+                "metric", "metric_name", "sigma"
+            ]:
+                if key == "metric":  # Map alias to metric_name
+                    m_params["metric_name"] = value
+                else:  # Direct parameters
+                    m_params[key] = value
+
+            # Common embedding parameter aliases
+            elif key == "n_components":  # sklearn alias for dim
+                e_params["dim"] = value
+
+            # Everything else goes to embedding params
             else:
-                # All other params go to embedding params
                 e_params[key] = value
 
     # Always ensure e_method is set

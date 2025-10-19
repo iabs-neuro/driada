@@ -1320,6 +1320,7 @@ def compute_embedding_quality(
     allow_rotation: bool = True,
     allow_reflection: bool = True,
     allow_scaling: bool = True,
+    random_state: int = 42,
 ) -> Dict[str, float]:
     """Evaluate embedding quality using train/test split.
 
@@ -1339,6 +1340,8 @@ def compute_embedding_quality(
         Whether to allow reflection when finding alignment. Default is True.
     allow_scaling : bool, optional
         Whether to allow scaling when finding alignment. Default is True.
+    random_state : int, optional
+        Random seed for train/test split reproducibility. Default is 42.
 
     Returns
     -------
@@ -1351,16 +1354,15 @@ def compute_embedding_quality(
 
     Notes
     -----
-    Uses sequential (not random) split of data. The alignment is computed
+    Uses random (not sequential) split of data to avoid domain shift issues
+    that can occur with temporal/spatial data. The alignment is computed
     separately for train and test sets.    """
-    n_samples = embedding.shape[0]
-    n_train = int(n_samples * train_fraction)
+    from sklearn.model_selection import train_test_split
 
-    # Split data
-    train_embedding = embedding[:n_train]
-    test_embedding = embedding[n_train:]
-    train_variable = true_variable[:n_train]
-    test_variable = true_variable[n_train:]
+    # Split data randomly to avoid domain shift
+    train_embedding, test_embedding, train_variable, test_variable = train_test_split(
+        embedding, true_variable, test_size=1-train_fraction, random_state=random_state
+    )
 
     # Compute reconstruction errors with alignment
     train_metrics = compute_reconstruction_error(
@@ -1395,6 +1397,7 @@ def compute_decoding_accuracy(
     true_variable: np.ndarray,
     manifold_type: str = "circular",
     train_fraction: float = 0.8,
+    random_state: int = 42,
 ) -> dict:
     """Compute decoding accuracy using simple linear decoder.
 
@@ -1413,6 +1416,8 @@ def compute_decoding_accuracy(
     train_fraction : float, optional
         Fraction of data to use for training. Default is 0.8.
         Must be between 0 and 1.
+    random_state : int, optional
+        Random seed for train/test split reproducibility. Default is 42.
 
     Returns
     -------
@@ -1420,20 +1425,20 @@ def compute_decoding_accuracy(
         Dictionary containing:
         - 'train_error': float, training reconstruction error
         - 'test_error': float, testing reconstruction error
+        - 'test_r2': float, proper R² score on test set
         - 'generalization_gap': float, difference (test_error - train_error)
 
     Notes
     -----
-    Uses sequential (not random) split of data. The first `train_fraction`
-    of samples are used for training, the rest for testing.    """
-    n_samples = embedding.shape[0]
-    n_train = int(n_samples * train_fraction)
+    Uses random (not sequential) split of data to avoid domain shift issues
+    that can occur with temporal/spatial data. For reproducibility, the
+    random_state parameter controls the split.    """
+    from sklearn.model_selection import train_test_split
 
-    # Split data
-    train_embedding = embedding[:n_train]
-    test_embedding = embedding[n_train:]
-    train_variable = true_variable[:n_train]
-    test_variable = true_variable[n_train:]
+    # Split data randomly to avoid domain shift
+    train_embedding, test_embedding, train_variable, test_variable = train_test_split(
+        embedding, true_variable, test_size=1-train_fraction, random_state=random_state
+    )
 
     # Train decoder
     decoder = train_simple_decoder(train_embedding, train_variable, manifold_type)
@@ -1451,12 +1456,41 @@ def compute_decoding_accuracy(
     test_predictions = decoder(test_embedding)
     if manifold_type == "circular":
         test_error = np.mean(circular_distance(test_predictions, test_variable))
+        # For circular data, compute R² using circular distances
+        # Convert circular distances to "residuals" for R² calculation
+        residuals = circular_distance(test_predictions, test_variable)
+        # Total sum of squares for circular data using mean direction
+        mean_direction = np.arctan2(np.mean(np.sin(test_variable)), np.mean(np.cos(test_variable)))
+        total_residuals = circular_distance(test_variable, mean_direction)
+
+        # R² calculation for circular data
+        ss_res = np.sum(residuals**2)
+        ss_tot = np.sum(total_residuals**2)
+        test_r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
     else:
         test_error = np.mean(np.linalg.norm(test_predictions - test_variable, axis=1))
+        # For spatial data, compute standard R²
+        if test_variable.ndim == 1:
+            # 1D case
+            ss_res = np.sum((test_variable - test_predictions)**2)
+            ss_tot = np.sum((test_variable - np.mean(test_variable))**2)
+            test_r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+        else:
+            # Multi-dimensional case - compute R² per dimension and average
+            r2_per_dim = []
+            for dim in range(test_variable.shape[1]):
+                y_true_dim = test_variable[:, dim]
+                y_pred_dim = test_predictions[:, dim]
+                ss_res_dim = np.sum((y_true_dim - y_pred_dim)**2)
+                ss_tot_dim = np.sum((y_true_dim - np.mean(y_true_dim))**2)
+                r2_dim = 1 - (ss_res_dim / ss_tot_dim) if ss_tot_dim > 0 else 0.0
+                r2_per_dim.append(r2_dim)
+            test_r2 = np.mean(r2_per_dim)
 
     return {
         "train_error": train_error,
         "test_error": test_error,
+        "test_r2": test_r2,
         "generalization_gap": test_error - train_error,
     }
 
@@ -1469,6 +1503,7 @@ def manifold_reconstruction_score(
     allow_rotation: bool = True,
     allow_reflection: bool = True,
     allow_scaling: bool = True,
+    random_state: int = 42,
 ) -> dict:
     """Compute comprehensive manifold reconstruction score.
 
@@ -1490,6 +1525,8 @@ def manifold_reconstruction_score(
         Whether to allow reflection when finding alignment. Default is True.
     allow_scaling : bool, optional
         Whether to allow scaling when finding alignment. Default is True.
+    random_state : int, optional
+        Random seed for train/test split reproducibility. Default is 42.
 
     Returns
     -------
@@ -1541,7 +1578,7 @@ def manifold_reconstruction_score(
 
     # Use decoder-based accuracy for consistency
     decoding_results = compute_decoding_accuracy(
-        embedding, true_variable, manifold_type
+        embedding, true_variable, manifold_type, random_state=random_state
     )
 
     # Normalize reconstruction error (lower is better, so invert)
