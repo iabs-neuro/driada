@@ -104,7 +104,7 @@ class TestParameterMappingIntegration:
         # If both nn and n_neighbors are given, last one should win
         # (dict order in Python 3.7+ is insertion order)
         emb = sample_data.get_embedding(method="isomap", nn=10, n_neighbors=20, dim=2)
-        assert emb.g.nn == 20, "Parameter priority not working correctly!"
+        assert emb.graph.nn == 20, "Parameter priority not working correctly!"
 
 
 class TestParameterMappingForAllMethods:

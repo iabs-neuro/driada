@@ -436,6 +436,9 @@ class TestIntegration:
 
     def test_wavelet_spike_inference(self):
         """Test integration with wavelet spike detection."""
+        # Set seed for reproducibility and to avoid NaN issues from test interactions
+        np.random.seed(42)
+
         wvt_kwargs = WVT_EVENT_DETECTION_PARAMS.copy()
         wvt_kwargs["fps"] = 20
 

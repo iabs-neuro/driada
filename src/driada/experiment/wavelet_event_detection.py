@@ -1,6 +1,7 @@
 import numpy as np
 import tqdm
 import matplotlib.pyplot as plt
+import warnings
 
 # Fix scipy compatibility issue for ssqueezepy
 import scipy.integrate
@@ -468,8 +469,14 @@ def get_events_from_ridges(
         )
     ]
 
-    st_evinds = [r.indices[0] for r in event_ridges]
-    end_evinds = [r.indices[-1] for r in event_ridges]
+    st_evinds = [int(r.indices[0]) for r in event_ridges]
+    end_evinds = [int(r.indices[-1]) for r in event_ridges]
+
+    # Fix reversed indices: ensure start <= end
+    for i in range(len(st_evinds)):
+        if st_evinds[i] > end_evinds[i]:
+            st_evinds[i], end_evinds[i] = end_evinds[i], st_evinds[i]
+
     return st_evinds, end_evinds
 
 
@@ -813,11 +820,18 @@ def events_to_ts_array_numba(
 
 def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     """Convert event indices to binary time series array.
-    
+
     Transforms lists of event start/end indices into a binary array where
     1 indicates an active event and 0 indicates no event. Events are
     constrained to reasonable durations based on calcium dynamics.
-    
+
+    .. warning::
+       This function creates binary event flags only and **discards amplitude
+       information**. For amplitude-aware spike reconstruction, use
+       :meth:`Neuron.extract_event_amplitudes` and
+       :meth:`Neuron.amplitudes_to_point_events` instead, which preserve
+       calcium fluorescence amplitudes (dF/F0) for accurate reconstruction.
+
     Parameters
     ----------
     length : int
@@ -828,23 +842,33 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
         End indices for events. Each sublist contains events for one neuron.
     fps : float
         Frame rate in Hz, used to convert duration constraints to frames.
-        
+
     Returns
     -------
     ndarray
         Binary array of shape (n_neurons, length) where 1 indicates an event.
-        
+
     Raises
     ------
     ValueError
-        If length is not positive, fps is not positive, or st_ev_inds and 
+        If length is not positive, fps is not positive, or st_ev_inds and
         end_ev_inds have different structures.
-        
+
     Notes
     -----
     Events are adjusted to have durations between MIN_EVENT_DUR (0.5s) and
     MAX_EVENT_DUR (2.5s). Events shorter than minimum are extended from their
     center, while events longer than maximum are truncated.    """
+    # Issue runtime warning about amplitude loss
+    warnings.warn(
+        "events_to_ts_array() creates binary event flags only and discards "
+        "amplitude information. For amplitude-aware spike reconstruction, use "
+        "Neuron.extract_event_amplitudes() and Neuron.amplitudes_to_point_events() "
+        "to preserve calcium fluorescence amplitudes (dF/F0).",
+        UserWarning,
+        stacklevel=2
+    )
+
     # Validate parameters
     from ..utils.data import check_positive
     check_positive(length=length, fps=fps)

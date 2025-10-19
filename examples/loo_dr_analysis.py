@@ -288,31 +288,52 @@ def loo_dr_analysis(
         # Report summary statistics
         baseline = results_df.loc['all']
         degradations = []
+        # Only use numeric columns for degradation calculation
+        numeric_cols = results_df.select_dtypes(include=['float64', 'int64']).columns
+        metric_cols = [col for col in numeric_cols if col not in ['node_loss_rate', 'n_lost_nodes']]
+
         for idx in results_df.index[1:]:
-            if not results_df.loc[idx].isna().all():
-                deg = (baseline - results_df.loc[idx]) / (baseline + 1e-10)
+            if not results_df.loc[idx, metric_cols].isna().all():
+                deg = (baseline[metric_cols] - results_df.loc[idx, metric_cols]) / (baseline[metric_cols] + 1e-10)
                 degradations.append(deg.mean())
 
         if degradations:
             top_5_idx = np.argsort(degradations)[-5:]
             print(f"Top 5 neurons causing most degradation: {top_5_idx.tolist()}")
 
+        # Report node loss statistics if present
+        if 'node_loss_rate' in results_df.columns:
+            node_loss_neurons = results_df[results_df['node_loss_rate'] > 0]
+            if len(node_loss_neurons) > 1:  # Exclude baseline 'all'
+                print(f"\nNode loss statistics:")
+                print(f"  Neurons with node loss: {len(node_loss_neurons)-1}/{len(results_df)-1}")
+                avg_loss = node_loss_neurons['node_loss_rate'].mean()
+                max_loss = node_loss_neurons['node_loss_rate'].max()
+                print(f"  Average node loss rate: {avg_loss:.1%}")
+                print(f"  Maximum node loss rate: {max_loss:.1%}")
+
+                # Report graph disconnections
+                if 'status' in results_df.columns:
+                    disconnected = results_df[results_df['status'] == 'graph_disconnected']
+                    if len(disconnected) > 0:
+                        print(f"  Graph disconnections: {len(disconnected)} neurons")
+
     return results_df
 
 
 def _get_default_params(method: str) -> Dict[str, Any]:
-    """Get default parameters for each DR method."""
+    """Get default parameters for each DR method with proper nn parameter."""
     defaults = {
         'pca': {'dim': 2},
-        'le': {'dim': 2},
-        'auto_le': {'dim': 2},
-        'dmaps': {'dim': 2, 'dm_alpha': 0.5, 'dm_t': 1},
-        'auto_dmaps': {'dim': 2},
-        'isomap': {'dim': 2, 'n_neighbors': 15},
-        'lle': {'dim': 2, 'n_neighbors': 10},
-        'hlle': {'dim': 2, 'n_neighbors': 10},
-        'umap': {'dim': 2, 'n_neighbors': 30, 'min_dist': 0.1},
-        'mvu': {'dim': 2, 'n_neighbors': 10},
+        'le': {'dim': 2, 'nn': 15, 'max_deleted_nodes': 0.3},
+        'auto_le': {'dim': 2, 'nn': 15, 'max_deleted_nodes': 0.3},
+        'dmaps': {'dim': 2, 'dm_alpha': 0.5, 'dm_t': 1, 'nn': 15, 'max_deleted_nodes': 0.3},
+        'auto_dmaps': {'dim': 2, 'nn': 15, 'max_deleted_nodes': 0.3},
+        'isomap': {'dim': 2, 'nn': 15, 'max_deleted_nodes': 0.3},  # Now nn works!
+        'lle': {'dim': 2, 'nn': 10, 'max_deleted_nodes': 0.3},
+        'hlle': {'dim': 2, 'nn': 10, 'max_deleted_nodes': 0.3},
+        'umap': {'dim': 2, 'nn': 30, 'min_dist': 0.1, 'max_deleted_nodes': 0.3},
+        'mvu': {'dim': 2, 'nn': 10, 'max_deleted_nodes': 0.3},
         'mds': {'dim': 2},
         'ae': {'dim': 2, 'epochs': 100, 'lr': 0.001},
         'vae': {'dim': 2, 'epochs': 100, 'beta': 1.0},
@@ -382,12 +403,46 @@ def _compute_embedding_metrics(
         else:
             mvdata = data_obj
 
-    # Get embedding
+    # Get embedding with proper error handling for graph disconnection
     try:
         embedding = mvdata.get_embedding(method=method, **params)
         coords = embedding.coords.T  # (n_timepoints, n_dims)
     except Exception as e:
-        raise RuntimeError(f"Embedding failed for {method}: {e}")
+        # Check if it's a node loss error
+        if "nodes discarded" in str(e) or "disconnected" in str(e).lower():
+            if verbose:
+                print(f"  Warning: Graph disconnected for neuron {label}: {e}")
+            # Return NaN metrics with failure note
+            metrics = {'neuron': label, 'status': 'graph_disconnected', 'node_loss_rate': 1.0}
+            for metric in metrics_list:
+                metrics[metric] = np.nan
+            return metrics
+        else:
+            raise RuntimeError(f"Embedding failed for {method}: {e}")
+
+    # Check for node loss in graph-based methods
+    node_loss_rate = 0.0
+    lost_nodes = []
+
+    if hasattr(embedding, 'graph') and hasattr(embedding.graph, 'lost_nodes'):
+        lost_nodes = list(embedding.graph.lost_nodes)
+        total_samples = mvdata.data.shape[1]
+        node_loss_rate = len(lost_nodes) / total_samples
+
+        if node_loss_rate > 0:
+            # Get surviving indices for ground truth alignment
+            all_indices = set(range(total_samples))
+            surviving_indices = sorted(all_indices - set(lost_nodes))
+
+            if verbose and node_loss_rate > 0.1:  # Warn if > 10% loss
+                print(f"  Warning: {node_loss_rate:.1%} nodes lost for neuron {label}")
+
+            # Align ground truth to surviving nodes if needed
+            if ground_truth is not None and node_loss_rate > 0:
+                if len(ground_truth.shape) == 1:
+                    ground_truth = ground_truth[surviving_indices]
+                else:
+                    ground_truth = ground_truth[surviving_indices, :]
 
     # Get data for metrics (they expect n_samples x n_features)
     if neuron_mask is not None:
@@ -396,7 +451,7 @@ def _compute_embedding_metrics(
         data_T = data_obj.data.T
 
     # Compute requested metrics
-    metrics = {'neuron': label}
+    metrics = {'neuron': label, 'node_loss_rate': node_loss_rate, 'status': 'success'}
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
