@@ -609,20 +609,20 @@ def events_from_trace(
     return all_ridges, st_evinds, end_evinds
 
 
-def extract_wvt_events(traces, wvt_kwargs):
+def extract_wvt_events(traces, wvt_kwargs, show_progress=None):
     """Extract calcium events from multiple traces using wavelet ridge detection.
-    
+
     Detects calcium transient events by finding ridges in the continuous wavelet
     transform (CWT) of calcium signals. Uses Generalized Morse Wavelets and
     ridge filtering to identify significant events.
-    
+
     Parameters
     ----------
     traces : ndarray
         2D array of calcium traces (neurons x time).
     wvt_kwargs : dict
         Wavelet detection parameters:
-        
+
         * fps : float, frame rate in Hz (default: 20)
         * beta : float, GMW beta parameter (default: 2)
         * gamma : float, GMW gamma parameter (default: 3)
@@ -633,7 +633,10 @@ def extract_wvt_events(traces, wvt_kwargs):
         * max_scale_thr : int, max scale index threshold (default: 7)
         * max_ampl_thr : float, minimum ridge amplitude (default: 0.05)
         * max_dur_thr : int, maximum event duration in frames (default: 200)
-        
+    show_progress : bool, optional
+        Whether to show progress bar. If None (default), automatically shows
+        progress bar only when processing multiple traces (>1).
+
     Returns
     -------
     st_ev_inds : list of lists
@@ -642,14 +645,14 @@ def extract_wvt_events(traces, wvt_kwargs):
         End indices for each detected event per neuron.
     all_ridges : list of lists
         Ridge objects containing detailed event information per neuron.
-        
+
     Raises
     ------
     ValueError
         If traces is not 2D or empty.
     TypeError
         If wvt_kwargs is not a dictionary.
-        
+
     Notes
     -----
     The algorithm:
@@ -658,7 +661,7 @@ def extract_wvt_events(traces, wvt_kwargs):
     3. Detects ridges (connected paths through scale-time plane)
     4. Filters ridges based on length, amplitude, and duration criteria
     5. Returns event start/end times
-    
+
     Ridge filtering removes noise and artifacts by requiring events to:
     - Persist across multiple scales (scale_length_thr)
     - Have sufficient amplitude (max_ampl_thr)
@@ -700,10 +703,14 @@ def extract_wvt_events(traces, wvt_kwargs):
         for sc in manual_scales
     ]
 
+    # Auto-detect progress bar visibility: show only for multiple traces
+    if show_progress is None:
+        show_progress = len(traces) > 1
+
     st_ev_inds = []
     end_ev_inds = []
     all_ridges = []
-    for i, trace in tqdm.tqdm(enumerate(traces), total=len(traces)):
+    for i, trace in tqdm.tqdm(enumerate(traces), total=len(traces), disable=not show_progress):
         ridges, st_ev, end_ev = events_from_trace(
             trace,
             wavelet,

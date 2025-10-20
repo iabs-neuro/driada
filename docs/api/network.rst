@@ -9,7 +9,7 @@ Tools for analyzing functional networks in neural data, including graph-based an
 spectral methods, and network visualization.
 
 .. note::
-   As of version 1.0.0, all major functions are now exported at the module level.
+   As of version 0.5.1, all major functions are now exported at the module level.
    You can use ``from driada.network import get_giant_cc_from_graph`` etc.
 
 Module Components

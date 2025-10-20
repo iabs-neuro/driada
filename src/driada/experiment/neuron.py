@@ -743,7 +743,7 @@ class Neuron:
 
     def reconstruct_spikes(self, method="wavelet", iterative=True, n_iter=3,
                           min_events_threshold=2, adaptive_thresholds=False,
-                          amplitude_method="deconvolution", **kwargs):
+                          amplitude_method="deconvolution", show_progress=False, **kwargs):
         """Reconstruct spikes from calcium signal.
 
         Reconstructs discrete spike events from continuous calcium
@@ -756,7 +756,8 @@ class Neuron:
             Default is 'wavelet'.
         iterative : bool, optional
             Use iterative wavelet detection with residual analysis (wavelet method only).
-            Detects events in residuals across multiple iterations. Default is False.
+            Detects events in residuals across multiple iterations to handle overlapping
+            events and improve detection of smaller events. Default is True.
         n_iter : int, optional
             Number of iterations (only if iterative=True). Default is 3.
         min_events_threshold : int, optional
@@ -769,6 +770,9 @@ class Neuron:
             - 'peak': Peak-based extraction with baseline subtraction (backward compatible)
             - 'deconvolution': Non-negative least squares deconvolution (default, optimal for overlapping events)
             Default is 'deconvolution'.
+        show_progress : bool, optional
+            Whether to show progress bar during wavelet detection. Default is False
+            (no progress bar for single neuron processing).
         **kwargs
             Additional parameters depend on method:
 
@@ -807,7 +811,12 @@ class Neuron:
         calcium transient events. The threshold method uses derivative-based
         spike detection with Gaussian smoothing.
 
-        When iterative=True, performs multiple detection passes on residuals.        """
+        Iterative detection (default) performs multiple detection passes on residuals,
+        removing detected events and searching for additional events in the remaining
+        signal. This approach significantly improves detection of overlapping and
+        smaller events compared to single-pass detection.
+
+        For single-pass detection (backward compatible), set iterative=False.        """
         if method == "wavelet":
             # Get parameters with defaults
             fps = kwargs.get("fps", DEFAULT_FPS)
@@ -863,7 +872,9 @@ class Neuron:
                 for iter_idx in range(n_iter):
                     # Detect events in current signal
                     current_signal_2d = current_signal.reshape(1, -1)
-                    st_ev_inds, end_ev_inds, _ = extract_wvt_events(current_signal_2d, iter_kwargs[iter_idx])
+                    st_ev_inds, end_ev_inds, _ = extract_wvt_events(
+                        current_signal_2d, iter_kwargs[iter_idx], show_progress=show_progress
+                    )
 
                     # Extract indices for single neuron
                     st_inds = st_ev_inds[0] if len(st_ev_inds) > 0 else []
@@ -971,7 +982,9 @@ class Neuron:
 
             # Single-pass detection (original logic)
             # Extract events
-            st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(ca_data, wvt_kwargs)
+            st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(
+                ca_data, wvt_kwargs, show_progress=show_progress
+            )
 
             # Create binary event regions (rectangular pulses with duration)
             events = events_to_ts_array(
