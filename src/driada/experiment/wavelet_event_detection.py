@@ -199,11 +199,16 @@ def get_cwt_ridges(
                     # print(f'ridge with start time {ridge.indices[0]} extended')
                 else:
                     # extend ridge with the best maximum, others will later form new ridges
-                    best_cand = candidates[np.argmax(peaks[i, np.array(candidates)])]
-                    ridge.extend(
-                        best_cand, peaks[i, best_cand], wvt_scales[si], wvt_time
-                    )
-                    maxima_used_for_prolongation.append(best_cand)
+                    candidate_values = peaks[i, np.array(candidates)]
+                    if len(candidate_values) > 0 and not np.all(np.isnan(candidate_values)):
+                        best_cand = candidates[np.argmax(candidate_values)]
+                        ridge.extend(
+                            best_cand, peaks[i, best_cand], wvt_scales[si], wvt_time
+                        )
+                        maxima_used_for_prolongation.append(best_cand)
+                    else:
+                        # No valid candidates, terminate ridge
+                        ridge.terminate()
                     # maxima_used_for_prolongation.extend(candidates)
 
             # 2. generate new ridges
@@ -318,11 +323,16 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
                     # print(f'ridge with start time {ridge.indices[0]} extended')
                 else:
                     # extend ridge with the best maximum, others will later form new ridges
-                    best_cand = candidates[np.argmax(peaks[si, np.array(candidates)])]
-                    ridge.extend(
-                        best_cand, peaks[si, best_cand], wvt_scales[si], wvt_time
-                    )
-                    maxima_used_for_prolongation.append(best_cand)
+                    candidate_values = peaks[si, np.array(candidates)]
+                    if len(candidate_values) > 0 and not np.all(np.isnan(candidate_values)):
+                        best_cand = candidates[np.argmax(candidate_values)]
+                        ridge.extend(
+                            best_cand, peaks[si, best_cand], wvt_scales[si], wvt_time
+                        )
+                        maxima_used_for_prolongation.append(best_cand)
+                    else:
+                        # No valid candidates, terminate ridge
+                        ridge.terminate()
                     # maxima_used_for_prolongation.extend(candidates)
 
             # 2. generate new ridges
@@ -477,7 +487,7 @@ def get_events_from_ridges(
         if st_evinds[i] > end_evinds[i]:
             st_evinds[i], end_evinds[i] = end_evinds[i], st_evinds[i]
 
-    return st_evinds, end_evinds
+    return st_evinds, end_evinds, event_ridges
 
 
 def events_from_trace(
@@ -598,7 +608,7 @@ def events_from_trace(
 
     all_ridges = get_cwt_ridges_fast(rev_wvtdata, peaks, rel_wvt_times, manual_scales)
 
-    st_evinds, end_evinds = get_events_from_ridges(
+    st_evinds, end_evinds, filtered_ridges = get_events_from_ridges(
         all_ridges,
         scale_length_thr=scale_length_thr,
         max_scale_thr=max_scale_thr,
@@ -606,7 +616,7 @@ def events_from_trace(
         max_dur_thr=max_dur_thr,
     )
 
-    return all_ridges, st_evinds, end_evinds
+    return filtered_ridges, st_evinds, end_evinds
 
 
 def extract_wvt_events(traces, wvt_kwargs, show_progress=None):

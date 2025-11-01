@@ -237,9 +237,9 @@ if is_jit_enabled():
                 self.length = len(self.scales)
                 self.max_scale = self.scales[maxpos_numba(self.ampls)]
                 self.max_ampl = max(self.ampls)
-                self.start = self.indices[0]
-                self.end = self.indices[-1]
-                self.duration = np.abs(self.end - self.start)
+                self.start = min(self.indices)
+                self.end = max(self.indices)
+                self.duration = self.end - self.start
                 self.terminated = True
 else:
     # Pure Python implementation
@@ -393,9 +393,9 @@ else:
                 self.length = len(self.scales)
                 self.max_scale = self.scales[maxpos_numba(self.ampls)]
                 self.max_ampl = max(self.ampls)
-                self.start = self.indices[0]
-                self.end = self.indices[-1]
-                self.duration = np.abs(self.end - self.start)
+                self.start = min(self.indices)
+                self.end = max(self.indices)
+                self.duration = self.end - self.start
                 self.terminated = True
 
 
@@ -463,13 +463,13 @@ class RidgeInfoContainer(object):
     0.9
     >>> ridge_info.duration
     3
-    
+
     Notes
     -----
     All input arrays are converted to numpy arrays. The class assumes
     the ridge data comes from a terminated Ridge object.    """
     def __init__(self, indices, ampls, scales, wvt_times):
-        """Initialize ExtractedRidge with ridge data.
+        """Initialize RidgeInfoContainer with ridge data.
         
         Parameters
         ----------
@@ -513,9 +513,9 @@ class RidgeInfoContainer(object):
         self.length = len(self.scales)
         self.max_scale = self.scales[np.argmax(self.ampls)]
         self.max_ampl = np.max(self.ampls)
-        self.start = self.indices[0]
-        self.end = self.indices[-1]
-        self.duration = np.abs(self.end - self.start)
+        self.start = min(self.indices)
+        self.end = max(self.indices)
+        self.duration = self.end - self.start
 
 
 def ridges_to_containers(ridges):

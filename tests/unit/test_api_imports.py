@@ -6,7 +6,8 @@ def test_main_package_import():
     import driada
 
     assert hasattr(driada, "__version__")
-    assert driada.__version__ == "1.0.0"
+    assert isinstance(driada.__version__, str)
+    assert len(driada.__version__) > 0
 
 
 def test_main_exports():

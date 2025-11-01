@@ -145,7 +145,8 @@ class Experiment:
         must have the same length (number of timepoints).
     **kwargs : dict
         Additional parameters including:
-        - fit_individual_t_off : bool, fit decay time per neuron (default: False)
+        - optimize_kinetics : bool or str, optimize kinetics per neuron (default: False).
+          If True, uses 'lbfgs' method. Can specify 'lbfgs' or 'grid' explicitly.
         - reconstruct_spikes : str or bool, spike reconstruction method (default: 'wavelet')
         - bad_frames_mask : array-like, boolean mask where True indicates bad frames
         - spike_kwargs : dict, parameters for spike reconstruction
@@ -285,7 +286,8 @@ class Experiment:
             Keys become accessible via self.dynamic_features.
         **kwargs
             Additional parameters:
-            - fit_individual_t_off (bool): Fit decay time per neuron. Default False.
+            - optimize_kinetics (bool or str): Optimize kinetics per neuron. Default False.
+              If True, uses 'lbfgs' method. Can specify 'lbfgs' or 'grid' explicitly.
             - reconstruct_spikes (str, False, or None): Method for spike reconstruction.
               Options: 'wavelet' (default), 'threshold', False, or None.
               If False or None, spike reconstruction is disabled.
@@ -360,7 +362,7 @@ class Experiment:
         ...     verbose=False
         ... )
         """
-        fit_individual_t_off = kwargs.get("fit_individual_t_off", False)
+        optimize_kinetics = kwargs.get("optimize_kinetics", False)
         reconstruct_spikes = kwargs.get("reconstruct_spikes", "wavelet")
         bad_frames_mask = kwargs.get("bad_frames_mask", None)
         spike_kwargs = kwargs.get("spike_kwargs", None)
@@ -445,7 +447,7 @@ class Experiment:
                 default_t_rise=static_features.get("t_rise_sec"),
                 default_t_off=static_features.get("t_off_sec"),
                 fps=static_features.get("fps"),
-                fit_individual_t_off=fit_individual_t_off,
+                optimize_kinetics=optimize_kinetics,
             )
 
             self.neurons.append(cell)
