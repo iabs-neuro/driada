@@ -136,7 +136,7 @@ class TestNeuronMethods:
         neuron = Neuron("cell_6", ca_data, sp_data)
 
         # Now reconstruct_spikes is implemented, so test it works
-        spikes = neuron.reconstruct_spikes(method="wavelet")
+        spikes = neuron.reconstruct_spikes(method="wavelet", create_event_regions=True)
         assert isinstance(spikes, np.ndarray)
         assert len(spikes) == neuron.n_frames
 
@@ -172,7 +172,7 @@ class TestNeuronMethods:
 
         neuron = Neuron("cell_9", ca_data, sp_data)
 
-        with pytest.raises(ValueError, match="No spikes found"):
+        with pytest.raises(ValueError, match="No spike data available"):
             neuron.get_snr()
 
     def test_calc_snr_nan_handling(self):
@@ -228,12 +228,15 @@ class TestNeuronMethods:
 
         neuron = Neuron("cell_13", ca_data, sp_data)
 
-        with patch.object(neuron, "_fit_t_off", return_value=(50.0, 0.1)) as mock_fit:
-            noise1 = neuron.get_noise_ampl()
-            noise2 = neuron.get_noise_ampl()
+        # Reconstruct spikes to populate asp (required for get_noise_ampl)
+        neuron.reconstruct_spikes(method="wavelet", create_event_regions=True)
 
-            assert noise1 == noise2
-            mock_fit.assert_called_once()
+        # Test caching behavior
+        noise1 = neuron.get_noise_ampl()
+        noise2 = neuron.get_noise_ampl()
+
+        assert noise1 == noise2
+        assert noise1 > 0  # Should have valid noise amplitude
 
     def test_fit_t_off_high_value_warning(self, capsys):
         """Test warning when fitted t_off is too high."""

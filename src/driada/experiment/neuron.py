@@ -424,7 +424,7 @@ class Neuron:
 
     extract_event_amplitudes = staticmethod(extract_event_amplitudes)
     
-    def deconvolve_given_event_times(ca_signal, event_times, t_rise_frames, t_off_frames):
+    def deconvolve_given_event_times(ca_signal, event_times, t_rise_frames, t_off_frames, event_mask=None):
         '''Extract amplitudes via non-negative least squares deconvolution.
 
         Given detected event times and known calcium kernel parameters, finds
@@ -432,7 +432,7 @@ class Neuron:
         This solves: signal ≈ Σᵢ aᵢ · kernel(t - tᵢ)
 
         Handles overlapping events naturally by jointly optimizing all amplitudes
-        to minimize reconstruction error across the entire signal.
+        to minimize reconstruction error.
 
         Parameters
         ----------
@@ -444,6 +444,11 @@ class Neuron:
             Rise time of calcium kernel in frames.
         t_off_frames : float
             Decay time of calcium kernel in frames.
+        event_mask : ndarray of bool, optional
+            Binary mask indicating frames to fit (typically expanded event regions).
+            If provided, NNLS only fits these frames, reducing baseline noise
+            contribution while covering full calcium transients.
+            Default None fits all frames (legacy behavior).
 
         Returns
         -------
@@ -453,7 +458,10 @@ class Neuron:
         Notes
         -----
         Uses scipy.optimize.nnls for non-negative least squares solution.
-        Complexity: O(n_events² · n_frames) - suitable for offline analysis.
+
+        When event_mask is provided, only masked frames contribute to the fit.
+        The mask should cover full calcium transients (rise + decay), not just peaks.
+        This reduces baseline noise while maintaining proper transient fitting.
 
         References
         ----------
@@ -467,6 +475,8 @@ class Neuron:
         n_events = len(event_times)
         if n_events == 0:
             return np.array([])
+
+        # Build design matrix
         K = np.zeros((n_frames, n_events))
         for i, event_time_idx in enumerate(event_times):
             if event_time_idx < 0 or event_time_idx >= n_frames:
@@ -478,7 +488,19 @@ class Neuron:
             if kernel_max > 0:
                 kernel = kernel / kernel_max
             K[event_time_idx:, i] = kernel
-        (amplitudes, residual_norm) = nnls(K, ca_signal)
+
+        # Apply event mask if provided
+        if event_mask is not None:
+            event_mask = np.asarray(event_mask, dtype=bool)
+            if len(event_mask) != n_frames:
+                raise ValueError(f"event_mask length ({len(event_mask)}) must match signal length ({n_frames})")
+            K_fit = K[event_mask, :]
+            ca_fit = ca_signal[event_mask]
+        else:
+            K_fit = K
+            ca_fit = ca_signal
+
+        (amplitudes, residual_norm) = nnls(K_fit, ca_fit)
         return amplitudes
 
     deconvolve_given_event_times = staticmethod(deconvolve_given_event_times)
@@ -784,7 +806,8 @@ class Neuron:
     
     def reconstruct_spikes(self, method="wavelet", iterative=True, n_iter=3,
                           min_events_threshold=2, adaptive_thresholds=False,
-                          amplitude_method="deconvolution", show_progress=False, create_event_regions=False, **kwargs):
+                          amplitude_method="deconvolution", show_progress=False, create_event_regions=False,
+                          event_mask_expansion_sec=5.0, **kwargs):
         """Reconstruct spikes from calcium signal.
 
         Reconstructs discrete spike events from continuous calcium
@@ -819,6 +842,11 @@ class Neuron:
             This is legacy behavior - modern code should use self.asp (amplitude spikes) instead.
             Only needed for backward compatibility or specific visualization needs.
             Default is False to avoid unnecessary computation and warnings.
+        event_mask_expansion_sec : float, optional
+            Time in seconds to expand event mask around detected events for NNLS deconvolution.
+            The mask is expanded by ±event_mask_expansion_sec to cover the full calcium transient
+            (rise + decay). Larger values include more of the decay but also more baseline noise.
+            Default is 5.0 seconds (optimal balance for GCaMP6s with t_off ~2s).
         **kwargs
             Additional parameters depend on method:
 
@@ -936,8 +964,20 @@ class Neuron:
                         )
                     elif amplitude_method == 'deconvolution':
                         # NNLS runs ONCE on ALL events
+                        # Create expanded event mask to cover full calcium transients
+                        if create_event_regions:
+                            event_mask = np.zeros(self.n_frames, dtype=bool)
+                            # Expand mask by ±event_mask_expansion_sec to cover rise and decay
+                            mask_expansion_frames = int(event_mask_expansion_sec * fps)
+                            for st, end in zip(all_st_inds_list, all_end_inds_list):
+                                # Expand window to cover full transient
+                                expanded_start = max(0, st - mask_expansion_frames)
+                                expanded_end = min(self.n_frames, end + mask_expansion_frames)
+                                event_mask[expanded_start:expanded_end] = True
+                        else:
+                            event_mask = None
                         amplitudes = Neuron.deconvolve_given_event_times(
-                            self.ca.data, all_st_inds_list, t_rise, t_off
+                            self.ca.data, all_st_inds_list, t_rise, t_off, event_mask=event_mask
                         )
                     else:
                         amplitudes = []
@@ -997,8 +1037,20 @@ class Neuron:
                     )
                 elif amplitude_method == 'deconvolution':
                     # Deconvolution-based amplitude extraction
+                    # Create expanded event mask to cover full calcium transients
+                    if create_event_regions:
+                        event_mask = np.zeros(self.n_frames, dtype=bool)
+                        # Expand mask by ±event_mask_expansion_sec to cover rise and decay
+                        mask_expansion_frames = int(event_mask_expansion_sec * fps)
+                        for st, end in zip(st_inds, end_inds):
+                            # Expand window to cover full transient
+                            expanded_start = max(0, st - mask_expansion_frames)
+                            expanded_end = min(self.n_frames, end + mask_expansion_frames)
+                            event_mask[expanded_start:expanded_end] = True
+                    else:
+                        event_mask = None
                     amplitudes = Neuron.deconvolve_given_event_times(
-                        self.ca.data, st_inds, t_rise, t_off
+                        self.ca.data, st_inds, t_rise, t_off, event_mask=event_mask
                     )
                 else:
                     raise ValueError(f"Unknown amplitude_method: {amplitude_method}")
@@ -1113,63 +1165,113 @@ class Neuron:
         ideal for noise estimation in calcium imaging data which often
         contains spike-related transients.        '''
         if self.mad is None:
-            self._calc_snr()
+            # Try co-computation with SNR if spikes/events available
+            if (self.asp is not None and np.sum(np.abs(self.asp.data)) > 0) or \
+               (self.sp is not None and np.sum(self.sp.data) > 0):
+                try:
+                    self._calc_snr_simple()  # Computes both SNR and MAD
+                except ValueError:
+                    # Spikes exist but SNR calc failed - compute MAD independently
+                    self.mad = median_abs_deviation(self.ca.data)
+            else:
+                # No spikes - compute MAD independently
+                self.mad = median_abs_deviation(self.ca.data)
+
         return self.mad
-    def get_snr(self):
+
+    def get_snr(self, method='simple'):
         '''Get signal-to-noise ratio of calcium signal.
-        
-        Computes SNR as the ratio of mean calcium amplitude during spikes
-        to the median absolute deviation (noise level). Caches the result
-        for efficiency.
-        
+
+        Unified interface for SNR calculation supporting multiple methods.
+
+        Parameters
+        ----------
+        method : {'simple', 'wavelet'}, optional
+            - 'simple': Peak-based SNR using spike locations (fast, default)
+            - 'wavelet': Event-based SNR using wavelet regions (accurate)
+            Default is 'simple'.
+
         Returns
         -------
         float
-            Signal-to-noise ratio.
-            
+            Signal-to-noise ratio (dimensionless). Higher values indicate
+            stronger signal relative to noise.
+
         Raises
         ------
         ValueError
-            If no spikes are present or SNR calculation fails.
-            
+            If no spike/event data available, or if method is invalid.
+
         Notes
         -----
-        Requires spike data to be available. The SNR provides a measure
-        of calcium signal quality relative to baseline noise.        '''
-        if self.snr is None:
-            (self.snr, self.mad) = self._calc_snr()
-        return self.snr
+        **Simple method:**
+        - SNR = mean(calcium at spike peaks) / MAD(entire signal)
+        - Fast computation, uses asp (amplitude spikes) or sp (binary spikes)
+        - Caches result in self.snr
+
+        **Wavelet method:**
+        - SNR = median(event amplitudes) / std(baseline)
+        - More accurate, validated against ground truth (R=0.753)
+        - Requires prior wavelet reconstruction
+        - Caches result in self.wavelet_snr
+
+        Examples
+        --------
+        >>> neuron.get_snr()                    # Simple SNR (default)
+        >>> neuron.get_snr(method='simple')     # Explicit simple
+        >>> neuron.get_snr(method='wavelet')    # Wavelet-based SNR
+        '''
+        if method == 'wavelet':
+            return self.get_wavelet_snr()
+        elif method == 'simple':
+            if self.snr is None:
+                self._calc_snr_simple()
+            return self.snr
+        else:
+            raise ValueError(f"Invalid method '{method}'. Must be 'simple' or 'wavelet'")
 
     
-    def _calc_snr(self):
-        '''Calculate signal-to-noise ratio and MAD.
-        
+    def _calc_snr_simple(self):
+        '''Calculate simple peak-based SNR and MAD.
+
         Internal method that computes both SNR and MAD in a single pass
-        for efficiency. SNR is calculated as the mean calcium amplitude
-        at spike times divided by the median absolute deviation.
-        
+        for efficiency. Preferentially uses amplitude spikes (asp) over
+        binary spikes (sp) for more accurate signal estimation.
+
         Returns
         -------
         tuple
             (snr, mad) where snr is signal-to-noise ratio and mad is
             median absolute deviation.
-            
+
         Raises
         ------
         ValueError
-            If no spikes are present, if MAD is zero, or if SNR 
+            If no spikes are present, if MAD is zero, or if SNR
             calculation results in NaN.        '''
-        if self.sp is None:
+        # Prefer asp (amplitude spikes) over sp (binary spikes)
+        if self.asp is not None and np.sum(np.abs(self.asp.data)) > 0:
+            spk_inds = np.nonzero(self.asp.data)[0]
+        elif self.sp is not None and np.sum(self.sp.data) > 0:
+            spk_inds = np.nonzero(self.sp.data)[0]
+        else:
             raise ValueError('No spike data available')
-        spk_inds = np.nonzero(self.sp.data)[0]
-        mad = median_abs_deviation(self.ca.data)
+
         if len(spk_inds) == 0:
             raise ValueError('No spikes found!')
+
+        mad = median_abs_deviation(self.ca.data)
         if mad == 0:
             raise ValueError('MAD is zero, cannot compute SNR')
+
         sn = np.mean(self.ca.data[spk_inds]) / mad
         if np.isnan(sn):
             raise ValueError('Error in SNR calculation')
+
+        # Cache both values
+        self.snr = sn
+        self.mad = mad
+
         return (sn, mad)
 
     
@@ -1913,7 +2015,7 @@ class Neuron:
         return float(rmse / baseline_std)
 
     
-    def get_kinetics(self, method='lbfgs', fps=20, use_cached=True, **kwargs):
+    def get_kinetics(self, method='direct', fps=20, use_cached=True, **kwargs):
         '''Get optimized calcium kinetics parameters (t_rise, t_off).
 
         Simple wrapper around optimize_kinetics() for easy access to optimized parameters.
@@ -1926,9 +2028,9 @@ class Neuron:
 
         Parameters
         ----------
-        method : {\'lbfgs\', \'grid\'}, optional
-            Optimization method. Default: \'lbfgs\' (fast, recommended).
-            See optimize_kinetics() for detailed method comparison.
+        method : str, optional
+            Optimization method. Currently only 'direct' is supported.
+            Default: 'direct'.
         fps : float, optional
             Sampling rate in frames per second. Default: 20.0.
         use_cached : bool, optional
@@ -1981,14 +2083,25 @@ class Neuron:
         -----
         - Results are cached in self._kinetics_info after first call
         - Optimized parameters stored in self.t_rise and self.t_off (frames)
-        - Uses L-BFGS-B by default (~5-6s per neuron, 8× faster than grid search)
+        - Uses fast direct derivative measurement method
         - For backward compatibility: neuron.t_off now contains optimized value
         '''
         if use_cached and hasattr(self, '_kinetics_info') and self._kinetics_info is not None:
             return self._kinetics_info
-    # WARNING: Decompyle incomplete
 
-    
+        # Run optimization and update reconstruction with new kinetics
+        result = self.optimize_kinetics(
+            method=method,
+            fps=fps,
+            update_reconstruction=True,  # Apply optimized kinetics
+            **kwargs
+        )
+
+        # Cache the result
+        self._kinetics_info = result
+        return result
+
+
     def get_t_off(self):
         """Get calcium decay time constant.
 
@@ -2098,9 +2211,12 @@ class Neuron:
             spike_data = self.sp.data
         else:
             raise ValueError('Spike data required for t_off fitting')
-        res = minimize(Neuron.ca_mse_error, np.array([
-            self.default_t_off]), (self.ca.data, spike_data, self.default_t_rise), [
-            (self.default_t_rise * 1.1, None)])
+        res = minimize(
+            Neuron.ca_mse_error,
+            np.array([self.default_t_off]),
+            args=(self.ca.data, spike_data, self.default_t_rise),
+            bounds=[(self.default_t_rise * 1.1, None)]
+        )
         opt_t_off = res.x[0]
         noise_amplitude = res.fun
         logger = logging.getLogger(__name__)
@@ -2162,9 +2278,18 @@ class Neuron:
         if method not in valid_methods:
             raise ValueError(f'''Invalid method \'{method}\'. Must be one of {valid_methods}''')
         fn = getattr(self, f'''_shuffle_calcium_data_{method}''')
-    # WARNING: Decompyle incomplete
 
-    
+        # Call the shuffling method
+        shuffled_data = fn(seed=seed, **kwargs)
+
+        # Return as array or TimeSeries based on return_array parameter
+        if return_array:
+            return shuffled_data
+        else:
+            from driada.information.info_base import TimeSeries
+            return TimeSeries(data=shuffled_data, discrete=False)
+
+
     def _shuffle_calcium_data_waveform_based(self, seed=None, **kwargs):
         '''Shuffle calcium by reconstructing from ISI-shuffled spikes.
         
@@ -2193,9 +2318,25 @@ class Neuron:
             spike_data = self.sp.data
         else:
             raise ValueError('Spike data required for waveform-based shuffling')
-        self.get_kinetics(fps=self.fps)
-        opt_t_rise = self.t_rise
-        opt_t_off = self.t_off
+
+        # Waveform-based shuffling REQUIRES accurate kinetics for proper background extraction
+        # Optimize if not already done
+        if self.t_rise is None or self.t_off is None:
+            try:
+                self.get_kinetics(fps=self.fps)
+            except (ValueError, AttributeError):
+                # Optimization failed - use defaults
+                import warnings
+                warnings.warn(
+                    f"Kinetics optimization failed for neuron {self.cell_id}. "
+                    "Using default kinetics for waveform-based shuffling. "
+                    "Results may be less accurate.",
+                    UserWarning
+                )
+
+        # Use optimized kinetics if available, otherwise fall back to defaults
+        opt_t_rise = self.t_rise if self.t_rise is not None else self.default_t_rise
+        opt_t_off = self.t_off if self.t_off is not None else self.default_t_off
         conv = Neuron.get_restored_calcium(spike_data, opt_t_rise, opt_t_off)
         background = self.ca.data - conv[:len(self.ca.data)]
         pspk = self._shuffle_spikes_data_isi_based(seed=seed)
@@ -2278,8 +2419,9 @@ class Neuron:
         ------
         ValueError
             If signal is too short for valid shuffling range.        '''
-        self.get_kinetics(fps=self.fps)
-        opt_t_off = self.t_off
+        # Roll-based shuffling only needs t_off for shift range calculation
+        # Constant offset is sufficient (doesn't need precise optimization)
+        opt_t_off = self.t_off if self.t_off is not None else self.default_t_off
         if shift is None:
             if seed is not None:
                 np.random.seed(seed)
@@ -2339,9 +2481,18 @@ class Neuron:
         if method not in valid_methods:
             raise ValueError(f'''Invalid method \'{method}\'. Must be one of {valid_methods}''')
         fn = getattr(self, f'''_shuffle_spikes_data_{method}''')
-    # WARNING: Decompyle incomplete
 
-    
+        # Call the shuffling method
+        shuffled_data = fn(seed=seed, **kwargs)
+
+        # Return as array or TimeSeries based on return_array parameter
+        if return_array:
+            return shuffled_data
+        else:
+            from driada.information.info_base import TimeSeries
+            return TimeSeries(data=shuffled_data, discrete=True)  # discrete=True for spikes
+
+
     def reconstructed(self):
         '''Get reconstructed calcium signal from amplitude spikes (cached).
 
@@ -2474,7 +2625,7 @@ default reconstruction
         event_inds = np.where(self.sp.data != 0)[0]
         if len(event_inds) == 0:
             return self.sp.data
-        event_vals = None.sp.data[event_inds].copy()
+        event_vals = self.sp.data[event_inds].copy()
         event_range = max(event_inds) - min(event_inds)
         max_start = max(1, nfr - event_range - 1)
         first_random_pos = np.random.choice(max_start)
@@ -2503,12 +2654,8 @@ default reconstruction
 
  Parameters
         ----------
-        method : {'direct', 'lbfgs', 'grid', 'iterative'}, optional
-            Optimization method:
-            - 'direct': Fast derivative-based measurement (recommended, 10-234× faster)
-            - 'lbfgs': L-BFGS-B gradient optimization
-            - 'grid': Multi-level grid search (slowest, most thorough)
-            - 'iterative': Iterative detection + optimization (most robust)
+        method : str, optional
+            Optimization method. Currently only 'direct' is supported.
             Default: 'direct'
         fps : float, optional
             Sampling rate in frames per second. Default: 20.0
@@ -2547,66 +2694,28 @@ default reconstruction
         ... )
         >>> # Later: neuron.reconstruct_spikes(method='wavelet')
 
-        >>> # L-BFGS optimization with custom parameters
-        >>> result = neuron.optimize_kinetics(
-        ...     method='lbfgs', fps=30,
-        ...     t_rise_range=(0.05, 0.30),
-        ...     ftol=1e-5
-        ... )
-
         Notes
         -----
-        - All methods now consistently update self.t_rise/t_off and reconstruct events
+        - Consistently updates self.t_rise/t_off and reconstructs events
         - Setting update_reconstruction=False allows manual control of reconstruction timing
-        - The 'direct' method is recommended for initial estimates (234× faster than lbfgs)
-        - Use 'iterative' when default kinetics are very wrong
 
         See Also
         --------
         _optimize_kinetics_direct : Fast derivative-based measurement
-        _optimize_kinetics_lbfgs_grid : L-BFGS-B or grid optimization
-        _optimize_kinetics_iterative : Iterative detection + optimization
         """
-        valid_methods = ('direct', 'lbfgs', 'grid', 'iterative')
-        if method not in valid_methods:
-            raise ValueError(f"method must be one of {valid_methods}, got '{method}'")
-        
-        # Call appropriate internal optimization method
-        if method == 'direct':
-            result = self._optimize_kinetics_direct(
-                fps=fps,
-                asp=kwargs.get('asp', None),
-                wvt_ridges=kwargs.get('wvt_ridges', None),
-                max_frames_forward=kwargs.get('max_frames_forward', 100),
-                max_frames_back=kwargs.get('max_frames_back', 30),
-                min_events=kwargs.get('min_events', 5),
-                aggregation=kwargs.get('aggregation', 'median')
-            )
-        elif method in ('lbfgs', 'grid'):
-            result = self._optimize_kinetics_lbfgs_grid(
-                method=method,
-                t_rise_range=kwargs.get('t_rise_range', (0.05, 0.5)),
-                t_off_range=kwargs.get('t_off_range', (0.5, 4)),
-                grid_size=kwargs.get('grid_size', 4),
-                n_levels=kwargs.get('n_levels', 2),
-                n_events=kwargs.get('n_events', None),
-                fps=fps,
-                ftol=kwargs.get('ftol', 1e-4),
-                gtol=kwargs.get('gtol', 1e-4),
-                maxiter=kwargs.get('maxiter', 200),
-                n_mad=kwargs.get('n_mad', 4),
-                asp=kwargs.get('asp', None),
-                wvt_ridges=kwargs.get('wvt_ridges', None)
-            )
-        elif method == 'iterative':
-            result = self._optimize_kinetics_iterative(
-                fps=fps,
-                n_iter=kwargs.get('n_iter', 3),
-                min_events_threshold=kwargs.get('min_events_threshold', 2),
-                **kwargs
-            )
-        else:
-            raise ValueError(f"Unknown method: {method}")
+        if method != 'direct':
+            raise ValueError(f"Only 'direct' method is supported, got '{method}'")
+
+        # Call direct optimization method
+        result = self._optimize_kinetics_direct(
+            fps=fps,
+            asp=kwargs.get('asp', None),
+            wvt_ridges=kwargs.get('wvt_ridges', None),
+            max_frames_forward=kwargs.get('max_frames_forward', 100),
+            max_frames_back=kwargs.get('max_frames_back', 30),
+            min_events=kwargs.get('min_events', 5),
+            aggregation=kwargs.get('aggregation', 'median')
+        )
         
         # Update instance kinetics if optimization succeeded
         if result.get('optimized', False):
@@ -2625,7 +2734,8 @@ default reconstruction
                     iterative=False,
                     fps=fps,
                     min_event_dur=min_event_dur,
-                    max_event_dur=max_event_dur
+                    max_event_dur=max_event_dur,
+                    event_mask_expansion_sec=kwargs.get('event_mask_expansion_sec', 5.0)
                 )
         
         return result
