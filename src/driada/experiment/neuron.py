@@ -964,18 +964,17 @@ class Neuron:
                         )
                     elif amplitude_method == 'deconvolution':
                         # NNLS runs ONCE on ALL events
-                        # Create expanded event mask to cover full calcium transients
-                        if create_event_regions:
-                            event_mask = np.zeros(self.n_frames, dtype=bool)
-                            # Expand mask by ±event_mask_expansion_sec to cover rise and decay
-                            mask_expansion_frames = int(event_mask_expansion_sec * fps)
-                            for st, end in zip(all_st_inds_list, all_end_inds_list):
-                                # Expand window to cover full transient
-                                expanded_start = max(0, st - mask_expansion_frames)
-                                expanded_end = min(self.n_frames, end + mask_expansion_frames)
-                                event_mask[expanded_start:expanded_end] = True
-                        else:
-                            event_mask = None
+                        # Always create expanded event mask to avoid baseline dominance
+                        # (mask is critical for quality, independent of create_event_regions)
+                        event_mask = np.zeros(self.n_frames, dtype=bool)
+                        # Expand mask by ±event_mask_expansion_sec to cover rise and decay
+                        mask_expansion_frames = int(event_mask_expansion_sec * fps)
+                        for st, end in zip(all_st_inds_list, all_end_inds_list):
+                            # Expand window to cover full transient
+                            expanded_start = max(0, st - mask_expansion_frames)
+                            expanded_end = min(self.n_frames, end + mask_expansion_frames)
+                            event_mask[expanded_start:expanded_end] = True
+
                         amplitudes = Neuron.deconvolve_given_event_times(
                             self.ca.data, all_st_inds_list, t_rise, t_off, event_mask=event_mask
                         )
@@ -998,14 +997,32 @@ class Neuron:
                     self.wvt_ridges = []
 
                 # Optionally create event regions (binary intervals)
-                if create_event_regions and len(all_st_inds_list) > 0:
-                    st_ev_inds_2d = [all_st_inds_list]
-                    end_ev_inds_2d = [all_end_inds_list]
-                    events = events_to_ts_array(self.n_frames, st_ev_inds_2d, end_ev_inds_2d, fps)
-                    self.events = TimeSeries(events.flatten(), discrete=True)
+                if create_event_regions:
+                    if len(all_st_inds_list) > 0:
+                        st_ev_inds_2d = [all_st_inds_list]
+                        end_ev_inds_2d = [all_end_inds_list]
+                        events = events_to_ts_array(self.n_frames, st_ev_inds_2d, end_ev_inds_2d, fps)
+                        self.events = TimeSeries(events.flatten(), discrete=True)
+                    else:
+                        # No events detected - create empty events TimeSeries
+                        events = np.zeros(self.n_frames, dtype=int)
+                        self.events = TimeSeries(events, discrete=True)
                 else:
                     events = None
                     self.events = None
+
+                # Optimize kinetics immediately after event detection (if events found)
+                if self.asp is not None and np.sum(np.abs(self.asp.data)) > 0:
+                    try:
+                        self.optimize_kinetics(method='direct', fps=fps, update_reconstruction=False)
+                    except (ValueError, RuntimeError) as e:
+                        # Optimization failed - will use defaults
+                        import warnings
+                        warnings.warn(
+                            f"Kinetics optimization failed for neuron {self.cell_id}: {e}. "
+                            "Using default kinetics.",
+                            UserWarning
+                        )
 
                 self._clear_cached_metrics()
                 if self.asp is not None:
@@ -1037,18 +1054,17 @@ class Neuron:
                     )
                 elif amplitude_method == 'deconvolution':
                     # Deconvolution-based amplitude extraction
-                    # Create expanded event mask to cover full calcium transients
-                    if create_event_regions:
-                        event_mask = np.zeros(self.n_frames, dtype=bool)
-                        # Expand mask by ±event_mask_expansion_sec to cover rise and decay
-                        mask_expansion_frames = int(event_mask_expansion_sec * fps)
-                        for st, end in zip(st_inds, end_inds):
-                            # Expand window to cover full transient
-                            expanded_start = max(0, st - mask_expansion_frames)
-                            expanded_end = min(self.n_frames, end + mask_expansion_frames)
-                            event_mask[expanded_start:expanded_end] = True
-                    else:
-                        event_mask = None
+                    # Always create expanded event mask to avoid baseline dominance
+                    # (mask is critical for quality, independent of create_event_regions)
+                    event_mask = np.zeros(self.n_frames, dtype=bool)
+                    # Expand mask by ±event_mask_expansion_sec to cover rise and decay
+                    mask_expansion_frames = int(event_mask_expansion_sec * fps)
+                    for st, end in zip(st_inds, end_inds):
+                        # Expand window to cover full transient
+                        expanded_start = max(0, st - mask_expansion_frames)
+                        expanded_end = min(self.n_frames, end + mask_expansion_frames)
+                        event_mask[expanded_start:expanded_end] = True
+
                     amplitudes = Neuron.deconvolve_given_event_times(
                         self.ca.data, st_inds, t_rise, t_off, event_mask=event_mask
                     )
@@ -1071,6 +1087,20 @@ class Neuron:
                 # No events detected
                 self.asp = TimeSeries(np.zeros(self.n_frames), discrete=False)
                 self.sp = TimeSeries(np.zeros(self.n_frames, dtype=int), discrete=True)
+
+            # Optimize kinetics immediately after event detection (if events found)
+            if self.asp is not None and np.sum(np.abs(self.asp.data)) > 0:
+                try:
+                    self.optimize_kinetics(method='direct', fps=fps, update_reconstruction=False)
+                except (ValueError, RuntimeError) as e:
+                    # Optimization failed - will use defaults
+                    import warnings
+                    warnings.warn(
+                        f"Kinetics optimization failed for neuron {self.cell_id}: {e}. "
+                        "Using default kinetics.",
+                        UserWarning
+                    )
+
             self._clear_cached_metrics()
             if self.asp is not None:
                 self._compute_scaled_reconstruction()
@@ -1475,13 +1505,13 @@ class Neuron:
             raise ValueError('No spike data available. Call reconstruct_spikes() first.')
         if self._reconstructed_scaled is not None and t_rise is None and t_off is None:
             return self._reconstructed_scaled
-        if None is None:
+        if t_rise is None:
             t_rise = self.t_rise if self.t_rise is not None else self.default_t_rise
         if t_off is None:
             t_off = self.t_off if self.t_off is not None else self.default_t_off
         ca_recon = Neuron.get_restored_calcium(self.asp.data, t_rise, t_off)
         ca_recon_scaled = self.ca_scaler.transform(ca_recon.reshape(-1, 1)).reshape(-1)
-        if t_rise == self.t_rise if self.t_rise is not None else self.default_t_rise and t_off == self.t_off if self.t_off is not None else self.default_t_off:
+        if t_rise == (self.t_rise if self.t_rise is not None else self.default_t_rise) and t_off == (self.t_off if self.t_off is not None else self.default_t_off):
             self._reconstructed_scaled = ca_recon_scaled
         return ca_recon_scaled
 
@@ -2015,7 +2045,7 @@ class Neuron:
         return float(rmse / baseline_std)
 
     
-    def get_kinetics(self, method='direct', fps=20, use_cached=True, **kwargs):
+    def get_kinetics(self, method='direct', fps=20, use_cached=True, update_reconstruction=True, **kwargs):
         '''Get optimized calcium kinetics parameters (t_rise, t_off).
 
         Simple wrapper around optimize_kinetics() for easy access to optimized parameters.
@@ -2036,6 +2066,9 @@ class Neuron:
         use_cached : bool, optional
             If True and optimization already run, return cached results.
             If False, always re-run optimization. Default: True.
+        update_reconstruction : bool, optional
+            If True, recompute reconstruction with optimized kinetics.
+            Default: True.
         **kwargs : dict, optional
             Additional arguments passed to optimize_kinetics()
             (e.g., t_rise_range, t_off_range, ftol, gtol, maxiter, etc.)
@@ -2089,11 +2122,11 @@ class Neuron:
         if use_cached and hasattr(self, '_kinetics_info') and self._kinetics_info is not None:
             return self._kinetics_info
 
-        # Run optimization and update reconstruction with new kinetics
+        # Run optimization and optionally update reconstruction with new kinetics
         result = self.optimize_kinetics(
             method=method,
             fps=fps,
-            update_reconstruction=True,  # Apply optimized kinetics
+            update_reconstruction=update_reconstruction,
             **kwargs
         )
 
@@ -2172,7 +2205,8 @@ class Neuron:
         reconstruction. The value is cached after first computation.
         '''
         if self.noise_ampl is None:
-            if self.asp is None:
+            # Prefer asp, fall back to sp for backward compatibility
+            if self.asp is None and self.sp is None:
                 raise ValueError('Spike reconstruction required for noise amplitude. Call reconstruct_spikes() first.')
             recon = self.get_reconstructed()
             if recon is None:
@@ -2574,9 +2608,20 @@ default reconstruction
         if has_custom_params or force_reconstruction:
             spike_data = kwargs.get('spike_data', None)
             if spike_data is None:
-                if self.asp is None:
+                # Prefer asp, fall back to sp for backward compatibility
+                if self.asp is not None:
+                    spike_data = self.asp.data
+                elif self.sp is not None:
+                    import warnings
+                    warnings.warn(
+                        "Using binary spikes (sp) instead of amplitude spikes (asp). "
+                        "Reconstruction will use uniform amplitudes. "
+                        "Call reconstruct_spikes() to get amplitude-based reconstruction.",
+                        UserWarning
+                    )
+                    spike_data = self.sp.data
+                else:
                     return None
-                spike_data = self.asp.data
             t_rise_frames = kwargs.get('t_rise_frames', None)
             t_off_frames = kwargs.get('t_off_frames', None)
             if t_rise_frames is None:
@@ -2586,11 +2631,24 @@ default reconstruction
             reconstructed_data = Neuron.get_restored_calcium(spike_data, t_rise_frames, t_off_frames)
             return TimeSeries(reconstructed_data, discrete=False)
         if self._reconstructed is None:
-            if self.asp is None:
+            # Prefer asp, fall back to sp for backward compatibility
+            if self.asp is not None:
+                spike_data = self.asp.data
+            elif self.sp is not None:
+                import warnings
+                warnings.warn(
+                    "Using binary spikes (sp) instead of amplitude spikes (asp). "
+                    "Reconstruction will use uniform amplitudes. "
+                    "Call reconstruct_spikes() to get amplitude-based reconstruction.",
+                    UserWarning
+                )
+                spike_data = self.sp.data
+            else:
                 return None
+
             t_rise = self.t_rise if self.t_rise is not None else self.default_t_rise
             t_off = self.t_off if self.t_off is not None else self.default_t_off
-            reconstructed_data = Neuron.get_restored_calcium(self.asp.data, t_rise, t_off)
+            reconstructed_data = Neuron.get_restored_calcium(spike_data, t_rise, t_off)
             self._reconstructed = TimeSeries(reconstructed_data, discrete=False)
         return self._reconstructed
 
