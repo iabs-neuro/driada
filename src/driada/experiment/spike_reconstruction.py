@@ -6,7 +6,7 @@ imaging data using various methods.
 """
 
 import numpy as np
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, Union, List
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import find_peaks
 
@@ -241,7 +241,7 @@ def wavelet_reconstruction(
 
 
 def threshold_reconstruction(
-    calcium: MultiTimeSeries, fps: float, params: Dict[str, Any]
+    calcium: Union[MultiTimeSeries, TimeSeries], fps: float, params: Dict[str, Any]
 ) -> Tuple[MultiTimeSeries, Dict[str, Any]]:
     """
     Simple threshold-based spike reconstruction.
@@ -251,13 +251,14 @@ def threshold_reconstruction(
 
     Parameters
     ----------
-    calcium : MultiTimeSeries
+    calcium : MultiTimeSeries or TimeSeries
         Calcium signals. Must have scdata attribute.
+        If TimeSeries, will be treated as single neuron.
     fps : float
         Sampling rate in frames per second. Must be positive.
     params : dict
         Parameters including:
-        
+
         * threshold_std : float, number of STDs above mean for detection. Must be positive. Default: 2.5.
         * smooth_sigma : float, gaussian smoothing sigma in frames. Must be non-negative. Default: 2.
         * min_spike_interval : float, minimum interval between spikes in seconds. Must be non-negative. Default: 0.1.
@@ -271,7 +272,7 @@ def threshold_reconstruction(
         - 'method': 'threshold'
         - 'parameters': dict with all parameters used including fps
         - 'spike_times': list of arrays - Frame indices of detected spikes per neuron
-        
+
     Raises
     ------
     AttributeError
@@ -280,36 +281,39 @@ def threshold_reconstruction(
         If calcium data is empty or invalid shape.
         If parameters are out of valid range.
         If min_spike_interval * fps < 0.5 (would result in zero minimum distance).
-        
+
     Notes
     -----
     The derivative is computed with np.diff and zero-padded at the start.
     This affects the first frame which cannot have a spike detected.    """
     # Input validation
     check_positive(fps=fps)
-    
+
     if not hasattr(calcium, 'scdata'):
         raise AttributeError("calcium must have 'scdata' attribute")
-    
+
     # Default parameters
     threshold_std = params.get("threshold_std", 2.5)
     smooth_sigma = params.get("smooth_sigma", 2)
     min_spike_interval = params.get("min_spike_interval", 0.1)
-    
+
     # Validate parameters
     check_positive(threshold_std=threshold_std)
     check_nonnegative(smooth_sigma=smooth_sigma, min_spike_interval=min_spike_interval)
-    
+
     min_spike_frames = int(min_spike_interval * fps)
     if min_spike_interval > 0 and min_spike_frames < 1:
         raise ValueError(f"min_spike_interval * fps = {min_spike_interval * fps:.2f} < 1, "
                          "would result in zero minimum distance between spikes")
 
     calcium_data = np.asarray(calcium.scdata)  # Use scaled data
-    
-    # Validate data shape
-    if calcium_data.ndim != 2:
-        raise ValueError(f"calcium data must be 2D (neurons x time), got shape {calcium_data.shape}")
+
+    # Normalize to 2D array (neurons x time)
+    if calcium_data.ndim == 1:
+        calcium_data = calcium_data.reshape(1, -1)
+    elif calcium_data.ndim != 2:
+        raise ValueError(f"calcium data must be 1D or 2D, got shape {calcium_data.shape}")
+
     if calcium_data.size == 0:
         raise ValueError("calcium data cannot be empty")
         

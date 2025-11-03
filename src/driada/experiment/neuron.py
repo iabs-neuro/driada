@@ -1,6 +1,3 @@
-# Source Generated with Decompyle++
-# File: neuron_BACKUP.cpython-310.pyc (Python 3.10)
-
 import numpy as np
 import logging
 from scipy.stats import median_abs_deviation
@@ -31,6 +28,13 @@ DEFAULT_T_OFF = 2
 DEFAULT_FPS = 20
 DEFAULT_MIN_BEHAVIOUR_TIME = 0.25
 MIN_CA_SHIFT = 5
+
+# Statistical constants
+MAD_SCALE_FACTOR = 1.4826  # Scaling factor for MAD → std consistency (normal distribution)
+                            # This is 1 / (sqrt(2) * erfcinv(1.5))
+
+# Kernel generation constants
+KERNEL_LENGTH_FRAMES = 500  # Sufficient for t_off ≤ 100 frames (5× decay time)
 
 class Neuron:
     '''
@@ -180,8 +184,8 @@ class Neuron:
         Notes
         -----
         Uses FFT-based convolution for optimal performance (5.5× faster than
-        naive convolution). Kernel length of 500 frames is sufficient for
-        most calcium indicators (5× decay time for t_off ≤ 100 frames).
+        naive convolution). Kernel length is KERNEL_LENGTH_FRAMES (500 frames),
+        sufficient for most calcium indicators (5× decay time for t_off ≤ 100 frames).
 
         The convolution naturally handles amplitude-weighted spikes, where
         each spike value represents event strength in dF/F0 units.        '''
@@ -189,7 +193,7 @@ class Neuron:
         if sp.size == 0:
             raise ValueError('Spike train cannot be empty')
         check_positive(t_rise=t_rise, t_off=t_off)
-        x = np.arange(500)
+        x = np.arange(KERNEL_LENGTH_FRAMES)
         spform = Neuron.spike_form(x, t_rise, t_off)
         conv = fftconvolve(sp, spform, mode='full')
         return conv[:len(sp)]
@@ -377,7 +381,7 @@ class Neuron:
         Imaging Data. Front Neurosci 15:620869.
         """
         if use_peak_refinement:
-            if t_rise_frames is None and t_off_frames is None or fps is None:
+            if (t_rise_frames is None) or (t_off_frames is None) or (fps is None):
                 raise ValueError('t_rise_frames, t_off_frames, and fps required when use_peak_refinement=True')
         ca_signal = np.asarray(ca_signal)
         amplitudes = []
@@ -786,7 +790,12 @@ class Neuron:
             raise ValueError('Cannot specify both fit_individual_t_off and optimize_kinetics')
         if fit_individual_t_off:
             import warnings
-            warnings.warn('fit_individual_t_off is deprecated. Use optimize_kinetics=True instead.', DeprecationWarning, stacklevel=2)
+            warnings.warn(
+                'fit_individual_t_off is deprecated and will be removed in v1.0. '
+                'Use optimize_kinetics=True instead.',
+                DeprecationWarning,
+                stacklevel=2
+            )
             if self.sp is not None or self.asp is not None:
                 (self.t_off, self.noise_ampl) = self._fit_t_off()
                 t_off = self.t_off
@@ -936,9 +945,7 @@ class Neuron:
                     st_inds = st_ev_inds[0] if len(st_ev_inds) > 0 else []
                     end_inds = end_ev_inds[0] if len(end_ev_inds) > 0 else []
                     ridges = filtered_ridges[0] if len(filtered_ridges) > 0 else []
-                    if len(st_inds) < min_events_threshold:
-                        pass
-                    else:
+                    if len(st_inds) >= min_events_threshold:
                         all_st_inds_list.extend(st_inds)
                         all_end_inds_list.extend(end_inds)
                         all_ridges_list.extend(ridges)
@@ -1108,14 +1115,28 @@ class Neuron:
                 return events.flatten()
             return None
         if method == 'threshold':
-            threshold_reconstruction = threshold_reconstruction
-            import spike_reconstruction
-            threshold_std = kwargs.get('threshold_std', 2.5)
-            smooth_sigma = kwargs.get('smooth_sigma', 2)
-            min_spike_interval = kwargs.get('min_spike_interval', 0.1)
-            fps = kwargs.get('fps', DEFAULT_FPS)
-            check_positive(threshold_std=threshold_std, smooth_sigma=smooth_sigma, min_spike_interval=min_spike_interval, fps=fps)
-            spikes = threshold_reconstruction(self.ca.data, threshold_std, smooth_sigma, min_spike_interval, fps)
+            from .spike_reconstruction import threshold_reconstruction
+
+            # Prepare parameters
+            fps = kwargs.get('fps', self.fps if self.fps is not None else DEFAULT_FPS)
+            params = {
+                'threshold_std': kwargs.get('threshold_std', 2.5),
+                'smooth_sigma': kwargs.get('smooth_sigma', 2),
+                'min_spike_interval': kwargs.get('min_spike_interval', 0.1)
+            }
+
+            # Call threshold reconstruction
+            spikes_mts, metadata = threshold_reconstruction(self.ca, fps, params)
+
+            # Extract single neuron result (first component of MultiTimeSeries)
+            spikes = spikes_mts.data[0, :]
+
+            # Store as TimeSeries
+            self.sp = TimeSeries(spikes, discrete=True)
+
+            # Clear cached metrics
+            self._clear_cached_metrics()
+
             return spikes
         raise NotImplementedError(f'''Method \'{method}\' not implemented. Available methods: \'wavelet\', \'threshold\'''')
 
@@ -1611,7 +1632,7 @@ class Neuron:
         else:
             # MAD-based threshold (legacy)
             median = np.median(self.ca.scdata)
-            mad = np.median(np.abs(self.ca.scdata - median)) * 1.4826
+            mad = np.median(np.abs(self.ca.scdata - median)) * MAD_SCALE_FACTOR
             threshold = median + n_mad * mad
             event_mask = self.ca.scdata > threshold
 
@@ -1678,7 +1699,7 @@ class Neuron:
         else:
             # MAD-based threshold (legacy)
             median = np.median(self.ca.scdata)
-            mad = np.median(np.abs(self.ca.scdata - median)) * 1.4826
+            mad = np.median(np.abs(self.ca.scdata - median)) * MAD_SCALE_FACTOR
             threshold = median + n_mad * mad
             event_mask = self.ca.scdata > threshold
 
@@ -1811,7 +1832,7 @@ class Neuron:
         if self.ca is None or len(self.ca.data) == 0:
             raise ValueError('Calcium signal data required for event SNR')
         median = np.median(self.ca.data)
-        mad = np.median(np.abs(self.ca.data - median)) * 1.4826
+        mad = np.median(np.abs(self.ca.data - median)) * MAD_SCALE_FACTOR
         threshold = median + n_mad * mad
         event_mask = self.ca.data > threshold
         baseline_mask = ~event_mask
@@ -2799,9 +2820,7 @@ default reconstruction
         return result
 
     def _measure_t_off_from_peak(self, signal, peak_idx, fps, max_frames=100):
-        '''Measure t_off by forward exponential Warning: Stack history is not empty!
-Warning: block stack is not empty!
-decay fitting from peak.
+        '''Measure t_off by forward exponential decay fitting from peak.
 
         Parameters
         ----------
@@ -2882,7 +2901,8 @@ decay fitting from peak.
             peak_val = smoothed[-1]
             baseline = np.percentile(smoothed[:min(5, len(smoothed))], 50)
             amplitude = peak_val - baseline
-            if max_deriv > 0 and amplitude > 0:
+            # Use minimum derivative threshold to avoid division by tiny values
+            if max_deriv > 1e-6 and amplitude > 0:
                 tau = amplitude / max_deriv
                 if 0.01 < tau < 1:
                     return tau
@@ -3077,110 +3097,7 @@ decay fitting from peak.
             'n_events_detected': n_events_detected,
             'method': 'direct' }
 
-    
-    def _multi_level_grid_search(self, calcium_trace, events, fps, t_rise_range,
-                                 t_off_range, grid_size, n_levels, n_mad=4):
-        '''Multi-level grid search with refinement.'''
-        current_t_rise_range = t_rise_range
-        current_t_off_range = t_off_range
-        best_params = ((t_rise_range[0] + t_rise_range[1]) / 2, (t_off_range[0] + t_off_range[1]) / 2)
-        best_error = float('inf')
-        total_evaluations = 0
-        for level in range(n_levels):
-            t_rise_values = np.linspace(current_t_rise_range[0], current_t_rise_range[1], grid_size)
-            t_off_values = np.linspace(current_t_off_range[0], current_t_off_range[1], grid_size)
-            level_best_params = best_params
-            level_best_error = best_error
-            for t_rise in t_rise_values:
-                for t_off in t_off_values:
-                    temp_neuron = self._reconstruct_with_params(calcium_trace, t_rise, t_off, fps)
-                    error = self._calculate_reconstruction_error(temp_neuron, n_mad=n_mad)
-                    total_evaluations += 1
-                    if error < level_best_error:
-                        level_best_error = error
-                        level_best_params = (t_rise, t_off)
-            best_params = level_best_params
-            best_error = level_best_error
-            if level < n_levels - 1:
-                t_rise_span = (current_t_rise_range[1] - current_t_rise_range[0]) / 2
-                t_off_span = (current_t_off_range[1] - current_t_off_range[0]) / 2
-                current_t_rise_range = (max(t_rise_range[0], best_params[0] - t_rise_span / 2), min(t_rise_range[1], best_params[0] + t_rise_span / 2))
-                current_t_off_range = (max(t_off_range[0], best_params[1] - t_off_span / 2), min(t_off_range[1], best_params[1] + t_off_span / 2))
-        return (best_params, best_error, total_evaluations)
 
-    
-    def _reconstruct_with_params(self, calcium_trace, t_rise, t_off, fps):
-        '''Reconstruct calcium using specified parameters and return neuron.'''
-        temp_neuron = Neuron(self.cell_id, calcium_trace, None, t_rise, t_off, fps)
-        temp_neuron.reconstruct_spikes('wavelet', True)
-        return temp_neuron
-
-    
-    def _calculate_reconstruction_error(temp_neuron, n_mad=4):
-        '''Calculate event R² error (1 - R² so lower is better).
-
-        Uses the existing get_reconstruction_r2(event_only=True) method which:
-        - Uses MAD-based event region detection
-        - Computes R² only on event regions
-        - Uses baseline-normalized variance
-
-        Returns 1 - R² so that lower values indicate better fit (for minimization).
-        '''
-        pass
-    # WARNING: Decompyle incomplete
-
-    _calculate_reconstruction_error = staticmethod(_calculate_reconstruction_error)
-    
-    def _get_restored_calcium_adaptive(event_times, amplitudes, t_rise_frames,
-                                       t_off_frames, n_frames, use_sparse=None):
-        '''Adaptive calcium reconstruction: sparse for few events, FFT for many.
-
-        Parameters
-        ----------
-        event_times : array-like
-            Frame indices of events
-        amplitudes : array-like
-            Amplitudes for each event
-        t_rise_frames : float
-            Rise time in frames
-        t_off_frames : float
-            Decay time in frames
-        n_frames : int
-            Total number of frames
-        use_sparse : bool or None, optional
-            If True, use sparse convolution. If False, use FFT.
-            If None (default), auto-decide based on event count (<100 events = sparse)
-
-        Returns
-        -------
-        ndarray
-            Reconstructed calcium trace
-        '''
-        n_events = len(event_times)
-        if use_sparse is None:
-            use_sparse = n_events < 100
-        if use_sparse:
-            x = np.arange(500)
-            kernel = Neuron.spike_form(x, t_rise_frames, t_off_frames)
-            reconstruction = np.zeros(n_frames)
-            for time, amp in zip(event_times, amplitudes):
-                start = int(time)
-                if start >= n_frames:
-                    continue
-                end = min(start + len(kernel), n_frames)
-                reconstruction[start:end] += amp * kernel[:end - start]
-            return reconstruction
-        asp = np.zeros(n_frames)
-        for event_time, amp in zip(event_times, amplitudes):
-            if int(event_time) <= int(event_time) or int(event_time) < n_frames:
-                pass
-            else:
-                0
-            asp[int(event_time)] = amp
-        return Neuron.get_restored_calcium(asp, t_rise_frames, t_off_frames)
-
-    _get_restored_calcium_adaptive = staticmethod(_get_restored_calcium_adaptive)
-    
     def _calculate_event_r2(calcium_signal, reconstruction, n_mad=4, event_mask=None, wvt_ridges=None, fps=None):
         '''Calculate R² on event regions.
 
@@ -3244,90 +3161,3 @@ decay fitting from peak.
         return 1 - ss_residual / ss_total
 
     _calculate_event_r2 = staticmethod(_calculate_event_r2)
-    
-    def _optimize_lbfgs(self, calcium_signal, event_times, fps, t_rise_range, t_off_range, ftol, gtol, maxiter, n_mad = (4,)):
-        """L-BFGS-B optimization of amplitudes and kinetics parameters.
-
-        Jointly optimizes event amplitudes and kinetics parameters (t_rise, t_off)
-        using gradient-based L-BFGS-B algorithm with frozen event positions.
-
-        Parameters
-        ----------
-        calcium_signal : ndarray
-            Calcium fluorescence trace
-        event_times : ndarray
-            Frame indices of detected events (positions are frozen)
-        fps : float
-            Sampling rate in frames per second
-        t_rise_range : tuple of float
-            (min, max) values for t_rise in seconds
-        t_off_range : tuple of float
-            (min, max) values for t_off in seconds
-        ftol : float
-            Function tolerance for convergence
-        gtol : float
-            Gradient tolerance for convergence
-        maxiter : int
-            Maximum iterations
-
-        Returns
-        -------
-        dict
-            Optimization results with keys:
-            - 't_rise': float, optimized rise time (seconds)
-            - 't_off': float, optimized decay time (seconds)
-            - 'amplitudes': ndarray, optimized amplitudes for each event
-            - 'event_r2': float, final event R² (higher is better)
-            - 'n_evals': int, number of function evaluations
-            - 'converged': bool, whether optimization converged
-        """
-        minimize = minimize
-        import scipy.optimize
-        n_events = len(event_times)
-        n_frames = len(calcium_signal)
-        x0 = np.concatenate([
-            np.ones(n_events) * 0.1,
-            [
-                0.25 * fps,
-                2 * fps]])
-        bounds = [
-            (0, 1)] * n_events + [
-            (t_rise_range[0] * fps, t_rise_range[1] * fps),
-            (t_off_range[0] * fps, t_off_range[1] * fps)]
-        
-        def objective(x = None):
-            '''Objective function: 1 - event_r2 + regularization (minimize).'''
-            amplitudes = x[:n_events]
-            (t_rise_frames, t_off_frames) = x[-2:]
-            
-            try:
-                reconstruction = Neuron._get_restored_calcium_adaptive(event_times, amplitudes, t_rise_frames, t_off_frames, n_frames)
-            finally:
-                pass
-
-            event_r2 = Neuron._calculate_event_r2(calcium_signal, reconstruction, n_mad=n_mad)
-            if np.isnan(event_r2):
-                return 1
-            reg = None * np.sum(amplitudes ** 2) / n_events
-            return (1 - event_r2) + reg
-
-
-        result = minimize(objective, x0, 'L-BFGS-B', bounds, {
-            'maxiter': maxiter,
-            'ftol': ftol,
-            'gtol': gtol,
-            'disp': False })
-        optimal_amplitudes = result.x[:n_events]
-        optimal_t_rise_frames = result.x[-2]
-        optimal_t_off_frames = result.x[-1]
-        final_reconstruction = Neuron._get_restored_calcium_adaptive(event_times, optimal_amplitudes, optimal_t_rise_frames, optimal_t_off_frames, n_frames)
-        final_r2 = Neuron._calculate_event_r2(calcium_signal, final_reconstruction)
-        return {
-            't_rise': optimal_t_rise_frames / fps,
-            't_off': optimal_t_off_frames / fps,
-            'amplitudes': optimal_amplitudes,
-            'event_r2': final_r2,
-            'n_evals': result.nfev,
-            'converged': result.success }
-
-
