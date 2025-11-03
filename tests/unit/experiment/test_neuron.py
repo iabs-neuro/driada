@@ -495,3 +495,281 @@ class TestIntegration:
         # Check methods expected by Experiment
         assert callable(getattr(neuron, "get_shuffled_calcium", None))
         assert callable(getattr(neuron, "get_shuffled_spikes", None))
+
+
+class TestWaveletSNR:
+    """Test wavelet-based SNR calculation methods."""
+
+    def test_wavelet_snr_without_reconstruction(self):
+        """Test that get_wavelet_snr raises error without prior reconstruction."""
+        ca_data = np.random.random(size=1000)
+        neuron = Neuron("cell_snr_1", ca_data, None)
+
+        with pytest.raises(
+            ValueError,
+            match="No wavelet events detected.*reconstruct_spikes",
+        ):
+            neuron.get_wavelet_snr()
+
+    def test_wavelet_snr_with_no_events(self):
+        """Test that get_wavelet_snr raises error when events mask is all False."""
+        # Create neuron with valid data
+        ca_data = np.random.normal(0.2, 0.05, 1000)
+        neuron = Neuron("cell_snr_2", ca_data, None)
+
+        # Manually set events to an all-False mask (simulating no events detected)
+        from driada.information.info_base import TimeSeries
+        neuron.events = TimeSeries(
+            data=np.zeros(1000, dtype=bool),
+            discrete=False,
+        )
+
+        with pytest.raises(ValueError, match="No events in event mask"):
+            neuron.get_wavelet_snr()
+
+    def test_wavelet_snr_with_valid_events(self):
+        """Test SNR calculation with valid events."""
+        np.random.seed(42)
+
+        # Create calcium signal with clear events
+        ca_data = np.random.normal(0.2, 0.05, 1000)  # Baseline
+        event_times = [100, 300, 500, 700, 900]
+        for t in event_times:
+            # Add event peaks
+            ca_data[t : t + 20] += np.linspace(0, 0.5, 20)
+            ca_data[t + 20 : t + 60] += np.linspace(0.5, 0, 40)
+
+        neuron = Neuron("cell_snr_3", ca_data, None)
+        neuron.reconstruct_spikes(
+            method="wavelet",
+            create_event_regions=True,
+            max_ampl_thr=0.1,
+            sigma=4,
+        )
+
+        snr = neuron.get_wavelet_snr()
+
+        assert isinstance(snr, float)
+        assert snr > 0
+        assert np.isfinite(snr)
+
+    def test_wavelet_snr_caching(self):
+        """Test that wavelet SNR is cached after first calculation."""
+        np.random.seed(43)
+
+        ca_data = np.random.normal(0.2, 0.05, 1000)
+        event_times = [100, 300, 500, 700]
+        for t in event_times:
+            ca_data[t : t + 20] += np.linspace(0, 0.4, 20)
+            ca_data[t + 20 : t + 50] += np.linspace(0.4, 0, 30)
+
+        neuron = Neuron("cell_snr_4", ca_data, None)
+        neuron.reconstruct_spikes(
+            method="wavelet",
+            create_event_regions=True,
+        )
+
+        # First call
+        snr1 = neuron.get_wavelet_snr()
+        assert neuron.wavelet_snr == snr1
+
+        # Second call should return cached value
+        snr2 = neuron.get_wavelet_snr()
+        assert snr2 == snr1
+        assert neuron.wavelet_snr == snr1
+
+    def test_wavelet_snr_event_at_start(self):
+        """Test SNR calculation when event starts at beginning of signal."""
+        np.random.seed(44)
+
+        ca_data = np.random.normal(0.2, 0.05, 1000)
+        # Event at start
+        ca_data[0:20] += np.linspace(0, 0.5, 20)
+        ca_data[20:60] += np.linspace(0.5, 0, 40)
+        # More events
+        for t in [300, 600, 900]:
+            ca_data[t : t + 20] += np.linspace(0, 0.5, 20)
+            ca_data[t + 20 : t + 60] += np.linspace(0.5, 0, 40)
+
+        neuron = Neuron("cell_snr_5", ca_data, None)
+        neuron.reconstruct_spikes(
+            method="wavelet",
+            create_event_regions=True,
+            max_ampl_thr=0.1,
+        )
+
+        snr = neuron.get_wavelet_snr()
+        assert isinstance(snr, float)
+        assert snr > 0
+
+    def test_wavelet_snr_event_at_end(self):
+        """Test SNR calculation when event extends to end of signal."""
+        np.random.seed(45)
+
+        ca_data = np.random.normal(0.2, 0.05, 1000)
+        # Events in middle
+        for t in [100, 400, 700]:
+            ca_data[t : t + 20] += np.linspace(0, 0.5, 20)
+            ca_data[t + 20 : t + 60] += np.linspace(0.5, 0, 40)
+        # Event at end
+        ca_data[950:970] += np.linspace(0, 0.5, 20)
+        ca_data[970:] += 0.5
+
+        neuron = Neuron("cell_snr_6", ca_data, None)
+        neuron.reconstruct_spikes(
+            method="wavelet",
+            create_event_regions=True,
+            max_ampl_thr=0.1,
+        )
+
+        snr = neuron.get_wavelet_snr()
+        assert isinstance(snr, float)
+        assert snr > 0
+
+    def test_wavelet_snr_sparse_high_amplitude_events(self):
+        """Test SNR with sparse but high amplitude events (peak amplitude fix)."""
+        np.random.seed(46)
+
+        # Low baseline with noise
+        ca_data = np.random.normal(0.1, 0.02, 1000)
+        # Few but very high amplitude events
+        event_times = [200, 600, 900]
+        for t in event_times:
+            # Very narrow, high peak
+            ca_data[t : t + 5] += np.linspace(0, 1.0, 5)
+            ca_data[t + 5 : t + 10] += np.linspace(1.0, 0, 5)
+
+        neuron = Neuron("cell_snr_7", ca_data, None)
+        neuron.reconstruct_spikes(
+            method="wavelet",
+            create_event_regions=True,
+            max_ampl_thr=0.05,
+        )
+
+        snr = neuron.get_wavelet_snr()
+        # With peak amplitude extraction, should get high SNR
+        assert snr > 1.0
+
+    def test_wavelet_snr_dense_low_amplitude_events(self):
+        """Test SNR with dense but lower amplitude events."""
+        np.random.seed(47)
+
+        ca_data = np.random.normal(0.2, 0.05, 1000)
+        # Many low amplitude events
+        for t in range(100, 900, 80):
+            ca_data[t : t + 15] += np.linspace(0, 0.2, 15)
+            ca_data[t + 15 : t + 30] += np.linspace(0.2, 0, 15)
+
+        neuron = Neuron("cell_snr_8", ca_data, None)
+        neuron.reconstruct_spikes(
+            method="wavelet",
+            create_event_regions=True,
+            max_ampl_thr=0.1,
+        )
+
+        snr = neuron.get_wavelet_snr()
+        assert isinstance(snr, float)
+        assert snr > 0
+
+    def test_wavelet_snr_insufficient_baseline(self):
+        """Test error when insufficient baseline frames available."""
+        np.random.seed(48)
+
+        # Create a signal where almost all frames are events
+        ca_data = np.random.normal(0.2, 0.05, 100)
+        neuron = Neuron("cell_snr_9", ca_data, None)
+
+        # Manually create events mask with only 5 baseline frames
+        from driada.information.info_base import TimeSeries
+        events_mask = np.ones(100, dtype=bool)
+        events_mask[10:15] = False  # Only 5 baseline frames
+        neuron.events = TimeSeries(
+            data=events_mask,
+            discrete=False,
+        )
+
+        # Should raise error for insufficient baseline
+        with pytest.raises(ValueError, match="Insufficient baseline frames"):
+            neuron.get_wavelet_snr()
+
+    def test_wavelet_snr_too_few_events(self):
+        """Test error when fewer than 3 events detected."""
+        np.random.seed(49)
+
+        ca_data = np.random.normal(0.2, 0.05, 1000)
+        neuron = Neuron("cell_snr_10", ca_data, None)
+
+        # Manually create events mask with only 2 events
+        from driada.information.info_base import TimeSeries
+        events_mask = np.zeros(1000, dtype=bool)
+        events_mask[300:350] = True  # Event 1
+        events_mask[700:750] = True  # Event 2
+        neuron.events = TimeSeries(
+            data=events_mask,
+            discrete=False,
+        )
+
+        with pytest.raises(ValueError, match="Too few events detected.*Need at least 3"):
+            neuron.get_wavelet_snr()
+
+    def test_wavelet_snr_zero_baseline_noise(self):
+        """Test error when baseline has zero variance (perfect signal)."""
+        # Create signal with perfectly constant baseline
+        # Note: We need to use calcium_preprocessing=False or directly set ca.data
+        # to avoid noise being added
+        ca_data = np.ones(1000) * 0.5
+        event_times = [100, 300, 500, 700]
+        for t in event_times:
+            ca_data[t : t + 20] = np.linspace(0.5, 1.0, 20)
+            ca_data[t + 20 : t + 60] = np.linspace(1.0, 0.5, 40)
+
+        # Create neuron and override ca.data to avoid preprocessing noise
+        neuron = Neuron("cell_snr_11", ca_data, None)
+        # Force ca.data to be exactly constant in baseline
+        neuron.ca.data[:] = 0.5
+        for t in event_times:
+            neuron.ca.data[t : t + 20] = np.linspace(0.5, 1.0, 20)
+            neuron.ca.data[t + 20 : t + 60] = np.linspace(1.0, 0.5, 40)
+
+        # Manually create events mask
+        from driada.information.info_base import TimeSeries
+        events_mask = np.zeros(1000, dtype=bool)
+        for t in event_times:
+            events_mask[t : t + 60] = True
+        neuron.events = TimeSeries(
+            data=events_mask,
+            discrete=False,
+        )
+
+        with pytest.raises(ValueError, match="Baseline noise is zero"):
+            neuron.get_wavelet_snr()
+
+    def test_wavelet_snr_initialization_cache(self):
+        """Test that wavelet_snr cache attribute is initialized to None."""
+        ca_data = np.random.random(size=1000)
+        neuron = Neuron("cell_snr_12", ca_data, None)
+
+        assert hasattr(neuron, "wavelet_snr")
+        assert neuron.wavelet_snr is None
+
+    def test_wavelet_snr_realistic_values(self):
+        """Test that SNR values are in realistic range for typical signals."""
+        np.random.seed(50)
+
+        # Realistic calcium signal
+        ca_data = np.random.normal(0.3, 0.1, 2000)
+        event_times = np.arange(200, 1800, 150)
+        for t in event_times:
+            ca_data[t : t + 30] += np.linspace(0, 0.6, 30)
+            ca_data[t + 30 : t + 100] += 0.6 * np.exp(-np.arange(70) / 20)
+
+        neuron = Neuron("cell_snr_13", ca_data, None)
+        neuron.reconstruct_spikes(
+            method="wavelet",
+            create_event_regions=True,
+        )
+
+        snr = neuron.get_wavelet_snr()
+
+        # Realistic SNR should be between 0.5 and 50 for typical signals
+        assert 0.5 < snr < 50

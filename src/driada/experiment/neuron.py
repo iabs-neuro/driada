@@ -504,11 +504,12 @@ class Neuron:
             End indices for each event.
         amplitudes : list of float
             Amplitude (dF/F0) for each event.
-        placement : {'start', 'peak', 'onset'}, optional
+        placement : {'start', 'peak', 'onset', 'onset_refined'}, optional
             Where to place amplitude:
             - 'start': at event start index (as detected by wavelet)
             - 'peak': at actual calcium peak within event window
-            - 'onset': at estimated spike onset (peak - kernel_peak_offset)
+            - 'onset': at estimated spike onset (peak - kernel_peak_offset), using peak within event boundaries
+            - 'onset_refined': at estimated spike onset with peak refinement search outside event boundaries (legacy, causes lag on noisy data)
         t_rise_frames : float, optional
             Rise time in frames. Required for 'onset' placement.
         t_off_frames : float, optional
@@ -530,14 +531,18 @@ class Neuron:
         If multiple events have centers/peaks at same index, amplitudes are summed.
         This is rare but can occur with closely spaced events.
 
-        The 'onset' placement refines the peak location within a search window
-        to compensate for wavelet detection inconsistencies, then calculates
-        the kernel peak offset to place spikes accurately.
+        The 'onset' placement finds peak within event boundaries, then calculates
+        the kernel peak offset to place spikes at estimated onset. This trusts
+        wavelet detection and is robust to noise.
+
+        The 'onset_refined' placement (legacy) searches outside event boundaries
+        for peak refinement. This can cause temporal lag on noisy data and is
+        not recommended for real calcium imaging data.
         """
         check_positive(length=length)
-        if placement not in ('start', 'peak', 'onset'):
-            raise ValueError(f'''placement must be \'start\', \'peak\', or \'onset\', got {placement}''')
-        if placement == 'onset':
+        if placement not in ('start', 'peak', 'onset', 'onset_refined'):
+            raise ValueError(f'''placement must be \'start\', \'peak\', \'onset\', or \'onset_refined\', got {placement}''')
+        if placement in ('onset', 'onset_refined'):
             if t_rise_frames is None or t_off_frames is None:
                 raise ValueError("Both t_rise_frames and t_off_frames required for 'onset' placement")
             if fps is None:
@@ -557,6 +562,7 @@ class Neuron:
                 peak_offset = np.argmax(event_segment)
                 idx = int(start + peak_offset)
             elif placement == 'onset':
+                # NEW: Simple onset placement - trusts wavelet boundaries
                 if t_off_frames <= t_rise_frames or np.abs(t_off_frames - t_rise_frames) < 0.1:
                     event_segment = ca_signal[start:end]
                     peak_offset = np.argmax(event_segment)
@@ -568,17 +574,33 @@ class Neuron:
                         peak_offset = np.argmax(event_segment)
                         idx = int(start + peak_offset)
                     else:
+                        # Use peak within event boundaries only (no refinement)
+                        event_segment = ca_signal[start:end]
+                        peak_offset = np.argmax(event_segment)
+                        peak_idx = start + peak_offset
+                        idx = int(peak_idx - kernel_peak_offset)
+            elif placement == 'onset_refined':
+                # OLD: Onset with peak refinement - searches outside boundaries (causes lag)
+                if t_off_frames <= t_rise_frames or np.abs(t_off_frames - t_rise_frames) < 0.1:
+                    event_segment = ca_signal[start:end]
+                    peak_offset = np.argmax(event_segment)
+                    idx = int(start + peak_offset)
+                else:
+                    kernel_peak_offset = t_rise_frames * t_off_frames * np.log(t_off_frames / t_rise_frames) / (t_off_frames - t_rise_frames)
+                    if np.isnan(kernel_peak_offset) or np.isinf(kernel_peak_offset):
+                        event_segment = ca_signal[start:end]
+                        peak_offset = np.argmax(event_segment)
+                        idx = int(start + peak_offset)
+                    else:
+                        # Peak refinement - searches outside event boundaries
                         search_start = max(0, start - peak_search_frames)
                         search_end = min(length, end + peak_search_frames)
                         search_segment = ca_signal[search_start:search_end]
                         true_peak_offset = np.argmax(search_segment)
                         true_peak_idx = search_start + true_peak_offset
                         idx = int(true_peak_idx - kernel_peak_offset)
-            if idx <= idx or idx < length:
-                pass
-            else:
-                0
-            point_events[idx] += amplitude
+            if 0 <= idx < length:
+                point_events[idx] += amplitude
         return point_events
 
     amplitudes_to_point_events = staticmethod(amplitudes_to_point_events)
@@ -722,6 +744,7 @@ class Neuron:
         self.noise_ampl = None
         self.mad = None
         self.snr = None
+        self.wavelet_snr = None
         self._kinetics_info = None
         self.reconstruction_r2 = None
         self.snr_reconstruction = None
@@ -908,7 +931,8 @@ class Neuron:
                     if amplitude_method == 'peak':
                         amplitudes = Neuron.extract_event_amplitudes(
                             self.ca.data, all_st_inds_list, all_end_inds_list,
-                            baseline_window=20
+                            baseline_window=20,
+                            already_dff=True
                         )
                     elif amplitude_method == 'deconvolution':
                         # NNLS runs ONCE on ALL events
@@ -926,6 +950,7 @@ class Neuron:
                     sp = (asp > 0).astype(int)
                     self.asp = TimeSeries(asp, discrete=False)
                     self.sp = TimeSeries(sp, discrete=True)
+                    self.sp_count = int(np.sum(sp))
                     self.wvt_ridges = all_ridges_list
                 else:
                     self.asp = TimeSeries(np.zeros(self.n_frames), discrete=False)
@@ -967,7 +992,8 @@ class Neuron:
                     # Peak-based amplitude extraction
                     amplitudes = Neuron.extract_event_amplitudes(
                         self.ca.data, st_inds, end_inds,
-                        baseline_window=20
+                        baseline_window=20,
+                        already_dff=True
                     )
                 elif amplitude_method == 'deconvolution':
                     # Deconvolution-based amplitude extraction
@@ -984,10 +1010,11 @@ class Neuron:
                     fps=fps
                 )
                 sp = (asp > 0).astype(int)
-                
+
                 # Assign to neuron attributes
                 self.asp = TimeSeries(asp, discrete=False)
                 self.sp = TimeSeries(sp, discrete=True)
+                self.sp_count = int(np.sum(sp))
             else:
                 # No events detected
                 self.asp = TimeSeries(np.zeros(self.n_frames), discrete=False)
@@ -1400,7 +1427,7 @@ class Neuron:
         return self.mae
 
     
-    def get_event_rmse(self, n_mad=4.0):
+    def get_event_rmse(self, n_mad=4.0, use_detected_events=True):
         '''Get RMSE during event periods only.
 
         Measures reconstruction error only during calcium transient events,
@@ -1412,7 +1439,10 @@ class Neuron:
         ----------
         n_mad : float, default=4.0
             Number of MAD (Median Absolute Deviation) units above median
-            for event detection threshold. Higher values = stricter event detection.
+            for event detection threshold. Only used if use_detected_events=False.
+        use_detected_events : bool, default=True
+            If True, use self.events (wavelet-detected) for event mask.
+            If False, use MAD-based threshold (legacy behavior).
 
         Returns
         -------
@@ -1442,12 +1472,19 @@ class Neuron:
         t_rise = self.t_rise if self.t_rise is not None else self.default_t_rise
         t_off = self.t_off if self.t_off is not None else self.default_t_off
         ca_reconstructed = Neuron.get_restored_calcium(self.asp.data, t_rise, t_off)
-        median = np.median(self.ca.scdata)
-        mad = np.median(np.abs(self.ca.scdata - median)) * 1.4826
-        threshold = median + n_mad * mad
-        event_mask = self.ca.scdata > threshold
+
+        # Determine event mask
+        if use_detected_events and self.events is not None:
+            event_mask = self.events.data > 0
+        else:
+            # MAD-based threshold (legacy)
+            median = np.median(self.ca.scdata)
+            mad = np.median(np.abs(self.ca.scdata - median)) * 1.4826
+            threshold = median + n_mad * mad
+            event_mask = self.ca.scdata > threshold
+
         if np.sum(event_mask) == 0:
-            raise ValueError(f'''No events detected with n_mad={n_mad}. Consider lowering n_mad parameter.''')
+            raise ValueError(f'''No events detected. Consider lowering n_mad parameter or check wavelet detection.''')
         ca_events = self.ca.data[event_mask]
         recon_events = ca_reconstructed[event_mask]
         residuals = ca_events - recon_events
@@ -1455,7 +1492,7 @@ class Neuron:
         return event_rmse
 
     
-    def get_event_mae(self, n_mad=4.0):
+    def get_event_mae(self, n_mad=4.0, use_detected_events=True):
         '''Get MAE during event periods only.
 
         Measures reconstruction error only during calcium transient events,
@@ -1467,7 +1504,10 @@ class Neuron:
         ----------
         n_mad : float, default=4.0
             Number of MAD (Median Absolute Deviation) units above median
-            for event detection threshold. Higher values = stricter event detection.
+            for event detection threshold. Only used if use_detected_events=False.
+        use_detected_events : bool, default=True
+            If True, use self.events (wavelet-detected) for event mask.
+            If False, use MAD-based threshold (legacy behavior).
 
         Returns
         -------
@@ -1499,12 +1539,19 @@ class Neuron:
         t_rise = self.t_rise if self.t_rise is not None else self.default_t_rise
         t_off = self.t_off if self.t_off is not None else self.default_t_off
         ca_reconstructed = Neuron.get_restored_calcium(self.asp.data, t_rise, t_off)
-        median = np.median(self.ca.scdata)
-        mad = np.median(np.abs(self.ca.scdata - median)) * 1.4826
-        threshold = median + n_mad * mad
-        event_mask = self.ca.scdata > threshold
+
+        # Determine event mask
+        if use_detected_events and self.events is not None:
+            event_mask = self.events.data > 0
+        else:
+            # MAD-based threshold (legacy)
+            median = np.median(self.ca.scdata)
+            mad = np.median(np.abs(self.ca.scdata - median)) * 1.4826
+            threshold = median + n_mad * mad
+            event_mask = self.ca.scdata > threshold
+
         if np.sum(event_mask) == 0:
-            raise ValueError(f'''No events detected with n_mad={n_mad}. Consider lowering n_mad parameter.''')
+            raise ValueError(f'''No events detected. Consider lowering n_mad parameter or check wavelet detection.''')
         ca_events = self.ca.data[event_mask]
         recon_events = ca_reconstructed[event_mask]
         event_mae = float(np.mean(np.abs(ca_events - recon_events)))
@@ -1649,7 +1696,142 @@ class Neuron:
         snr_linear = event_mean / baseline_std
         return float(20 * np.log10(snr_linear))
 
-    
+
+    def get_wavelet_snr(self):
+        '''Get wavelet-based signal-to-noise ratio.
+
+        Uses wavelet-detected event regions to separate signal from baseline,
+        providing accurate SNR measurement that accounts for event timing and
+        shape.
+
+        Returns
+        -------
+        float
+            Wavelet SNR (signal_strength / baseline_noise).
+            Higher values indicate better signal quality.
+
+        Raises
+        ------
+        ValueError
+            If wavelet reconstruction not performed, no events detected,
+            insufficient data (< 3 events), or baseline noise is zero.
+
+        Notes
+        -----
+        Requires prior call to:
+            neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+
+        SNR calculation:
+        1. Baseline: median and MAD from non-event frames
+        2. Signal: median of peak amplitudes across all events
+        3. SNR = (signal - baseline_median) / baseline_noise
+
+        Uses peak amplitudes (not event medians) to correctly handle sparse
+        high-amplitude events.
+
+        See Also
+        --------
+        get_snr : Simple SNR based on spike times
+        get_event_snr : Threshold-based event SNR
+        reconstruct_spikes : Wavelet spike reconstruction
+
+        Examples
+        --------
+        >>> neuron = Neuron(cell_id=0, ca=calcium_data, sp=None)
+        >>> neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+        >>> snr = neuron.get_wavelet_snr()
+        >>> print(f"Signal quality (SNR): {snr:.2f}")
+        '''
+        if self.wavelet_snr is None:
+            self.wavelet_snr = self._calc_wavelet_snr()
+        return self.wavelet_snr
+
+
+    def _calc_wavelet_snr(self):
+        '''Calculate wavelet-based SNR using detected event regions.
+
+        Internal method that computes SNR from wavelet-detected event regions.
+        Uses peak amplitudes to handle sparse high-amplitude events correctly.
+
+        Returns
+        -------
+        float
+            Wavelet SNR value.
+
+        Raises
+        ------
+        ValueError
+            If events not detected, insufficient data, or baseline noise is zero.
+        '''
+        # Check if events were detected
+        if self.events is None or self.events.data is None:
+            raise ValueError(
+                'No wavelet events detected. '
+                'Call reconstruct_spikes(method="wavelet", create_event_regions=True) first.'
+            )
+
+        ca = self.ca.data
+        events_mask = self.events.data.astype(bool)
+
+        # Check if any events detected
+        if not np.any(events_mask):
+            raise ValueError('No events in event mask')
+
+        # Calculate baseline from non-event regions
+        baseline_mask = ~events_mask
+        baseline_values = ca[baseline_mask]
+
+        if len(baseline_values) < 10:
+            raise ValueError(
+                f'Insufficient baseline frames ({len(baseline_values)}). '
+                'Need at least 10 baseline frames.'
+            )
+
+        baseline_median = np.median(baseline_values)
+        baseline_noise = median_abs_deviation(baseline_values, scale='normal')
+
+        if baseline_noise == 0:
+            raise ValueError('Baseline noise is zero, cannot compute SNR')
+
+        # Identify individual events (transitions in mask)
+        event_starts = np.where(np.diff(events_mask.astype(int)) == 1)[0] + 1
+        event_ends = np.where(np.diff(events_mask.astype(int)) == -1)[0] + 1
+
+        # Handle edge cases
+        if events_mask[0]:
+            event_starts = np.concatenate([[0], event_starts])
+        if events_mask[-1]:
+            event_ends = np.concatenate([event_ends, [len(events_mask)]])
+
+        n_events = min(len(event_starts), len(event_ends))
+
+        if n_events < 3:
+            raise ValueError(
+                f'Too few events detected ({n_events}). '
+                'Need at least 3 events for reliable SNR calculation.'
+            )
+
+        # Extract peak amplitude for each event
+        event_amplitudes = []
+        for i in range(n_events):
+            event_region = ca[event_starts[i]:event_ends[i]]
+            if len(event_region) > 0:
+                event_amplitudes.append(np.max(event_region))
+
+        event_amplitudes = np.array(event_amplitudes)
+
+        if len(event_amplitudes) == 0:
+            raise ValueError('No valid event amplitudes extracted')
+
+        # Signal strength using peak amplitudes
+        signal_strength = np.median(event_amplitudes) - baseline_median
+
+        # Robust SNR
+        snr_wavelet = signal_strength / baseline_noise
+
+        return float(snr_wavelet)
+
+
     def get_nmae(self, n_mad=3.0):
         '''Get Normalized Mean Absolute Error (MAE / baseline_noise_std).
 

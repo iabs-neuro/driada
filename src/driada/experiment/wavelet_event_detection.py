@@ -876,16 +876,6 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     Events are adjusted to have durations between MIN_EVENT_DUR (0.5s) and
     MAX_EVENT_DUR (2.5s). Events shorter than minimum are extended from their
     center, while events longer than maximum are truncated.    """
-    # Issue runtime warning about amplitude loss
-    warnings.warn(
-        "events_to_ts_array() creates binary event flags only and discards "
-        "amplitude information. For amplitude-aware spike reconstruction, use "
-        "Neuron.extract_event_amplitudes() and Neuron.amplitudes_to_point_events() "
-        "to preserve calcium fluorescence amplitudes (dF/F0).",
-        UserWarning,
-        stacklevel=2
-    )
-
     # Validate parameters
     from ..utils.data import check_positive
     check_positive(length=length, fps=fps)
