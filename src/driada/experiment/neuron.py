@@ -2806,15 +2806,17 @@ default reconstruction
                 # Calculate optimal event duration based on kinetics
                 min_event_dur = 0.5  # seconds, reasonable minimum
                 max_event_dur = result['t_rise'] + max_event_dur_multiplier * result['t_off']
-                
+
                 # Re-run spike detection with optimized kinetics
+                # Preserve event regions for wavelet SNR calculation
                 self.reconstruct_spikes(
                     method='wavelet',
                     iterative=False,
                     fps=fps,
                     min_event_dur=min_event_dur,
                     max_event_dur=max_event_dur,
-                    event_mask_expansion_sec=kwargs.get('event_mask_expansion_sec', 5.0)
+                    event_mask_expansion_sec=kwargs.get('event_mask_expansion_sec', 5.0),
+                    create_event_regions=True
                 )
         
         return result

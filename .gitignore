@@ -95,6 +95,12 @@ DOC_VERIFICATION*.txt
 # Test files in root
 test_*.py
 
+# Debug and analysis artifacts in root
+debug_*.py
+check_*.py
+visualize_*.py
+analysis_*/
+
 # All tools directory scripts
 # tools/  # Commented out - CI workflows need these scripts
 
