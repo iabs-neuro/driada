@@ -1,0 +1,76 @@
+name: driada
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  # Python
+  - python=3.10
+
+  # Core scientific packages (via conda for better performance)
+  - numpy>=1.24.3
+  - scipy>=1.11.4
+  - pandas>=2.1.4
+  - matplotlib>=3.7.0
+  - scikit-learn>=1.3.0
+  - numba>=0.59.0
+  - joblib>=1.3.0
+
+  # PyTorch (GPU support - via conda)
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=11.8  # or pytorch-cuda=12.1 for newer CUDA, or cpuonly for CPU-only
+
+  # Jupyter (optional but useful for development)
+  - jupyter
+  - ipython
+
+  # pip for remaining packages
+  - pip
+  - pip:
+    # Core dependencies
+    - pywavelets
+    - openpyxl
+    - chardet
+    - imageio
+    - h5py
+    - gitpython
+    - umap-learn
+    - fbm
+    - networkx>=3.1
+    - tqdm>=4.66.1
+    - pydrive2>=1.19.0
+    - pytz>=2023.3.post1
+    - wget>=3.2
+    - gdown>=5.1.0
+    - requests>=2.31.0
+    - regex>=2023.10.3
+    - beautifulsoup4>=4.12.3
+    - seaborn>=0.12.2
+    - ssqueezepy>=0.6.5
+    - pynndescent>=0.5.10
+    - pydiffmap>=0.2.0.1
+    - psutil>=5.9.0
+
+    # Optional [mvu]
+    - cvxpy>=1.4.2
+
+    # Optional [gpu]
+    - torch-mist
+
+    # Testing
+    - pytest>=7.4.0
+    - pytest-cov>=4.1.0
+    - pytest-timeout>=2.4.0
+
+    # Build tools
+    - build
+    - twine
+    - hatchling==1.26.3
+    - hatch-vcs
+
+    # Documentation
+    - sphinx
+    - sphinx-rtd-theme
+    - sphinx-autodoc-typehints
