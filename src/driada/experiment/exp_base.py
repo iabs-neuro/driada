@@ -12,6 +12,7 @@ from .neuron import (
     DEFAULT_T_OFF,
     DEFAULT_FPS,
     MIN_CA_SHIFT,
+    MIN_CA_SHIFT_SEC,
     Neuron,
 )
 from ..utils.data import get_hash, populate_nested_dict
@@ -860,8 +861,10 @@ class Experiment:
         t_off_sec = getattr(self, "t_off_sec", DEFAULT_T_OFF)
         fps = getattr(self, "fps", DEFAULT_FPS)
         t_off_frames = t_off_sec * fps
+        # FPS-adaptive: MIN_CA_SHIFT_SEC seconds worth of frames
+        min_ca_shift_frames = int(MIN_CA_SHIFT_SEC * fps)
         min_required_frames = (
-            int(t_off_frames * MIN_CA_SHIFT * 2) + 10
+            int(t_off_frames * min_ca_shift_frames * 2) + 10
         )  # Need space for both ends + some valid positions
 
         if self.n_frames < min_required_frames:

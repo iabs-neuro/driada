@@ -4,29 +4,31 @@ from scipy.stats import median_abs_deviation
 from scipy.optimize import minimize
 from scipy.signal import fftconvolve, savgol_filter
 
-# Try relative imports first (when used as part of package)
-# Fall back to absolute imports (when tested standalone)
-try:
-    from ..information.info_base import TimeSeries
-    from ..utils.data import check_positive, check_nonnegative
-    from ..utils.jit import conditional_njit
-    from .wavelet_event_detection import extract_wvt_events, events_to_ts_array
-except (ImportError, ValueError):
-    # Standalone mode - add project root to path
-    import sys
-    from pathlib import Path
-    # Go up 3 levels: neuron_recovery -> temp -> driada2 -> src
-    project_root = Path(__file__).resolve().parent.parent.parent / "src"
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-    from driada.information.info_base import TimeSeries
-    from driada.utils.data import check_positive, check_nonnegative
-    from driada.utils.jit import conditional_njit
-    from driada.experiment.wavelet_event_detection import extract_wvt_events, events_to_ts_array
+from ..information.info_base import TimeSeries
+from ..utils.data import check_positive, check_nonnegative
+from ..utils.jit import conditional_njit
+from .wavelet_event_detection import extract_wvt_events, events_to_ts_array
+
 DEFAULT_T_RISE = 0.25
 DEFAULT_T_OFF = 2
 DEFAULT_FPS = 20
 DEFAULT_MIN_BEHAVIOUR_TIME = 0.25
+
+# Time-based constants for FPS-adaptive parameters (at reference 20 Hz)
+# Phase 1: Critical detection parameters
+MIN_CA_SHIFT_SEC = 0.25  # Minimum calcium shift in seconds (5 frames @ 20 Hz)
+BASELINE_WINDOW_SEC = 1.0  # Baseline window in seconds (20 frames @ 20 Hz)
+MAX_FRAMES_FORWARD_SEC = 5.0  # Max forward search for t_off (100 frames @ 20 Hz)
+MAX_FRAMES_BACK_SEC = 1.5  # Max backward search for t_rise (30 frames @ 20 Hz)
+
+# Phase 2: Robustness thresholds for kinetics measurement
+MIN_DECAY_FRAMES_SEC = 0.5  # Minimum decay duration for t_off fitting (10 frames @ 20 Hz)
+MIN_RISE_FRAMES_SEC = 0.5  # Minimum rise duration for t_rise fitting (10 frames @ 20 Hz)
+MIN_VALID_POINTS_SEC = 0.25  # Minimum valid data points (5 frames @ 20 Hz)
+SAVGOL_WINDOW_SEC = 0.25  # Savitzky-Golay smoothing window (5 frames @ 20 Hz)
+BASELINE_OFFSET_SEC = 0.25  # Default baseline offset for fast indicators (5 frames @ 20 Hz)
+
+# Legacy frame-based constant (deprecated, use MIN_CA_SHIFT_SEC * fps instead)
 MIN_CA_SHIFT = 5
 
 # Statistical constants
@@ -34,7 +36,7 @@ MAD_SCALE_FACTOR = 1.4826  # Scaling factor for MAD → std consistency (normal 
                             # This is 1 / (sqrt(2) * erfcinv(1.5))
 
 # Kernel generation constants
-KERNEL_LENGTH_FRAMES = 500  # Sufficient for t_off ≤ 100 frames (5× decay time)
+KERNEL_LENGTH_FRAMES = 500  # Minimum kernel length; actual length is max(500, 5 × t_off)
 
 class Neuron:
     '''
@@ -144,7 +146,7 @@ class Neuron:
         Notes
         -----
         Input validation is performed in the wrapper function spike_form().
-        JIT compilation provides ~10-100x speedup for large arrays.        '''
+        JIT compilation provides significant speedup for large arrays.        '''
         form = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
         max_val = np.max(form)
         if max_val == 0:
@@ -183,9 +185,9 @@ class Neuron:
 
         Notes
         -----
-        Uses FFT-based convolution for optimal performance (5.5× faster than
-        naive convolution). Kernel length is KERNEL_LENGTH_FRAMES (500 frames),
-        sufficient for most calcium indicators (5× decay time for t_off ≤ 100 frames).
+        Uses FFT-based convolution for optimal performance. Kernel length is
+        adaptive: max(500, 5 × t_off frames) to ensure complete kernel capture
+        for all decay time constants.
 
         The convolution naturally handles amplitude-weighted spikes, where
         each spike value represents event strength in dF/F0 units.        '''
@@ -193,7 +195,22 @@ class Neuron:
         if sp.size == 0:
             raise ValueError('Spike train cannot be empty')
         check_positive(t_rise=t_rise, t_off=t_off)
-        x = np.arange(KERNEL_LENGTH_FRAMES)
+
+        # Adaptive kernel length: 5× decay time for complete kernel, minimum 500 frames
+        # Safety check: cap at 2000 frames to prevent memory issues from bad t_off
+        # (t_off > 400 frames or ~8s @ 20Hz is suspicious for typical indicators)
+        kernel_length = max(KERNEL_LENGTH_FRAMES, int(5 * t_off))
+        if kernel_length > 2000:
+            import warnings
+            warnings.warn(
+                f'Kernel length {kernel_length} (from t_off={t_off:.1f} frames) capped at 2000. '
+                f'This may indicate incorrect t_off measurement. Typical calcium indicators have '
+                f't_off < 200 frames (~8-10s @ 20Hz).',
+                UserWarning
+            )
+            kernel_length = 2000
+
+        x = np.arange(kernel_length)
         spform = Neuron.spike_form(x, t_rise, t_off)
         conv = fftconvolve(sp, spform, mode='full')
         return conv[:len(sp)]
@@ -314,7 +331,7 @@ class Neuron:
     _calcium_preprocessing_jit = staticmethod(conditional_njit(_calcium_preprocessing_jit))
     
     def extract_event_amplitudes(ca_signal, st_ev_inds, end_ev_inds, baseline_window=20,
-                                 already_dff=False, baseline_offset=0,
+                                 already_dff=False, baseline_offset=0, baseline_offset_sec=None,
                                  use_peak_refinement=False, t_rise_frames=None,
                                  t_off_frames=None, fps=None, peak_search_window_sec=0.2):
         """Extract amplitudes from calcium signal for detected events.
@@ -341,8 +358,12 @@ class Neuron:
         baseline_offset : int, optional
             Number of frames to skip before baseline window (to avoid rise phase).
             Baseline is calculated from frames [start-baseline_window-baseline_offset, start-baseline_offset].
-            Useful for GCaMP indicators with non-zero rise time (~5 frames for GCaMP6f @ 20Hz).
             Default is 0 (baseline immediately before event).
+            NOTE: Prefer baseline_offset_sec for FPS-independent specification.
+        baseline_offset_sec : float, optional
+            Alternative to baseline_offset: offset in seconds (converted to frames using fps).
+            Useful for GCaMP indicators with non-zero rise time (~0.25s for GCaMP6f).
+            If provided, overrides baseline_offset. Requires fps parameter.
         use_peak_refinement : bool, optional
             If True, refine peak location before calculating baseline (similar to 'onset' placement).
             Ensures baseline is calculated relative to TRUE peak, not wavelet detection start.
@@ -383,6 +404,13 @@ class Neuron:
         if use_peak_refinement:
             if (t_rise_frames is None) or (t_off_frames is None) or (fps is None):
                 raise ValueError('t_rise_frames, t_off_frames, and fps required when use_peak_refinement=True')
+
+        # Convert baseline_offset_sec to frames if provided
+        if baseline_offset_sec is not None:
+            if fps is None:
+                raise ValueError('fps parameter required when using baseline_offset_sec')
+            baseline_offset = int(baseline_offset_sec * fps)
+
         ca_signal = np.asarray(ca_signal)
         amplitudes = []
         peak_search_frames = int(peak_search_window_sec * fps) if use_peak_refinement else 0
@@ -701,9 +729,9 @@ class Neuron:
             **DEPRECATED**: Use `optimize_kinetics` instead. If True, fit individual
             decay time using old method. Default is False.
         optimize_kinetics : bool or str, optional
-            If True or 'lbfgs', optimize kinetics parameters (t_rise, t_off) using
-            fast L-BFGS-B method. If 'grid', use conservative grid search.
-            If False, use default parameters. Default is False.
+            If True or 'direct', optimize kinetics parameters (t_rise, t_off) using
+            direct measurement from event shapes. If False, use default parameters.
+            Default is False.
             Requires either `asp` parameter or prior call to reconstruct_spikes().
         asp : array-like or None, optional
             Pre-computed amplitude spikes (from prior reconstruction). If provided,
@@ -724,7 +752,7 @@ class Neuron:
 
         Notes
         -----
-        The shuffle mask excludes MIN_CA_SHIFT * t_off frames from each end
+        The shuffle mask excludes MIN_CA_SHIFT_SEC * fps * t_off frames from each end
         to prevent artifacts in temporal shuffling analyses.
 
         **New workflow** (recommended):
@@ -802,13 +830,15 @@ class Neuron:
             else:
                 t_off = self.default_t_off
         elif optimize_kinetics:
-            method = 'lbfgs' if optimize_kinetics is True else optimize_kinetics
+            method = 'direct' if optimize_kinetics is True else optimize_kinetics
             self.get_kinetics(method, fps)
             t_off = self.t_off if self.t_off is not None else self.default_t_off
         else:
             t_off = self.default_t_off
         self.ca.shuffle_mask = np.ones(self.n_frames, dtype=bool)
-        min_shift = int(t_off * MIN_CA_SHIFT)
+        # FPS-adaptive minimum shift: MIN_CA_SHIFT_SEC seconds worth of frames
+        min_shift_frames = int(MIN_CA_SHIFT_SEC * self.fps)
+        min_shift = int(t_off * min_shift_frames)
         self.ca.shuffle_mask[:min_shift] = False
         self.ca.shuffle_mask[self.n_frames - min_shift:] = False
 
@@ -903,7 +933,7 @@ class Neuron:
 
         For single-pass detection (backward compatible), set iterative=False.        """
         if method == 'wavelet':
-            fps = kwargs.get('fps', DEFAULT_FPS)
+            fps = kwargs.get('fps', self.fps)
             min_event_dur = kwargs.get('min_event_dur', 0.5)
             max_event_dur = kwargs.get('max_event_dur', 2.5)
             check_positive(fps=fps, min_event_dur=min_event_dur, max_event_dur=max_event_dur)
@@ -950,9 +980,10 @@ class Neuron:
                         all_end_inds_list.extend(end_inds)
                         all_ridges_list.extend(ridges)
                         # Extract quick peak-based amplitudes for residual subtraction
+                        baseline_window = int(BASELINE_WINDOW_SEC * fps)
                         quick_amps = Neuron.extract_event_amplitudes(
                             self.ca.data, st_inds, end_inds,
-                            baseline_window=20
+                            baseline_window=baseline_window
                         )
                         quick_asp = np.zeros(self.n_frames)
                         for st_idx, amp in zip(st_inds, quick_amps):
@@ -964,9 +995,10 @@ class Neuron:
                 # After ALL iterations: extract amplitudes from ALL collected events
                 if len(all_st_inds_list) > 0:
                     if amplitude_method == 'peak':
+                        baseline_window = int(BASELINE_WINDOW_SEC * fps)
                         amplitudes = Neuron.extract_event_amplitudes(
                             self.ca.data, all_st_inds_list, all_end_inds_list,
-                            baseline_window=20,
+                            baseline_window=baseline_window,
                             already_dff=True
                         )
                     elif amplitude_method == 'deconvolution':
@@ -1262,7 +1294,7 @@ class Neuron:
 
         **Wavelet method:**
         - SNR = median(event amplitudes) / std(baseline)
-        - More accurate, validated against ground truth (R=0.753)
+        - More accurate, empirically validated against ground truth
         - Requires prior wavelet reconstruction
         - Caches result in self.wavelet_snr
 
@@ -2162,7 +2194,7 @@ class Neuron:
         .. deprecated:: 0.5.0
            Use :meth:`get_kinetics` instead for better optimization that jointly
            optimizes both t_rise and t_off using correct event R² metric.
-           This method only fits t_off using simple MSE and is 8× slower.
+           This method only fits t_off using simple MSE and is significantly slower.
 
         Fits the decay time constant by optimizing the match between
         observed calcium and reconstructed calcium from spikes. Caches
@@ -2580,6 +2612,7 @@ class Neuron:
             If True, bypass cache and force recomputation. Default is False.
         **kwargs : dict, optional
             Custom reconstruction parameters:
+
             - t_rise_frames : float, optional
                 Custom rise time in frames. If not provided, uses optimized t_rise
                 from get_kinetics().
@@ -2731,7 +2764,7 @@ default reconstruction
         detection with new parameters.
 
 
- Parameters
+        Parameters
         ----------
         method : str, optional
             Optimization method. Currently only 'direct' is supported.
@@ -2746,7 +2779,7 @@ default reconstruction
             Formula: max_event_dur = t_rise + multiplier * t_off.
             Higher values detect longer events but may merge overlapping events.
             Lower values improve precision but may miss event tails.
-            Validated range: 3.0-5.0. Default: 4.0 (optimal balance).
+            Recommended range: 3.0-5.0. Default: 4.0 (optimal balance).
         **kwargs : dict
             Method-specific parameters. See individual method documentation.
 
@@ -2785,13 +2818,15 @@ default reconstruction
         if method != 'direct':
             raise ValueError(f"Only 'direct' method is supported, got '{method}'")
 
-        # Call direct optimization method
+        # Call direct optimization method with FPS-adaptive defaults
+        default_max_forward = int(MAX_FRAMES_FORWARD_SEC * fps)
+        default_max_back = int(MAX_FRAMES_BACK_SEC * fps)
         result = self._optimize_kinetics_direct(
             fps=fps,
             asp=kwargs.get('asp', None),
             wvt_ridges=kwargs.get('wvt_ridges', None),
-            max_frames_forward=kwargs.get('max_frames_forward', 100),
-            max_frames_back=kwargs.get('max_frames_back', 30),
+            max_frames_forward=kwargs.get('max_frames_forward', default_max_forward),
+            max_frames_back=kwargs.get('max_frames_back', default_max_back),
             min_events=kwargs.get('min_events', 5),
             aggregation=kwargs.get('aggregation', 'median')
         )
@@ -2842,18 +2877,23 @@ default reconstruction
         '''
         decay_start = peak_idx
         decay_end = min(len(signal), peak_idx + max_frames)
-        if decay_end - decay_start < 10:
+
+        # FPS-adaptive thresholds
+        min_decay_frames = int(MIN_DECAY_FRAMES_SEC * fps)
+        min_valid_points = int(MIN_VALID_POINTS_SEC * fps)
+
+        if decay_end - decay_start < min_decay_frames:
             return None
         decay_signal = signal[decay_start:decay_end]
         if np.max(decay_signal) <= 0:
             return None
         decay_signal = decay_signal / np.max(decay_signal)
         valid = decay_signal > 0.01
-        if np.sum(valid) < 5:
+        if np.sum(valid) < min_valid_points:
             return None
         log_y = np.log(decay_signal[valid])
         t = np.arange(len(decay_signal))[valid] / fps
-        if len(t) < 5:
+        if len(t) < min_valid_points:
             return None
         (slope, _) = np.polyfit(t, log_y, 1)
         tau = -1 / slope if slope < 0 else None
@@ -2887,21 +2927,37 @@ default reconstruction
         '''
         rise_end = peak_idx + 1
         rise_start = max(0, peak_idx - max_frames_back)
-        if rise_end - rise_start < 10:
+
+        # FPS-adaptive thresholds
+        min_rise_frames = int(MIN_RISE_FRAMES_SEC * fps)
+        min_valid_points = int(MIN_VALID_POINTS_SEC * fps)
+        savgol_window = max(5, int(SAVGOL_WINDOW_SEC * fps))
+        # Savitzky-Golay requires odd window length
+        if savgol_window % 2 == 0:
+            savgol_window += 1
+
+        if rise_end - rise_start < min_rise_frames:
             return None
         rise_signal = signal[rise_start:rise_end]
         if np.max(rise_signal) <= 0:
             return None
-        if len(rise_signal) >= 5:
+        if len(rise_signal) >= min_valid_points:
             try:
-                smoothed = savgol_filter(rise_signal, 5, 2)
+                # Use FPS-adaptive window length (must be odd and <= len(rise_signal))
+                actual_window = min(savgol_window, len(rise_signal))
+                if actual_window % 2 == 0:
+                    actual_window -= 1
+                if actual_window >= 5:  # Minimum for polyorder=2
+                    smoothed = savgol_filter(rise_signal, actual_window, 2)
+                else:
+                    smoothed = rise_signal
             except:
                 smoothed = rise_signal
             derivative = np.gradient(smoothed) * fps
             max_deriv_idx = np.argmax(derivative)
             max_deriv = derivative[max_deriv_idx]
             peak_val = smoothed[-1]
-            baseline = np.percentile(smoothed[:min(5, len(smoothed))], 50)
+            baseline = np.percentile(smoothed[:min(min_valid_points, len(smoothed))], 50)
             amplitude = peak_val - baseline
             # Use minimum derivative threshold to avoid division by tiny values
             if max_deriv > 1e-6 and amplitude > 0:
@@ -2927,10 +2983,10 @@ default reconstruction
 
         Advantages:
         -----------
-        - **10-20× faster** than L-BFGS optimization (~0.3s vs 5-6s per neuron)
-        - **More stable** t_rise estimates (±0.013s vs ±0.048s variability)
+        - **Fast** - Direct measurement from event shapes without iterative optimization
+        - **Stable** t_rise estimates with low variance across measurements
         - **No optimization failures** - deterministic measurement
-        - **Better for fast indicators** - derivative method has 4-33% error vs 36-89% for log-space
+        - **Better for fast indicators** - derivative method shows superior accuracy
 
         Limitations:
         ------------
@@ -2993,16 +3049,13 @@ default reconstruction
 
         Notes
         -----
-        - Derivative method for t_rise validated on synthetic data: 4-33% error
-        - Current log-space method has 36-89% error (systematic bias to 0.15-0.35s)
-        - Real data validation: +0.097 R² improvement over log-space method
-        - Typical GCaMP6f values: t_rise ~0.11s, t_off ~1.5-2.0s
+        - Derivative method for t_rise validated on synthetic data
         - For iterative refinement, combine with reconstruct_spikes(iterative=True)
 
         See Also
         --------
-        optimize_kinetics : Optimization-based method (slower but works with overlapping events)
-        optimize_kinetics_iterative : Iterative detection + optimization (most robust)
+        optimize_kinetics : Main kinetics optimization interface
+        get_kinetics : Cached access to optimization results
         '''
         check_positive(fps=fps, max_frames_forward=max_frames_forward, max_frames_back=max_frames_back, min_events=min_events)
         if aggregation not in ('median', 'mean'):

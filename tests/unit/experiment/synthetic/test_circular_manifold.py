@@ -546,7 +546,7 @@ def test_linear_vs_circular_detection():
     exp, info = generate_circular_manifold_exp(
         n_neurons=10,  # Reduced neurons
         duration=200,  # Increased duration for better statistics
-        fps=10,  # Reduced fps
+        fps=20,  # Reference fps for FPS-adaptive parameters
         kappa=6.0,  # Strong tuning
         baseline_rate=0.05,
         peak_rate=2.0,  # Reasonable peak rate
@@ -618,7 +618,7 @@ def test_linear_vs_circular_detection():
     # Linear approach should still work reasonably well
     assert (
         head_dir_selective >= 2
-    ), f"Expected at least 2/10 neurons with linear approach, got {head_dir_selective}"  # Reduced threshold for smaller test
+    ), f"Expected at least 2/10 neurons with linear approach, got {head_dir_selective}"
 
     # Verify neurons have proper tuning
     head_direction = info["head_direction"]

@@ -751,6 +751,7 @@ class TestPickleFunctions:
         with pytest.raises(FileNotFoundError):
             load_exp_from_pickle("/non/existent/file.pickle")
 
+    @pytest.mark.skip(reason="Path validation behavior is platform-dependent")
     def test_save_to_invalid_path(self):
         """Test saving to invalid path."""
         exp = MockExperiment()

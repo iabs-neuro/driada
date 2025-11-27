@@ -16,11 +16,11 @@ dependencies:
   - numba>=0.59.0
   - joblib>=1.3.0
 
-  # PyTorch (GPU support - via conda)
+  # PyTorch (CPU-only - via conda)
   - pytorch
   - torchvision
   - torchaudio
-  - pytorch-cuda=11.8  # or pytorch-cuda=12.1 for newer CUDA, or cpuonly for CPU-only
+  - cpuonly  # CPU-only; Intel GPU support added separately via IPEX if needed
 
   # Jupyter (optional but useful for development)
   - jupyter

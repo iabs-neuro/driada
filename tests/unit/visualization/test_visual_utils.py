@@ -5,6 +5,7 @@ Tests for visual utilities module
 Test the new visualization functions in driada.utils.visual
 """
 
+import sys
 import numpy as np
 import pytest
 import matplotlib.pyplot as plt
@@ -96,6 +97,7 @@ class TestVisualUtils:
         assert DEFAULT_DPI == 150
         assert visual.DEFAULT_DPI == 150
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows file locking prevents temp file deletion")
     def test_plot_embedding_comparison(self, sample_embeddings):
         """Test embedding comparison plot."""
         embeddings, features, _ = sample_embeddings
@@ -124,6 +126,7 @@ class TestVisualUtils:
                 embeddings=embeddings, features=features, save_path=tmp.name, dpi=100
             )
             assert os.path.exists(tmp.name)
+            plt.close(fig3)  # Close figure before deleting on Windows
             os.unlink(tmp.name)
 
         plt.close("all")
@@ -247,6 +250,7 @@ class TestVisualUtils:
 
         plt.close("all")
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows file locking prevents temp file deletion")
     def test_configurable_dpi(self, sample_embeddings):
         """Test that DPI is configurable in all functions."""
         embeddings, features, _ = sample_embeddings
@@ -272,6 +276,7 @@ class TestVisualUtils:
             )
             # Just check file was created - actual saving may be mocked
             assert fig3 is not None
+            plt.close(fig3)  # Close figure before deleting on Windows
             if os.path.exists(tmp.name):
                 os.unlink(tmp.name)
 
