@@ -2231,15 +2231,30 @@ class Neuron:
         ValueError
             If events not detected, insufficient data, or baseline noise is zero.
         '''
-        # Check if events were detected
-        if self.events is None or self.events.data is None:
+        # Try self.events first, then construct from threshold_events or wvt_ridges
+        events_mask = None
+        if self.events is not None and self.events.data is not None:
+            events_mask = self.events.data.astype(bool)
+        elif hasattr(self, 'threshold_events') and self.threshold_events:
+            # Construct mask from threshold events
+            events_mask = np.zeros(len(self.ca.data), dtype=bool)
+            for event in self.threshold_events:
+                st, end = int(event.start), min(int(event.end), len(self.ca.data))
+                events_mask[st:end] = True
+        elif self.wvt_ridges:
+            # Construct mask from wavelet ridges
+            events_mask = np.zeros(len(self.ca.data), dtype=bool)
+            for ridge in self.wvt_ridges:
+                st, end = int(ridge.start), min(int(ridge.end), len(self.ca.data))
+                events_mask[st:end] = True
+        else:
             raise ValueError(
                 'No event regions detected. '
-                'Call reconstruct_spikes(create_event_regions=True) first.'
+                'Call reconstruct_spikes(create_event_regions=True) first, '
+                'or use detect_events_threshold() to detect events.'
             )
 
         ca = self.ca.data
-        events_mask = self.events.data.astype(bool)
 
         # Check if any events detected
         if not np.any(events_mask):
@@ -3448,7 +3463,7 @@ default reconstruction
                 'n_events_used_off': 0,
                 'n_events_detected': 0,
                 'method': 'direct',
-                'error': 'No events detected by wavelet' }
+                'error': 'No events detected' }
         event_positions = []
         for ridge in ridges:
             start_idx = int(ridge.start)
