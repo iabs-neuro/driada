@@ -510,7 +510,7 @@ class TestWaveletSNR:
 
         with pytest.raises(
             ValueError,
-            match="No wavelet events detected.*reconstruct_spikes",
+            match="No event regions detected.*reconstruct_spikes",
         ):
             neuron.get_wavelet_snr()
 

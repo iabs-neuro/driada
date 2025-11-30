@@ -14,7 +14,7 @@ Key Workflow:
 2. optimize_kinetics(update_reconstruction=True) - Optional: improve kinetics
 
 Key Takeaways:
-- Threshold: 100-500x faster, good for high SNR data
+- Threshold: much faster, good for high SNR data
 - Wavelet: More sensitive, better for low SNR or overlapping events
 - Both methods support iterative detection (detect -> subtract -> repeat)
 - Kinetics optimization improves reconstruction quality

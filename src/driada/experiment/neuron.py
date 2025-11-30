@@ -920,6 +920,7 @@ class Neuron:
         self.event_count = None
         self._reconstructed = None
         self._reconstructed_scaled = None
+        self._has_reconstructed = False  # Track if reconstruction was done before
         if fps is None:
             fps = DEFAULT_FPS
         if default_t_rise is None:
@@ -1046,20 +1047,17 @@ class Neuron:
         smaller events compared to single-pass detection.
 
         For single-pass detection (backward compatible), set iterative=False.        """
-        # Warn if using default kinetics (not optimized)
-        if self.t_rise is None or self.t_off is None:
+        # Warn if re-running reconstruction without optimized kinetics
+        # (skip warning on first reconstruction - user needs events before optimizing)
+        if self._has_reconstructed and (self.t_rise is None or self.t_off is None):
             import warnings
             fps_for_warning = kwargs.get('fps', self.fps if self.fps is not None else DEFAULT_FPS)
             warnings.warn(
-                f"Neuron {self.cell_id}: Using default kinetics "
-                f"(t_rise={self.default_t_rise/fps_for_warning:.2f}s, "
-                f"t_off={self.default_t_off/fps_for_warning:.2f}s). "
-                "Default values may not match your signal, leading to inaccurate reconstruction. "
-                "Detected events will remain the same, but amplitude estimates and quality metrics "
-                "(R², SNR, etc.) may improve after optimization. "
-                "To optimize: neuron.optimize_kinetics(method='direct', update_reconstruction=True)",
+                f"Neuron {self.cell_id}: Re-running reconstruction with default kinetics. "
+                f"Consider optimizing first: neuron.optimize_kinetics(method='direct', fps={fps_for_warning})",
                 UserWarning
             )
+        self._has_reconstructed = True
 
         if method == 'wavelet':
             fps = kwargs.get('fps', self.fps)
@@ -1690,19 +1688,21 @@ class Neuron:
             t_off = self.t_off if self.t_off is not None else self.default_t_off
             ca_reconstructed = Neuron.get_restored_calcium(self.asp.data, t_rise, t_off)
 
-            # Determine event mask source
+            # Determine event mask source (supports both wavelet and threshold)
             event_mask = None
-            wvt_ridges = None
+            event_ridges = None
             if use_detected_events:
                 if self.events is not None:
                     event_mask = self.events.data
-                else:
-                    wvt_ridges = self.wvt_ridges
+                elif hasattr(self, 'threshold_events') and self.threshold_events:
+                    event_ridges = self.threshold_events
+                elif self.wvt_ridges:
+                    event_ridges = self.wvt_ridges
 
             event_r2 = Neuron._calculate_event_r2(
                 self.ca.data, ca_reconstructed, n_mad,
                 event_mask=event_mask,
-                wvt_ridges=wvt_ridges,
+                wvt_ridges=event_ridges,
                 fps=self.fps
             )
             if np.isnan(event_r2):
@@ -2159,28 +2159,31 @@ class Neuron:
 
 
     def get_wavelet_snr(self):
-        '''Get wavelet-based signal-to-noise ratio.
+        '''Get event-based signal-to-noise ratio.
 
-        Uses wavelet-detected event regions to separate signal from baseline,
+        Uses detected event regions to separate signal from baseline,
         providing accurate SNR measurement that accounts for event timing and
-        shape.
+        shape. Works with both wavelet and threshold detection methods.
 
         Returns
         -------
         float
-            Wavelet SNR (signal_strength / baseline_noise).
+            Event SNR (signal_strength / baseline_noise).
             Higher values indicate better signal quality.
 
         Raises
         ------
         ValueError
-            If wavelet reconstruction not performed, no events detected,
-            insufficient data (< 3 events), or baseline noise is zero.
+            If reconstruction not performed with create_event_regions=True,
+            no events detected, insufficient data (< 3 events), or baseline
+            noise is zero.
 
         Notes
         -----
         Requires prior call to:
             neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+            OR
+            neuron.reconstruct_spikes(method='threshold', create_event_regions=True)
 
         SNR calculation:
         1. Baseline: median and MAD from non-event frames
@@ -2193,31 +2196,35 @@ class Neuron:
         See Also
         --------
         get_snr : Simple SNR based on spike times
-        get_event_snr : Threshold-based event SNR
-        reconstruct_spikes : Wavelet spike reconstruction
+        get_event_snr : Alias for this method
+        reconstruct_spikes : Spike reconstruction (wavelet or threshold)
 
         Examples
         --------
         >>> neuron = Neuron(cell_id=0, ca=calcium_data, sp=None)
-        >>> neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
-        >>> snr = neuron.get_wavelet_snr()
+        >>> neuron.reconstruct_spikes(method='threshold', create_event_regions=True)
+        >>> snr = neuron.get_event_snr()  # or get_wavelet_snr()
         >>> print(f"Signal quality (SNR): {snr:.2f}")
         '''
         if self.wavelet_snr is None:
             self.wavelet_snr = self._calc_wavelet_snr()
         return self.wavelet_snr
 
+    # Alias for method-agnostic naming
+    get_event_snr = get_wavelet_snr
+
 
     def _calc_wavelet_snr(self):
-        '''Calculate wavelet-based SNR using detected event regions.
+        '''Calculate event-based SNR using detected event regions.
 
-        Internal method that computes SNR from wavelet-detected event regions.
+        Internal method that computes SNR from detected event regions.
+        Works with both wavelet and threshold detection methods.
         Uses peak amplitudes to handle sparse high-amplitude events correctly.
 
         Returns
         -------
         float
-            Wavelet SNR value.
+            Event SNR value.
 
         Raises
         ------
@@ -2227,8 +2234,8 @@ class Neuron:
         # Check if events were detected
         if self.events is None or self.events.data is None:
             raise ValueError(
-                'No wavelet events detected. '
-                'Call reconstruct_spikes(method="wavelet", create_event_regions=True) first.'
+                'No event regions detected. '
+                'Call reconstruct_spikes(create_event_regions=True) first.'
             )
 
         ca = self.ca.data
