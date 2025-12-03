@@ -1158,20 +1158,31 @@ class Neuron:
                 all_st_inds_list = []
                 all_end_inds_list = []
                 all_events_list = []
-                current_signal = self.ca.scdata.copy() if use_scaled else self.ca.data.copy()
+                original_signal = self.ca.scdata.copy() if use_scaled else self.ca.data.copy()
+                current_signal = original_signal.copy()
 
-                # Prepare iteration-specific n_mad (adaptive thresholds if enabled)
-                if adaptive_thresholds:
-                    # Progressively relax n_mad: 4.0 -> 3.2 -> 2.4 -> ...
-                    iter_n_mads = [max(n_mad * (1 - i * 0.2), 1.0) for i in range(n_iter)]
+                # Compute statistics ONCE from original signal (not residuals!)
+                # This prevents finding spurious events in pure noise, where adaptive
+                # threshold would keep finding tail exceedances in each iteration.
+                if threshold is None:
+                    signal_median = np.median(original_signal)
+                    signal_mad = median_abs_deviation(original_signal, scale='normal')
+
+                    # Pre-compute thresholds for each iteration based on ORIGINAL statistics
+                    if adaptive_thresholds:
+                        # Progressively relax threshold: 4.0 -> 3.2 -> 2.4 -> ... MADs
+                        iter_n_mads = [max(n_mad * (1 - i * 0.2), 1.0) for i in range(n_iter)]
+                    else:
+                        iter_n_mads = [n_mad] * n_iter
+                    iter_thresholds = [signal_median + nm * signal_mad for nm in iter_n_mads]
                 else:
-                    iter_n_mads = [n_mad] * n_iter
+                    # User provided explicit threshold - use it for all iterations
+                    iter_thresholds = [threshold] * n_iter
 
                 # Iterative detection loop
                 for iter_idx in range(n_iter):
                     detected_events = self.detect_events_threshold(
-                        threshold=threshold,
-                        n_mad=iter_n_mads[iter_idx],
+                        threshold=iter_thresholds[iter_idx],
                         min_duration_frames=min_duration_frames,
                         merge_gap_frames=merge_gap_frames,
                         use_scaled=False,  # We pass custom signal
