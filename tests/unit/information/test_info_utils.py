@@ -183,3 +183,125 @@ class TestBinaryMIScore:
         contingency = np.array([[25, 25], [25, 25]])
         mi = binary_mi_score(contingency)
         assert abs(mi) < 0.01  # Uniform distribution has zero MI
+
+
+class TestDigammaEdgeCases:
+    """Test edge cases for digamma functions - non-positive values."""
+
+    def test_py_fast_digamma_negative_returns_nan(self):
+        """Test that negative values return NaN."""
+        result = py_fast_digamma(-1.0)
+        assert np.isnan(result)
+
+        result = py_fast_digamma(-0.5)
+        assert np.isnan(result)
+
+        result = py_fast_digamma(-100.0)
+        assert np.isnan(result)
+
+    def test_py_fast_digamma_zero_returns_nan(self):
+        """Test that zero returns NaN."""
+        result = py_fast_digamma(0.0)
+        assert np.isnan(result)
+
+    def test_py_fast_digamma_int_input(self):
+        """Test that integer input is handled correctly via float conversion."""
+        # Integer inputs should work via float(x) conversion
+        result_int = py_fast_digamma(5)
+        result_float = py_fast_digamma(5.0)
+        assert abs(result_int - result_float) < 1e-10
+
+        result_int = py_fast_digamma(1)
+        expected = digamma(1.0)
+        assert abs(result_int - expected) < 1e-6
+
+    def test_py_fast_digamma_numpy_scalar_types(self):
+        """Test with various numpy scalar types."""
+        x_float64 = np.float64(3.5)
+        x_float32 = np.float32(3.5)
+        x_int32 = np.int32(3)
+        x_int64 = np.int64(3)
+
+        # All should work and produce finite results
+        assert not np.isnan(py_fast_digamma(x_float64))
+        assert not np.isnan(py_fast_digamma(float(x_float32)))
+        assert not np.isnan(py_fast_digamma(x_int32))
+        assert not np.isnan(py_fast_digamma(x_int64))
+
+    def test_py_fast_digamma_arr_negative_values(self):
+        """Test array version with negative values returns NaN."""
+        arr = np.array([-1.0, -0.5, -10.0])
+        result = py_fast_digamma_arr(arr)
+        assert all(np.isnan(result))
+
+    def test_py_fast_digamma_arr_zero_values(self):
+        """Test array version with zero returns NaN."""
+        arr = np.array([0.0])
+        result = py_fast_digamma_arr(arr)
+        assert np.isnan(result[0])
+
+    def test_py_fast_digamma_arr_mixed_positive_negative(self):
+        """Test array version with mixed positive and negative values."""
+        arr = np.array([1.0, -1.0, 2.0, -0.5, 3.0, 0.0])
+        result = py_fast_digamma_arr(arr)
+
+        # Positive values should have valid results
+        assert not np.isnan(result[0])  # 1.0
+        assert not np.isnan(result[2])  # 2.0
+        assert not np.isnan(result[4])  # 3.0
+
+        # Non-positive values should be NaN
+        assert np.isnan(result[1])  # -1.0
+        assert np.isnan(result[3])  # -0.5
+        assert np.isnan(result[5])  # 0.0
+
+        # Check positive values are accurate
+        expected = digamma(np.array([1.0, 2.0, 3.0]))
+        actual = np.array([result[0], result[2], result[4]])
+        assert np.allclose(actual, expected, rtol=1e-6)
+
+    def test_py_fast_digamma_arr_very_small_values(self):
+        """Test with very small positive values exercising the while loop."""
+        arr = np.array([0.001, 0.01, 0.1, 0.5])
+        result = py_fast_digamma_arr(arr)
+        expected = digamma(arr)
+        assert np.allclose(result, expected, rtol=1e-5)
+
+
+class TestBinaryMIScoreValidation:
+    """Test input validation for binary_mi_score."""
+
+    def test_binary_mi_score_1d_input_raises_error(self):
+        """Test that 1D input raises ValueError."""
+        import pytest
+        contingency_1d = np.array([10, 20, 30])
+        with pytest.raises(ValueError, match="must be 2D"):
+            binary_mi_score(contingency_1d)
+
+    def test_binary_mi_score_3d_input_raises_error(self):
+        """Test that 3D input raises ValueError."""
+        import pytest
+        contingency_3d = np.array([[[10, 20], [30, 40]], [[50, 60], [70, 80]]])
+        with pytest.raises(ValueError, match="must be 2D"):
+            binary_mi_score(contingency_3d)
+
+    def test_binary_mi_score_negative_values_raises_error(self):
+        """Test that negative values in contingency table raise ValueError."""
+        import pytest
+        contingency = np.array([[10, -5], [20, 15]])
+        with pytest.raises(ValueError, match="cannot contain negative"):
+            binary_mi_score(contingency)
+
+    def test_binary_mi_score_single_row_returns_zero(self):
+        """Test that single-row contingency returns 0 (pi.size == 1)."""
+        # Single row contingency table
+        contingency = np.array([[50, 30, 20]])  # shape (1, 3)
+        mi = binary_mi_score(contingency)
+        assert mi == 0.0
+
+    def test_binary_mi_score_single_column_returns_zero(self):
+        """Test that single-column contingency returns 0 (pj.size == 1)."""
+        # Single column contingency table
+        contingency = np.array([[50], [30], [20]])  # shape (3, 1)
+        mi = binary_mi_score(contingency)
+        assert mi == 0.0
