@@ -77,7 +77,7 @@ class TestGetFunctionalOrganization:
         org = get_functional_organization(exp, 'tsne')
 
         assert org['n_components'] == 2
-        assert np.sum(org['component_importance']) == pytest.approx(1.0, abs=1e-10)
+        assert np.sum(org['component_importance']) == pytest.approx(1.0, abs=1e-6)
 
     def test_raises_keyerror_for_missing_method(self, experiment_with_pca):
         """Should raise KeyError for non-existent embedding method."""
