@@ -35,6 +35,74 @@ WVT_EVENT_DETECTION_PARAMS = {
 MIN_EVENT_DUR = 0.5  # sec
 MAX_EVENT_DUR = 2.5  # sec
 
+# Time-based constants for FPS-adaptive parameters (at reference 20 Hz)
+SIGMA_SEC = 0.4  # Gaussian smoothing window in seconds (8 frames @ 20 Hz)
+EPS_SEC = 0.5  # Minimum event spacing in seconds (10 frames @ 20 Hz)
+ORDER_SEC = 0.5  # argrelmax order window in seconds (10 frames @ 20 Hz)
+
+# Wavelet scale range (physical time coverage for event detection)
+# Values close to legacy np.logspace(2.5, 5.5, 50, base=2) at reference 20 Hz
+MIN_SCALE_TIME_SEC = 0.275  # Minimum event time (5.5 frames @ 20Hz, matches old ~5.66)
+MAX_SCALE_TIME_SEC = 2.25   # Maximum event time (45 frames @ 20Hz, matches old ~45.26)
+N_SCALES = 50  # Number of logarithmic scale steps
+REFERENCE_FPS = 20  # Reference fps for scale definitions
+
+
+def get_adaptive_wavelet_scales(fps, min_time_sec=MIN_SCALE_TIME_SEC,
+                                max_time_sec=MAX_SCALE_TIME_SEC, n_scales=N_SCALES):
+    """Compute FPS-adaptive wavelet scales to maintain physical time coverage.
+
+    Scales are proportional to FPS to ensure the same physical time range
+    (in seconds) is covered regardless of sampling rate. This ensures consistent
+    detection of fast rises and slow decays across different acquisition rates.
+
+    Parameters
+    ----------
+    fps : float
+        Sampling rate in Hz.
+    min_time_sec : float, optional
+        Minimum event time to detect in seconds (default: 0.25s).
+    max_time_sec : float, optional
+        Maximum event time to detect in seconds (default: 2.5s).
+    n_scales : int, optional
+        Number of logarithmic scale steps (default: 50).
+
+    Returns
+    -------
+    ndarray
+        Array of wavelet scales covering the specified time range at given fps.
+
+    Notes
+    -----
+    The relationship between scale (s), time (t), and fps:
+        t = s / fps
+
+    To maintain constant time coverage:
+        s = t × fps
+
+    Therefore, scales are proportional to fps to maintain the same physical
+    time range across different sampling rates.
+
+    Examples
+    --------
+    >>> scales_20hz = get_adaptive_wavelet_scales(fps=20)
+    >>> scales_30hz = get_adaptive_wavelet_scales(fps=30)
+    >>> # Both cover 0.25-2.5 seconds, but with different scale values
+    >>> print(f"20 Hz: {scales_20hz[0]:.2f}-{scales_20hz[-1]:.2f}")  # 5.0-50.0
+    >>> print(f"30 Hz: {scales_30hz[0]:.2f}-{scales_30hz[-1]:.2f}")  # 7.5-75.0
+    """
+    # Convert time range to scales at given fps
+    min_scale = min_time_sec * fps
+    max_scale = max_time_sec * fps
+
+    # Generate logarithmically spaced scales
+    # Use same log range as reference: log2(5.66) to log2(45.25) = 2.5 to 5.5
+    log_min = np.log2(min_scale)
+    log_max = np.log2(max_scale)
+    scales = np.logspace(log_min, log_max, n_scales, base=2)
+
+    return scales
+
 
 def wvt_viz(x, Wx):
     """Visualize signal and its wavelet transform.
@@ -158,10 +226,13 @@ def get_cwt_ridges(
     # determine peak positions for all scales
     peaks = np.zeros((len(scale_inds), len(sig)))
 
+    # Adaptive order for argrelmax: scales with fps (0.5 seconds worth of frames)
+    order = max(1, int(ORDER_SEC * fps))
+
     all_ridges = []
     for i, si in enumerate(scale_inds[:]):
         wvt_time = all_wvt_times[i]
-        max_inds = argrelmax(wvtdata[si, :], order=10)[0]
+        max_inds = argrelmax(wvtdata[si, :], order=order)[0]
         peaks[i, max_inds] = wvtdata[si, max_inds]
         # max_inds = np.nonzero(peaks[i,:])[0]
         # print(peaks[i, max_inds])
@@ -636,13 +707,16 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None):
         * fps : float, frame rate in Hz (default: 20)
         * beta : float, GMW beta parameter (default: 2)
         * gamma : float, GMW gamma parameter (default: 3)
-        * sigma : float, Gaussian smoothing sigma in frames (default: 8)
-        * eps : int, minimum spacing between events in frames (default: 10)
-        * manual_scales : array, wavelet scales to use
+        * sigma : float, Gaussian smoothing sigma in frames (adaptive: 0.4 * fps if not provided)
+        * sigma_sec : float, Gaussian smoothing sigma in seconds (alternative to sigma)
+        * eps : int, minimum spacing between events in frames (adaptive: 0.5 * fps if not provided)
+        * eps_sec : float, minimum spacing in seconds (alternative to eps)
+        * manual_scales : array, wavelet scales to use (adaptive: covers 0.25-2.5s at given fps if not provided)
         * scale_length_thr : int, minimum ridge length (default: 40)
         * max_scale_thr : int, max scale index threshold (default: 7)
         * max_ampl_thr : float, minimum ridge amplitude (default: 0.05)
-        * max_dur_thr : int, maximum event duration in frames (default: 200)
+        * max_event_dur : float, maximum event duration in seconds (default: 2.5)
+        * max_dur_thr : int, maximum event duration in frames (adaptive: computed from max_event_dur * fps if not provided)
     show_progress : bool, optional
         Whether to show progress bar. If None (default), automatically shows
         progress bar only when processing multiple traces (>1).
@@ -690,14 +764,48 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None):
     fps = wvt_kwargs.get("fps", 20)
     beta = wvt_kwargs.get("beta", 2)
     gamma = wvt_kwargs.get("gamma", 3)
-    sigma = wvt_kwargs.get("sigma", 8)
-    eps = wvt_kwargs.get("eps", 10)
-    manual_scales = wvt_kwargs.get("manual_scales", np.logspace(2.5, 5.5, 50, base=2))
+
+    # Adaptive sigma: convert from seconds to frames based on fps
+    # Priority: explicit sigma (frames) > sigma_sec conversion > default
+    if "sigma" in wvt_kwargs:
+        sigma = wvt_kwargs["sigma"]
+    elif "sigma_sec" in wvt_kwargs:
+        sigma = wvt_kwargs["sigma_sec"] * fps
+    else:
+        # Default: 0.4 seconds converted to frames at current fps
+        sigma = SIGMA_SEC * fps
+
+    # Adaptive eps: convert from seconds to frames based on fps
+    # Priority: explicit eps (frames) > eps_sec conversion > default
+    if "eps" in wvt_kwargs:
+        eps = wvt_kwargs["eps"]
+    elif "eps_sec" in wvt_kwargs:
+        eps = int(wvt_kwargs["eps_sec"] * fps)
+    else:
+        # Default: 0.5 seconds converted to frames at current fps
+        eps = int(EPS_SEC * fps)
+
+    # Adaptive wavelet scales: maintain physical time coverage (0.25-2.5s) across FPS
+    # Priority: explicit manual_scales > adaptive scales based on fps
+    if "manual_scales" in wvt_kwargs:
+        manual_scales = wvt_kwargs["manual_scales"]
+    else:
+        # Default: FPS-adaptive scales to detect events in consistent time range
+        manual_scales = get_adaptive_wavelet_scales(fps)
 
     scale_length_thr = wvt_kwargs.get("scale_length_thr", 40)
     max_scale_thr = wvt_kwargs.get("max_scale_thr", 7)
     max_ampl_thr = wvt_kwargs.get("max_ampl_thr", 0.05)
-    max_dur_thr = wvt_kwargs.get("max_dur_thr", 200)
+
+    # Adaptive max_dur_thr: convert max_event_dur (seconds) to frames based on fps
+    # Priority: explicit max_dur_thr > max_event_dur conversion > default
+    if "max_dur_thr" in wvt_kwargs:
+        max_dur_thr = wvt_kwargs["max_dur_thr"]
+    elif "max_event_dur" in wvt_kwargs:
+        max_dur_thr = int(wvt_kwargs["max_event_dur"] * fps)
+    else:
+        # Default: 2.5 seconds converted to frames at current fps
+        max_dur_thr = int(MAX_EVENT_DUR * fps)
     
     # Validate extracted parameters
     check_positive(fps=fps, beta=beta, gamma=gamma, max_dur_thr=max_dur_thr)

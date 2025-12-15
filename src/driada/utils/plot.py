@@ -27,8 +27,11 @@ def make_beautiful(
     legend_ncol: Optional[int] = None,
     tight_layout: bool = True,
     remove_origin_tick: bool = False,
+    panel_size: Optional[Tuple[float, float]] = None,
+    panel_units: str = 'cm',
+    reference_size: Tuple[float, float] = (8.0, 8.0),
 ):
-    """Apply publication-quality styling to a matplotlib axis.
+    """Apply publication-quality styling to a matplotlib axis with optional auto-scaling.
 
     Parameters
     ----------
@@ -73,6 +76,17 @@ def make_beautiful(
         Whether to remove extra margins on both axes (default: True).
     remove_origin_tick : bool, optional
         Whether to remove tick labels at the origin (0,0) to avoid overlap (default: False).
+    panel_size : tuple of float, optional
+        Physical size (width, height) of the panel. If provided, all size-related
+        parameters (fonts, line widths) are automatically scaled based on panel
+        area relative to reference_size. This maintains consistent visual density
+        across panels of different sizes (default: None, no scaling).
+    panel_units : {'cm', 'inches'}, default 'cm'
+        Units for panel_size and reference_size (default: 'cm').
+    reference_size : tuple of float, default (8.0, 8.0)
+        Reference panel size for scaling calculations. Size parameters
+        (spine_width, tick_width, etc.) are assumed to be appropriate for
+        this reference size (default: (8.0, 8.0) cm).
 
     Returns
     -------
@@ -107,7 +121,38 @@ def make_beautiful(
     --------
     ~driada.utils.plot.create_default_figure :
         Create figure with default styling applied.
+    ~driada.utils.publication.PanelLayout :
+        Layout manager for multi-panel figures with precise dimensions.
+    ~driada.utils.publication.StylePreset :
+        Style presets with automatic scaling.
     """
+    # Calculate scale factor if panel_size is provided
+    scale = 1.0
+    if panel_size is not None:
+        # Import here to avoid circular dependency
+        from .publication.layout import to_inches
+
+        # Convert sizes to inches for comparison
+        ref_size_inches = to_inches(reference_size, panel_units)
+        panel_size_inches = to_inches(panel_size, panel_units)
+
+        # Calculate areas
+        ref_area = ref_size_inches[0] * ref_size_inches[1]
+        panel_area = panel_size_inches[0] * panel_size_inches[1]
+
+        # Scale factor is sqrt of area ratio (preserves visual density)
+        scale = np.sqrt(panel_area / ref_area)
+
+    # Apply scale factor to all size parameters
+    spine_width = spine_width * scale
+    tick_width = tick_width * scale
+    tick_length = tick_length * scale
+    tick_pad = tick_pad * scale
+    tick_labelsize = int(tick_labelsize * scale)
+    label_size = int(label_size * scale)
+    title_size = int(title_size * scale)
+    legend_fontsize = int(legend_fontsize * scale)
+
     # Style spines
     for axis in ["bottom", "left"]:
         ax.spines[axis].set_linewidth(spine_width)

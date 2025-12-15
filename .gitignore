@@ -74,6 +74,7 @@ data/
 logs/
 wandb/
 tensorboard/
+gpu/
 
 # Temporary files
 *.tmp
@@ -96,10 +97,10 @@ DOC_VERIFICATION*.txt
 /test_*.py
 
 # Debug and analysis artifacts in root
-debug_*.py
-check_*.py
-visualize_*.py
-analysis_*/
+/debug_*.py
+/check_*.py
+/visualize_*.py
+/analysis_*/
 
 # All tools directory scripts
 # tools/  # Commented out - CI workflows need these scripts
@@ -118,3 +119,6 @@ docs_internal/
 
 # Papers folder
 papers/
+
+# Science folder
+science/

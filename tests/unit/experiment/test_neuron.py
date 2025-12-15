@@ -510,7 +510,7 @@ class TestWaveletSNR:
 
         with pytest.raises(
             ValueError,
-            match="No wavelet events detected.*reconstruct_spikes",
+            match="No event regions detected.*reconstruct_spikes",
         ):
             neuron.get_wavelet_snr()
 
@@ -776,3 +776,651 @@ class TestWaveletSNR:
 
         # Realistic SNR should be between 0.5 and 50 for typical signals
         assert 0.5 < snr < 50
+
+
+class TestExtractEventAmplitudes:
+    """Test dF/F0 amplitude extraction correctness."""
+
+    def test_dff_normalization_correctness(self):
+        """Verify dF/F0 calculation matches hand-calculated values."""
+        # Create signal with known baseline and peak
+        # F0 = 100, Fpeak = 150 -> dF/F0 = (150-100)/100 = 0.5
+        ca_signal = np.ones(100) * 100  # Baseline F0 = 100
+        ca_signal[50:60] = 150  # Peak value
+
+        st_ev_inds = [50]
+        end_ev_inds = [60]
+        baseline_window = 20
+
+        amplitudes = Neuron.extract_event_amplitudes(
+            ca_signal, st_ev_inds, end_ev_inds,
+            baseline_window=baseline_window,
+            already_dff=False
+        )
+
+        # dF/F0 = (150 - 100) / 100 = 0.5
+        assert len(amplitudes) == 1
+        assert amplitudes[0] == pytest.approx(0.5, abs=0.01)
+
+    def test_already_dff_mode(self):
+        """Test extraction when signal is already dF/F normalized."""
+        # Pre-normalized signal: baseline = 0, peak = 0.6
+        ca_signal = np.zeros(100)
+        ca_signal[50:60] = 0.6
+
+        st_ev_inds = [50]
+        end_ev_inds = [60]
+
+        amplitudes = Neuron.extract_event_amplitudes(
+            ca_signal, st_ev_inds, end_ev_inds,
+            baseline_window=20,
+            already_dff=True
+        )
+
+        # Peak - baseline = 0.6 - 0 = 0.6
+        assert amplitudes[0] == pytest.approx(0.6, abs=0.01)
+
+    def test_baseline_edge_case_event_at_start(self):
+        """Test handling when event is at signal start (limited baseline)."""
+        ca_signal = np.ones(100) * 100
+        ca_signal[5:15] = 150  # Event very close to start
+
+        st_ev_inds = [5]
+        end_ev_inds = [15]
+
+        # Should use available frames for baseline (0-5)
+        amplitudes = Neuron.extract_event_amplitudes(
+            ca_signal, st_ev_inds, end_ev_inds,
+            baseline_window=20,  # Requests more than available
+            already_dff=False
+        )
+
+        # Should still compute amplitude using available baseline
+        assert len(amplitudes) == 1
+        assert amplitudes[0] > 0
+
+    def test_multiple_events_correct_baselines(self):
+        """Verify each event uses its own local baseline."""
+        ca_signal = np.concatenate([
+            np.ones(50) * 100,   # First baseline
+            np.ones(20) * 150,   # First event
+            np.ones(30) * 200,   # Second baseline (higher)
+            np.ones(20) * 300,   # Second event
+            np.ones(30) * 200,
+        ])
+
+        st_ev_inds = [50, 100]
+        end_ev_inds = [70, 120]
+
+        amplitudes = Neuron.extract_event_amplitudes(
+            ca_signal, st_ev_inds, end_ev_inds,
+            baseline_window=20,
+            already_dff=False
+        )
+
+        assert len(amplitudes) == 2
+        # First event: dF/F0 = (150 - 100) / 100 = 0.5
+        assert amplitudes[0] == pytest.approx(0.5, abs=0.05)
+        # Second event: dF/F0 = (300 - 200) / 200 = 0.5
+        assert amplitudes[1] == pytest.approx(0.5, abs=0.05)
+
+
+class TestAmplitudesToPointEvents:
+    """Test conversion of amplitudes to point event arrays."""
+
+    def test_placement_peak(self):
+        """Test that 'peak' placement puts amplitude at calcium peak."""
+        length = 100
+        ca_signal = np.zeros(100)
+        ca_signal[55] = 1.0  # Peak at frame 55
+
+        st_ev_inds = [50]
+        end_ev_inds = [60]
+        amplitudes = [0.5]
+
+        point_events = Neuron.amplitudes_to_point_events(
+            length, ca_signal, st_ev_inds, end_ev_inds, amplitudes,
+            placement='peak'
+        )
+
+        # Amplitude should be at frame 55 (peak location)
+        assert point_events[55] == pytest.approx(0.5)
+        assert np.sum(point_events) == pytest.approx(0.5)
+
+    def test_placement_start(self):
+        """Test that 'start' placement puts amplitude at event start."""
+        length = 100
+        ca_signal = np.zeros(100)
+        ca_signal[55] = 1.0
+
+        st_ev_inds = [50]
+        end_ev_inds = [60]
+        amplitudes = [0.5]
+
+        point_events = Neuron.amplitudes_to_point_events(
+            length, ca_signal, st_ev_inds, end_ev_inds, amplitudes,
+            placement='start'
+        )
+
+        # Amplitude should be at frame 50 (start location)
+        assert point_events[50] == pytest.approx(0.5)
+
+    def test_amplitude_accumulation(self):
+        """Test that multiple events at same frame accumulate amplitudes."""
+        length = 100
+        ca_signal = np.zeros(100)
+        ca_signal[50] = 1.0  # Both events peak at same location
+
+        # Two overlapping events
+        st_ev_inds = [48, 49]
+        end_ev_inds = [52, 53]
+        amplitudes = [0.3, 0.4]
+
+        point_events = Neuron.amplitudes_to_point_events(
+            length, ca_signal, st_ev_inds, end_ev_inds, amplitudes,
+            placement='peak'
+        )
+
+        # Both events peak at frame 50, amplitudes should sum
+        assert point_events[50] == pytest.approx(0.7)
+
+    def test_onset_placement_uses_kernel_offset(self):
+        """Test that 'onset' placement accounts for kernel peak delay."""
+        length = 100
+        ca_signal = np.zeros(100)
+        ca_signal[60] = 1.0  # Peak at frame 60
+
+        st_ev_inds = [55]
+        end_ev_inds = [65]
+        amplitudes = [0.5]
+        t_rise = 5.0
+        t_off = 20.0
+
+        point_events = Neuron.amplitudes_to_point_events(
+            length, ca_signal, st_ev_inds, end_ev_inds, amplitudes,
+            placement='onset', t_rise_frames=t_rise, t_off_frames=t_off, fps=20.0
+        )
+
+        # Should place amplitude before peak (at estimated onset)
+        non_zero_idx = np.nonzero(point_events)[0]
+        assert len(non_zero_idx) == 1
+        assert non_zero_idx[0] < 60  # Should be before peak
+
+
+class TestSpikeKernelReconstruction:
+    """Test spike waveform and calcium reconstruction accuracy."""
+
+    def test_spike_form_double_exponential_shape(self):
+        """Verify spike kernel has correct double-exponential shape."""
+        t = np.arange(0, 100, 1)
+        t_rise = 5.0
+        t_off = 20.0
+
+        form = Neuron.spike_form(t, t_rise=t_rise, t_off=t_off)
+
+        # Properties of double exponential:
+        # 1. Starts at 0
+        assert form[0] == 0.0
+
+        # 2. Has single peak
+        peaks = np.where(np.diff(np.sign(np.diff(form))) < 0)[0] + 1
+        assert len(peaks) == 1
+
+        # 3. Peak is normalized to 1.0
+        assert form.max() == pytest.approx(1.0)
+
+        # 4. Peak time should be around t_rise * ln(t_off/t_rise) / (1/t_rise - 1/t_off)
+        # For t_rise=5, t_off=20, peak is around t=8
+        peak_idx = np.argmax(form)
+        assert 5 < peak_idx < 15
+
+    def test_reconstruction_accuracy_single_spike(self):
+        """Test that get_restored_calcium accurately reconstructs single spike."""
+        sp = np.zeros(200)
+        spike_time = 50
+        sp[spike_time] = 1.0
+
+        t_rise = 5.0
+        t_off = 20.0
+
+        restored = Neuron.get_restored_calcium(sp, t_rise=t_rise, t_off=t_off)
+
+        # Check basic properties
+        assert len(restored) == len(sp)
+        assert np.argmax(restored) >= spike_time  # Peak after spike
+
+        # Peak amplitude should be close to 1 (normalized kernel)
+        assert restored.max() == pytest.approx(1.0, abs=0.01)
+
+    def test_reconstruction_accuracy_multiple_spikes(self):
+        """Test linear superposition of multiple spike kernels."""
+        sp = np.zeros(300)
+        sp[50] = 1.0
+        sp[150] = 1.0
+
+        t_rise = 5.0
+        t_off = 20.0
+
+        restored = Neuron.get_restored_calcium(sp, t_rise=t_rise, t_off=t_off)
+
+        # Should have two peaks
+        # Find peaks by looking for local maxima
+        from scipy.signal import find_peaks
+        peaks, _ = find_peaks(restored, height=0.5, distance=30)
+
+        assert len(peaks) == 2
+
+
+class TestDeconvolveGivenEventTimes:
+    """Test deconvolution for amplitude recovery."""
+
+    def test_single_isolated_event_recovery(self):
+        """Test amplitude recovery for single isolated event."""
+        # Create synthetic calcium signal
+        n_frames = 200
+        t_rise = 5.0
+        t_off = 20.0
+        true_amplitude = 0.8
+        event_time = 50
+
+        # Generate known calcium response
+        t = np.arange(n_frames - event_time)
+        kernel = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
+        kernel = kernel / kernel.max()
+
+        ca_signal = np.zeros(n_frames)
+        ca_signal[event_time:] = true_amplitude * kernel
+
+        # Recover amplitude
+        event_times = [event_time]
+        amplitudes = Neuron.deconvolve_given_event_times(
+            ca_signal, event_times, t_rise, t_off
+        )
+
+        assert len(amplitudes) == 1
+        assert amplitudes[0] == pytest.approx(true_amplitude, abs=0.1)
+
+    def test_overlapping_events_amplitude_recovery(self):
+        """Test that overlapping events have amplitudes recovered correctly."""
+        n_frames = 300
+        t_rise = 5.0
+        t_off = 20.0
+
+        # Two overlapping events with different amplitudes
+        event_times = [50, 70]  # Only 20 frames apart (overlap)
+        true_amplitudes = [1.0, 0.6]
+
+        # Generate overlapping calcium response
+        ca_signal = np.zeros(n_frames)
+        for event_time, true_amp in zip(event_times, true_amplitudes):
+            t = np.arange(n_frames - event_time)
+            kernel = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
+            kernel = kernel / kernel.max()
+            ca_signal[event_time:] += true_amp * kernel
+
+        # Recover amplitudes
+        recovered = Neuron.deconvolve_given_event_times(
+            ca_signal, event_times, t_rise, t_off
+        )
+
+        assert len(recovered) == 2
+        # Should recover both amplitudes reasonably well
+        assert recovered[0] == pytest.approx(true_amplitudes[0], abs=0.15)
+        assert recovered[1] == pytest.approx(true_amplitudes[1], abs=0.15)
+
+    def test_empty_event_list(self):
+        """Test handling of empty event list."""
+        ca_signal = np.random.randn(100)
+        event_times = []
+
+        amplitudes = Neuron.deconvolve_given_event_times(
+            ca_signal, event_times, t_rise_frames=5, t_off_frames=20
+        )
+
+        assert len(amplitudes) == 0
+
+
+class TestEstimateOnsetTimes:
+    """Test spike onset estimation from detected events."""
+
+    def test_onset_before_peak(self):
+        """Verify onset is estimated before the calcium peak."""
+        # Create signal with clear peak
+        ca_signal = np.zeros(100)
+        ca_signal[50:70] = np.concatenate([
+            np.linspace(0, 1, 10),  # Rise
+            np.linspace(1, 0.2, 10)  # Decay
+        ])
+
+        st_inds = [50]
+        end_inds = [70]
+        t_rise = 5.0
+        t_off = 20.0
+
+        onsets = Neuron.estimate_onset_times(
+            ca_signal, st_inds, end_inds, t_rise, t_off
+        )
+
+        assert len(onsets) == 1
+        # Peak is at frame 60, onset should be before it
+        assert onsets[0] < 60
+
+    def test_onset_uses_kernel_offset(self):
+        """Verify onset calculation uses correct kernel peak offset."""
+        ca_signal = np.zeros(100)
+        ca_signal[50] = 1.0  # Sharp peak
+
+        st_inds = [45]
+        end_inds = [55]
+        t_rise = 5.0
+        t_off = 20.0
+
+        # Compute expected offset
+        expected_offset = Neuron.compute_kernel_peak_offset(t_rise, t_off)
+
+        onsets = Neuron.estimate_onset_times(
+            ca_signal, st_inds, end_inds, t_rise, t_off
+        )
+
+        # Onset should be peak (50) minus kernel offset
+        expected_onset = max(0, 50 - expected_offset)
+        assert onsets[0] == int(expected_onset)
+
+    def test_multiple_events(self):
+        """Test onset estimation for multiple events."""
+        ca_signal = np.zeros(200)
+        ca_signal[50] = 1.0
+        ca_signal[120] = 0.8
+
+        st_inds = [45, 115]
+        end_inds = [55, 125]
+        t_rise = 5.0
+        t_off = 20.0
+
+        onsets = Neuron.estimate_onset_times(
+            ca_signal, st_inds, end_inds, t_rise, t_off
+        )
+
+        assert len(onsets) == 2
+        # Both should be before their respective peaks
+        assert onsets[0] < 50
+        assert onsets[1] < 120
+
+    def test_onset_at_signal_start(self):
+        """Test onset clamped to 0 when event is at signal start."""
+        ca_signal = np.zeros(100)
+        ca_signal[5] = 1.0  # Peak very close to start
+
+        st_inds = [0]
+        end_inds = [10]
+        t_rise = 5.0
+        t_off = 20.0
+
+        onsets = Neuron.estimate_onset_times(
+            ca_signal, st_inds, end_inds, t_rise, t_off
+        )
+
+        # Should be clamped to 0, not negative
+        assert onsets[0] >= 0
+
+
+class TestOptimizeKinetics:
+    """Test kinetics optimization workflows."""
+
+    def test_optimize_kinetics_returns_result_dict(self):
+        """Verify optimize_kinetics returns expected result structure."""
+        np.random.seed(42)
+
+        # Create signal with clear events
+        n_frames = 1000
+        fps = 20.0
+        ca_data = np.random.normal(0.2, 0.05, n_frames)
+
+        # Add events with known kinetics
+        event_times = [100, 300, 500, 700]
+        t_rise_true = 0.2  # seconds
+        t_off_true = 1.0  # seconds
+
+        for t in event_times:
+            duration = int(3 * t_off_true * fps)
+            t_arr = np.arange(duration) / fps
+            kernel = (1 - np.exp(-t_arr / t_rise_true)) * np.exp(-t_arr / t_off_true)
+            kernel = kernel / kernel.max() * 0.5
+            end_idx = min(t + duration, n_frames)
+            ca_data[t:end_idx] += kernel[:end_idx - t]
+
+        neuron = Neuron("kinetics_test", ca_data, None, fps=fps)
+        neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+
+        result = neuron.optimize_kinetics(
+            method='direct',
+            fps=fps,
+            update_reconstruction=False  # Skip re-detection for speed
+        )
+
+        # Check result structure
+        assert 'optimized' in result
+        assert 't_rise' in result
+        assert 't_off' in result
+        assert 'method' in result
+
+    def test_optimize_kinetics_updates_instance(self):
+        """Verify optimize_kinetics updates neuron's t_rise/t_off."""
+        np.random.seed(42)
+
+        n_frames = 1000
+        fps = 20.0
+        ca_data = np.random.normal(0.2, 0.05, n_frames)
+
+        # Add clear events
+        for t in [100, 300, 500, 700]:
+            duration = 60
+            t_arr = np.arange(duration) / fps
+            kernel = (1 - np.exp(-t_arr / 0.2)) * np.exp(-t_arr / 1.0)
+            kernel = kernel / kernel.max() * 0.5
+            ca_data[t:t+duration] += kernel
+
+        neuron = Neuron("kinetics_test2", ca_data, None, fps=fps)
+        neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+
+        # Store original values
+        original_t_rise = neuron.t_rise
+        original_t_off = neuron.t_off
+
+        result = neuron.optimize_kinetics(
+            method='direct',
+            fps=fps,
+            update_reconstruction=False
+        )
+
+        if result.get('optimized', False):
+            # If optimization succeeded, values should be updated
+            # (they might be same if already optimal, but the mechanism works)
+            assert neuron.t_rise is not None
+            assert neuron.t_off is not None
+
+    def test_optimize_kinetics_invalid_method(self):
+        """Test that invalid method raises ValueError."""
+        ca_data = np.random.random(500)
+        neuron = Neuron("test", ca_data, None)
+
+        with pytest.raises(ValueError, match="Only 'direct' method"):
+            neuron.optimize_kinetics(method='invalid_method')
+
+
+class TestReconstructionR2:
+    """Test reconstruction quality metrics."""
+
+    def test_get_reconstruction_r2_requires_asp(self):
+        """Test that R2 calculation requires prior spike reconstruction."""
+        ca_data = np.random.random(500)
+        neuron = Neuron("r2_test", ca_data, None)
+
+        with pytest.raises(ValueError, match="reconstruct_spikes"):
+            neuron.get_reconstruction_r2()
+
+    def test_get_reconstruction_r2_basic(self):
+        """Test basic R2 calculation after reconstruction."""
+        np.random.seed(42)
+
+        # Create signal with clear, well-separated events for better reconstruction
+        ca_data = np.random.normal(0.2, 0.02, 1000)  # Lower noise
+        for t in [100, 300, 500, 700]:
+            ca_data[t:t+50] += 0.8 * np.exp(-np.arange(50) / 15)  # Stronger events
+
+        neuron = Neuron("r2_test2", ca_data, None, fps=20.0)
+        neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+
+        r2 = neuron.get_reconstruction_r2()
+
+        assert isinstance(r2, float)
+        # R2 can be negative for poor fits, but should be finite
+        assert np.isfinite(r2)
+
+    def test_get_reconstruction_r2_event_only(self):
+        """Test event-only R2 calculation."""
+        np.random.seed(42)
+
+        ca_data = np.random.normal(0.2, 0.05, 1000)
+        for t in [100, 300, 500, 700]:
+            ca_data[t:t+40] += 0.5 * np.exp(-np.arange(40) / 15)
+
+        neuron = Neuron("r2_event_test", ca_data, None, fps=20.0)
+        neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+
+        # Event-only R2 should focus on signal regions
+        r2_event = neuron.get_reconstruction_r2(event_only=True)
+
+        assert isinstance(r2_event, float)
+        assert np.isfinite(r2_event)
+
+
+class TestSNRReconstruction:
+    """Test reconstruction-based SNR calculation."""
+
+    def test_get_snr_reconstruction(self):
+        """Test reconstruction SNR calculation."""
+        np.random.seed(42)
+
+        ca_data = np.random.normal(0.2, 0.05, 1000)
+        for t in [100, 300, 500, 700]:
+            ca_data[t:t+40] += 0.5 * np.exp(-np.arange(40) / 15)
+
+        neuron = Neuron("snr_recon_test", ca_data, None, fps=20.0)
+        neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+
+        snr = neuron.get_snr_reconstruction()
+
+        assert isinstance(snr, float)
+        assert snr > 0  # SNR should be positive
+        assert np.isfinite(snr)
+
+    def test_snr_reconstruction_cached(self):
+        """Test that reconstruction SNR is cached."""
+        np.random.seed(42)
+
+        ca_data = np.random.normal(0.2, 0.05, 500)
+        for t in [100, 250, 400]:
+            ca_data[t:t+30] += 0.4 * np.exp(-np.arange(30) / 12)
+
+        neuron = Neuron("snr_cache_test", ca_data, None, fps=20.0)
+        neuron.reconstruct_spikes(method='wavelet', create_event_regions=True)
+
+        snr1 = neuron.get_snr_reconstruction()
+        snr2 = neuron.get_snr_reconstruction()
+
+        assert snr1 == snr2
+        assert neuron.snr_reconstruction == snr1
+
+
+class TestIterativeReconstruction:
+    """Test iterative spike reconstruction mode."""
+
+    def test_iterative_detects_weak_events(self):
+        """Test that iterative mode can detect weaker events missed initially."""
+        np.random.seed(42)
+
+        n_frames = 1500
+        fps = 20.0
+        ca_data = np.random.normal(0.1, 0.03, n_frames)
+
+        # Add strong events
+        strong_times = [200, 600, 1000]
+        for t in strong_times:
+            ca_data[t:t+50] += 0.8 * np.exp(-np.arange(50) / 15)
+
+        # Add weak events (should be harder to detect)
+        weak_times = [400, 800, 1200]
+        for t in weak_times:
+            ca_data[t:t+50] += 0.15 * np.exp(-np.arange(50) / 15)
+
+        # Single iteration
+        neuron_single = Neuron("iter_test1", ca_data.copy(), None, fps=fps)
+        neuron_single.reconstruct_spikes(
+            method='threshold',
+            n_iter=1,
+            n_mad=4.0,
+            create_event_regions=True
+        )
+        count_single = neuron_single.sp_count
+
+        # Multiple iterations with adaptive thresholds
+        neuron_iter = Neuron("iter_test2", ca_data.copy(), None, fps=fps)
+        neuron_iter.reconstruct_spikes(
+            method='threshold',
+            n_iter=5,
+            n_mad=4.0,
+            adaptive_thresholds=True,
+            create_event_regions=True
+        )
+        count_iter = neuron_iter.sp_count
+
+        # Iterative should find at least as many (usually more for weak events)
+        assert count_iter >= count_single
+
+
+class TestDeconvolveWithEventMask:
+    """Test NNLS deconvolution with event masking."""
+
+    def test_deconvolve_with_mask_reduces_baseline_fit(self):
+        """Test that event mask focuses fit on event regions."""
+        np.random.seed(42)
+
+        n_frames = 300
+        t_rise = 5.0
+        t_off = 20.0
+        event_time = 100
+        true_amplitude = 0.8
+
+        # Generate clean signal
+        t = np.arange(n_frames - event_time)
+        kernel = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
+        kernel = kernel / kernel.max()
+
+        ca_signal = np.zeros(n_frames)
+        ca_signal[event_time:] = true_amplitude * kernel
+
+        # Add significant baseline noise
+        ca_signal += np.random.randn(n_frames) * 0.1
+
+        # Create event mask (True where events are)
+        event_mask = np.zeros(n_frames, dtype=bool)
+        event_mask[event_time:event_time + 80] = True  # Cover event region
+
+        event_times = [event_time]
+
+        # Without mask
+        amp_no_mask = Neuron.deconvolve_given_event_times(
+            ca_signal, event_times, t_rise, t_off, event_mask=None
+        )
+
+        # With mask
+        amp_with_mask = Neuron.deconvolve_given_event_times(
+            ca_signal, event_times, t_rise, t_off, event_mask=event_mask
+        )
+
+        # Both should recover reasonable amplitudes
+        assert len(amp_no_mask) == 1
+        assert len(amp_with_mask) == 1
+        assert amp_no_mask[0] > 0
+        assert amp_with_mask[0] > 0

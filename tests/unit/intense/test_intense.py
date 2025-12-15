@@ -1124,16 +1124,16 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
     # Generate random calcium signals and random features
     np.random.seed(42)
     n_neurons = 10  # Reduced from 20
-    duration = 300  # Increased for better statistics
+    duration = 600  # Increased for better statistics (longer = more reliable null hypothesis testing)
     fps = 20.0
     n_frames = int(duration * fps)
 
     # Create pure noise calcium signals (no selectivity)
-    calcium_signals = np.random.normal(0, 0.1, size=(n_neurons, n_frames))
-    calcium_signals = np.maximum(0, calcium_signals)  # Make non-negative
+    # Use lognormal to generate truly positive random data without clipping artifacts
+    calcium_signals = np.random.lognormal(mean=-2, sigma=0.5, size=(n_neurons, n_frames))
 
-    # Create a random continuous feature
-    feature_data = np.random.normal(0, 1, size=n_frames)
+    # Create a random continuous feature (uniform to avoid structure)
+    feature_data = np.random.uniform(-1, 1, size=n_frames)
 
     # Create experiment
     exp = Experiment(
@@ -1153,7 +1153,7 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
         n_shuffles_stage2=balanced_test_params["n_shuffles_stage2"],
         multicomp_correction="holm",  # Ensure multiple comparison correction
         pval_thr=0.001,  # Stricter threshold
-        metric_distr_type="gamma",  # Use gamma distribution (theoretically appropriate for MI)
+        metric_distr_type="gamma",  # Use gamma distribution (theoretically correct for MI from random data)
         verbose=False,  # Disable verbose for speed
         ds=balanced_test_params["ds"],  # Use balanced downsampling
         enable_parallelization=balanced_test_params["enable_parallelization"],

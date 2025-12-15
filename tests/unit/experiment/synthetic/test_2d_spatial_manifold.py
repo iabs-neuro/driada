@@ -297,7 +297,7 @@ class TestGenerate2DManifoldExp:
         exp = generate_2d_manifold_exp(
             n_neurons=9,  # 3x3 grid for faster tests
             duration=200,  # Increased duration for better statistics
-            fps=10,  # Reduced fps
+            fps=20,  # Reference fps for FPS-adaptive parameters
             field_sigma=0.15,  # Larger fields for better coverage (overlapping)
             step_size=0.04,  # Good exploration
             momentum=0.7,  # Smoother movement

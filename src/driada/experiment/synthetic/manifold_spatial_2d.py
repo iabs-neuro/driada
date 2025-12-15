@@ -573,11 +573,13 @@ def generate_2d_manifold_exp(
     }
 
     # Create dynamic features
+    # Note: allow_zero_columns=True because random walk can hit boundaries (e.g., (0,0))
     position_ts = MultiTimeSeries(
         [
             TimeSeries(positions[0, :], discrete=False),
             TimeSeries(positions[1, :], discrete=False),
-        ]
+        ],
+        allow_zero_columns=True,
     )
 
     # Also create separate x, y features
