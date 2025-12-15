@@ -92,8 +92,8 @@ batch_coverage_results*.json
 DOC_VERIFICATION*.txt
 *_REPORT.txt
 
-# Test files in root
-test_*.py
+# Test files in root (not in tests/ directory)
+/test_*.py
 
 # Debug and analysis artifacts in root
 debug_*.py

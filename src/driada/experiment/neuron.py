@@ -2858,7 +2858,7 @@ default reconstruction
         (slope, _) = np.polyfit(t, log_y, 1)
         tau = -1 / slope if slope < 0 else None
         if tau is not None:
-            if 0.1 < tau < 10:
+            if 0.1 < tau < 30:  # Upper bound increased from 10 to handle long decay signals
                 return tau
             return None
 
@@ -2963,9 +2963,11 @@ default reconstruction
         -------
         dict
             Results dictionary with keys:
-            - \'optimized\': bool, whether optimization succeeded
-            - \'t_rise\': float, measured rise time (seconds)
-            - \'t_off\': float, measured decay time (seconds)
+            - \'optimized\': bool, True only if BOTH t_rise and t_off were successfully measured
+            - \'partially_optimized\': bool, True if exactly one parameter was measured
+            - \'used_defaults\': dict, {\'t_rise\': bool, \'t_off\': bool} indicating which params defaulted
+            - \'t_rise\': float, measured rise time (seconds), or default if measurement failed
+            - \'t_off\': float, measured decay time (seconds), or default if measurement failed
             - \'t_rise_std\': float, standard deviation of t_rise measurements
             - \'t_off_std\': float, standard deviation of t_off measurements
             - \'n_events_used_rise\': int, number of events with successful t_rise measurement
@@ -3013,6 +3015,8 @@ default reconstruction
         if self.wvt_ridges is None or len(self.wvt_ridges) == 0:
             return {
                 'optimized': False,
+                'partially_optimized': False,
+                'used_defaults': {'t_rise': True, 't_off': True},
                 't_rise': default_t_rise,
                 't_off': default_t_off,
                 't_rise_std': 0,
@@ -3027,6 +3031,8 @@ default reconstruction
         if n_events_detected == 0:
             return {
                 'optimized': False,
+                'partially_optimized': False,
+                'used_defaults': {'t_rise': True, 't_off': True},
                 't_rise': default_t_rise,
                 't_off': default_t_off,
                 't_rise_std': 0,
@@ -3050,6 +3056,8 @@ default reconstruction
         if len(event_positions) == 0:
             return {
                 'optimized': False,
+                'partially_optimized': False,
+                'used_defaults': {'t_rise': True, 't_off': True},
                 't_rise': default_t_rise,
                 't_off': default_t_off,
                 't_rise_std': 0,
@@ -3071,6 +3079,8 @@ default reconstruction
         if len(t_rise_measurements) < min_events and len(t_off_measurements) < min_events:
             return {
                 'optimized': False,
+                'partially_optimized': False,
+                'used_defaults': {'t_rise': True, 't_off': True},
                 't_rise': default_t_rise,
                 't_off': default_t_off,
                 't_rise_std': 0,
@@ -3088,8 +3098,19 @@ default reconstruction
             t_off_final = np.mean(t_off_measurements) if len(t_off_measurements) >= min_events else default_t_off
         t_rise_std = np.std(t_rise_measurements) if len(t_rise_measurements) > 1 else 0
         t_off_std = np.std(t_off_measurements) if len(t_off_measurements) > 1 else 0
+        # Track which parameters used defaults due to insufficient measurements
+        used_defaults = {
+            't_rise': len(t_rise_measurements) < min_events,
+            't_off': len(t_off_measurements) < min_events
+        }
+        # optimized=True only if BOTH parameters were successfully measured
+        fully_optimized = not any(used_defaults.values())
+        # partially_optimized=True if exactly one parameter was measured
+        partially_optimized = any(used_defaults.values()) and not all(used_defaults.values())
         return {
-            'optimized': True,
+            'optimized': fully_optimized,
+            'partially_optimized': partially_optimized,
+            'used_defaults': used_defaults,
             't_rise': t_rise_final,
             't_off': t_off_final,
             't_rise_std': t_rise_std,
