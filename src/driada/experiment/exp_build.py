@@ -20,7 +20,7 @@ def load_exp_from_aligned_data(
     bad_frames=[],
     static_features=None,
     verbose=True,
-    reconstruct_spikes="wavelet",
+    reconstruct_spikes=None,
 ):
     """Create an Experiment object from aligned neural and behavioral data.
     
@@ -63,12 +63,17 @@ def load_exp_from_aligned_data(
         - Any other experiment-specific constants
     verbose : bool, default=True
         Whether to print progress and feature information.
-    reconstruct_spikes : str or bool, default='wavelet'
-        Method for spike reconstruction if spikes not provided.
-        Options: 
-        - 'wavelet': wavelet-based detection (recommended)
-        - False: no reconstruction
-        - Custom method name if implemented
+    reconstruct_spikes : str, bool, or None, default=None
+        **DEPRECATED**: This parameter is deprecated. Load the experiment first,
+        then call exp.reconstruct_all_neurons() separately for better control.
+
+        If provided (for backward compatibility):
+        - 'wavelet': wavelet-based detection (old batch method)
+        - False/None: no reconstruction (recommended)
+
+        New workflow (recommended):
+        >>> exp = load_exp_from_aligned_data(data_source, exp_params, data)
+        >>> exp.reconstruct_all_neurons(method='wavelet', n_iter=3)
         
     Returns
     -------
@@ -134,6 +139,17 @@ def load_exp_from_aligned_data(
     >>> exp2.dynamic_features['trial_type'].discrete  # Should be False due to force_continuous
     False
     """
+
+    # Deprecation warning for reconstruct_spikes parameter
+    if reconstruct_spikes is not None and reconstruct_spikes is not False:
+        import warnings
+        warnings.warn(
+            "The 'reconstruct_spikes' parameter is deprecated. "
+            "Load the experiment first, then call exp.reconstruct_all_neurons() separately. "
+            "Example: exp = load_exp_from_aligned_data(...); exp.reconstruct_all_neurons(method='wavelet')",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
     # Validate inputs
     if not isinstance(data, dict):

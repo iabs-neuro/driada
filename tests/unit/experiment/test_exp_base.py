@@ -444,19 +444,14 @@ class TestExperimentMethods:
 
     def test_get_feature_entropy(self, basic_experiment):
         """Test feature entropy calculation."""
-        # Single feature - with warning since it's continuous
-        with warnings.catch_warnings(record=True) as w:
-            entropy = basic_experiment.get_feature_entropy("feat1")
-            assert isinstance(entropy, float)
-            # Continuous entropy can be negative
-            assert any("continuous" in str(warning.message) for warning in w)
+        # Single feature
+        entropy = basic_experiment.get_feature_entropy("feat1")
+        assert isinstance(entropy, float)
+        # Continuous entropy can be negative
 
         # Multifeature - test with 2 features
-        with warnings.catch_warnings(record=True) as w:
-            multi_entropy = basic_experiment.get_feature_entropy(("feat1", "feat2"))
-            assert isinstance(multi_entropy, float)
-            # Should warn about continuous components
-            assert any("continuous" in str(warning.message) for warning in w)
+        multi_entropy = basic_experiment.get_feature_entropy(("feat1", "feat2"))
+        assert isinstance(multi_entropy, float)
 
     def test_stats_table_initialization(self, basic_experiment):
         """Test stats tables are properly initialized."""
@@ -670,12 +665,9 @@ class TestExperimentMethods:
         mts = MultiTimeSeries([ts1, ts2])
         basic_experiment.dynamic_features["multi_feat"] = mts
 
-        # Test entropy calculation with warning
-        with warnings.catch_warnings(record=True) as w:
-            entropy = basic_experiment.get_feature_entropy("multi_feat")
-            assert isinstance(entropy, float)
-            # Should warn about continuous components
-            assert any("continuous components" in str(warning.message) for warning in w)
+        # Test entropy calculation
+        entropy = basic_experiment.get_feature_entropy("multi_feat")
+        assert isinstance(entropy, float)
 
     def test_get_feature_entropy_errors(self, basic_experiment):
         """Test error cases for get_feature_entropy."""

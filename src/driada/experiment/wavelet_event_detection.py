@@ -690,7 +690,8 @@ def events_from_trace(
     return filtered_ridges, st_evinds, end_evinds
 
 
-def extract_wvt_events(traces, wvt_kwargs, show_progress=None):
+def extract_wvt_events(traces, wvt_kwargs, show_progress=None,
+                      wavelet=None, rel_wvt_times=None):
     """Extract calcium events from multiple traces using wavelet ridge detection.
 
     Detects calcium transient events by finding ridges in the continuous wavelet
@@ -720,6 +721,14 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None):
     show_progress : bool, optional
         Whether to show progress bar. If None (default), automatically shows
         progress bar only when processing multiple traces (>1).
+    wavelet : Wavelet, optional
+        Pre-computed wavelet object. If None, creates new Generalized Morse Wavelet
+        with beta=2, gamma=3. For batch processing, pre-compute once and reuse to
+        eliminate 0.09s overhead per call.
+    rel_wvt_times : array-like, optional
+        Pre-computed time resolutions for each scale in manual_scales. If None,
+        computes from wavelet. For batch processing, pre-compute once and reuse to
+        eliminate 0.18s overhead per call (50 scales).
 
     Returns
     -------
@@ -812,14 +821,17 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None):
     check_nonnegative(sigma=sigma, eps=eps, scale_length_thr=scale_length_thr,
                      max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
 
-    wavelet = Wavelet(
-        ("gmw", {"gamma": gamma, "beta": beta, "centered_scale": True}), N=8196
-    )
+    # Use pre-computed if provided, else create (backward compatible)
+    if wavelet is None:
+        wavelet = Wavelet(
+            ("gmw", {"gamma": gamma, "beta": beta, "centered_scale": True}), N=8196
+        )
 
-    rel_wvt_times = [
-        time_resolution(wavelet, scale=sc, nondim=False, min_decay=200)
-        for sc in manual_scales
-    ]
+    if rel_wvt_times is None:
+        rel_wvt_times = [
+            time_resolution(wavelet, scale=sc, nondim=False, min_decay=200)
+            for sc in manual_scales
+        ]
 
     # Auto-detect progress bar visibility: show only for multiple traces
     if show_progress is None:

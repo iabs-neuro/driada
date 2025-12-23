@@ -573,3 +573,189 @@ class TestEventsToTsArrayNumba:
         assert result.shape == (1, length)
         assert np.sum(result[0, :15]) > 0  # Start event
         assert np.sum(result[0, 80:]) > 0  # End event
+
+class TestWaveletBatchOptimization:
+    """Test batch processing optimization with pre-computed wavelet objects."""
+
+    def test_extract_wvt_events_with_precomputed_wavelet(self):
+        """Pre-computed wavelet should produce identical results to default."""
+        from ssqueezepy.wavelets import Wavelet, time_resolution
+        
+        # Create synthetic calcium trace with clear transient
+        fps = 20
+        t = np.linspace(0, 10, 200)
+        trace = np.zeros(200)
+        # Add calcium transient (exponential rise and decay)
+        transient_start = 50
+        transient_end = 80
+        trace[transient_start:transient_end] = np.exp(-np.arange(30) / 10) * 0.5
+        traces = trace.reshape(1, -1)
+        
+        wvt_kwargs = {'fps': fps}
+        
+        # Run without pre-computed wavelet (default path)
+        st_ev_default, end_ev_default, ridges_default = extract_wvt_events(
+            traces, wvt_kwargs, show_progress=False
+        )
+        
+        # Pre-compute wavelet and time_resolution
+        from driada.experiment.wavelet_event_detection import get_adaptive_wavelet_scales
+        gamma = wvt_kwargs.get('gamma', 3)
+        beta = wvt_kwargs.get('beta', 2)
+        wavelet_precomputed = Wavelet(
+            ("gmw", {"gamma": gamma, "beta": beta, "centered_scale": True}), N=8196
+        )
+        manual_scales = get_adaptive_wavelet_scales(fps)
+        rel_wvt_times_precomputed = [
+            time_resolution(wavelet_precomputed, scale=sc, nondim=False, min_decay=200)
+            for sc in manual_scales
+        ]
+        
+        # Run with pre-computed wavelet
+        st_ev_optimized, end_ev_optimized, ridges_optimized = extract_wvt_events(
+            traces, wvt_kwargs, show_progress=False,
+            wavelet=wavelet_precomputed, rel_wvt_times=rel_wvt_times_precomputed
+        )
+        
+        # Results should be identical
+        assert len(st_ev_default) == len(st_ev_optimized)
+        assert len(end_ev_default) == len(end_ev_optimized)
+        if len(st_ev_default[0]) > 0:
+            assert np.array_equal(st_ev_default[0], st_ev_optimized[0])
+            assert np.array_equal(end_ev_default[0], end_ev_optimized[0])
+
+    def test_reconstruct_spikes_with_precomputed_wavelet(self):
+        """Neuron.reconstruct_spikes should work with pre-computed objects."""
+        from driada.experiment.neuron import Neuron
+        from ssqueezepy.wavelets import Wavelet, time_resolution
+        
+        # Create synthetic calcium trace
+        fps = 20
+        trace = np.zeros(200)
+        trace[50:80] = np.exp(-np.arange(30) / 10) * 0.5
+        
+        neuron = Neuron(cell_id="test", ca=trace, sp=None, fps=fps)
+        
+        # Reconstruct without optimization (default)
+        neuron.reconstruct_spikes(method='wavelet', fps=fps, iterative=False)
+        asp_default = neuron.asp.data.copy()
+        
+        # Pre-compute wavelet objects
+        from driada.experiment.wavelet_event_detection import get_adaptive_wavelet_scales
+        wavelet_precomputed = Wavelet(
+            ("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196
+        )
+        manual_scales = get_adaptive_wavelet_scales(fps)
+        rel_wvt_times_precomputed = [
+            time_resolution(wavelet_precomputed, scale=sc, nondim=False, min_decay=200)
+            for sc in manual_scales
+        ]
+        
+        # Create new neuron and reconstruct with optimization
+        neuron2 = Neuron(cell_id="test2", ca=trace, sp=None, fps=fps)
+        neuron2.reconstruct_spikes(
+            method='wavelet', fps=fps, iterative=False,
+            wavelet=wavelet_precomputed, rel_wvt_times=rel_wvt_times_precomputed
+        )
+        asp_optimized = neuron2.asp.data
+        
+        # Results should be identical
+        assert np.array_equal(asp_default, asp_optimized)
+
+    def test_iterative_reconstruction_with_precomputed(self):
+        """Iterative reconstruction should work with pre-computed objects."""
+        from driada.experiment.neuron import Neuron
+        from ssqueezepy.wavelets import Wavelet, time_resolution
+        
+        # Create synthetic trace with overlapping events
+        fps = 20
+        trace = np.zeros(300)
+        trace[50:100] = np.exp(-np.arange(50) / 15) * 0.6
+        trace[90:130] = trace[90:130] + np.exp(-np.arange(40) / 12) * 0.4
+        
+        neuron = Neuron(cell_id="test", ca=trace, sp=None, fps=fps)
+        
+        # Pre-compute wavelet objects
+        from driada.experiment.wavelet_event_detection import get_adaptive_wavelet_scales
+        wavelet_precomputed = Wavelet(
+            ("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196
+        )
+        manual_scales = get_adaptive_wavelet_scales(fps)
+        rel_wvt_times_precomputed = [
+            time_resolution(wavelet_precomputed, scale=sc, nondim=False, min_decay=200)
+            for sc in manual_scales
+        ]
+        
+        # Iterative reconstruction with optimization
+        neuron.reconstruct_spikes(
+            method='wavelet', fps=fps, iterative=True, n_iter=3,
+            wavelet=wavelet_precomputed, rel_wvt_times=rel_wvt_times_precomputed
+        )
+        
+        # Should successfully complete and produce events
+        assert neuron.asp is not None
+        assert len(neuron.asp.data) == len(trace)
+
+    def test_backward_compatibility_none_defaults(self):
+        """Passing None should behave identically to omitting parameters."""
+        # Create synthetic trace
+        fps = 20
+        trace = np.zeros(100)
+        trace[30:50] = 0.5
+        traces = trace.reshape(1, -1)
+        
+        wvt_kwargs = {'fps': fps}
+        
+        # Call without explicit None
+        st_ev_1, end_ev_1, _ = extract_wvt_events(traces, wvt_kwargs, show_progress=False)
+        
+        # Call with explicit None
+        st_ev_2, end_ev_2, _ = extract_wvt_events(
+            traces, wvt_kwargs, show_progress=False,
+            wavelet=None, rel_wvt_times=None
+        )
+        
+        # Should produce identical results
+        assert len(st_ev_1) == len(st_ev_2)
+        if len(st_ev_1[0]) > 0:
+            assert np.array_equal(st_ev_1[0], st_ev_2[0])
+            assert np.array_equal(end_ev_1[0], end_ev_2[0])
+
+    def test_precomputed_reusable_across_multiple_calls(self):
+        """Pre-computed objects should be reusable for multiple neurons."""
+        from ssqueezepy.wavelets import Wavelet, time_resolution
+        
+        fps = 20
+        n_neurons = 5
+        
+        # Create multiple synthetic traces
+        traces = []
+        for i in range(n_neurons):
+            trace = np.zeros(150)
+            start = 30 + i * 10
+            trace[start:start+20] = 0.4 + i * 0.1
+            traces.append(trace)
+        traces = np.array(traces)
+        
+        # Pre-compute once
+        from driada.experiment.wavelet_event_detection import get_adaptive_wavelet_scales
+        wavelet_shared = Wavelet(
+            ("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196
+        )
+        manual_scales = get_adaptive_wavelet_scales(fps)
+        rel_wvt_times_shared = [
+            time_resolution(wavelet_shared, scale=sc, nondim=False, min_decay=200)
+            for sc in manual_scales
+        ]
+        
+        wvt_kwargs = {'fps': fps}
+        
+        # Use same pre-computed objects for all neurons
+        st_ev, end_ev, _ = extract_wvt_events(
+            traces, wvt_kwargs, show_progress=False,
+            wavelet=wavelet_shared, rel_wvt_times=rel_wvt_times_shared
+        )
+        
+        # Should successfully process all neurons
+        assert len(st_ev) == n_neurons
+        assert len(end_ev) == n_neurons

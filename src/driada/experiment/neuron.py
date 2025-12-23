@@ -961,7 +961,9 @@ class Neuron:
     def reconstruct_spikes(self, method="wavelet", iterative=True, n_iter=3,
                           min_events_threshold=2, adaptive_thresholds=False,
                           amplitude_method="deconvolution", show_progress=False, create_event_regions=False,
-                          event_mask_expansion_sec=5.0, **kwargs):
+                          event_mask_expansion_sec=5.0,
+                          wavelet=None, rel_wvt_times=None,
+                          **kwargs):
         """Reconstruct spikes from calcium signal.
 
         Reconstructs discrete spike events from continuous calcium
@@ -1001,6 +1003,12 @@ class Neuron:
             The mask is expanded by ±event_mask_expansion_sec to cover the full calcium transient
             (rise + decay). Larger values include more of the decay but also more baseline noise.
             Default is 5.0 seconds (optimal balance for GCaMP6s with t_off ~2s).
+        wavelet : Wavelet, optional
+            Pre-computed wavelet object for batch processing optimization.
+            If None, will be created by extract_wvt_events(). Default is None.
+        rel_wvt_times : array-like, optional
+            Pre-computed time resolutions for batch processing optimization.
+            If None, will be computed by extract_wvt_events(). Default is None.
         **kwargs
             Additional parameters depend on method:
 
@@ -1104,7 +1112,8 @@ class Neuron:
                 for iter_idx in range(n_iter):
                     current_signal_2d = current_signal.reshape(1, -1)
                     (st_ev_inds, end_ev_inds, filtered_ridges) = extract_wvt_events(
-                        current_signal_2d, iter_kwargs[iter_idx], show_progress=show_progress
+                        current_signal_2d, iter_kwargs[iter_idx], show_progress=show_progress,
+                        wavelet=wavelet, rel_wvt_times=rel_wvt_times
                     )
                     st_inds = st_ev_inds[0] if len(st_ev_inds) > 0 else []
                     end_inds = end_ev_inds[0] if len(end_ev_inds) > 0 else []
@@ -1126,7 +1135,10 @@ class Neuron:
                     amplitude_method, event_mask_expansion_sec, create_event_regions
                 )
             # Wavelet non-iterative: single-pass detection
-            (st_ev_inds, end_ev_inds, filtered_ridges) = extract_wvt_events(ca_data, wvt_kwargs, show_progress=show_progress)
+            (st_ev_inds, end_ev_inds, filtered_ridges) = extract_wvt_events(
+                ca_data, wvt_kwargs, show_progress=show_progress,
+                wavelet=wavelet, rel_wvt_times=rel_wvt_times
+            )
             self.wvt_ridges = filtered_ridges[0] if len(filtered_ridges) > 0 else []
             st_inds = st_ev_inds[0] if len(st_ev_inds) > 0 else []
             end_inds = end_ev_inds[0] if len(end_ev_inds) > 0 else []

@@ -1779,20 +1779,6 @@ class Experiment:
             # Single feature - use its get_entropy method
             fts = self.dynamic_features[feat_id]
 
-            # Check for continuous components and warn
-            if isinstance(fts, TimeSeries) and not fts.discrete:
-                warnings.warn(
-                    f"Feature '{feat_id}' is continuous. Entropy may be negative. "
-                    "Consider using mutual information or other measures for continuous variables."
-                )
-            elif isinstance(fts, MultiTimeSeries):
-                # MultiTimeSeries with continuous components
-                if not fts.discrete:
-                    warnings.warn(
-                        f"Feature '{feat_id}' contains continuous components. "
-                        "Differential entropy may be negative and depends on the scale/units."
-                    )
-
             return fts.get_entropy(ds=ds)
 
         elif isinstance(feat_id, (tuple, list)):
@@ -1837,7 +1823,7 @@ class Experiment:
                 f"feat_id must be str or tuple of 2 feature names, got {type(feat_id)}"
             )
 
-    def _reconstruct_spikes(self, calcium, method, fps, spike_kwargs=None):
+    def _reconstruct_spikes(self, calcium, method, fps, spike_kwargs=None, wavelet=None, rel_wvt_times=None):
         """
         Reconstruct spikes from calcium signals using specified method.
 
@@ -1851,6 +1837,10 @@ class Experiment:
             Sampling rate in frames per second
         spike_kwargs : dict, optional
             Method-specific parameters
+        wavelet : Wavelet, optional
+            Pre-computed wavelet object for batch optimization
+        rel_wvt_times : array-like, optional
+            Pre-computed time resolutions for batch optimization
 
         Returns
         -------
@@ -1868,13 +1858,14 @@ class Experiment:
                 TimeSeries(calcium[i, :], discrete=False)
                 for i in range(calcium.shape[0])
             ]
-            calcium_mts = MultiTimeSeries(ts_list)
+            calcium_mts = MultiTimeSeries(ts_list, allow_zero_columns=True)
         else:
             calcium_mts = calcium
 
-        # Call the unified reconstruction function
+        # Call the unified reconstruction function with optimization support
         spikes_mts, metadata = reconstruct_spikes(
-            calcium_mts, method=method, fps=fps, params=spike_kwargs
+            calcium_mts, method=method, fps=fps, params=spike_kwargs,
+            wavelet=wavelet, rel_wvt_times=rel_wvt_times
         )
 
         # Store metadata
@@ -1882,6 +1873,98 @@ class Experiment:
 
         # Return numpy array for backward compatibility
         return spikes_mts.data
+
+    def reconstruct_all_neurons(
+        self,
+        method="wavelet",
+        n_iter=3,
+        optimize_kinetics=True,
+        hybrid_kinetics=True,
+        wavelet=None,
+        rel_wvt_times=None,
+        show_progress=True,
+        **kwargs
+    ):
+        """Batch reconstruct spikes for all neurons with wavelet optimization.
+
+        Populates neuron.asp, neuron.sp, neuron.events for each neuron.
+
+        Parameters
+        ----------
+        method : str
+            Reconstruction method ('wavelet' or 'threshold'). Default 'wavelet'.
+        n_iter : int
+            Number of iterations for iterative detection. Default 3.
+        optimize_kinetics : bool
+            Optimize calcium kinetics per neuron. Default True.
+        hybrid_kinetics : bool
+            Optimize kinetics BEFORE reconstruction (hybrid mode). Default True.
+        wavelet : Wavelet, optional
+            Pre-computed wavelet object. If None, creates once and reuses.
+        rel_wvt_times : array-like, optional
+            Pre-computed time resolutions. If None, computes once and reuses.
+        show_progress : bool
+            Show progress bar. Default True.
+        **kwargs
+            Additional parameters passed to neuron.reconstruct_spikes()
+
+        Returns
+        -------
+        None
+            Updates neuron objects in-place and syncs to exp.spikes
+        """
+        from ssqueezepy.wavelets import Wavelet, time_resolution
+        from .wavelet_event_detection import get_adaptive_wavelet_scales
+        import tqdm
+
+        fps = self.fps if self.fps is not None else 20.0
+
+        # Pre-compute wavelet ONCE if needed
+        if method == 'wavelet' and wavelet is None:
+            wavelet = Wavelet(("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196)
+            manual_scales = get_adaptive_wavelet_scales(fps)
+            rel_wvt_times = [
+                time_resolution(wavelet, scale=sc, nondim=False, min_decay=200)
+                for sc in manual_scales
+            ]
+
+        # Hybrid kinetics: optimize BEFORE reconstruction
+        if hybrid_kinetics and optimize_kinetics:
+            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc='Kinetics'):
+                neuron.optimize_kinetics(method='direct', fps=fps)
+
+        # Reconstruct all neurons with shared wavelet
+        for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc='Reconstruction'):
+            neuron.reconstruct_spikes(
+                method=method,
+                iterative=True,
+                n_iter=n_iter,
+                fps=fps,
+                wavelet=wavelet,
+                rel_wvt_times=rel_wvt_times,
+                **kwargs
+            )
+
+        # Post-reconstruction kinetics if not hybrid
+        if not hybrid_kinetics and optimize_kinetics:
+            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc='Kinetics'):
+                neuron.optimize_kinetics(method='direct', fps=fps)
+
+        # Sync neuron.sp → exp.spikes
+        self._update_spike_data_from_neurons()
+
+    def _update_spike_data_from_neurons(self):
+        """Sync neuron.sp arrays back to exp.spikes."""
+        from ..information.info_base import TimeSeries, MultiTimeSeries
+        import numpy as np
+
+        spike_ts_list = []
+        for neuron in self.neurons:
+            if neuron.sp is not None:
+                spike_ts_list.append(neuron.sp)
+            else:
+                spike_ts_list.append(TimeSeries(np.zeros(self.n_frames), discrete=True))
+        self.spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
 
     def get_significant_neurons(
         self, min_nspec=1, cbunch=None, fbunch=None, mode="calcium",
