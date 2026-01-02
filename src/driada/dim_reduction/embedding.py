@@ -15,11 +15,6 @@ from sklearn.model_selection import train_test_split
 from .dr_base import e_param_filter
 from .graph import ProximityGraph
 
-try:
-    from .neural import AE, VAE, NeuroDataset
-except ImportError:
-    # torch is optional dependency
-    pass
 from .mvu import MaximumVarianceUnfolding
 
 from ..network.matrix_utils import get_inv_sqrt_diag_matrix
@@ -1148,8 +1143,9 @@ class Embedding:
             import torch
             from torch.utils.data import DataLoader
             from sklearn.model_selection import train_test_split
-        except ImportError as e:
-            if 'torch' in str(e):
+            from .neural import NeuroDataset
+        except (ImportError, OSError) as e:
+            if 'torch' in str(e) or isinstance(e, OSError):
                 raise ImportError(
                     "PyTorch is required for autoencoder methods. "
                     "Please install it with: pip install torch"
@@ -1299,7 +1295,8 @@ class Embedding:
             import torch.nn as nn
             import torch.optim as optim
             from torch.utils.data import DataLoader
-        except ImportError:
+            from .neural import AE
+        except (ImportError, OSError):
             raise ImportError(
                 "PyTorch is required for autoencoder methods. "
                 "Please install it with: pip install torch"
@@ -1638,12 +1635,13 @@ class Embedding:
             import torch.nn as nn
             import torch.optim as optim
             from torch.utils.data import DataLoader
-        except ImportError:
+            from .neural import VAE
+        except (ImportError, OSError):
             raise ImportError(
                 "PyTorch is required for autoencoder methods. "
                 "Please install it with: pip install torch"
             )
-        
+
         # Get data loaders and device
         train_loader, test_loader, device = self._prepare_data_loaders(
             batch_size=batch_size,
@@ -1937,13 +1935,12 @@ class Embedding:
             import torch.nn as nn
             import torch.optim as optim
             from torch.utils.data import DataLoader
-        except ImportError:
+            from .flexible_ae import ModularAutoencoder, FlexibleVAE
+        except (ImportError, OSError):
             raise ImportError(
                 "PyTorch is required for autoencoder methods. "
                 "Please install it with: pip install torch"
             )
-        
-        from .flexible_ae import ModularAutoencoder, FlexibleVAE
         
         # Get data loaders and device
         train_loader, test_loader, device_to_use = self._prepare_data_loaders(

@@ -11,50 +11,59 @@ from dataclasses import dataclass, field
 
 @dataclass
 class StylePreset:
-    """Style preset that auto-scales based on panel size.
+    """Style preset with consistent physical sizing across all panels.
 
-    This class defines base styling parameters for a reference panel size and
-    automatically scales all visual elements (fonts, line widths) when applied
-    to panels of different sizes.
+    This class defines styling parameters that maintain the SAME physical size
+    (in cm/inches) across all panels regardless of their dimensions. This ensures
+    that when printed, all text and lines have identical physical measurements.
+
+    For advanced use cases, area-based scaling can be enabled to maintain visual
+    density across panels of different sizes instead.
 
     Parameters
     ----------
     name : str
         Name of the preset (e.g., 'nature', 'custom')
     reference_size : tuple of float
-        (width, height) of reference panel in reference_units
+        (width, height) of reference panel in reference_units.
+        Only used when scaling_mode='area'.
     reference_units : {'cm', 'inches'}, default 'cm'
         Units for reference_size
     base_spine_width : float, default 1.5
-        Spine width for reference panel size
+        Spine width in points (same physical size on all panels)
     base_tick_width : float, default 1.5
-        Tick width for reference panel size
+        Tick width in points (same physical size on all panels)
     base_tick_length : float, default 6
-        Tick length for reference panel size
+        Tick length in points (same physical size on all panels)
     base_tick_pad : float, default 8
-        Tick padding for reference panel size
+        Tick padding in points (same physical size on all panels)
     base_tick_labelsize : float, default 8
-        Tick label font size for reference panel size (in points)
+        Tick label font size in points (same physical size on all panels)
     base_label_size : float, default 10
-        Axis label font size for reference panel size (in points)
+        Axis label font size in points (same physical size on all panels)
     base_title_size : float, default 10
-        Title font size for reference panel size (in points)
+        Title font size in points (same physical size on all panels)
     base_legend_fontsize : float, default 8
-        Legend font size for reference panel size (in points)
+        Legend font size in points (same physical size on all panels)
+    scaling_mode : {'fixed', 'area'}, default 'fixed'
+        Scaling behavior:
+        - 'fixed': Same physical size on all panels (DEFAULT, recommended)
+        - 'area': Scale by sqrt(area_ratio) to preserve visual density
 
     Examples
     --------
-    >>> # Create a Nature journal preset
+    >>> # Create a Nature journal preset with fixed physical sizing
     >>> style = StylePreset.nature_journal()
-    >>> # Apply to an 8×8 cm panel
+    >>> # Apply to any panel - fonts will have same physical size
     >>> style.apply_to_axes(ax, (8, 8), 'cm')
+    >>> style.apply_to_axes(ax2, (4, 4), 'cm')  # Same font size as above!
     """
 
     name: str = 'default'
     reference_size: Tuple[float, float] = (8.0, 8.0)
     reference_units: Literal['cm', 'inches'] = 'cm'
 
-    # Base parameters (for reference size)
+    # Base parameters (applied to all panels with same physical size by default)
     base_spine_width: float = 1.5
     base_tick_width: float = 1.5
     base_tick_length: float = 6
@@ -68,20 +77,14 @@ class StylePreset:
     legend_frameon: bool = False
     lowercase_labels: bool = False
     tight_layout: bool = True
-    disable_scaling: bool = False  # If True, always use scale=1.0
+    scaling_mode: Literal['fixed', 'area'] = 'fixed'  # DEFAULT: same physical size
 
     def calculate_scale_factor(
         self,
         panel_size: Tuple[float, float],
         panel_units: Literal['cm', 'inches']
     ) -> float:
-        """Calculate scale factor based on panel area relative to reference.
-
-        The scale factor is sqrt(panel_area / reference_area), which preserves
-        visual density across panels of different sizes.
-
-        If disable_scaling is True, always returns 1.0 to apply the same
-        absolute sizes to all panels regardless of their dimensions.
+        """Calculate scale factor based on scaling mode.
 
         Parameters
         ----------
@@ -93,12 +96,16 @@ class StylePreset:
         Returns
         -------
         float
-            Scale factor to apply to all visual elements
+            Scale factor to apply to all visual elements:
+            - scaling_mode='fixed': Always returns 1.0 (same physical size on all panels)
+            - scaling_mode='area': Returns sqrt(panel_area / reference_area) to preserve
+              visual density across different panel sizes
         """
-        # If scaling is disabled, all panels get the same absolute sizes
-        if self.disable_scaling:
+        # Fixed mode: all panels get the same absolute physical sizes
+        if self.scaling_mode == 'fixed':
             return 1.0
 
+        # Area mode: scale by sqrt of area ratio to preserve visual density
         from .layout import to_inches
 
         # Convert both to inches for comparison
@@ -119,7 +126,7 @@ class StylePreset:
         ax,
         panel_size: Tuple[float, float],
         panel_units: Literal['cm', 'inches'] = 'cm'
-    ):
+    ) -> None:
         """Apply scaled styling to a matplotlib axes.
 
         Parameters
@@ -184,16 +191,31 @@ class StylePreset:
         # We don't force margins here to allow flexibility in plot content
 
     @classmethod
-    def nature_journal(cls) -> 'StylePreset':
+    def nature_journal(cls, scaling_mode: Literal['fixed', 'area'] = 'fixed') -> 'StylePreset':
         """Create a preset styled for Nature journal specifications.
 
         Nature requires figures with precise dimensions and professional appearance.
-        This preset uses 8×8 cm as reference size with appropriate font scaling.
+        By default, uses fixed physical sizing so all panels have identical font
+        and line sizes when measured with a ruler on the printed page.
+
+        Parameters
+        ----------
+        scaling_mode : {'fixed', 'area'}, default 'fixed'
+            - 'fixed': Same physical size on all panels (recommended for most cases)
+            - 'area': Scale by panel area to preserve visual density
 
         Returns
         -------
         StylePreset
             Configured preset for Nature journal
+
+        Examples
+        --------
+        >>> # Default: fixed physical size across all panels
+        >>> style = StylePreset.nature_journal()
+        >>>
+        >>> # Optional: area-based scaling for visual density preservation
+        >>> style_area = StylePreset.nature_journal(scaling_mode='area')
         """
         return cls(
             name='nature',
@@ -209,19 +231,21 @@ class StylePreset:
             base_legend_fontsize=8,
             legend_frameon=False,
             lowercase_labels=False,
-            tight_layout=True
+            tight_layout=True,
+            scaling_mode=scaling_mode
         )
 
     @classmethod
     def fixed_size(cls, **kwargs) -> 'StylePreset':
-        """Create a preset with FIXED sizes across all panels (no scaling).
+        """Create a preset with FIXED sizes across all panels.
 
-        This preset applies the same font sizes and line widths to ALL panels
-        regardless of their physical dimensions, ensuring consistent absolute
-        physical size when printed.
+        This is an explicit alias for the default behavior. All panels get the
+        same font sizes and line widths regardless of their physical dimensions,
+        ensuring consistent absolute physical size when printed.
 
-        Use this when you want all panels to have identical text heights and
-        line widths when measured with a ruler on the printed figure.
+        Note: This is now the DEFAULT behavior, so StylePreset() and
+        StylePreset.nature_journal() already use fixed sizing. This method
+        is provided for explicit clarity.
 
         Parameters
         ----------
@@ -231,7 +255,7 @@ class StylePreset:
         Returns
         -------
         StylePreset
-            Configured preset with disabled scaling
+            Configured preset with fixed scaling
 
         Examples
         --------
@@ -242,7 +266,7 @@ class StylePreset:
         """
         defaults = {
             'name': 'fixed_size',
-            'reference_size': (8.0, 8.0),  # Not used when disable_scaling=True
+            'reference_size': (8.0, 8.0),  # Not used when scaling_mode='fixed'
             'reference_units': 'cm',
             'base_spine_width': 1.5,
             'base_tick_width': 1.5,
@@ -255,7 +279,7 @@ class StylePreset:
             'legend_frameon': False,
             'lowercase_labels': False,
             'tight_layout': True,
-            'disable_scaling': True  # KEY: All panels get same absolute sizes
+            'scaling_mode': 'fixed'  # Explicit fixed mode (also the default)
         }
         defaults.update(kwargs)
         return cls(**defaults)
@@ -341,6 +365,7 @@ class StylePreset:
         --------
         >>> style = StylePreset.nature_journal()
         >>> larger_fonts = style.copy(base_label_size=12, base_title_size=14)
+        >>> area_scaled = style.copy(scaling_mode='area')
         """
         # Get current values as dict
         current = {
@@ -358,6 +383,7 @@ class StylePreset:
             'legend_frameon': self.legend_frameon,
             'lowercase_labels': self.lowercase_labels,
             'tight_layout': self.tight_layout,
+            'scaling_mode': self.scaling_mode,
         }
 
         # Update with overrides

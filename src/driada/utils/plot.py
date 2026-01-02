@@ -29,7 +29,7 @@ def make_beautiful(
     remove_origin_tick: bool = False,
     panel_size: Optional[Tuple[float, float]] = None,
     panel_units: str = 'cm',
-    reference_size: Tuple[float, float] = (8.0, 8.0),
+    style: Optional[Any] = None,
 ):
     """Apply publication-quality styling to a matplotlib axis with optional auto-scaling.
 
@@ -77,16 +77,15 @@ def make_beautiful(
     remove_origin_tick : bool, optional
         Whether to remove tick labels at the origin (0,0) to avoid overlap (default: False).
     panel_size : tuple of float, optional
-        Physical size (width, height) of the panel. If provided, all size-related
-        parameters (fonts, line widths) are automatically scaled based on panel
-        area relative to reference_size. This maintains consistent visual density
-        across panels of different sizes (default: None, no scaling).
+        Physical size (width, height) of the panel. When combined with a StylePreset,
+        enables automatic scaling. If None, no scaling is applied (default: None).
     panel_units : {'cm', 'inches'}, default 'cm'
-        Units for panel_size and reference_size (default: 'cm').
-    reference_size : tuple of float, default (8.0, 8.0)
-        Reference panel size for scaling calculations. Size parameters
-        (spine_width, tick_width, etc.) are assumed to be appropriate for
-        this reference size (default: (8.0, 8.0) cm).
+        Units for panel_size (default: 'cm').
+    style : StylePreset, optional
+        StylePreset instance to use for styling. If provided with panel_size,
+        automatically applies scaled styling. This is the recommended approach
+        for multi-panel figures. If None, uses the individual parameters
+        (spine_width, tick_width, etc.) directly (default: None).
 
     Returns
     -------
@@ -126,32 +125,53 @@ def make_beautiful(
     ~driada.utils.publication.StylePreset :
         Style presets with automatic scaling.
     """
-    # Calculate scale factor if panel_size is provided
-    scale = 1.0
-    if panel_size is not None:
-        # Import here to avoid circular dependency
-        from .publication.layout import to_inches
+    # If StylePreset is provided, delegate styling to it
+    if style is not None:
+        if panel_size is None:
+            raise ValueError("panel_size must be provided when using a StylePreset")
 
-        # Convert sizes to inches for comparison
-        ref_size_inches = to_inches(reference_size, panel_units)
-        panel_size_inches = to_inches(panel_size, panel_units)
+        # Apply the preset styling (handles spines, ticks, labels based on scaling_mode)
+        style.apply_to_axes(ax, panel_size, panel_units)
 
-        # Calculate areas
-        ref_area = ref_size_inches[0] * ref_size_inches[1]
-        panel_area = panel_size_inches[0] * panel_size_inches[1]
+        # Handle additional options not covered by StylePreset
 
-        # Scale factor is sqrt of area ratio (preserves visual density)
-        scale = np.sqrt(panel_area / ref_area)
+        # Legend positioning (StylePreset handles basic legend styling)
+        if ax.legend_ is not None and legend_loc in ['above', 'below']:
+            # Determine number of columns
+            ncol = legend_ncol if legend_ncol is not None else len(ax.legend_.get_texts())
+            if legend_loc == 'above':
+                ax.legend(bbox_to_anchor=(0.5, 1 + legend_offset), loc='lower center',
+                         ncol=ncol, frameon=style.legend_frameon,
+                         fontsize=style.base_legend_fontsize, borderaxespad=0.0)
+            else:  # below
+                ax.legend(bbox_to_anchor=(0.5, -legend_offset), loc='upper center',
+                         ncol=ncol, frameon=style.legend_frameon,
+                         fontsize=style.base_legend_fontsize, borderaxespad=0.0)
 
-    # Apply scale factor to all size parameters
-    spine_width = spine_width * scale
-    tick_width = tick_width * scale
-    tick_length = tick_length * scale
-    tick_pad = tick_pad * scale
-    tick_labelsize = int(tick_labelsize * scale)
-    label_size = int(label_size * scale)
-    title_size = int(title_size * scale)
-    legend_fontsize = int(legend_fontsize * scale)
+        # Remove tick at origin if requested
+        if remove_origin_tick:
+            xticks = list(ax.get_xticks())
+            yticks = list(ax.get_yticks())
+            if 0.0 in xticks:
+                xticks.remove(0.0)
+                ax.set_xticks(xticks)
+            if 0.0 in yticks:
+                yticks.remove(0.0)
+                ax.set_yticks(yticks)
+
+        # Tight layout
+        if tight_layout:
+            ax.margins(x=0, y=0)
+            ax.autoscale(enable=True, axis='both', tight=True)
+
+        # Set DPI if provided
+        if dpi is not None:
+            ax.figure.set_dpi(dpi)
+
+        return ax
+
+    # Traditional make_beautiful behavior (no StylePreset)
+    # Uses parameters directly without scaling for backward compatibility
 
     # Style spines
     for axis in ["bottom", "left"]:

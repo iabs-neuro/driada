@@ -15,7 +15,8 @@ try:
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
-except ImportError:
+except (ImportError, OSError):
+    # OSError catches DLL loading issues on Windows
     torch = None
     nn = None
     F = None

@@ -963,6 +963,7 @@ class Neuron:
                           amplitude_method="deconvolution", show_progress=False, create_event_regions=False,
                           event_mask_expansion_sec=5.0,
                           wavelet=None, rel_wvt_times=None,
+                          use_gpu=False,
                           **kwargs):
         """Reconstruct spikes from calcium signal.
 
@@ -1009,6 +1010,9 @@ class Neuron:
         rel_wvt_times : array-like, optional
             Pre-computed time resolutions for batch processing optimization.
             If None, will be computed by extract_wvt_events(). Default is None.
+        use_gpu : bool, default=False
+            Whether to use GPU acceleration for wavelet transform computation.
+            Requires PyTorch and CuPy. Ridge extraction remains CPU-only.
         **kwargs
             Additional parameters depend on method:
 
@@ -1113,7 +1117,7 @@ class Neuron:
                     current_signal_2d = current_signal.reshape(1, -1)
                     (st_ev_inds, end_ev_inds, filtered_ridges) = extract_wvt_events(
                         current_signal_2d, iter_kwargs[iter_idx], show_progress=show_progress,
-                        wavelet=wavelet, rel_wvt_times=rel_wvt_times
+                        wavelet=wavelet, rel_wvt_times=rel_wvt_times, use_gpu=use_gpu
                     )
                     st_inds = st_ev_inds[0] if len(st_ev_inds) > 0 else []
                     end_inds = end_ev_inds[0] if len(end_ev_inds) > 0 else []
@@ -1137,7 +1141,7 @@ class Neuron:
             # Wavelet non-iterative: single-pass detection
             (st_ev_inds, end_ev_inds, filtered_ridges) = extract_wvt_events(
                 ca_data, wvt_kwargs, show_progress=show_progress,
-                wavelet=wavelet, rel_wvt_times=rel_wvt_times
+                wavelet=wavelet, rel_wvt_times=rel_wvt_times, use_gpu=use_gpu
             )
             self.wvt_ridges = filtered_ridges[0] if len(filtered_ridges) > 0 else []
             st_inds = st_ev_inds[0] if len(st_ev_inds) > 0 else []

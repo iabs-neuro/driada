@@ -3,7 +3,10 @@
 
 This example shows that fonts, line widths, and other visual elements maintain
 the same PHYSICAL size (in cm/inches) regardless of panel dimensions. This is
-the core value proposition of the publication framework.
+the core value proposition and DEFAULT BEHAVIOR of the publication framework.
+
+When you measure the printed output with a ruler, all fonts and lines will have
+identical physical measurements across all panels, ensuring professional appearance.
 """
 
 import numpy as np
@@ -82,38 +85,39 @@ def demo_scaling_consistency():
 
 def demo_with_vs_without_scaling():
     """
-    Compare figures WITH and WITHOUT auto-scaling to show the problem we're solving.
+    Compare figures WITH and WITHOUT fixed physical sizing to show the problem we're solving.
     """
-    print("\nCreating comparison: with vs without auto-scaling...")
+    print("\nCreating comparison: with vs without fixed physical sizing...")
 
     x = np.linspace(0, 10, 100)
     y = np.sin(x)
 
-    # Figure 1: WITHOUT auto-scaling (old way - inconsistent)
+    # Figure 1: WITHOUT framework (matplotlib default - inconsistent physical size)
     layout1 = PanelLayout(units='cm', dpi=300, spacing={'wspace': 1.5})
     layout1.add_panel('A', size=(4, 4), position=(0, 0))
     layout1.add_panel('B', size=(12, 12), position=(0, 1))
     layout1.set_grid(rows=1, cols=2)
 
-    # Create WITHOUT style preset (no auto-scaling)
+    # Create WITHOUT style preset (matplotlib defaults)
     fig1, axes1 = layout1.create_figure(style=None)
 
-    # Apply manual styling WITHOUT scaling
+    # Apply manual styling WITHOUT our framework
     from driada.utils.plot import make_beautiful
     for name, ax in axes1.items():
         ax.plot(x, y, 'r-', linewidth=2)
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_title(f'Panel {name}')
-        # Use make_beautiful WITHOUT panel_size (no auto-scaling)
-        make_beautiful(ax, spine_width=1.5, tick_labelsize=8, label_size=10,
-                      title_size=10, legend_fontsize=8, lowercase_labels=False,
-                      tight_layout=False)
+        # matplotlib default font sizes (same point size, but different physical size due to different DPI scaling)
+        ax.tick_params(labelsize=8)
+        ax.xaxis.label.set_size(10)
+        ax.yaxis.label.set_size(10)
+        ax.title.set_size(10)
 
     labeler = PanelLabeler(fontsize_pt=12, location='top_left')
     labeler.add_labels_to_dict(axes1, dpi=layout1.dpi)
 
-    fig1.text(0.5, 0.02, 'WITHOUT auto-scaling: Fonts look smaller in large panel',
+    fig1.text(0.5, 0.02, 'WITHOUT framework: Fonts appear different physical sizes on different panels',
              ha='center', fontsize=10, bbox=dict(boxstyle='round', facecolor='lightcoral', alpha=0.5))
 
     output1 = Path('examples/publication_framework/comparison_without_scaling.pdf')
@@ -121,13 +125,14 @@ def demo_with_vs_without_scaling():
     print(f"  Saved: {output1}")
     plt.close(fig1)
 
-    # Figure 2: WITH auto-scaling (new way - consistent!)
+    # Figure 2: WITH framework (fixed physical size - consistent!)
     layout2 = PanelLayout(units='cm', dpi=300, spacing={'wspace': 1.5})
     layout2.add_panel('A', size=(4, 4), position=(0, 0))
     layout2.add_panel('B', size=(12, 12), position=(0, 1))
     layout2.set_grid(rows=1, cols=2)
 
-    style = StylePreset.nature_journal()
+    # Use the default StylePreset with fixed physical sizing
+    style = StylePreset.nature_journal()  # Default: scaling_mode='fixed'
     fig2, axes2 = layout2.create_figure(style=style)
 
     for name, ax in axes2.items():
@@ -138,7 +143,7 @@ def demo_with_vs_without_scaling():
 
     labeler.add_labels_to_dict(axes2, dpi=layout2.dpi)
 
-    fig2.text(0.5, 0.02, 'WITH auto-scaling: Fonts have SAME physical size in both panels',
+    fig2.text(0.5, 0.02, 'WITH framework: Fonts have SAME physical size in both panels (measure with ruler!)',
              ha='center', fontsize=10, bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.5))
 
     output2 = Path('examples/publication_framework/comparison_with_scaling.pdf')
@@ -147,6 +152,7 @@ def demo_with_vs_without_scaling():
     plt.close(fig2)
 
     print("\n  Compare the two PDFs side-by-side to see the difference!")
+    print("  Tip: Print both and measure font heights with a ruler - framework version will be identical!")
 
 
 def demo_realistic_multi_panel():

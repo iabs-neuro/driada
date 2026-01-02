@@ -15,16 +15,26 @@ from .stats import (
 from ..information.info_base import TimeSeries, MultiTimeSeries, get_multi_mi, get_sim
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables, add_names_to_nested_dict
 
-# Configure joblib backend to avoid PyTorch forking issues
-try:
-    import torch
+# Lazy joblib backend selection to avoid unconditional torch import
+_JOBLIB_BACKEND = None
 
-    # If PyTorch is available, use threading backend to avoid forking issues
-    # This prevents "function '_has_torch_function' already has a docstring" errors
-    JOBLIB_BACKEND = "threading"
-except ImportError:
-    # Default to loky if PyTorch not available
-    JOBLIB_BACKEND = "loky"
+
+def _get_joblib_backend():
+    """Get joblib backend, checking torch availability only on first call.
+
+    Uses threading backend if PyTorch is available to avoid forking issues
+    (prevents "function '_has_torch_function' already has a docstring" errors).
+    Falls back to loky if PyTorch is not available.
+    """
+    global _JOBLIB_BACKEND
+    if _JOBLIB_BACKEND is None:
+        try:
+            import torch
+            _JOBLIB_BACKEND = "threading"
+        except (ImportError, OSError):
+            # OSError catches DLL loading issues on Windows
+            _JOBLIB_BACKEND = "loky"
+    return _JOBLIB_BACKEND
 
 
 def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False):
@@ -390,7 +400,7 @@ def calculate_optimal_delays_parallel(
     split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs)
     split_ts_bunch1 = [np.array(ts_bunch1)[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_delays = Parallel(n_jobs=n_jobs, backend=JOBLIB_BACKEND, verbose=True)(
+    parallel_delays = Parallel(n_jobs=n_jobs, backend=_get_joblib_backend(), verbose=True)(
         delayed(calculate_optimal_delays)(
             small_ts_bunch,
             ts_bunch2,
@@ -882,7 +892,7 @@ def scan_pairs_parallel(
     -----
     - Parallelization is done by splitting ts_bunch1 across workers
     - Each worker handles a subset of ts_bunch1 against all of ts_bunch2
-    - Uses JOBLIB_BACKEND global variable (threading if PyTorch present, else loky)
+    - Uses threading backend if PyTorch present (checked lazily), else loky
     - Random seeding ensures reproducibility across different mask configurations
 
     See Also
@@ -941,7 +951,7 @@ def scan_pairs_parallel(
     split_optimal_delays = [optimal_delays[idxs] for idxs in split_ts_bunch1_inds]
     split_mask = [mask[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_result = Parallel(n_jobs=n_jobs, backend=JOBLIB_BACKEND, verbose=True)(
+    parallel_result = Parallel(n_jobs=n_jobs, backend=_get_joblib_backend(), verbose=True)(
         delayed(scan_pairs)(
             small_ts_bunch,
             ts_bunch2,

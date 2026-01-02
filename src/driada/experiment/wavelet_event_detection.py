@@ -3,14 +3,15 @@ import tqdm
 import matplotlib.pyplot as plt
 import warnings
 
-# Fix scipy compatibility issue for ssqueezepy
+# Fix scipy compatibility issue for ssqueezepy (applied lazily when ssqueezepy is imported)
 import scipy.integrate
 
 if not hasattr(scipy.integrate, "trapz"):
     scipy.integrate.trapz = scipy.integrate.trapezoid
 
-from ssqueezepy import cwt
-from ssqueezepy.wavelets import Wavelet, time_resolution
+# ssqueezepy imports are deferred to avoid loading torch at module import time
+# (ssqueezepy unconditionally imports torch)
+# cwt, Wavelet, time_resolution are imported inside functions that need them
 
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelmax
@@ -197,6 +198,10 @@ def get_cwt_ridges(
     --------
     ~driada.experiment.wavelet_event_detection.get_cwt_ridges_fast : Numba-accelerated version
     ~driada.experiment.wavelet_ridge.Ridge : Ridge object storing ridge properties    """
+    # Lazy import to avoid loading torch at module import time
+    from ssqueezepy import cwt
+    from ssqueezepy.wavelets import time_resolution
+
     # Validate parameters
     check_positive(fps=fps)
     check_nonnegative(scmin=scmin, scmax=scmax)
@@ -641,6 +646,10 @@ def events_from_trace(
     --------
     ~driada.experiment.wavelet_event_detection.extract_wvt_events : Batch processing for multiple neurons
     ~driada.experiment.wavelet_event_detection.WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary    """
+    # Lazy import to avoid loading torch at module import time
+    from ssqueezepy import cwt
+    from ssqueezepy.wavelets import Wavelet
+
     # Validate parameters
     check_positive(fps=fps, max_dur_thr=max_dur_thr)
     check_nonnegative(sigma=sigma, eps=eps, scale_length_thr=scale_length_thr, 
@@ -691,7 +700,7 @@ def events_from_trace(
 
 
 def extract_wvt_events(traces, wvt_kwargs, show_progress=None,
-                      wavelet=None, rel_wvt_times=None):
+                      wavelet=None, rel_wvt_times=None, use_gpu=False):
     """Extract calcium events from multiple traces using wavelet ridge detection.
 
     Detects calcium transient events by finding ridges in the continuous wavelet
@@ -729,6 +738,10 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None,
         Pre-computed time resolutions for each scale in manual_scales. If None,
         computes from wavelet. For batch processing, pre-compute once and reuse to
         eliminate 0.18s overhead per call (50 scales).
+    use_gpu : bool, default=False
+        Whether to use GPU acceleration for the CWT computation via ssqueezepy.
+        Requires PyTorch and CuPy to be installed. Note that ridge extraction
+        remains CPU-only (Numba JIT), so speedup is limited to the CWT phase.
 
     Returns
     -------
@@ -759,6 +772,14 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None,
     - Persist across multiple scales (scale_length_thr)
     - Have sufficient amplitude (max_ampl_thr)
     - Have reasonable duration (max_dur_thr)    """
+    # Lazy import to avoid loading torch at module import time
+    from ssqueezepy.wavelets import Wavelet, time_resolution
+
+    # Enable GPU acceleration for CWT if requested
+    if use_gpu:
+        import os
+        os.environ['SSQ_GPU'] = '1'
+
     # Validate inputs
     traces = np.asarray(traces)
     if traces.ndim != 2:

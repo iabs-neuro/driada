@@ -26,7 +26,8 @@ def reconstruct_spikes(
     fps: float = 20.0,
     params: Optional[Dict[str, Any]] = None,
     wavelet=None,
-    rel_wvt_times=None
+    rel_wvt_times=None,
+    use_gpu: bool = False
 ) -> Tuple[MultiTimeSeries, Dict[str, Any]]:
     """
     Reconstruct spike trains from calcium signals.
@@ -55,6 +56,9 @@ def reconstruct_spikes(
     rel_wvt_times : array-like, optional
         Pre-computed time resolutions for batch optimization (wavelet method only).
         If None, computes new. Used together with wavelet parameter.
+    use_gpu : bool, default=False
+        Whether to use GPU acceleration for wavelet transform computation.
+        Requires PyTorch and CuPy. Ridge extraction remains CPU-only.
 
     Returns
     -------
@@ -141,7 +145,7 @@ def reconstruct_spikes(
             )
 
     elif method == "wavelet":
-        return wavelet_reconstruction(calcium, fps, params, wavelet, rel_wvt_times)
+        return wavelet_reconstruction(calcium, fps, params, wavelet, rel_wvt_times, use_gpu)
 
     elif method == "threshold":
         return threshold_reconstruction(calcium, fps, params)
@@ -158,7 +162,8 @@ def wavelet_reconstruction(
     fps: float,
     params: Dict[str, Any],
     wavelet=None,
-    rel_wvt_times=None
+    rel_wvt_times=None,
+    use_gpu: bool = False
 ) -> Tuple[MultiTimeSeries, Dict[str, Any]]:
     """
     Wavelet-based spike reconstruction.
@@ -249,7 +254,8 @@ def wavelet_reconstruction(
         calcium_data,
         wvt_kwargs,
         wavelet=wavelet,
-        rel_wvt_times=rel_wvt_times
+        rel_wvt_times=rel_wvt_times,
+        use_gpu=use_gpu
     )
 
     # Convert to spike array

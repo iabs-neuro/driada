@@ -172,12 +172,29 @@ class PanelLayout:
             Number of columns this panel spans
         **kwargs
             For backward compatibility: 'rowspan', 'colspan'
+
+        Raises
+        ------
+        ValueError
+            If panel name already exists, size is invalid, or span is invalid
         """
         # Handle backward compatibility
         if 'rowspan' in kwargs:
             row_span = kwargs['rowspan']
         if 'colspan' in kwargs:
             col_span = kwargs['colspan']
+
+        # Validate panel name is unique
+        if name in self.panels:
+            raise ValueError(f"Panel '{name}' already exists in layout")
+
+        # Validate size
+        if size[0] <= 0 or size[1] <= 0:
+            raise ValueError(f"Panel size must be positive, got {size}")
+
+        # Validate span
+        if row_span < 1 or col_span < 1:
+            raise ValueError(f"Panel span must be at least 1, got row_span={row_span}, col_span={col_span}")
 
         panel = PanelSpec(
             name=name,
@@ -188,7 +205,7 @@ class PanelLayout:
         )
         self.panels[name] = panel
 
-    def set_grid(self, rows: int, cols: int):
+    def set_grid(self, rows: int, cols: int) -> None:
         """Set the grid shape for automatic panel positioning.
 
         Parameters
@@ -212,10 +229,105 @@ class PanelLayout:
         -------
         tuple of float
             (width, height) in self.units
+
+        Raises
+        ------
+        ValueError
+            If panel name not found
         """
         if name not in self.panels:
             raise ValueError(f"Panel '{name}' not found in layout")
         return self.panels[name].size
+
+    def _get_occupied_cells(self, panel: PanelSpec) -> set[Tuple[int, int]]:
+        """Get the set of (row, col) grid cells occupied by a panel.
+
+        Parameters
+        ----------
+        panel : PanelSpec
+            Panel to get occupied cells for
+
+        Returns
+        -------
+        set of tuple
+            Set of (row, col) tuples representing occupied grid cells
+        """
+        if panel.position is None:
+            return set()
+
+        row, col = panel.position
+        cells: set[Tuple[int, int]] = set()
+        for r in range(row, row + panel.row_span):
+            for c in range(col, col + panel.col_span):
+                cells.add((r, c))
+        return cells
+
+    def _validate_layout(self) -> None:
+        """Validate the layout configuration before creating figure.
+
+        Raises
+        ------
+        ValueError
+            If layout has issues (bounds violations, overlaps, etc.)
+        """
+        if not self.panels:
+            raise ValueError("No panels added to layout")
+
+        # Determine grid shape if not set
+        if self.grid_shape is None:
+            # Will use automatic 1-row layout
+            return
+
+        rows, cols = self.grid_shape
+
+        # Validate grid shape
+        if rows < 1 or cols < 1:
+            raise ValueError(f"Grid shape must have at least 1 row and 1 column, got ({rows}, {cols})")
+
+        # Track which cells are occupied by which panel
+        cell_map = {}  # {(row, col): panel_name}
+
+        for name, panel in self.panels.items():
+            if panel.position is None:
+                # Will be auto-positioned, skip validation
+                continue
+
+            row, col = panel.position
+
+            # Validate position is within grid bounds
+            if row < 0 or row >= rows:
+                raise ValueError(
+                    f"Panel '{name}' at position ({row}, {col}) has invalid row "
+                    f"(grid has {rows} rows: 0-{rows-1})"
+                )
+            if col < 0 or col >= cols:
+                raise ValueError(
+                    f"Panel '{name}' at position ({row}, {col}) has invalid column "
+                    f"(grid has {cols} columns: 0-{cols-1})"
+                )
+
+            # Validate spanning doesn't exceed grid bounds
+            if row + panel.row_span > rows:
+                raise ValueError(
+                    f"Panel '{name}' at position ({row}, {col}) with row_span={panel.row_span} "
+                    f"exceeds grid rows (would need rows {row}-{row+panel.row_span-1}, "
+                    f"but grid only has rows 0-{rows-1})"
+                )
+            if col + panel.col_span > cols:
+                raise ValueError(
+                    f"Panel '{name}' at position ({row}, {col}) with col_span={panel.col_span} "
+                    f"exceeds grid columns (would need columns {col}-{col+panel.col_span-1}, "
+                    f"but grid only has columns 0-{cols-1})"
+                )
+
+            # Check for overlaps
+            occupied_cells = self._get_occupied_cells(panel)
+            for cell in occupied_cells:
+                if cell in cell_map:
+                    raise ValueError(
+                        f"Panel '{name}' overlaps with panel '{cell_map[cell]}' at grid cell {cell}"
+                    )
+                cell_map[cell] = name
 
     def _calculate_figure_size(self) -> Tuple[float, float]:
         """Calculate total figure size in inches based on panels and spacing.
@@ -240,15 +352,22 @@ class PanelLayout:
         col_widths = [0.0] * cols
         row_heights = [0.0] * rows
 
-        for panel in self.panels.values():
+        for idx, panel in enumerate(self.panels.values()):
+            # Determine position (explicit or auto)
             if panel.position is not None:
                 row, col = panel.position
-                # Update column width (take max if multiple panels in same column)
-                col_widths[col] = max(col_widths[col], panel.size[0] / panel.col_span)
-                # Update row height (take max if multiple panels in same row)
-                row_heights[row] = max(row_heights[row], panel.size[1] / panel.row_span)
+            else:
+                # Auto-position: fill grid left-to-right, top-to-bottom
+                row = idx // cols
+                col = idx % cols
 
-        # If any columns/rows are still 0, fill with average
+            # Update column width (take max if multiple panels in same column)
+            col_widths[col] = max(col_widths[col], panel.size[0] / panel.col_span)
+            # Update row height (take max if multiple panels in same row)
+            row_heights[row] = max(row_heights[row], panel.size[1] / panel.row_span)
+
+        # If any columns/rows are still 0, fill with average of non-zero values
+        # (This handles sparse grids where some cells are intentionally empty)
         avg_width = np.mean([w for w in col_widths if w > 0]) if any(w > 0 for w in col_widths) else 8
         avg_height = np.mean([h for h in row_heights if h > 0]) if any(h > 0 for h in row_heights) else 6
         col_widths = [w if w > 0 else avg_width for w in col_widths]
@@ -285,6 +404,11 @@ class PanelLayout:
         axes : dict of matplotlib.axes.Axes
             Dictionary mapping panel names to their axes
 
+        Raises
+        ------
+        ValueError
+            If layout validation fails (bounds violations, overlaps, etc.)
+
         Examples
         --------
         >>> layout = PanelLayout(units='cm', dpi=300)
@@ -294,6 +418,9 @@ class PanelLayout:
         >>> fig, axes = layout.create_figure()
         >>> axes['A'].plot([1, 2, 3], [1, 4, 9])
         """
+        # Validate layout before creating figure
+        self._validate_layout()
+
         # Calculate figure size
         fig_width_inches, fig_height_inches = self._calculate_figure_size()
 
@@ -326,14 +453,15 @@ class PanelLayout:
         wspace = self.spacing.get('wspace', 0)
         hspace = self.spacing.get('hspace', 0)
 
-        # Calculate cumulative positions (left edges and bottom edges) in user units
+        # Calculate cumulative positions in user units
+        # Work in top-down coordinates (row 0 = top), convert to matplotlib bottom-up later
         col_positions = [0.0]  # left edge of each column
         for i in range(cols):
             col_positions.append(col_positions[-1] + col_widths[i] + (wspace if i < cols-1 else 0))
 
-        row_positions = [0.0]  # bottom edge of each row (from bottom)
+        row_positions = [0.0]  # top edge of each row (from top, user coordinates)
         for i in range(rows):
-            row_positions.append(row_positions[-1] + row_heights[rows-1-i] + (hspace if i < rows-1 else 0))
+            row_positions.append(row_positions[-1] + row_heights[i] + (hspace if i < rows-1 else 0))
 
         # Convert to inches
         col_positions_inches = [to_inches(p, self.units) for p in col_positions]
@@ -344,16 +472,30 @@ class PanelLayout:
         # Create axes manually with precise positioning
         axes = {}
 
+        # Total figure height for coordinate conversion
+        total_height_inches = fig_height_inches
+
         if self.grid_shape is not None and all(p.position is None for p in self.panels.values()):
             # Simple grid - automatic positioning
             for idx, (name, panel) in enumerate(self.panels.items()):
                 row = idx // cols
                 col = idx % cols
 
-                left = col_positions_inches[col] / fig_width_inches
-                bottom = row_positions_inches[rows-1-row] / fig_height_inches
-                width = col_widths_inches[col] / fig_width_inches
-                height = row_heights_inches[row] / fig_height_inches
+                # Position in user coordinates (top-down)
+                left_inches = col_positions_inches[col]
+                top_inches = row_positions_inches[row]
+                width_inches = col_widths_inches[col]
+                height_inches = row_heights_inches[row]
+
+                # Convert to matplotlib coordinates (bottom-up)
+                # bottom = total_height - top - height
+                bottom_inches = total_height_inches - top_inches - height_inches
+
+                # Convert to figure fractions
+                left = left_inches / fig_width_inches
+                bottom = bottom_inches / fig_height_inches
+                width = width_inches / fig_width_inches
+                height = height_inches / fig_height_inches
 
                 ax = fig.add_axes([left, bottom, width, height])
                 axes[name] = ax
@@ -365,20 +507,25 @@ class PanelLayout:
 
                 row, col = panel.position
 
-                # Calculate position and size in inches
+                # Position in user coordinates (top-down)
                 left_inches = col_positions_inches[col]
-                bottom_inches = row_positions_inches[rows-1-row]
+                top_inches = row_positions_inches[row]
 
-                # Handle spanning
+                # Handle spanning for width
                 if panel.col_span > 1:
                     width_inches = col_positions_inches[col + panel.col_span] - col_positions_inches[col]
                 else:
                     width_inches = col_widths_inches[col]
 
+                # Handle spanning for height
                 if panel.row_span > 1:
-                    height_inches = row_positions_inches[rows-row] - row_positions_inches[rows-1-row]
+                    height_inches = row_positions_inches[row + panel.row_span] - row_positions_inches[row]
                 else:
                     height_inches = row_heights_inches[row]
+
+                # Convert to matplotlib coordinates (bottom-up)
+                # bottom = total_height - top - height
+                bottom_inches = total_height_inches - top_inches - height_inches
 
                 # Convert to figure fractions
                 left = left_inches / fig_width_inches

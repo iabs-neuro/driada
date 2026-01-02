@@ -7,7 +7,7 @@ This module provides tools for:
 
 import matplotlib.pyplot as plt
 from matplotlib.image import imread
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional, Tuple, Dict
 from pathlib import Path
 
 
@@ -24,7 +24,7 @@ class ExternalPanel:
         image_path: str,
         aspect: str = 'equal',
         hide_axes: bool = True
-    ):
+    ) -> None:
         """Add an external image to a matplotlib axes.
 
         Parameters
@@ -63,7 +63,7 @@ class ExternalPanel:
         text: str = 'External Plot',
         fontsize: int = 14,
         color: str = 'gray'
-    ):
+    ) -> None:
         """Create a placeholder for external content.
 
         Useful during figure development when external plots are not yet ready.
@@ -173,7 +173,7 @@ class PanelLabeler:
         label: str,
         dpi: int = 300,
         **text_kwargs
-    ):
+    ) -> None:
         """Add a panel label to an axes.
 
         Parameters
@@ -209,10 +209,10 @@ class PanelLabeler:
 
     def add_labels_to_dict(
         self,
-        axes_dict: dict,
+        axes_dict: Dict[str, plt.Axes],
         dpi: int = 300,
         **text_kwargs
-    ):
+    ) -> None:
         """Add labels to all axes in a dictionary.
 
         Convenience method for labeling all panels in a PanelLayout figure.

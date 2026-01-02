@@ -5,7 +5,7 @@ A library for single neuron and population-level analysis of inner workings
 of intelligent systems, from brain neural recordings in vivo to RNNs.
 """
 
-__version__ = "0.6.5"
+__version__ = "0.6.6"
 
 # Core modules
 from . import intense

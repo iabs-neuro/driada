@@ -1823,7 +1823,7 @@ class Experiment:
                 f"feat_id must be str or tuple of 2 feature names, got {type(feat_id)}"
             )
 
-    def _reconstruct_spikes(self, calcium, method, fps, spike_kwargs=None, wavelet=None, rel_wvt_times=None):
+    def _reconstruct_spikes(self, calcium, method, fps, spike_kwargs=None, wavelet=None, rel_wvt_times=None, use_gpu=False):
         """
         Reconstruct spikes from calcium signals using specified method.
 
@@ -1841,6 +1841,8 @@ class Experiment:
             Pre-computed wavelet object for batch optimization
         rel_wvt_times : array-like, optional
             Pre-computed time resolutions for batch optimization
+        use_gpu : bool
+            Use GPU acceleration for wavelet transform. Default False.
 
         Returns
         -------
@@ -1865,7 +1867,7 @@ class Experiment:
         # Call the unified reconstruction function with optimization support
         spikes_mts, metadata = reconstruct_spikes(
             calcium_mts, method=method, fps=fps, params=spike_kwargs,
-            wavelet=wavelet, rel_wvt_times=rel_wvt_times
+            wavelet=wavelet, rel_wvt_times=rel_wvt_times, use_gpu=use_gpu
         )
 
         # Store metadata
@@ -1883,6 +1885,7 @@ class Experiment:
         wavelet=None,
         rel_wvt_times=None,
         show_progress=True,
+        use_gpu=False,
         **kwargs
     ):
         """Batch reconstruct spikes for all neurons with wavelet optimization.
@@ -1905,6 +1908,9 @@ class Experiment:
             Pre-computed time resolutions. If None, computes once and reuses.
         show_progress : bool
             Show progress bar. Default True.
+        use_gpu : bool
+            Use GPU acceleration for wavelet transform. Default False.
+            Requires PyTorch and CuPy. Ridge extraction remains CPU-only.
         **kwargs
             Additional parameters passed to neuron.reconstruct_spikes()
 
@@ -1942,6 +1948,7 @@ class Experiment:
                 fps=fps,
                 wavelet=wavelet,
                 rel_wvt_times=rel_wvt_times,
+                use_gpu=use_gpu,
                 **kwargs
             )
 

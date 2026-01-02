@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "driada"
-version = "0.6.5"
+version = "0.6.6"
 authors = [
   { name="Nikita Pospelov", email="pospelov.na14@physics.msu.ru" },
 ]
