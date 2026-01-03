@@ -6,7 +6,7 @@ based on panel physical size to maintain consistent visual density across panels
 
 import numpy as np
 from typing import Tuple, Optional, Literal
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass

@@ -2,9 +2,6 @@ import pynndescent
 import scipy.sparse as sp
 import numpy as np
 import matplotlib.pyplot as plt
-import numpy.random as npr
-
-from scipy.optimize import curve_fit
 
 from sklearn.neighbors import kneighbors_graph
 from sklearn.utils.validation import check_symmetric
@@ -51,9 +48,10 @@ class ProximityGraph(Network):
         General optional keys:
         - 'weighted' : bool, whether to create weighted edges
         - 'dist_to_aff' : str, distance to affinity conversion ('hk' for heat kernel)
-        - 'max_deleted_nodes' : float, maximum fraction of nodes that can be 
+        - 'max_deleted_nodes' : float, maximum fraction of nodes that can be
             deleted during giant component extraction (raises exception if exceeded)
         - 'graph_preprocessing' : str, preprocessing method (default: 'giant_cc')
+        - 'seed' : int, random seed for reproducibility (default: 42)
     create_nx_graph : bool, default=False
         Whether to create NetworkX graph representation (passed to Network parent).
     verbose : bool, default=False
@@ -198,7 +196,7 @@ class ProximityGraph(Network):
         
         # Safe attribute setting - only set allowed attributes
         allowed_attrs = {'g_method_name', 'nn', 'eps', 'min_density', 'perplexity',
-                        'max_deleted_nodes', 'weighted', 'dist_to_aff', 'graph_preprocessing'}
+                        'max_deleted_nodes', 'weighted', 'dist_to_aff', 'graph_preprocessing', 'seed'}
         for key in all_params:
             if key in allowed_attrs:
                 setattr(self, key, g_params[key])
@@ -378,10 +376,10 @@ class ProximityGraph(Network):
         -----
         The resulting graph has weighted edges representing fuzzy set membership.
         Sets self.adj (weighted), self.bin_adj (binary), and self.neigh_distmat.
-        Uses fixed seed=42 for reproducibility.
+        Uses seed from g_params if provided, otherwise defaults to 42 for reproducibility.
         Data is transposed to match UMAP's expected (n_samples, n_features) format.        """
-        # TODO: Make seed configurable via g_params
-        RAND = np.random.RandomState(42)
+        seed = getattr(self, 'seed', 42)
+        RAND = np.random.RandomState(seed)
         adj, _, _, dists = fuzzy_simplicial_set(
             self.data.T,
             self.nn,

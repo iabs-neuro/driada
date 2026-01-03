@@ -14,7 +14,7 @@ DRIADA_DISABLE_NUMBA = os.getenv("DRIADA_DISABLE_NUMBA", "False").lower() in (
 
 # Try to import numba
 try:
-    from numba import njit, prange
+    from numba import njit
 
     NUMBA_AVAILABLE = True
 except ImportError:

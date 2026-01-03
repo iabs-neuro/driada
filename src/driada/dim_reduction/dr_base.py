@@ -284,11 +284,11 @@ def g_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     - 'tsne': requires 'perplexity'
     
     All methods support: 'g_method_name', 'max_deleted_nodes', 'weighted',
-    'dist_to_aff', 'graph_preprocessing'.
-    
+    'dist_to_aff', 'graph_preprocessing', 'seed'.
+
     Unknown methods are accepted and will receive only the base parameters.    """
     gmethod = para["g_method_name"]
-    appr_keys = ["g_method_name", "max_deleted_nodes", "weighted", "dist_to_aff", "graph_preprocessing"]
+    appr_keys = ["g_method_name", "max_deleted_nodes", "weighted", "dist_to_aff", "graph_preprocessing", "seed"]
 
     if gmethod in ["knn", "auto_knn", "umap"]:
         appr_keys.extend(["nn"])
