@@ -341,7 +341,7 @@ class TestGenerate2DManifoldExp:
             find_optimal_delays=False,  # Must disable for MultiTimeSeries
             mode="two_stage",
             n_shuffles_stage1=10,
-            n_shuffles_stage2=100,  # Increased shuffles
+            n_shuffles_stage2=1000,  # Increased shuffles for robustness
             ds=5,  # Downsample by 5x
             enable_parallelization=False,  # Disable parallelization
             allow_mixed_dimensions=True,
