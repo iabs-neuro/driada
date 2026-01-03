@@ -2,109 +2,55 @@ import numpy as np
 import logging
 from scipy.stats import median_abs_deviation
 from scipy.optimize import minimize
-from scipy.signal import fftconvolve, savgol_filter
+from scipy.signal import savgol_filter
 
 from ..information.info_base import TimeSeries
 from ..utils.data import check_positive, check_nonnegative
-from ..utils.jit import conditional_njit
 from .wavelet_event_detection import extract_wvt_events, events_to_ts_array
 
-DEFAULT_T_RISE = 0.25
-DEFAULT_T_OFF = 2
-DEFAULT_FPS = 20
-DEFAULT_MIN_BEHAVIOUR_TIME = 0.25
-
-# Time-based constants for FPS-adaptive parameters (at reference 20 Hz)
-# Phase 1: Critical detection parameters
-MIN_CA_SHIFT_SEC = 0.25  # Minimum calcium shift in seconds (5 frames @ 20 Hz)
-BASELINE_WINDOW_SEC = 1.0  # Baseline window in seconds (20 frames @ 20 Hz)
-MAX_FRAMES_FORWARD_SEC = 5.0  # Max forward search for t_off (100 frames @ 20 Hz)
-MAX_FRAMES_BACK_SEC = 1.5  # Max backward search for t_rise (30 frames @ 20 Hz)
-
-# Phase 2: Robustness thresholds for kinetics measurement
-MIN_DECAY_FRAMES_SEC = 0.5  # Minimum decay duration for t_off fitting (10 frames @ 20 Hz)
-MIN_RISE_FRAMES_SEC = 0.5  # Minimum rise duration for t_rise fitting (10 frames @ 20 Hz)
-MIN_VALID_POINTS_SEC = 0.25  # Minimum valid data points (5 frames @ 20 Hz)
-SAVGOL_WINDOW_SEC = 0.25  # Savitzky-Golay smoothing window (5 frames @ 20 Hz)
-BASELINE_OFFSET_SEC = 0.25  # Default baseline offset for fast indicators (5 frames @ 20 Hz)
-
-# Legacy frame-based constant (deprecated, use MIN_CA_SHIFT_SEC * fps instead)
-MIN_CA_SHIFT = 5
-
-# Statistical constants
-MAD_SCALE_FACTOR = 1.4826  # Scaling factor for MAD → std consistency (normal distribution)
-                            # This is 1 / (sqrt(2) * erfcinv(1.5))
-
-# Kernel generation constants
-KERNEL_LENGTH_FRAMES = 500  # Minimum kernel length; actual length is max(500, 5 × t_off)
-
-
-class SimpleEvent:
-    """Lightweight container for calcium event boundaries.
-
-    Minimal event representation compatible with optimize_kinetics().
-    Unlike Ridge objects which track full wavelet information, SimpleEvent
-    only stores event start/end times for fast threshold-based detection.
-
-    Attributes
-    ----------
-    start : float
-        Starting time index of the event (frame number).
-    end : float
-        Ending time index of the event (frame number).
-
-    Examples
-    --------
-    >>> event = SimpleEvent(start=100.0, end=120.0)
-    >>> event.start
-    100.0
-    >>> event.end
-    120.0
-    >>> event.duration
-    20.0
-
-    Notes
-    -----
-    This class provides the minimal interface required by optimize_kinetics():
-    - ridge.start: event start frame
-    - ridge.end: event end frame
-
-    Performance comparison vs Ridge (wavelet detection):
-    - Creation: ~100x faster (no wavelet transform)
-    - Memory: ~10x smaller (no scale/amplitude arrays)
-    - Detection: O(N) vs O(N²) for wavelet
-    """
-
-    def __init__(self, start, end):
-        """Initialize event with start and end times.
-
-        Parameters
-        ----------
-        start : float
-            Starting frame index.
-        end : float
-            Ending frame index (inclusive).
-        """
-        self.start = float(start)
-        self.end = float(end)
-
-    @property
-    def duration(self):
-        """Event duration in frames."""
-        return self.end - self.start
-
-    def __repr__(self):
-        return f"SimpleEvent(start={self.start:.1f}, end={self.end:.1f})"
+# Import refactored modules
+from .calcium_kinetics import (
+    spike_form,
+    get_restored_calcium,
+    ca_mse_error,
+    DEFAULT_T_RISE,
+    DEFAULT_T_OFF,
+)
+from .signal_preprocessing import (
+    calcium_preprocessing,
+    MAD_SCALE_FACTOR,
+)
+from .event_detection import (
+    SimpleEvent,
+    extract_event_amplitudes,
+    deconvolve_given_event_times,
+    compute_kernel_peak_offset,
+    estimate_onset_times,
+    amplitudes_to_point_events,
+    _calculate_event_r2,
+    DEFAULT_FPS,
+    DEFAULT_MIN_BEHAVIOUR_TIME,
+    MIN_CA_SHIFT_SEC,
+    BASELINE_WINDOW_SEC,
+    MAX_FRAMES_FORWARD_SEC,
+    MAX_FRAMES_BACK_SEC,
+    MIN_DECAY_FRAMES_SEC,
+    MIN_RISE_FRAMES_SEC,
+    MIN_VALID_POINTS_SEC,
+    SAVGOL_WINDOW_SEC,
+    BASELINE_OFFSET_SEC,
+    MIN_CA_SHIFT,
+)
 
 
 class Neuron:
     '''
     Neural calcium and spike data processing.
-    
+
     This class handles calcium imaging time series data and spike trains,
     providing methods for preprocessing, spike-calcium deconvolution,
     and various shuffling techniques for statistical testing.
-    
+
     Parameters
     ----------
     cell_id : int or str
@@ -112,7 +58,7 @@ class Neuron:
     ca : array-like
         Calcium imaging time series data. Must be 1D array of finite values.
     sp : array-like, optional
-        Spike train data (binary array where 1 indicates spike). If None, 
+        Spike train data (binary array where 1 indicates spike). If None,
         spike-related methods will not be available.
     default_t_rise : float, default=0.25
         Rise time constant in seconds for calcium transients. Must be positive.
@@ -122,7 +68,7 @@ class Neuron:
         Sampling rate in frames per second. Must be positive.
     fit_individual_t_off : bool, default=False
         Whether to fit decay time for this specific neuron using optimization.
-        
+
     Attributes
     ----------
     cell_id : int or str
@@ -137,642 +83,25 @@ class Neuron:
         Preprocessed calcium time series
     sp_ts : TimeSeries or None
         Spike train time series (if spikes provided)
-        
+
     Notes
     -----
-    The class assumes spike data is binary (0 or 1 values). Non-binary 
+    The class assumes spike data is binary (0 or 1 values). Non-binary
     spike data may produce incorrect results in spike counting.    '''
-    
-    def spike_form(t, t_rise, t_off):
-        '''Calculate normalized calcium response kernel shape.
 
-        Computes the double-exponential kernel used to model calcium
-        indicator dynamics with separate rise and decay time constants.
-
-        Parameters
-        ----------
-        t : array-like
-            Time points (in frames). Must be non-negative.
-        t_rise : float
-            Rise time constant (in frames). Must be positive.
-        t_off : float
-            Decay time constant (in frames). Must be positive.
-
-        Returns
-        -------
-        ndarray
-            Normalized kernel values with peak = 1.
-
-        Raises
-        ------
-        ValueError
-            If t_rise or t_off are not positive.
-
-        Notes
-        -----
-        The kernel has the form: (1 - exp(-t/τ_rise)) * exp(-t/τ_off)
-        normalized to have maximum value of 1.        '''
-        check_positive(t_rise=t_rise, t_off=t_off)
-        return Neuron._spike_form_jit(t, t_rise, t_off)
-
+    # Static method delegations for backward compatibility
+    # These maintain the Neuron.method() API while using refactored modules
     spike_form = staticmethod(spike_form)
-    
-    def _spike_form_jit(t, t_rise, t_off):
-        '''JIT-compiled core computation for spike_form.
-
-        Computes normalized double-exponential calcium response kernel.
-        This is the performance-critical inner loop separated for JIT compilation.
-
-        Parameters
-        ----------
-        t : ndarray
-            Time points in frames. Assumed to be non-negative.
-        t_rise : float
-            Rise time constant in frames. Assumed positive.
-        t_off : float
-            Decay time constant in frames. Assumed positive.
-
-        Returns
-        -------
-        ndarray
-            Normalized kernel with maximum value of 1.
-
-        Raises
-        ------
-        ValueError
-            If computed kernel has zero maximum (numerical issue).
-
-        Notes
-        -----
-        Input validation is performed in the wrapper function spike_form().
-        JIT compilation provides significant speedup for large arrays.        '''
-        form = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
-        max_val = np.max(form)
-        if max_val == 0:
-            raise ValueError('Kernel form has zero maximum')
-        return form / max_val
-
-    _spike_form_jit = staticmethod(conditional_njit(_spike_form_jit))
-    
-    def get_restored_calcium(sp, t_rise, t_off):
-        '''Reconstruct calcium signal from spike train.
-
-        Convolves spike train with double-exponential kernel to simulate
-        calcium indicator dynamics. The output has the same length as the
-        input spike train by truncating the convolution tail.
-
-        Parameters
-        ----------
-        sp : array-like
-            Spike train. Can be binary (0/1) or amplitude-weighted (float).
-            For best reconstruction fidelity, use neuron.asp.data with
-            amplitude information. Must be 1D array.
-        t_rise : float
-            Rise time constant (in frames). Must be positive.
-        t_off : float
-            Decay time constant (in frames). Must be positive.
-
-        Returns
-        -------
-        ndarray
-            Reconstructed calcium signal with same length as sp.
-
-        Raises
-        ------
-        ValueError
-            If t_rise or t_off are not positive, or if sp is empty.
-
-        Notes
-        -----
-        Uses FFT-based convolution for optimal performance. Kernel length is
-        adaptive: max(500, 5 × t_off frames) to ensure complete kernel capture
-        for all decay time constants.
-
-        The convolution naturally handles amplitude-weighted spikes, where
-        each spike value represents event strength in dF/F0 units.        '''
-        sp = np.asarray(sp)
-        if sp.size == 0:
-            raise ValueError('Spike train cannot be empty')
-        check_positive(t_rise=t_rise, t_off=t_off)
-
-        # Adaptive kernel length: 5× decay time for complete kernel, minimum 500 frames
-        # Safety check: cap at 2000 frames to prevent memory issues from bad t_off
-        # (t_off > 400 frames or ~8s @ 20Hz is suspicious for typical indicators)
-        kernel_length = max(KERNEL_LENGTH_FRAMES, int(5 * t_off))
-        if kernel_length > 2000:
-            import warnings
-            warnings.warn(
-                f'Kernel length {kernel_length} (from t_off={t_off:.1f} frames) capped at 2000. '
-                f'This may indicate incorrect t_off measurement. Typical calcium indicators have '
-                f't_off < 200 frames (~8-10s @ 20Hz).',
-                UserWarning
-            )
-            kernel_length = 2000
-
-        x = np.arange(kernel_length)
-        spform = Neuron.spike_form(x, t_rise, t_off)
-        conv = fftconvolve(sp, spform, mode='full')
-        return conv[:len(sp)]
-
     get_restored_calcium = staticmethod(get_restored_calcium)
-    
-    def ca_mse_error(t_off, ca, spk, t_rise):
-        '''Calculate RMSE between observed calcium and reconstructed from spikes.
-        
-        This function is designed to be used with scipy.optimize.minimize,
-        hence the parameter order with t_off first.
-        
-        Parameters
-        ----------
-        t_off : float
-            Decay time constant (in frames). Must be positive.
-        ca : array-like
-            Observed calcium signal. Must be 1D.
-        spk : array-like
-            Spike train. Must be 1D with same length as ca.
-        t_rise : float
-            Rise time constant (in frames). Must be positive.
-            
-        Returns
-        -------
-        float
-            Root mean square error between observed and reconstructed calcium.
-            
-        Raises
-        ------
-        ValueError
-            If arrays have different lengths or time constants are invalid.
-            
-        Notes
-        -----
-        Parameter order (t_off first) is optimized for scipy.optimize.minimize
-        where t_off is the parameter being optimized.        '''
-        ca = np.asarray(ca)
-        spk = np.asarray(spk)
-        if len(ca) != len(spk):
-            raise ValueError(f'''ca and spk must have same length: {len(ca)} vs {len(spk)}''')
-        check_positive(t_rise=t_rise, t_off=t_off)
-        re_ca = Neuron.get_restored_calcium(spk, t_rise, t_off)
-        return np.sqrt(np.sum((ca - re_ca) ** 2) / len(ca))
-
     ca_mse_error = staticmethod(ca_mse_error)
-    
-    def calcium_preprocessing(ca, seed=None):
-        '''Preprocess calcium signal for spike reconstruction.
-        
-        Applies preprocessing steps:
-        - Converts to float64 for numerical stability
-        - Clips negative values to 0 (calcium cannot be negative)
-        - Adds tiny noise to prevent numerical singularities
-        
-        Parameters
-        ----------
-        ca : array-like
-            Raw calcium signal. Must be 1D.
-        seed : int, optional
-            Random seed for reproducible noise. If None, uses current state.
-            
-        Returns
-        -------
-        ndarray
-            Preprocessed calcium signal as float64 array.
-            
-        Raises
-        ------
-        ValueError
-            If ca is empty.
-            
-        Notes
-        -----
-        The small noise (1e-8 scale) prevents division by zero and other
-        numerical issues in downstream spike reconstruction algorithms.        '''
-        ca = np.asarray(ca)
-        if ca.size == 0:
-            raise ValueError('Calcium signal cannot be empty')
-        if seed is not None:
-            np.random.seed(seed)
-        return Neuron._calcium_preprocessing_jit(ca)
-
     calcium_preprocessing = staticmethod(calcium_preprocessing)
-    
-    def _calcium_preprocessing_jit(ca):
-        '''JIT-compiled core computation for calcium_preprocessing.
-        
-        Applies numerical preprocessing to calcium signal for stability.
-        This is the performance-critical inner loop separated for JIT compilation.
-        
-        Parameters
-        ----------
-        ca : ndarray
-            Calcium signal array. Will be converted to float64.
-            
-        Returns
-        -------
-        ndarray
-            Preprocessed signal with negative values clipped and noise added.
-            
-        Notes
-        -----
-        - Negative values are clipped to 0 (physical constraint)
-        - Small uniform noise (1e-8 scale) prevents numerical issues
-        - Random state should be set externally if reproducibility needed
-        - JIT compilation provides significant speedup for large arrays
-        
-        Side Effects
-        ------------
-        Uses np.random without explicit state management. Set seed
-        externally for reproducibility.        '''
-        ca = ca.astype(np.float64)
-        ca[ca < 0] = 0
-        ca += np.random.random(len(ca)) * 1e-08
-        return ca
-
-    _calcium_preprocessing_jit = staticmethod(conditional_njit(_calcium_preprocessing_jit))
-    
-    def extract_event_amplitudes(ca_signal, st_ev_inds, end_ev_inds, baseline_window=20,
-                                 already_dff=False, baseline_offset=0, baseline_offset_sec=None,
-                                 use_peak_refinement=False, t_rise_frames=None,
-                                 t_off_frames=None, fps=None, peak_search_window_sec=0.2):
-        """Extract amplitudes from calcium signal for detected events.
-
-        For raw fluorescence signals, applies dF/F0 normalization following
-        Neugornet et al. 2021 (PMC8032960). For pre-normalized dF/F signals,
-        directly extracts peak values.
-
-        Parameters
-        ----------
-        ca_signal : ndarray
-            Calcium signal (1D). Can be raw fluorescence or pre-normalized dF/F.
-        st_ev_inds : list of int
-            Start indices for each event.
-        end_ev_inds : list of int
-            End indices for each event.
-        baseline_window : int, optional
-            Number of frames before event to use for F0 calculation.
-            Default is 20 frames.
-        already_dff : bool, optional
-            If True, signal is already dF/F normalized and peak values are
-            extracted directly. If False, applies dF/F0 normalization.
-            Default is False for backward compatibility.
-        baseline_offset : int, optional
-            Number of frames to skip before baseline window (to avoid rise phase).
-            Baseline is calculated from frames [start-baseline_window-baseline_offset, start-baseline_offset].
-            Default is 0 (baseline immediately before event).
-            NOTE: Prefer baseline_offset_sec for FPS-independent specification.
-        baseline_offset_sec : float, optional
-            Alternative to baseline_offset: offset in seconds (converted to frames using fps).
-            Useful for GCaMP indicators with non-zero rise time (~0.25s for GCaMP6f).
-            If provided, overrides baseline_offset. Requires fps parameter.
-        use_peak_refinement : bool, optional
-            If True, refine peak location before calculating baseline (similar to 'onset' placement).
-            Ensures baseline is calculated relative to TRUE peak, not wavelet detection start.
-            Critical for overlapping events where wavelet detection timing is imprecise.
-            Default is False for backward compatibility.
-        t_rise_frames : float, optional
-            Rise time in frames. Required if use_peak_refinement=True.
-        t_off_frames : float, optional
-            Decay time in frames. Required if use_peak_refinement=True.
-        fps : float, optional
-            Sampling rate in Hz. Required if use_peak_refinement=True.
-        peak_search_window_sec : float, optional
-            Time window in seconds to search for refined peak location.
-            Only used if use_peak_refinement=True. Default is 0.2s.
-
-        Returns
-        -------
-        amplitudes : list of float
-            Amplitude for each event (dF/F0 if already_dff=False, peak dF/F if True).
-
-        Notes
-        -----
-        For events at the start where baseline_window extends before 0,
-        uses available data. Returns 0 amplitude for events with invalid
-        F0 (zero or negative baseline when already_dff=False).
-
-        When use_peak_refinement=True, searches for TRUE peak in expanded window
-        (similar to 'onset' placement logic) and calculates baseline relative to
-        refined peak instead of wavelet detection start. This is critical for
-        overlapping events where baseline must avoid elevated signal from previous events.
-
-        References
-        ----------
-        Neugornet A, O'Donovan B, Ortinski PI (2021). Comparative Effects of
-        Event Detection Methods on the Analysis and Interpretation of Ca2+
-        Imaging Data. Front Neurosci 15:620869.
-        """
-        if use_peak_refinement:
-            if (t_rise_frames is None) or (t_off_frames is None) or (fps is None):
-                raise ValueError('t_rise_frames, t_off_frames, and fps required when use_peak_refinement=True')
-
-        # Convert baseline_offset_sec to frames if provided
-        if baseline_offset_sec is not None:
-            if fps is None:
-                raise ValueError('fps parameter required when using baseline_offset_sec')
-            baseline_offset = int(baseline_offset_sec * fps)
-
-        ca_signal = np.asarray(ca_signal)
-        amplitudes = []
-        peak_search_frames = int(peak_search_window_sec * fps) if use_peak_refinement else 0
-        for start, end in zip(st_ev_inds, end_ev_inds):
-            event_segment = ca_signal[start:end]
-            if len(event_segment) == 0:
-                amplitudes.append(0)
-                continue
-            if use_peak_refinement:
-                search_start = max(0, start - peak_search_frames)
-                search_end = min(len(ca_signal), end + peak_search_frames)
-                search_segment = ca_signal[search_start:search_end]
-                true_peak_offset = np.argmax(search_segment)
-                true_peak_idx = search_start + true_peak_offset
-                reference_idx = true_peak_idx
-                peak_value = ca_signal[true_peak_idx]
-            else:
-                reference_idx = start
-                peak_value = np.max(event_segment)
-            if already_dff:
-                baseline_end = max(0, reference_idx - baseline_offset)
-                baseline_start = max(0, baseline_end - baseline_window)
-                baseline_segment = ca_signal[baseline_start:baseline_end]
-                if len(baseline_segment) > 0:
-                    local_baseline = np.median(baseline_segment)
-                else:
-                    local_baseline = 0
-                amplitude = peak_value - local_baseline
-            else:
-                baseline_end = max(0, reference_idx - baseline_offset)
-                baseline_start = max(0, baseline_end - baseline_window)
-                baseline_segment = ca_signal[baseline_start:baseline_end]
-                if len(baseline_segment) == 0:
-                    amplitudes.append(0)
-                    continue
-                F0 = np.median(baseline_segment)
-                if F0 <= 0:
-                    amplitudes.append(0)
-                    continue
-                amplitude = (peak_value - F0) / F0
-            amplitudes.append(max(0, amplitude))
-        return amplitudes
-
     extract_event_amplitudes = staticmethod(extract_event_amplitudes)
-    
-    def deconvolve_given_event_times(ca_signal, event_times, t_rise_frames, t_off_frames, event_mask=None):
-        '''Extract amplitudes via non-negative least squares deconvolution.
-
-        Given detected event times and known calcium kernel parameters, finds
-        the optimal amplitudes that best reconstruct the observed signal.
-        This solves: signal ≈ Σᵢ aᵢ · kernel(t - tᵢ)
-
-        Handles overlapping events naturally by jointly optimizing all amplitudes
-        to minimize reconstruction error.
-
-        Parameters
-        ----------
-        ca_signal : ndarray
-            Calcium signal (1D array, already dF/F normalized).
-        event_times : array-like
-            Event onset times as frame indices.
-        t_rise_frames : float
-            Rise time of calcium kernel in frames.
-        t_off_frames : float
-            Decay time of calcium kernel in frames.
-        event_mask : ndarray of bool, optional
-            Binary mask indicating frames to fit (typically expanded event regions).
-            If provided, NNLS only fits these frames, reducing baseline noise
-            contribution while covering full calcium transients.
-            Default None fits all frames (legacy behavior).
-
-        Returns
-        -------
-        amplitudes : ndarray
-            Optimal amplitudes for each event (non-negative).
-
-        Notes
-        -----
-        Uses scipy.optimize.nnls for non-negative least squares solution.
-
-        When event_mask is provided, only masked frames contribute to the fit.
-        The mask should cover full calcium transients (rise + decay), not just peaks.
-        This reduces baseline noise while maintaining proper transient fitting.
-
-        References
-        ----------
-        Lawson CL, Hanson RJ (1995). Solving Least Squares Problems.
-        SIAM, Philadelphia.
-        '''
-        from scipy.optimize import nnls
-        ca_signal = np.asarray(ca_signal)
-        event_times = np.asarray(event_times, dtype=int)
-        n_frames = len(ca_signal)
-        n_events = len(event_times)
-        if n_events == 0:
-            return np.array([])
-
-        # Build design matrix
-        K = np.zeros((n_frames, n_events))
-        for i, event_time_idx in enumerate(event_times):
-            if event_time_idx < 0 or event_time_idx >= n_frames:
-                continue
-            remaining_frames = n_frames - event_time_idx
-            t_array = np.arange(remaining_frames)
-            kernel = (1 - np.exp(-t_array / t_rise_frames)) * np.exp(-t_array / t_off_frames)
-            kernel_max = np.max(kernel)
-            if kernel_max > 0:
-                kernel = kernel / kernel_max
-            K[event_time_idx:, i] = kernel
-
-        # Apply event mask if provided
-        if event_mask is not None:
-            event_mask = np.asarray(event_mask, dtype=bool)
-            if len(event_mask) != n_frames:
-                raise ValueError(f"event_mask length ({len(event_mask)}) must match signal length ({n_frames})")
-            K_fit = K[event_mask, :]
-            ca_fit = ca_signal[event_mask]
-        else:
-            K_fit = K
-            ca_fit = ca_signal
-
-        (amplitudes, residual_norm) = nnls(K_fit, ca_fit)
-        return amplitudes
-
     deconvolve_given_event_times = staticmethod(deconvolve_given_event_times)
-
-    def compute_kernel_peak_offset(t_rise_frames, t_off_frames):
-        """Compute the time offset from onset to peak for double-exponential kernel.
-
-        The kernel (1 - exp(-t/t_rise)) * exp(-t/t_off) starts at 0, rises to
-        a peak, then decays. This function returns the time (in frames) from
-        onset (t=0) to peak.
-
-        Parameters
-        ----------
-        t_rise_frames : float
-            Rise time constant in frames.
-        t_off_frames : float
-            Decay time constant in frames.
-
-        Returns
-        -------
-        float
-            Time offset from onset to peak in frames. Returns 0 if kinetics
-            are degenerate (t_rise ≈ t_off).
-        """
-        if t_off_frames <= t_rise_frames or abs(t_off_frames - t_rise_frames) < 0.1:
-            return 0.0
-        peak_offset = t_rise_frames * t_off_frames * np.log(t_off_frames / t_rise_frames) / (t_off_frames - t_rise_frames)
-        if np.isnan(peak_offset) or np.isinf(peak_offset):
-            return 0.0
-        return peak_offset
-
     compute_kernel_peak_offset = staticmethod(compute_kernel_peak_offset)
-
-    def estimate_onset_times(ca_signal, st_inds, end_inds, t_rise_frames, t_off_frames):
-        """Estimate spike onset times from detected event boundaries.
-
-        Event detectors (wavelet, threshold) find the rising/peak region of
-        calcium transients, not the true spike onset. This function estimates
-        onset times by finding the peak within each event and back-calculating
-        using the kernel peak offset.
-
-        Parameters
-        ----------
-        ca_signal : ndarray
-            Calcium signal (1D array).
-        st_inds : list of int
-            Event start frame indices (from detector).
-        end_inds : list of int
-            Event end frame indices (from detector).
-        t_rise_frames : float
-            Rise time constant in frames.
-        t_off_frames : float
-            Decay time constant in frames.
-
-        Returns
-        -------
-        list of int
-            Estimated onset times for each event.
-        """
-        ca_signal = np.asarray(ca_signal)
-        n_frames = len(ca_signal)
-        kernel_peak_offset = Neuron.compute_kernel_peak_offset(t_rise_frames, t_off_frames)
-
-        onset_times = []
-        for st, end in zip(st_inds, end_inds):
-            st_int, end_int = int(st), int(end)
-            if end_int <= st_int or st_int < 0 or end_int > n_frames:
-                onset_times.append(max(0, st_int))
-                continue
-            # Find peak within event boundaries
-            event_segment = ca_signal[st_int:end_int]
-            peak_offset = np.argmax(event_segment)
-            peak_idx = st_int + peak_offset
-            # Estimate onset by subtracting kernel peak offset
-            onset = int(max(0, peak_idx - kernel_peak_offset))
-            onset_times.append(onset)
-
-        return onset_times
-
     estimate_onset_times = staticmethod(estimate_onset_times)
-
-    def amplitudes_to_point_events(length, ca_signal, st_ev_inds, end_ev_inds,
-                                    amplitudes, placement='peak', t_rise_frames=None,
-                                    t_off_frames=None, fps=None,
-                                    peak_search_window_sec=0.2):
-        """Convert event boundaries and amplitudes to point event array.
-
-        Stores amplitudes at specific positions as delta functions. Temporal
-        spreading is handled by convolution with calcium kernel.
-
-        Parameters
-        ----------
-        length : int
-            Length of output array (n_frames).
-        ca_signal : ndarray
-            Calcium signal (used for 'peak' placement).
-        st_ev_inds : list of int
-            Start indices for each event.
-        end_ev_inds : list of int
-            End indices for each event.
-        amplitudes : list of float
-            Amplitude (dF/F0) for each event.
-        placement : {'start', 'peak', 'onset', 'onset_refined'}, optional
-            Where to place amplitude:
-            - 'start': at event start index (as detected by wavelet)
-            - 'peak': at actual calcium peak within event window
-            - 'onset': at estimated spike onset (peak - kernel_peak_offset), using peak within event boundaries
-            - 'onset_refined': at estimated spike onset with peak refinement search outside event boundaries (legacy, causes lag on noisy data)
-        t_rise_frames : float, optional
-            Rise time in frames. Required for 'onset' placement.
-        t_off_frames : float, optional
-            Decay time in frames. Required for 'onset' placement.
-        fps : float, optional
-            Sampling rate in Hz. Required for 'onset' placement with peak refinement.
-        peak_search_window_sec : float, optional
-            Time window in seconds to search for refined peak location around
-            wavelet-detected peak. Only used for 'onset' placement. Default is 0.2s.
-
-        Returns
-        -------
-        point_events : ndarray
-            Array of zeros with amplitudes at event positions (1D, float).
-            Sparse continuous array suitable for TimeSeries(discrete=False).
-
-        Notes
-        -----
-        If multiple events have centers/peaks at same index, amplitudes are summed.
-        This is rare but can occur with closely spaced events.
-
-        The 'onset' placement finds peak within event boundaries, then calculates
-        the kernel peak offset to place spikes at estimated onset. This trusts
-        wavelet detection and is robust to noise.
-
-        The 'onset_refined' placement (legacy) searches outside event boundaries
-        for peak refinement. This can cause temporal lag on noisy data and is
-        not recommended for real calcium imaging data.
-        """
-        check_positive(length=length)
-        if placement not in ('start', 'peak', 'onset', 'onset_refined'):
-            raise ValueError(f'''placement must be \'start\', \'peak\', \'onset\', or \'onset_refined\', got {placement}''')
-        if placement in ('onset', 'onset_refined'):
-            if t_rise_frames is None or t_off_frames is None:
-                raise ValueError("Both t_rise_frames and t_off_frames required for 'onset' placement")
-            if fps is None:
-                raise ValueError("fps required for 'onset' placement")
-        ca_signal = np.asarray(ca_signal)
-        point_events = np.zeros(length, dtype=float)
-        peak_search_frames = int(peak_search_window_sec * fps) if fps is not None else 4
-        for start, end, amplitude in zip(st_ev_inds, end_ev_inds, amplitudes):
-            if amplitude <= 0:
-                continue
-            if end <= start or start < 0 or end > length:
-                continue
-            if placement == 'start':
-                idx = int(start)
-            elif placement == 'peak':
-                event_segment = ca_signal[start:end]
-                peak_offset = np.argmax(event_segment)
-                idx = int(start + peak_offset)
-            elif placement == 'onset':
-                # Simple onset placement - uses peak within event boundaries
-                kernel_peak_offset = Neuron.compute_kernel_peak_offset(t_rise_frames, t_off_frames)
-                event_segment = ca_signal[start:end]
-                peak_offset = np.argmax(event_segment)
-                peak_idx = start + peak_offset
-                idx = int(peak_idx - kernel_peak_offset)
-            elif placement == 'onset_refined':
-                # Onset with peak refinement - searches outside event boundaries
-                kernel_peak_offset = Neuron.compute_kernel_peak_offset(t_rise_frames, t_off_frames)
-                search_start = max(0, start - peak_search_frames)
-                search_end = min(length, end + peak_search_frames)
-                search_segment = ca_signal[search_start:search_end]
-                true_peak_offset = np.argmax(search_segment)
-                true_peak_idx = search_start + true_peak_offset
-                idx = int(true_peak_idx - kernel_peak_offset)
-            if 0 <= idx < length:
-                point_events[idx] += amplitude
-        return point_events
-
     amplitudes_to_point_events = staticmethod(amplitudes_to_point_events)
-    
+    _calculate_event_r2 = staticmethod(_calculate_event_r2)
+
     def _get_t_rise(self):
         '''Optimized rise time constant (frames).
 
@@ -2972,8 +2301,7 @@ class Neuron:
         >>> neuron = Neuron(cell_id=1, ca=calcium_data, sp=None, fps=20)
         >>> neuron.reconstruct_spikes(method='wavelet')
         >>>
-        >>> # Get cached 
-default reconstruction
+        >>> # Get cached default reconstruction
         >>> recon = neuron.reconstructed
         >>>
         >>> # Force recomputation
