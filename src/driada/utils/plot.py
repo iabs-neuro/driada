@@ -205,7 +205,20 @@ def make_beautiful(
         from matplotlib.ticker import FuncFormatter
 
         def lowercase_formatter(x, pos):
-            """Format tick labels to lowercase."""
+            """Format tick labels to lowercase.
+
+            Parameters
+            ----------
+            x : float
+                Tick value to format.
+            pos : int
+                Tick position (required by matplotlib FuncFormatter interface).
+
+            Returns
+            -------
+            str
+                Formatted tick label in lowercase.
+            """
             # Round to 6 decimal places to avoid floating-point precision issues
             x_rounded = round(x, 6)
             # Format with appropriate precision

@@ -261,7 +261,11 @@ def generate_pseudo_calcium_multisignal(
         Exponential decay time constant in seconds.
     noise_std : float
         Standard deviation of Gaussian noise to add.
-        
+    rise_time : float, default 0.25
+        Rise time constant in seconds (for double_exponential kernel).
+    kernel : {'double_exponential', 'exponential', 'step'}, default 'double_exponential'
+        Kernel type for calcium transient shape.
+
     Returns
     -------
     numpy.ndarray

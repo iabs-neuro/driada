@@ -141,6 +141,22 @@ class PanelLabeler:
         fontweight: str = 'bold',
         fontfamily: str = 'sans-serif'
     ):
+        """Initialize PanelLabeler.
+
+        Parameters
+        ----------
+        fontsize_pt : float, default 12
+            Font size for labels in points.
+        location : {'top_left', 'top_right', 'bottom_left', 'bottom_right'}, default 'top_left'
+            Location for panel labels.
+        offset : tuple of float, optional
+            Offset for label position in axes coordinates (x, y). If None, uses
+            location-specific defaults.
+        fontweight : str, default 'bold'
+            Font weight for labels.
+        fontfamily : str, default 'sans-serif'
+            Font family for labels.
+        """
         self.fontsize_pt = fontsize_pt
         self.location = location
         self.fontweight = fontweight

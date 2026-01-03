@@ -190,6 +190,8 @@ def wavelet_reconstruction(
         Pre-computed wavelet object for batch optimization. If None, creates new.
     rel_wvt_times : array-like, optional
         Pre-computed time resolutions for batch optimization. If None, computes new.
+    use_gpu : bool, default False
+        Whether to use GPU acceleration for wavelet computation if available.
 
     Returns
     -------

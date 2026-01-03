@@ -140,6 +140,18 @@ class PanelLayout:
         dpi: int = 300,
         spacing: Optional[Dict[str, float]] = None
     ):
+        """Initialize PanelLayout.
+
+        Parameters
+        ----------
+        units : {'cm', 'inches'}, default 'cm'
+            Physical units for panel dimensions and spacing.
+        dpi : int, default 300
+            Dots per inch for the figure (300 for publication, 150 for draft, 72 for screen).
+        spacing : dict, optional
+            Spacing between panels with keys 'wspace' (horizontal) and 'hspace' (vertical)
+            in physical units. If None, defaults to {'wspace': 0, 'hspace': 0}.
+        """
         self.units = units
         self.dpi = dpi
         self.spacing = spacing or {'wspace': 0, 'hspace': 0}
