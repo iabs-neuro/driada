@@ -120,3 +120,28 @@ sort = "Cover"
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.pdf",
+    "*.svg",
+    "*.npz",
+    "*.npy",
+    "*.h5",
+    "*.hdf5",
+    "*.mat",
+    "htmlcov/",
+    ".pytest_cache/",
+    ".coverage",
+    "dist/",
+    "build/",
+    "*.egg-info/",
+    "science/",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/driada"]
