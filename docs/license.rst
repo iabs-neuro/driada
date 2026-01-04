@@ -17,7 +17,7 @@ Full License Text
 
 The complete license text is available in the `LICENSE <https://github.com/iabs-neuro/driada/blob/main/LICENSE>`_ file in the repository root.
 
-**Copyright (c) 2024-2026 Nikita A. Pospelov et al.**
+**Copyright (c) 2020-2026 Nikita A. Pospelov et al.**
 
 Citation
 --------
