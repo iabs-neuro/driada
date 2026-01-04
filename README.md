@@ -162,6 +162,23 @@ If you use DRIADA in your research, please cite:
 }
 ```
 
+## Publications
+
+DRIADA has been used in the following research:
+
+### Biological Neural Systems
+- **[Sotskov et al. (2022)](https://doi.org/10.3390/ijms23020638)** - Fast tuning dynamics of hippocampal place cells during free exploration
+- **[Pospelov et al. (2024)](https://doi.org/10.1109/DCNA63495.2024.10718588)** - Effective dimensionality of hippocampal population activity correlates with behavior
+- **[Bobyleva et al. (2025)](https://doi.org/10.1162/netn_a_00439)** - Multifractality of structural connectome eigenmodes
+
+### Artificial Neural Networks
+- **[Kononov et al. (2024)](https://arxiv.org/abs/2510.11162)** - Hybrid computational dynamics in RNNs through reinforcement learning
+
+### Methodological Applications
+- **[Pospelov et al. (2021)](https://doi.org/10.1016/j.ynirp.2021.100035)** - Laplacian Eigenmaps for fMRI resting-state analysis
+
+**See [PUBLICATIONS.md](PUBLICATIONS.md) for the complete list with abstracts and details.**
+
 ## Support
 
 - 📧 **Email**: pospelov.na14@physics.msu.ru

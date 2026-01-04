@@ -60,7 +60,11 @@ Performance optimization employs conditional Numba JIT compilation (27 functions
 
 # Research Applications
 
-DRIADA has been applied to hippocampal and cortical calcium imaging data for analysis of place cells, head-direction cells, and mixed-selectivity populations during spatial navigation. The framework has also been used to analyze hidden unit activations in recurrent neural networks trained on navigation tasks, demonstrating applicability as an interpretability tool for artificial neural networks.
+DRIADA has been applied to calcium imaging analysis of hippocampal place cells, revealing fast tuning dynamics during free exploration [@Sotskov2022]. Dimensionality estimation methods from DRIADA have demonstrated behavioral correlates of neural population activity [@Pospelov2024] and enabled analysis of structural connectome architecture [@Bobyleva2025]. The framework's dimensionality reduction toolkit has been applied to fMRI resting-state analysis [@Pospelov2021] and functional connectome characterization [@Pospelov2022].
+
+Demonstrating substrate-agnostic applicability, DRIADA has been used to analyze recurrent neural networks, revealing hybrid attractor architectures in reinforcement learning agents [@Kononov2024]. This cross-domain capability positions DRIADA as both a neuroscience analysis tool and an artificial neural network interpretability framework.
+
+A comprehensive list of publications using DRIADA is maintained at https://github.com/iabs-neuro/driada/blob/main/PUBLICATIONS.md.
 
 # Acknowledgements
 
