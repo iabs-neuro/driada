@@ -1,0 +1,28 @@
+# CITATION.cff - Machine-readable citation metadata
+#
+# IMPORTANT: When updating authors, sync from AUTHORS.yaml
+# GitHub and Zenodo parse this file automatically
+
+cff-version: 1.2.0
+title: "DRIADA: Dimensionality Reduction for Integrated Activity Data Analysis"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "Pospelov"
+    given-names: "Nikita A."
+    email: "pospelov.na14@physics.msu.ru"
+    affiliation: "Faculty of Physics, Lomonosov Moscow State University"
+    orcid: "0000-0000-0000-0000"  # UPDATE with actual ORCID
+repository-code: "https://github.com/iabs-neuro/driada"
+url: "https://driada.readthedocs.io"
+license: MIT
+version: 1.0.0
+date-released: 2026-01-XX  # UPDATE on release
+keywords:
+  - neuroscience
+  - calcium imaging
+  - dimensionality reduction
+  - mutual information
+  - neural selectivity
+  - Python
+abstract: "DRIADA is a comprehensive Python framework that bridges single-neuron selectivity analysis with population-level dimensionality reduction, combining the INTENSE module for rigorous single-cell analysis with manifold learning techniques."

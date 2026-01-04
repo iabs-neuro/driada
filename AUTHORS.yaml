@@ -1,0 +1,24 @@
+# DRIADA Authors
+#
+# This file contains author information used in:
+# - CITATION.cff (machine-readable citation)
+# - paper.md (JOSS paper)
+#
+# When adding/updating authors, manually sync to those files.
+
+authors:
+  - family-names: "Pospelov"
+    given-names: "Nikita A."
+    email: "pospelov.na14@physics.msu.ru"
+    affiliation: "Faculty of Physics, Lomonosov Moscow State University, Moscow, Russia"
+    orcid: "0000-0000-0000-0000"  # UPDATE with actual ORCID
+    role: "Lead Developer"
+
+# To add more authors, copy the template below:
+#
+#  - family-names: "LastName"
+#    given-names: "FirstName MiddleInitial."
+#    email: "email@example.com"
+#    affiliation: "Institution Name, City, Country"
+#    orcid: "0000-0000-0000-0000"
+#    role: "Contributor"
