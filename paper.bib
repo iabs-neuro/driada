@@ -1,78 +1,367 @@
-@article{giovannucci2019caiman,
-  title={CaImAn an open source tool for scalable calcium imaging data analysis},
-  author={Giovannucci, Andrea and Friedrich, Johannes and Gunn, Pat and Kalfon, Jeremie and Brown, Brandon L and Koay, Sue Ann and Taxidis, Jiannis and Najafi, Farzaneh and Gauthier, Jeffrey L and Zhou, Pengcheng and others},
-  journal={Elife},
-  volume={8},
-  pages={e38173},
-  year={2019},
-  publisher={eLife Sciences Publications Limited}
-}
-
-@article{ince2009python,
-  title={Python for information theoretic analysis of neural data},
-  author={Ince, Robin AA and Mazzoni, Alberto and Petersen, Rasmus S and Panzeri, Stefano},
-  journal={Frontiers in neuroinformatics},
-  volume={3},
-  pages={4},
-  year={2009},
-  publisher={Frontiers}
-}
-
-@article{ince2017statistical,
-  title={A statistical framework for neuroimaging data analysis based on mutual information estimated via a gaussian copula},
-  author={Ince, Robin AA and Giordano, Bruno L and Kayser, Christoph and Rousselet, Guillaume A and Gross, Joachim and Schyns, Philippe G},
-  journal={Human brain mapping},
-  volume={38},
+% Foundational reviews on population coding and information theory
+@article{quirogapanzeri2009,
+  title={Extracting information from neuronal populations: information theory and decoding approaches},
+  author={Quian Quiroga, Rodrigo and Panzeri, Stefano},
+  journal={Nature Reviews Neuroscience},
+  volume={10},
   number={3},
-  pages={1541--1573},
-  year={2017},
-  publisher={Wiley Online Library}
+  pages={173--185},
+  year={2009},
+  publisher={Nature Publishing Group},
+  doi={10.1038/nrn2578}
+}
+
+@article{cunningham2014dimensionality,
+  title={Dimensionality reduction for large-scale neural recordings},
+  author={Cunningham, John P and Yu, Byron M},
+  journal={Nature Neuroscience},
+  volume={17},
+  number={11},
+  pages={1500--1509},
+  year={2014},
+  publisher={Nature Publishing Group},
+  doi={10.1038/nn.3776}
+}
+
+@article{saxena2019towards,
+  title={Towards the neural population doctrine},
+  author={Saxena, Shreya and Cunningham, John P},
+  journal={Current Opinion in Neurobiology},
+  volume={55},
+  pages={103--111},
+  year={2019},
+  publisher={Elsevier},
+  doi={10.1016/j.conb.2019.02.002}
+}
+
+@article{spalletti2022single,
+  title={New insights on single-neuron selectivity in the era of population-level approaches},
+  author={Spalletti, Clementina and Bhattacharya, Sumona and de la Prida, Liset Menendez},
+  journal={Frontiers in Integrative Neuroscience},
+  volume={16},
+  pages={929052},
+  year={2022},
+  publisher={Frontiers},
+  doi={10.3389/fnint.2022.929052}
+}
+
+@article{jazayeri2021interpreting,
+  title={Interpreting neural computations by examining intrinsic and embedding dimensionality of neural activity},
+  author={Jazayeri, Mehrdad and Ostojic, Srdjan},
+  journal={Current Opinion in Neurobiology},
+  volume={70},
+  pages={113--120},
+  year={2021},
+  publisher={Elsevier},
+  doi={10.1016/j.conb.2021.08.002}
+}
+
+@article{chung2021neural,
+  title={Neural population geometry: An approach for understanding biological and artificial neural networks},
+  author={Chung, SueYeon and Abbott, Larry F},
+  journal={Current Opinion in Neurobiology},
+  volume={70},
+  pages={137--144},
+  year={2021},
+  publisher={Elsevier},
+  doi={10.1016/j.conb.2021.10.001}
+}
+
+@article{vyas2020computation,
+  title={Computation through neural population dynamics},
+  author={Vyas, Saurabh and Golub, Matthew D and Sussillo, David and Shenoy, Krishna V},
+  journal={Annual Review of Neuroscience},
+  volume={43},
+  pages={249--275},
+  year={2020},
+  publisher={Annual Reviews},
+  doi={10.1146/annurev-neuro-092619-094115}
+}
+
+% Information-theoretic toolboxes
+@article{maffulli2022nit,
+  title={{NIT}: an open-source tool for information theoretic analysis of neural population data},
+  author={Maffulli, Roberto and Casal, Miguel A and Celotto, Marco and Zucca, Stefano and Safaai, Houman and Fellin, Tommaso and Panzeri, Stefano},
+  journal={PLOS Computational Biology},
+  volume={20},
+  number={6},
+  pages={e1012193},
+  year={2024},
+  publisher={Public Library of Science},
+  doi={10.1371/journal.pcbi.1012193}
+}
+
+@article{lorenz2025mint,
+  title={{MINT}: A toolbox for the analysis of multivariate neural information coding and transmission},
+  author={Lorenz, Giulio M and Engel, Niklas M and Celotto, Marco and Ko{\c{c}}illari, Loren and Curreli, Simone and Fellin, Tommaso and Panzeri, Stefano},
+  journal={PLOS Computational Biology},
+  volume={21},
+  number={1},
+  pages={e1012934},
+  year={2025},
+  publisher={Public Library of Science},
+  doi={10.1371/journal.pcbi.1012934}
+}
+
+@article{combrisson2022frites,
+  title={Frites: A {P}ython package for functional connectivity analysis and group-level statistics of neurophysiological data},
+  author={Combrisson, Etienne and Basanisi, Ruggero and Cordeiro, Vinicius Lima and Ince, Robin AA and Brovelli, Andrea},
+  journal={Journal of Open Source Software},
+  volume={7},
+  number={79},
+  pages={3842},
+  year={2022},
+  doi={10.21105/joss.03842}
+}
+
+@article{wollstadt2019idtxl,
+  title={{IDTxl}: The {I}nformation {D}ynamics {T}oolkit xl: a {P}ython package for the efficient analysis of multivariate information dynamics in networks},
+  author={Wollstadt, Patricia and Lizier, Joseph T and Vicente, Raul and Finn, Conor and Martinez-Zarzuela, Mario and Mediano, Pedro and Novelli, Leonardo and Wibral, Michael},
+  journal={Journal of Open Source Software},
+  volume={4},
+  number={34},
+  pages={1081},
+  year={2019},
+  doi={10.21105/joss.01081}
+}
+
+@article{neri2024hoi,
+  title={{HOI}: A {P}ython toolbox for high-performance estimation of {H}igher-{O}rder {I}nteractions from multivariate data},
+  author={Neri, Matteo and Vinchhi, Dishie and Ferreyra, Carmela and Robiglio, Thomas and Ates, Onur and Ontivero-Ortega, Marlis and Brovelli, Andrea and Marinazzo, Daniele and Combrisson, Etienne},
+  journal={Journal of Open Source Software},
+  volume={9},
+  number={103},
+  pages={7360},
+  year={2024},
+  doi={10.21105/joss.07360}
+}
+
+% Population dimensionality reduction tools
+@article{schneider2023learnable,
+  title={Learnable latent embeddings for joint behavioural and neural analysis},
+  author={Schneider, Steffen and Lee, Jin Hwa and Mathis, Mackenzie Weygandt},
+  journal={Nature},
+  volume={617},
+  number={7960},
+  pages={360--368},
+  year={2023},
+  publisher={Nature Publishing Group},
+  doi={10.1038/s41586-023-06031-6}
+}
+
+@article{koh2023dimensionality,
+  title={Dimensionality reduction of calcium-imaged neuronal population activity},
+  author={Koh, Tze Hui and Bishop, William E and Kawashima, Takashi and Jeon, Brian B and Srinivasan, Ranjani and Mu, Yu and Ahrens, Misha B and Chase, Steven M and Yu, Byron M and Bhashyam, Sridevi V and Bhalla, Upinder S},
+  journal={Nature Computational Science},
+  volume={3},
+  number={1},
+  pages={71--85},
+  year={2023},
+  publisher={Nature Publishing Group},
+  doi={10.1038/s43588-022-00390-2}
 }
 
 @article{kobak2016demixed,
   title={Demixed principal component analysis of neural population data},
   author={Kobak, Dmitry and Brendel, Wieland and Constantinidis, Christos and Feierstein, Claudia E and Kepecs, Adam and Mainen, Zachary F and Qi, Xue-Lian and Romo, Ranulfo and Uchida, Naoshige and Machens, Christian K},
-  journal={Elife},
+  journal={eLife},
   volume={5},
   pages={e10989},
   year={2016},
-  publisher={eLife Sciences Publications Limited}
+  publisher={eLife Sciences Publications},
+  doi={10.7554/eLife.10989}
+}
+
+@article{pandarinath2018inferring,
+  title={Inferring single-trial neural population dynamics using sequential auto-encoders},
+  author={Pandarinath, Chethan and O'Shea, Daniel J and Collins, Jasmine and Jozefowicz, Rafal and Stavisky, Sergey D and Kao, Jonathan C and Trautmann, Eric M and Kaufman, Matthew T and Ryu, Stephen I and Hochberg, Leigh R and others},
+  journal={Nature Methods},
+  volume={15},
+  number={10},
+  pages={805--815},
+  year={2018},
+  publisher={Nature Publishing Group},
+  doi={10.1038/s41592-018-0109-9}
+}
+
+@article{yu2009gaussian,
+  title={Gaussian-process factor analysis for low-dimensional single-trial analysis of neural population activity},
+  author={Yu, Byron M and Cunningham, John P and Santhanam, Gopal and Ryu, Stephen I and Shenoy, Krishna V and Sahani, Maneesh},
+  journal={Journal of Neurophysiology},
+  volume={102},
+  number={1},
+  pages={614--635},
+  year={2009},
+  publisher={American Physiological Society},
+  doi={10.1152/jn.90941.2008}
+}
+
+% Gaussian Copula Mutual Information
+@article{ince2017statistical,
+  title={A statistical framework for neuroimaging data analysis based on mutual information estimated via a {G}aussian copula},
+  author={Ince, Robin AA and Giordano, Bruno L and Kayser, Christoph and Rousselet, Guillaume A and Gross, Joachim and Schyns, Philippe G},
+  journal={Human Brain Mapping},
+  volume={38},
+  number={3},
+  pages={1541--1573},
+  year={2017},
+  publisher={Wiley},
+  doi={10.1002/hbm.23471}
+}
+
+% Mixed selectivity
+@article{rigotti2013importance,
+  title={The importance of mixed selectivity in complex cognitive tasks},
+  author={Rigotti, Mattia and Barak, Omri and Warden, Melissa R and Wang, Xiao-Jing and Daw, Nathaniel D and Miller, Earl K and Fusi, Stefano},
+  journal={Nature},
+  volume={497},
+  number={7451},
+  pages={585--590},
+  year={2013},
+  publisher={Nature Publishing Group},
+  doi={10.1038/nature12160}
+}
+
+@article{fusi2016why,
+  title={Why neurons mix: high dimensionality for higher cognition},
+  author={Fusi, Stefano and Miller, Earl K and Rigotti, Mattia},
+  journal={Current Opinion in Neurobiology},
+  volume={37},
+  pages={66--74},
+  year={2016},
+  publisher={Elsevier},
+  doi={10.1016/j.conb.2016.01.010}
+}
+
+@article{tye2024mixed,
+  title={Mixed selectivity: Cellular computations for complexity},
+  author={Tye, Kay M and Miller, Earl K and Taschbach, Florian H and Benna, Marcus K and Rigotti, Mattia and Fusi, Stefano},
+  journal={Neuron},
+  volume={112},
+  number={13},
+  pages={2049--2067},
+  year={2024},
+  publisher={Elsevier},
+  doi={10.1016/j.neuron.2024.04.017}
+}
+
+% Cross-domain analysis (biological and artificial neural networks)
+@article{mante2013context,
+  title={Context-dependent computation by recurrent dynamics in prefrontal cortex},
+  author={Mante, Valerio and Sussillo, David and Shenoy, Krishna V and Newsome, William T},
+  journal={Nature},
+  volume={503},
+  number={7474},
+  pages={78--84},
+  year={2013},
+  publisher={Nature Publishing Group},
+  doi={10.1038/nature12742}
+}
+
+@article{sussillo2013opening,
+  title={Opening the black box: low-dimensional dynamics in high-dimensional recurrent neural networks},
+  author={Sussillo, David and Barak, Omri},
+  journal={Neural Computation},
+  volume={25},
+  number={3},
+  pages={626--649},
+  year={2013},
+  publisher={MIT Press},
+  doi={10.1162/NECO_a_00409}
+}
+
+@article{kriegeskorte2008representational,
+  title={Representational similarity analysis--connecting the branches of systems neuroscience},
+  author={Kriegeskorte, Nikolaus and Mur, Marieke and Bandettini, Peter A},
+  journal={Frontiers in Systems Neuroscience},
+  volume={2},
+  pages={4},
+  year={2008},
+  publisher={Frontiers},
+  doi={10.3389/neuro.06.004.2008}
+}
+
+@inproceedings{kornblith2019similarity,
+  title={Similarity of neural network representations revisited},
+  author={Kornblith, Simon and Norouzi, Mohammad and Lee, Honglak and Hinton, Geoffrey},
+  booktitle={International Conference on Machine Learning},
+  pages={3519--3529},
+  year={2019},
+  organization={PMLR}
+}
+
+@article{schrimpf2018brain,
+  title={Brain-Score: Which artificial neural network for object recognition is most brain-like?},
+  author={Schrimpf, Martin and Kubilius, Jonas and Hong, Ha and Majaj, Najib J and Rajalingham, Rishi and Issa, Elias B and Kar, Kohitij and Bashivan, Pouya and Prescott-Roy, Jonathan and Geiger, Franziska and others},
+  journal={bioRxiv},
+  pages={407007},
+  year={2018},
+  publisher={Cold Spring Harbor Laboratory},
+  doi={10.1101/407007}
+}
+
+% Calcium imaging analysis
+@article{giovannucci2019caiman,
+  title={{CaImAn}: An open source tool for scalable calcium imaging data analysis},
+  author={Giovannucci, Andrea and Friedrich, Johannes and Gunn, Pat and Kalfon, Jeremie and Brown, Brandon L and Koay, Sue Ann and Taxidis, Jiannis and Najafi, Farzaneh and Gauthier, Jeffrey L and Zhou, Pengcheng and others},
+  journal={eLife},
+  volume={8},
+  pages={e38173},
+  year={2019},
+  publisher={eLife Sciences Publications},
+  doi={10.7554/eLife.38173}
+}
+
+@article{climer2021information,
+  title={Information theoretic approaches to deciphering the neural code with functional fluorescence imaging},
+  author={Climer, Jason R and Dombeck, Daniel A},
+  journal={eNeuro},
+  volume={8},
+  number={5},
+  pages={ENEURO.0266-21.2021},
+  year={2021},
+  publisher={Society for Neuroscience},
+  doi={10.1523/ENEURO.0266-21.2021}
+}
+
+% Other key references
+@article{ince2009python,
+  title={Python for information theoretic analysis of neural data},
+  author={Ince, Robin AA and Mazzoni, Alberto and Petersen, Rasmus S and Panzeri, Stefano},
+  journal={Frontiers in Neuroinformatics},
+  volume={3},
+  pages={4},
+  year={2009},
+  publisher={Frontiers},
+  doi={10.3389/neuro.11.004.2009}
 }
 
 @article{holm1979simple,
   title={A simple sequentially rejective multiple test procedure},
   author={Holm, Sture},
-  journal={Scandinavian journal of statistics},
+  journal={Scandinavian Journal of Statistics},
+  volume={6},
+  number={2},
   pages={65--70},
   year={1979},
   publisher={JSTOR}
 }
 
 @article{mcinnes2018umap,
-  title={UMAP: Uniform Manifold Approximation and Projection},
+  title={{UMAP}: Uniform Manifold Approximation and Projection},
   author={McInnes, Leland and Healy, John and Saul, Nathaniel and Grossberger, Lukas},
   journal={Journal of Open Source Software},
   volume={3},
   number={29},
   pages={861},
-  year={2018}
+  year={2018},
+  doi={10.21105/joss.00861}
 }
 
-@article{timme2014synergy,
-  title={Synergy, redundancy, and multivariate information measures: an experimentalist's perspective},
-  author={Timme, Nicholas and Alford, Wesley and Flecker, Benjamin and Beggs, John M},
-  journal={Journal of computational neuroscience},
-  volume={36},
-  number={2},
-  pages={119--140},
-  year={2014},
-  publisher={Springer}
-}
-
-@article{hutter2001distribution,
-  title={Distribution of mutual information},
-  author={Hutter, Marcus},
-  journal={Advances in neural information processing systems},
-  volume={14},
-  year={2001}
+% Signal processing
+@software{muradeli2020ssqueezepy,
+  title={ssqueezepy: Synchrosqueezing, wavelet transforms, and time-frequency analysis in {P}ython},
+  author={Muradeli, John},
+  year={2020},
+  url={https://github.com/OverLordGoldDragon/ssqueezepy}
 }
