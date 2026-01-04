@@ -5,6 +5,7 @@ intensive RSA operations.
 """
 
 import numpy as np
+
 from ..utils.jit import conditional_njit
 
 
@@ -12,7 +13,7 @@ from ..utils.jit import conditional_njit
 def fast_correlation_distance(patterns):
     """
     Compute correlation distance matrix using JIT-optimized loops.
-    
+
     This function computes pairwise correlation distances between patterns
     using explicit loops optimized for numba JIT compilation. It handles
     edge cases like zero-variance patterns and uses sample correlation
@@ -30,29 +31,29 @@ def fast_correlation_distance(patterns):
         Correlation distance matrix (n_items, n_items). Values range from
         0 (identical patterns) to 2 (perfectly anti-correlated). Diagonal
         is always 0.
-        
+
     Notes
     -----
     The function standardizes each pattern to zero mean and unit variance
     using sample standard deviation (n-1 denominator). For patterns with
     zero variance, correlation is undefined and distance is set to 0 if
     patterns are identical, 1 otherwise.
-    
+
     Correlation values are clipped to [-1, 1] to handle numerical errors
     before computing distance as 1 - correlation.
-    
+
     Examples
     --------
     >>> patterns = np.array([[1, 2, 3], [2, 4, 6], [1, 1, 1]])
     >>> rdm = fast_correlation_distance(patterns)
     >>> # rdm[0,1] ≈ 0 (perfect correlation)
     >>> # rdm[0,2] = 1 (undefined correlation, different patterns)
-    
+
     See Also
     --------
     ~driada.rsa.core.compute_rdm : Higher-level function that uses this for correlation metric
     ~driada.rsa.core_jit.fast_euclidean_distance : Alternative distance metric
-    ~driada.rsa.core_jit.fast_manhattan_distance : Alternative distance metric    """
+    ~driada.rsa.core_jit.fast_manhattan_distance : Alternative distance metric"""
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
 
@@ -115,10 +116,10 @@ def fast_correlation_distance(patterns):
                 corr = 0.0
                 for k in range(n_features):
                     corr += patterns_std[i, k] * patterns_std[j, k]
-                
+
                 # Divide by (n-1) to get correlation coefficient
                 if n_features > 1:
-                    corr /= (n_features - 1)
+                    corr /= n_features - 1
                 else:
                     corr = 1.0  # Single feature case
 
@@ -160,13 +161,13 @@ def fast_average_patterns(data, labels, unique_labels):
     -------
     patterns : np.ndarray
         Averaged patterns (n_conditions, n_features)
-        
+
     Notes
     -----
     If no timepoints match a given label, that condition's pattern
     will be all zeros. This is intentional to maintain consistent
     output shape.
-    
+
     Examples
     --------
     >>> data = np.array([[1, 2, 3, 4], [5, 6, 7, 8]])
@@ -175,11 +176,11 @@ def fast_average_patterns(data, labels, unique_labels):
     >>> patterns = fast_average_patterns(data, labels, unique)
     >>> # patterns[0] = mean of columns 0,2 = [2, 6]
     >>> # patterns[1] = mean of columns 1,3 = [3, 7]
-    
+
     See Also
     --------
     ~driada.rsa.core.compute_rdm_from_timeseries_labels : Higher-level function that uses this
-    ~driada.rsa.core.compute_rdm_from_trials : Alternative averaging approach for trial data    """
+    ~driada.rsa.core.compute_rdm_from_trials : Alternative averaging approach for trial data"""
     n_features, n_timepoints = data.shape
     n_conditions = len(unique_labels)
     patterns = np.zeros((n_conditions, n_features))
@@ -202,7 +203,7 @@ def fast_average_patterns(data, labels, unique_labels):
 def fast_euclidean_distance(patterns):
     """
     Compute Euclidean distance matrix using JIT-optimized loops.
-    
+
     Computes pairwise Euclidean distances between all pattern pairs
     using explicit loops for numba JIT compilation compatibility.
 
@@ -217,27 +218,27 @@ def fast_euclidean_distance(patterns):
     rdm : np.ndarray
         Symmetric Euclidean distance matrix (n_items, n_items) with
         zeros on diagonal. Values are non-negative.
-        
+
     Notes
     -----
     Uses the standard Euclidean distance formula:
     d(i,j) = sqrt(sum((patterns[i,k] - patterns[j,k])^2))
-    
+
     No overflow protection is implemented. For very large values,
     consider normalizing patterns first.
-    
+
     Examples
     --------
     >>> patterns = np.array([[0, 0], [3, 4], [1, 0]])
     >>> rdm = fast_euclidean_distance(patterns)
     >>> # rdm[0,1] = 5.0 (distance from origin to (3,4))
     >>> # rdm[0,2] = 1.0 (distance from origin to (1,0))
-    
+
     See Also
     --------
     ~driada.rsa.core.compute_rdm : Higher-level function that uses this for euclidean metric
     ~driada.rsa.core_jit.fast_correlation_distance : Alternative distance metric
-    ~driada.rsa.core_jit.fast_manhattan_distance : Alternative distance metric    """
+    ~driada.rsa.core_jit.fast_manhattan_distance : Alternative distance metric"""
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
 
@@ -258,7 +259,7 @@ def fast_euclidean_distance(patterns):
 def fast_manhattan_distance(patterns):
     """
     Compute Manhattan distance matrix using JIT-optimized loops.
-    
+
     Computes pairwise Manhattan (L1) distances between patterns using
     explicit loops for numba JIT compilation compatibility.
 
@@ -273,15 +274,15 @@ def fast_manhattan_distance(patterns):
     rdm : np.ndarray
         Symmetric Manhattan distance matrix (n_items, n_items) with zeros
         on diagonal. All values are non-negative.
-        
+
     Notes
     -----
     Manhattan distance (also called L1 distance or taxicab distance) is
     the sum of absolute differences: d(i,j) = sum(|patterns[i,k] - patterns[j,k]|)
-    
+
     This metric is more robust to outliers than Euclidean distance and
     often used for high-dimensional or sparse data.
-    
+
     Examples
     --------
     >>> patterns = np.array([[0, 0], [3, 4], [1, 1]])
@@ -289,12 +290,12 @@ def fast_manhattan_distance(patterns):
     >>> # rdm[0,1] = 7 (|0-3| + |0-4|)
     >>> # rdm[0,2] = 2 (|0-1| + |0-1|)
     >>> # rdm[1,2] = 5 (|3-1| + |4-1|)
-    
+
     See Also
     --------
     ~driada.rsa.core.compute_rdm : Higher-level function that uses this for manhattan metric
     ~driada.rsa.core_jit.fast_euclidean_distance : Alternative distance metric
-    ~driada.rsa.core_jit.fast_correlation_distance : Alternative distance metric    """
+    ~driada.rsa.core_jit.fast_correlation_distance : Alternative distance metric"""
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
 

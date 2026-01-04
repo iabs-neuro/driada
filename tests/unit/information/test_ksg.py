@@ -2,14 +2,15 @@
 
 import numpy as np
 import pytest
-from sklearn.neighbors import KDTree, BallTree
+from sklearn.neighbors import BallTree, KDTree
+
 from driada.information.ksg import (
-    add_noise,
-    query_neighbors,
-    count_neighbors,
-    build_tree,
-    avgdigamma,
     DEFAULT_NN,
+    add_noise,
+    avgdigamma,
+    build_tree,
+    count_neighbors,
+    query_neighbors,
 )
 
 

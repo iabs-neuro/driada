@@ -6,10 +6,11 @@ in neural responses when neurons respond to multiple, potentially correlated
 behavioral variables.
 """
 
-import numpy as np
 from itertools import combinations
-from ..information.info_base import get_mi, conditional_mi, MultiTimeSeries
 
+import numpy as np
+
+from ..information.info_base import MultiTimeSeries, conditional_mi, get_mi
 
 # Default multifeature mapping for common behavioral variable combinations
 # Maps component tuples to their semantic names
@@ -53,7 +54,7 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
       based on pairwise MI and conditional MI values
     - If II > 0 (synergy), uses different criteria for special cases
 
-    See README_INTENSE.md for theoretical background.    """
+    See README_INTENSE.md for theoretical background."""
     # Compute pairwise mutual information
     mi12 = get_mi(ts1, ts2, ds=ds)  # MI(neuron, behavior1)
     mi13 = get_mi(ts1, ts3, ds=ds)  # MI(neuron, behavior2)
@@ -177,7 +178,7 @@ def disentangle_all_selectivities(
     to at least 2 features. If feat_feat_significance is provided, only
     behaviorally correlated feature pairs are analyzed for redundancy.
     Non-significant pairs indicate true mixed selectivity.
-    
+
     Raises
     ------
     ValueError
@@ -185,7 +186,7 @@ def disentangle_all_selectivities(
     AttributeError
         If required attributes are missing from the experiment.
     KeyError
-        If expected keys are missing from data structures.    """
+        If expected keys are missing from data structures."""
     # Use default multifeature mapping if none provided
     if multifeature_map is None:
         multifeature_map = DEFAULT_MULTIFEATURE_MAP.copy()
@@ -233,18 +234,14 @@ def disentangle_all_selectivities(
                             feat_ts.append(multifeature_ts[agg_name])
                             finds.append(feat_names.index(agg_name))
                         else:
-                            raise ValueError(
-                                f"Aggregated name '{agg_name}' not in feat_names"
-                            )
+                            raise ValueError(f"Aggregated name '{agg_name}' not in feat_names")
                     else:
                         # Regular single feature
                         if hasattr(exp, fname):
                             feat_ts.append(getattr(exp, fname))
                             finds.append(feat_names.index(fname))
                         else:
-                            raise ValueError(
-                                f"Feature '{fname}' not found in experiment"
-                            )
+                            raise ValueError(f"Feature '{fname}' not found in experiment")
 
                 # Get feature indices
                 ind1 = finds[0]
@@ -263,9 +260,7 @@ def disentangle_all_selectivities(
                         continue
 
                 # Perform disentanglement analysis only for significant pairs
-                disres = disentangle_pair(
-                    neur_ts, feat_ts[0], feat_ts[1], ds=ds, verbose=False
-                )
+                disres = disentangle_pair(neur_ts, feat_ts[0], feat_ts[1], ds=ds, verbose=False)
 
                 # Update matrices
                 count_matrix[ind1, ind2] += 1
@@ -281,9 +276,7 @@ def disentangle_all_selectivities(
 
             except (ValueError, AttributeError, KeyError) as e:
                 # Log specific errors but continue processing other pairs
-                print(
-                    f"WARNING: Skipping neuron {neuron}, features {sel_comb}: {str(e)}"
-                )
+                print(f"WARNING: Skipping neuron {neuron}, features {sel_comb}: {str(e)}")
                 continue
 
     return disent_matrix, count_matrix
@@ -308,7 +301,7 @@ def create_multifeature_map(exp, mapping_dict):
     Raises
     ------
     ValueError
-        If any component features don't exist in the experiment.    """
+        If any component features don't exist in the experiment."""
     validated_map = {}
 
     for mf_tuple, agg_name in mapping_dict.items():
@@ -352,15 +345,15 @@ def get_disentanglement_summary(
         - Total counts for each pair
         - Overall redundancy vs independence rates
         - Breakdown by significant vs non-significant feature pairs
-        
+
     Notes
     -----
     The calculation distinguishes between:
     - Redundant cases: One feature is primary (disentangle result 0 or 1)
     - Undistinguishable cases: Both features contribute (disentangle result 0.5)
-    
-    Undistinguishable cases are identified by fractional values in the 
-    disentanglement matrix, as each such case contributes 0.5 to both features.    """
+
+    Undistinguishable cases are identified by fractional values in the
+    disentanglement matrix, as each such case contributes 0.5 to both features."""
     summary = {"feature_pairs": {}, "overall_stats": {}}
 
     n_features = len(feat_names)
@@ -380,7 +373,7 @@ def get_disentanglement_summary(
                 # So fractional part * 2 gives the number of such cases
                 frac_i = n_i_primary - int(n_i_primary)
                 frac_j = n_j_primary - int(n_j_primary)
-                
+
                 # Fractional parts should match (both get 0.5 from each undistinguishable)
                 # Use minimum to handle floating point precision
                 n_undistinguishable = round(min(frac_i, frac_j) * 2)
@@ -419,9 +412,7 @@ def get_disentanglement_summary(
                             nonsig_pairs += count_matrix[i, j]
 
             summary["overall_stats"]["significant_behavior_pairs"] = int(sig_pairs)
-            summary["overall_stats"]["nonsignificant_behavior_pairs"] = int(
-                nonsig_pairs
-            )
+            summary["overall_stats"]["nonsignificant_behavior_pairs"] = int(nonsig_pairs)
             summary["overall_stats"]["true_mixed_selectivity_rate"] = (
                 nonsig_pairs / total_pairs * 100 if total_pairs > 0 else 0
             )

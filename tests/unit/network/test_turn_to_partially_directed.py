@@ -1,8 +1,8 @@
 """Test turn_to_partially_directed function with both dense and sparse matrices."""
 
 import numpy as np
-import scipy.sparse as sp
 import pytest
+import scipy.sparse as sp
 
 from driada.network.matrix_utils import turn_to_partially_directed
 
@@ -13,15 +13,10 @@ class TestTurnToPartiallyDirected:
     def test_dense_fully_undirected(self):
         """Test with dense matrix, directed=0."""
         # Create symmetric dense matrix
-        A = np.array([
-            [0, 1, 1, 0],
-            [1, 0, 1, 1],
-            [1, 1, 0, 1],
-            [0, 1, 1, 0]
-        ])
-        
+        A = np.array([[0, 1, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 1, 0]])
+
         result = turn_to_partially_directed(A, directed=0.0, weighted=0)
-        
+
         # Should return sparse matrix
         assert sp.issparse(result)
         # Should be symmetric
@@ -32,40 +27,30 @@ class TestTurnToPartiallyDirected:
     def test_sparse_fully_undirected(self):
         """Test with sparse matrix, directed=0."""
         # Create symmetric sparse matrix
-        A_dense = np.array([
-            [0, 1, 1, 0],
-            [1, 0, 1, 1],
-            [1, 1, 0, 1],
-            [0, 1, 1, 0]
-        ])
+        A_dense = np.array([[0, 1, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 1, 0]])
         A = sp.csr_matrix(A_dense)
-        
+
         result = turn_to_partially_directed(A, directed=0.0, weighted=0)
-        
+
         # Should return sparse matrix
         assert sp.issparse(result)
         # Should be symmetric
         assert np.allclose(result.toarray(), result.toarray().T)
         # Should have same non-zero pattern (excluding diagonal)
         result_nonzero = (result != 0).toarray()
-        A_nonzero = (A_dense != 0)
+        A_nonzero = A_dense != 0
         np.fill_diagonal(A_nonzero, False)  # Ignore diagonal
         assert np.array_equal(result_nonzero, A_nonzero)
 
     def test_dense_fully_directed(self):
         """Test with dense matrix, directed=1.0."""
         # Create symmetric dense matrix
-        A = np.array([
-            [0, 1, 1, 0],
-            [1, 0, 1, 1],
-            [1, 1, 0, 1],
-            [0, 1, 1, 0]
-        ])
-        
+        A = np.array([[0, 1, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 1, 0]])
+
         # Set random seed for reproducibility
         np.random.seed(42)
         result = turn_to_partially_directed(A, directed=1.0, weighted=0)
-        
+
         # Result is now sparse
         assert sp.issparse(result)
         # Should be fully asymmetric (no symmetric pairs)
@@ -77,18 +62,13 @@ class TestTurnToPartiallyDirected:
     def test_sparse_fully_directed(self):
         """Test with sparse matrix, directed=1.0."""
         # Create symmetric sparse matrix
-        A_dense = np.array([
-            [0, 1, 1, 0],
-            [1, 0, 1, 1],
-            [1, 1, 0, 1],
-            [0, 1, 1, 0]
-        ])
+        A_dense = np.array([[0, 1, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 1, 0]])
         A = sp.csr_matrix(A_dense)
-        
+
         # Set random seed for reproducibility
         np.random.seed(42)
         result = turn_to_partially_directed(A, directed=1.0, weighted=0)
-        
+
         # Should return sparse matrix
         assert sp.issparse(result)
         # Should be fully asymmetric
@@ -100,17 +80,12 @@ class TestTurnToPartiallyDirected:
     def test_dense_partial_directed(self):
         """Test with dense matrix, directed=0.5."""
         # Create symmetric dense matrix
-        A = np.array([
-            [0, 1, 1, 0],
-            [1, 0, 1, 1],
-            [1, 1, 0, 1],
-            [0, 1, 1, 0]
-        ])
-        
+        A = np.array([[0, 1, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 1, 0]])
+
         # Set random seed for reproducibility
         np.random.seed(42)
         result = turn_to_partially_directed(A, directed=0.5, weighted=0)
-        
+
         # Result is now sparse
         assert sp.issparse(result)
         # Should have some asymmetry
@@ -122,18 +97,13 @@ class TestTurnToPartiallyDirected:
 
     def test_sparse_partial_directed(self):
         """Test with sparse matrix, directed=0.5."""
-        A_dense = np.array([
-            [0, 1, 1, 0],
-            [1, 0, 1, 1],
-            [1, 1, 0, 1],
-            [0, 1, 1, 0]
-        ])
+        A_dense = np.array([[0, 1, 1, 0], [1, 0, 1, 1], [1, 1, 0, 1], [0, 1, 1, 0]])
         A = sp.csr_matrix(A_dense)
-        
+
         # Set random seed for reproducibility
         np.random.seed(42)
         result = turn_to_partially_directed(A, directed=0.5, weighted=0)
-        
+
         # Should return sparse matrix
         assert sp.issparse(result)
         # Should have some asymmetry
@@ -147,32 +117,25 @@ class TestTurnToPartiallyDirected:
     def test_weighted_matrix(self):
         """Test with weighted matrix."""
         # Create weighted symmetric matrix
-        A = np.array([
-            [0.0, 2.5, 0.0, 0.0],
-            [2.5, 0.0, 1.5, 3.0],
-            [0.0, 1.5, 0.0, 0.5],
-            [0.0, 3.0, 0.5, 0.0]
-        ])
-        
+        A = np.array(
+            [[0.0, 2.5, 0.0, 0.0], [2.5, 0.0, 1.5, 3.0], [0.0, 1.5, 0.0, 0.5], [0.0, 3.0, 0.5, 0.0]]
+        )
+
         result = turn_to_partially_directed(A, directed=0.0, weighted=1)
-        
+
         # Should preserve weights
         assert np.allclose(result.toarray(), A)
 
     def test_self_loops_removed(self):
         """Test that self-loops are removed."""
         # Matrix with self-loops
-        A = np.array([
-            [1, 1, 0],
-            [1, 2, 1],
-            [0, 1, 3]
-        ])
-        
+        A = np.array([[1, 1, 0], [1, 2, 1], [0, 1, 3]])
+
         # Dense pathway - now returns sparse
         result_dense = turn_to_partially_directed(A, directed=0.0)
         assert sp.issparse(result_dense)
         assert np.all(np.diag(result_dense.toarray()) == 0)
-        
+
         # Sparse pathway
         result_sparse = turn_to_partially_directed(sp.csr_matrix(A), directed=0.0)
         assert sp.issparse(result_sparse)
@@ -181,7 +144,7 @@ class TestTurnToPartiallyDirected:
     def test_empty_matrix(self):
         """Test with empty matrix."""
         A = np.zeros((5, 5))
-        
+
         result = turn_to_partially_directed(A, directed=0.5)
         assert sp.issparse(result)
         assert result.nnz == 0
@@ -193,26 +156,18 @@ class TestTurnToPartiallyDirected:
 
     def test_directed_none_equivalent_to_zero(self):
         """Test that directed=None is equivalent to directed=0."""
-        A = np.array([
-            [0, 1, 1],
-            [1, 0, 1],
-            [1, 1, 0]
-        ])
-        
+        A = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+
         result_none = turn_to_partially_directed(A, directed=None)
         result_zero = turn_to_partially_directed(A, directed=0.0)
-        
+
         assert np.array_equal(result_none.toarray(), result_zero.toarray())
 
     def test_sparse_formats(self):
         """Test with different sparse matrix formats."""
-        A_dense = np.array([
-            [0, 1, 1],
-            [1, 0, 1],
-            [1, 1, 0]
-        ])
-        
-        for format in ['csr', 'csc', 'coo', 'lil', 'dok']:
+        A_dense = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+
+        for format in ["csr", "csc", "coo", "lil", "dok"]:
             A_sparse = sp.csr_matrix(A_dense).asformat(format)
             result = turn_to_partially_directed(A_sparse, directed=0.0)
             assert sp.issparse(result)

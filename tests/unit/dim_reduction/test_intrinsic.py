@@ -34,11 +34,12 @@ Important Limitations and Considerations:
 
 import numpy as np
 import pytest
-from sklearn.datasets import make_swiss_roll, make_s_curve
+from sklearn.datasets import make_s_curve, make_swiss_roll
+
 from driada.dimensionality import (
-    nn_dimension,
     correlation_dimension,
     geodesic_dimension,
+    nn_dimension,
 )
 
 
@@ -159,9 +160,7 @@ class TestNNDimension:
         # Higher noise increases estimates slightly
         assert all(1.8 < d < 3.2 for d in dims), f"Dimensions out of range: {dims}"
         # Higher noise may slightly increase estimates
-        assert (
-            dims[-1] >= dims[0] - 0.2
-        ), "Dimension should not decrease much with noise"
+        assert dims[-1] >= dims[0] - 0.2, "Dimension should not decrease much with noise"
 
     def test_sample_size_scaling(self):
         """Test behavior with different sample sizes."""
@@ -250,9 +249,7 @@ class TestNNDimension:
 
     def test_precomputed_graph_error_no_input(self):
         """Test error when neither data nor precomputed_graph provided."""
-        with pytest.raises(
-            ValueError, match="Either data or precomputed_graph must be provided"
-        ):
+        with pytest.raises(ValueError, match="Either data or precomputed_graph must be provided"):
             nn_dimension()
 
     def test_precomputed_graph_error_both_inputs(self):
@@ -260,9 +257,7 @@ class TestNNDimension:
         data = np.random.randn(50, 3)
         graph = (np.zeros((50, 6)), np.zeros((50, 6)))
 
-        with pytest.raises(
-            ValueError, match="Provide either data or precomputed_graph, not both"
-        ):
+        with pytest.raises(ValueError, match="Provide either data or precomputed_graph, not both"):
             nn_dimension(data=data, precomputed_graph=graph)
 
     def test_precomputed_graph_validation(self):
@@ -271,9 +266,7 @@ class TestNNDimension:
         indices = np.zeros((50, 6))
         distances = np.zeros((50, 5))  # Different shape
 
-        with pytest.raises(
-            ValueError, match="Indices and distances must have the same shape"
-        ):
+        with pytest.raises(ValueError, match="Indices and distances must have the same shape"):
             nn_dimension(precomputed_graph=(indices, distances), k=5)
 
         # Not enough neighbors
@@ -402,9 +395,7 @@ class TestCorrelationDimension:
         dim_manual = correlation_dimension(data, r_min=r_min, r_max=r_max)
 
         # Results should be somewhat similar (correlation dimension can be sensitive to range)
-        assert (
-            abs(dim_auto - dim_manual) < 1.0
-        ), f"Auto: {dim_auto}, Manual: {dim_manual}"
+        assert abs(dim_auto - dim_manual) < 1.0, f"Auto: {dim_auto}, Manual: {dim_manual}"
 
     def test_n_bins_sensitivity(self):
         """Test sensitivity to number of bins."""
@@ -523,9 +514,7 @@ class TestGeodesicDimension:
         # Generate data and create k-NN graph
         np.random.seed(42)
         data = np.random.randn(50, 3)
-        graph = kneighbors_graph(
-            data, n_neighbors=10, mode="distance", include_self=False
-        )
+        graph = kneighbors_graph(data, n_neighbors=10, mode="distance", include_self=False)
 
         # Test with graph input
         dim = geodesic_dimension(graph=graph)
@@ -552,10 +541,10 @@ class TestGeodesicDimension:
         # Create simple 2D plane data embedded in 5D space
         np.random.seed(42)
         n_samples = 500
-        
+
         # Create random 2D coordinates in a plane
         coeffs = np.random.randn(n_samples, 2)
-        
+
         # Embed in 5D space using orthonormal basis
         basis = np.random.randn(5, 2)
         basis = np.linalg.qr(basis)[0]  # Orthonormalize
@@ -640,9 +629,7 @@ class TestGeodesicDimension:
         data = np.random.randn(100, 3)
 
         # Create k-NN graph in CSR format
-        graph_csr = kneighbors_graph(
-            data, n_neighbors=15, mode="distance", include_self=False
-        )
+        graph_csr = kneighbors_graph(data, n_neighbors=15, mode="distance", include_self=False)
 
         # Convert to different formats
         graph_csc = graph_csr.tocsc()
@@ -712,7 +699,7 @@ class TestGeodesicDimension:
 
     def test_circle_manifold(self):
         """Test on 1D circle embedded in 2D.
-        
+
         Note: Geodesic dimension is not reliable for 1D closed curves like circles
         because their geodesic distance distribution is uniform rather than the
         peaked distribution expected by the algorithm. The method is designed for

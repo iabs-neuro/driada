@@ -34,15 +34,15 @@ def desktop_auth(secret_path):
     This function is intended for desktop applications where a web browser
     can be opened for authentication. It will:
     1. Start a local web server (usually on port 8080)
-    2. Open the default browser for Google authentication  
+    2. Open the default browser for Google authentication
     3. Handle the OAuth2 callback automatically
-    
+
     WARNING: This function modifies GoogleAuth.DEFAULT_SETTINGS globally,
     which affects all GoogleAuth instances in the process.
 
     The client secrets file can be obtained from:
     https://console.cloud.google.com/apis/credentials
-    
+
     Requires a web browser and ability to bind to local ports.
 
     Examples
@@ -50,21 +50,21 @@ def desktop_auth(secret_path):
     >>> # Requires actual client_secrets.json file
     >>> gauth = desktop_auth('./client_secrets.json')  # doctest: +SKIP
     >>> from pydrive2.drive import GoogleDrive  # doctest: +SKIP
-    >>> drive = GoogleDrive(gauth)  # doctest: +SKIP    """
-    import os
+    >>> drive = GoogleDrive(gauth)  # doctest: +SKIP"""
     import json
-    
+    import os
+
     # Validate secret_path
     if not os.path.exists(secret_path):
         raise FileNotFoundError(f"Client secrets file not found: {secret_path}")
-    
+
     # Validate it's valid JSON
     try:
-        with open(secret_path, 'r') as f:
+        with open(secret_path, "r") as f:
             json.load(f)
     except json.JSONDecodeError as e:
         raise json.JSONDecodeError(f"Invalid JSON in client secrets file: {e.msg}", e.doc, e.pos)
-    
+
     gauth = GoogleAuth()
     GoogleAuth.DEFAULT_SETTINGS["client_config_file"] = secret_path
     # Create local webserver and auto handles authentication.
@@ -96,7 +96,7 @@ def google_colab_auth():
     This function will prompt the user to:
     1. Click a link to authenticate with Google
     2. Copy and paste an authorization code
-    
+
     The authentication persists for the duration of the Colab session.
     Credentials are tied to the Google account used in Colab.
 
@@ -105,7 +105,7 @@ def google_colab_auth():
     >>> # In a Google Colab notebook:
     >>> gauth = google_colab_auth()  # doctest: +SKIP
     >>> from pydrive2.drive import GoogleDrive  # doctest: +SKIP
-    >>> drive = GoogleDrive(gauth)  # doctest: +SKIP    """
+    >>> drive = GoogleDrive(gauth)  # doctest: +SKIP"""
     from google.colab import auth
     from oauth2client.client import GoogleCredentials
 

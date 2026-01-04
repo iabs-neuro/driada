@@ -2,14 +2,15 @@
 
 import numpy as np
 import pytest
+
 from driada.information.entropy import (
-    entropy_d,
-    probs_to_entropy,
-    joint_entropy_dd,
-    conditional_entropy_cdd,
     conditional_entropy_cd,
-    joint_entropy_cdd,
+    conditional_entropy_cdd,
+    entropy_d,
     joint_entropy_cd,
+    joint_entropy_cdd,
+    joint_entropy_dd,
+    probs_to_entropy,
 )
 
 

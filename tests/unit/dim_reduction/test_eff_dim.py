@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from driada.dimensionality import eff_dim
 
 

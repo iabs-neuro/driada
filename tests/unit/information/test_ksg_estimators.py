@@ -2,17 +2,18 @@
 
 import numpy as np
 import pytest
+
+from driada.information import mi_model_gd
+from driada.information.info_utils import py_fast_digamma
 from driada.information.ksg import (
-    nonparam_entropy_c,
+    build_tree,
+    lnc_correction,
     nonparam_cond_entropy_cc,
+    nonparam_entropy_c,
     nonparam_mi_cc,
     nonparam_mi_cd,
     nonparam_mi_dc,
-    lnc_correction,
-    build_tree,
 )
-from driada.information.info_utils import py_fast_digamma
-from driada.information import mi_model_gd
 
 
 class TestKSGEntropy:
@@ -381,68 +382,68 @@ class TestHelperFunctions:
 
 class TestKSGMixedType:
     """Test KSG mutual information estimators for mixed continuous/discrete variables."""
-    
+
     def test_nonparam_mi_cd_basic(self):
         """Test MI between continuous and discrete variables."""
         np.random.seed(42)
         n_samples = 1000
-        
+
         # Create correlated continuous and discrete variables
         x_continuous = np.random.randn(n_samples)
         # Discretize based on x value
         y_discrete = (x_continuous > 0).astype(int)
-        
+
         mi = nonparam_mi_cd(x_continuous, y_discrete)
-        
+
         # MI should be positive for correlated variables
         assert mi > 0
         assert mi < 1  # Should not be perfect correlation
-        
+
     def test_nonparam_mi_cd_independent(self):
         """Test MI for independent variables."""
         np.random.seed(42)
         n_samples = 1000
-        
+
         # Create independent variables
         x_continuous = np.random.randn(n_samples)
         y_discrete = np.random.randint(0, 3, n_samples)
-        
+
         mi = nonparam_mi_cd(x_continuous, y_discrete)
-        
+
         # MI should be close to 0 for independent variables
         assert mi < 0.1
-        
+
     def test_nonparam_mi_dc_symmetry(self):
         """Test that MI(X,Y) = MI(Y,X) for discrete-continuous."""
         np.random.seed(42)
         n_samples = 500
-        
+
         # Create correlated variables
         x_discrete = np.random.randint(0, 4, n_samples)
         y_continuous = x_discrete + 0.5 * np.random.randn(n_samples)
-        
+
         mi_dc = nonparam_mi_dc(x_discrete, y_continuous)
         mi_cd = nonparam_mi_cd(y_continuous, x_discrete)
-        
+
         # Should be equal (or very close due to numerical precision)
         assert abs(mi_dc - mi_cd) < 1e-9
-        
+
     def test_comparison_with_gcmi(self):
         """Compare KSG estimator with GCMI for mixed types."""
         np.random.seed(42)
         n_samples = 1000
-        
+
         # Create correlated continuous and discrete variables
         y_discrete = np.random.randint(0, 3, n_samples)
         x_continuous = y_discrete + np.random.randn(n_samples) * 0.5
-        
+
         # Reshape for GCMI (expects 2D array)
         x_continuous_2d = x_continuous.reshape(1, -1)
-        
+
         # Calculate MI using both methods
         mi_ksg = nonparam_mi_cd(x_continuous, y_discrete)
         mi_gcmi = mi_model_gd(x_continuous_2d, y_discrete, 3)
-        
+
         # They should give similar results (both positive)
         # Note: KSG and GCMI use very different methods, so results can differ substantially
         assert mi_ksg > 0
@@ -450,34 +451,36 @@ class TestKSGMixedType:
         # Both should detect the correlation
         assert mi_ksg > 0.3
         assert mi_gcmi > 0.3
-        
+
     def test_multidimensional_continuous(self):
         """Test MI with multidimensional continuous variable."""
         np.random.seed(42)
         n_samples = 500
-        
+
         # Create 2D continuous variable correlated with discrete
         y_discrete = np.random.randint(0, 2, n_samples)
-        x_continuous = np.column_stack([
-            y_discrete + 0.5 * np.random.randn(n_samples),
-            y_discrete * 2 + 0.3 * np.random.randn(n_samples)
-        ])
-        
+        x_continuous = np.column_stack(
+            [
+                y_discrete + 0.5 * np.random.randn(n_samples),
+                y_discrete * 2 + 0.3 * np.random.randn(n_samples),
+            ]
+        )
+
         mi = nonparam_mi_cd(x_continuous, y_discrete)
-        
+
         # Should have high MI due to correlation
         assert mi > 0.3
-        
+
     def test_edge_cases(self):
         """Test edge cases and input validation."""
         # Test with too few samples
         with pytest.raises(ValueError, match="k must be less than n_samples"):
             nonparam_mi_cd(np.array([1, 2, 3]), np.array([0, 1, 0]), k=5)
-            
+
         # Test with mismatched lengths
         with pytest.raises(ValueError, match="Arrays should have same length"):
             nonparam_mi_cd(np.random.randn(10), np.random.randint(0, 2, 8))
-            
+
         # Test with single class
         x_continuous = np.random.randn(100)
         y_discrete = np.zeros(100, dtype=int)  # All same class

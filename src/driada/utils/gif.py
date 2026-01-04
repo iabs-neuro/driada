@@ -1,14 +1,15 @@
-import tqdm
-import imageio
-import matplotlib.pyplot as plt
 import os
 from os import listdir, remove
 from os.path import isfile, join, splitext
 
+import imageio
+import matplotlib.pyplot as plt
+import tqdm
+
 
 def erase_all(path, signature="", ext=".png"):
     """Delete all files in a directory matching signature and extension.
-    
+
     Searches for files in the specified directory that contain the given
     signature string in their filename and have the specified extension,
     then deletes them. If the directory doesn't exist, returns silently.
@@ -21,26 +22,26 @@ def erase_all(path, signature="", ext=".png"):
         String that must be contained in filename (default: '').
     ext : str, optional
         File extension to match, including dot (default: '.png').
-        
+
     Raises
     ------
     OSError
         If file deletion fails due to permissions or file being in use.
-        
+
     Notes
     -----
     This function is typically used to clean up temporary image files
     before creating new visualizations. It will not raise an error if
     the directory doesn't exist.
-    
+
     Examples
     --------
     >>> # Delete all PNG files in a directory
     >>> erase_all('/tmp/images', ext='.png')
-    
+
     >>> # Delete only files containing 'temp' in the name
     >>> erase_all('/tmp/images', signature='temp', ext='.jpg')
-    
+
     See Also
     --------
     ~driada.utils.gif.save_image_series :
@@ -50,16 +51,14 @@ def erase_all(path, signature="", ext=".png"):
         return
 
     prev_files_paths = [join(path, f) for f in listdir(path) if signature in f]
-    files_to_del = [
-        fp for fp in prev_files_paths if isfile(fp) and splitext(fp)[1] == ext
-    ]
+    files_to_del = [fp for fp in prev_files_paths if isfile(fp) and splitext(fp)[1] == ext]
     for fp in files_to_del:
         remove(fp)
 
 
 def save_image_series(path, figures, im_ext="png"):
     """Save a series of matplotlib figures to disk.
-    
+
     Saves each figure in the provided list to the specified directory.
     Creates the directory if it doesn't exist. Figures are named using
     their suptitle if available, otherwise using a numbered sequence.
@@ -73,20 +72,20 @@ def save_image_series(path, figures, im_ext="png"):
         List of matplotlib figure objects.
     im_ext : str, optional
         Image extension without dot (default: 'png').
-        
+
     Raises
     ------
     OSError
         If directory creation fails or file cannot be saved.
     AttributeError
         If an element in figures list is not a valid matplotlib figure.
-        
+
     Notes
     -----
     This function displays a progress bar using tqdm while saving figures.
     All figures are automatically closed after saving to prevent memory leaks.
     If a figure has a suptitle, it will be used as the filename.
-    
+
     Examples
     --------
     >>> import matplotlib.pyplot as plt
@@ -98,7 +97,7 @@ def save_image_series(path, figures, im_ext="png"):
     ...     _ = fig.suptitle(f'Plot_{i}')
     ...     figs.append(fig)
     >>> # save_image_series('/tmp/plots', figs, im_ext='png')
-    
+
     See Also
     --------
     ~driada.utils.gif.create_gif_from_image_series :
@@ -122,7 +121,7 @@ def create_gif_from_image_series(
     path, signature, gifname, erase_prev=True, im_ext="png", duration=0.2
 ):
     """Create an animated GIF from a series of images.
-    
+
     Searches for images in the specified directory that contain the signature
     string in their filename, sorts them alphabetically, and combines them
     into an animated GIF. The GIF is saved in a 'GIFs' subdirectory which
@@ -147,44 +146,44 @@ def create_gif_from_image_series(
     -------
     str
         Path to the created GIF file.
-        
+
     Raises
     ------
     OSError
         If directory operations fail or images cannot be read/written.
     ValueError
         If no matching images are found (from imageio).
-        
+
     Notes
     -----
     The function creates a 'GIFs' subdirectory within the input path to store
     the output GIF. Images are sorted alphabetically by filename before being
     added to the GIF, so proper naming (e.g., frame_0001.png, frame_0002.png)
     ensures correct order. A progress bar shows the image loading process.
-    
+
     The function handles image extensions flexibly - 'png' and '.png' are
     treated the same way.
-    
+
     Examples
     --------
     Create GIF from all PNG images containing 'frame' in the name::
-    
+
         gif_path = create_gif_from_image_series(
-            '/tmp/images', 
+            '/tmp/images',
             signature='frame',
             gifname='animation',
             duration=0.5
         )
-    
+
     Keep source images after creating GIF::
-    
+
         gif_path = create_gif_from_image_series(
             '/tmp/images',
             signature='plot_',
             gifname='results',
             erase_prev=False
         )
-    
+
     See Also
     --------
     ~driada.utils.gif.save_image_series :
@@ -193,11 +192,7 @@ def create_gif_from_image_series(
         Delete files matching specific criteria.
     """
     images = []
-    imfiles = [
-        f
-        for f in listdir(path)
-        if isfile(join(path, f)) and signature in f and im_ext in f
-    ]
+    imfiles = [f for f in listdir(path) if isfile(join(path, f)) and signature in f and im_ext in f]
     imfiles = sorted(imfiles)
 
     for filename in tqdm.tqdm(imfiles, leave=True, position=0):

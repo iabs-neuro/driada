@@ -6,16 +6,15 @@ manifolds, typically used to model hippocampal place cells.
 """
 
 import numpy as np
-from .core import validate_peak_rate, generate_pseudo_calcium_signal
-from .utils import get_effective_decay_time
+
+from ...information.info_base import MultiTimeSeries, TimeSeries
+from ...utils.data import check_nonnegative, check_positive
 from ..exp_base import Experiment
-from ...information.info_base import TimeSeries, MultiTimeSeries
-from ...utils.data import check_positive, check_nonnegative
+from .core import generate_pseudo_calcium_signal, validate_peak_rate
+from .utils import get_effective_decay_time
 
 
-def generate_2d_random_walk(
-    length, bounds=(0, 1), step_size=0.02, momentum=0.8, seed=None
-):
+def generate_2d_random_walk(length, bounds=(0, 1), step_size=0.02, momentum=0.8, seed=None):
     """
     Generate a 2D random walk trajectory within bounded region.
 
@@ -58,26 +57,26 @@ def generate_2d_random_walk(
     The walk follows:
     velocity = momentum * velocity + (1 - momentum) * N(0, step_size)
     position[t] = position[t-1] + velocity
-    
-    When hitting boundaries, the relevant velocity component is reversed.    """
+
+    When hitting boundaries, the relevant velocity component is reversed."""
     # Input validation
     if not isinstance(length, (int, np.integer)):
         raise TypeError("length must be an integer")
     check_positive(length=length, step_size=step_size)
-    
+
     if not isinstance(momentum, (int, float)):
         raise TypeError("momentum must be numeric")
     if not 0 <= momentum <= 1:
         raise ValueError("momentum must be in range [0, 1]")
-    
+
     if len(bounds) != 2:
         raise ValueError("bounds must be a tuple of (min, max)")
     if bounds[0] >= bounds[1]:
         raise ValueError("bounds must have min < max")
-    
+
     if seed is not None:
         np.random.seed(seed)
-    
+
     positions = np.zeros((2, length))
     velocity = np.zeros(2)
 
@@ -141,18 +140,18 @@ def gaussian_place_field(positions, center, sigma=0.1):
     -----
     The response follows a 2D Gaussian:
     response = exp(-((x-cx)² + (y-cy)²) / (2σ²))
-    where (cx, cy) is the field center and σ is the width.    """
+    where (cx, cy) is the field center and σ is the width."""
     # Input validation
     positions = np.asarray(positions)
     center = np.asarray(center)
-    
+
     if positions.ndim != 2 or positions.shape[0] != 2:
         raise ValueError("positions must have shape (2, n_timepoints)")
     if center.shape != (2,):
         raise ValueError("center must have shape (2,)")
-    
+
     check_positive(sigma=sigma)
-    
+
     # Calculate squared distance from center
     dx = positions[0, :] - center[0]
     dy = positions[1, :] - center[1]
@@ -229,18 +228,18 @@ def generate_2d_manifold_neurons(
     Grid arrangement places neurons on a square grid with 0.1 margin from
     boundaries and adds small jitter (std=0.02) to break regularity.
     Firing rates are computed as:
-    rate = baseline + (peak - baseline) * gaussian_place_field + noise    """
+    rate = baseline + (peak - baseline) * gaussian_place_field + noise"""
     # Input validation
     check_positive(n_neurons=n_neurons, field_sigma=field_sigma)
     check_nonnegative(baseline_rate=baseline_rate, noise_std=noise_std)
-    
+
     # Validate firing rate
     validate_peak_rate(peak_rate, context="generate_2d_manifold_neurons")
-    
+
     # Check parameter relationships
     if baseline_rate > peak_rate:
         raise ValueError(f"baseline_rate ({baseline_rate}) must be <= peak_rate ({peak_rate})")
-    
+
     if len(bounds) != 2 or bounds[0] >= bounds[1]:
         raise ValueError("bounds must be (min, max) with min < max")
 
@@ -283,9 +282,7 @@ def generate_2d_manifold_neurons(
 
     for i in range(n_neurons):
         # Gaussian place field
-        place_response = gaussian_place_field(
-            positions, place_field_centers[i], field_sigma
-        )
+        place_response = gaussian_place_field(positions, place_field_centers[i], field_sigma)
 
         # Scale to desired firing rate range
         firing_rate = baseline_rate + (peak_rate - baseline_rate) * place_response
@@ -381,18 +378,25 @@ def generate_2d_manifold_data(
     2. Generates place cell responses based on distance to place fields
     3. Converts firing rates to spike probabilities
     4. Samples spikes using binomial distribution
-    5. Convolves spikes with calcium kernel and adds noise    """
+    5. Convolves spikes with calcium kernel and adds noise"""
     # Input validation
-    check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate,
-                  field_sigma=field_sigma, step_size=step_size, decay_time=decay_time)
-    check_nonnegative(baseline_rate=baseline_rate, noise_std=noise_std,
-                     calcium_noise_std=calcium_noise_std)
-    
+    check_positive(
+        n_neurons=n_neurons,
+        duration=duration,
+        sampling_rate=sampling_rate,
+        field_sigma=field_sigma,
+        step_size=step_size,
+        decay_time=decay_time,
+    )
+    check_nonnegative(
+        baseline_rate=baseline_rate, noise_std=noise_std, calcium_noise_std=calcium_noise_std
+    )
+
     if not isinstance(momentum, (int, float)):
         raise TypeError("momentum must be numeric")
     if not 0 <= momentum <= 1:
         raise ValueError("momentum must be in range [0, 1]")
-    
+
     if seed is not None:
         np.random.seed(seed)
 
@@ -527,7 +531,7 @@ def generate_2d_manifold_exp(
         bounds are invalid.
     TypeError
         If inputs are not correct types.
-    
+
     Notes
     -----
     The experiment includes:
@@ -535,9 +539,9 @@ def generate_2d_manifold_exp(
     - Dynamic features: position_2d (MultiTimeSeries), x and y (TimeSeries)
     - Calcium signals with realistic noise and dynamics
     - Underlying firing rates attached to exp object
-    
+
     For short experiments (duration ≤ 30s), the decay time is automatically
-    adjusted to prevent shuffle mask issues.    """
+    adjusted to prevent shuffle mask issues."""
     # Calculate effective decay time for shuffle mask
     effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)
 

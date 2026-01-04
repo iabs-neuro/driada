@@ -1,10 +1,11 @@
-import numpy as np
-import tqdm
-import matplotlib.pyplot as plt
 import warnings
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Fix scipy compatibility issue for ssqueezepy (applied lazily when ssqueezepy is imported)
 import scipy.integrate
+import tqdm
 
 if not hasattr(scipy.integrate, "trapz"):
     scipy.integrate.trapz = scipy.integrate.trapezoid
@@ -16,8 +17,8 @@ if not hasattr(scipy.integrate, "trapz"):
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelmax
 
+from ..utils.data import check_nonnegative, check_positive
 from ..utils.jit import conditional_njit
-from ..utils.data import check_positive, check_nonnegative
 from .wavelet_ridge import Ridge, ridges_to_containers
 
 WVT_EVENT_DETECTION_PARAMS = {
@@ -44,13 +45,14 @@ ORDER_SEC = 0.5  # argrelmax order window in seconds (10 frames @ 20 Hz)
 # Wavelet scale range (physical time coverage for event detection)
 # Values close to legacy np.logspace(2.5, 5.5, 50, base=2) at reference 20 Hz
 MIN_SCALE_TIME_SEC = 0.275  # Minimum event time (5.5 frames @ 20Hz, matches old ~5.66)
-MAX_SCALE_TIME_SEC = 2.25   # Maximum event time (45 frames @ 20Hz, matches old ~45.26)
+MAX_SCALE_TIME_SEC = 2.25  # Maximum event time (45 frames @ 20Hz, matches old ~45.26)
 N_SCALES = 50  # Number of logarithmic scale steps
 REFERENCE_FPS = 20  # Reference fps for scale definitions
 
 
-def get_adaptive_wavelet_scales(fps, min_time_sec=MIN_SCALE_TIME_SEC,
-                                max_time_sec=MAX_SCALE_TIME_SEC, n_scales=N_SCALES):
+def get_adaptive_wavelet_scales(
+    fps, min_time_sec=MIN_SCALE_TIME_SEC, max_time_sec=MAX_SCALE_TIME_SEC, n_scales=N_SCALES
+):
     """Compute FPS-adaptive wavelet scales to maintain physical time coverage.
 
     Scales are proportional to FPS to ensure the same physical time range
@@ -107,38 +109,38 @@ def get_adaptive_wavelet_scales(fps, min_time_sec=MIN_SCALE_TIME_SEC,
 
 def wvt_viz(x, Wx):
     """Visualize signal and its wavelet transform.
-    
+
     Creates a two-panel plot showing the input signal and its wavelet
     transform magnitude.
-    
+
     Parameters
     ----------
     x : array-like of shape (n_samples,)
         Input signal. Must be 1D.
     Wx : ndarray of shape (n_scales, n_time)
         Wavelet transform coefficients. Must have n_time == len(x).
-        
+
     Raises
     ------
     ValueError
         If x is not 1D or Wx shape doesn't match x length.
-        
+
     Notes
     -----
     The wavelet transform is displayed as magnitude (absolute value)
-    using the 'turbo' colormap.    """
+    using the 'turbo' colormap."""
     # Validate inputs
     x = np.asarray(x)
     if x.ndim != 1:
         raise ValueError(f"x must be 1D, got shape {x.shape}")
-    
+
     Wx = np.asarray(Wx)
     if Wx.ndim != 2:
         raise ValueError(f"Wx must be 2D, got shape {Wx.shape}")
-    
+
     if Wx.shape[1] != len(x):
         raise ValueError(f"Wx time dimension ({Wx.shape[1]}) must match x length ({len(x)})")
-    
+
     fig, axs = plt.subplots(2, 1, figsize=(12, 12))
     axs[0].set_xlim(0, len(x))
     axs[0].plot(x, c="b")
@@ -149,12 +151,12 @@ def get_cwt_ridges(
     sig, wavelet=None, fps=20, scmin=150, scmax=250, all_wvt_times=None, wvt_scales=None
 ):
     """Extract ridges from continuous wavelet transform of a signal.
-    
+
     Identifies ridges (connected paths of local maxima across scales) in the
     wavelet transform, which correspond to transient events in the signal.
     Ridges are tracked by connecting maxima at adjacent scales within a time
     window determined by wavelet support.
-    
+
     Parameters
     ----------
     sig : array-like
@@ -172,13 +174,13 @@ def get_cwt_ridges(
         computes them using time_resolution().
     wvt_scales : array-like, optional
         Wavelet scales to use. If None, uses 'log-piecewise' default.
-        
+
     Returns
     -------
     list of Ridge
         All detected ridges. Each Ridge object contains indices, amplitudes,
         scales, and time resolutions along the ridge path.
-        
+
     Raises
     ------
     ValueError
@@ -186,18 +188,18 @@ def get_cwt_ridges(
         If scmin or scmax are negative.
         If scmin >= scmax.
         If sig is not 1-dimensional.
-        
+
     Notes
     -----
     The algorithm processes scales from coarse (scmax) to fine (scmin),
     extending existing ridges when possible and creating new ones for
     unmatched maxima. Ridges are terminated when no maxima fall within
     the expected time window at the next scale.
-    
+
     See Also
     --------
     ~driada.experiment.wavelet_event_detection.get_cwt_ridges_fast : Numba-accelerated version
-    ~driada.experiment.wavelet_ridge.Ridge : Ridge object storing ridge properties    """
+    ~driada.experiment.wavelet_ridge.Ridge : Ridge object storing ridge properties"""
     # Lazy import to avoid loading torch at module import time
     from ssqueezepy import cwt
     from ssqueezepy.wavelets import time_resolution
@@ -207,12 +209,12 @@ def get_cwt_ridges(
     check_nonnegative(scmin=scmin, scmax=scmax)
     if scmin >= scmax:
         raise ValueError(f"scmin ({scmin}) must be less than scmax ({scmax})")
-    
+
     # Validate signal
     sig = np.asarray(sig)
     if sig.ndim != 1:
         raise ValueError(f"sig must be 1D, got shape {sig.shape}")
-    
+
     if wvt_scales is not None:
         scales = wvt_scales
     else:
@@ -243,9 +245,7 @@ def get_cwt_ridges(
         # print(peaks[i, max_inds])
 
         if len(all_ridges) == 0:
-            all_ridges = [
-                Ridge(mi, peaks[i, mi], wvt_scales[si], wvt_time) for mi in max_inds
-            ]
+            all_ridges = [Ridge(mi, peaks[i, mi], wvt_scales[si], wvt_time) for mi in max_inds]
         else:
             # 1. extend old ridges
             prev_wvt_time = all_wvt_times[i - 1]
@@ -278,9 +278,7 @@ def get_cwt_ridges(
                     candidate_values = peaks[i, np.array(candidates)]
                     if len(candidate_values) > 0 and not np.all(np.isnan(candidate_values)):
                         best_cand = candidates[np.argmax(candidate_values)]
-                        ridge.extend(
-                            best_cand, peaks[i, best_cand], wvt_scales[si], wvt_time
-                        )
+                        ridge.extend(best_cand, peaks[i, best_cand], wvt_scales[si], wvt_time)
                         maxima_used_for_prolongation.append(best_cand)
                     else:
                         # No valid candidates, terminate ridge
@@ -304,11 +302,11 @@ def get_cwt_ridges(
 @conditional_njit()
 def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
     """Fast ridge extraction from pre-computed wavelet transform data.
-    
+
     Numba-accelerated version of get_cwt_ridges that operates on pre-computed
     wavelet coefficients and peak locations. Implements the same ridge-tracking
     algorithm but requires pre-processing of the data.
-    
+
     Parameters
     ----------
     wvtdata : ndarray
@@ -322,42 +320,47 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
         of the wavelet at that scale.
     wvt_scales : array-like
         Scale values corresponding to each row in wvtdata.
-        
+
     Returns
     -------
     list of Ridge
         All detected ridges with their properties.
-        
+
     Notes
     -----
     This function is decorated with @conditional_njit for optional JIT
     compilation. The algorithm processes all scales sequentially, extending
     ridges when maxima fall within the expected time window (±wvt_time).
-    
+
     The main differences from get_cwt_ridges:
     - Operates on pre-computed data rather than raw signal
     - Processes all scales rather than a subset
     - Uses list concatenation (+=) for Numba 0.60+ compatibility
-    
+
     See Also
     --------
     ~driada.experiment.wavelet_event_detection.get_cwt_ridges : Original implementation
-    ~driada.experiment.wavelet_event_detection.events_from_trace : High-level function using this for event detection    """
+    ~driada.experiment.wavelet_event_detection.events_from_trace : High-level function using this for event detection
+    """
     # Validate inputs (before JIT compilation)
     wvtdata = np.asarray(wvtdata)
     peaks = np.asarray(peaks)
     wvt_times = np.asarray(wvt_times)
     wvt_scales = np.asarray(wvt_scales)
-    
+
     if wvtdata.ndim != 2:
         raise ValueError(f"wvtdata must be 2D, got shape {wvtdata.shape}")
     if peaks.shape != wvtdata.shape:
         raise ValueError(f"peaks shape {peaks.shape} must match wvtdata shape {wvtdata.shape}")
     if len(wvt_times) != wvtdata.shape[0]:
-        raise ValueError(f"wvt_times length ({len(wvt_times)}) must match number of scales ({wvtdata.shape[0]})")
+        raise ValueError(
+            f"wvt_times length ({len(wvt_times)}) must match number of scales ({wvtdata.shape[0]})"
+        )
     if len(wvt_scales) != wvtdata.shape[0]:
-        raise ValueError(f"wvt_scales length ({len(wvt_scales)}) must match number of scales ({wvtdata.shape[0]})")
-    
+        raise ValueError(
+            f"wvt_scales length ({len(wvt_scales)}) must match number of scales ({wvtdata.shape[0]})"
+        )
+
     # determine peak positions for all scales
 
     start = True
@@ -366,9 +369,7 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
         max_inds = np.nonzero(peaks[si, :])[0]
 
         if start:
-            all_ridges = [
-                Ridge(mi, peaks[si, mi], wvt_scales[si], wvt_time) for mi in max_inds
-            ]
+            all_ridges = [Ridge(mi, peaks[si, mi], wvt_scales[si], wvt_time) for mi in max_inds]
             start = False
         else:
             # 1. extend old ridges
@@ -402,9 +403,7 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
                     candidate_values = peaks[si, np.array(candidates)]
                     if len(candidate_values) > 0 and not np.all(np.isnan(candidate_values)):
                         best_cand = candidates[np.argmax(candidate_values)]
-                        ridge.extend(
-                            best_cand, peaks[si, best_cand], wvt_scales[si], wvt_time
-                        )
+                        ridge.extend(best_cand, peaks[si, best_cand], wvt_scales[si], wvt_time)
                         maxima_used_for_prolongation.append(best_cand)
                     else:
                         # No valid candidates, terminate ridge
@@ -430,11 +429,11 @@ def passing_criterion(
     ridge, scale_length_thr=40, max_scale_thr=10, max_ampl_thr=0.05, max_dur_thr=100
 ):
     """Check if a ridge meets criteria for being a valid event.
-    
+
     Evaluates whether a detected ridge represents a significant calcium
     transient event based on multiple criteria including length, scale,
     amplitude, and duration.
-    
+
     Parameters
     ----------
     ridge : Ridge
@@ -451,19 +450,19 @@ def passing_criterion(
     max_dur_thr : int, default=100
         Maximum allowed duration in frames. Filters out unrealistically
         long events that may be artifacts.
-        
+
     Returns
     -------
     bool
         True if ridge passes all criteria, False otherwise.
-        
+
     Raises
     ------
     TypeError
         If ridge is not a Ridge instance.
     ValueError
         If any threshold parameter is invalid (negative when should be non-negative).
-        
+
     Notes
     -----
     All criteria must be satisfied (AND logic):
@@ -471,17 +470,19 @@ def passing_criterion(
     - ridge.max_scale >= max_scale_thr
     - ridge.max_ampl >= max_ampl_thr
     - ridge.duration <= max_dur_thr
-    
+
     Typical calcium transients have specific scale and duration
-    characteristics that distinguish them from noise or artifacts.    """
+    characteristics that distinguish them from noise or artifacts."""
     # Validate parameters
-    check_nonnegative(scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
+    check_nonnegative(
+        scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr
+    )
     check_positive(max_dur_thr=max_dur_thr)
-    
+
     # Validate ridge type
     if not isinstance(ridge, Ridge):
         raise TypeError(f"ridge must be Ridge instance, got {type(ridge)}")
-    
+
     crit = (
         ridge.length >= scale_length_thr
         and ridge.max_scale >= max_scale_thr
@@ -499,10 +500,10 @@ def get_events_from_ridges(
     max_dur_thr=100,
 ):
     """Extract event start/end times from ridges that pass quality criteria.
-    
+
     Filters a list of detected ridges based on quality criteria and extracts
     the temporal boundaries (start and end indices) of events that pass.
-    
+
     Parameters
     ----------
     all_ridges : list of Ridge
@@ -515,7 +516,7 @@ def get_events_from_ridges(
         Minimum maximum amplitude. See passing_criterion().
     max_dur_thr : int, default=100
         Maximum duration in frames. See passing_criterion().
-        
+
     Returns
     -------
     st_evinds : list of int
@@ -523,26 +524,29 @@ def get_events_from_ridges(
     end_evinds : list of int
         End indices (frame numbers) of events that pass criteria.
         Paired with st_evinds (same length).
-        
+
     Raises
     ------
     TypeError
         If all_ridges is not iterable.
-        
+
     See Also
     --------
     ~driada.experiment.wavelet_event_detection.passing_criterion : Function that evaluates ridge quality
-    ~driada.experiment.wavelet_event_detection.events_from_trace : High-level event detection function    """
+    ~driada.experiment.wavelet_event_detection.events_from_trace : High-level event detection function
+    """
     # Validate parameters
-    check_nonnegative(scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
+    check_nonnegative(
+        scale_length_thr=scale_length_thr, max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr
+    )
     check_positive(max_dur_thr=max_dur_thr)
-    
+
     # Validate ridges
     try:
         iter(all_ridges)
     except TypeError:
         raise TypeError(f"all_ridges must be iterable, got {type(all_ridges)}")
-    
+
     event_ridges = [
         r
         for r in all_ridges
@@ -580,11 +584,11 @@ def events_from_trace(
     max_dur_thr=200,
 ):
     """Detect calcium transient events in a single trace using wavelet ridges.
-    
+
     Complete pipeline for calcium event detection: normalizes signal, applies
     Gaussian smoothing, computes wavelet transform, finds ridges, and filters
     them to identify significant calcium transients.
-    
+
     Parameters
     ----------
     trace : array-like
@@ -610,7 +614,7 @@ def events_from_trace(
         Minimum amplitude threshold. See passing_criterion().
     max_dur_thr : int, default=200
         Maximum duration in frames. See passing_criterion().
-        
+
     Returns
     -------
     all_ridges : list of Ridge
@@ -619,7 +623,7 @@ def events_from_trace(
         Start indices of detected events.
     end_evinds : list of int
         End indices of detected events.
-        
+
     Notes
     -----
     Processing steps:
@@ -629,11 +633,11 @@ def events_from_trace(
     4. Find local maxima across scales
     5. Track ridges connecting maxima
     6. Filter ridges based on quality criteria
-    
+
     The default parameters are tuned for typical calcium imaging at 20 Hz
     with GCaMP-like indicators. May need adjustment for different indicators
     or sampling rates.
-    
+
     Raises
     ------
     ValueError
@@ -641,37 +645,45 @@ def events_from_trace(
         If parameters are invalid or arrays have mismatched lengths.
     TypeError
         If wavelet is not a Wavelet instance.
-        
+
     See Also
     --------
     ~driada.experiment.wavelet_event_detection.extract_wvt_events : Batch processing for multiple neurons
-    ~driada.experiment.wavelet_event_detection.WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary    """
+    ~driada.experiment.wavelet_event_detection.WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary
+    """
     # Lazy import to avoid loading torch at module import time
     from ssqueezepy import cwt
     from ssqueezepy.wavelets import Wavelet
 
     # Validate parameters
     check_positive(fps=fps, max_dur_thr=max_dur_thr)
-    check_nonnegative(sigma=sigma, eps=eps, scale_length_thr=scale_length_thr, 
-                     max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
-    
+    check_nonnegative(
+        sigma=sigma,
+        eps=eps,
+        scale_length_thr=scale_length_thr,
+        max_scale_thr=max_scale_thr,
+        max_ampl_thr=max_ampl_thr,
+    )
+
     # Validate trace
     trace = np.asarray(trace)
     if trace.ndim != 1:
         raise ValueError(f"trace must be 1D, got shape {trace.shape}")
     if trace.size == 0:
         raise ValueError("trace cannot be empty")
-        
+
     # Validate wavelet
     if not isinstance(wavelet, Wavelet):
         raise TypeError(f"wavelet must be Wavelet instance, got {type(wavelet)}")
-        
+
     # Validate scales and times
     manual_scales = np.asarray(manual_scales)
     rel_wvt_times = np.asarray(rel_wvt_times)
     if len(manual_scales) != len(rel_wvt_times):
-        raise ValueError(f"manual_scales and rel_wvt_times must have same length, got {len(manual_scales)} and {len(rel_wvt_times)}")
-    
+        raise ValueError(
+            f"manual_scales and rel_wvt_times must have same length, got {len(manual_scales)} and {len(rel_wvt_times)}"
+        )
+
     # Normalize trace with range check
     trace_min, trace_max = trace.min(), trace.max()
     if trace_max - trace_min == 0:
@@ -699,8 +711,9 @@ def events_from_trace(
     return filtered_ridges, st_evinds, end_evinds
 
 
-def extract_wvt_events(traces, wvt_kwargs, show_progress=None,
-                      wavelet=None, rel_wvt_times=None, use_gpu=False):
+def extract_wvt_events(
+    traces, wvt_kwargs, show_progress=None, wavelet=None, rel_wvt_times=None, use_gpu=False
+):
     """Extract calcium events from multiple traces using wavelet ridge detection.
 
     Detects calcium transient events by finding ridges in the continuous wavelet
@@ -771,14 +784,15 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None,
     Ridge filtering removes noise and artifacts by requiring events to:
     - Persist across multiple scales (scale_length_thr)
     - Have sufficient amplitude (max_ampl_thr)
-    - Have reasonable duration (max_dur_thr)    """
+    - Have reasonable duration (max_dur_thr)"""
     # Lazy import to avoid loading torch at module import time
     from ssqueezepy.wavelets import Wavelet, time_resolution
 
     # Enable GPU acceleration for CWT if requested
     if use_gpu:
         import os
-        os.environ['SSQ_GPU'] = '1'
+
+        os.environ["SSQ_GPU"] = "1"
 
     # Validate inputs
     traces = np.asarray(traces)
@@ -786,10 +800,10 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None,
         raise ValueError(f"traces must be 2D (neurons x time), got shape {traces.shape}")
     if traces.shape[1] == 0:
         raise ValueError("traces cannot be empty (no time points)")
-    
+
     if not isinstance(wvt_kwargs, dict):
         raise TypeError(f"wvt_kwargs must be dict, got {type(wvt_kwargs)}")
-        
+
     # Extract parameters with validation
     fps = wvt_kwargs.get("fps", 20)
     beta = wvt_kwargs.get("beta", 2)
@@ -836,22 +850,24 @@ def extract_wvt_events(traces, wvt_kwargs, show_progress=None,
     else:
         # Default: 2.5 seconds converted to frames at current fps
         max_dur_thr = int(MAX_EVENT_DUR * fps)
-    
+
     # Validate extracted parameters
     check_positive(fps=fps, beta=beta, gamma=gamma, max_dur_thr=max_dur_thr)
-    check_nonnegative(sigma=sigma, eps=eps, scale_length_thr=scale_length_thr,
-                     max_scale_thr=max_scale_thr, max_ampl_thr=max_ampl_thr)
+    check_nonnegative(
+        sigma=sigma,
+        eps=eps,
+        scale_length_thr=scale_length_thr,
+        max_scale_thr=max_scale_thr,
+        max_ampl_thr=max_ampl_thr,
+    )
 
     # Use pre-computed if provided, else create (backward compatible)
     if wavelet is None:
-        wavelet = Wavelet(
-            ("gmw", {"gamma": gamma, "beta": beta, "centered_scale": True}), N=8196
-        )
+        wavelet = Wavelet(("gmw", {"gamma": gamma, "beta": beta, "centered_scale": True}), N=8196)
 
     if rel_wvt_times is None:
         rel_wvt_times = [
-            time_resolution(wavelet, scale=sc, nondim=False, min_decay=200)
-            for sc in manual_scales
+            time_resolution(wavelet, scale=sc, nondim=False, min_decay=200) for sc in manual_scales
         ]
 
     # Auto-detect progress bar visibility: show only for multiple traces
@@ -895,10 +911,10 @@ def events_to_ts_array_numba(
     max_event_dur,
 ):
     """Numba-optimized version of events_to_ts_array.
-    
+
     Low-level implementation for converting event indices to binary time series.
     Uses flattened arrays for compatibility with Numba JIT compilation.
-    
+
     Parameters
     ----------
     length : int
@@ -917,38 +933,42 @@ def events_to_ts_array_numba(
         Minimum event duration in seconds.
     max_event_dur : float
         Maximum event duration in seconds.
-        
+
     Returns
     -------
     np.ndarray
         Binary array of shape (ncells, length) where 1 indicates active event.
-        
+
     Raises
     ------
     ValueError
         If parameters are invalid or array lengths don't match.
-        
+
     Notes
     -----
     Called internally by events_to_ts_array. Event duration constraints are
-    enforced as described in the parent function.    """
+    enforced as described in the parent function."""
     # Note: Parameter validation is done in the wrapper function
     # Cannot use check_positive inside numba-compiled functions
-    
+
     # Validate arrays
     st_ev_inds_flat = np.asarray(st_ev_inds_flat)
     end_ev_inds_flat = np.asarray(end_ev_inds_flat)
     event_counts = np.asarray(event_counts)
-    
+
     if len(st_ev_inds_flat) != len(end_ev_inds_flat):
-        raise ValueError(f"st_ev_inds_flat and end_ev_inds_flat must have same length, got {len(st_ev_inds_flat)} and {len(end_ev_inds_flat)}")
-    
+        raise ValueError(
+            f"st_ev_inds_flat and end_ev_inds_flat must have same length, got {len(st_ev_inds_flat)} and {len(end_ev_inds_flat)}"
+        )
+
     if len(event_counts) != ncells:
         raise ValueError(f"event_counts length ({len(event_counts)}) must equal ncells ({ncells})")
-        
+
     if np.sum(event_counts) != len(st_ev_inds_flat):
-        raise ValueError(f"Sum of event_counts ({np.sum(event_counts)}) must equal length of flattened arrays ({len(st_ev_inds_flat)})")
-    
+        raise ValueError(
+            f"Sum of event_counts ({np.sum(event_counts)}) must equal length of flattened arrays ({len(st_ev_inds_flat)})"
+        )
+
     spikes = np.zeros((ncells, length))
 
     mindur = int(min_event_dur * fps)
@@ -1016,18 +1036,21 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     -----
     Events are adjusted to have durations between MIN_EVENT_DUR (0.5s) and
     MAX_EVENT_DUR (2.5s). Events shorter than minimum are extended from their
-    center, while events longer than maximum are truncated.    """
+    center, while events longer than maximum are truncated."""
     # Validate parameters
     from ..utils.data import check_positive
+
     check_positive(length=length, fps=fps)
-    
+
     # Validate structure
     if not isinstance(st_ev_inds, list) or not isinstance(end_ev_inds, list):
         raise TypeError("st_ev_inds and end_ev_inds must be lists")
-        
+
     if len(st_ev_inds) != len(end_ev_inds):
-        raise ValueError(f"st_ev_inds and end_ev_inds must have same length, got {len(st_ev_inds)} and {len(end_ev_inds)}")
-        
+        raise ValueError(
+            f"st_ev_inds and end_ev_inds must have same length, got {len(st_ev_inds)} and {len(end_ev_inds)}"
+        )
+
     ncells = len(end_ev_inds)
     if ncells == 0:
         raise ValueError("Must have at least one neuron")
@@ -1035,22 +1058,33 @@ def events_to_ts_array(length, st_ev_inds, end_ev_inds, fps):
     # Check that sublists have matching lengths
     for i in range(ncells):
         if len(st_ev_inds[i]) != len(end_ev_inds[i]):
-            raise ValueError(f"Neuron {i}: st_ev_inds and end_ev_inds sublists must have same length, got {len(st_ev_inds[i])} and {len(end_ev_inds[i])}")
-    
+            raise ValueError(
+                f"Neuron {i}: st_ev_inds and end_ev_inds sublists must have same length, got {len(st_ev_inds[i])} and {len(end_ev_inds[i])}"
+            )
+
     # Flatten the jagged arrays for numba
     event_counts = np.array([len(st_ev_inds[i]) for i in range(ncells)])
-    
+
     # Handle case where some neurons have no events
     if np.sum(event_counts) == 0:
         # No events, return zeros
         return np.zeros((ncells, length))
-    
-    st_ev_inds_flat = np.concatenate([st_ev_inds[i] for i in range(ncells) if len(st_ev_inds[i]) > 0])
-    end_ev_inds_flat = np.concatenate([end_ev_inds[i] for i in range(ncells) if len(end_ev_inds[i]) > 0])
+
+    st_ev_inds_flat = np.concatenate(
+        [st_ev_inds[i] for i in range(ncells) if len(st_ev_inds[i]) > 0]
+    )
+    end_ev_inds_flat = np.concatenate(
+        [end_ev_inds[i] for i in range(ncells) if len(end_ev_inds[i]) > 0]
+    )
 
     # Validate parameters before calling numba function
-    check_positive(length=length, ncells=ncells, fps=fps, 
-                  min_event_dur=MIN_EVENT_DUR, max_event_dur=MAX_EVENT_DUR)
+    check_positive(
+        length=length,
+        ncells=ncells,
+        fps=fps,
+        min_event_dur=MIN_EVENT_DUR,
+        max_event_dur=MAX_EVENT_DUR,
+    )
 
     # Call numba function
     return events_to_ts_array_numba(

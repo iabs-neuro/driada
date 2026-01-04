@@ -32,11 +32,12 @@ STATUS: GCMI numerical instability FIXED. CDC limitation documented, workaround 
 
 import numpy as np
 import pytest
+
 from driada.information.info_base import (
     TimeSeries,
     conditional_mi,
-    interaction_information,
     get_mi,
+    interaction_information,
 )
 
 

@@ -2,12 +2,13 @@
 Visualization functions for RSA.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
 from typing import List, Optional, Tuple
+
+import matplotlib.pyplot as plt
+import numpy as np
 from scipy.cluster.hierarchy import dendrogram, linkage
 
-from ..utils.plot import make_beautiful, create_default_figure
+from ..utils.plot import create_default_figure, make_beautiful
 
 
 def plot_rdm(
@@ -48,7 +49,7 @@ def plot_rdm(
     Returns
     -------
     fig : matplotlib.Figure
-        The figure object    """
+        The figure object"""
     n_items = rdm.shape[0]
 
     if labels is None:
@@ -119,9 +120,7 @@ def plot_rdm(
     if show_values and n_items <= 20:  # Only show values for small RDMs
         for i in range(n_items):
             for j in range(n_items):
-                text_color = (
-                    "white" if rdm_ordered[i, j] > np.median(rdm_ordered) else "black"
-                )
+                text_color = "white" if rdm_ordered[i, j] > np.median(rdm_ordered) else "black"
                 ax.text(
                     j,
                     i,
@@ -180,9 +179,9 @@ def plot_rdm_comparison(
     Returns
     -------
     fig : matplotlib.Figure
-        The figure object    """
+        The figure object"""
     n_rdms = len(rdms)
-    
+
     # Validate that all RDMs have the same shape
     if n_rdms > 0:
         first_shape = rdms[0].shape

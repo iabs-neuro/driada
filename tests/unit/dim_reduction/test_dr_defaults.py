@@ -1,8 +1,9 @@
 """Test DR method defaults and simplified API."""
 
-import pytest
 import numpy as np
-from driada.dim_reduction import MVData, METHODS_DICT
+import pytest
+
+from driada.dim_reduction import METHODS_DICT, MVData
 from driada.dim_reduction.dr_base import merge_params_with_defaults
 
 
@@ -45,9 +46,7 @@ class TestMergeParamsWithDefaults:
         params = merge_params_with_defaults("pca", {"dim": 3})
         assert params["e_params"]["dim"] == 3
 
-        params = merge_params_with_defaults(
-            "umap", {"n_neighbors": 30, "min_dist": 0.3}
-        )
+        params = merge_params_with_defaults("umap", {"n_neighbors": 30, "min_dist": 0.3})
         assert params["g_params"]["nn"] == 30
         assert params["e_params"]["min_dist"] == 0.3
 

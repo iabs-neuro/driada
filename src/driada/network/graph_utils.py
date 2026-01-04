@@ -1,6 +1,7 @@
+from copy import deepcopy
+
 import networkx as nx
 import numpy as np
-from copy import deepcopy
 
 
 def get_giant_cc_from_graph(G):
@@ -38,12 +39,10 @@ def get_giant_cc_from_graph(G):
     >>> G = nx.karate_club_graph()
     >>> gcc = get_giant_cc_from_graph(G)
     >>> len(gcc) == len(G)  # Karate club is fully connected
-    True    """
+    True"""
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
     if nx.is_directed(G):
-        connected_components = sorted(
-            nx.weakly_connected_components(G), key=len, reverse=True
-        )
+        connected_components = sorted(nx.weakly_connected_components(G), key=len, reverse=True)
     else:
         connected_components = sorted(nx.connected_components(G), key=len, reverse=True)
     gcc = connected_components[0]
@@ -86,7 +85,7 @@ def get_giant_scc_from_graph(G):
     >>> G = nx.DiGraph([(1, 2), (2, 3), (3, 1), (4, 5)])
     >>> scc = get_giant_scc_from_graph(G)
     >>> sorted(scc.nodes())
-    [1, 2, 3]    """
+    [1, 2, 3]"""
     # for a directed graph, its largest strongly connected component is returned.
     if nx.is_directed(G):
         strongly_connected_components = sorted(
@@ -96,9 +95,7 @@ def get_giant_scc_from_graph(G):
         gcc = strongly_connected_components[0]
 
     else:
-        raise ValueError(
-            "Strongly connected components are meaningless for undirected graphs"
-        )
+        raise ValueError("Strongly connected components are meaningless for undirected graphs")
 
     return nx.subgraph(G, gcc)
 
@@ -131,7 +128,7 @@ def remove_selfloops_from_graph(graph):
     >>> G = nx.Graph([(1, 2), (2, 2), (2, 3)])  # (2, 2) is a self-loop
     >>> G_clean = remove_selfloops_from_graph(G)
     >>> G_clean.number_of_edges()
-    2    """
+    2"""
     g = deepcopy(graph)  # NetworkX graphs are highly nested, deepcopy is safer
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
     g.remove_edges_from(list(nx.selfloop_edges(g)))
@@ -170,7 +167,7 @@ def remove_isolates_and_selfloops_from_graph(graph):
     >>> G.add_node(4)  # Add isolated node
     >>> G_clean = remove_isolates_and_selfloops_from_graph(G)
     >>> sorted(G_clean.nodes())
-    [2, 3]    """
+    [2, 3]"""
     g = deepcopy(graph)  # NetworkX graphs are highly nested, deepcopy is safer
     # this function preserves graph type: nx.Graph --> nx.Graph; nx.DiGraph --> nx.DiGraph
     # First remove self-loops
@@ -208,7 +205,7 @@ def remove_isolates_from_graph(graph):
     >>> G.add_node(4)  # Add isolated node
     >>> G_clean = remove_isolates_from_graph(G)
     >>> sorted(G_clean.nodes())
-    [1, 2, 3]    """
+    [1, 2, 3]"""
     g = deepcopy(graph)  # NetworkX graphs are highly nested, deepcopy is safer
     g.remove_nodes_from(list(nx.isolates(g)))
     return g
@@ -264,7 +261,7 @@ def small_world_index(G, nrand=10, null_model="erdos-renyi"):
     >>> G = nx.watts_strogatz_graph(100, 6, 0.3)  # Small-world network
     >>> sw = small_world_index(G, nrand=5)
     >>> sw > 1  # Should be True for small-world networks
-    True    """
+    True"""
     asp = nx.average_shortest_path_length(G)
     acc = nx.average_clustering(G)
 

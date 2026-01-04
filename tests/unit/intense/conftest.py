@@ -10,11 +10,11 @@ Key optimizations:
 4. Pre-computed correlation patterns
 """
 
-import pytest
 import numpy as np
-from driada.information.info_base import TimeSeries, MultiTimeSeries
-from driada.utils.data import create_correlated_gaussian_data
+import pytest
 
+from driada.information.info_base import MultiTimeSeries, TimeSeries
+from driada.utils.data import create_correlated_gaussian_data
 
 # Cache for expensive computations
 _noise_cache = {}
@@ -64,9 +64,7 @@ def base_correlated_signals_large():
     return signals, n, T
 
 
-def _create_windowed_signals(
-    signals, n, T, w=100, noise_scale=0.02
-):  # Reduced from 0.2
+def _create_windowed_signals(signals, n, T, w=100, noise_scale=0.02):  # Reduced from 0.2
     """Apply windowing and noise to signals."""
     # Create windowed version
     np.random.seed(42)

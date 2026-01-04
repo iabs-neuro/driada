@@ -18,15 +18,16 @@ Usage:
         # Uses balanced configuration
 """
 
-import pytest
 from copy import deepcopy
+
+import pytest
+
 from driada.experiment.synthetic import (
-    generate_circular_manifold_exp,
     generate_2d_manifold_exp,
+    generate_circular_manifold_exp,
     generate_mixed_population_exp,
     generate_synthetic_exp,
 )
-
 
 # Cache for expensive experiment generation
 _experiment_cache = {}
@@ -381,9 +382,7 @@ def large_experiment_for_memory():
     """Large experiment specifically for memory efficiency testing."""
     key = "large_memory"
     if key not in _experiment_cache:
-        _experiment_cache[key] = generate_2d_manifold_exp(
-            n_neurons=64, duration=500, seed=42
-        )
+        _experiment_cache[key] = generate_2d_manifold_exp(n_neurons=64, duration=500, seed=42)
     return _experiment_cache[key]
 
 

@@ -23,31 +23,32 @@ except ImportError:
     # Define dummy decorators
     def njit(*args, **kwargs):
         """Dummy njit decorator when numba is not available.
-        
+
         This function acts as a pass-through decorator that returns
         the original function unchanged when numba is not installed
         or disabled.
-        
+
         Parameters
         ----------
         *args
             Positional arguments (function to decorate if called directly)
         **kwargs
             Keyword arguments (ignored)
-            
+
         Returns
         -------
         function or decorator
             Original function or decorator that returns original function
         """
+
         def decorator(func):
             """Identity decorator that returns function unchanged.
-            
+
             Parameters
             ----------
             func : callable
                 Function to decorate (returned unchanged)
-                
+
             Returns
             -------
             callable
@@ -64,7 +65,7 @@ def conditional_njit(*args, **kwargs):
     """Conditionally apply numba JIT compilation based on environment settings.
 
     If DRIADA_DISABLE_NUMBA environment variable is set to 'true', '1', or 'yes',
-    or if numba is not available, this returns the original function without 
+    or if numba is not available, this returns the original function without
     JIT compilation. Otherwise, applies numba.njit with the given parameters.
 
     Parameters
@@ -80,12 +81,12 @@ def conditional_njit(*args, **kwargs):
     decorator or function
         If called with arguments: returns a decorator function.
         If called on a function directly: returns the (possibly JIT-compiled) function.
-        
+
     Notes
     -----
     This decorator allows DRIADA to gracefully handle environments where Numba
     is not installed or where JIT compilation needs to be disabled for debugging.
-    
+
     The DRIADA_DISABLE_NUMBA environment variable can be set to 'true', '1', or 'yes'
     (case insensitive) to disable JIT compilation globally.
 
@@ -96,17 +97,17 @@ def conditional_njit(*args, **kwargs):
     ...     return x ** 2
 
     With numba parameters::
-    
+
         @conditional_njit(parallel=True)
         def parallel_computation(x):
             return x ** 2
-        
+
     Direct decoration (less common)::
-    
+
         def my_function(x):
             return x ** 3
         fast_func = conditional_njit(my_function)
-    
+
     See Also
     --------
     ~driada.utils.jit.is_jit_enabled :
@@ -118,12 +119,12 @@ def conditional_njit(*args, **kwargs):
         # Return identity decorator
         def decorator(func):
             """Identity decorator that returns function unchanged.
-            
+
             Parameters
             ----------
             func : callable
                 Function to decorate (returned unchanged)
-                
+
             Returns
             -------
             callable
@@ -139,35 +140,35 @@ def conditional_njit(*args, **kwargs):
 
 def is_jit_enabled():
     """Check if JIT compilation is enabled.
-    
+
     Determines whether Numba JIT compilation is available and active
     based on installation status and environment settings.
-    
+
     Returns
     -------
     bool
         True if both conditions are met:
         - Numba is installed and importable
         - DRIADA_DISABLE_NUMBA environment variable is not set to 'true', '1', or 'yes'
-        
+
     Examples
     --------
     >>> is_jit_enabled()  # doctest: +SKIP
     True  # If Numba is installed and not disabled
-    
+
     Disable JIT via environment::
-    
+
         import os
         os.environ['DRIADA_DISABLE_NUMBA'] = '1'
         is_jit_enabled()  # Returns False
-    
+
     Notes
     -----
     JIT compilation significantly speeds up numerical computations but
     may cause issues during debugging. The DRIADA_DISABLE_NUMBA environment
     variable can be set to 'true', '1', or 'yes' (case insensitive) to
     disable JIT when debugging or if encountering Numba-related errors.
-    
+
     See Also
     --------
     ~driada.utils.jit.jit_info :
@@ -180,18 +181,18 @@ def is_jit_enabled():
 
 def jit_info():
     """Print information about JIT compilation status.
-    
+
     Displays comprehensive information about the JIT compilation
     environment, including Numba availability, version, and current
     configuration settings.
-    
+
     Prints
     ------
     - Whether Numba is installed
     - If JIT is disabled via environment variable
     - Overall JIT enabled status
     - Numba version (if available)
-    
+
     Examples
     --------
     >>> jit_info()  # doctest: +SKIP
@@ -199,12 +200,12 @@ def jit_info():
     JIT disabled by environment: False
     JIT enabled: True
     Numba version: 0.60.0
-    
+
     Notes
     -----
     Useful for debugging performance issues or verifying that JIT
     compilation is working as expected in your environment.
-    
+
     See Also
     --------
     ~driada.utils.jit.is_jit_enabled :

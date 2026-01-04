@@ -2,28 +2,30 @@
 Unit tests for manifold metrics module.
 """
 
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 from sklearn.datasets import make_swiss_roll
+
 from driada.dim_reduction.manifold_metrics import (
-    compute_distance_matrix,
-    knn_preservation_rate,
-    trustworthiness,
-    continuity,
-    geodesic_distance_correlation,
-    stress,
-    circular_structure_preservation,
-    procrustes_analysis,
-    manifold_preservation_score,
     circular_distance,
-    extract_angles_from_embedding,
-    compute_reconstruction_error,
-    compute_embedding_alignment_metrics,
-    train_simple_decoder,
-    compute_embedding_quality,
+    circular_structure_preservation,
     compute_decoding_accuracy,
+    compute_distance_matrix,
+    compute_embedding_alignment_metrics,
+    compute_embedding_quality,
+    compute_reconstruction_error,
+    continuity,
+    extract_angles_from_embedding,
+    geodesic_distance_correlation,
+    knn_preservation_rate,
+    manifold_preservation_score,
     manifold_reconstruction_score,
+    procrustes_analysis,
+    stress,
+    train_simple_decoder,
+    trustworthiness,
 )
 
 
@@ -368,9 +370,7 @@ def test_geodesic_distance_correlation_pearson():
     assert -1 <= corr_pearson <= 1
 
     # Compare with Spearman
-    corr_spearman = geodesic_distance_correlation(
-        X, Y, k_neighbors=10, method="spearman"
-    )
+    corr_spearman = geodesic_distance_correlation(X, Y, k_neighbors=10, method="spearman")
     # They should be different but both valid
     assert corr_pearson != corr_spearman
 
@@ -531,9 +531,7 @@ def test_compute_reconstruction_error_circular():
     true_angles = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
     embedding = np.column_stack([np.cos(true_angles), np.sin(true_angles)])
 
-    result = compute_reconstruction_error(
-        embedding, true_angles, manifold_type="circular"
-    )
+    result = compute_reconstruction_error(embedding, true_angles, manifold_type="circular")
     assert result["error"] < 0.01  # Should be very small
     assert result["correlation"] > 0.99  # Should have high correlation
 
@@ -554,9 +552,7 @@ def test_compute_reconstruction_error_spatial():
     true_positions = np.random.randn(50, 2)
 
     # Perfect reconstruction
-    result = compute_reconstruction_error(
-        true_positions, true_positions, manifold_type="spatial"
-    )
+    result = compute_reconstruction_error(true_positions, true_positions, manifold_type="spatial")
     assert result["error"] < 1e-10
     assert result["correlation"] > 0.99
 
@@ -734,15 +730,10 @@ def test_manifold_reconstruction_score_circular():
     scores_good = manifold_reconstruction_score(
         good_embedding, true_angles, manifold_type="circular"
     )
-    scores_bad = manifold_reconstruction_score(
-        bad_embedding, true_angles, manifold_type="circular"
-    )
+    scores_bad = manifold_reconstruction_score(bad_embedding, true_angles, manifold_type="circular")
 
     # Good should be better
-    assert (
-        scores_good["overall_reconstruction_score"]
-        > scores_bad["overall_reconstruction_score"]
-    )
+    assert scores_good["overall_reconstruction_score"] > scores_bad["overall_reconstruction_score"]
     assert scores_good["reconstruction_error"] < scores_bad["reconstruction_error"]
     # Correlation should be better for good reconstruction
     assert scores_good["correlation"] > 0.5
@@ -783,10 +774,7 @@ def test_manifold_reconstruction_score_spatial():
     )
 
     # Good should outperform bad
-    assert (
-        scores_good["overall_reconstruction_score"]
-        > scores_bad["overall_reconstruction_score"]
-    )
+    assert scores_good["overall_reconstruction_score"] > scores_bad["overall_reconstruction_score"]
 
 
 def test_manifold_reconstruction_score_custom_weights():
@@ -911,13 +899,9 @@ def test_compute_embedding_quality_vs_decoding_accuracy():
     embedding += 0.05 * np.random.randn(n_points, 2)
 
     # Compare both methods
-    quality_results = compute_embedding_quality(
-        embedding, true_angles, manifold_type="circular"
-    )
+    quality_results = compute_embedding_quality(embedding, true_angles, manifold_type="circular")
 
-    decoder_results = compute_decoding_accuracy(
-        embedding, true_angles, manifold_type="circular"
-    )
+    decoder_results = compute_decoding_accuracy(embedding, true_angles, manifold_type="circular")
 
     # Embedding quality measures direct angle extraction error
     # Decoder accuracy measures how well a linear model can map embedding to angles

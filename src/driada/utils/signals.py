@@ -14,18 +14,19 @@ filter_signals : Filter multiple signals (2D array)
 adaptive_filter_signals : Adaptively filter based on SNR
 """
 
+from typing import List, Optional, Union
+
 import numpy as np
-from scipy.stats import norm
-from scipy.signal import savgol_filter
-from scipy.ndimage import gaussian_filter1d
 import pywt
-from typing import Optional, Union, List
+from scipy.ndimage import gaussian_filter1d
+from scipy.signal import savgol_filter
+from scipy.stats import norm
 
 try:
-    from .data import check_positive, check_nonnegative
+    from .data import check_nonnegative, check_positive
 except ImportError:
     # For standalone module execution (e.g., doctests)
-    from driada.utils.data import check_positive, check_nonnegative
+    from driada.utils.data import check_nonnegative, check_positive
 
 
 def brownian(
@@ -87,13 +88,13 @@ def brownian(
     >>> # Generate multiple paths with different initial conditions
     >>> paths = brownian([0.0, 1.0, -1.0], 1000, dt=0.01)
     >>> paths.shape
-    (3, 1000)    """
+    (3, 1000)"""
     # Validate inputs
     if not isinstance(n, (int, np.integer)) or n <= 0:
         raise ValueError(f"n must be a positive integer, got {n}")
     check_positive(dt=dt)
     check_nonnegative(delta=delta)
-    
+
     x0 = np.asarray(x0)
 
     # For each element of x0, generate a sample of n numbers from a
@@ -152,7 +153,7 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
     3. Count pattern matches within tolerance r
     4. Calculate the logarithmic frequency of patterns
     5. Return the difference between m and m+1 pattern frequencies
-    
+
     Complexity is O(N²). For long signals consider downsampling.
 
     References
@@ -174,28 +175,28 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
     >>> random_signal = np.random.randn(100)
     >>> apen = approximate_entropy(random_signal, m=2, r=0.2 * np.std(random_signal))
     >>> apen > 0.5  # Typically true for random signals
-    True    """
+    True"""
 
     # Validate inputs
     U = np.asarray(U)
     N = len(U)
-    
+
     if N < m + 2:
         raise ValueError(f"Signal length ({N}) must be >= m + 2 ({m + 2})")
     if m < 1:
         raise ValueError(f"Pattern length m must be >= 1, got {m}")
     check_nonnegative(r=r)
-    
+
     def _maxdist(x_i, x_j):
         """Calculate maximum distance between two patterns.
-        
+
         Parameters
         ----------
         x_i : list
             First pattern of values
         x_j : list
             Second pattern of values
-            
+
         Returns
         -------
         float
@@ -205,12 +206,12 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
 
     def _phi(m):
         """Calculate phi(m) - the logarithmic frequency of patterns.
-        
+
         Parameters
         ----------
         m : int
             Pattern length
-            
+
         Returns
         -------
         float
@@ -233,16 +234,14 @@ def approximate_entropy(U: Union[List, np.ndarray], m: int, r: float) -> float:
             else:
                 # When no patterns match, use a very small probability
                 phi_sum += np.log(1e-10)
-        
+
         return phi_sum / (N - m + 1.0)
 
     # Approximate entropy is the difference between phi(m+1) and phi(m)
     return abs(_phi(m + 1) - _phi(m))
 
 
-def filter_1d_timeseries(
-    data: np.ndarray, method: str = "gaussian", **kwargs
-) -> np.ndarray:
+def filter_1d_timeseries(data: np.ndarray, method: str = "gaussian", **kwargs) -> np.ndarray:
     """
     Filter a 1D time series using various denoising methods.
 
@@ -279,7 +278,7 @@ def filter_1d_timeseries(
     >>> # Create noisy signal
     >>> t = np.linspace(0, 1, 100)
     >>> data = np.sin(2 * np.pi * 5 * t) + 0.2 * np.random.randn(100)
-    
+
     >>> # Gaussian smoothing for general noise reduction
     >>> filtered = filter_1d_timeseries(data, method='gaussian', sigma=1.5)
     >>> filtered.shape
@@ -293,7 +292,7 @@ def filter_1d_timeseries(
     >>> # Wavelet denoising for multi-scale noise removal
     >>> filtered = filter_1d_timeseries(data, method='wavelet', wavelet='db4')
     >>> filtered.shape
-    (100,)    """
+    (100,)"""
     if method == "none":
         return data.copy()
 
@@ -317,10 +316,12 @@ def filter_1d_timeseries(
         # Check if signal is long enough
         if len(data) <= window_length:
             return data.copy()
-        
+
         # Validate polyorder
         if polyorder >= window_length:
-            raise ValueError(f"polyorder ({polyorder}) must be less than window_length ({window_length})")
+            raise ValueError(
+                f"polyorder ({polyorder}) must be less than window_length ({window_length})"
+            )
 
         return savgol_filter(data, window_length, polyorder)
 
@@ -397,16 +398,16 @@ def filter_signals(data: np.ndarray, method: str = "gaussian", **kwargs) -> np.n
     ------
     ValueError
         If unknown method or invalid parameters
-    
+
     Examples
     --------
     >>> # Filter multiple signals
     >>> signals = np.random.randn(10, 1000)  # 10 signals, 1000 points each
     >>> filtered = filter_signals(signals, method='gaussian', sigma=2.0)
-    
+
     >>> # Also works with 1D arrays
     >>> signal = np.random.randn(1000)
-    >>> filtered = filter_signals(signal, method='savgol')    """
+    >>> filtered = filter_signals(signal, method='savgol')"""
     if data.ndim == 1:
         return filter_1d_timeseries(data, method=method, **kwargs)
 
@@ -440,22 +441,22 @@ def adaptive_filter_signals(data: np.ndarray, snr_threshold: float = 2.0) -> np.
 
     Notes
     -----
-    Uses simple binary threshold: strong filtering (sigma=2.0) for 
+    Uses simple binary threshold: strong filtering (sigma=2.0) for
     low SNR, light filtering (sigma=0.5) for high SNR.
-    
+
     Examples
     --------
     >>> # Adaptively filter based on estimated SNR
     >>> signals = np.random.randn(5, 1000)
     >>> filtered = adaptive_filter_signals(signals, snr_threshold=3.0)
-    
+
     >>> # Lower threshold applies stronger filtering to more signals
-    >>> filtered = adaptive_filter_signals(signals, snr_threshold=1.0)    """
+    >>> filtered = adaptive_filter_signals(signals, snr_threshold=1.0)"""
     # Validate inputs
     if data.ndim != 2:
         raise ValueError(f"Data must be 2D, got shape {data.shape}")
     check_positive(snr_threshold=snr_threshold)
-    
+
     filtered_data = np.zeros_like(data)
 
     for i in range(data.shape[0]):

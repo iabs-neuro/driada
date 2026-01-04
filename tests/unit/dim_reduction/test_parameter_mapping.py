@@ -4,9 +4,10 @@ CRITICAL: These tests ensure that ALL parameter aliases and direct
 parameters are correctly mapped to their appropriate locations.
 """
 
-import pytest
 import numpy as np
-from driada.dim_reduction import MVData, METHODS_DICT
+import pytest
+
+from driada.dim_reduction import METHODS_DICT, MVData
 from driada.dim_reduction.dr_base import merge_params_with_defaults
 
 
@@ -85,8 +86,16 @@ class TestParameterMappingIntegration:
 
     def test_all_graph_methods_accept_nn(self, sample_data):
         """Test that ALL graph-based methods accept nn parameter."""
-        graph_methods = ["le", "auto_le", "dmaps", "isomap", "lle",
-                        "ltsa", "hessian_lle", "modified_lle"]
+        graph_methods = [
+            "le",
+            "auto_le",
+            "dmaps",
+            "isomap",
+            "lle",
+            "ltsa",
+            "hessian_lle",
+            "modified_lle",
+        ]
 
         for method in graph_methods:
             if method in METHODS_DICT:
@@ -120,29 +129,19 @@ class TestParameterMappingForAllMethods:
         """Test PCA-specific parameters."""
         emb = mvdata.get_embedding(method="pca", dim=3)
         assert emb.coords.shape[0] == 3
-        
+
         emb = mvdata.get_embedding(method="pca", n_components=4)
         assert emb.coords.shape[0] == 4
 
     def test_umap_parameters(self, mvdata):
         """Test UMAP-specific parameters."""
-        emb = mvdata.get_embedding(
-            method="umap",
-            nn=15,  # Should work now!
-            min_dist=0.5,
-            dim=2
-        )
+        emb = mvdata.get_embedding(method="umap", nn=15, min_dist=0.5, dim=2)  # Should work now!
         assert emb.graph.nn == 15
         assert emb.min_dist == 0.5
 
     def test_tsne_parameters(self, mvdata):
         """Test t-SNE parameters."""
-        emb = mvdata.get_embedding(
-            method="tsne",
-            perplexity=20,
-            n_iter=250,
-            dim=2
-        )
+        emb = mvdata.get_embedding(method="tsne", perplexity=20, n_iter=250, dim=2)
         assert emb.coords.shape[0] == 2
 
     def test_lle_variants(self, mvdata):
@@ -167,14 +166,13 @@ class TestRegressionPrevention:
             ("dmaps", {"k": 10, "t": 5}, 10),
             ("umap", {"nn": 40, "min_dist": 0.3}, 40),
         ]
-        
+
         for method, params, expected_nn in test_cases:
             merged = merge_params_with_defaults(method, params)
             if merged["g_params"] is not None:
                 actual_nn = merged["g_params"]["nn"]
                 assert actual_nn == expected_nn, (
-                    f"{method} with {params} gave nn={actual_nn}, "
-                    f"expected {expected_nn}"
+                    f"{method} with {params} gave nn={actual_nn}, " f"expected {expected_nn}"
                 )
 
     def test_no_silent_parameter_loss(self):
@@ -188,9 +186,9 @@ class TestRegressionPrevention:
             "sigma": 2.0,
             "dim": 3,
         }
-        
+
         merged = merge_params_with_defaults("le", params)
-        
+
         # Verify each parameter ended up in the right place
         assert merged["g_params"]["nn"] == 30
         assert merged["g_params"]["weighted"] == 1

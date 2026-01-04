@@ -2,7 +2,8 @@
 
 import numpy as np
 import pytest
-from driada.information.info_base import TimeSeries, MultiTimeSeries
+
+from driada.information.info_base import MultiTimeSeries, TimeSeries
 
 
 class TestMultiTimeSeriesInitialization:
@@ -73,9 +74,7 @@ class TestMultiTimeSeriesInitialization:
             TimeSeries(np.random.randn(80), discrete=False),  # Different length
         ]
 
-        with pytest.raises(
-            ValueError, match="All TimeSeries must have the same length"
-        ):
+        with pytest.raises(ValueError, match="All TimeSeries must have the same length"):
             MultiTimeSeries(ts_list)
 
     def test_init_mixed_types_error(self):
@@ -240,9 +239,7 @@ class TestMultiTimeSeriesEntropy:
         data3 = np.random.randint(0, 4, size=(3, 200))
         mts3 = MultiTimeSeries(data3, discrete=True, allow_zero_columns=True)
 
-        with pytest.raises(
-            NotImplementedError, match="Joint entropy for 3 discrete variables"
-        ):
+        with pytest.raises(NotImplementedError, match="Joint entropy for 3 discrete variables"):
             h3 = mts3.get_entropy()
 
 
@@ -296,9 +293,7 @@ class TestMultiTimeSeriesFilter:
         data = np.random.randn(3, 100)
         # Labels should be for points, not dimensions
         labels = np.arange(100)
-        mts = MultiTimeSeries(
-            data, labels=labels, data_name="test_data", discrete=False
-        )
+        mts = MultiTimeSeries(data, labels=labels, data_name="test_data", discrete=False)
 
         filtered = mts.filter(method="gaussian")
 

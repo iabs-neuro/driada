@@ -4,8 +4,9 @@ Provides functions for creating publication-quality figures with
 consistent styling.
 """
 
+from typing import Any, Optional, Tuple
+
 import matplotlib.pyplot as plt
-from typing import Optional, Tuple, Any
 import numpy as np
 
 
@@ -22,13 +23,13 @@ def make_beautiful(
     dpi: Optional[int] = None,
     lowercase_labels: bool = True,
     legend_frameon: bool = False,
-    legend_loc: str = 'auto',
+    legend_loc: str = "auto",
     legend_offset: float = 0.15,
     legend_ncol: Optional[int] = None,
     tight_layout: bool = True,
     remove_origin_tick: bool = False,
     panel_size: Optional[Tuple[float, float]] = None,
-    panel_units: str = 'cm',
+    panel_units: str = "cm",
     style: Optional[Any] = None,
 ):
     """Apply publication-quality styling to a matplotlib axis with optional auto-scaling.
@@ -91,7 +92,7 @@ def make_beautiful(
     -------
     matplotlib.axes.Axes
         The styled axis.
-        
+
     Notes
     -----
     This function applies a consistent publication-quality style to matplotlib
@@ -100,9 +101,9 @@ def make_beautiful(
     - Setting spine and tick widths
     - Configuring font sizes for all text elements
     - Setting figure DPI if requested
-    
+
     The function modifies the axis in-place and returns it for convenience.
-    
+
     Examples
     --------
     >>> import matplotlib.pyplot as plt
@@ -110,12 +111,12 @@ def make_beautiful(
     >>> _ = ax.plot([1, 2, 3], [1, 4, 9])
     >>> _ = make_beautiful(ax)  # Apply styling
     >>> plt.show()
-    
+
     >>> # With custom styling
     >>> fig, ax = plt.subplots()
     >>> _ = ax.plot([1, 2, 3], [1, 4, 9])
     >>> _ = make_beautiful(ax, spine_width=2, tick_labelsize=14)
-    
+
     See Also
     --------
     ~driada.utils.plot.create_default_figure :
@@ -136,17 +137,27 @@ def make_beautiful(
         # Handle additional options not covered by StylePreset
 
         # Legend positioning (StylePreset handles basic legend styling)
-        if ax.legend_ is not None and legend_loc in ['above', 'below']:
+        if ax.legend_ is not None and legend_loc in ["above", "below"]:
             # Determine number of columns
             ncol = legend_ncol if legend_ncol is not None else len(ax.legend_.get_texts())
-            if legend_loc == 'above':
-                ax.legend(bbox_to_anchor=(0.5, 1 + legend_offset), loc='lower center',
-                         ncol=ncol, frameon=style.legend_frameon,
-                         fontsize=style.base_legend_fontsize, borderaxespad=0.0)
+            if legend_loc == "above":
+                ax.legend(
+                    bbox_to_anchor=(0.5, 1 + legend_offset),
+                    loc="lower center",
+                    ncol=ncol,
+                    frameon=style.legend_frameon,
+                    fontsize=style.base_legend_fontsize,
+                    borderaxespad=0.0,
+                )
             else:  # below
-                ax.legend(bbox_to_anchor=(0.5, -legend_offset), loc='upper center',
-                         ncol=ncol, frameon=style.legend_frameon,
-                         fontsize=style.base_legend_fontsize, borderaxespad=0.0)
+                ax.legend(
+                    bbox_to_anchor=(0.5, -legend_offset),
+                    loc="upper center",
+                    ncol=ncol,
+                    frameon=style.legend_frameon,
+                    fontsize=style.base_legend_fontsize,
+                    borderaxespad=0.0,
+                )
 
         # Remove tick at origin if requested
         if remove_origin_tick:
@@ -162,7 +173,7 @@ def make_beautiful(
         # Tight layout
         if tight_layout:
             ax.margins(x=0, y=0)
-            ax.autoscale(enable=True, axis='both', tight=True)
+            ax.autoscale(enable=True, axis="both", tight=True)
 
         # Set DPI if provided
         if dpi is not None:
@@ -237,7 +248,7 @@ def make_beautiful(
     if ax.legend_:
         # Determine number of columns for legend
         if legend_ncol is None:
-            if legend_loc in ['above', 'below']:
+            if legend_loc in ["above", "below"]:
                 # Default to single row for above/below
                 legend_ncol = len(ax.legend_.get_texts())
             else:
@@ -245,26 +256,34 @@ def make_beautiful(
                 legend_ncol = 1
 
         # Handle legend positioning
-        if legend_loc == 'above':
+        if legend_loc == "above":
             # Place legend above the plot
-            ax.legend(bbox_to_anchor=(0.5, 1 + legend_offset), loc='lower center',
-                     ncol=legend_ncol,
-                     frameon=legend_frameon,
-                     fontsize=legend_fontsize,
-                     borderaxespad=0.0)
-        elif legend_loc == 'below':
+            ax.legend(
+                bbox_to_anchor=(0.5, 1 + legend_offset),
+                loc="lower center",
+                ncol=legend_ncol,
+                frameon=legend_frameon,
+                fontsize=legend_fontsize,
+                borderaxespad=0.0,
+            )
+        elif legend_loc == "below":
             # Place legend below the plot
-            ax.legend(bbox_to_anchor=(0.5, -legend_offset), loc='upper center',
-                     ncol=legend_ncol,
-                     frameon=legend_frameon,
-                     fontsize=legend_fontsize,
-                     borderaxespad=0.0)
-        elif legend_loc == 'auto':
+            ax.legend(
+                bbox_to_anchor=(0.5, -legend_offset),
+                loc="upper center",
+                ncol=legend_ncol,
+                frameon=legend_frameon,
+                fontsize=legend_fontsize,
+                borderaxespad=0.0,
+            )
+        elif legend_loc == "auto":
             # Use matplotlib's automatic placement
             ax.legend(frameon=legend_frameon, fontsize=legend_fontsize, ncol=legend_ncol)
         else:
             # Use specified matplotlib location
-            ax.legend(loc=legend_loc, frameon=legend_frameon, fontsize=legend_fontsize, ncol=legend_ncol)
+            ax.legend(
+                loc=legend_loc, frameon=legend_frameon, fontsize=legend_fontsize, ncol=legend_ncol
+            )
 
         # Apply lowercase to legend text if needed
         if lowercase_labels and ax.legend_:
@@ -274,7 +293,7 @@ def make_beautiful(
     # Remove extra margins on x and y axes
     if tight_layout:
         ax.margins(x=0, y=0)
-        ax.autoscale(enable=True, axis='both', tight=True)
+        ax.autoscale(enable=True, axis="both", tight=True)
 
     # Remove tick at origin (axis intersection) if requested
     if remove_origin_tick:
@@ -332,26 +351,26 @@ def create_default_figure(
     axes : matplotlib.axes.Axes or array of Axes
         The styled axis/axes. If nrows=ncols=1 and squeeze=True, returns single Axes.
         Otherwise returns array of Axes.
-        
+
     Notes
     -----
     This is a convenience function that combines matplotlib's subplots() with
     automatic application of publication-quality styling via make_beautiful().
     All axes in the figure receive the same styling.
-    
+
     Examples
     --------
     >>> # Single subplot with default styling
     >>> fig, ax = create_default_figure()
     >>> _ = ax.plot([1, 2, 3], [1, 4, 9])
     >>> plt.show()
-    
+
     >>> # Multiple subplots with custom styling
     >>> fig, axes = create_default_figure(nrows=2, ncols=2, figsize=(20, 16),
     ...                                   spine_width=2, tick_labelsize=14)
     >>> for ax in axes.flat:
     ...     _ = ax.plot(np.random.randn(100))
-    
+
     See Also
     --------
     ~driada.utils.plot.make_beautiful :
@@ -412,21 +431,21 @@ def plot_mat(
         The figure (None if ax was provided).
     ax : matplotlib.axes.Axes
         The axis with the plot.
-        
+
     Raises
     ------
     ValueError
         If mat is not a 2D array.
-        
+
     Notes
     -----
     This function is a convenience wrapper around matplotlib's imshow for
     visualizing 2D matrices. It handles figure creation and colorbar addition
     automatically.
-    
+
     The function returns both figure and axis to allow further customization.
     If an existing axis is provided, the figure return value will be None.
-    
+
     Examples
     --------
     >>> # Plot a random matrix
@@ -434,19 +453,19 @@ def plot_mat(
     >>> fig, ax = plot_mat(mat)
     >>> _ = ax.set_title('Random Matrix')
     >>> plt.show()
-    
+
     >>> # Plot on existing axis without colorbar
     >>> fig, ax = plt.subplots()
     >>> _, ax = plot_mat(mat, ax=ax, with_cbar=False, cmap='coolwarm')
-    
+
     See Also
     --------
     matplotlib.pyplot.imshow : Base function for displaying images.
-    matplotlib.pyplot.colorbar : Function for adding colorbars.    """
+    matplotlib.pyplot.colorbar : Function for adding colorbars."""
     # Validate input
     if mat.ndim != 2:
         raise ValueError(f"mat must be a 2D array, got {mat.ndim}D array")
-    
+
     fig = None
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)

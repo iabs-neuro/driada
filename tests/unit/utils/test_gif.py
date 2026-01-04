@@ -2,9 +2,11 @@
 
 import os
 import tempfile
+
 import matplotlib.pyplot as plt
 import numpy as np
-from driada.utils.gif import erase_all, save_image_series, create_gif_from_image_series
+
+from driada.utils.gif import create_gif_from_image_series, erase_all, save_image_series
 
 
 class TestEraseAll:

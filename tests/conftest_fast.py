@@ -3,9 +3,10 @@ Optimized test configuration for fast test execution.
 """
 
 import os
-import pytest
-import numpy as np
 from functools import lru_cache
+
+import numpy as np
+import pytest
 
 
 @pytest.fixture(scope="session")
@@ -80,9 +81,7 @@ def cached_test_data():
             if n > 5:
                 C[5, n - 5] = C[n - 5, 5] = 0.7
 
-            signals = np.random.multivariate_normal(
-                np.zeros(n), C, size=T, check_valid="raise"
-            ).T
+            signals = np.random.multivariate_normal(np.zeros(n), C, size=T, check_valid="raise").T
             cache[key] = signals
         return cache[key]
 
@@ -92,7 +91,7 @@ def cached_test_data():
 @pytest.fixture
 def numba_precompile():
     """Precompile numba functions to avoid JIT overhead in tests."""
-    from driada.information.gcmi import ent_g, mi_gg, mi_model_gd, demean
+    from driada.information.gcmi import demean, ent_g, mi_gg, mi_model_gd
     from driada.information.info_utils import py_fast_digamma_arr
 
     # Trigger compilation with small data
@@ -136,9 +135,7 @@ def pytest_configure(config):
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
-    config.addinivalue_line(
-        "markers", "performance: marks tests that measure performance"
-    )
+    config.addinivalue_line("markers", "performance: marks tests that measure performance")
 
     # Set parallel execution by default
     if not hasattr(config.option, "numprocesses"):

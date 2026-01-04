@@ -2,8 +2,9 @@
 
 import numpy as np
 from numba import njit
-from driada.dim_reduction.graph import ProximityGraph
+
 from driada.dim_reduction.dr_base import m_param_filter
+from driada.dim_reduction.graph import ProximityGraph
 
 
 @njit

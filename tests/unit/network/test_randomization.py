@@ -5,26 +5,28 @@ These tests ensure all randomization methods work correctly and preserve
 required graph properties.
 """
 
-import pytest
-import numpy as np
-import scipy.sparse as sp
-import networkx as nx
 import logging
 
+import networkx as nx
+import numpy as np
+import pytest
+import scipy.sparse as sp
+
+from driada.network.randomization import random_rewiring_IOM_preserving  # Testing deprecation
 from driada.network.randomization import (
+    _validate_adjacency_matrix,
     adj_random_rewiring_iom_preserving,
+    get_single_double_edges_lists,
     random_rewiring_complete_graph,
     random_rewiring_dense_graph,
-    get_single_double_edges_lists,
     randomize_graph,
-    _validate_adjacency_matrix,
-    random_rewiring_IOM_preserving,  # Testing deprecation
 )
+
 from .graph_fixtures import (
-    create_standard_graph,
     create_complete_graph,
     create_dense_graph,
     create_networkx_graph,
+    create_standard_graph,
 )
 
 
@@ -270,9 +272,7 @@ class TestDenseGraphRandomization:
         logger = logging.getLogger("test")
 
         with caplog.at_level(logging.DEBUG):
-            result = random_rewiring_dense_graph(
-                dense_graph, logger=logger, gap_fill_weight=0.001
-            )
+            result = random_rewiring_dense_graph(dense_graph, logger=logger, gap_fill_weight=0.001)
 
         assert "using gap filling" in caplog.text
 
@@ -330,9 +330,7 @@ class TestUnifiedAPI:
 
     def test_unified_iom(self, test_graph):
         """Test unified API with IOM method."""
-        result = randomize_graph(
-            test_graph, method="iom", iterations=5, random_state=42
-        )
+        result = randomize_graph(test_graph, method="iom", iterations=5, random_state=42)
 
         assert sp.issparse(result)
         assert result.shape == test_graph.shape
@@ -350,9 +348,7 @@ class TestUnifiedAPI:
         """Test unified API with dense method."""
         dense = create_dense_graph(n=10, completeness=0.85)
 
-        result = randomize_graph(
-            dense, method="dense", gap_fill_weight=0.01, random_state=42
-        )
+        result = randomize_graph(dense, method="dense", gap_fill_weight=0.01, random_state=42)
 
         assert isinstance(result, np.ndarray)
         assert result.shape == dense.shape
@@ -367,9 +363,7 @@ class TestUnifiedAPI:
         logger = logging.getLogger("test")
 
         with caplog.at_level(logging.INFO):
-            randomize_graph(
-                test_graph, method="iom", logger=logger, enable_progressbar=False
-            )
+            randomize_graph(test_graph, method="iom", logger=logger, enable_progressbar=False)
 
         assert "randomization" in caplog.text.lower()
 
@@ -405,9 +399,7 @@ class TestEdgeCases:
         # Add self-loops
         np.fill_diagonal(adj, 1)
 
-        result = adj_random_rewiring_iom_preserving(
-            sp.csr_matrix(adj), is_weighted=False, r=5
-        )
+        result = adj_random_rewiring_iom_preserving(sp.csr_matrix(adj), is_weighted=False, r=5)
 
         # Check diagonal remains same
         result_array = result.toarray()

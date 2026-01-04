@@ -6,8 +6,8 @@ based on the statistics of nearest neighbor distances.
 """
 
 import numpy as np
-from sklearn.neighbors import NearestNeighbors
 import pynndescent
+from sklearn.neighbors import NearestNeighbors
 
 
 def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None):
@@ -15,18 +15,18 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     Estimate intrinsic dimension using the k-NN algorithm.
 
     This method estimates the intrinsic dimensionality by analyzing the ratios
-    of distances to successive nearest neighbors using maximum likelihood 
-    estimation. When k=2, this implements the TWO-NN algorithm [1], where 
-    "TWO" refers to using the 1st and 2nd nearest neighbors to compute 
+    of distances to successive nearest neighbors using maximum likelihood
+    estimation. When k=2, this implements the TWO-NN algorithm [1], where
+    "TWO" refers to using the 1st and 2nd nearest neighbors to compute
     distance ratios.
 
     The algorithm works by:
-    1. For each point, computing the ratio r_i = d_2 / d_1 (for k=2), where 
+    1. For each point, computing the ratio r_i = d_2 / d_1 (for k=2), where
        d_1 and d_2 are distances to the 1st and 2nd nearest neighbors
-    2. Using maximum likelihood to estimate dimension from the distribution 
-       of these ratios, which follows a specific form dependent on the 
+    2. Using maximum likelihood to estimate dimension from the distribution
+       of these ratios, which follows a specific form dependent on the
        intrinsic dimension
-    3. For k>2, extending to use multiple successive neighbor ratios 
+    3. For k>2, extending to use multiple successive neighbor ratios
        (d_2/d_1, d_3/d_2, ..., d_k/d_{k-1}) for more robust estimation
 
     Parameters
@@ -74,12 +74,12 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     --------
     >>> import numpy as np
     >>> from driada.dimensionality.intrinsic import nn_dimension
-    >>> 
+    >>>
     >>> # Example 1: Clean low-dimensional data
     >>> np.random.seed(42)
     >>> # Generate 2D Swiss roll
     >>> n = 1000
-    >>> t = 1.5 * np.pi * (1 + 2 * np.random.rand(n))  
+    >>> t = 1.5 * np.pi * (1 + 2 * np.random.rand(n))
     >>> height = 30 * np.random.rand(n)
     >>> X = np.zeros((n, 3))
     >>> X[:, 0] = t * np.cos(t)
@@ -88,12 +88,12 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     >>> d_est = nn_dimension(X, k=10)
     >>> print(f"Swiss roll (true dim=2): {d_est:.2f}")
     Swiss roll (true dim=2): 1.94
-    >>> 
+    >>>
     >>> # Example 2: Impact of ambient noise
     >>> # The TWO-NN estimator (k=2) can overestimate dimension when data
     >>> # has noise in ambient dimensions. This is because noise affects
     >>> # the ratios of nearest neighbor distances.
-    >>> 
+    >>>
     >>> # Pure 2D data: accurate estimate
     >>> theta = np.random.uniform(0, 2*np.pi, 1000)
     >>> r = np.sqrt(np.random.uniform(0, 1, 1000))  # Uniform distribution on disk
@@ -101,7 +101,7 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     >>> d_est = nn_dimension(data_2d, k=2)
     >>> print(f"Pure 2D disk: {d_est:.2f}")
     Pure 2D disk: 2.01
-    >>> 
+    >>>
     >>> # Same data with small noise in extra dimensions: overestimates
     >>> # This happens because even small noise changes neighbor relationships
     >>> noise = 0.01 * np.random.randn(1000, 8)
@@ -109,16 +109,16 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     >>> d_est = nn_dimension(data_10d, k=2)
     >>> print(f"2D disk in 10D with noise: {d_est:.2f}")  # Overestimates due to noise
     2D disk in 10D with noise: 4.73
-    >>> 
+    >>>
     >>> # For noisy high-dimensional data:
     >>> # 1. Use higher k values (more robust but may underestimate)
     >>> # 2. Consider denoising or PCA preprocessing
     >>> # 3. Use alternative methods like correlation_dimension
-    
+
     Raises
     ------
     ValueError
-        If inputs are invalid, sample size too small, or duplicate points exist.    """
+        If inputs are invalid, sample size too small, or duplicate points exist."""
     # Validate inputs
     if data is None and precomputed_graph is None:
         raise ValueError("Either data or precomputed_graph must be provided")
@@ -157,9 +157,7 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
         n_samples = len(data)
 
         if n_samples <= k:
-            raise ValueError(
-                f"Number of samples ({n_samples}) must be greater than k ({k})"
-            )
+            raise ValueError(f"Number of samples ({n_samples}) must be greater than k ({k})")
 
         # Compute nearest neighbor distances
         if graph_method == "sklearn":
@@ -231,12 +229,12 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     -------
     dimension : float
         The estimated correlation dimension. Returns NaN if estimation fails.
-        
+
     Raises
     ------
     ValueError
         If data has fewer than 2 samples or invalid parameters.
-        
+
     Notes
     -----
     This method has O(n²) memory complexity. For datasets with more than
@@ -246,19 +244,19 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     ----------
     Grassberger, P., & Procaccia, I. (1983). Characterization of strange
     attractors. Physical Review Letters, 50(5), 346.
-    
+
     Examples
     --------
     >>> import numpy as np
     >>> from driada.dimensionality import correlation_dimension
-    >>> 
+    >>>
     >>> # Generate points on a 2D circle embedded in 3D
     >>> t = np.linspace(0, 2*np.pi, 500)
     >>> data = np.column_stack([np.cos(t), np.sin(t), np.zeros_like(t)])
     >>> d_est = correlation_dimension(data, n_bins=15)
     >>> print(f"Correlation dimension: {d_est:.2f}")  # Should be close to 1
     Correlation dimension: 1.07
-    >>> 
+    >>>
     >>> # For noisy data, specify scaling range
     >>> np.random.seed(42)  # For reproducible results
     >>> noisy_data = data + 0.01 * np.random.randn(*data.shape)
@@ -267,27 +265,28 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     Correlation dimension: 1.09
     """
     from scipy.spatial.distance import pdist
-    
+
     data = np.asarray(data)
     n_samples = len(data)
-    
+
     if n_samples < 2:
         raise ValueError(f"Need at least 2 samples, got {n_samples}")
-    
+
     # Warn about memory usage for large datasets
     if n_samples > 10000:
         import warnings
+
         warnings.warn(
             f"Computing pairwise distances for {n_samples} samples requires "
             f"~{n_samples * (n_samples - 1) * 8 / 2e9:.1f} GB of memory. "
             "Consider using a subsample for large datasets.",
-            RuntimeWarning
+            RuntimeWarning,
         )
 
     # Compute pairwise distances
     distances = pdist(data)
     distances = distances[distances > 0]  # Remove zero distances
-    
+
     if len(distances) == 0:
         raise ValueError("All points are identical")
 
@@ -295,7 +294,7 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
         r_min = np.percentile(distances, 1)
     if r_max is None:
         r_max = np.percentile(distances, 50)
-    
+
     if r_min <= 0:
         raise ValueError(f"r_min must be positive, got {r_min}")
     if r_max <= r_min:
@@ -330,9 +329,7 @@ def correlation_dimension(data, r_min=None, r_max=None, n_bins=20):
     return dimension
 
 
-def geodesic_dimension(
-    data=None, graph=None, k=15, mode="full", factor=2, dim_step=0.1
-):
+def geodesic_dimension(data=None, graph=None, k=15, mode="full", factor=2, dim_step=0.1):
     """
     Estimate intrinsic dimension using geodesic distances (De Granata et al. 2016).
 
@@ -404,13 +401,13 @@ def geodesic_dimension(
     >>> d_est = geodesic_dimension(data, k=15)
     >>> print(f"Estimated dimension: {d_est:.2f}")  # Should be close to 2
     Estimated dimension: 1.90
-    
+
     Raises
     ------
     ValueError
         If inputs are invalid or graph is too disconnected.
     RuntimeWarning
-        If graph is disconnected (infinite distances found).    """
+        If graph is disconnected (infinite distances found)."""
     import scipy.sparse as sp
     from scipy.sparse.csgraph import shortest_path
     from sklearn.neighbors import kneighbors_graph
@@ -427,9 +424,7 @@ def geodesic_dimension(
         n_samples = len(data)
 
         # Build k-NN graph with distances
-        graph = kneighbors_graph(
-            data, n_neighbors=k, mode="distance", include_self=False
-        )
+        graph = kneighbors_graph(data, n_neighbors=k, mode="distance", include_self=False)
         # Make symmetric by taking minimum distance
         graph_min = graph.minimum(graph.T)
         graph = sp.csr_matrix(graph_min)
@@ -479,7 +474,7 @@ def geodesic_dimension(
     # Find maximum of distribution
     dmax_idx = np.argmax(hist)
     dmax = bin_centers[dmax_idx]
-    
+
     if dmax == 0:
         raise ValueError(
             "Maximum of distance distribution is at 0. "
@@ -492,11 +487,7 @@ def geodesic_dimension(
 
     # Analyze left side of distribution near maximum
     std_norm = np.std(all_dists / dmax)
-    mask = (
-        (bin_centers_norm > 1 - 2 * std_norm)
-        & (bin_centers_norm <= 1)
-        & (hist_norm > 1e-6)
-    )
+    mask = (bin_centers_norm > 1 - 2 * std_norm) & (bin_centers_norm <= 1) & (hist_norm > 1e-6)
     x_left = bin_centers_norm[mask]
     y_left = np.log(hist_norm[mask] / np.max(hist_norm))  # Natural log, not log10
 
@@ -507,22 +498,22 @@ def geodesic_dimension(
         Based on Granata & Carnevale 2016 paper, the distribution of geodesic
         distances near the maximum follows: (D-1) * log(sin(x * pi/2))
         where x is the normalized distance and D is the intrinsic dimension.
-        
+
         The paper shows that for a D-dimensional hypersphere, the probability
         distribution is proportional to sin^(D-1)(π*r/(2*r_max)), which gives
         log P(r) ~ (D-1) * log(sin(π*r/(2*r_max))) when taking the logarithm.
-        
+
         Parameters
         ----------
         x : array_like
             Normalized distances (should be in range [0, 1]).
         D : float
             Candidate intrinsic dimension.
-            
+
         Returns
         -------
         array_like
-            Log probability values for the theoretical distribution.        """
+            Log probability values for the theoretical distribution."""
         # Clip x to valid domain for sin
         x_clipped = np.clip(x, 1e-10, 1 - 1e-10)
         return (D - 1) * np.log(np.sin(x_clipped * np.pi / 2))

@@ -1,22 +1,23 @@
-import networkx as nx
-import numpy as np
-import scipy.sparse as sp
-import pytest
 from unittest.mock import patch
 
-from driada.network.net_base import (
-    Network,
-    check_matrix_type,
-    check_adjacency,
-    check_directed,
-    check_weights_and_directions,
-    calculate_directionality_fraction,
-    select_construction_pipeline,
-    UNDIR_MATRIX_TYPES,
-    DIR_MATRIX_TYPES,
-)
+import networkx as nx
+import numpy as np
+import pytest
+import scipy.sparse as sp
+
 from driada.network.graph_utils import get_giant_scc_from_graph
 from driada.network.matrix_utils import turn_to_partially_directed
+from driada.network.net_base import (
+    DIR_MATRIX_TYPES,
+    UNDIR_MATRIX_TYPES,
+    Network,
+    calculate_directionality_fraction,
+    check_adjacency,
+    check_directed,
+    check_matrix_type,
+    check_weights_and_directions,
+    select_construction_pipeline,
+)
 
 
 def create_default_adj(directed=False):
@@ -139,12 +140,12 @@ def test_assign_random_weights():
 def test_matrix_utils_edge_cases():
     """Test edge cases in matrix utility functions."""
     from driada.network.matrix_utils import (
-        symmetric_component,
+        adj_input_to_csr_sparse_matrix,
+        get_norm_laplacian,
         non_symmetric_component,
         remove_duplicates,
-        adj_input_to_csr_sparse_matrix,
         remove_selfloops_from_adj,
-        get_norm_laplacian,
+        symmetric_component,
     )
 
     # Test symmetric component
@@ -312,9 +313,7 @@ class TestHelperFunctions:
         """Test check_weights_and_directions function."""
         # Create symmetric unweighted matrix
         A_sym = sp.csr_matrix([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
-        check_weights_and_directions(
-            A_sym, weighted=False, directed=False
-        )  # Should pass
+        check_weights_and_directions(A_sym, weighted=False, directed=False)  # Should pass
 
         # Test mismatch - symmetric matrix but directed=True
         with pytest.raises(ValueError, match="the adjacency matrix is symmetric"):
@@ -322,9 +321,7 @@ class TestHelperFunctions:
 
         # Create asymmetric matrix
         A_asym = sp.csr_matrix([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
-        check_weights_and_directions(
-            A_asym, weighted=False, directed=True
-        )  # Should pass
+        check_weights_and_directions(A_asym, weighted=False, directed=True)  # Should pass
 
         # Test mismatch - asymmetric matrix but directed=False
         with pytest.raises(ValueError, match="the adjacency matrix is asymmetric"):
@@ -332,9 +329,7 @@ class TestHelperFunctions:
 
         # Create weighted matrix
         A_weighted = sp.csr_matrix([[0, 2.5, 1.5], [2.5, 0, 3.0], [1.5, 3.0, 0]])
-        check_weights_and_directions(
-            A_weighted, weighted=True, directed=False
-        )  # Should pass
+        check_weights_and_directions(A_weighted, weighted=True, directed=False)  # Should pass
 
         # Test mismatch - weighted matrix but weighted=False
         with pytest.raises(ValueError, match="the adjacency matrix is weighted"):
@@ -355,24 +350,18 @@ class TestHelperFunctions:
         assert directionality == 0.0  # Undirected graph
 
         # Test with neither
-        with pytest.raises(
-            ValueError, match='Either "adj" or "graph" argument must be non-empty'
-        ):
+        with pytest.raises(ValueError, match='Either "adj" or "graph" argument must be non-empty'):
             select_construction_pipeline(None, None)
 
         # Test with both
-        with pytest.raises(
-            ValueError, match='Either "adj" or "graph" should be given, not both'
-        ):
+        with pytest.raises(ValueError, match='Either "adj" or "graph" should be given, not both'):
             select_construction_pipeline(A, G)
 
         # Test with unsupported graph type
         class CustomGraph:
             pass
 
-        with pytest.raises(
-            TypeError, match="graph should have one of supported graph types"
-        ):
+        with pytest.raises(TypeError, match="graph should have one of supported graph types"):
             select_construction_pipeline(None, CustomGraph())
 
 
@@ -404,9 +393,7 @@ class TestNetworkInitialization:
         """Test Network initialization without preprocessing."""
         A = sp.csr_matrix([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
         with patch("builtins.print") as mock_print:
-            net = Network(
-                adj=A, preprocessing=None, verbose=True, create_nx_graph=False
-            )
+            net = Network(adj=A, preprocessing=None, verbose=True, create_nx_graph=False)
             mock_print.assert_called_with(
                 "No preprocessing specified, this may lead to unexpected errors in graph connectivity!"
             )
@@ -491,9 +478,7 @@ class TestNetworkMethods:
         assert simple_network.is_connected() is True
 
         # Create disconnected network with preprocessing=None to keep it disconnected
-        A_disconnected = sp.csr_matrix(
-            [[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]
-        )
+        A_disconnected = sp.csr_matrix([[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
         net_disconnected = Network(adj=A_disconnected, preprocessing=None)
         assert net_disconnected.is_connected() is False
 
@@ -679,17 +664,13 @@ class TestNetworkMethods:
 
     def test_construct_lem_embedding_directed_error(self, directed_network):
         """Test construct_lem_embedding raises error for directed graphs."""
-        with pytest.raises(
-            Exception, match="LEM embedding is not implemented for directed graphs"
-        ):
+        with pytest.raises(Exception, match="LEM embedding is not implemented for directed graphs"):
             directed_network.construct_lem_embedding(dim=2)
 
     def test_construct_lem_embedding_disconnected_error(self):
         """Test construct_lem_embedding raises error for disconnected graphs."""
         # Create a disconnected graph
-        A_disconnected = sp.csr_matrix(
-            [[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]
-        )
+        A_disconnected = sp.csr_matrix([[0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
         net_disconnected = Network(adj=A_disconnected)
 
         # Mock eigs to return multiple eigenvalues equal to 1.0
@@ -885,114 +866,119 @@ class TestNetworkWithRealGraphs:
 
             # Check that verbose message about removed nodes/edges was printed
             calls = [str(call) for call in mock_print.call_args_list]
-            assert any(
-                "nodes and" in str(call) and "edges removed" in str(call)
-                for call in calls
-            )
+            assert any("nodes and" in str(call) and "edges removed" in str(call) for call in calls)
 
 
 class TestCheckWeightsAndDirections:
     """Test check_weights_and_directions validation function."""
-    
+
     def test_sparse_matrix_unweighted_undirected_valid(self):
         """Test with valid sparse unweighted undirected matrix."""
         # Create symmetric binary matrix
         A = sp.csr_matrix([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
-        
+
         # Should not raise any exception
         check_weights_and_directions(A, weighted=False, directed=False)
-        
+
     def test_sparse_matrix_weighted_mismatch(self):
         """Test exception when weighted parameter doesn't match matrix."""
         # Create weighted matrix with values beyond {0, 1}
         A = sp.csr_matrix([[0, 2.5, 1], [2.5, 0, 3], [1, 3, 0]])
-        
+
         # Should raise ValueError for weighted mismatch
-        with pytest.raises(ValueError, match="weighted.*set to False.*but the adjacency matrix is weighted"):
+        with pytest.raises(
+            ValueError, match="weighted.*set to False.*but the adjacency matrix is weighted"
+        ):
             check_weights_and_directions(A, weighted=False, directed=False)
-            
+
     def test_sparse_matrix_directed_mismatch(self):
         """Test exception when directed parameter doesn't match matrix."""
         # Create asymmetric matrix
         A = sp.csr_matrix([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
-        
+
         # Should raise ValueError for directed mismatch
-        with pytest.raises(ValueError, match="directed.*set to False.*but the adjacency matrix is asymmetric"):
+        with pytest.raises(
+            ValueError, match="directed.*set to False.*but the adjacency matrix is asymmetric"
+        ):
             check_weights_and_directions(A, weighted=False, directed=False)
-            
+
     def test_dense_matrix_valid(self):
         """Test with valid dense numpy arrays."""
         # Symmetric weighted matrix
         A = np.array([[0, 2.5, 2.5], [2.5, 0, 3], [2.5, 3, 0]])
-        
+
         # Should not raise exception
         check_weights_and_directions(A, weighted=True, directed=False)
-        
+
     def test_symmetric_but_marked_directed(self):
         """Test error when symmetric matrix is marked as directed."""
         # Binary symmetric matrix
         A = sp.csr_matrix([[0, 1], [1, 0]])
-        
-        with pytest.raises(ValueError, match="directed.*set to True.*but the adjacency matrix is symmetric"):
+
+        with pytest.raises(
+            ValueError, match="directed.*set to True.*but the adjacency matrix is symmetric"
+        ):
             check_weights_and_directions(A, weighted=False, directed=True)
-            
+
     def test_unweighted_but_marked_weighted(self):
         """Test error when unweighted matrix is marked as weighted."""
         # Binary matrix
         A = sp.csr_matrix([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
-        
-        with pytest.raises(ValueError, match="weighted.*set to True.*but the adjacency matrix is not weighted"):
+
+        with pytest.raises(
+            ValueError, match="weighted.*set to True.*but the adjacency matrix is not weighted"
+        ):
             check_weights_and_directions(A, weighted=True, directed=False)
-            
+
     def test_sparse_efficiency_no_conversion(self):
         """Test that sparse matrices are checked efficiently without conversion."""
         # Create large sparse matrix - should handle efficiently
         size = 1000
-        A = sp.random(size, size, density=0.01, format='csr')
+        A = sp.random(size, size, density=0.01, format="csr")
         A = (A + A.T) / 2  # Make symmetric
         # Make binary
         A = (A != 0).astype(int)
-        
+
         # This should complete quickly without memory issues
         check_weights_and_directions(A, weighted=False, directed=False)
 
 
 class TestCalculateDirectionalityFraction:
     """Test calculate_directionality_fraction with weighted graph fix."""
-    
+
     def test_fully_symmetric_matrix(self):
         """Test with completely symmetric matrix."""
         A = np.array([[0, 1, 2], [1, 0, 3], [2, 3, 0]])
-        
+
         frac = calculate_directionality_fraction(A)
         assert frac == 0.0
-        
+
     def test_fully_directed_matrix(self):
         """Test with completely asymmetric matrix."""
         A = np.array([[0, 1, 2], [0, 0, 3], [0, 0, 0]])
-        
+
         frac = calculate_directionality_fraction(A)
         assert frac == 1.0
-        
+
     def test_weighted_asymmetric_edges(self):
         """Test the critical bug fix: different weights should be directed."""
         # Edge (0,1) has weight 5, but (1,0) has weight 3
         A = np.array([[0, 5, 0], [3, 0, 0], [0, 0, 0]])
-        
+
         frac = calculate_directionality_fraction(A)
         assert frac == 1.0  # Should be fully directed since weights differ
-        
+
     def test_partially_directed_matrix(self):
         """Test with mix of symmetric and asymmetric edges."""
         # (0,1) and (1,0) both have weight 2 (symmetric)
         # (0,2) has weight 3 but no (2,0) (directed)
         A = np.array([[0, 2, 3], [2, 0, 0], [0, 0, 0]])
-        
+
         frac = calculate_directionality_fraction(A)
         # 2 symmetric edges + 1 directed edge = 3 total edges
         # directed fraction = 1/3
-        assert abs(frac - 1/3) < 1e-10
-        
+        assert abs(frac - 1 / 3) < 1e-10
+
     def test_sparse_matrix_efficiency(self):
         """Test efficient handling of sparse matrices."""
         # Create sparse matrix with known structure
@@ -1000,30 +986,30 @@ class TestCalculateDirectionalityFraction:
         col = [1, 0, 2, 1]
         data = [2, 2, 3, 4]  # (0,1) and (1,0) symmetric, others not
         A = sp.csr_matrix((data, (row, col)), shape=(3, 3))
-        
+
         frac = calculate_directionality_fraction(A)
         # 2 symmetric + 2 directed = 4 total edges
         # directed fraction = 2/4 = 0.5
         assert abs(frac - 0.5) < 1e-10
-        
+
     def test_empty_graph(self):
         """Test with empty adjacency matrix."""
         A = np.zeros((3, 3))
-        
+
         frac = calculate_directionality_fraction(A)
         assert frac == 0.0  # Empty graph is considered undirected
-        
+
     def test_self_loops_ignored(self):
         """Test that diagonal entries are ignored."""
         A = np.array([[5, 1, 0], [1, 10, 0], [0, 0, 15]])
-        
+
         frac = calculate_directionality_fraction(A)
         assert frac == 0.0  # Only off-diagonal symmetric edges
-        
+
     def test_tolerance_in_weight_comparison(self):
         """Test that floating point tolerance is used for weight comparison."""
         # Almost equal weights should be considered symmetric
         A = np.array([[0, 1.0], [1.0000001, 0]])
-        
+
         frac = calculate_directionality_fraction(A)
         assert frac == 0.0  # Should be symmetric within tolerance

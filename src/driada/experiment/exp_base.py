@@ -1,23 +1,22 @@
-import numpy as np
-import warnings
-import tqdm
-import pickle
 import logging
-from typing import Optional, Union, List
+import pickle
+import warnings
+from typing import List, Optional, Union
 
-from ..information.info_base import TimeSeries
-from ..information.info_base import MultiTimeSeries
+import numpy as np
+import tqdm
+
+from ..information.info_base import MultiTimeSeries, TimeSeries, get_1d_mi
+from ..intense.intense_base import get_multicomp_correction_thr
+from ..utils.data import get_hash, populate_nested_dict
 from .neuron import (
+    DEFAULT_FPS,
     DEFAULT_MIN_BEHAVIOUR_TIME,
     DEFAULT_T_OFF,
-    DEFAULT_FPS,
     MIN_CA_SHIFT,
     MIN_CA_SHIFT_SEC,
     Neuron,
 )
-from ..utils.data import get_hash, populate_nested_dict
-from ..information.info_base import get_1d_mi
-from ..intense.intense_base import get_multicomp_correction_thr
 
 STATS_VARS = [
     "data_hash",
@@ -51,7 +50,7 @@ def check_dynamic_features(dynamic_features):
     dynamic_features : dict
         Dictionary mapping feature names (str) to feature data. Supported data types:
         - TimeSeries: Length determined by len(data) attribute
-        - MultiTimeSeries: Length determined by n_points attribute  
+        - MultiTimeSeries: Length determined by n_points attribute
         - numpy.ndarray: Length is last dimension (shape[-1]). Must be at least 1D.
         Empty dict is allowed and will return without error.
 
@@ -66,14 +65,14 @@ def check_dynamic_features(dynamic_features):
         If features have different lengths. Error message includes detailed
         listing of each feature name and its length in timepoints.
     TypeError
-        If a feature has an unsupported type (not TimeSeries, MultiTimeSeries, 
+        If a feature has an unsupported type (not TimeSeries, MultiTimeSeries,
         or numpy array), or if a numpy array is 0-dimensional (scalar).
         Error message includes the problematic feature name and its type.
 
     Notes
     -----
     For numpy arrays, the last dimension is always interpreted as the time
-    dimension, consistent with the shape convention (n_features, n_timepoints).    """
+    dimension, consistent with the shape convention (n_features, n_timepoints)."""
     if not dynamic_features:
         return  # Handle empty features gracefully
 
@@ -106,22 +105,18 @@ def check_dynamic_features(dynamic_features):
     unique_lengths = set(dfeat_lengths.values())
     if len(unique_lengths) != 1:
         # Create informative error message
-        length_info = [
-            f"  {feat}: {length} timepoints" for feat, length in dfeat_lengths.items()
-        ]
-        raise ValueError(
-            "Dynamic features have different lengths:\n" + "\n".join(length_info)
-        )
+        length_info = [f"  {feat}: {length} timepoints" for feat, length in dfeat_lengths.items()]
+        raise ValueError("Dynamic features have different lengths:\n" + "\n".join(length_info))
 
 
 class Experiment:
     """Base class for calcium imaging and spike train experiments.
-    
+
     This class provides a unified interface for analyzing neural activity data
     (calcium imaging or spike trains) in relation to various experimental features
     (behavioral variables, stimuli, etc.). It handles data organization, feature
     extraction, mutual information analysis, and statistical significance testing.
-    
+
     Parameters
     ----------
     signature : str
@@ -131,13 +126,13 @@ class Experiment:
     spikes : numpy.ndarray or None
         Spike train data. Can be provided directly or reconstructed from calcium.
     exp_identificators : dict
-        Experiment metadata and identifiers. Each key-value pair becomes an 
-        attribute of the object (e.g., exp_identificators={'mouse_id': 'M1'} 
+        Experiment metadata and identifiers. Each key-value pair becomes an
+        attribute of the object (e.g., exp_identificators={'mouse_id': 'M1'}
         creates self.mouse_id = 'M1').
     static_features : dict
         Time-invariant features (e.g., cell types, anatomical properties).
         Should include 'fps', 't_rise_sec', 't_off_sec' or defaults will be used.
-        The dict is stored as self.static_features, and each key also becomes 
+        The dict is stored as self.static_features, and each key also becomes
         an individual attribute (e.g., static_features={'fps': 20} creates both
         self.static_features['fps'] and self.fps = 20).
     dynamic_features : dict
@@ -152,7 +147,7 @@ class Experiment:
         - bad_frames_mask : array-like, boolean mask where True indicates bad frames
         - spike_kwargs : dict, parameters for spike reconstruction
         - verbose : bool, print progress messages (default: True)
-        
+
     Attributes
     ----------
     signature : str
@@ -195,7 +190,7 @@ class Experiment:
         Private attribute storing hash representations for caching.
     _rdm_cache : dict
         Private attribute caching representational dissimilarity matrices.
-    
+
     Methods
     -------
     check_ds(ds)
@@ -228,22 +223,22 @@ class Experiment:
         Compute representational dissimilarity matrix.
     clear_rdm_cache()
         Clear the RDM computation cache.
-    
+
     Notes
     -----
     The class supports both calcium imaging and spike train analysis through
     the 'mode' parameter in various methods. Results are cached using hash-based
     lookups to avoid redundant computations. Statistical significance is determined
     using the INTENSE algorithm with two-stage hypothesis testing.
-    
+
     Spike reconstruction is performed automatically if spikes are not provided
     and reconstruct_spikes is not False or None. The 'wavelet' method is recommended
     for calcium imaging data. Set reconstruct_spikes to False or None to disable
     spike reconstruction entirely.
-    
+
     Individual static and dynamic features can be accessed as attributes. For
     example, if 'position' is a dynamic feature, access it via self.position.
-    Protected attribute names will have an underscore prefix if conflicts occur.    """
+    Protected attribute names will have an underscore prefix if conflicts occur."""
 
     def __init__(
         self,
@@ -256,11 +251,11 @@ class Experiment:
         **kwargs,
     ):
         """Initialize experiment with neural data and behavioral features.
-        
+
         Creates an experiment object that integrates calcium imaging data, spike trains,
         and behavioral features for neural population analysis. Handles data validation,
         spike reconstruction, and sets up internal data structures for statistical analysis.
-        
+
         Parameters
         ----------
         signature : str
@@ -296,7 +291,7 @@ class Experiment:
             - bad_frames_mask (array-like): Boolean mask of frames to exclude.
             - spike_kwargs (dict): Parameters for spike reconstruction method.
             - verbose (bool): Print progress messages. Default True.
-            
+
         Raises
         ------
         ValueError
@@ -305,21 +300,21 @@ class Experiment:
             transposed (n_cells > n_frames).
         TypeError
             If dynamic features have incompatible types.
-            
+
         Warnings
         --------
         UserWarning
             If both spikes and reconstruct_spikes are provided (spikes will
             be overwritten), or if static feature names conflict with
             existing attributes (will be prefixed with underscore).
-            
+
         Notes
         -----
         Protected attribute names that cannot be used as feature names:
         'spikes', 'calcium', 'neurons', 'n_cells', 'n_frames', 'static_features',
         'dynamic_features', 'downsampling', 'significance_tables', 'stats_tables',
         '_data_hashes', 'embeddings', '_rdm_cache', 'intense_results'
-        
+
         The initialization process:
         1. Validates and stores basic data (calcium required)
         2. Handles spike data or reconstruction
@@ -327,17 +322,17 @@ class Experiment:
         4. Processes static and dynamic features
         5. Builds internal data structures for caching
         6. Validates data consistency
-        
+
         Examples
         --------
         >>> import numpy as np
         >>> from driada.information.info_base import TimeSeries
-        >>> 
+        >>>
         >>> # Basic initialization with calcium data only
         >>> calcium_data = np.random.randn(10, 1000)  # 10 neurons, 1000 timepoints
-        >>> exp = Experiment('exp001', calcium_data, None, {}, {}, {}, 
+        >>> exp = Experiment('exp001', calcium_data, None, {}, {}, {},
         ...                  reconstruct_spikes=None, verbose=False)
-        
+
         >>> # With spikes and behavioral features
         >>> spike_data = np.random.poisson(0.05, (10, 1000))  # spike trains
         >>> speed_trace = TimeSeries(np.random.rand(1000))    # behavioral data
@@ -350,7 +345,7 @@ class Experiment:
         ...     {'speed': speed_trace},
         ...     verbose=False
         ... )
-        
+
         >>> # Without spike reconstruction (faster for doctests)
         >>> exp = Experiment(
         ...     'exp003',
@@ -440,7 +435,9 @@ class Experiment:
 
         if self.verbose:
             print("Building neurons...")
-        for i in tqdm.tqdm(np.arange(self.n_cells), position=0, leave=True, disable=not self.verbose):
+        for i in tqdm.tqdm(
+            np.arange(self.n_cells), position=0, leave=True, disable=not self.verbose
+        ):
             cell = Neuron(
                 str(i),
                 calcium[i, :],
@@ -509,9 +506,7 @@ class Experiment:
         for feat_id in dynamic_features:
             if isinstance(feat_id, str):
                 if hasattr(self, feat_id):
-                    warnings.warn(
-                        f"Feature name '{feat_id}' overwrites existing attribute."
-                    )
+                    warnings.warn(f"Feature name '{feat_id}' overwrites existing attribute.")
                 setattr(self, feat_id, dynamic_features[feat_id])
             # Skip tuples (multifeatures) as they can't be attribute names
 
@@ -558,21 +553,21 @@ class Experiment:
 
     def check_ds(self, ds):
         """Check if downsampling rate is appropriate for behavior analysis.
-        
+
         Validates that the downsampling rate won't cause time gaps larger than
-        the minimum behavior time interval (0.25 seconds), which could lead to 
+        the minimum behavior time interval (0.25 seconds), which could lead to
         missed behavioral events.
-        
+
         Parameters
         ----------
         ds : int
             Downsampling factor. The data will be sampled every ds frames.
             Must be a positive integer (>= 1).
-            
+
         Returns
         -------
         None
-            
+
         Raises
         ------
         ValueError
@@ -580,25 +575,25 @@ class Experiment:
             ds is less than 1. Error messages include relevant context.
         TypeError
             If ds is not an integer.
-            
+
         Warnings
         --------
         UserWarning
             Issued if the time gap created by downsampling exceeds
             DEFAULT_MIN_BEHAVIOUR_TIME (0.25 seconds). The warning includes
             the current threshold, downsampling factor, and resulting time gap.
-        
+
         Notes
         -----
         The time gap is calculated as (1/fps) * ds seconds. For example,
         with fps=20 and ds=10, the time gap would be 0.5 seconds, which
-        exceeds the 0.25 second threshold and triggers a warning.        """
+        exceeds the 0.25 second threshold and triggers a warning."""
         # Validate ds parameter
         if not isinstance(ds, (int, np.integer)):
             raise TypeError(f"Downsampling factor ds must be an integer, got {type(ds).__name__}")
         if ds < 1:
             raise ValueError(f"Downsampling factor ds must be >= 1, got {ds}")
-            
+
         if not hasattr(self, "fps"):
             raise ValueError(f"fps not set for {self.signature}")
 
@@ -608,15 +603,15 @@ class Experiment:
                 f"Downsampling constant is too high: some behaviour acts may be skipped. "
                 f"Current minimal behaviour time interval is set to {DEFAULT_MIN_BEHAVIOUR_TIME} sec, "
                 f"downsampling {ds} will create time gaps of {time_step*ds:.3f} sec",
-                UserWarning
+                UserWarning,
             )
 
     def _set_selectivity_tables(self, mode, fbunch=None, cbunch=None):
         """Create or reset selectivity statistics tables for the specified mode.
-        
+
         Creates nested dictionaries for storing mutual information statistics.
         Overwrites any existing tables for the given mode.
-        
+
         Parameters
         ----------
         mode : str
@@ -625,20 +620,18 @@ class Experiment:
             Feature(s) to include. If None, includes all dynamic features.
         cbunch : None, int, or iterable of int, optional
             Cell ID(s) to include. If None, includes all cells.
-            
+
         Notes
         -----
         Creates two nested dictionaries {feature: {cell: dict}}:
         - self.stats_tables[mode]: MI statistics (initialized from DEFAULT_STATS)
         - self.significance_tables[mode]: Significance data (from DEFAULT_SIGNIFICANCE)
-        
+
         Sets self.selectivity_tables_initialized to True.
-        
-        Warning: Overwrites existing tables without preserving data.        """
+
+        Warning: Overwrites existing tables without preserving data."""
         # neuron-feature pair statistics
-        stats_table = self._populate_cell_feat_dict(
-            DEFAULT_STATS, fbunch=fbunch, cbunch=cbunch
-        )
+        stats_table = self._populate_cell_feat_dict(DEFAULT_STATS, fbunch=fbunch, cbunch=cbunch)
 
         # neuron-feature pair significance-related data
         significance_table = self._populate_cell_feat_dict(
@@ -650,10 +643,10 @@ class Experiment:
 
     def _build_pair_hash(self, cell_id, feat_id, mode="calcium"):
         """Build a unique hash representation of neuron-feature pair data.
-        
+
         Creates a hash tuple that uniquely identifies the combination of neural
         activity data and feature data for caching computations.
-        
+
         Parameters
         ----------
         cell_id : int
@@ -663,7 +656,7 @@ class Experiment:
             All features must exist in self.dynamic_features.
         mode : {'calcium', 'spikes'}, optional
             Type of neural activity data. Default is 'calcium'.
-            
+
         Returns
         -------
         tuple
@@ -671,7 +664,7 @@ class Experiment:
             - Single feature: (activity_hash, feature_hash)
             - Multiple features: (activity_hash, feature1_hash, feature2_hash, ...)
             - Empty iterable: (activity_hash,)
-            
+
         Raises
         ------
         ValueError
@@ -680,11 +673,11 @@ class Experiment:
             If cell_id not in self.neurons or feat_id not in self.dynamic_features.
         AttributeError
             If neuron lacks .ca/.sp attributes or feature lacks .data attribute.
-            
+
         Notes
         -----
         Uses SHA256 hashing on raw numpy arrays. Multiple features are sorted
-        alphabetically before hashing to ensure order-independent results.        """
+        alphabetically before hashing to ensure order-independent results."""
         if mode == "calcium":
             act = self.neurons[cell_id].ca.data
         elif mode == "spikes":
@@ -716,24 +709,24 @@ class Experiment:
 
     def _build_data_hashes(self, mode="calcium"):
         """Build hash representations for all neuron-feature pairs.
-        
+
         Pre-computes SHA256 hashes for all combinations of neurons and features
         to enable efficient caching of mutual information calculations.
-        
+
         Parameters
         ----------
         mode : {'calcium', 'spikes'}, optional
             Type of neural activity data. Default is 'calcium'. Not validated.
-            
+
         Notes
         -----
         Creates nested dictionary structure:
         self._data_hashes[mode][feat_id][cell_id] = hash_tuple
-        
+
         Where hash_tuple is from _build_pair_hash(cell_id, feat_id, mode).
-        
+
         Warning: Calling this method multiple times for the same mode will
-        completely recreate all hashes, overwriting existing data.        """
+        completely recreate all hashes, overwriting existing data."""
         # Create default hashes structure for this mode only
         if not hasattr(self, "_data_hashes"):
             self._data_hashes = {}
@@ -752,14 +745,12 @@ class Experiment:
                     cell_id, feat_id, mode=mode
                 )
 
-    def _trim_data(
-        self, calcium, spikes, dynamic_features, bad_frames_mask, force_filter=False
-    ):
+    def _trim_data(self, calcium, spikes, dynamic_features, bad_frames_mask, force_filter=False):
         """Filter out bad frames from all data arrays.
-        
+
         Removes frames marked as bad in bad_frames_mask from calcium, spikes,
         and all dynamic features, maintaining temporal alignment.
-        
+
         Parameters
         ----------
         calcium : numpy.ndarray
@@ -772,25 +763,25 @@ class Experiment:
             Boolean mask where True indicates bad frames to remove.
         force_filter : bool, optional
             Force re-filtering even if already filtered. Default False.
-            
+
         Returns
         -------
         tuple
             (filtered_calcium, filtered_spikes, filtered_dynamic_features)
-            
+
         Raises
         ------
         AttributeError
             If data already filtered and force_filter is False.
-            
+
         Side Effects
         ------------
         Sets self.filtered_flag = True and self.bad_frames_mask.
-        
+
         Notes
         -----
         For multi-dimensional arrays, assumes time is the second dimension.
-        For 1D arrays or unknown types, assumes time is the last dimension.        """
+        For 1D arrays or unknown types, assumes time is the last dimension."""
 
         if not force_filter and self.filtered_flag:
             raise AttributeError(
@@ -807,9 +798,7 @@ class Experiment:
         for feat_id in dynamic_features:
             current_ts = dynamic_features[feat_id]
             if isinstance(current_ts, TimeSeries):
-                f_ts = TimeSeries(
-                    current_ts.data[~bad_frames_mask], discrete=current_ts.discrete
-                )
+                f_ts = TimeSeries(current_ts.data[~bad_frames_mask], discrete=current_ts.discrete)
             elif isinstance(current_ts, MultiTimeSeries):
                 # Handle MultiTimeSeries by trimming each component
                 filtered_components = []
@@ -839,10 +828,10 @@ class Experiment:
 
     def _checkpoint(self):
         """Validate experiment data integrity and consistency.
-        
+
         Performs comprehensive checks to ensure the experiment data is properly
         formatted and meets minimum requirements for analysis.
-        
+
         Raises
         ------
         ValueError
@@ -850,13 +839,13 @@ class Experiment:
             - Signal is too short for shuffle mask creation
             - Number of cells exceeds number of time frames (likely transposed)
             - Feature shapes are inconsistent with experiment duration
-            
+
         Notes
         -----
         Checks include:
         - Minimum signal length based on decay time and shuffle requirements
         - Proper data orientation (neurons × timepoints)
-        - Consistency of all feature dimensions with n_frames        """
+        - Consistency of all feature dimensions with n_frames"""
         # Check minimal length for proper shuffle mask creation
         t_off_sec = getattr(self, "t_off_sec", DEFAULT_T_OFF)
         fps = getattr(self, "fps", DEFAULT_FPS)
@@ -897,10 +886,7 @@ class Experiment:
             else:
                 # For tuple features (multifeatures), check the underlying data
                 feat_data = self.dynamic_features[dfeat]
-                if (
-                    hasattr(feat_data, "data")
-                    and self.n_frames not in feat_data.data.shape
-                ):
+                if hasattr(feat_data, "data") and self.n_frames not in feat_data.data.shape:
                     raise ValueError(
                         f'"{dfeat}" feature has inappropriate shape: {feat_data.data.shape}'
                         f"inconsistent with data length {self.n_frames}"
@@ -908,11 +894,11 @@ class Experiment:
 
     def _populate_cell_feat_dict(self, content, fbunch=None, cbunch=None):
         """Create nested dictionary structure for cell-feature pairs.
-        
+
         Builds a two-level dictionary where the outer level contains features
         and the inner level contains cells, with each entry initialized to
         the specified content value.
-        
+
         Parameters
         ----------
         content : any
@@ -921,11 +907,11 @@ class Experiment:
             Feature(s) to include. If None, includes all features.
         cbunch : None, int, or iterable of int, optional
             Cell ID(s) to include. If None, includes all cells.
-            
+
         Returns
         -------
         dict
-            Nested dictionary with structure: {feature_id: {cell_id: content}}        """
+            Nested dictionary with structure: {feature_id: {cell_id: content}}"""
         cell_ids = self._process_cbunch(cbunch)
         feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True)
         nested_dict = populate_nested_dict(content, feat_ids, cell_ids)
@@ -933,7 +919,7 @@ class Experiment:
 
     def _process_cbunch(self, cbunch):
         """Convert cell specification to list of cell IDs.
-        
+
         Parameters
         ----------
         cbunch : None, int, or iterable of int
@@ -941,11 +927,11 @@ class Experiment:
             - None: returns all cell IDs
             - int: returns single cell ID in a list
             - iterable: returns list of specified cell IDs
-            
+
         Returns
         -------
         list of int
-            List of cell IDs to process.        """
+            List of cell IDs to process."""
         if isinstance(cbunch, int):
             cell_ids = [cbunch]
         elif cbunch is None:
@@ -957,7 +943,7 @@ class Experiment:
 
     def _process_fbunch(self, fbunch, allow_multifeatures=False, mode="calcium"):
         """Convert feature specification to list of feature IDs.
-        
+
         Parameters
         ----------
         fbunch : None, str, iterable of str, or iterable of tuples
@@ -970,16 +956,16 @@ class Experiment:
             Whether to allow multi-feature tuples. Default is False.
         mode : {'calcium', 'spikes'}, optional
             Activity mode for filtering relevant features. Default is 'calcium'.
-            
+
         Returns
         -------
         list
             List of feature IDs or feature ID tuples to process.
-            
+
         Raises
         ------
         ValueError
-            If multi-features are provided but not allowed.        """
+            If multi-features are provided but not allowed."""
         if isinstance(fbunch, str):
             feat_ids = [fbunch]
 
@@ -1014,10 +1000,10 @@ class Experiment:
 
     def _process_sbunch(self, sbunch, significance_mode=False):
         """Process statistics bunch specification into filtered list.
-        
-        Converts input formats for specifying statistics types into a 
+
+        Converts input formats for specifying statistics types into a
         standardized list, filtering out any invalid entries.
-        
+
         Parameters
         ----------
         sbunch : None, str, or iterable of str
@@ -1025,16 +1011,16 @@ class Experiment:
             Invalid entries in iterables are silently filtered out.
         significance_mode : bool, optional
             If True, uses SIGNIFICANCE_VARS, else uses STATS_VARS. Default False.
-            
+
         Returns
         -------
         list of str
             Valid statistics variable names only.
-            
+
         Notes
         -----
         Single strings are returned as-is without validation.
-        Iterables have invalid entries filtered out silently.        """
+        Iterables have invalid entries filtered out silently."""
         if significance_mode:
             default_list = SIGNIFICANCE_VARS
         else:
@@ -1051,25 +1037,25 @@ class Experiment:
 
     def _add_single_feature_to_data_hashes(self, feat_id, mode="calcium"):
         """Add hash mapping for a single feature.
-        
+
         Creates hash representations for all neuron-feature pairs for the
         specified feature and adds them to the data hashes structure.
-        
+
         Parameters
         ----------
         feat_id : str
             Feature identifier. Must exist in self.dynamic_features.
         mode : {'calcium', 'spikes'}, optional
             Neural activity type. Default 'calcium'.
-            
+
         Side Effects
         ------------
         Modifies self._data_hashes[mode][feat_id] in place.
-        
+
         Notes
         -----
         Only adds if feature not already in data hashes.
-        No validation performed on feat_id existence.        """
+        No validation performed on feat_id existence."""
         if feat_id not in self._data_hashes[mode]:
             self._data_hashes[mode][feat_id] = {}
             # Add hashes for all cells
@@ -1079,46 +1065,46 @@ class Experiment:
 
     def _add_single_feature_to_stats(self, feat_id, mode="calcium"):
         """Add empty stats and significance tables for a single feature.
-        
+
         Initializes the statistics and significance tracking structures for
         all neurons for the specified feature.
-        
+
         Parameters
         ----------
         feat_id : str
             Feature identifier to add tables for.
         mode : {'calcium', 'spikes'}, optional
             Neural activity type. Default 'calcium'.
-            
+
         Side Effects
         ------------
         Modifies self.stats_tables[mode][feat_id] and
         self.significance_tables[mode][feat_id] in place.
-        
+
         Notes
         -----
         Only adds if feature not already in stats tables.
         Creates deep copies of DEFAULT_STATS and DEFAULT_SIGNIFICANCE
-        for each cell to prevent aliasing.        """
+        for each cell to prevent aliasing."""
         if feat_id not in self.stats_tables[mode]:
             # Initialize stats for all cells
             self.stats_tables[mode][feat_id] = {}
             self.significance_tables[mode][feat_id] = {}
-            
+
             for cell_id in range(self.n_cells):
                 self.stats_tables[mode][feat_id][cell_id] = DEFAULT_STATS.copy()
                 self.significance_tables[mode][feat_id][cell_id] = DEFAULT_SIGNIFICANCE.copy()
 
     def _add_multifeature_to_data_hashes(self, feat_id, mode="calcium"):
         """Add hash mapping for a multi-feature combination.
-        
+
         Creates hash representations for the specified multi-feature combination
         across all neurons for joint mutual information calculations.
-        
-        .. deprecated:: 
+
+        .. deprecated::
             The multifeature mechanism using tuples is marked for deprecation.
             Future versions will use a different approach for joint MI.
-        
+
         Parameters
         ----------
         feat_id : list or tuple of str
@@ -1126,23 +1112,25 @@ class Experiment:
             single-element collection.
         mode : {'calcium', 'spikes'}, optional
             Neural activity type. Default 'calcium'.
-            
+
         Side Effects
         ------------
         Modifies self._data_hashes[mode] by adding sorted tuple key.
-        
+
         Raises
         ------
         ValueError
             If feat_id is a string or single-element collection.
-            
+
         Notes
         -----
         Multi-features are stored as sorted tuples. Existing entries ignored.
-        The mode parameter is now properly passed to _build_pair_hash.        """
+        The mode parameter is now properly passed to _build_pair_hash."""
         if isinstance(feat_id, str):
-            raise ValueError("This method is for multifeature update only. Use _add_single_feature_to_data_hashes for single features.")
-        
+            raise ValueError(
+                "This method is for multifeature update only. Use _add_single_feature_to_data_hashes for single features."
+            )
+
         if len(feat_id) == 1:
             raise ValueError(
                 f"Single-element list {feat_id} provided. "
@@ -1160,14 +1148,14 @@ class Experiment:
 
     def _add_multifeature_to_stats(self, feat_id, mode="calcium"):
         """Add empty stats and significance tables for a multi-feature combination.
-        
+
         Initializes the statistics and significance tracking structures for
         all neurons for the specified multi-feature combination.
-        
-        .. deprecated:: 
+
+        .. deprecated::
             The multifeature mechanism using tuples is marked for deprecation.
             Future versions will use a different approach for joint MI.
-        
+
         Parameters
         ----------
         feat_id : list or tuple of str
@@ -1175,25 +1163,27 @@ class Experiment:
             single-element collection.
         mode : {'calcium', 'spikes'}, optional
             Neural activity type. Default 'calcium'.
-            
+
         Side Effects
         ------------
         - Modifies self.stats_tables[mode] by adding sorted tuple key
         - Modifies self.significance_tables[mode] by adding sorted tuple key
         - Prints to stdout if self.verbose=True and feature is new
-        
+
         Raises
         ------
         ValueError
             If feat_id is a string or single-element collection.
-            
+
         Notes
         -----
-        Multi-features are normalized to sorted tuples. Only prints verbose 
-        message for new features using the sorted tuple representation.        """
+        Multi-features are normalized to sorted tuples. Only prints verbose
+        message for new features using the sorted tuple representation."""
         if isinstance(feat_id, str):
-            raise ValueError("This method is for multifeature update only. Use _add_single_feature_to_stats for single features.")
-        
+            raise ValueError(
+                "This method is for multifeature update only. Use _add_single_feature_to_stats for single features."
+            )
+
         if len(feat_id) == 1:
             raise ValueError(
                 f"Single-element list {feat_id} provided. "
@@ -1209,21 +1199,20 @@ class Experiment:
             }
 
             self.significance_tables[mode][ordered_fnames] = {
-                cell_id: DEFAULT_SIGNIFICANCE.copy()
-                for cell_id in range(self.n_cells)
+                cell_id: DEFAULT_SIGNIFICANCE.copy() for cell_id in range(self.n_cells)
             }
 
     def _check_stats_relevance(self, cell_id, feat_id, mode="calcium"):
         """Check if stats exist and are current, adding new features if needed.
-        
+
         Verifies if statistics for a neuron-feature pair exist and match current
         data hashes. Can add new features to tables with deprecation warnings.
-        
+
         .. note::
             This method has side effects - it can add features to stats_tables,
             significance_tables, and _data_hashes. This behavior will be removed
             after the tuple multifeature mechanism is fully deprecated.
-        
+
         Parameters
         ----------
         cell_id : int
@@ -1232,21 +1221,21 @@ class Experiment:
             Single feature or tuple of features for joint MI.
         mode : {'calcium', 'spikes'}, optional
             Neural activity type. Default 'calcium'.
-            
+
         Returns
         -------
         bool
             True if stats exist/were added and hashes match, False if data changed.
-            
+
         Side Effects
         ------------
         May add features to stats_tables, significance_tables, and _data_hashes.
         Issues deprecation warnings for dynamic feature additions.
-        
+
         Raises
         ------
         ValueError
-            If single feature not in self.dynamic_features.        """
+            If single feature not in self.dynamic_features."""
 
         if not isinstance(feat_id, str):
             feat_id = tuple(sorted(list(feat_id)))
@@ -1255,14 +1244,14 @@ class Experiment:
             # DEPRECATED: Dynamic stats table updates are discouraged due to statistical validity concerns
             # Multiple comparison correction depends on the total number of hypotheses tested
             import warnings
-            
+
             if isinstance(feat_id, tuple):
                 warnings.warn(
                     "DEPRECATED: Adding tuple features to stats table after initialization is discouraged. "
                     "This can invalidate multiple comparison corrections. "
                     "Consider using use_precomputed_stats=False for proper statistical analysis.",
                     DeprecationWarning,
-                    stacklevel=2
+                    stacklevel=2,
                 )
                 # Still allow it for backward compatibility
                 self._add_multifeature_to_stats(feat_id, mode=mode)
@@ -1281,7 +1270,7 @@ class Experiment:
                     "This suggests the experiment was not properly initialized with all features. "
                     "Adding it now may invalidate multiple comparison corrections.",
                     UserWarning,
-                    stacklevel=2
+                    stacklevel=2,
                 )
                 # Add new feature to stats table
                 self._add_single_feature_to_stats(feat_id, mode=mode)
@@ -1306,12 +1295,10 @@ class Experiment:
 
             return False
 
-    def _update_stats_and_significance(
-        self, stats, mode, cell_id, feat_id, stage2_only
-    ):
+    def _update_stats_and_significance(self, stats, mode, cell_id, feat_id, stage2_only):
         """
         Updates stats table and linked significance table to erase irrelevant data properly.
-        
+
         Parameters
         ----------
         stats : dict
@@ -1329,9 +1316,7 @@ class Experiment:
         self.stats_tables[mode][feat_id][cell_id].update(stats)
         if not stage2_only:
             # erase significance data completely since stats for stage 1 has been modified
-            self.significance_tables[mode][feat_id][cell_id].update(
-                DEFAULT_SIGNIFICANCE.copy()
-            )
+            self.significance_tables[mode][feat_id][cell_id].update(DEFAULT_SIGNIFICANCE.copy())
         else:
             # erase significance data for stage 2 since stats for stage 2 has been modified
             self.significance_tables[mode][feat_id][cell_id].update(
@@ -1349,10 +1334,10 @@ class Experiment:
     ):
         """
         Updates calcium-feature pair statistics.
-        
+
         feat_id should be a string or an iterable of strings (in case of joint MI calculation).
         This function allows multifeatures.
-        
+
         Parameters
         ----------
         stats : dict
@@ -1387,15 +1372,13 @@ class Experiment:
                     stats, mode, cell_id, feat_id, stage2_only=stage2_only
                 )
 
-    def update_neuron_feature_pair_significance(
-        self, sig, cell_id, feat_id, mode="calcium"
-    ):
+    def update_neuron_feature_pair_significance(self, sig, cell_id, feat_id, mode="calcium"):
         """
         Updates calcium-feature pair significance data.
-        
+
         feat_id should be a string or an iterable of strings (in case of joint MI calculation).
         This function allows multifeatures.
-        
+
         Parameters
         ----------
         sig : dict
@@ -1423,11 +1406,11 @@ class Experiment:
 
     def get_neuron_feature_pair_stats(self, cell_id, feat_id, mode="calcium"):
         """Get selectivity statistics for a neuron-feature pair.
-        
+
         Retrieves pre-computed statistics measuring the relationship between
-        neural activity and behavioral/experimental features. Supports both 
+        neural activity and behavioral/experimental features. Supports both
         single features and multi-feature analysis.
-        
+
         Parameters
         ----------
         cell_id : int
@@ -1437,24 +1420,24 @@ class Experiment:
             of feature names for joint analysis.
         mode : {'calcium', 'spikes'}, optional
             Type of neural activity. Default is 'calcium'.
-            
+
         Returns
         -------
         dict or None
             Dictionary containing various statistical measures of the
-            neuron-feature relationship. Returns None if statistics 
+            neuron-feature relationship. Returns None if statistics
             have not been computed or if data has changed since computation.
-            
+
         Notes
         -----
         Statistics must be pre-computed using the selectivity analysis pipeline.
         The method checks data integrity using hashes to ensure statistics
         are up-to-date with the current data.
-        
+
         .. note::
             Despite the 'get' name, this method can trigger side effects via
             _check_stats_relevance which may add new features to tables.
-            This behavior will be removed after tuple multifeature deprecation.        """
+            This behavior will be removed after tuple multifeature deprecation."""
         stats = None
         if self._check_stats_relevance(cell_id, feat_id, mode=mode):
             stats = self.stats_tables[mode][feat_id][cell_id]
@@ -1466,10 +1449,10 @@ class Experiment:
 
     def get_neuron_feature_pair_significance(self, cell_id, feat_id, mode="calcium"):
         """Get statistical significance data for a neuron-feature pair.
-        
+
         Retrieves significance testing results for the neuron-feature
         relationship, typically from shuffle-based permutation tests.
-        
+
         Parameters
         ----------
         cell_id : int
@@ -1479,7 +1462,7 @@ class Experiment:
             of feature names for joint analysis.
         mode : {'calcium', 'spikes'}, optional
             Type of neural activity. Default is 'calcium'.
-            
+
         Returns
         -------
         dict or None
@@ -1487,17 +1470,17 @@ class Experiment:
             p-values, shuffle distributions, and multiple comparison
             corrections. Returns None if significance has not been computed
             or if underlying statistics are outdated.
-            
+
         Notes
         -----
         Significance testing typically uses shuffle tests where temporal
         relationships are destroyed while preserving marginal distributions.
         Results include both single-stage and two-stage testing procedures.
-        
+
         .. note::
             Despite the 'get' name, this method can trigger side effects via
             _check_stats_relevance which may add new features to tables.
-            This behavior will be removed after tuple multifeature deprecation.        """
+            This behavior will be removed after tuple multifeature deprecation."""
         sig = None
         if self._check_stats_relevance(cell_id, feat_id, mode=mode):
             sig = self.significance_tables[mode][feat_id][cell_id]
@@ -1528,7 +1511,7 @@ class Experiment:
         -------
         np.ndarray or MultiTimeSeries
             If return_array=True: Shuffled calcium data with shape (n_cells, n_frames)
-            If return_array=False: MultiTimeSeries object containing shuffled data        """
+            If return_array=False: MultiTimeSeries object containing shuffled data"""
         # Validate method
         valid_methods = ["roll_based", "waveform_based", "chunks_based"]
         if method not in valid_methods:
@@ -1540,9 +1523,7 @@ class Experiment:
 
         # Validate cell indices
         if any(idx < 0 or idx >= self.n_cells for idx in cell_list):
-            raise ValueError(
-                f"Invalid cell indices. Must be between 0 and {self.n_cells-1}"
-            )
+            raise ValueError(f"Invalid cell indices. Must be between 0 and {self.n_cells-1}")
 
         if return_array:
             agg_sh_data = np.zeros((len(cell_list), self.n_frames))
@@ -1558,9 +1539,10 @@ class Experiment:
                 cell = self.neurons[cell_idx]
                 sh_ts = cell.get_shuffled_calcium(method=method, return_array=False, **kwargs)
                 ts_list.append(sh_ts)
-            
+
             # Create MultiTimeSeries from list of TimeSeries
             from ..information.info_base import MultiTimeSeries
+
             return MultiTimeSeries(ts_list)
 
     def get_multicell_shuffled_spikes(
@@ -1584,12 +1566,10 @@ class Experiment:
         -------
         np.ndarray or MultiTimeSeries
             If return_array=True: Shuffled spike data with shape (n_cells, n_frames)
-            If return_array=False: MultiTimeSeries object containing shuffled spike data        """
+            If return_array=False: MultiTimeSeries object containing shuffled spike data"""
         # Check if spikes data is meaningful (not all zeros)
         if not np.any(self.spikes.data):
-            raise AttributeError(
-                "Unable to shuffle spikes without meaningful spikes data"
-            )
+            raise AttributeError("Unable to shuffle spikes without meaningful spikes data")
 
         # Validate method
         valid_methods = ["isi_based"]
@@ -1602,9 +1582,7 @@ class Experiment:
 
         # Validate cell indices
         if any(idx < 0 or idx >= self.n_cells for idx in cell_list):
-            raise ValueError(
-                f"Invalid cell indices. Must be between 0 and {self.n_cells-1}"
-            )
+            raise ValueError(f"Invalid cell indices. Must be between 0 and {self.n_cells-1}")
 
         if return_array:
             agg_sh_data = np.zeros((len(cell_list), self.n_frames))
@@ -1620,9 +1598,10 @@ class Experiment:
                 cell = self.neurons[cell_idx]
                 sh_ts = cell.get_shuffled_spikes(method=method, return_array=False, **kwargs)
                 ts_list.append(sh_ts)
-            
+
             # Create MultiTimeSeries from list of TimeSeries
             from ..information.info_base import MultiTimeSeries
+
             return MultiTimeSeries(ts_list)
 
     def get_stats_slice(
@@ -1636,7 +1615,7 @@ class Experiment:
     ):
         """
         Returns slice of accumulated statistics data (or significance data if "significance_mode=True").
-        
+
         Parameters
         ----------
         table_to_scan : dict, optional
@@ -1651,7 +1630,7 @@ class Experiment:
             If True, returns significance data instead of statistics. Default is False
         mode : str, optional
             Data processing mode. Default is "calcium"
-            
+
         Returns
         -------
         dict
@@ -1672,21 +1651,17 @@ class Experiment:
         out_table = self._populate_cell_feat_dict(dict(), fbunch=fbunch, cbunch=cbunch)
         for feat_id in feat_ids:
             for cell_id in cell_ids:
-                out_table[feat_id][cell_id] = {
-                    s: full_table[feat_id][cell_id][s] for s in slist
-                }
+                out_table[feat_id][cell_id] = {s: full_table[feat_id][cell_id][s] for s in slist}
 
         return out_table
 
-    def get_significance_slice(
-        self, cbunch=None, fbunch=None, sbunch=None, mode="calcium"
-    ):
+    def get_significance_slice(self, cbunch=None, fbunch=None, sbunch=None, mode="calcium"):
         """Extract significance test results for selected cells and features.
-        
+
         Convenience method that retrieves statistical significance data
         (p-values, test statistics, etc.) for specific cell-feature combinations.
         This is equivalent to calling get_stats_slice with significance_mode=True.
-        
+
         Parameters
         ----------
         cbunch : int, list of int, or None, optional
@@ -1698,24 +1673,24 @@ class Experiment:
             None means all available measures.
         mode : {'calcium', 'spikes'}, default='calcium'
             Which data type's significance tables to use.
-            
+
         Returns
         -------
         dict
             Nested dictionary with structure: {feature: {cell: {measure: value}}}.
             Contains only the requested significance test results.
-            
+
         See Also
         --------
         ~driada.experiment.exp_base.get_stats_slice : More general method for extracting any statistics
         ~driada.experiment.exp_base._update_stats_and_significance : Internal method that computes significance
-        
+
         Examples
         --------
         >>> import numpy as np
         >>> from driada.experiment.exp_base import Experiment
         >>> from driada.information.info_base import TimeSeries
-        >>> 
+        >>>
         >>> # Create an example experiment with selectivity data
         >>> calcium_data = np.random.randn(20, 1000)
         >>> running_speed = TimeSeries(np.random.rand(1000))
@@ -1728,10 +1703,10 @@ class Experiment:
         ...     {'running_speed': running_speed},
         ...     verbose=False
         ... )
-        >>> 
+        >>>
         >>> # Initialize stats tables
         >>> exp._set_selectivity_tables('calcium')
-        >>> 
+        >>>
         >>> # Get p-values for cells 0-5 and feature 'running_speed'
         >>> sig_data = exp.get_significance_slice(
         ...     cbunch=[0, 1, 2, 3, 4, 5],
@@ -1774,7 +1749,7 @@ class Experiment:
         - Single features use their native get_entropy() method
         - Tuples calculate joint entropy for exactly 2 variables
         - Joint entropy of 3+ variables is not supported (use MultiTimeSeries instead)
-        - Continuous variables may return negative entropy values        """
+        - Continuous variables may return negative entropy values"""
         if isinstance(feat_id, str):
             # Single feature - use its get_entropy method
             fts = self.dynamic_features[feat_id]
@@ -1819,11 +1794,18 @@ class Experiment:
             return h_x + h_y - mi_xy
 
         else:
-            raise TypeError(
-                f"feat_id must be str or tuple of 2 feature names, got {type(feat_id)}"
-            )
+            raise TypeError(f"feat_id must be str or tuple of 2 feature names, got {type(feat_id)}")
 
-    def _reconstruct_spikes(self, calcium, method, fps, spike_kwargs=None, wavelet=None, rel_wvt_times=None, use_gpu=False):
+    def _reconstruct_spikes(
+        self,
+        calcium,
+        method,
+        fps,
+        spike_kwargs=None,
+        wavelet=None,
+        rel_wvt_times=None,
+        use_gpu=False,
+    ):
         """
         Reconstruct spikes from calcium signals using specified method.
 
@@ -1847,27 +1829,29 @@ class Experiment:
         Returns
         -------
         spikes : np.ndarray
-            Reconstructed spike trains        """
+            Reconstructed spike trains"""
         from .spike_reconstruction import reconstruct_spikes
 
         # Convert calcium to MultiTimeSeries if needed
         if isinstance(calcium, np.ndarray):
             # Create temporary MultiTimeSeries from numpy array
-            from ..information.info_base import TimeSeries, MultiTimeSeries
+            from ..information.info_base import MultiTimeSeries, TimeSeries
 
             # Calcium data is always continuous, so explicitly set discrete=False
-            ts_list = [
-                TimeSeries(calcium[i, :], discrete=False)
-                for i in range(calcium.shape[0])
-            ]
+            ts_list = [TimeSeries(calcium[i, :], discrete=False) for i in range(calcium.shape[0])]
             calcium_mts = MultiTimeSeries(ts_list, allow_zero_columns=True)
         else:
             calcium_mts = calcium
 
         # Call the unified reconstruction function with optimization support
         spikes_mts, metadata = reconstruct_spikes(
-            calcium_mts, method=method, fps=fps, params=spike_kwargs,
-            wavelet=wavelet, rel_wvt_times=rel_wvt_times, use_gpu=use_gpu
+            calcium_mts,
+            method=method,
+            fps=fps,
+            params=spike_kwargs,
+            wavelet=wavelet,
+            rel_wvt_times=rel_wvt_times,
+            use_gpu=use_gpu,
         )
 
         # Store metadata
@@ -1886,7 +1870,7 @@ class Experiment:
         rel_wvt_times=None,
         show_progress=True,
         use_gpu=False,
-        **kwargs
+        **kwargs,
     ):
         """Batch reconstruct spikes for all neurons with wavelet optimization.
 
@@ -1919,14 +1903,15 @@ class Experiment:
         None
             Updates neuron objects in-place and syncs to exp.spikes
         """
-        from ssqueezepy.wavelets import Wavelet, time_resolution
-        from .wavelet_event_detection import get_adaptive_wavelet_scales
         import tqdm
+        from ssqueezepy.wavelets import Wavelet, time_resolution
+
+        from .wavelet_event_detection import get_adaptive_wavelet_scales
 
         fps = self.fps if self.fps is not None else 20.0
 
         # Pre-compute wavelet ONCE if needed
-        if method == 'wavelet' and wavelet is None:
+        if method == "wavelet" and wavelet is None:
             wavelet = Wavelet(("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196)
             manual_scales = get_adaptive_wavelet_scales(fps)
             rel_wvt_times = [
@@ -1936,11 +1921,11 @@ class Experiment:
 
         # Hybrid kinetics: optimize BEFORE reconstruction
         if hybrid_kinetics and optimize_kinetics:
-            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc='Kinetics'):
-                neuron.optimize_kinetics(method='direct', fps=fps)
+            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Kinetics"):
+                neuron.optimize_kinetics(method="direct", fps=fps)
 
         # Reconstruct all neurons with shared wavelet
-        for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc='Reconstruction'):
+        for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Reconstruction"):
             neuron.reconstruct_spikes(
                 method=method,
                 iterative=True,
@@ -1949,21 +1934,22 @@ class Experiment:
                 wavelet=wavelet,
                 rel_wvt_times=rel_wvt_times,
                 use_gpu=use_gpu,
-                **kwargs
+                **kwargs,
             )
 
         # Post-reconstruction kinetics if not hybrid
         if not hybrid_kinetics and optimize_kinetics:
-            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc='Kinetics'):
-                neuron.optimize_kinetics(method='direct', fps=fps)
+            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Kinetics"):
+                neuron.optimize_kinetics(method="direct", fps=fps)
 
         # Sync neuron.sp → exp.spikes
         self._update_spike_data_from_neurons()
 
     def _update_spike_data_from_neurons(self):
         """Sync neuron.sp arrays back to exp.spikes."""
-        from ..information.info_base import TimeSeries, MultiTimeSeries
         import numpy as np
+
+        from ..information.info_base import MultiTimeSeries, TimeSeries
 
         spike_ts_list = []
         for neuron in self.neurons:
@@ -1974,9 +1960,15 @@ class Experiment:
         self.spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
 
     def get_significant_neurons(
-        self, min_nspec=1, cbunch=None, fbunch=None, mode="calcium",
-        override_intense_significance=False, pval_thr=0.05, 
-        multicomp_correction=None, significance_update=False
+        self,
+        min_nspec=1,
+        cbunch=None,
+        fbunch=None,
+        mode="calcium",
+        override_intense_significance=False,
+        pval_thr=0.05,
+        multicomp_correction=None,
+        significance_update=False,
     ):
         """
         Returns a dict with neuron ids as keys and their significantly correlated features as values
@@ -2010,7 +2002,7 @@ class Experiment:
         Returns
         -------
         dict
-            Dictionary with neuron IDs as keys and lists of significant features as values        """
+            Dictionary with neuron IDs as keys and lists of significant features as values"""
         cell_ids = self._process_cbunch(cbunch)
         feat_ids = self._process_fbunch(fbunch, allow_multifeatures=True, mode=mode)
 
@@ -2024,19 +2016,19 @@ class Experiment:
             raise ValueError("Stats relevance error")
 
         cell_feat_dict = {cell_id: [] for cell_id in cell_ids}
-        
+
         if override_intense_significance:
             # Collect all p-values for multiple comparison correction
             all_pvals = []
             cell_feat_pvals = {}
-            
+
             for cell_id in cell_ids:
                 cell_feat_pvals[cell_id] = {}
                 for feat_id in feat_ids:
                     pval = self.stats_tables[mode][feat_id][cell_id].get("pval", 1.0)
                     cell_feat_pvals[cell_id][feat_id] = pval
                     all_pvals.append(pval)
-            
+
             # Calculate corrected threshold
             if multicomp_correction is None:
                 corrected_threshold = pval_thr
@@ -2053,24 +2045,28 @@ class Experiment:
                     f"Unknown multicomp_correction method: {multicomp_correction}. "
                     "Options: None, 'bonferroni', 'holm', 'fdr_bh'"
                 )
-            
+
             # Determine significance based on new threshold
             for cell_id in cell_ids:
                 for feat_id in feat_ids:
                     pval = cell_feat_pvals[cell_id][feat_id]
-                    
+
                     # Check if significant according to new threshold
                     is_significant = pval < corrected_threshold
-                    
+
                     if is_significant:
                         cell_feat_dict[cell_id].append(feat_id)
-                    
+
                     # Update significance tables if requested
                     if significance_update:
                         self.significance_tables[mode][feat_id][cell_id]["stage2"] = is_significant
                         self.significance_tables[mode][feat_id][cell_id]["pval_thr"] = pval_thr
-                        self.significance_tables[mode][feat_id][cell_id]["multicomp_correction"] = multicomp_correction
-                        self.significance_tables[mode][feat_id][cell_id]["corrected_pval_thr"] = corrected_threshold
+                        self.significance_tables[mode][feat_id][cell_id][
+                            "multicomp_correction"
+                        ] = multicomp_correction
+                        self.significance_tables[mode][feat_id][cell_id][
+                            "corrected_pval_thr"
+                        ] = corrected_threshold
         else:
             # Use pre-computed INTENSE significance
             for cell_id in cell_ids:
@@ -2087,12 +2083,10 @@ class Experiment:
 
         return final_cell_feat_dict
 
-    def store_embedding(
-        self, embedding, method_name, data_type="calcium", metadata=None
-    ):
+    def store_embedding(self, embedding, method_name, data_type="calcium", metadata=None):
         """
         Store dimensionality reduction embedding in the experiment.
-        
+
         This method stores a computed embedding in the experiment's internal
         embeddings dictionary. Previous embeddings with the same method_name
         and data_type will be overwritten without warning.
@@ -2114,7 +2108,7 @@ class Experiment:
             - 'n_components': Number of components
             - 'neuron_indices': Indices of neurons used
             - 'method_params': Parameters specific to the DR method
-            
+
         Raises
         ------
         ValueError
@@ -2123,7 +2117,7 @@ class Experiment:
             If embedding timepoints don't match expected frames. The expected
             number is self.n_frames//ds where ds is extracted from metadata
             (default 1).
-            
+
         Notes
         -----
         The embedding is stored in self.embeddings[data_type][method_name] as a
@@ -2132,37 +2126,37 @@ class Experiment:
         - 'metadata': The provided metadata dict (or empty dict)
         - 'timestamp': Current time when stored (np.datetime64)
         - 'shape': Shape tuple of the embedding array
-        
+
         Previous embeddings with the same method_name are silently overwritten.
-        
+
         Examples
         --------
         >>> import numpy as np
         >>> from driada.experiment.exp_base import Experiment
-        >>> 
+        >>>
         >>> # Create a simple experiment
         >>> calcium_data = np.random.randn(10, 1000)
-        >>> exp = Experiment('test', calcium_data, None, {}, 
+        >>> exp = Experiment('test', calcium_data, None, {},
         ...                  {'fps': 30.0}, {}, verbose=False)
-        >>> 
+        >>>
         >>> # Store a PCA embedding
         >>> embedding = np.random.randn(1000, 3)  # 1000 timepoints, 3 components
         >>> exp.store_embedding(embedding, 'pca', metadata={'n_components': 3})
-        >>> 
+        >>>
         >>> # Verify storage
         >>> 'pca' in exp.embeddings['calcium']
         True
-        >>> 
+        >>>
         >>> # Store a downsampled UMAP embedding
         >>> # If experiment has 1000 frames and ds=5, embedding should have 200 rows
         >>> downsampled_embedding = np.random.randn(200, 2)
-        >>> exp.store_embedding(downsampled_embedding, 'umap', 
+        >>> exp.store_embedding(downsampled_embedding, 'umap',
         ...                    metadata={'ds': 5, 'n_neighbors': 30})
-        
+
         See Also
         --------
         ~driada.experiment.exp_base.get_embedding : Retrieve stored embeddings
-        ~driada.experiment.exp_base.create_embedding : Create and store embeddings in one step        """
+        ~driada.experiment.exp_base.create_embedding : Create and store embeddings in one step"""
         if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
 
@@ -2192,7 +2186,7 @@ class Experiment:
     ) -> np.ndarray:
         """
         Create dimensionality reduction embedding and store it.
-        
+
         Notes
         -----
         This method modifies the experiment's state by storing the computed
@@ -2220,7 +2214,7 @@ class Experiment:
         -------
         embedding : np.ndarray
             The embedding array, shape (n_timepoints, n_components).
-            
+
         Raises
         ------
         ValueError
@@ -2230,57 +2224,56 @@ class Experiment:
             embedding method drops timepoints.
         AttributeError
             If spike data requested but not available.
-            
+
         Examples
         --------
         >>> import numpy as np
         >>> from driada.experiment.exp_base import Experiment
         >>> from driada.information.info_base import TimeSeries
-        >>> 
+        >>>
         >>> # Create experiment with some data
         >>> calcium_data = np.random.randn(25, 1000)
         >>> speed = TimeSeries(np.random.rand(1000))
         >>> exp = Experiment('test', calcium_data, None, {},
         ...                  {'fps': 30.0}, {'speed': speed}, verbose=False)
-        >>> 
+        >>>
         >>> # Create PCA embedding using all neurons
         >>> embedding = exp.create_embedding('pca', n_components=10)
         Calculating PCA embedding...
         >>> embedding.shape
         (1000, 10)
-        >>> 
-        >>> # Create downsampled PCA with specific neurons  
+        >>>
+        >>> # Create downsampled PCA with specific neurons
         >>> embedding = exp.create_embedding('pca', n_components=2,
         ...                                neuron_selection=[0, 1, 2, 3, 4], ds=10)
         Calculating PCA embedding...
-        
+
         See Also
         --------
         ~driada.experiment.exp_base.store_embedding : Store computed embeddings
         ~driada.experiment.exp_base.get_embedding : Retrieve stored embeddings
-        ~driada.experiment.exp_base.get_significant_neurons : Get neurons with significant selectivity        """
+        ~driada.experiment.exp_base.get_significant_neurons : Get neurons with significant selectivity
+        """
         from ..information.info_base import MultiTimeSeries
         from ..utils.data import check_positive
-        
+
         # Validate inputs
         check_positive(n_components=n_components)
-        if data_type not in ['calcium', 'spikes']:
+        if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
-            
+
         # Select neurons
         if neuron_selection is None or neuron_selection == "all":
             neuron_indices = np.arange(self.n_cells)
         elif neuron_selection == "significant":
             has_selectivity = (
-                hasattr(self, "stats_tables") and 
-                self.stats_tables is not None and
-                data_type in self.stats_tables and
-                len(self.stats_tables[data_type]) > 0
+                hasattr(self, "stats_tables")
+                and self.stats_tables is not None
+                and data_type in self.stats_tables
+                and len(self.stats_tables[data_type]) > 0
             )
             if not has_selectivity:
-                raise ValueError(
-                    "Cannot select significant neurons without selectivity analysis"
-                )
+                raise ValueError("Cannot select significant neurons without selectivity analysis")
             sig_neurons = self.get_significant_neurons()
             neuron_indices = np.array(list(sig_neurons.keys()))
             if len(neuron_indices) == 0:
@@ -2291,9 +2284,7 @@ class Experiment:
             # Validate neuron indices are within bounds
             if len(neuron_indices) > 0:
                 if np.any(neuron_indices < 0) or np.any(neuron_indices >= self.n_cells):
-                    raise ValueError(
-                        f"Neuron indices must be in range [0, {self.n_cells-1}]"
-                    )
+                    raise ValueError(f"Neuron indices must be in range [0, {self.n_cells-1}]")
 
         # Get neural data - calcium and spikes are already MultiTimeSeries
         if data_type == "calcium":
@@ -2302,14 +2293,12 @@ class Experiment:
             if not hasattr(self, "spikes") or self.spikes is None:
                 raise AttributeError("Experiment has no spike data")
             multi_ts = self.spikes
-            
+
         # Create subset MultiTimeSeries with selected neurons
         if len(neuron_indices) != self.n_cells:
             subset_data = multi_ts.data[neuron_indices, :]
             multi_ts = MultiTimeSeries(
-                subset_data, 
-                discrete=multi_ts.discrete,
-                allow_zero_columns=(data_type == "spikes")
+                subset_data, discrete=multi_ts.discrete, allow_zero_columns=(data_type == "spikes")
             )
 
         # Apply downsampling if requested
@@ -2323,11 +2312,9 @@ class Experiment:
             multi_ts = MultiTimeSeries(
                 downsampled_data,
                 discrete=multi_ts.discrete,
-                allow_zero_columns=(data_type == "spikes")
+                allow_zero_columns=(data_type == "spikes"),
             )
-            logging.info(
-                f"Downsampling data by factor {ds}: {multi_ts.data.shape[1]} timepoints"
-            )
+            logging.info(f"Downsampling data by factor {ds}: {multi_ts.data.shape[1]} timepoints")
 
         # Prepare parameters for dimensionality reduction
         params = {"dim": n_components}
@@ -2371,7 +2358,7 @@ class Experiment:
     def get_embedding(self, method_name, data_type="calcium"):
         """
         Retrieve stored embedding.
-        
+
         This method retrieves a previously stored dimensionality reduction
         embedding from the experiment's embeddings dictionary. The returned
         dictionary contains the embedding data along with metadata and timestamp.
@@ -2391,49 +2378,49 @@ class Experiment:
             - 'metadata': Dict with embedding parameters and settings
             - 'timestamp': np.datetime64 when the embedding was stored
             - 'shape': Tuple with shape of the embedding array
-            
+
         Raises
         ------
         ValueError
             If data_type is not 'calcium' or 'spikes'.
         KeyError
             If no embedding found for the specified method and data type.
-            
+
         Notes
         -----
         To see available embeddings, check exp.embeddings[data_type].keys().
         The returned dictionary is a reference to the stored data, so
         modifications will affect the stored embedding.
-            
+
         Examples
         --------
         >>> import numpy as np
         >>> from driada.experiment.exp_base import Experiment
-        >>> 
+        >>>
         >>> # Create experiment and store an embedding
         >>> calcium_data = np.random.randn(10, 1000)
         >>> exp = Experiment('test', calcium_data, None, {},
         ...                  {'fps': 30.0}, {}, verbose=False)
-        >>> 
+        >>>
         >>> # Store an embedding first
         >>> embedding = np.random.randn(1000, 3)
         >>> exp.store_embedding(embedding, 'pca', metadata={'n_components': 3})
-        >>> 
+        >>>
         >>> # Retrieve the stored PCA embedding
         >>> embedding_dict = exp.get_embedding('pca')
         >>> embedding_data = embedding_dict['data']
         >>> print(f"Embedding shape: {embedding_dict['shape']}")
         Embedding shape: (1000, 3)
-        >>> 
+        >>>
         >>> # Check available embeddings before retrieval
         >>> available = list(exp.embeddings['calcium'].keys())
         >>> print(f"Available embeddings: {available}")
         Available embeddings: ['pca']
-        
+
         See Also
         --------
         ~driada.experiment.exp_base.store_embedding : Store embeddings in the experiment
-        ~driada.experiment.exp_base.create_embedding : Create and store embeddings in one step        """
+        ~driada.experiment.exp_base.create_embedding : Create and store embeddings in one step"""
         if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
 
@@ -2473,7 +2460,7 @@ class Experiment:
         rdm : np.ndarray
             Representational dissimilarity matrix
         labels : np.ndarray
-            The unique labels/conditions        """
+            The unique labels/conditions"""
         # Generate cache key
         cache_key = (items, data_type, metric, average_method)
 
@@ -2501,11 +2488,11 @@ class Experiment:
 
     def clear_rdm_cache(self):
         """Clear the representational dissimilarity matrix (RDM) cache.
-        
+
         Removes all cached RDM computations to free memory or force
         recalculation with updated data. This is necessary after modifying
         the underlying neural data or when memory usage is a concern.
-        
+
         Notes
         -----
         The RDM cache stores previously computed dissimilarity matrices to
@@ -2514,38 +2501,37 @@ class Experiment:
         - Embeddings have been updated
         - Memory usage needs to be reduced
         - You want to force fresh computation with different parameters
-        
+
         After clearing, subsequent calls to compute_rdm() will recalculate
         the RDM from scratch, which may be computationally expensive for
         large datasets.
-        
+
         See Also
         --------
         ~driada.experiment.exp_base.compute_rdm : Method that uses and populates the RDM cache
-        
+
         Examples
         --------
         >>> import numpy as np
         >>> from driada.experiment.exp_base import Experiment
         >>> from driada.information.info_base import TimeSeries
-        >>> 
+        >>>
         >>> # Create experiment with a categorical feature
         >>> calcium_data = np.random.randn(10, 1000)
         >>> conditions = TimeSeries(np.repeat([0, 1, 2], [333, 333, 334]), discrete=True)
         >>> exp = Experiment('test', calcium_data, None, {},
         ...                  {'fps': 30.0}, {'conditions': conditions}, verbose=False)
-        >>> 
+        >>>
         >>> # Compute RDM (will be cached)
         >>> rdm, labels = exp.compute_rdm('conditions')
-        >>> 
+        >>>
         >>> # Update embedding and clear cache
         >>> new_embedding = np.random.randn(1000, 3)
         >>> exp.store_embedding(new_embedding, 'pca')
         >>> exp.clear_rdm_cache()
-        >>> 
+        >>>
         >>> # Verify cache is empty
         >>> len(exp._rdm_cache)
         0
         """
         self._rdm_cache = {}
-

@@ -5,14 +5,12 @@ This module provides standardized graph fixtures to ensure consistent
 testing across all network modules.
 """
 
+import networkx as nx
 import numpy as np
 import scipy.sparse as sp
-import networkx as nx
 
 
-def create_standard_graph(
-    n=10, density=0.3, weighted=False, directed=True, random_state=42
-):
+def create_standard_graph(n=10, density=0.3, weighted=False, directed=True, random_state=42):
     """
     Create a standard test graph with consistent properties.
 
@@ -132,8 +130,10 @@ def create_dense_graph(n=10, completeness=0.8, weighted=True, random_state=42):
     n_edges_remove = n_edges_total - n_edges_keep
 
     # Get all possible edges (only upper triangle for symmetric graph)
-    edges = [(i, j) for i in range(n) for j in range(i+1, n)]
-    n_edges_remove = min(n_edges_remove // 2, len(edges))  # Divide by 2 since we'll remove symmetrically
+    edges = [(i, j) for i in range(n) for j in range(i + 1, n)]
+    n_edges_remove = min(
+        n_edges_remove // 2, len(edges)
+    )  # Divide by 2 since we'll remove symmetrically
     edges_to_remove = np.random.choice(len(edges), n_edges_remove, replace=False)
 
     for idx in edges_to_remove:

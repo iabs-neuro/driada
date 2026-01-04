@@ -2,10 +2,11 @@
 Tests for signal generation and analysis utilities.
 """
 
-import pytest
 import numpy as np
-from driada.utils.signals import brownian, approximate_entropy
+import pytest
+
 from driada.information import TimeSeries
+from driada.utils.signals import approximate_entropy, brownian
 
 
 def test_brownian_single_path():
@@ -121,9 +122,7 @@ def test_timeseries_approximate_entropy_discrete_raises():
     data = np.array([0, 1, 0, 1, 1, 0, 1, 0])
     ts = TimeSeries(data, discrete=True)
 
-    with pytest.raises(
-        ValueError, match="approximate_entropy is only valid for continuous"
-    ):
+    with pytest.raises(ValueError, match="approximate_entropy is only valid for continuous"):
         ts.approximate_entropy()
 
 
@@ -157,9 +156,7 @@ def test_filter_1d_timeseries_savgol():
     from driada.utils.signals import filter_1d_timeseries
 
     # Apply Savitzky-Golay filter
-    filtered = filter_1d_timeseries(
-        noisy_signal, method="savgol", window_length=11, polyorder=3
-    )
+    filtered = filter_1d_timeseries(noisy_signal, method="savgol", window_length=11, polyorder=3)
 
     assert len(filtered) == len(noisy_signal)
     # Should preserve peak better than Gaussian

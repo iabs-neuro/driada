@@ -1,13 +1,14 @@
 """Tests for JIT-compiled entropy calculation functions."""
 
 import numpy as np
-from driada.information.entropy_jit import (
-    entropy_d_jit,
-    joint_entropy_dd_jit,
-)
+
 from driada.information.entropy import (
     entropy_d,
     joint_entropy_dd,
+)
+from driada.information.entropy_jit import (
+    entropy_d_jit,
+    joint_entropy_dd_jit,
 )
 
 

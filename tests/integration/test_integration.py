@@ -1,20 +1,20 @@
 """Integration tests for DRIADA modules working together"""
 
-import pytest
-import numpy as np
 import warnings
-from driada import compute_cell_feat_significance
-from driada.dimensionality import nn_dimension, pca_dimension, effective_rank
+
+import numpy as np
+import pytest
 from sklearn.decomposition import PCA
 from sklearn.manifold import Isomap
+
+from driada import compute_cell_feat_significance
+from driada.dimensionality import effective_rank, nn_dimension, pca_dimension
 
 
 class TestINTENSEToDRIntegration:
     """Test INTENSE → Dimensionality Reduction pipeline"""
 
-    def test_intense_to_pca_pipeline(
-        self, circular_manifold_exp_fast, intense_params_fast
-    ):
+    def test_intense_to_pca_pipeline(self, circular_manifold_exp_fast, intense_params_fast):
         """Test full pipeline from INTENSE selectivity to PCA reduction"""
         # Use fixture for faster test
         exp = circular_manifold_exp_fast
@@ -39,9 +39,7 @@ class TestINTENSEToDRIntegration:
         assert embedding.shape == (exp.n_frames, 2)
         assert pca.explained_variance_ratio_[0] > 0.1  # First PC explains >10%
 
-    def test_intense_to_manifold_learning(
-        self, spatial_2d_exp_fast, intense_params_fast
-    ):
+    def test_intense_to_manifold_learning(self, spatial_2d_exp_fast, intense_params_fast):
         """Test INTENSE with nonlinear DR methods"""
         # Use fixture for faster test
         exp = spatial_2d_exp_fast
@@ -85,9 +83,7 @@ class TestINTENSEToDRIntegration:
         assert embedding.shape == (exp.n_frames, 3)
         assert not np.any(np.isnan(embedding))
 
-    def test_dimensionality_estimation_integration(
-        self, circular_manifold_exp_balanced
-    ):
+    def test_dimensionality_estimation_integration(self, circular_manifold_exp_balanced):
         """Test dimensionality estimation on INTENSE-processed data"""
         # Use balanced fixture for more neurons
         exp = circular_manifold_exp_balanced
@@ -111,8 +107,9 @@ class TestINTENSEToDRIntegration:
     def test_memory_efficiency(self, memory_test_exp, intense_params_fast):
         """Test memory efficiency of integrated pipeline"""
         try:
-            import psutil
             import os
+
+            import psutil
         except ImportError:
             pytest.skip("psutil not installed")
 
@@ -137,9 +134,7 @@ class TestINTENSEToDRIntegration:
         # Memory increase should be reasonable (<500MB for this test)
         assert memory_increase < 500, f"Memory increased by {memory_increase}MB"
 
-    def test_data_flow_validation(
-        self, circular_manifold_exp_fast, intense_params_fast
-    ):
+    def test_data_flow_validation(self, circular_manifold_exp_fast, intense_params_fast):
         """Validate data flows correctly through pipeline"""
         # Use standard fixture
         exp = circular_manifold_exp_fast
@@ -164,9 +159,7 @@ class TestINTENSEToDRIntegration:
         assert pca_embedding.coords.shape == (3, exp.n_frames)
         assert not np.any(np.isnan(pca_embedding.coords))
 
-    def test_error_handling_integration(
-        self, circular_manifold_exp_fast, intense_params_fast
-    ):
+    def test_error_handling_integration(self, circular_manifold_exp_fast, intense_params_fast):
         """Test error handling across module boundaries"""
         # Use standard fixture but modify data to be problematic
         exp = circular_manifold_exp_fast

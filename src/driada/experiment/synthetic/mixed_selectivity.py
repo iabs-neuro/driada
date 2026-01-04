@@ -7,16 +7,17 @@ selectivity, where neurons can respond to multiple features simultaneously.
 
 import numpy as np
 import tqdm
+
+from ...information.info_base import TimeSeries, aggregate_multiple_ts
+from ...utils.data import check_nonnegative, check_positive, check_unit
+from ..exp_base import Experiment
 from .core import generate_pseudo_calcium_signal
 from .time_series import (
+    delete_one_islands,
+    discretize_via_roi,
     generate_binary_time_series,
     generate_fbm_time_series,
-    discretize_via_roi,
-    delete_one_islands,
 )
-from ..exp_base import Experiment
-from ...information.info_base import TimeSeries, aggregate_multiple_ts
-from ...utils.data import check_positive, check_nonnegative, check_unit
 
 
 def generate_multiselectivity_patterns(
@@ -49,14 +50,14 @@ def generate_multiselectivity_patterns(
     ndarray of shape (n_features, n_neurons)
         Matrix with selectivity weights. Non-zero values indicate selectivity strength.
         Each column represents a neuron, each row represents a feature.
-        
+
     Raises
     ------
     ValueError
         If n_neurons or n_features are not positive.
         If selectivity_prob or multi_select_prob are not in [0, 1].
         If weights_mode is not one of 'random', 'dominant', 'equal'.
-        
+
     Notes
     -----
     - Each neuron has selectivity_prob chance of being selective to any features.
@@ -64,16 +65,16 @@ def generate_multiselectivity_patterns(
       vs single selectivity (1 feature).
     - Mixed selectivity neurons select 2 or 3 features with probability [0.7, 0.3].
     - Weights are assigned using Dirichlet distribution for natural weight distributions.
-    - Setting numpy random state for reproducibility when seed is provided.    """
+    - Setting numpy random state for reproducibility when seed is provided."""
     # Input validation
     check_positive(n_neurons=n_neurons, n_features=n_features)
-    
+
     check_unit(selectivity_prob=selectivity_prob, multi_select_prob=multi_select_prob)
-    
-    valid_weights_modes = ['random', 'dominant', 'equal']
+
+    valid_weights_modes = ["random", "dominant", "equal"]
     if weights_mode not in valid_weights_modes:
         raise ValueError(f"weights_mode must be one of {valid_weights_modes}, got {weights_mode}")
-    
+
     if seed is not None:
         np.random.seed(seed)
 
@@ -158,7 +159,7 @@ def generate_mixed_selective_signal(
     -------
     ndarray of shape (int(duration * sampling_rate),)
         Generated calcium signal.
-        
+
     Raises
     ------
     ValueError
@@ -167,25 +168,27 @@ def generate_mixed_selective_signal(
         If rate_0, rate_1, or noise_std are negative.
         If skip_prob is not in [0, 1].
         If decay_time is not positive.
-        
+
     Notes
     -----
     - Uses OR logic for feature activation: neuron fires if ANY feature is active.
     - Firing rate is modulated by sum of active feature weights (capped at 1.0).
     - Continuous features are discretized using ROI-based method.
-    - Setting numpy random state for reproducibility when seed is provided.    """
+    - Setting numpy random state for reproducibility when seed is provided."""
     # Input validation
     check_positive(duration=duration, sampling_rate=sampling_rate, decay_time=decay_time)
     check_nonnegative(rate_0=rate_0, rate_1=rate_1, noise_std=noise_std)
-    
+
     # Check array lengths match
     features = list(features)  # Ensure it's a list
     weights = np.asarray(weights)
     if len(features) != len(weights):
-        raise ValueError(f"features and weights must have same length: {len(features)} vs {len(weights)}")
-    
+        raise ValueError(
+            f"features and weights must have same length: {len(features)} vs {len(weights)}"
+        )
+
     check_unit(skip_prob=skip_prob)
-    
+
     if seed is not None:
         np.random.seed(seed)
 
@@ -208,9 +211,7 @@ def generate_mixed_selective_signal(
             binary_activation = feat.astype(int)
         else:
             # Use ROI-based discretization for continuous
-            binary_activation = discretize_via_roi(
-                feat, seed=seed + feat_idx if seed else None
-            )
+            binary_activation = discretize_via_roi(feat, seed=seed + feat_idx if seed else None)
             binary_activation = binary_activation.astype(int)
 
         # Store weighted activation
@@ -318,7 +319,7 @@ def generate_synthetic_data_mixed_selectivity(
         Neural calcium signals.
     ground_truth : ndarray
         The input selectivity_matrix (returned for convenience).
-        
+
     Raises
     ------
     ValueError
@@ -328,26 +329,28 @@ def generate_synthetic_data_mixed_selectivity(
         If rate_0, rate_1, or noise_std are negative.
         If skip_prob is not in [0, 1].
         If decay_time is not positive.
-        
+
     Notes
     -----
     - Non-selective neurons (all zero weights) generate pure noise.
     - Each neuron gets a unique seed: base_seed + neuron_index.
     - Progress is displayed using tqdm if verbose=True.
-    - Setting numpy random state for reproducibility when seed is provided.    """
+    - Setting numpy random state for reproducibility when seed is provided."""
     # Input validation
-    check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate, decay_time=decay_time)
+    check_positive(
+        n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate, decay_time=decay_time
+    )
     check_nonnegative(rate_0=rate_0, rate_1=rate_1, noise_std=noise_std)
-    
+
     check_unit(skip_prob=skip_prob)
-    
+
     # Check features_dict
     if not isinstance(features_dict, dict):
         raise ValueError("features_dict must be a dictionary")
-    
+
     feature_names = list(features_dict.keys())
     feature_arrays = [features_dict[name] for name in feature_names]
-    
+
     # Check selectivity matrix shape
     selectivity_matrix = np.asarray(selectivity_matrix)
     expected_shape = (len(feature_names), n_neurons)
@@ -479,7 +482,7 @@ def generate_synthetic_exp_with_mixed_selectivity(
         - 'matrix': ndarray of shape (n_features, n_neurons) - selectivity weights
         - 'feature_names': list - ordered feature names matching matrix rows
         - 'multifeature_map': dict - maps component tuples to multifeature names
-        
+
     Raises
     ------
     ValueError
@@ -491,36 +494,50 @@ def generate_synthetic_exp_with_mixed_selectivity(
         If hurst is not in (0, 1).
         If target_active_fraction is not in (0, 1).
         If avg_active_duration is not positive.
-        
+
     Notes
     -----
     - Discrete features have configurable active time and duration.
     - Continuous features use fractional Brownian motion with configurable Hurst parameter.
     - Multifeatures are created by pairing consecutive continuous features.
     - Each generation stage uses a different seed offset (+100, +200, etc.).
-    - Setting numpy random state for reproducibility when seed is provided.    """
+    - Setting numpy random state for reproducibility when seed is provided."""
     # Input validation
-    check_positive(n_neurons=n_neurons, duration=duration, fps=fps, 
-                   decay_time=decay_time, avg_active_duration=avg_active_duration)
-    check_nonnegative(n_discrete_feats=n_discrete_feats, n_continuous_feats=n_continuous_feats,
-                      n_multifeatures=n_multifeatures, rate_0=rate_0, rate_1=rate_1, 
-                      noise_std=noise_std)
-    
+    check_positive(
+        n_neurons=n_neurons,
+        duration=duration,
+        fps=fps,
+        decay_time=decay_time,
+        avg_active_duration=avg_active_duration,
+    )
+    check_nonnegative(
+        n_discrete_feats=n_discrete_feats,
+        n_continuous_feats=n_continuous_feats,
+        n_multifeatures=n_multifeatures,
+        rate_0=rate_0,
+        rate_1=rate_1,
+        noise_std=noise_std,
+    )
+
     # Check probabilities and fractions
-    check_unit(selectivity_prob=selectivity_prob, multi_select_prob=multi_select_prob, 
-               skip_prob=skip_prob)
-    check_unit(left_open=True, right_open=True, target_active_fraction=target_active_fraction,
-               hurst=hurst)
-    
+    check_unit(
+        selectivity_prob=selectivity_prob, multi_select_prob=multi_select_prob, skip_prob=skip_prob
+    )
+    check_unit(
+        left_open=True, right_open=True, target_active_fraction=target_active_fraction, hurst=hurst
+    )
+
     # Check other parameters
-    valid_weights_modes = ['random', 'dominant', 'equal']
+    valid_weights_modes = ["random", "dominant", "equal"]
     if weights_mode not in valid_weights_modes:
         raise ValueError(f"weights_mode must be one of {valid_weights_modes}, got {weights_mode}")
-    
-    valid_name_conventions = ['str', 'tuple']
+
+    valid_name_conventions = ["str", "tuple"]
     if name_convention not in valid_name_conventions:
-        raise ValueError(f"name_convention must be one of {valid_name_conventions}, got {name_convention}")
-    
+        raise ValueError(
+            f"name_convention must be one of {valid_name_conventions}, got {name_convention}"
+        )
+
     if seed is not None:
         np.random.seed(seed)
 
@@ -580,11 +597,12 @@ def generate_synthetic_exp_with_mixed_selectivity(
                     # Use name_convention='str' instead
                     # The tuple key is duplicated here for backward compatibility
                     import warnings
+
                     warnings.warn(
                         "Tuple convention for multifeatures is deprecated and will be removed in v2.0. "
                         "Use name_convention='str' instead.",
                         DeprecationWarning,
-                        stacklevel=2
+                        stacklevel=2,
                     )
                     multifeatures_to_create.append(((feat1, feat2), (feat1, feat2)))
 
@@ -637,10 +655,7 @@ def generate_synthetic_exp_with_mixed_selectivity(
         # Get component TimeSeries
         component_ts = []
         for component_name in mf_components:
-            if (
-                component_name in dynamic_features
-                and not dynamic_features[component_name].discrete
-            ):
+            if component_name in dynamic_features and not dynamic_features[component_name].discrete:
                 component_ts.append(dynamic_features[component_name])
 
         # Create MultiTimeSeries if all components are continuous

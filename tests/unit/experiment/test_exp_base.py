@@ -1,18 +1,19 @@
 """Comprehensive tests for exp_base.py module."""
 
-import pytest
-import numpy as np
 import warnings
 from unittest.mock import patch
 
+import numpy as np
+import pytest
+
 from driada.experiment.exp_base import (
+    SIGNIFICANCE_VARS,
+    STATS_VARS,
     Experiment,
     check_dynamic_features,
-    STATS_VARS,
-    SIGNIFICANCE_VARS,
 )
-from driada.information.info_base import TimeSeries, MultiTimeSeries
 from driada.experiment.neuron import Neuron
+from driada.information.info_base import MultiTimeSeries, TimeSeries
 
 
 class TestDynamicFeatureValidation:
@@ -310,8 +311,7 @@ class TestExperimentInitialization:
 
             # Check warning was issued
             assert any(
-                "conflicts with protected attribute" in str(warning.message)
-                for warning in w
+                "conflicts with protected attribute" in str(warning.message) for warning in w
             )
             # Should be accessible with underscore
             assert hasattr(exp, "_calcium")
@@ -405,16 +405,12 @@ class TestExperimentMethods:
     def test_process_fbunch_multifeatures(self, basic_experiment):
         """Test processing of multifeatures."""
         # Enable multifeatures
-        multi = basic_experiment._process_fbunch(
-            [("feat1", "feat2")], allow_multifeatures=True
-        )
+        multi = basic_experiment._process_fbunch([("feat1", "feat2")], allow_multifeatures=True)
         assert multi == [("feat1", "feat2")]
 
         # Disable multifeatures - should raise
         with pytest.raises(ValueError, match="Multifeature detected"):
-            basic_experiment._process_fbunch(
-                [("feat1", "feat2")], allow_multifeatures=False
-            )
+            basic_experiment._process_fbunch([("feat1", "feat2")], allow_multifeatures=False)
 
     def test_process_sbunch(self, basic_experiment):
         """Test stats bunch processing."""
@@ -425,10 +421,7 @@ class TestExperimentMethods:
         assert basic_experiment._process_sbunch(None) == STATS_VARS
 
         # Significance mode
-        assert (
-            basic_experiment._process_sbunch(None, significance_mode=True)
-            == SIGNIFICANCE_VARS
-        )
+        assert basic_experiment._process_sbunch(None, significance_mode=True) == SIGNIFICANCE_VARS
 
     def test_build_pair_hash(self, basic_experiment):
         """Test hash building for cell-feature pairs."""
@@ -536,9 +529,7 @@ class TestExperimentMethods:
         assert f_spikes.shape == (3, 490)
         assert isinstance(f_features["feat1"], TimeSeries)
         assert f_features["feat1"].data.shape == (490,)
-        assert isinstance(f_features["feat2"], TimeSeries) or f_features[
-            "feat2"
-        ].shape == (2, 490)
+        assert isinstance(f_features["feat2"], TimeSeries) or f_features["feat2"].shape == (2, 490)
 
     def test_data_hashes(self, basic_experiment):
         """Test data hash storage."""
@@ -553,14 +544,8 @@ class TestExperimentMethods:
             assert feat in basic_experiment._data_hashes["spikes"]
 
             # Each feature should have hashes for all cells
-            assert (
-                len(basic_experiment._data_hashes["calcium"][feat])
-                == basic_experiment.n_cells
-            )
-            assert (
-                len(basic_experiment._data_hashes["spikes"][feat])
-                == basic_experiment.n_cells
-            )
+            assert len(basic_experiment._data_hashes["calcium"][feat]) == basic_experiment.n_cells
+            assert len(basic_experiment._data_hashes["spikes"][feat]) == basic_experiment.n_cells
 
     def test_multicell_shuffled_data(self, basic_experiment):
         """Test multi-cell shuffle methods."""
@@ -575,9 +560,7 @@ class TestExperimentMethods:
 
         # Test invalid method
         with pytest.raises(ValueError, match="Invalid shuffling method 'invalid_method'"):
-            basic_experiment.get_multicell_shuffled_calcium(
-                cbunch=[0], method="invalid_method"
-            )
+            basic_experiment.get_multicell_shuffled_calcium(cbunch=[0], method="invalid_method")
 
         # Test spike shuffling
         if np.any(basic_experiment.spikes.data):
@@ -686,9 +669,7 @@ class TestExperimentMethods:
         metadata = {"method": "pca", "n_components": 3}
 
         # Store embedding
-        basic_experiment.store_embedding(
-            embedding, "pca", data_type="calcium", metadata=metadata
-        )
+        basic_experiment.store_embedding(embedding, "pca", data_type="calcium", metadata=metadata)
 
         # Retrieve embedding
         result = basic_experiment.get_embedding("pca", data_type="calcium")
@@ -722,12 +703,12 @@ class TestExperimentMethods:
         assert 0 in sig_neurons
         assert 1 not in sig_neurons
         assert set(sig_neurons[0]) == {"feat1", "feat2"}
-        
+
     def test_get_significant_neurons_with_override(self, basic_experiment):
         """Test getting significant neurons with override_intense_significance."""
         # Initialize tables
         basic_experiment._set_selectivity_tables("calcium")
-        
+
         # Add p-values to stats tables for all neurons
         basic_experiment.stats_tables["calcium"]["feat1"][0]["pval"] = 0.001
         basic_experiment.stats_tables["calcium"]["feat1"][1]["pval"] = 0.02
@@ -739,23 +720,19 @@ class TestExperimentMethods:
         basic_experiment.stats_tables["calcium"]["feat2"][2]["pval"] = 0.9
         basic_experiment.stats_tables["calcium"]["feat2"][3]["pval"] = 0.8
         basic_experiment.stats_tables["calcium"]["feat2"][4]["pval"] = 0.6
-        
+
         # Mark all as NOT significant in the original INTENSE analysis
         for feat in ["feat1", "feat2"]:
             for cell in range(5):  # 5 neurons in basic_experiment
                 basic_experiment.significance_tables["calcium"][feat][cell]["stage2"] = False
-        
+
         # Test 1: Use original INTENSE significance (all False)
-        sig_neurons = basic_experiment.get_significant_neurons(
-            override_intense_significance=False
-        )
+        sig_neurons = basic_experiment.get_significant_neurons(override_intense_significance=False)
         assert len(sig_neurons) == 0
-        
+
         # Test 2: Override with pval_thr=0.05, no correction
         sig_neurons = basic_experiment.get_significant_neurons(
-            override_intense_significance=True,
-            pval_thr=0.05,
-            multicomp_correction=None
+            override_intense_significance=True, pval_thr=0.05, multicomp_correction=None
         )
         # Neurons with p < 0.05: neuron 0 (feat1, feat2), neuron 1 (feat1)
         assert 0 in sig_neurons
@@ -763,49 +740,51 @@ class TestExperimentMethods:
         assert 2 not in sig_neurons
         assert set(sig_neurons[0]) == {"feat1", "feat2"}
         assert set(sig_neurons[1]) == {"feat1"}
-        
+
         # Test 3: Override with stricter threshold
         sig_neurons = basic_experiment.get_significant_neurons(
-            override_intense_significance=True,
-            pval_thr=0.01,
-            multicomp_correction=None
+            override_intense_significance=True, pval_thr=0.01, multicomp_correction=None
         )
         # Only neuron 0 with feat1 (p=0.001)
         assert 0 in sig_neurons
         assert 1 not in sig_neurons
         assert set(sig_neurons[0]) == {"feat1"}
-        
+
         # Test 4: With Bonferroni correction (10 tests total: 5 neurons × 2 features)
         sig_neurons = basic_experiment.get_significant_neurons(
-            override_intense_significance=True,
-            pval_thr=0.05,
-            multicomp_correction="bonferroni"
+            override_intense_significance=True, pval_thr=0.05, multicomp_correction="bonferroni"
         )
         # Bonferroni threshold = 0.05/10 = 0.005
         # Only neuron 0 with feat1 (p=0.001) passes
         assert 0 in sig_neurons
         assert 1 not in sig_neurons
         assert set(sig_neurons[0]) == {"feat1"}
-        
+
         # Test 5: Update significance tables
         sig_neurons = basic_experiment.get_significant_neurons(
             override_intense_significance=True,
             pval_thr=0.05,
             multicomp_correction=None,
-            significance_update=True
+            significance_update=True,
         )
-        
+
         # Check that significance tables were updated
         assert basic_experiment.significance_tables["calcium"]["feat1"][0]["stage2"] == True
         assert basic_experiment.significance_tables["calcium"]["feat1"][1]["stage2"] == True
         assert basic_experiment.significance_tables["calcium"]["feat1"][2]["stage2"] == False
         assert basic_experiment.significance_tables["calcium"]["feat2"][0]["stage2"] == True
         assert basic_experiment.significance_tables["calcium"]["feat2"][1]["stage2"] == False
-        
+
         # Check additional fields were added
         assert basic_experiment.significance_tables["calcium"]["feat1"][0]["pval_thr"] == 0.05
-        assert basic_experiment.significance_tables["calcium"]["feat1"][0]["multicomp_correction"] is None
-        assert basic_experiment.significance_tables["calcium"]["feat1"][0]["corrected_pval_thr"] == 0.05
+        assert (
+            basic_experiment.significance_tables["calcium"]["feat1"][0]["multicomp_correction"]
+            is None
+        )
+        assert (
+            basic_experiment.significance_tables["calcium"]["feat1"][0]["corrected_pval_thr"]
+            == 0.05
+        )
 
     def test_multicell_shuffled_spikes_error(self, basic_experiment):
         """Test error handling for spike shuffling."""
@@ -836,9 +815,7 @@ class TestExperimentMethods:
         cell_id = 0
         feat_id = "feat1"
         pair_hash = basic_experiment._build_pair_hash(cell_id, feat_id)
-        basic_experiment.stats_tables["calcium"][feat_id][cell_id][
-            "data_hash"
-        ] = pair_hash
+        basic_experiment.stats_tables["calcium"][feat_id][cell_id]["data_hash"] = pair_hash
         basic_experiment.stats_tables["calcium"][feat_id][cell_id]["me"] = 0.5
 
         # Retrieve stats
@@ -872,15 +849,11 @@ class TestExperimentMethods:
         cell_id = 0
         feat_id = "feat1"
         pair_hash = basic_experiment._build_pair_hash(cell_id, feat_id)
-        basic_experiment.stats_tables["calcium"][feat_id][cell_id][
-            "data_hash"
-        ] = pair_hash
+        basic_experiment.stats_tables["calcium"][feat_id][cell_id]["data_hash"] = pair_hash
 
         # Update significance
         sig_data = {"stage1": True, "stage2": False, "shuffles1": 1000}
-        basic_experiment.update_neuron_feature_pair_significance(
-            sig_data, cell_id, feat_id
-        )
+        basic_experiment.update_neuron_feature_pair_significance(sig_data, cell_id, feat_id)
 
         # Verify
         stored_sig = basic_experiment.significance_tables["calcium"][feat_id][cell_id]
@@ -910,9 +883,7 @@ class TestExperimentMethods:
         """Test RDM computation with caching."""
         # Add a categorical feature for RDM
         conditions = np.array([0, 0, 1, 1, 2, 2] * 83 + [0, 0])  # Total 500
-        basic_experiment.dynamic_features["conditions"] = TimeSeries(
-            conditions, discrete=True
-        )
+        basic_experiment.dynamic_features["conditions"] = TimeSeries(conditions, discrete=True)
 
         # Mock the compute_experiment_rdm function
         with patch("driada.rsa.integration.compute_experiment_rdm") as mock_compute:
@@ -981,9 +952,7 @@ class TestExperimentMethods:
         # Set data hash to match
         cell_id = 0
         pair_hash = basic_experiment._data_hashes["calcium"][ordered_feat][cell_id]
-        basic_experiment.stats_tables["calcium"][ordered_feat][cell_id][
-            "data_hash"
-        ] = pair_hash
+        basic_experiment.stats_tables["calcium"][ordered_feat][cell_id]["data_hash"] = pair_hash
 
         # Check relevance - should pass
         assert basic_experiment._check_stats_relevance(cell_id, multifeature) == True
@@ -996,9 +965,7 @@ class TestExperimentMethods:
         # Set mismatched hash
         cell_id = 0
         feat_id = "feat1"
-        basic_experiment.stats_tables["calcium"][feat_id][cell_id][
-            "data_hash"
-        ] = "old_hash"
+        basic_experiment.stats_tables["calcium"][feat_id][cell_id]["data_hash"] = "old_hash"
 
         # Try to update without force - should print warning
         new_stats = {"me": 0.8}

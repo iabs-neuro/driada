@@ -3,20 +3,21 @@
 import numpy as np
 import pytest
 from scipy import stats as scipy_stats
+
 from driada.intense.stats import (
     chebyshev_ineq,
-    get_lognormal_p,
-    get_gamma_p,
-    get_distribution_function,
-    get_mi_distr_pvalue,
-    get_mask,
-    stats_not_empty,
     criterion1,
     criterion2,
     get_all_nonempty_pvals,
+    get_distribution_function,
+    get_gamma_p,
+    get_lognormal_p,
+    get_mask,
+    get_mi_distr_pvalue,
     get_table_of_stats,
-    merge_stage_stats,
     merge_stage_significance,
+    merge_stage_stats,
+    stats_not_empty,
 )
 
 
@@ -77,7 +78,7 @@ def test_get_lognormal_p():
     data_same = np.ones(100) * 2.0
     p_val = get_lognormal_p(data_same, 2.5)
     assert 0 <= p_val <= 1
-    
+
     # Test 5: Negative values should raise error
     data_negative = np.array([-1, 1, 2, 3])
     with pytest.raises(ValueError, match="positive values"):
@@ -110,7 +111,7 @@ def test_get_gamma_p():
     # Test 4: Zero value (gamma starts at 0)
     p_val = get_gamma_p(data, 0.0)
     assert p_val == 1.0
-    
+
     # Test 5: Negative values should raise error
     data_negative = np.array([-1, 1, 2, 3])
     with pytest.raises(ValueError, match="positive values"):
@@ -309,9 +310,7 @@ def test_get_table_of_stats():
 
     optimal_delays = np.array([[1, 2, 3], [4, 5, 6]])
 
-    stats = get_table_of_stats(
-        metable, optimal_delays, metric_distr_type="gamma", nsh=100, stage=1
-    )
+    stats = get_table_of_stats(metable, optimal_delays, metric_distr_type="gamma", nsh=100, stage=1)
 
     # Check structure
     assert len(stats) == 2

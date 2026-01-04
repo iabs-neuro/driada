@@ -1,12 +1,13 @@
 """Performance tests for RSA improvements."""
 
 import time
+
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 
+from driada.dim_reduction.data import MVData
 from driada.rsa.core import compute_rdm
 from driada.rsa.core_jit import fast_correlation_distance, fast_euclidean_distance
-from driada.dim_reduction.data import MVData
 from driada.utils.jit import is_jit_enabled, jit_info
 
 
@@ -50,9 +51,7 @@ def test_correlation_performance():
 
             mean_orig, std_orig, rdm_orig = time_function(original_correlation)
             mean_scipy, std_scipy, rdm_scipy = time_function(scipy_correlation)
-            mean_jit, std_jit, rdm_jit = time_function(
-                fast_correlation_distance, patterns
-            )
+            mean_jit, std_jit, rdm_jit = time_function(fast_correlation_distance, patterns)
 
             print(f"  NumPy corrcoef: {mean_orig:.4f} ± {std_orig:.4f} s")
             print(f"  SciPy pdist:    {mean_scipy:.4f} ± {std_scipy:.4f} s")
@@ -62,9 +61,7 @@ def test_correlation_performance():
             )
 
             # Verify correctness
-            assert np.allclose(
-                rdm_orig, rdm_jit, rtol=1e-5
-            ), "JIT result differs from NumPy"
+            assert np.allclose(rdm_orig, rdm_jit, rtol=1e-5), "JIT result differs from NumPy"
         else:
             mean_orig, std_orig, _ = time_function(original_correlation)
             mean_scipy, std_scipy, _ = time_function(scipy_correlation)
@@ -95,18 +92,14 @@ def test_euclidean_performance():
             _ = fast_euclidean_distance(patterns[:5])
 
             mean_scipy, std_scipy, rdm_scipy = time_function(scipy_euclidean)
-            mean_jit, std_jit, rdm_jit = time_function(
-                fast_euclidean_distance, patterns
-            )
+            mean_jit, std_jit, rdm_jit = time_function(fast_euclidean_distance, patterns)
 
             print(f"  SciPy pdist:  {mean_scipy:.4f} ± {std_scipy:.4f} s")
             print(f"  JIT compiled: {mean_jit:.4f} ± {std_jit:.4f} s")
             print(f"  JIT speedup:  {mean_scipy/mean_jit:.2f}x")
 
             # Verify correctness
-            assert np.allclose(
-                rdm_scipy, rdm_jit, rtol=1e-5
-            ), "JIT result differs from SciPy"
+            assert np.allclose(rdm_scipy, rdm_jit, rtol=1e-5), "JIT result differs from SciPy"
         else:
             mean_scipy, std_scipy, _ = time_function(scipy_euclidean)
             print(f"  SciPy pdist:  {mean_scipy:.4f} ± {std_scipy:.4f} s")

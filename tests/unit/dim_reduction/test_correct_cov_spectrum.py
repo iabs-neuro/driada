@@ -1,9 +1,11 @@
 """Tests for correct_cov_spectrum function."""
 
-import numpy as np
 import warnings
-from driada.dimensionality.utils import correct_cov_spectrum
+
+import numpy as np
 from scipy.linalg import eigh
+
+from driada.dimensionality.utils import correct_cov_spectrum
 
 
 class TestCorrectCovSpectrum:
@@ -75,9 +77,7 @@ class TestCorrectCovSpectrum:
 
             # Check if any warning about negative eigenvalues was issued
             neg_eig_warnings = [
-                warning
-                for warning in w
-                if "negative eigenvalues" in str(warning.message)
+                warning for warning in w if "negative eigenvalues" in str(warning.message)
             ]
             # This may or may not warn depending on the random seed
 
@@ -118,12 +118,8 @@ class TestCorrectCovSpectrum:
         cmat = np.corrcoef(data)
 
         # Test with different ensemble sizes
-        corrected_eigs_1 = correct_cov_spectrum(
-            n, t, cmat, correction_iters=2, ensemble_size=1
-        )
-        corrected_eigs_5 = correct_cov_spectrum(
-            n, t, cmat, correction_iters=2, ensemble_size=5
-        )
+        corrected_eigs_1 = correct_cov_spectrum(n, t, cmat, correction_iters=2, ensemble_size=1)
+        corrected_eigs_5 = correct_cov_spectrum(n, t, cmat, correction_iters=2, ensemble_size=5)
 
         # Both should work and return valid results
         assert len(corrected_eigs_1) == 3
