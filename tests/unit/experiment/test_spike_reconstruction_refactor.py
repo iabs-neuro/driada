@@ -1,10 +1,9 @@
 """Tests for refactored spike reconstruction module."""
 
-import numpy as np
 import pytest
-
+import numpy as np
 from driada.experiment.spike_reconstruction import reconstruct_spikes
-from driada.information.info_base import MultiTimeSeries, TimeSeries
+from driada.information.info_base import TimeSeries, MultiTimeSeries
 
 
 def test_reconstruct_spikes_wavelet_method(small_experiment):
@@ -43,7 +42,9 @@ def test_reconstruct_spikes_threshold_method(small_experiment):
 
     # Reconstruct spikes with custom parameters
     params = {"threshold_std": 2.0, "smooth_sigma": 3, "min_spike_interval": 0.2}
-    spikes, metadata = reconstruct_spikes(calcium, method="threshold", fps=exp.fps, params=params)
+    spikes, metadata = reconstruct_spikes(
+        calcium, method="threshold", fps=exp.fps, params=params
+    )
 
     # Check output types
     assert isinstance(spikes, MultiTimeSeries)
@@ -77,7 +78,9 @@ def test_reconstruct_spikes_custom_method(small_experiment):
         np.random.seed(params.get("seed", 0))
         spikes_data = (np.random.rand(n_neurons, n_frames) > 0.95).astype(float)
 
-        spike_ts_list = [TimeSeries(spikes_data[i, :], discrete=True) for i in range(n_neurons)]
+        spike_ts_list = [
+            TimeSeries(spikes_data[i, :], discrete=True) for i in range(n_neurons)
+        ]
         spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
 
         metadata = {"method": "custom", "params": params}
@@ -90,7 +93,9 @@ def test_reconstruct_spikes_custom_method(small_experiment):
 
     # Reconstruct spikes
     params = {"seed": 123}
-    spikes, metadata = reconstruct_spikes(calcium, method=custom_method, fps=exp.fps, params=params)
+    spikes, metadata = reconstruct_spikes(
+        calcium, method=custom_method, fps=exp.fps, params=params
+    )
 
     # Check output
     assert isinstance(spikes, MultiTimeSeries)
@@ -115,8 +120,12 @@ def test_wavelet_vs_threshold_comparison(medium_experiment):
     calcium = exp.calcium
 
     # Reconstruct with both methods
-    spikes_wavelet, meta_wavelet = reconstruct_spikes(calcium, method="wavelet", fps=exp.fps)
-    spikes_threshold, meta_threshold = reconstruct_spikes(calcium, method="threshold", fps=exp.fps)
+    spikes_wavelet, meta_wavelet = reconstruct_spikes(
+        calcium, method="wavelet", fps=exp.fps
+    )
+    spikes_threshold, meta_threshold = reconstruct_spikes(
+        calcium, method="threshold", fps=exp.fps
+    )
 
     # Both should detect some spikes
     assert np.sum(spikes_wavelet.data) > 0

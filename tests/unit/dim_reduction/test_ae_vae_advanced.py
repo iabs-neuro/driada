@@ -6,7 +6,6 @@ Consolidates important tests from debugging session.
 import numpy as np
 import torch
 from sklearn.datasets import make_swiss_roll
-
 from driada.dim_reduction.data import MVData
 from driada.dim_reduction.manifold_metrics import knn_preservation_rate
 
@@ -53,7 +52,9 @@ def test_ae_correlation_loss():
     np.random.seed(42)
     n_samples = 500
     base_features = np.random.randn(5, n_samples)
-    data = np.vstack([base_features, base_features + 0.5 * np.random.randn(5, n_samples)])
+    data = np.vstack(
+        [base_features, base_features + 0.5 * np.random.randn(5, n_samples)]
+    )
     D = MVData(data)
 
     # Test with correlation loss
@@ -88,7 +89,9 @@ def test_ae_correlation_loss():
 
     # Latent features should have low correlation
     latent_corr = np.abs(np.corrcoef(ae_emb.coords)[0, 1])
-    assert latent_corr < 0.3, f"Correlation loss failed to decorrelate (corr={latent_corr:.3f})"
+    assert (
+        latent_corr < 0.3
+    ), f"Correlation loss failed to decorrelate (corr={latent_corr:.3f})"
 
 
 def test_ae_vs_vae_reconstruction_quality():
@@ -165,4 +168,6 @@ def test_vae_encoder_unconstrained():
 
     # Outputs should be unconstrained (not sigmoid-limited to [0,1])
     assert mu.min() < 0 or mu.max() > 1, "Mean should be unconstrained"
-    assert log_var.min() < 0 or log_var.max() > 1, "Log variance should be unconstrained"
+    assert (
+        log_var.min() < 0 or log_var.max() > 1
+    ), "Log variance should be unconstrained"

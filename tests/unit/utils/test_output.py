@@ -1,7 +1,6 @@
 """Tests for output utilities."""
 
 import sys
-
 from driada.utils.output import Capturing, show_output
 
 

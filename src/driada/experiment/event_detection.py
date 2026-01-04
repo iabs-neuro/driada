@@ -9,6 +9,7 @@ from scipy.optimize import nnls
 
 from ..utils.data import check_positive
 
+
 # Default FPS and timing parameters
 DEFAULT_FPS = 20
 DEFAULT_MIN_BEHAVIOUR_TIME = 0.25
@@ -89,20 +90,10 @@ class SimpleEvent:
         return f"SimpleEvent(start={self.start:.1f}, end={self.end:.1f})"
 
 
-def extract_event_amplitudes(
-    ca_signal,
-    st_ev_inds,
-    end_ev_inds,
-    baseline_window=20,
-    already_dff=False,
-    baseline_offset=0,
-    baseline_offset_sec=None,
-    use_peak_refinement=False,
-    t_rise_frames=None,
-    t_off_frames=None,
-    fps=None,
-    peak_search_window_sec=0.2,
-):
+def extract_event_amplitudes(ca_signal, st_ev_inds, end_ev_inds, baseline_window=20,
+                             already_dff=False, baseline_offset=0, baseline_offset_sec=None,
+                             use_peak_refinement=False, t_rise_frames=None,
+                             t_off_frames=None, fps=None, peak_search_window_sec=0.2):
     """Extract amplitudes from calcium signal for detected events.
 
     For raw fluorescence signals, applies dF/F0 normalization following
@@ -172,14 +163,12 @@ def extract_event_amplitudes(
     """
     if use_peak_refinement:
         if (t_rise_frames is None) or (t_off_frames is None) or (fps is None):
-            raise ValueError(
-                "t_rise_frames, t_off_frames, and fps required when use_peak_refinement=True"
-            )
+            raise ValueError('t_rise_frames, t_off_frames, and fps required when use_peak_refinement=True')
 
     # Convert baseline_offset_sec to frames if provided
     if baseline_offset_sec is not None:
         if fps is None:
-            raise ValueError("fps parameter required when using baseline_offset_sec")
+            raise ValueError('fps parameter required when using baseline_offset_sec')
         baseline_offset = int(baseline_offset_sec * fps)
 
     ca_signal = np.asarray(ca_signal)
@@ -226,10 +215,8 @@ def extract_event_amplitudes(
     return amplitudes
 
 
-def deconvolve_given_event_times(
-    ca_signal, event_times, t_rise_frames, t_off_frames, event_mask=None
-):
-    """Extract amplitudes via non-negative least squares deconvolution.
+def deconvolve_given_event_times(ca_signal, event_times, t_rise_frames, t_off_frames, event_mask=None):
+    '''Extract amplitudes via non-negative least squares deconvolution.
 
     Given detected event times and known calcium kernel parameters, finds
     the optimal amplitudes that best reconstruct the observed signal.
@@ -271,7 +258,7 @@ def deconvolve_given_event_times(
     ----------
     Lawson CL, Hanson RJ (1995). Solving Least Squares Problems.
     SIAM, Philadelphia.
-    """
+    '''
     ca_signal = np.asarray(ca_signal)
     event_times = np.asarray(event_times, dtype=int)
     n_frames = len(ca_signal)
@@ -296,9 +283,7 @@ def deconvolve_given_event_times(
     if event_mask is not None:
         event_mask = np.asarray(event_mask, dtype=bool)
         if len(event_mask) != n_frames:
-            raise ValueError(
-                f"event_mask length ({len(event_mask)}) must match signal length ({n_frames})"
-            )
+            raise ValueError(f"event_mask length ({len(event_mask)}) must match signal length ({n_frames})")
         K_fit = K[event_mask, :]
         ca_fit = ca_signal[event_mask]
     else:
@@ -331,12 +316,7 @@ def compute_kernel_peak_offset(t_rise_frames, t_off_frames):
     """
     if t_off_frames <= t_rise_frames or abs(t_off_frames - t_rise_frames) < 0.1:
         return 0.0
-    peak_offset = (
-        t_rise_frames
-        * t_off_frames
-        * np.log(t_off_frames / t_rise_frames)
-        / (t_off_frames - t_rise_frames)
-    )
+    peak_offset = t_rise_frames * t_off_frames * np.log(t_off_frames / t_rise_frames) / (t_off_frames - t_rise_frames)
     if np.isnan(peak_offset) or np.isinf(peak_offset):
         return 0.0
     return peak_offset
@@ -389,18 +369,10 @@ def estimate_onset_times(ca_signal, st_inds, end_inds, t_rise_frames, t_off_fram
     return onset_times
 
 
-def amplitudes_to_point_events(
-    length,
-    ca_signal,
-    st_ev_inds,
-    end_ev_inds,
-    amplitudes,
-    placement="peak",
-    t_rise_frames=None,
-    t_off_frames=None,
-    fps=None,
-    peak_search_window_sec=0.2,
-):
+def amplitudes_to_point_events(length, ca_signal, st_ev_inds, end_ev_inds,
+                                amplitudes, placement='peak', t_rise_frames=None,
+                                t_off_frames=None, fps=None,
+                                peak_search_window_sec=0.2):
     """Convert event boundaries and amplitudes to point event array.
 
     Stores amplitudes at specific positions as delta functions. Temporal
@@ -454,11 +426,9 @@ def amplitudes_to_point_events(
     not recommended for real calcium imaging data.
     """
     check_positive(length=length)
-    if placement not in ("start", "peak", "onset", "onset_refined"):
-        raise ValueError(
-            f"placement must be 'start', 'peak', 'onset', or 'onset_refined', got {placement}"
-        )
-    if placement in ("onset", "onset_refined"):
+    if placement not in ('start', 'peak', 'onset', 'onset_refined'):
+        raise ValueError(f"placement must be 'start', 'peak', 'onset', or 'onset_refined', got {placement}")
+    if placement in ('onset', 'onset_refined'):
         if t_rise_frames is None or t_off_frames is None:
             raise ValueError("Both t_rise_frames and t_off_frames required for 'onset' placement")
         if fps is None:
@@ -471,20 +441,20 @@ def amplitudes_to_point_events(
             continue
         if end <= start or start < 0 or end > length:
             continue
-        if placement == "start":
+        if placement == 'start':
             idx = int(start)
-        elif placement == "peak":
+        elif placement == 'peak':
             event_segment = ca_signal[start:end]
             peak_offset = np.argmax(event_segment)
             idx = int(start + peak_offset)
-        elif placement == "onset":
+        elif placement == 'onset':
             # Simple onset placement - uses peak within event boundaries
             kernel_peak_offset = compute_kernel_peak_offset(t_rise_frames, t_off_frames)
             event_segment = ca_signal[start:end]
             peak_offset = np.argmax(event_segment)
             peak_idx = start + peak_offset
             idx = int(peak_idx - kernel_peak_offset)
-        elif placement == "onset_refined":
+        elif placement == 'onset_refined':
             # Onset with peak refinement - searches outside event boundaries
             kernel_peak_offset = compute_kernel_peak_offset(t_rise_frames, t_off_frames)
             search_start = max(0, start - peak_search_frames)
@@ -498,10 +468,8 @@ def amplitudes_to_point_events(
     return point_events
 
 
-def _calculate_event_r2(
-    calcium_signal, reconstruction, n_mad=4, event_mask=None, wvt_ridges=None, fps=None
-):
-    """Calculate R² on event regions.
+def _calculate_event_r2(calcium_signal, reconstruction, n_mad=4, event_mask=None, wvt_ridges=None, fps=None):
+    '''Calculate R² on event regions.
 
     Parameters
     ----------
@@ -529,26 +497,25 @@ def _calculate_event_r2(
     ------
     ValueError
         If neither event_mask nor wvt_ridges is provided.
-    """
+    '''
     # Construct event mask if not provided
     if event_mask is None:
         if wvt_ridges is not None and len(wvt_ridges) > 0:
             if fps is None:
-                raise ValueError("fps required to construct event mask from wvt_ridges")
+                raise ValueError('fps required to construct event mask from wvt_ridges')
             # Extract start/end indices from ridges
             st_inds = [int(ridge.start) for ridge in wvt_ridges if ridge.start >= 0]
             end_inds = [int(ridge.end) for ridge in wvt_ridges if ridge.end >= 0]
             if len(st_inds) > 0:
                 from .wavelet_event_detection import events_to_ts_array
-
                 events_array = events_to_ts_array(len(calcium_signal), [st_inds], [end_inds], fps)
                 event_mask = events_array[0]
             else:
                 return np.nan
         else:
             raise ValueError(
-                "Either event_mask or wvt_ridges must be provided for event R² calculation. "
-                "Run reconstruct_spikes() with create_event_regions=True to populate neuron.events."
+                'Either event_mask or wvt_ridges must be provided for event R² calculation. '
+                'Run reconstruct_spikes() with create_event_regions=True to populate neuron.events.'
             )
 
     event_mask = event_mask > 0
@@ -557,7 +524,7 @@ def _calculate_event_r2(
     ca_events = calcium_signal[event_mask]
     recon_events = reconstruction[event_mask]
     residuals = ca_events - recon_events
-    ss_residual = np.sum(residuals**2)
+    ss_residual = np.sum(residuals ** 2)
     ss_total = np.sum((ca_events - np.mean(ca_events)) ** 2)
     if ss_total == 0:
         return np.nan

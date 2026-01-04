@@ -1,23 +1,23 @@
 import os
-import warnings
 from os.path import join
-from pathlib import Path
 
+from pydrive2.drive import GoogleDrive
+import warnings
+import wget
 import gdown
 import pandas as pd
+from pathlib import Path
 import requests
-import wget
-from pydrive2.drive import GoogleDrive
 
-from ..utils.output import Capturing
 from .gdrive_utils import (
-    MAX_NUMBER_FILES,
+    parse_google_drive_file,
+    id_from_link,
     client,
     folder_type,
     folders_url,
-    id_from_link,
-    parse_google_drive_file,
+    MAX_NUMBER_FILES,
 )
+from ..utils.output import Capturing
 
 
 def retrieve_relevant_ids(
@@ -68,7 +68,7 @@ def retrieve_relevant_ids(
     The function recursively searches through subfolders and applies the same
     filtering criteria to all levels of the folder hierarchy. Network errors
     during recursive searches are caught and reported but don't stop the
-    overall operation."""
+    overall operation.    """
 
     return_code = True
     folder_page = client.get(folder)
@@ -199,7 +199,7 @@ def download_part_of_folder(
     ...     folder='https://drive.google.com/drive/folders/...',
     ...     key='experiment',
     ...     extensions=['.csv']
-    ... )"""
+    ... )    """
 
     os.makedirs(output, exist_ok=True)
 
@@ -214,17 +214,19 @@ def download_part_of_folder(
 
             rel = []
             fid = id_from_link(folder)
-            file_list = drive.ListFile({"q": f"'{fid}' in parents and trashed=false"}).GetList()
+            file_list = drive.ListFile(
+                {"q": f"'{fid}' in parents and trashed=false"}
+            ).GetList()
             if maxfiles is not None:
                 file_list = file_list[:maxfiles]
 
             for f in file_list:
                 file_name = f["title"]
                 file_ext = Path(file_name).suffix
-
+                
                 # Apply same filtering logic as gdown path
                 should_download = False
-
+                
                 # Check whitelist first
                 if file_name in whitelist:
                     should_download = True
@@ -235,7 +237,7 @@ def download_part_of_folder(
                         # Check antikey
                         if antikey is None or antikey not in file_name:
                             should_download = True
-
+                
                 if should_download:
                     f.GetContentFile(join(output, file_name))
                     rel.append((f["id"], file_name))
@@ -323,13 +325,13 @@ def download_gdrive_data(
         The function creates a directory structure: tdir/expname/data_type/
         for organizing downloaded files. Data types excluded by default are:
         'Experiment', 'Description', 'Video', 'Aligned data', 'Computation results'.
-
+    
     When data_router is a share link:
         The function creates a directory structure: tdir/expname/
         and downloads all files matching the expname filter.
-
+    
     Empty directories are automatically removed after download attempts.
-
+    
     Examples
     --------
     >>> # Using DataFrame router
@@ -337,28 +339,28 @@ def download_gdrive_data(
     ...     data_router=router_df,
     ...     expname='exp001'
     ... )
-
+    
     >>> # Using direct share link
     >>> success, log = download_gdrive_data(  # doctest: +SKIP
     ...     data_router='https://drive.google.com/drive/folders/...',
     ...     expname='exp001'
-    ... )"""
+    ... )    """
 
     # Validate inputs
     if isinstance(data_router, str):
         # Direct share link mode
         if via_pydrive and gauth is None:
             raise ValueError("gauth is required when via_pydrive=True")
-
+            
         with Capturing() as load_log:
             print("-------------------------------------------------------------")
             print(f"Extracting data for {expname} from Google Drive share link")
             print("-------------------------------------------------------------")
-
+            
             success = False
             output_dir = join(tdir, expname)
             os.makedirs(output_dir, exist_ok=True)
-
+            
             # Download from share link
             return_code, rel, folder_log = download_part_of_folder(
                 output_dir,
@@ -368,9 +370,9 @@ def download_gdrive_data(
                 via_pydrive=via_pydrive,
                 gauth=gauth,
             )
-
+            
             load_log.extend(folder_log)
-
+            
             if len(rel) == 0:
                 try:
                     os.rmdir(output_dir)
@@ -383,14 +385,14 @@ def download_gdrive_data(
                 for n in loaded_names:
                     print(f"  - {n}")
                 success = True
-
+                
             return success, load_log
-
+            
     elif isinstance(data_router, pd.DataFrame):
         # Original DataFrame mode
         if via_pydrive and gauth is None:
             raise ValueError("gauth is required when via_pydrive=True")
-
+    
     with Capturing() as load_log:
         print("-------------------------------------------------------------")
         print(f"Extracting data for {expname} from Google Drive")
@@ -402,15 +404,11 @@ def download_gdrive_data(
             success = False
             # Support both English and Russian column names for backward compatibility
             exp_column = "Experiment" if "Experiment" in data_router.columns else "Эксперимент"
-            desc_column = (
-                "Description" if "Description" in data_router.columns else "Краткое описание"
-            )
-
+            desc_column = "Description" if "Description" in data_router.columns else "Краткое описание"
+            
             if exp_column not in data_router.columns:
-                raise ValueError(
-                    f"data_router must have either 'Experiment' or 'Эксперимент' column"
-                )
-
+                raise ValueError(f"data_router must have either 'Experiment' or 'Эксперимент' column")
+                
             available_exp = data_router[exp_column].values
             if expname not in available_exp:
                 print(f"{expname} not found in available experiments: {available_exp}")
@@ -470,7 +468,7 @@ def initialize_iabs_router(root="/content", router_source=None):
     """Initialize the IABS data router from Google Sheets, URL, or DataFrame.
 
     Initializes the IABS (Institute for Advanced Brain Studies) data router
-    from various sources: config file URL, direct Google Sheets URL, or
+    from various sources: config file URL, direct Google Sheets URL, or 
     pre-loaded DataFrame.
 
     Parameters
@@ -509,10 +507,10 @@ def initialize_iabs_router(root="/content", router_source=None):
     -----
     Requires a config.py file with IABS_ROUTER_URL defined. See config_template.py
     for the required format.
-
+    
     WARNING: This function removes any existing router file before downloading
     the latest version. No backup is created.
-
+    
     Empty cells in the DataFrame are forward-filled to handle merged cells.
 
     The following columns are excluded from data_pieces as they contain
@@ -522,39 +520,39 @@ def initialize_iabs_router(root="/content", router_source=None):
     - 'Video'
     - 'Aligned data'
     - 'Computation results'
-
+    
     Examples
     --------
     >>> # Using config file URL (default)
     >>> router, pieces = initialize_iabs_router()  # doctest: +SKIP
-
+    
     >>> # Using direct Google Sheets URL
     >>> url = "https://docs.google.com/spreadsheets/d/.../export?format=xlsx"
     >>> router, pieces = initialize_iabs_router(router_source=url)  # doctest: +SKIP
-
+    
     >>> # Using pre-loaded DataFrame
     >>> df = pd.read_excel("my_router.xlsx")  # doctest: +SKIP
     >>> router, pieces = initialize_iabs_router(router_source=df)  # doctest: +SKIP
     """
-
+    
     # Handle different router sources
     if isinstance(router_source, pd.DataFrame):
         # Use provided DataFrame directly
         data_router = router_source.copy()
-
+        
     elif isinstance(router_source, str):
         # Download from provided URL
         router_name = "IABS data router.xlsx"
         router_path = join(root, router_name)
         os.makedirs(root, exist_ok=True)
-
+        
         # Remove existing file if present
         if os.path.exists(router_path):
             os.remove(router_path)
-
+        
         # Download from provided URL
         try:
-            if router_source.endswith("/export?format=xlsx"):
+            if router_source.endswith('/export?format=xlsx'):
                 # Direct Google Sheets export URL
                 data_router = pd.read_excel(router_source)
             else:
@@ -563,13 +561,13 @@ def initialize_iabs_router(root="/content", router_source=None):
                 data_router = pd.read_excel(router_path)
         except Exception as e:
             raise requests.RequestException(f"Failed to download/parse router from URL: {e}")
-
+            
     else:
         # Default behavior: download from config URL
         router_name = "IABS data router.xlsx"
         router_path = join(root, router_name)
         os.makedirs(root, exist_ok=True)
-
+        
         if router_name in os.listdir(root):
             os.remove(router_path)
 
@@ -587,7 +585,7 @@ def initialize_iabs_router(root="/content", router_source=None):
                 "IABS_ROUTER_URL not found in config.py. Please check config_template.py "
                 "for the required format."
             )
-
+        
         # Download router file
         try:
             wget.download(IABS_ROUTER_URL, out=router_path)
@@ -598,14 +596,14 @@ def initialize_iabs_router(root="/content", router_source=None):
             data_router = pd.read_excel(router_path)
         except Exception as e:
             raise pd.errors.ParserError(f"Failed to parse router Excel file: {e}")
-
+    
     # Process the DataFrame (applies to all sources)
     data_router = data_router.replace("", None).ffill()
 
     # Support both English and Russian column names for backward compatibility
     exp_column = "Experiment" if "Experiment" in data_router.columns else "Эксперимент"
     desc_column = "Description" if "Description" in data_router.columns else "Краткое описание"
-
+    
     data_pieces = [
         d
         for d in list(data_router.columns.values)

@@ -1,11 +1,10 @@
 import os.path
 from datetime import datetime
-
 import pytz
 from pydrive2.drive import GoogleDrive
 
-from .download import retrieve_relevant_ids
 from .gdrive_utils import id_from_link
+from .download import retrieve_relevant_ids
 
 
 def get_datetime():
@@ -79,7 +78,7 @@ def save_file_to_gdrive(
     -----
     When force_rewriting=False, the uploaded file will have a timestamp
     appended to its name in format 'filename_DD-MM-YYYY HH:MM:SS.ext'.
-
+    
     When force_rewriting=True and multiple files with the same name exist,
     a warning is printed and the first matching file is overwritten.
 
@@ -90,7 +89,7 @@ def save_file_to_gdrive(
     ...     data_router, 'exp001', './results.csv',
     ...     destination='Results', gauth=auth
     ... )
-
+    
     >>> # Overwrite existing file
     >>> save_file_to_gdrive(  # doctest: +SKIP
     ...     data_router, 'exp001', './results.csv',

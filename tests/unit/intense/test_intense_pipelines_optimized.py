@@ -9,20 +9,20 @@ optimized parameters for fast test execution:
 - Stage1 mode only (no two_stage)
 """
 
-import numpy as np
 import pytest
-
+import numpy as np
+from driada.intense.pipelines import (
+    compute_cell_feat_significance,
+    compute_feat_feat_significance,
+    compute_cell_cell_significance,
+    compute_embedding_selectivity,
+)
+from driada.information.info_base import TimeSeries
 from driada.experiment.synthetic import (
     generate_synthetic_exp,
     generate_synthetic_exp_with_mixed_selectivity,
 )
-from driada.information.info_base import TimeSeries
-from driada.intense.pipelines import (
-    compute_cell_cell_significance,
-    compute_cell_feat_significance,
-    compute_embedding_selectivity,
-    compute_feat_feat_significance,
-)
+
 
 # Fast test parameters
 FAST_PARAMS = {
@@ -69,7 +69,11 @@ def test_compute_cell_feat_significance_with_disentanglement_fast():
     ), f"Need at least 2 neurons with mixed selectivity, found {len(mixed_neurons)}"
 
     # Use more mixed neurons for better chance of detection
-    cell_bunch = mixed_neurons[:10].tolist() if len(mixed_neurons) >= 10 else mixed_neurons.tolist()
+    cell_bunch = (
+        mixed_neurons[:10].tolist()
+        if len(mixed_neurons) >= 10
+        else mixed_neurons.tolist()
+    )
     print(f"Testing with {len(cell_bunch)} neurons with mixed selectivity")
 
     # Run with very loose parameters for better detection
@@ -117,7 +121,9 @@ def test_compute_cell_feat_significance_with_disentanglement_fast():
     if summary.get("overall_stats") is not None:
         # Mixed selectivity pairs were found
         assert summary["overall_stats"]["total_neuron_pairs"] >= 0
-        print(f"Found {summary['overall_stats']['total_neuron_pairs']} mixed selectivity pairs")
+        print(
+            f"Found {summary['overall_stats']['total_neuron_pairs']} mixed selectivity pairs"
+        )
     else:
         # No pairs found - this can happen when:
         # 1. Features are uncorrelated (true mixed selectivity)
@@ -151,7 +157,9 @@ def test_compute_feat_feat_significance_fast(mixed_features_experiment):
     """Fast test for feature-feature correlation."""
     exp = mixed_features_experiment
 
-    sim_mat, sig_mat, pval_mat, feat_ids, info = compute_feat_feat_significance(exp, **FAST_PARAMS)
+    sim_mat, sig_mat, pval_mat, feat_ids, info = compute_feat_feat_significance(
+        exp, **FAST_PARAMS
+    )
 
     n_features = len(feat_ids)
     assert sim_mat.shape == (n_features, n_features)
@@ -227,11 +235,15 @@ class TestEdgeCasesFast:
         """Test with empty neuron list."""
         # Empty cell bunch should raise ValueError
         with pytest.raises(ValueError, match="ts_bunch1 cannot be empty"):
-            compute_cell_feat_significance(small_experiment, cell_bunch=[], **FAST_PARAMS)
+            compute_cell_feat_significance(
+                small_experiment, cell_bunch=[], **FAST_PARAMS
+            )
 
     def test_single_neuron(self, small_experiment):
         """Test with single neuron."""
-        result = compute_cell_feat_significance(small_experiment, cell_bunch=[0], **FAST_PARAMS)
+        result = compute_cell_feat_significance(
+            small_experiment, cell_bunch=[0], **FAST_PARAMS
+        )
         assert len(result) == 4
 
     def test_single_feature(self, small_experiment):
@@ -253,7 +265,9 @@ class TestPerformanceBenchmarks:
 
         # Test cell-feat
         start = time.time()
-        compute_cell_feat_significance(small_experiment, cell_bunch=[0, 1, 2], **FAST_PARAMS)
+        compute_cell_feat_significance(
+            small_experiment, cell_bunch=[0, 1, 2], **FAST_PARAMS
+        )
         assert time.time() - start < 5.0
 
         # Test feat-feat
@@ -263,7 +277,9 @@ class TestPerformanceBenchmarks:
 
         # Test cell-cell
         start = time.time()
-        compute_cell_cell_significance(small_experiment, cell_bunch=[0, 1, 2], **FAST_PARAMS)
+        compute_cell_cell_significance(
+            small_experiment, cell_bunch=[0, 1, 2], **FAST_PARAMS
+        )
         assert time.time() - start < 5.0
 
 
@@ -401,7 +417,9 @@ def test_compute_embedding_selectivity_multiple_methods(small_experiment):
     exp.store_embedding(pca_embedding, method_name="pca", data_type="calcium")
 
     # t-SNE
-    tsne = TSNE(n_components=2, random_state=42, perplexity=2)  # Small perplexity for small data
+    tsne = TSNE(
+        n_components=2, random_state=42, perplexity=2
+    )  # Small perplexity for small data
     tsne_embedding = tsne.fit_transform(neural_data)
     exp.store_embedding(tsne_embedding, method_name="tsne", data_type="calcium")
 
@@ -428,7 +446,9 @@ def test_compute_embedding_selectivity_error_cases(small_experiment):
 
     # Test with no embeddings - should raise KeyError per actual implementation
     with pytest.raises(KeyError, match="No embedding found"):
-        compute_embedding_selectivity(exp, embedding_methods=["nonexistent"], **FAST_PARAMS)
+        compute_embedding_selectivity(
+            exp, embedding_methods=["nonexistent"], **FAST_PARAMS
+        )
 
 
 def test_compute_feat_feat_significance_edge_cases(small_experiment):
@@ -476,7 +496,9 @@ def test_compute_cell_feat_significance_error_paths(small_experiment):
         compute_cell_feat_significance(exp, data_type="invalid", **FAST_PARAMS)
 
     # Test with non-existent feature
-    with pytest.raises(ValueError, match="ts_bunch2 cannot be empty|Feature .* not found"):
+    with pytest.raises(
+        ValueError, match="ts_bunch2 cannot be empty|Feature .* not found"
+    ):
         compute_cell_feat_significance(
             exp,
             feat_bunch=["nonexistent_feature"],
@@ -560,50 +582,48 @@ def test_disentanglement_with_asymmetric_features():
         # Should find that continuous features dominate their discrete versions
         # when weights_mode='dominant' is used
         assert summary["overall_stats"]["total_neuron_pairs"] >= 0
-        print(f"Found {summary['overall_stats']['total_neuron_pairs']} asymmetric pairs")
+        print(
+            f"Found {summary['overall_stats']['total_neuron_pairs']} asymmetric pairs"
+        )
 
 
 def test_intense_with_ksg_estimator(small_experiment):
     """Test that INTENSE pipelines work with KSG mutual information estimator."""
     exp = small_experiment
-
+    
     # Test compute_cell_feat_significance with KSG
     result_ksg = compute_cell_feat_significance(
         exp,
         cell_bunch=[0, 1, 2],
         feat_bunch=None,
-        mi_estimator="ksg",  # Use KSG estimator
-        mode="stage1",
+        mi_estimator='ksg',  # Use KSG estimator
+        mode='stage1',
         n_shuffles_stage1=5,
         ds=5,
         enable_parallelization=False,
         seed=42,
     )
-
+    
     # Test with GCMI for comparison
     result_gcmi = compute_cell_feat_significance(
         exp,
         cell_bunch=[0, 1, 2],
         feat_bunch=None,
-        mi_estimator="gcmi",  # Use GCMI estimator (default)
-        mode="stage1",
+        mi_estimator='gcmi',  # Use GCMI estimator (default)
+        mode='stage1',
         n_shuffles_stage1=5,
         ds=5,
         enable_parallelization=False,
         seed=42,
     )
-
+    
     # Check what type of result we get
-    print(
-        f"KSG result type: {type(result_ksg)}, length: {len(result_ksg) if isinstance(result_ksg, (tuple, list)) else 'N/A'}"
-    )
-    print(
-        f"GCMI result type: {type(result_gcmi)}, length: {len(result_gcmi) if isinstance(result_gcmi, (tuple, list)) else 'N/A'}"
-    )
-
+    print(f"KSG result type: {type(result_ksg)}, length: {len(result_ksg) if isinstance(result_ksg, (tuple, list)) else 'N/A'}")
+    print(f"GCMI result type: {type(result_gcmi)}, length: {len(result_gcmi) if isinstance(result_gcmi, (tuple, list)) else 'N/A'}")
+    
     # Both should return the same structure
     assert type(result_ksg) == type(result_gcmi)
-
+    
     # If it's a tuple, unpack appropriately
     if isinstance(result_ksg, tuple):
         if len(result_ksg) == 4:
@@ -613,61 +633,61 @@ def test_intense_with_ksg_estimator(small_experiment):
             raise ValueError(f"Unexpected tuple length: {len(result_ksg)}")
     else:
         # If it's a dict, extract stats and significance
-        stats_ksg = result_ksg["stats"]
-        sig_ksg = result_ksg["significance"]
-        stats_gcmi = result_gcmi["stats"]
-        sig_gcmi = result_gcmi["significance"]
-
+        stats_ksg = result_ksg['stats']
+        sig_ksg = result_ksg['significance']
+        stats_gcmi = result_gcmi['stats']
+        sig_gcmi = result_gcmi['significance']
+    
     # Basic checks - both should return valid results
     # Stats are organized as stats[cell_id][feat_id] where both are strings
     # Get the cell and feat ids
     cell_ids = list(stats_ksg.keys())
     assert len(cell_ids) == 3  # We requested 3 cells
-
+    
     # Check that both have same structure
     assert set(stats_ksg.keys()) == set(stats_gcmi.keys())
-
+    
     # Check all values are finite
     for cell_id in cell_ids:
         feat_ids = list(stats_ksg[cell_id].keys())
         for feat_id in feat_ids:
             # Check KSG values
-            me_ksg = stats_ksg[cell_id][feat_id].get("me")
+            me_ksg = stats_ksg[cell_id][feat_id].get('me')
             if me_ksg is not None:
                 assert np.isfinite(me_ksg), f"KSG ME not finite for cell {cell_id}, feat {feat_id}"
-
+            
             # Check structure matches
             assert feat_id in stats_gcmi[cell_id], f"Feature {feat_id} missing in GCMI results"
-
+    
     # Test compute_feat_feat_significance with KSG
     sim_mat_ksg, sig_mat_ksg, pval_mat_ksg, feat_ids_ksg, info_ksg = compute_feat_feat_significance(
         exp,
-        mi_estimator="ksg",
-        mode="stage1",
+        mi_estimator='ksg',
+        mode='stage1',
         n_shuffles_stage1=5,
         ds=5,
         enable_parallelization=False,
         seed=42,
     )
-
+    
     # Check results are valid
     n_features = len(feat_ids_ksg)
     assert sim_mat_ksg.shape == (n_features, n_features)
     assert np.all(np.isfinite(sim_mat_ksg))
     assert np.allclose(np.diag(sim_mat_ksg), 0)  # Diagonal should be zero
-
+    
     # Test compute_cell_cell_significance with KSG
     sim_mat_cc, sig_mat_cc, pval_mat_cc, cell_ids_cc, info_cc = compute_cell_cell_significance(
         exp,
         cell_bunch=[0, 1, 2],
-        mi_estimator="ksg",
-        mode="stage1",
+        mi_estimator='ksg',
+        mode='stage1',
         n_shuffles_stage1=5,
         ds=5,
         enable_parallelization=False,
         seed=42,
     )
-
+    
     assert sim_mat_cc.shape == (3, 3)
     assert np.all(np.isfinite(sim_mat_cc))
     assert np.allclose(np.diag(sim_mat_cc), 0)
@@ -676,19 +696,19 @@ def test_intense_with_ksg_estimator(small_experiment):
 def test_intense_ksg_with_different_feature_types(mixed_features_experiment):
     """Test KSG estimator with mixed discrete and continuous features."""
     exp = mixed_features_experiment
-
+    
     # Get discrete and continuous features
-    discrete_feats = [f for f in exp.dynamic_features.keys() if f.startswith("d_feat")]
-    continuous_feats = [f for f in exp.dynamic_features.keys() if f.startswith("c_feat")]
-
+    discrete_feats = [f for f in exp.dynamic_features.keys() if f.startswith('d_feat')]
+    continuous_feats = [f for f in exp.dynamic_features.keys() if f.startswith('c_feat')]
+    
     # Test with only discrete features
     if discrete_feats:
         result_d = compute_cell_feat_significance(
             exp,
             cell_bunch=[0, 1],
             feat_bunch=discrete_feats[:2],
-            mi_estimator="ksg",
-            mode="stage1",
+            mi_estimator='ksg',
+            mode='stage1',
             n_shuffles_stage1=5,
             ds=5,
             enable_parallelization=False,
@@ -696,22 +716,22 @@ def test_intense_ksg_with_different_feature_types(mixed_features_experiment):
             seed=42,
         )
         # Extract stats from the result tuple
-        stats_d = result_d[0] if isinstance(result_d, tuple) else result_d["stats"]
+        stats_d = result_d[0] if isinstance(result_d, tuple) else result_d['stats']
         # Check all ME values are finite
         for cell_id in stats_d:
             for feat_id in stats_d[cell_id]:
-                me_val = stats_d[cell_id][feat_id].get("me")
+                me_val = stats_d[cell_id][feat_id].get('me')
                 if me_val is not None:
                     assert np.isfinite(me_val), f"ME not finite for discrete features"
-
+    
     # Test with only continuous features
     if continuous_feats:
         result_c = compute_cell_feat_significance(
             exp,
             cell_bunch=[0, 1],
             feat_bunch=continuous_feats[:2],
-            mi_estimator="ksg",
-            mode="stage1",
+            mi_estimator='ksg',
+            mode='stage1',
             n_shuffles_stage1=5,
             ds=5,
             enable_parallelization=False,
@@ -719,14 +739,14 @@ def test_intense_ksg_with_different_feature_types(mixed_features_experiment):
             seed=42,
         )
         # Extract stats from the result tuple
-        stats_c = result_c[0] if isinstance(result_c, tuple) else result_c["stats"]
+        stats_c = result_c[0] if isinstance(result_c, tuple) else result_c['stats']
         # Check all ME values are finite
         for cell_id in stats_c:
             for feat_id in stats_c[cell_id]:
-                me_val = stats_c[cell_id][feat_id].get("me")
+                me_val = stats_c[cell_id][feat_id].get('me')
                 if me_val is not None:
                     assert np.isfinite(me_val), f"ME not finite for continuous features"
-
+    
     # Test with mixed features
     if discrete_feats and continuous_feats:
         mixed_feats = [discrete_feats[0], continuous_feats[0]]
@@ -734,8 +754,8 @@ def test_intense_ksg_with_different_feature_types(mixed_features_experiment):
             exp,
             cell_bunch=[0, 1],
             feat_bunch=mixed_feats,
-            mi_estimator="ksg",
-            mode="stage1",
+            mi_estimator='ksg',
+            mode='stage1',
             n_shuffles_stage1=5,
             ds=5,
             enable_parallelization=False,
@@ -743,10 +763,10 @@ def test_intense_ksg_with_different_feature_types(mixed_features_experiment):
             seed=42,
         )
         # Extract stats from the result tuple
-        stats_m = result_m[0] if isinstance(result_m, tuple) else result_m["stats"]
+        stats_m = result_m[0] if isinstance(result_m, tuple) else result_m['stats']
         # Check all ME values are finite
         for cell_id in stats_m:
             for feat_id in stats_m[cell_id]:
-                me_val = stats_m[cell_id][feat_id].get("me")
+                me_val = stats_m[cell_id][feat_id].get('me')
                 if me_val is not None:
                     assert np.isfinite(me_val), f"ME not finite for mixed features"

@@ -2,23 +2,22 @@
 Tests for spatial analysis utilities.
 """
 
+import pytest
+import numpy as np
 from unittest.mock import patch
 
-import numpy as np
-import pytest
-
-from driada.information import MultiTimeSeries, TimeSeries
 from driada.utils.spatial import (
-    analyze_spatial_coding,
     compute_occupancy_map,
     compute_rate_map,
+    extract_place_fields,
+    compute_spatial_information_rate,
     compute_spatial_decoding_accuracy,
     compute_spatial_information,
-    compute_spatial_information_rate,
-    compute_spatial_metrics,
-    extract_place_fields,
     filter_by_speed,
+    analyze_spatial_coding,
+    compute_spatial_metrics,
 )
+from driada.information import TimeSeries, MultiTimeSeries
 
 
 class TestOccupancyMap:
@@ -55,10 +54,14 @@ class TestOccupancyMap:
         positions = np.random.rand(100, 2)
 
         # Without smoothing
-        occ_no_smooth, _, _ = compute_occupancy_map(positions, bin_size=0.1, smooth_sigma=None)
+        occ_no_smooth, _, _ = compute_occupancy_map(
+            positions, bin_size=0.1, smooth_sigma=None
+        )
 
         # With smoothing
-        occ_smooth, _, _ = compute_occupancy_map(positions, bin_size=0.1, smooth_sigma=1.0)
+        occ_smooth, _, _ = compute_occupancy_map(
+            positions, bin_size=0.1, smooth_sigma=1.0
+        )
 
         # Smoothed should have fewer NaN values
         assert np.sum(np.isnan(occ_smooth)) <= np.sum(np.isnan(occ_no_smooth))
@@ -150,7 +153,9 @@ class TestRateMap:
 
         neural_signal = np.zeros(100)  # No activity
 
-        rate_map = compute_rate_map(neural_signal, positions, occupancy, x_edges, y_edges)
+        rate_map = compute_rate_map(
+            neural_signal, positions, occupancy, x_edges, y_edges
+        )
 
         # Should be all zeros
         assert np.all(rate_map == 0)
@@ -243,6 +248,7 @@ class TestSpatialInformation:
         assert info == 0.0
 
 
+
 class TestSpatialDecoding:
     """Test position decoding from neural activity."""
 
@@ -294,7 +300,9 @@ class TestSpatialDecoding:
         neural_activity = np.random.rand(5, 100)
 
         with patch.object(logger, "info") as mock_info:
-            metrics = compute_spatial_decoding_accuracy(neural_activity, positions, logger=logger)
+            metrics = compute_spatial_decoding_accuracy(
+                neural_activity, positions, logger=logger
+            )
 
             # Should log progress
             assert mock_info.call_count >= 2
@@ -339,7 +347,9 @@ class TestSpatialMI:
         positions = np.random.rand(n_samples, 2)
 
         # Multiple neurons
-        neural_data = [TimeSeries(np.random.rand(n_samples), discrete=False) for _ in range(3)]
+        neural_data = [
+            TimeSeries(np.random.rand(n_samples), discrete=False) for _ in range(3)
+        ]
         neural_mts = MultiTimeSeries(neural_data)
 
         metrics = compute_spatial_information(neural_mts, positions)
@@ -404,13 +414,18 @@ class TestSpeedFiltering:
         data = {"positions": positions}
 
         # Filter with smoothing
-        filtered_smooth = filter_by_speed(data, speed_range=(0, float("inf")), smooth_window=5)
+        filtered_smooth = filter_by_speed(
+            data, speed_range=(0, float("inf")), smooth_window=5
+        )
 
         # Filter without smoothing
-        filtered_no_smooth = filter_by_speed(data, speed_range=(0, float("inf")), smooth_window=1)
+        filtered_no_smooth = filter_by_speed(
+            data, speed_range=(0, float("inf")), smooth_window=1
+        )
 
         # Smoothed speed should have less variance
         assert np.var(filtered_smooth["speed"]) < np.var(filtered_no_smooth["speed"])
+
 
 
 class TestSpatialAnalysisPipeline:
@@ -420,8 +435,8 @@ class TestSpatialAnalysisPipeline:
         """Test basic spatial coding analysis."""
         # Use synthetic data generation utilities
         from driada.experiment.synthetic import (
-            generate_2d_manifold_neurons,
             generate_2d_random_walk,
+            generate_2d_manifold_neurons,
             generate_pseudo_calcium_signal,
         )
 
@@ -536,7 +551,9 @@ class TestComputeSpatialMetrics:
         positions = np.random.rand(200, 2)
         neural_activity = np.random.rand(5, 200)
 
-        results = compute_spatial_metrics(neural_activity, positions, metrics=None)  # Compute all
+        results = compute_spatial_metrics(
+            neural_activity, positions, metrics=None  # Compute all
+        )
 
         # Should have all metric types
         assert "decoding" in results

@@ -1,10 +1,8 @@
-import math
-
+from .matrix_utils import get_norm_laplacian, get_laplacian
 import numpy as np
 import scipy
 from scipy.linalg import expm
-
-from .matrix_utils import get_laplacian, get_norm_laplacian
+import math
 
 
 def renyi_divergence(A, B, q):
@@ -60,11 +58,13 @@ def renyi_divergence(A, B, q):
     --------
     >>> rho = np.array([[0.7, 0.1], [0.1, 0.3]])
     >>> sigma = np.array([[0.5, 0.0], [0.0, 0.5]])
-    >>> div = renyi_divergence(rho, sigma, q=0.5)"""
+    >>> div = renyi_divergence(rho, sigma, q=0.5)    """
     if q <= 0:
         raise ValueError("q must be > 0")
     elif q == 1:
-        answer = np.trace(np.dot(A, (scipy.linalg.logm(A) - scipy.linalg.logm(B)) / np.log(2.0)))
+        answer = np.trace(
+            np.dot(A, (scipy.linalg.logm(A) - scipy.linalg.logm(B)) / np.log(2.0))
+        )
     else:
         answer = (
             (1 / (q - 1))
@@ -134,7 +134,7 @@ def get_density_matrix(A, t, norm=0):
     >>> A = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
     >>> rho = get_density_matrix(A, t=1.0)
     >>> np.trace(rho)  # Trace should be 1
-    1.0"""
+    1.0    """
     A = A.astype(float)
     if norm:
         X = get_norm_laplacian(A)
@@ -174,7 +174,7 @@ def manual_entropy(pr):
     -----
     The function filters out zero values and very small values (< 1e-15)
     to avoid numerical issues with logarithms.
-
+    
     For quantum states, this computes the von Neumann entropy when given
     eigenvalues of a density matrix: S(ρ) = -Σᵢ λᵢ log₂(λᵢ).
 
@@ -188,7 +188,7 @@ def manual_entropy(pr):
     >>> pr = np.array([0.5, 0.5, 0.0])
     >>> H = manual_entropy(pr)
     >>> np.isclose(H, 1.0)  # Maximum entropy for 2 equiprobable states
-    True"""
+    True    """
     probs = np.trim_zeros(pr)
     probs = probs[np.where(probs > 1e-15)]
     return -np.real(np.sum(np.multiply(probs, np.log2(probs))))
@@ -235,13 +235,13 @@ def js_divergence(A, B, t, return_partial_entropies=True):
     -----
     The quantum Jensen-Shannon divergence is defined as:
     QJSD(ρ_A, ρ_B) = S((ρ_A + ρ_B)/2) - (S(ρ_A) + S(ρ_B))/2
-
+    
     where S(ρ) = -Tr(ρ log₂ ρ) is the von Neumann entropy.
-
+    
     **Important**: This function returns the SQUARE ROOT of QJSD, which is
     a proper metric on the quantum state space. To get the divergence itself,
     square the returned value.
-
+    
     The function quantifies the distinguishability between two network
     structures in a quantum information context. Returns 0 if calculation
     results in negative values due to numerical precision issues (which
@@ -258,7 +258,7 @@ def js_divergence(A, B, t, return_partial_entropies=True):
     >>> B = np.array([[0, 1], [1, 0]])
     >>> js_div = js_divergence(A, B, t=1.0, return_partial_entropies=False)
     >>> js_div  # Should be 0 for identical graphs
-    0.0"""
+    0.0    """
     X = get_density_matrix(A, t)
     Y = get_density_matrix(B, t)
 

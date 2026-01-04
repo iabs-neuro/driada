@@ -4,8 +4,7 @@ Test suite for disconnected graph handling in dimensionality reduction methods.
 
 import numpy as np
 import pytest
-
-from driada.dim_reduction import METHODS_DICT, MVData
+from driada.dim_reduction import MVData, METHODS_DICT
 from driada.dim_reduction.embedding import Embedding
 from driada.dim_reduction.graph import ProximityGraph
 
@@ -150,7 +149,9 @@ class TestDisconnectedGraphHandling:
 
         metric_params = {"metric_name": "euclidean", "sigma": 1.0}
 
-        graph = ProximityGraph(mvdata.data, metric_params, graph_params)  # Pass data, not distmat
+        graph = ProximityGraph(
+            mvdata.data, metric_params, graph_params  # Pass data, not distmat
+        )
 
         # Check if graph is truly disconnected
         # Note: with preprocessing='none', it should be disconnected
@@ -164,7 +165,9 @@ class TestDisconnectedGraphHandling:
             "min_dist": 0.1,
         }
 
-        umap_embedding = Embedding(mvdata.data, mvdata.distmat, mvdata.labels, umap_params, g=graph)
+        umap_embedding = Embedding(
+            mvdata.data, mvdata.distmat, mvdata.labels, umap_params, g=graph
+        )
         # UMAP should not raise exception due to handles_disconnected_graphs=1
         umap_embedding.build()
 
@@ -201,7 +204,7 @@ class TestDisconnectedGraphHandling:
 
         # Check that lost_nodes attribute exists
         assert hasattr(embedding.graph, "lost_nodes")
-
+        
         # With two clusters of 10 nodes each at distance 1000,
         # and n_neighbors=5, the graph should be disconnected,
         # so giant_cc preprocessing should remove one cluster

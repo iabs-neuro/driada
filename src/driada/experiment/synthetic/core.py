@@ -5,9 +5,8 @@ This module contains the fundamental utilities used across all synthetic data
 generation functions, including firing rate validation and calcium signal generation.
 """
 
-import warnings
-
 import numpy as np
+import warnings
 
 
 def validate_peak_rate(peak_rate, context=""):
@@ -20,7 +19,7 @@ def validate_peak_rate(peak_rate, context=""):
         Peak firing rate in Hz. Must be non-negative and finite.
     context : str, optional
         Context string for more informative warning message.
-
+        
     Returns
     -------
     None
@@ -44,18 +43,18 @@ def validate_peak_rate(peak_rate, context=""):
     - Decay time ~1-2 seconds limits temporal resolution
     - Firing rates >2 Hz can cause signal saturation
     - Realistic modeling should use rates in 0.1-2 Hz range
-
+    
     Examples
     --------
     >>> validate_peak_rate(1.5)  # No warning, physiologically realistic
-
+    
     >>> import warnings
     >>> with warnings.catch_warnings(record=True) as w:
     ...     warnings.simplefilter("always")
     ...     validate_peak_rate(5.0, context="Place cell simulation")
     ...     len(w) > 0 and "exceeds recommended maximum" in str(w[0].message)
     True
-
+    
     >>> validate_peak_rate(-1.0)
     Traceback (most recent call last):
         ...
@@ -66,14 +65,14 @@ def validate_peak_rate(peak_rate, context=""):
         peak_rate = float(peak_rate)
     except (TypeError, ValueError):
         raise TypeError(f"peak_rate must be numeric, got {type(peak_rate).__name__}")
-
+    
     if np.isnan(peak_rate):
         raise ValueError("peak_rate cannot be NaN")
     if np.isinf(peak_rate):
         raise ValueError("peak_rate cannot be infinite")
     if peak_rate < 0:
         raise ValueError(f"peak_rate must be non-negative, got {peak_rate}")
-
+    
     if peak_rate > 2.0:
         warning_msg = (
             f"peak_rate={peak_rate:.1f} Hz exceeds recommended maximum of 2.0 Hz "
@@ -97,14 +96,14 @@ def generate_pseudo_calcium_signal(
     noise_std=0.1,
 ):
     """Generate a pseudo-calcium imaging signal with noise.
-
+    
     Creates a synthetic calcium fluorescence signal that mimics GCaMP-like
     dynamics with exponential decay, random event amplitudes, and Gaussian noise.
-
+    
     Parameters
     ----------
     events : ndarray or None, optional
-        Binary array indicating event occurrences at each time point.
+        Binary array indicating event occurrences at each time point. 
         If None, events are generated randomly using a Poisson process.
         When provided, indices directly correspond to sample indices (not time in seconds).
     duration : float, default=600
@@ -124,41 +123,41 @@ def generate_pseudo_calcium_signal(
         Must be positive.
     noise_std : float, default=0.1
         Standard deviation of additive Gaussian noise. Must be non-negative.
-
+        
     Returns
     -------
     ndarray
         1D array representing the pseudo-calcium signal with shape (n_samples,).
-
+        
     Raises
     ------
     ValueError
         If duration, sampling_rate, or decay_time <= 0.
         If event_rate or noise_std < 0.
         If amplitude_range[0] > amplitude_range[1].
-
+        
     Notes
     -----
     The calcium signal is modeled as a sum of exponentially decaying transients
     triggered at event times, plus additive Gaussian noise. This approximates
     the dynamics of genetically encoded calcium indicators like GCaMP6.
-
+    
     When events is None: Event times are drawn uniformly in [0, duration) seconds.
     When events is provided: Non-zero indices are treated as event sample indices.
-
+    
     Multiple overlapping events accumulate additively without saturation modeling.
-
+    
     Examples
     --------
     >>> # Generate random calcium signal
     >>> signal = generate_pseudo_calcium_signal(duration=100, event_rate=0.5)
     >>> signal.shape
     (2000,)
-
+    
     >>> # Generate from specific spike times
     >>> spikes = np.zeros(1000)
     >>> spikes[[100, 200, 300]] = 1  # 3 spike events at sample indices
-    >>> signal = generate_pseudo_calcium_signal(events=spikes)"""
+    >>> signal = generate_pseudo_calcium_signal(events=spikes)    """
 
     # Input validation
     if sampling_rate <= 0:
@@ -168,23 +167,23 @@ def generate_pseudo_calcium_signal(
     if noise_std < 0:
         raise ValueError(f"noise_std must be non-negative, got {noise_std}")
     if len(amplitude_range) != 2 or amplitude_range[0] > amplitude_range[1]:
-        raise ValueError(
-            f"amplitude_range must be (min, max) with min <= max, got {amplitude_range}"
-        )
-
+        raise ValueError(f"amplitude_range must be (min, max) with min <= max, got {amplitude_range}")
+    
     if events is None:
         if duration <= 0:
             raise ValueError(f"duration must be positive, got {duration}")
         if event_rate < 0:
             raise ValueError(f"event_rate must be non-negative, got {event_rate}")
-
+            
         # Calculate number of samples
         num_samples = int(duration * sampling_rate)
 
         # Generate calcium events
         num_events = np.random.poisson(event_rate * duration)
         event_times = np.random.uniform(0, duration, num_events)
-        event_amplitudes = np.random.uniform(amplitude_range[0], amplitude_range[1], num_events)
+        event_amplitudes = np.random.uniform(
+            amplitude_range[0], amplitude_range[1], num_events
+        )
 
     else:
         num_samples = len(events)
@@ -207,7 +206,9 @@ def generate_pseudo_calcium_signal(
         else:
             event_index = int(t)
 
-        decay = np.exp(-np.arange(num_samples - event_index) / (decay_time * sampling_rate))
+        decay = np.exp(
+            -np.arange(num_samples - event_index) / (decay_time * sampling_rate)
+        )
         signal[event_index:] += a * decay
 
     # Add Gaussian noise
@@ -254,40 +255,40 @@ def generate_pseudo_calcium_multisignal(
     -------
     ndarray
         Calcium signals of shape (n_neurons, n_timepoints).
-
+        
     Raises
     ------
     ValueError
         If n < 0.
         If events is provided with wrong shape.
-
+        
     Notes
     -----
     This is a convenience wrapper that calls generate_pseudo_calcium_signal
     for each neuron independently. Each neuron gets independent random
     events (if events=None) and independent noise.
-
+    
     Examples
     --------
     >>> # Generate 5 neurons with random events
     >>> signals = generate_pseudo_calcium_multisignal(5, duration=100)
     >>> signals.shape
     (5, 2000)
-
+    
     >>> # Generate with specific events per neuron
     >>> events = np.random.binomial(1, 0.01, size=(3, 1000))
-    >>> signals = generate_pseudo_calcium_multisignal(3, events=events)"""
+    >>> signals = generate_pseudo_calcium_multisignal(3, events=events)    """
     # Input validation
     if n < 0:
         raise ValueError(f"n must be non-negative, got {n}")
-
+    
     if events is not None:
         events = np.asarray(events)
         if events.ndim != 2:
             raise ValueError(f"events must be 2D array, got shape {events.shape}")
         if events.shape[0] != n:
             raise ValueError(f"events first dimension {events.shape[0]} must match n={n}")
-
+    
     sigs = []
     for i in range(n):
         local_events = None

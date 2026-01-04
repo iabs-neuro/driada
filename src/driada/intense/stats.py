@@ -1,7 +1,6 @@
 import numpy as np
 import scipy
-from scipy.stats import gamma, lognorm, rankdata
-
+from scipy.stats import lognorm, gamma, rankdata
 from ..utils.data import populate_nested_dict
 
 
@@ -20,22 +19,22 @@ def chebyshev_ineq(data, val):
     -------
     p_bound : float
         Upper bound on P(X >= val) based on Chebyshev's inequality.
-
+        
     Raises
     ------
     ValueError
         If data has zero variance (all values are identical).
-
+        
     Notes
     -----
     Chebyshev's inequality states that P(|X - μ| >= k*σ) <= 1/k²
-    This gives P(X >= val) <= 1/z² where z = (val - μ)/σ"""
+    This gives P(X >= val) <= 1/z² where z = (val - μ)/σ    """
     mean = np.mean(data)
     std = np.std(data)
-
+    
     if std == 0:
         raise ValueError("Cannot apply Chebyshev's inequality to data with zero variance")
-
+    
     z = (val - mean) / std
     return 1.0 / z**2
 
@@ -56,20 +55,20 @@ def get_lognormal_p(data, val):
     -------
     p_value : float
         P(X >= val) under fitted log-normal distribution.
-
+        
     Raises
     ------
     ValueError
         If data contains non-positive values.
-
+        
     Notes
     -----
     Fits log-normal distribution with floc=0 (zero lower bound).
-    Log-normal distribution is suitable for positive-valued data."""
+    Log-normal distribution is suitable for positive-valued data.    """
     data = np.asarray(data)
     if np.any(data <= 0):
         raise ValueError("Data must contain only positive values for log-normal distribution")
-
+    
     params = lognorm.fit(data, floc=0)
     rv = lognorm(*params)
     return rv.sf(val)
@@ -91,20 +90,20 @@ def get_gamma_p(data, val):
     -------
     p_value : float
         P(X >= val) under fitted gamma distribution.
-
+        
     Raises
     ------
     ValueError
         If data contains non-positive values.
-
+        
     Notes
     -----
     Fits gamma distribution with floc=0 (zero lower bound).
-    Gamma distribution is suitable for positive-valued data."""
+    Gamma distribution is suitable for positive-valued data.    """
     data = np.asarray(data)
     if np.any(data <= 0):
         raise ValueError("Data must contain only positive values for gamma distribution")
-
+    
     params = gamma.fit(data, floc=0)
     rv = gamma(*params)
     return rv.sf(val)
@@ -127,7 +126,7 @@ def get_distribution_function(dist_name):
     Raises
     ------
     ValueError
-        If distribution name not found in scipy.stats."""
+        If distribution name not found in scipy.stats.    """
     try:
         return getattr(scipy.stats, dist_name)
     except AttributeError:
@@ -157,14 +156,14 @@ def get_mi_distr_pvalue(data, val, distr_type="gamma"):
     -----
     - For 'gamma' and 'lognorm', fits with floc=0 (zero lower bound)
     - For other distributions, uses default fitting
-    - Returns conservative p-value (1.0) on fitting errors"""
+    - Returns conservative p-value (1.0) on fitting errors    """
     distr = get_distribution_function(distr_type)
     try:
         if distr_type in ["gamma", "lognorm"]:
             params = distr.fit(data, floc=0)
         else:
             params = distr.fit(data)
-
+        
         rv = distr(*params)
         return rv.sf(val)
     except Exception:  # Distribution fitting can fail for various reasons
@@ -190,8 +189,8 @@ def get_mask(ptable, rtable, pval_thr, rank_thr):
     Returns
     -------
     mask : np.ndarray
-        Binary mask: 1 where both conditions satisfied
-        (p <= pval_thr AND rank >= rank_thr), 0 otherwise."""
+        Binary mask: 1 where both conditions satisfied 
+        (p <= pval_thr AND rank >= rank_thr), 0 otherwise.    """
     mask = np.ones(ptable.shape)
     mask[np.where(ptable > pval_thr)] = 0
     mask[np.where(rtable < rank_thr)] = 0
@@ -215,11 +214,11 @@ def stats_not_empty(pair_stats, current_data_hash, stage=1):
     -------
     is_valid : bool
         True if stats are valid and complete, False otherwise.
-
+        
     Raises
     ------
     ValueError
-        If stage is not 1 or 2."""
+        If stage is not 1 or 2.    """
     if stage == 1:
         stats_to_check = ["pre_rval", "pre_pval"]
     elif stage == 2:
@@ -229,7 +228,9 @@ def stats_not_empty(pair_stats, current_data_hash, stage=1):
 
     data_hash_from_stats = pair_stats["data_hash"]
     is_valid = current_data_hash == data_hash_from_stats
-    is_not_empty = np.all(np.array([pair_stats[st] is not None for st in stats_to_check]))
+    is_not_empty = np.all(
+        np.array([pair_stats[st] is not None for st in stats_to_check])
+    )
     return is_valid and is_not_empty
 
 
@@ -250,11 +251,11 @@ def criterion1(pair_stats, nsh1, topk=1):
     -------
     crit_passed : bool
         True if pair's rank exceeds threshold (1 - topk/(nsh1+1)).
-
+        
     Notes
     -----
     The criterion checks if: pre_rval > (1 - topk/(nsh1+1))
-    For topk=1 and nsh1=100, this requires pre_rval > 0.99"""
+    For topk=1 and nsh1=100, this requires pre_rval > 0.99    """
 
     if pair_stats.get("pre_rval") is not None:
         return pair_stats["pre_rval"] > (1 - 1.0 * topk / (nsh1 + 1))
@@ -284,11 +285,11 @@ def criterion2(pair_stats, nsh2, pval_thr, topk=5):
         True if both conditions met:
         1) rval > (1 - topk/(nsh2+1))
         2) pval < pval_thr
-
+        
     Notes
     -----
     Both rank and p-value criteria must be satisfied.
-    Missing 'rval' or 'pval' results in False."""
+    Missing 'rval' or 'pval' results in False.    """
     # whether pair passed stage 1 and has statistics from stage 2
     if pair_stats.get("rval") is not None and pair_stats.get("pval") is not None:
         # whether true MI is among topk shuffles (in practice it is top-1 almost always)
@@ -317,7 +318,7 @@ def get_all_nonempty_pvals(all_stats, ids1, ids2):
     Returns
     -------
     all_pvals : list
-        List of all non-None p-values found."""
+        List of all non-None p-values found.    """
     all_pvals = []
     for i, id1 in enumerate(ids1):
         for j, id2 in enumerate(ids2):
@@ -357,7 +358,7 @@ def get_table_of_stats(
     Returns
     -------
     stage_stats : dict of dict
-        Nested dictionary with computed statistics for each pair."""
+        Nested dictionary with computed statistics for each pair.    """
     # 0 in mask values means that stats for this pair will not be calculated
     # 1 in mask values means that stats for this pair will be calculated from new results.
     if precomputed_mask is None:
@@ -367,7 +368,9 @@ def get_table_of_stats(
     stage_stats = populate_nested_dict(dict(), range(a), range(b))
 
     ranked_total_mi = rankdata(metable, axis=2, nan_policy="omit")
-    ranks = ranked_total_mi[:, :, 0] / (nsh + 1)  # how many shuffles have MI lower than true mi
+    ranks = ranked_total_mi[:, :, 0] / (
+        nsh + 1
+    )  # how many shuffles have MI lower than true mi
 
     for i in range(a):
         for j in range(b):
@@ -375,7 +378,9 @@ def get_table_of_stats(
                 new_stats = {}  # DEFAULT_STATS.copy()
                 me = metable[i, j, 0]
                 random_mi_samples = metable[i, j, 1:]
-                pval = get_mi_distr_pvalue(random_mi_samples, me, distr_type=metric_distr_type)
+                pval = get_mi_distr_pvalue(
+                    random_mi_samples, me, distr_type=metric_distr_type
+                )
                 opt_delay = optimal_delays[i, j]
 
                 if stage == 1:
@@ -409,7 +414,7 @@ def merge_stage_stats(stage1_stats, stage2_stats):
     Returns
     -------
     merged_stats : dict of dict
-        Combined statistics with both stage 1 and 2 results."""
+        Combined statistics with both stage 1 and 2 results.    """
     merged_stats = stage2_stats.copy()
     for i in stage2_stats:
         for j in stage2_stats[i]:
@@ -437,7 +442,7 @@ def merge_stage_significance(stage_1_significance, stage_2_significance):
     Returns
     -------
     merged_significance : dict of dict
-        Combined significance results."""
+        Combined significance results.    """
     merged_significance = stage_2_significance.copy()
     for i in stage_2_significance:
         for j in stage_2_significance[i]:

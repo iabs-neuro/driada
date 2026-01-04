@@ -3,7 +3,6 @@ Utility functions for synthetic data generation.
 """
 
 import numpy as np
-
 from driada.utils.data import check_positive
 
 
@@ -40,14 +39,14 @@ def get_effective_decay_time(decay_time, duration, verbose=True):
     Notes
     -----
     The 30-second threshold and 0.5-second maximum are empirically
-    determined values that work well for most calcium imaging experiments."""
+    determined values that work well for most calcium imaging experiments.    """
     # Input validation
     check_positive(decay_time=decay_time, duration=duration)
-
+    
     # Constants for shuffle exclusion prevention
     SHORT_DURATION_THRESHOLD = 30.0  # seconds
     MAX_DECAY_TIME_SHORT = 0.5  # seconds
-
+    
     # For short durations, use smaller decay_time to reduce shuffle exclusion
     if duration <= SHORT_DURATION_THRESHOLD:
         effective_decay_time = min(decay_time, MAX_DECAY_TIME_SHORT)

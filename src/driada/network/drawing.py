@@ -1,15 +1,13 @@
-from itertools import combinations
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
-from matplotlib import cm
-from matplotlib.cm import ScalarMappable
-from matplotlib.colors import Normalize as color_normalize
-
 from ..utils.plot import create_default_figure
 from .matrix_utils import get_laplacian, get_norm_laplacian
+import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
+from itertools import combinations
+from matplotlib import cm
+import matplotlib as mpl
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize as color_normalize
 
 
 def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
@@ -95,8 +93,12 @@ def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
 
         if log_log:
             (degree,) = ax.loglog(distrlist[0][:-1], linewidth=2, c="k", label="degree")
-            (outdegree,) = ax.loglog(distrlist[1][:-1], linewidth=2, c="b", label="outdegree")
-            (indegree,) = ax.loglog(distrlist[2][:-1], linewidth=2, c="r", label="indegree")
+            (outdegree,) = ax.loglog(
+                distrlist[1][:-1], linewidth=2, c="b", label="outdegree"
+            )
+            (indegree,) = ax.loglog(
+                distrlist[2][:-1], linewidth=2, c="r", label="indegree"
+            )
         else:
             (degree,) = ax.plot(distrlist[0], linewidth=2, c="k", label="degree")
             (outdegree,) = ax.plot(distrlist[1], linewidth=2, c="b", label="outdegree")
@@ -185,7 +187,7 @@ def get_vector_coloring(vec, cmap="plasma"):
     -------
     numpy.ndarray
         Array of RGBA color values, shape (n, 4).
-
+        
     Raises
     ------
     ValueError
@@ -210,10 +212,10 @@ def get_vector_coloring(vec, cmap="plasma"):
     vec = np.array(vec).ravel()
     vec_min = np.min(vec)
     vec_max = np.max(vec)
-
+    
     if vec_max == vec_min:
         raise ValueError("All values in vector are identical, cannot create color mapping")
-
+    
     colors = cmap((vec - vec_min) / (vec_max - vec_min))
     return colors
 
@@ -229,11 +231,11 @@ def draw_eigenvectors(
     edge_options={},
 ):
     """Draw network nodes colored by eigenvector components.
-
+    
     Visualizes a network with nodes colored according to the values of
     eigenvectors in the specified index range. Creates a grid of subplots,
     one for each eigenvector from left_ind to right_ind (inclusive).
-
+    
     Parameters
     ----------
     net : Network
@@ -255,19 +257,19 @@ def draw_eigenvectors(
     edge_options : dict, optional
         Additional options for edge drawing (passed to networkx).
         Default is empty dict.
-
+        
     Returns
     -------
     matplotlib.figure.Figure
         Figure containing the eigenvector visualization.
-
+        
     Notes
     -----
     The function creates a grid of subplots arranged to fit all requested
     eigenvectors. Each subplot shows the network with nodes colored by
     the corresponding eigenvector's components. The subplot title shows
     the eigenvector index and its eigenvalue.
-
+    
     Examples
     --------
     >>> import matplotlib
@@ -299,7 +301,9 @@ def draw_eigenvectors(
     )
     for ax in axs.ravel():
         ax.set_axis_off()
-    plt.subplots_adjust(left=0.1, bottom=0.1, right=0.9, top=0.9, hspace=0.2, wspace=0.1)
+    plt.subplots_adjust(
+        left=0.1, bottom=0.1, right=0.9, top=0.9, hspace=0.2, wspace=0.1
+    )
 
     if net.pos is None:
         pos = nx.layout.spring_layout(net.graph)
@@ -402,7 +406,9 @@ def draw_net(net, colors=None, nodesize=None, ax=None):
     }
     edge_options = {}
 
-    nx.draw_networkx_nodes(net.graph, pos, node_color=colors, ax=ax, **node_options)
+    nx.draw_networkx_nodes(
+        net.graph, pos, node_color=colors, ax=ax, **node_options
+    )
     nx.draw_networkx_edges(net.graph, pos, ax=ax, **edge_options)
 
     plt.show()
@@ -468,11 +474,11 @@ def show_mat(net, dtype=None, mode="adj", ax=None):
         fig, ax = plt.subplots(figsize=(10, 10))
 
     # Convert to dense array if sparse
-    if hasattr(mat, "toarray"):
+    if hasattr(mat, 'toarray'):
         mat_dense = mat.toarray()
     else:
         mat_dense = np.asarray(mat)
-
+    
     if dtype is not None:
         ax.matshow(mat_dense.astype(dtype))
     else:
@@ -529,7 +535,7 @@ def plot_lem_embedding(net, ndim, colors=None):
 
     psize = 10
     # Handle both sparse and dense arrays
-    if hasattr(net.lem_emb, "toarray"):
+    if hasattr(net.lem_emb, 'toarray'):
         data = net.lem_emb.toarray()
     else:
         data = net.lem_emb
@@ -545,7 +551,9 @@ def plot_lem_embedding(net, ndim, colors=None):
         i1, i2 = pairs[i]
         scatter = ax.scatter(data[i1, :], data[i2, :], c=colors, s=psize)
 
-        ax.legend(*scatter.legend_elements(), loc="upper left", title="Classes")
+        ax.legend(
+            *scatter.legend_elements(), loc="upper left", title="Classes"
+        )
 
         ax.text(
             min(data[i1, :]),

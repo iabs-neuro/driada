@@ -1,12 +1,11 @@
 import numpy as np
 import pytest
-
 from driada.experiment import (
+    generate_2d_random_walk,
     gaussian_place_field,
+    generate_2d_manifold_neurons,
     generate_2d_manifold_data,
     generate_2d_manifold_exp,
-    generate_2d_manifold_neurons,
-    generate_2d_random_walk,
 )
 from driada.intense.pipelines import compute_cell_feat_significance
 
@@ -122,7 +121,9 @@ class TestGenerate2DManifoldNeurons:
         n_neurons = 25
         positions = generate_2d_random_walk(1000, seed=42)
 
-        firing_rates, centers = generate_2d_manifold_neurons(n_neurons, positions, seed=42)
+        firing_rates, centers = generate_2d_manifold_neurons(
+            n_neurons, positions, seed=42
+        )
 
         assert firing_rates.shape == (n_neurons, positions.shape[1])
         assert centers.shape == (n_neurons, 2)
@@ -141,7 +142,9 @@ class TestGenerate2DManifoldNeurons:
 
         # Check grid-like arrangement (should be roughly evenly spaced)
         # Remove jitter for testing
-        centers_sorted = centers_grid[np.lexsort((centers_grid[:, 1], centers_grid[:, 0]))]
+        centers_sorted = centers_grid[
+            np.lexsort((centers_grid[:, 1], centers_grid[:, 0]))
+        ]
 
         # First 5 should have similar x, increasing y
         first_col_x = centers_sorted[:5, 0]
@@ -217,7 +220,9 @@ class TestGenerate2DManifoldExp:
 
     def test_return_info_false(self):
         """Test basic experiment generation without info."""
-        exp = generate_2d_manifold_exp(n_neurons=10, duration=10, verbose=False, seed=42)
+        exp = generate_2d_manifold_exp(
+            n_neurons=10, duration=10, verbose=False, seed=42
+        )
 
         # Should only return experiment
         assert hasattr(exp, "calcium")
@@ -320,7 +325,9 @@ class TestGenerate2DManifoldExp:
         # Count significant neurons for individual features
         significant_neurons = exp.get_significant_neurons()
         individual_selective = sum(
-            1 for features in significant_neurons.values() if "x" in features or "y" in features
+            1
+            for features in significant_neurons.values()
+            if "x" in features or "y" in features
         )
 
         # Clear previous results for second test

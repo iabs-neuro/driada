@@ -5,16 +5,16 @@ including noise addition for numerical stability and negative value clipping.
 """
 
 import numpy as np
-
 from ..utils.jit import conditional_njit
+
 
 # Statistical constants
 MAD_SCALE_FACTOR = 1.4826  # Scaling factor for MAD → std consistency (normal distribution)
-# This is 1 / (sqrt(2) * erfcinv(1.5))
+                            # This is 1 / (sqrt(2) * erfcinv(1.5))
 
 
 def calcium_preprocessing(ca, seed=None):
-    """Preprocess calcium signal for spike reconstruction.
+    '''Preprocess calcium signal for spike reconstruction.
 
     Applies preprocessing steps:
     - Converts to float64 for numerical stability
@@ -51,17 +51,17 @@ def calcium_preprocessing(ca, seed=None):
     0.0...
     >>> (processed > 0).all()  # All values positive after noise
     True
-    """
+    '''
     ca = np.asarray(ca)
     if ca.size == 0:
-        raise ValueError("Calcium signal cannot be empty")
+        raise ValueError('Calcium signal cannot be empty')
     if seed is not None:
         np.random.seed(seed)
     return _calcium_preprocessing_jit(ca)
 
 
 def _calcium_preprocessing_jit(ca):
-    """JIT-compiled core computation for calcium_preprocessing.
+    '''JIT-compiled core computation for calcium_preprocessing.
 
     Applies numerical preprocessing to calcium signal for stability.
     This is the performance-critical inner loop separated for JIT compilation.
@@ -87,7 +87,7 @@ def _calcium_preprocessing_jit(ca):
     ------------
     Uses np.random without explicit state management. Set seed
     externally for reproducibility.
-    """
+    '''
     ca = ca.astype(np.float64)
     ca[ca < 0] = 0
     ca += np.random.random(len(ca)) * 1e-08

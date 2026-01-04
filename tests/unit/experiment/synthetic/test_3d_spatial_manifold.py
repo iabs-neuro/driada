@@ -1,12 +1,11 @@
 import numpy as np
 import pytest
-
 from driada.experiment import (
+    generate_3d_random_walk,
     gaussian_place_field_3d,
+    generate_3d_manifold_neurons,
     generate_3d_manifold_data,
     generate_3d_manifold_exp,
-    generate_3d_manifold_neurons,
-    generate_3d_random_walk,
 )
 from driada.intense.pipelines import compute_cell_feat_significance
 
@@ -66,7 +65,9 @@ class TestGenerate3DRandomWalk:
             velocities_norm = velocities / norms[np.newaxis, :]
 
             # Calculate angle changes using dot product
-            dot_products = np.sum(velocities_norm[:, :-1] * velocities_norm[:, 1:], axis=0)
+            dot_products = np.sum(
+                velocities_norm[:, :-1] * velocities_norm[:, 1:], axis=0
+            )
             dot_products = np.clip(dot_products, -1, 1)  # Numerical stability
             angles = np.arccos(dot_products)
             return np.sum(angles > np.pi / 2)  # Count sharp turns
@@ -141,7 +142,9 @@ class TestGenerate3DManifoldNeurons:
         n_neurons = 27  # 3x3x3 grid
         positions = generate_3d_random_walk(1000, seed=42)
 
-        firing_rates, centers = generate_3d_manifold_neurons(n_neurons, positions, seed=42)
+        firing_rates, centers = generate_3d_manifold_neurons(
+            n_neurons, positions, seed=42
+        )
 
         assert firing_rates.shape == (n_neurons, positions.shape[1])
         assert centers.shape == (n_neurons, 3)
@@ -394,7 +397,9 @@ class TestGenerate3DManifoldExp:
 
     def test_default_neuron_count(self):
         """Test that default neuron count is 125 (5x5x5 grid)."""
-        exp, info = generate_3d_manifold_exp(duration=30, verbose=False, seed=42, return_info=True)
+        exp, info = generate_3d_manifold_exp(
+            duration=30, verbose=False, seed=42, return_info=True
+        )
 
         assert exp.n_cells == 125
         assert info["n_neurons"] == 125

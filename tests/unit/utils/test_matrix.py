@@ -2,8 +2,7 @@
 
 import numpy as np
 from numpy import linalg as la
-
-from driada.utils.matrix import is_positive_definite, nearestPD
+from driada.utils.matrix import nearestPD, is_positive_definite
 
 
 class TestIsPositiveDefinite:

@@ -6,8 +6,8 @@ of datasets, including both linear and nonlinear approaches.
 """
 
 from .effective import eff_dim
-from .intrinsic import correlation_dimension, geodesic_dimension, nn_dimension
-from .linear import effective_rank, pca_dimension, pca_dimension_profile
+from .intrinsic import nn_dimension, correlation_dimension, geodesic_dimension
+from .linear import pca_dimension, pca_dimension_profile, effective_rank
 
 __all__ = [
     # Effective dimensionality

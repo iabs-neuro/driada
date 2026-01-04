@@ -13,7 +13,6 @@ leveraging numba's ability to compile numpy operations efficiently.
 
 import numpy as np
 from numba import njit
-
 from ..utils.jit import conditional_njit
 
 
@@ -30,19 +29,19 @@ def entropy_d_jit(x):
     -------
     float
         Entropy in bits. Returns 0.0 for empty arrays.
-
+        
     Raises
     ------
     AttributeError
         If x doesn't have required array attributes (size).
     TypeError
         If x contains non-numeric or non-sortable values.
-
+        
     Notes
     -----
     Uses Shannon entropy formula H = -Σ(p*log2(p)) where p are the
     probabilities of each unique value. The implementation sorts the
-    input array to efficiently count unique values."""
+    input array to efficiently count unique values.    """
     n = x.size
     if n == 0:
         return 0.0
@@ -95,7 +94,7 @@ def joint_entropy_dd_jit(x, y):
     -------
     float
         Joint entropy H(X,Y) in bits.
-
+        
     Raises
     ------
     ValueError
@@ -104,18 +103,18 @@ def joint_entropy_dd_jit(x, y):
         If x or y don't have required array attributes.
     TypeError
         If x or y contain non-numeric values.
-
+        
     Notes
     -----
     Creates a joint encoding of (x,y) pairs and calculates entropy of
     the joint distribution. Uses overflow-safe encoding with automatic
-    fallback to Cantor pairing for large value ranges."""
+    fallback to Cantor pairing for large value ranges.    """
     n = x.size
-
+    
     # Validate inputs
     if n == 0:
         return 0.0
-
+    
     if y.size != n:
         raise ValueError(f"x and y must have same length, got {n} and {y.size}")
 

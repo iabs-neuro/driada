@@ -38,9 +38,9 @@ def test_main_exports():
 
 def test_submodule_imports():
     """Test that submodules are importable."""
-    import driada.experiment
-    import driada.information
     import driada.intense
+    import driada.information
+    import driada.experiment
     import driada.utils
 
     # Check they have __all__ defined
@@ -118,7 +118,7 @@ def test_dim_reduction_imports():
     """Test dimensionality reduction module imports."""
 
     # Check DR methods are available
-    from driada.dim_reduction import Embedding, MVData
+    from driada.dim_reduction import MVData, Embedding
 
     assert callable(MVData)
     assert callable(Embedding)
@@ -148,7 +148,7 @@ def test_integration_module_imports():
     """Test integration module imports."""
 
     # Check manifold analysis functions
-    from driada.integration import compare_embeddings, get_functional_organization
+    from driada.integration import get_functional_organization, compare_embeddings
 
     assert callable(get_functional_organization)
     assert callable(compare_embeddings)

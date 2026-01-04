@@ -4,20 +4,18 @@ This module provides classes and utilities for creating publication-quality
 multi-panel figures with precise physical dimensions and consistent styling.
 """
 
-from dataclasses import dataclass
-from typing import Dict, Literal, Optional, Tuple, Union
-
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from typing import Optional, Tuple, Dict, Literal, Union
+from dataclasses import dataclass
 import numpy as np
+
 
 # Unit conversion constants
 CM_PER_INCH = 2.54
 
 
-def to_inches(
-    value: Union[float, Tuple[float, ...]], from_units: str
-) -> Union[float, Tuple[float, ...]]:
+def to_inches(value: Union[float, Tuple[float, ...]], from_units: str) -> Union[float, Tuple[float, ...]]:
     """Convert from user units to inches (matplotlib's native unit).
 
     Parameters
@@ -37,19 +35,17 @@ def to_inches(
     ValueError
         If units are not 'cm' or 'inches'
     """
-    if from_units == "cm":
+    if from_units == 'cm':
         if isinstance(value, tuple):
             return tuple(v / CM_PER_INCH for v in value)
         return value / CM_PER_INCH
-    elif from_units == "inches":
+    elif from_units == 'inches':
         return value
     else:
         raise ValueError(f"Unknown units: {from_units}. Must be 'cm' or 'inches'")
 
 
-def from_inches(
-    value: Union[float, Tuple[float, ...]], to_units: str
-) -> Union[float, Tuple[float, ...]]:
+def from_inches(value: Union[float, Tuple[float, ...]], to_units: str) -> Union[float, Tuple[float, ...]]:
     """Convert from inches to user units.
 
     Parameters
@@ -69,11 +65,11 @@ def from_inches(
     ValueError
         If units are not 'cm' or 'inches'
     """
-    if to_units == "cm":
+    if to_units == 'cm':
         if isinstance(value, tuple):
             return tuple(v * CM_PER_INCH for v in value)
         return value * CM_PER_INCH
-    elif to_units == "inches":
+    elif to_units == 'inches':
         return value
     else:
         raise ValueError(f"Unknown units: {to_units}. Must be 'cm' or 'inches'")
@@ -96,7 +92,6 @@ class PanelSpec:
     col_span : int, optional
         Number of columns this panel spans (default: 1)
     """
-
     name: str
     size: Tuple[float, float]
     position: Optional[Tuple[int, int]] = None
@@ -141,9 +136,9 @@ class PanelLayout:
 
     def __init__(
         self,
-        units: Literal["cm", "inches"] = "cm",
+        units: Literal['cm', 'inches'] = 'cm',
         dpi: int = 300,
-        spacing: Optional[Dict[str, float]] = None,
+        spacing: Optional[Dict[str, float]] = None
     ):
         """Initialize PanelLayout.
 
@@ -159,7 +154,7 @@ class PanelLayout:
         """
         self.units = units
         self.dpi = dpi
-        self.spacing = spacing or {"wspace": 0, "hspace": 0}
+        self.spacing = spacing or {'wspace': 0, 'hspace': 0}
 
         self.panels: Dict[str, PanelSpec] = {}
         self.grid_shape: Optional[Tuple[int, int]] = None  # (rows, cols)
@@ -171,7 +166,7 @@ class PanelLayout:
         position: Optional[Tuple[int, int]] = None,
         row_span: int = 1,
         col_span: int = 1,
-        **kwargs,  # For backward compatibility with 'rowspan' and 'colspan'
+        **kwargs  # For backward compatibility with 'rowspan' and 'colspan'
     ):
         """Add a panel to the layout.
 
@@ -196,10 +191,10 @@ class PanelLayout:
             If panel name already exists, size is invalid, or span is invalid
         """
         # Handle backward compatibility
-        if "rowspan" in kwargs:
-            row_span = kwargs["rowspan"]
-        if "colspan" in kwargs:
-            col_span = kwargs["colspan"]
+        if 'rowspan' in kwargs:
+            row_span = kwargs['rowspan']
+        if 'colspan' in kwargs:
+            col_span = kwargs['colspan']
 
         # Validate panel name is unique
         if name in self.panels:
@@ -211,12 +206,14 @@ class PanelLayout:
 
         # Validate span
         if row_span < 1 or col_span < 1:
-            raise ValueError(
-                f"Panel span must be at least 1, got row_span={row_span}, col_span={col_span}"
-            )
+            raise ValueError(f"Panel span must be at least 1, got row_span={row_span}, col_span={col_span}")
 
         panel = PanelSpec(
-            name=name, size=size, position=position, row_span=row_span, col_span=col_span
+            name=name,
+            size=size,
+            position=position,
+            row_span=row_span,
+            col_span=col_span
         )
         self.panels[name] = panel
 
@@ -297,9 +294,7 @@ class PanelLayout:
 
         # Validate grid shape
         if rows < 1 or cols < 1:
-            raise ValueError(
-                f"Grid shape must have at least 1 row and 1 column, got ({rows}, {cols})"
-            )
+            raise ValueError(f"Grid shape must have at least 1 row and 1 column, got ({rows}, {cols})")
 
         # Track which cells are occupied by which panel
         cell_map = {}  # {(row, col): panel_name}
@@ -385,12 +380,8 @@ class PanelLayout:
 
         # If any columns/rows are still 0, fill with average of non-zero values
         # (This handles sparse grids where some cells are intentionally empty)
-        avg_width = (
-            np.mean([w for w in col_widths if w > 0]) if any(w > 0 for w in col_widths) else 8
-        )
-        avg_height = (
-            np.mean([h for h in row_heights if h > 0]) if any(h > 0 for h in row_heights) else 6
-        )
+        avg_width = np.mean([w for w in col_widths if w > 0]) if any(w > 0 for w in col_widths) else 8
+        avg_height = np.mean([h for h in row_heights if h > 0]) if any(h > 0 for h in row_heights) else 6
         col_widths = [w if w > 0 else avg_width for w in col_widths]
         row_heights = [h if h > 0 else avg_height for h in row_heights]
 
@@ -399,8 +390,8 @@ class PanelLayout:
         total_height = sum(row_heights)
 
         # Add spacing
-        wspace = self.spacing.get("wspace", 0)
-        hspace = self.spacing.get("hspace", 0)
+        wspace = self.spacing.get('wspace', 0)
+        hspace = self.spacing.get('hspace', 0)
 
         total_width += wspace * (cols - 1)
         total_height += hspace * (rows - 1)
@@ -465,32 +456,24 @@ class PanelLayout:
                     row_heights[row] = max(row_heights[row], panel.size[1])
 
         # Fill any zero widths/heights
-        avg_width = (
-            np.mean([w for w in col_widths if w > 0]) if any(w > 0 for w in col_widths) else 8
-        )
-        avg_height = (
-            np.mean([h for h in row_heights if h > 0]) if any(h > 0 for h in row_heights) else 6
-        )
+        avg_width = np.mean([w for w in col_widths if w > 0]) if any(w > 0 for w in col_widths) else 8
+        avg_height = np.mean([h for h in row_heights if h > 0]) if any(h > 0 for h in row_heights) else 6
         col_widths = [w if w > 0 else avg_width for w in col_widths]
         row_heights = [h if h > 0 else avg_height for h in row_heights]
 
         # Get spacing in user units
-        wspace = self.spacing.get("wspace", 0)
-        hspace = self.spacing.get("hspace", 0)
+        wspace = self.spacing.get('wspace', 0)
+        hspace = self.spacing.get('hspace', 0)
 
         # Calculate cumulative positions in user units
         # Work in top-down coordinates (row 0 = top), convert to matplotlib bottom-up later
         col_positions = [0.0]  # left edge of each column
         for i in range(cols):
-            col_positions.append(
-                col_positions[-1] + col_widths[i] + (wspace if i < cols - 1 else 0)
-            )
+            col_positions.append(col_positions[-1] + col_widths[i] + (wspace if i < cols-1 else 0))
 
         row_positions = [0.0]  # top edge of each row (from top, user coordinates)
         for i in range(rows):
-            row_positions.append(
-                row_positions[-1] + row_heights[i] + (hspace if i < rows - 1 else 0)
-            )
+            row_positions.append(row_positions[-1] + row_heights[i] + (hspace if i < rows-1 else 0))
 
         # Convert to inches
         col_positions_inches = [to_inches(p, self.units) for p in col_positions]
@@ -542,17 +525,13 @@ class PanelLayout:
 
                 # Handle spanning for width
                 if panel.col_span > 1:
-                    width_inches = (
-                        col_positions_inches[col + panel.col_span] - col_positions_inches[col]
-                    )
+                    width_inches = col_positions_inches[col + panel.col_span] - col_positions_inches[col]
                 else:
                     width_inches = col_widths_inches[col]
 
                 # Handle spanning for height
                 if panel.row_span > 1:
-                    height_inches = (
-                        row_positions_inches[row + panel.row_span] - row_positions_inches[row]
-                    )
+                    height_inches = row_positions_inches[row + panel.row_span] - row_positions_inches[row]
                 else:
                     height_inches = row_heights_inches[row]
 

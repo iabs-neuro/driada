@@ -1,9 +1,8 @@
 """Tests for graph construction methods in ProximityGraph"""
 
-import numpy as np
 import pytest
+import numpy as np
 import scipy.sparse as sp
-
 from driada.dim_reduction.graph import ProximityGraph
 
 
@@ -86,7 +85,9 @@ class TestGraphConstruction:
                 "max_deleted_nodes": 0.5,
             }
 
-            graph = ProximityGraph(sample_data, m_params, g_params, create_nx_graph=False)
+            graph = ProximityGraph(
+                sample_data, m_params, g_params, create_nx_graph=False
+            )
             assert graph.adj is not None
             assert graph.adj.nnz > 0
 
@@ -190,7 +191,9 @@ class TestGraphConstruction:
         # minimum instead of addition, which creates a properly symmetric but
         # potentially sparser graph
 
-        graph = ProximityGraph(disconnected_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            disconnected_data, m_params, g_params, create_nx_graph=False
+        )
 
         # Should have lost some nodes
         assert graph.n < disconnected_data.shape[1]
@@ -235,7 +238,9 @@ class TestGraphConstruction:
         # Verify matrices are symmetric
         assert np.allclose(graph.adj.toarray(), graph.adj.toarray().T)
         assert np.allclose(graph.bin_adj.toarray(), graph.bin_adj.toarray().T)
-        assert np.allclose(graph.neigh_distmat.toarray(), graph.neigh_distmat.toarray().T)
+        assert np.allclose(
+            graph.neigh_distmat.toarray(), graph.neigh_distmat.toarray().T
+        )
 
     def test_checkpoint_with_no_adjacency_error(self, sample_data):
         """Test _checkpoint raises error when adjacency is None"""
@@ -311,13 +316,17 @@ class TestGraphConstruction:
 
         # Test error when neigh_distmat is None
         graph.neigh_distmat = None
-        with pytest.raises(Exception, match="distances between nearest neighbors not available"):
+        with pytest.raises(
+            Exception, match="distances between nearest neighbors not available"
+        ):
             graph.distances_to_affinities()
 
         # Test error when graph is not weighted
         graph.neigh_distmat = sp.csr_matrix(graph.adj.shape)  # Restore it
         graph.weighted = False
-        with pytest.raises(Exception, match="no need to construct affinities for binary graph"):
+        with pytest.raises(
+            Exception, match="no need to construct affinities for binary graph"
+        ):
             graph.distances_to_affinities()
 
 
@@ -352,7 +361,7 @@ class TestIntrinsicDimension:
         """Test geodesic dimension estimation method"""
         # Import for direct comparison
         from driada.dimensionality import geodesic_dimension
-
+        
         m_params = {"metric_name": "euclidean", "sigma": 1.0}
         g_params = {
             "g_method_name": "knn",
@@ -362,25 +371,27 @@ class TestIntrinsicDimension:
             "graph_preprocessing": "giant_cc",  # Use giant connected component
         }
 
-        graph = ProximityGraph(swiss_roll_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            swiss_roll_data, m_params, g_params, create_nx_graph=False
+        )
 
         # Test with ProximityGraph
         dim = graph.get_int_dim(method="geodesic")
         assert isinstance(dim, float)
-
+        
         # Compare with direct geodesic_dimension on the transposed data
         # swiss_roll_data is (features, samples) so transpose back to (samples, features)
         dim_direct = geodesic_dimension(swiss_roll_data.T, k=30)
-
+        
         # Debug the difference
         print(f"ProximityGraph dimension: {dim:.3f}")
         print(f"Direct geodesic dimension: {dim_direct:.3f}")
         print(f"Lost nodes: {len(graph.lost_nodes)}")
-
+        
         # They should match closely if no nodes were lost
         if len(graph.lost_nodes) == 0:
             assert abs(dim - dim_direct) < 0.5, f"ProximityGraph {dim} vs direct {dim_direct}"
-
+        
         assert 1.8 < dim < 2.5, f"Expected dimension ~2 for Swiss roll, got {dim}"
 
         # Test caching
@@ -399,7 +410,9 @@ class TestIntrinsicDimension:
             "max_deleted_nodes": 0.5,
         }
 
-        graph = ProximityGraph(linear_subspace_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            linear_subspace_data, m_params, g_params, create_nx_graph=False
+        )
 
         # Test nn method
         dim = graph.get_int_dim(method="nn")
@@ -423,7 +436,9 @@ class TestIntrinsicDimension:
             "max_deleted_nodes": 0.5,
         }
 
-        graph = ProximityGraph(swiss_roll_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            swiss_roll_data, m_params, g_params, create_nx_graph=False
+        )
 
         # First computation
         dim1 = graph.get_int_dim(method="geodesic")
@@ -448,7 +463,9 @@ class TestIntrinsicDimension:
             "max_deleted_nodes": 0.5,
         }
 
-        graph = ProximityGraph(swiss_roll_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            swiss_roll_data, m_params, g_params, create_nx_graph=False
+        )
 
         # Test fast mode
         np.random.seed(42)  # For reproducibility of subsampling
@@ -471,7 +488,9 @@ class TestIntrinsicDimension:
             "max_deleted_nodes": 0.5,
         }
 
-        graph = ProximityGraph(swiss_roll_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            swiss_roll_data, m_params, g_params, create_nx_graph=False
+        )
 
         # Should raise error for nn method
         with pytest.raises(ValueError, match="nn method requires k-NN graph data"):
@@ -488,7 +507,9 @@ class TestIntrinsicDimension:
             "max_deleted_nodes": 0.5,
         }
 
-        graph = ProximityGraph(swiss_roll_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            swiss_roll_data, m_params, g_params, create_nx_graph=False
+        )
 
         with pytest.raises(ValueError, match="Unknown method"):
             graph.get_int_dim(method="invalid")
@@ -504,7 +525,9 @@ class TestIntrinsicDimension:
             "max_deleted_nodes": 0.5,
         }
 
-        graph = ProximityGraph(linear_subspace_data, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            linear_subspace_data, m_params, g_params, create_nx_graph=False
+        )
 
         # Compute with different methods
         dim_geo = graph.get_int_dim(method="geodesic")
@@ -582,7 +605,9 @@ class TestEpsilonGraph:
         }
 
         # ProximityGraph expects data in (n_features, n_samples) format
-        graph = ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            clustered_data.T, m_params, g_params, create_nx_graph=False
+        )
 
         # Check basic properties
         assert graph.adj is not None
@@ -605,7 +630,9 @@ class TestEpsilonGraph:
         }
 
         # ProximityGraph expects data in (n_features, n_samples) format
-        graph = ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            clustered_data.T, m_params, g_params, create_nx_graph=False
+        )
 
         # Check weighted properties
         assert graph.adj is not None
@@ -642,7 +669,9 @@ class TestEpsilonGraph:
         }
 
         # Should construct but print warning
-        graph = ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
+        graph = ProximityGraph(
+            clustered_data.T, m_params, g_params, create_nx_graph=False
+        )
         assert graph.adj is not None
 
         # Should be very dense
@@ -664,7 +693,9 @@ class TestEpsilonGraph:
                 "max_deleted_nodes": 0.5,
             }
 
-            graph = ProximityGraph(clustered_data.T, m_params, g_params, create_nx_graph=False)
+            graph = ProximityGraph(
+                clustered_data.T, m_params, g_params, create_nx_graph=False
+            )
             assert graph.adj is not None
             assert graph.adj.nnz > 0
 
@@ -698,6 +729,7 @@ class TestGraphMethods:
 
         # Values should be non-negative (trace of adjacency powers)
         assert all(d >= 0 for d in diagsums)
+
 
     def test_custom_metric_function(self):
         """Test graph construction with custom metric function"""

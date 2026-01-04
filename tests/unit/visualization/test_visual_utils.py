@@ -5,24 +5,22 @@ Tests for visual utilities module
 Test the new visualization functions in driada.utils.visual
 """
 
-import os
 import sys
-import tempfile
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-
+import matplotlib.pyplot as plt
 from driada.utils import visual
 from driada.utils.visual import (
-    DEFAULT_DPI,
-    plot_component_interpretation,
-    plot_component_selectivity_heatmap,
     plot_embedding_comparison,
+    plot_trajectories,
+    plot_component_interpretation,
     plot_embeddings_grid,
     plot_neuron_selectivity_summary,
-    plot_trajectories,
+    plot_component_selectivity_heatmap,
+    DEFAULT_DPI,
 )
+import tempfile
+import os
 
 
 class TestVisualUtils:
@@ -99,9 +97,7 @@ class TestVisualUtils:
         assert DEFAULT_DPI == 150
         assert visual.DEFAULT_DPI == 150
 
-    @pytest.mark.skipif(
-        sys.platform == "win32", reason="Windows file locking prevents temp file deletion"
-    )
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows file locking prevents temp file deletion")
     def test_plot_embedding_comparison(self, sample_embeddings):
         """Test embedding comparison plot."""
         embeddings, features, _ = sample_embeddings
@@ -161,7 +157,9 @@ class TestVisualUtils:
         feature_names = ["Speed", "Position X", "Position Y"]
 
         # Add some metadata
-        metadata = {"pca": {"explained_variance_ratio": np.array([0.4, 0.25, 0.15, 0.1, 0.05])}}
+        metadata = {
+            "pca": {"explained_variance_ratio": np.array([0.4, 0.25, 0.15, 0.1, 0.05])}
+        }
 
         fig = plot_component_interpretation(
             mi_matrices=mi_matrices,
@@ -252,9 +250,7 @@ class TestVisualUtils:
 
         plt.close("all")
 
-    @pytest.mark.skipif(
-        sys.platform == "win32", reason="Windows file locking prevents temp file deletion"
-    )
+    @pytest.mark.skipif(sys.platform == "win32", reason="Windows file locking prevents temp file deletion")
     def test_configurable_dpi(self, sample_embeddings):
         """Test that DPI is configurable in all functions."""
         embeddings, features, _ = sample_embeddings

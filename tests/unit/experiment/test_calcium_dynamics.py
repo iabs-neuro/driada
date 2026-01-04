@@ -2,18 +2,16 @@
 Test calcium dynamics validation and firing rate updates.
 """
 
-import warnings
-
 import numpy as np
 import pytest
-
+import warnings
 from driada.experiment.synthetic import (
+    validate_peak_rate,
+    generate_circular_manifold_neurons,
     generate_2d_manifold_neurons,
     generate_3d_manifold_neurons,
     generate_circular_manifold_data,
-    generate_circular_manifold_neurons,
     generate_mixed_population_exp,
-    validate_peak_rate,
 )
 
 
@@ -175,7 +173,9 @@ def test_mixed_population_defaults(mixed_population_experiment):
             },
             verbose=False,
         )
-        peak_rate_warnings = [warning for warning in w if "peak_rate" in str(warning.message)]
+        peak_rate_warnings = [
+            warning for warning in w if "peak_rate" in str(warning.message)
+        ]
         assert len(peak_rate_warnings) > 0
 
 
@@ -217,9 +217,9 @@ def test_parameter_documentation():
     """Test that functions have proper documentation about calcium constraints."""
     # Check that key functions mention calcium saturation in their docstrings
     from driada.experiment.synthetic import (
+        generate_circular_manifold_neurons,
         generate_2d_manifold_neurons,
         generate_3d_manifold_neurons,
-        generate_circular_manifold_neurons,
     )
 
     for func in [
@@ -234,15 +234,14 @@ def test_parameter_documentation():
 def test_default_values_are_realistic():
     """Test that default peak_rate values are set to 1.0 Hz."""
     from inspect import signature
-
     from driada.experiment.synthetic import (
-        generate_2d_manifold_data,
-        generate_2d_manifold_exp,
-        generate_2d_manifold_neurons,
-        generate_3d_manifold_data,
-        generate_3d_manifold_exp,
-        generate_3d_manifold_neurons,
         generate_circular_manifold_neurons,
+        generate_2d_manifold_neurons,
+        generate_3d_manifold_neurons,
+        generate_2d_manifold_data,
+        generate_3d_manifold_data,
+        generate_2d_manifold_exp,
+        generate_3d_manifold_exp,
     )
 
     # Check function signatures for default peak_rate

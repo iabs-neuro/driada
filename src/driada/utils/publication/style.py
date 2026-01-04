@@ -4,10 +4,9 @@ This module provides StylePreset class that automatically scales fonts and line 
 based on panel physical size to maintain consistent visual density across panels.
 """
 
-from dataclasses import dataclass
-from typing import Literal, Optional, Tuple
-
 import numpy as np
+from typing import Tuple, Optional, Literal
+from dataclasses import dataclass
 
 
 @dataclass
@@ -60,9 +59,9 @@ class StylePreset:
     >>> style.apply_to_axes(ax2, (4, 4), 'cm')  # Same font size as above!
     """
 
-    name: str = "default"
+    name: str = 'default'
     reference_size: Tuple[float, float] = (8.0, 8.0)
-    reference_units: Literal["cm", "inches"] = "cm"
+    reference_units: Literal['cm', 'inches'] = 'cm'
 
     # Base parameters (applied to all panels with same physical size by default)
     base_spine_width: float = 1.5
@@ -78,10 +77,12 @@ class StylePreset:
     legend_frameon: bool = False
     lowercase_labels: bool = False
     tight_layout: bool = True
-    scaling_mode: Literal["fixed", "area"] = "fixed"  # DEFAULT: same physical size
+    scaling_mode: Literal['fixed', 'area'] = 'fixed'  # DEFAULT: same physical size
 
     def calculate_scale_factor(
-        self, panel_size: Tuple[float, float], panel_units: Literal["cm", "inches"]
+        self,
+        panel_size: Tuple[float, float],
+        panel_units: Literal['cm', 'inches']
     ) -> float:
         """Calculate scale factor based on scaling mode.
 
@@ -101,7 +102,7 @@ class StylePreset:
               visual density across different panel sizes
         """
         # Fixed mode: all panels get the same absolute physical sizes
-        if self.scaling_mode == "fixed":
+        if self.scaling_mode == 'fixed':
             return 1.0
 
         # Area mode: scale by sqrt of area ratio to preserve visual density
@@ -121,7 +122,10 @@ class StylePreset:
         return scale
 
     def apply_to_axes(
-        self, ax, panel_size: Tuple[float, float], panel_units: Literal["cm", "inches"] = "cm"
+        self,
+        ax,
+        panel_size: Tuple[float, float],
+        panel_units: Literal['cm', 'inches'] = 'cm'
     ) -> None:
         """Apply scaled styling to a matplotlib axes.
 
@@ -187,7 +191,7 @@ class StylePreset:
         # We don't force margins here to allow flexibility in plot content
 
     @classmethod
-    def nature_journal(cls, scaling_mode: Literal["fixed", "area"] = "fixed") -> "StylePreset":
+    def nature_journal(cls, scaling_mode: Literal['fixed', 'area'] = 'fixed') -> 'StylePreset':
         """Create a preset styled for Nature journal specifications.
 
         Nature requires figures with precise dimensions and professional appearance.
@@ -214,9 +218,9 @@ class StylePreset:
         >>> style_area = StylePreset.nature_journal(scaling_mode='area')
         """
         return cls(
-            name="nature",
+            name='nature',
             reference_size=(8.0, 8.0),
-            reference_units="cm",
+            reference_units='cm',
             base_spine_width=1.5,
             base_tick_width=1.5,
             base_tick_length=6,
@@ -228,11 +232,11 @@ class StylePreset:
             legend_frameon=False,
             lowercase_labels=False,
             tight_layout=True,
-            scaling_mode=scaling_mode,
+            scaling_mode=scaling_mode
         )
 
     @classmethod
-    def fixed_size(cls, **kwargs) -> "StylePreset":
+    def fixed_size(cls, **kwargs) -> 'StylePreset':
         """Create a preset with FIXED sizes across all panels.
 
         This is an explicit alias for the default behavior. All panels get the
@@ -261,21 +265,21 @@ class StylePreset:
         >>> style = StylePreset.fixed_size(base_label_size=12, base_spine_width=2.0)
         """
         defaults = {
-            "name": "fixed_size",
-            "reference_size": (8.0, 8.0),  # Not used when scaling_mode='fixed'
-            "reference_units": "cm",
-            "base_spine_width": 1.5,
-            "base_tick_width": 1.5,
-            "base_tick_length": 6,
-            "base_tick_pad": 8,
-            "base_tick_labelsize": 8,
-            "base_label_size": 10,
-            "base_title_size": 10,
-            "base_legend_fontsize": 8,
-            "legend_frameon": False,
-            "lowercase_labels": False,
-            "tight_layout": True,
-            "scaling_mode": "fixed",  # Explicit fixed mode (also the default)
+            'name': 'fixed_size',
+            'reference_size': (8.0, 8.0),  # Not used when scaling_mode='fixed'
+            'reference_units': 'cm',
+            'base_spine_width': 1.5,
+            'base_tick_width': 1.5,
+            'base_tick_length': 6,
+            'base_tick_pad': 8,
+            'base_tick_labelsize': 8,
+            'base_label_size': 10,
+            'base_title_size': 10,
+            'base_legend_fontsize': 8,
+            'legend_frameon': False,
+            'lowercase_labels': False,
+            'tight_layout': True,
+            'scaling_mode': 'fixed'  # Explicit fixed mode (also the default)
         }
         defaults.update(kwargs)
         return cls(**defaults)
@@ -292,8 +296,8 @@ class StylePreset:
         title_size: int = 30,
         legend_fontsize: int = 18,
         reference_size: Tuple[float, float] = (16.0, 12.0),
-        reference_units: Literal["cm", "inches"] = "inches",
-    ) -> "StylePreset":
+        reference_units: Literal['cm', 'inches'] = 'inches'
+    ) -> 'StylePreset':
         """Create a preset matching existing make_beautiful() styling.
 
         This allows converting existing code to use the new framework while
@@ -328,7 +332,7 @@ class StylePreset:
             Configured preset matching make_beautiful
         """
         return cls(
-            name="make_beautiful",
+            name='make_beautiful',
             reference_size=reference_size,
             reference_units=reference_units,
             base_spine_width=spine_width,
@@ -341,10 +345,10 @@ class StylePreset:
             base_legend_fontsize=legend_fontsize,
             legend_frameon=False,
             lowercase_labels=True,  # make_beautiful default
-            tight_layout=True,
+            tight_layout=True
         )
 
-    def copy(self, **kwargs) -> "StylePreset":
+    def copy(self, **kwargs) -> 'StylePreset':
         """Create a copy of this preset with optional parameter overrides.
 
         Parameters
@@ -365,21 +369,21 @@ class StylePreset:
         """
         # Get current values as dict
         current = {
-            "name": self.name,
-            "reference_size": self.reference_size,
-            "reference_units": self.reference_units,
-            "base_spine_width": self.base_spine_width,
-            "base_tick_width": self.base_tick_width,
-            "base_tick_length": self.base_tick_length,
-            "base_tick_pad": self.base_tick_pad,
-            "base_tick_labelsize": self.base_tick_labelsize,
-            "base_label_size": self.base_label_size,
-            "base_title_size": self.base_title_size,
-            "base_legend_fontsize": self.base_legend_fontsize,
-            "legend_frameon": self.legend_frameon,
-            "lowercase_labels": self.lowercase_labels,
-            "tight_layout": self.tight_layout,
-            "scaling_mode": self.scaling_mode,
+            'name': self.name,
+            'reference_size': self.reference_size,
+            'reference_units': self.reference_units,
+            'base_spine_width': self.base_spine_width,
+            'base_tick_width': self.base_tick_width,
+            'base_tick_length': self.base_tick_length,
+            'base_tick_pad': self.base_tick_pad,
+            'base_tick_labelsize': self.base_tick_labelsize,
+            'base_label_size': self.base_label_size,
+            'base_title_size': self.base_title_size,
+            'base_legend_fontsize': self.base_legend_fontsize,
+            'legend_frameon': self.legend_frameon,
+            'lowercase_labels': self.lowercase_labels,
+            'tight_layout': self.tight_layout,
+            'scaling_mode': self.scaling_mode,
         }
 
         # Update with overrides

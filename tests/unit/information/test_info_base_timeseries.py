@@ -1,10 +1,8 @@
 """Tests for TimeSeries class in info_base module."""
 
-import warnings
-
 import numpy as np
 import pytest
-
+import warnings
 from driada.information.info_base import TimeSeries
 
 
@@ -58,7 +56,10 @@ class TestTimeSeriesTypeDetection:
             assert len(w) >= 1
             # Check that at least one warning is about short series
             warning_messages = [str(warn.message) for warn in w]
-            assert any("too short" in msg or "samples available" in msg for msg in warning_messages)
+            assert any(
+                "too short" in msg or "samples available" in msg
+                for msg in warning_messages
+            )
 
     def test_define_ts_type_ambiguous(self):
         """Test behavior for ambiguous time series."""
@@ -479,87 +480,87 @@ class TestTimeSeriesApproximateEntropy:
 
 class TestTimeSeriesInputValidation:
     """Test input validation for TimeSeries."""
-
+    
     def test_valid_input(self):
         """Test that valid input passes validation."""
         # Normal continuous data
         data = np.random.randn(100)
         ts = TimeSeries(data)
         assert ts.data.shape == (100,)
-
+        
         # Normal discrete data
         data = np.array([0, 1, 0, 1, 1, 0] * 10)
         ts = TimeSeries(data, discrete=True)
         assert ts.discrete == True
-
+        
     def test_invalid_data_type(self):
         """Test that non-numpy data is converted properly."""
         # List should be converted
         data = [1, 2, 3, 4, 5]
         ts = TimeSeries(data)
         assert isinstance(ts.data, np.ndarray)
-
+        
     def test_multidimensional_data(self):
         """Test that multidimensional data raises error."""
         data = np.random.randn(10, 5)
         with pytest.raises(ValueError, match="Time series must be 1D"):
             TimeSeries(data)
-
+            
     def test_short_series(self):
         """Test that series with less than 2 points raises error."""
         with pytest.raises(ValueError, match="must have at least 2 points"):
             TimeSeries([1])
-
+            
         with pytest.raises(ValueError, match="must have at least 2 points"):
             TimeSeries(np.array([]))
-
+            
     def test_nan_values(self):
         """Test that NaN values raise error."""
         data = np.array([1, 2, np.nan, 4, 5])
         with pytest.raises(ValueError, match="contains NaN values"):
             TimeSeries(data)
-
+            
     def test_inf_values(self):
         """Test that infinite values raise error."""
         data = np.array([1, 2, np.inf, 4, 5])
         with pytest.raises(ValueError, match="contains infinite values"):
             TimeSeries(data)
-
+            
         data = np.array([1, 2, -np.inf, 4, 5])
         with pytest.raises(ValueError, match="contains infinite values"):
             TimeSeries(data)
-
+            
     def test_shuffle_mask_validation(self):
         """Test shuffle mask validation."""
         data = np.random.randn(100)
-
+        
         # Valid shuffle mask
         mask = np.random.randint(0, 2, 100)
         ts = TimeSeries(data, shuffle_mask=mask)
         assert np.array_equal(ts.shuffle_mask, mask)
-
+        
         # Wrong length
         mask = np.random.randint(0, 2, 50)
         with pytest.raises(ValueError, match="Shuffle mask must have same length"):
             TimeSeries(data, shuffle_mask=mask)
-
+            
         # Invalid values
         mask = np.array([0, 1, 2, 1, 0] * 20)
         with pytest.raises(ValueError, match="Shuffle mask must contain only 0s and 1s"):
             TimeSeries(data, shuffle_mask=mask)
-
+            
     def test_edge_cases(self):
         """Test edge cases for input validation."""
         # Minimum valid series
         data = np.array([1, 2])
         ts = TimeSeries(data)
         assert len(ts.data) == 2
-
+        
         # All zeros (valid)
         data = np.zeros(100)
         ts = TimeSeries(data)
         assert np.all(ts.data == 0)
-
+        
         # All same value (valid)
         data = np.ones(100) * 42
         ts = TimeSeries(data)

@@ -3,12 +3,9 @@
 Tests for _optimize_kinetics_direct and related methods that measure
 t_rise and t_off from calcium signals.
 """
-
-from unittest.mock import MagicMock, patch
-
 import numpy as np
 import pytest
-
+from unittest.mock import patch, MagicMock
 from driada.experiment.neuron import Neuron
 from driada.utils.neural import generate_pseudo_calcium_signal
 
@@ -30,7 +27,7 @@ class TestOptimizeKineticsDirect:
             rise_time=0.1,  # t_rise = 0.1s
         )
         neuron = Neuron(cell_id=0, ca=signal, sp=None, fps=20)
-        neuron.reconstruct_spikes(method="wavelet")
+        neuron.reconstruct_spikes(method='wavelet')
         return neuron
 
     def test_successful_optimization_returns_correct_flags(self, neuron_with_events):
@@ -38,11 +35,11 @@ class TestOptimizeKineticsDirect:
         result = neuron_with_events._optimize_kinetics_direct(fps=20)
 
         # Should be fully optimized with both params measured
-        if result["n_events_used_rise"] >= 5 and result["n_events_used_off"] >= 5:
-            assert result["optimized"] is True
-            assert result["partially_optimized"] is False
-            assert result["used_defaults"]["t_rise"] is False
-            assert result["used_defaults"]["t_off"] is False
+        if result['n_events_used_rise'] >= 5 and result['n_events_used_off'] >= 5:
+            assert result['optimized'] is True
+            assert result['partially_optimized'] is False
+            assert result['used_defaults']['t_rise'] is False
+            assert result['used_defaults']['t_off'] is False
 
     def test_partial_optimization_t_rise_only(self):
         """Test that partial optimization is correctly detected when only t_rise succeeds."""
@@ -59,18 +56,18 @@ class TestOptimizeKineticsDirect:
 
         # Mock _measure_t_rise_derivative to always succeed
         # Mock _measure_t_off_from_peak to always fail
-        with patch.object(neuron, "_measure_t_rise_derivative", return_value=0.1) as mock_rise:
-            with patch.object(neuron, "_measure_t_off_from_peak", return_value=None) as mock_off:
+        with patch.object(neuron, '_measure_t_rise_derivative', return_value=0.1) as mock_rise:
+            with patch.object(neuron, '_measure_t_off_from_peak', return_value=None) as mock_off:
                 result = neuron._optimize_kinetics_direct(fps=20, min_events=5)
 
                 # Should be partially optimized
-                assert result["optimized"] is False
-                assert result["partially_optimized"] is True
-                assert result["used_defaults"]["t_rise"] is False
-                assert result["used_defaults"]["t_off"] is True
+                assert result['optimized'] is False
+                assert result['partially_optimized'] is True
+                assert result['used_defaults']['t_rise'] is False
+                assert result['used_defaults']['t_off'] is True
                 # t_rise should be measured value, t_off should be default
-                assert result["n_events_used_rise"] == 10
-                assert result["n_events_used_off"] == 0
+                assert result['n_events_used_rise'] == 10
+                assert result['n_events_used_off'] == 0
 
     def test_partial_optimization_t_off_only(self):
         """Test that partial optimization is correctly detected when only t_off succeeds."""
@@ -83,16 +80,16 @@ class TestOptimizeKineticsDirect:
         mock_ridge.end = 200
         neuron.wvt_ridges = [mock_ridge] * 10
 
-        with patch.object(neuron, "_measure_t_rise_derivative", return_value=None):
-            with patch.object(neuron, "_measure_t_off_from_peak", return_value=2.0):
+        with patch.object(neuron, '_measure_t_rise_derivative', return_value=None):
+            with patch.object(neuron, '_measure_t_off_from_peak', return_value=2.0):
                 result = neuron._optimize_kinetics_direct(fps=20, min_events=5)
 
-                assert result["optimized"] is False
-                assert result["partially_optimized"] is True
-                assert result["used_defaults"]["t_rise"] is True
-                assert result["used_defaults"]["t_off"] is False
-                assert result["n_events_used_rise"] == 0
-                assert result["n_events_used_off"] == 10
+                assert result['optimized'] is False
+                assert result['partially_optimized'] is True
+                assert result['used_defaults']['t_rise'] is True
+                assert result['used_defaults']['t_off'] is False
+                assert result['n_events_used_rise'] == 0
+                assert result['n_events_used_off'] == 10
 
     def test_both_measurements_fail(self):
         """Test that optimization fails when both measurements are insufficient."""
@@ -104,16 +101,16 @@ class TestOptimizeKineticsDirect:
         mock_ridge.end = 150
         neuron.wvt_ridges = [mock_ridge] * 3  # Only 3 events
 
-        with patch.object(neuron, "_measure_t_rise_derivative", return_value=0.1):
-            with patch.object(neuron, "_measure_t_off_from_peak", return_value=2.0):
+        with patch.object(neuron, '_measure_t_rise_derivative', return_value=0.1):
+            with patch.object(neuron, '_measure_t_off_from_peak', return_value=2.0):
                 result = neuron._optimize_kinetics_direct(fps=20, min_events=5)
 
                 # Both have < 5 measurements
-                assert result["optimized"] is False
-                assert result["partially_optimized"] is False
-                assert result["used_defaults"]["t_rise"] is True
-                assert result["used_defaults"]["t_off"] is True
-                assert "error" in result
+                assert result['optimized'] is False
+                assert result['partially_optimized'] is False
+                assert result['used_defaults']['t_rise'] is True
+                assert result['used_defaults']['t_off'] is True
+                assert 'error' in result
 
     def test_no_events_returns_failure(self):
         """Test that no events returns proper failure response."""
@@ -123,27 +120,27 @@ class TestOptimizeKineticsDirect:
 
         result = neuron._optimize_kinetics_direct(fps=20)
 
-        assert result["optimized"] is False
-        assert result["partially_optimized"] is False
-        assert result["used_defaults"]["t_rise"] is True
-        assert result["used_defaults"]["t_off"] is True
-        assert "error" in result
+        assert result['optimized'] is False
+        assert result['partially_optimized'] is False
+        assert result['used_defaults']['t_rise'] is True
+        assert result['used_defaults']['t_off'] is True
+        assert 'error' in result
 
     def test_used_defaults_dict_always_present(self, neuron_with_events):
         """Test that used_defaults is always present in results."""
         result = neuron_with_events._optimize_kinetics_direct(fps=20)
 
-        assert "used_defaults" in result
-        assert isinstance(result["used_defaults"], dict)
-        assert "t_rise" in result["used_defaults"]
-        assert "t_off" in result["used_defaults"]
+        assert 'used_defaults' in result
+        assert isinstance(result['used_defaults'], dict)
+        assert 't_rise' in result['used_defaults']
+        assert 't_off' in result['used_defaults']
 
     def test_partially_optimized_always_present(self, neuron_with_events):
         """Test that partially_optimized is always present in results."""
         result = neuron_with_events._optimize_kinetics_direct(fps=20)
 
-        assert "partially_optimized" in result
-        assert isinstance(result["partially_optimized"], bool)
+        assert 'partially_optimized' in result
+        assert isinstance(result['partially_optimized'], bool)
 
 
 class TestMeasureTOffFromPeak:
@@ -240,18 +237,18 @@ class TestLongDecaySignalHandling:
         )
 
         neuron = Neuron(cell_id=0, ca=signal, sp=None, fps=20)
-        neuron.reconstruct_spikes(method="wavelet")
+        neuron.reconstruct_spikes(method='wavelet')
 
         result = neuron._optimize_kinetics_direct(fps=20, max_frames_forward=500)
 
         # Key assertion: if t_off defaulted, used_defaults should reflect this
-        if result["used_defaults"]["t_off"]:
+        if result['used_defaults']['t_off']:
             # If default was used, optimized should be False or partially_optimized True
-            assert result["optimized"] is False or result["partially_optimized"] is True
+            assert result['optimized'] is False or result['partially_optimized'] is True
         else:
             # If measured successfully, t_off should be within the valid range (0.1-30s)
             # The actual value may vary due to noise and event overlap
-            assert 0.1 < result["t_off"] < 30.0
+            assert 0.1 < result['t_off'] < 30.0
 
     def test_medium_decay_signal_still_works(self):
         """Test that medium decay signals (1-10s) still work correctly."""
@@ -266,17 +263,17 @@ class TestLongDecaySignalHandling:
         )
 
         neuron = Neuron(cell_id=0, ca=signal, sp=None, fps=20)
-        neuron.reconstruct_spikes(method="wavelet")
+        neuron.reconstruct_spikes(method='wavelet')
 
         result = neuron._optimize_kinetics_direct(fps=20)
 
         # Should work as before - verify new fields are present and consistent
-        assert "used_defaults" in result
-        assert "partially_optimized" in result
+        assert 'used_defaults' in result
+        assert 'partially_optimized' in result
 
         # If enough events were detected and measured
-        if result["n_events_used_off"] >= 5:
+        if result['n_events_used_off'] >= 5:
             # t_off should NOT be using default
-            assert result["used_defaults"]["t_off"] is False
+            assert result['used_defaults']['t_off'] is False
             # Measured t_off should be within valid bounds
-            assert 0.1 < result["t_off"] < 30.0
+            assert 0.1 < result['t_off'] < 30.0

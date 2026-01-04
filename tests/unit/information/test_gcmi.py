@@ -36,37 +36,35 @@ REMAINING CONSIDERATIONS:
 - Documentation should clarify differential vs discrete entropy properties
 """
 
-import time
-import warnings
-
 import numpy as np
 import pytest
-
+import time
+import warnings
 from driada.information.gcmi import (
-    _JIT_AVAILABLE,
-    cmi_ggg,
-    copnorm,
-    ctransform,
     demean,
     ent_g,
-    gccmi_ccd,
-    gcmi_cc,
-    mi_gg,
     mi_model_gd,
+    gccmi_ccd,
+    ctransform,
+    copnorm,
+    mi_gg,
+    cmi_ggg,
+    gcmi_cc,
+    _JIT_AVAILABLE,
 )
 from driada.information.gcmi_jit_utils import (
-    cmi_ggg_jit,
-    copnorm_2d_jit,
+    ctransform_jit,
     copnorm_jit,
     ctransform_2d_jit,
-    ctransform_jit,
-    gcmi_cc_jit,
+    copnorm_2d_jit,
     mi_gg_jit,
+    cmi_ggg_jit,
+    gcmi_cc_jit,
 )
 from driada.information.info_base import (
     TimeSeries,
-    conditional_mi,
     get_mi,
+    conditional_mi,
     interaction_information,
 )
 
@@ -89,7 +87,9 @@ class TestGCMIDemean:
 
     def test_demean_multiple_rows(self):
         """Test demeaning multiple rows independently."""
-        data = np.array([[1.0, 2.0, 3.0, 4.0], [10.0, 20.0, 30.0, 40.0], [-2.0, -1.0, 0.0, 1.0]])
+        data = np.array(
+            [[1.0, 2.0, 3.0, 4.0], [10.0, 20.0, 30.0, 40.0], [-2.0, -1.0, 0.0, 1.0]]
+        )
         result = demean(data)
 
         # Check each row has zero mean
@@ -102,7 +102,9 @@ class TestGCMIDemean:
         # Check that rows are demeaned independently
         expected_means = np.array([2.5, 25.0, -0.5])
         for i in range(data.shape[0]):
-            np.testing.assert_allclose(result[i], data[i] - expected_means[i], rtol=1e-10)
+            np.testing.assert_allclose(
+                result[i], data[i] - expected_means[i], rtol=1e-10
+            )
 
     def test_demean_with_zeros(self):
         """Test demeaning data that already has zero mean."""
@@ -262,7 +264,9 @@ class TestGCMIEntropy:
         # Test with 3D input (should raise error or numba typing error)
         n_dims1, n_dims2, n_timepoints = 2, 3, 100
         x_3d = np.random.randn(n_dims1, n_dims2, n_timepoints)
-        with pytest.raises((ValueError, Exception)):  # Could be ValueError or numba.TypingError
+        with pytest.raises(
+            (ValueError, Exception)
+        ):  # Could be ValueError or numba.TypingError
             ent_g(x_3d)
 
 
@@ -392,7 +396,9 @@ class TestGCMIMutualInformation:
             mi_model_gd(x, y_2d, 2)
 
         # Test with non-integer Ym (may raise ValueError or numba TypingError)
-        with pytest.raises((ValueError, Exception)):  # Numba can raise various exception types
+        with pytest.raises(
+            (ValueError, Exception)
+        ):  # Numba can raise various exception types
             mi_model_gd(x, y, 2.5)
 
         # Test with mismatched sizes
@@ -556,7 +562,9 @@ class TestGCMIConditionalMI:
 
         # Test with out of bounds z
         z_bad = np.array([0, 1, 2] * 33 + [3])  # Contains 3 but Zm=2
-        with pytest.raises(ValueError, match="values of discrete variable z are out of bounds"):
+        with pytest.raises(
+            ValueError, match="values of discrete variable z are out of bounds"
+        ):
             gccmi_ccd(x, y, z_bad, 2)
 
         # Test with mismatched sizes
@@ -627,7 +635,9 @@ class TestGCMIConsistency:
 
         # Should be reasonably close (allow for copula transform differences)
         # The tolerance depends on the estimation differences between methods
-        max_tolerance = max(0.3, 0.3 * mi_info_base)  # 30% or 0.3 bits, whichever is larger
+        max_tolerance = max(
+            0.3, 0.3 * mi_info_base
+        )  # 30% or 0.3 bits, whichever is larger
         assert np.abs(mi_info_base - mi_direct) < max_tolerance
 
 
@@ -936,13 +946,13 @@ class TestGCMIJIT:
 
 class TestGCMIEdgeCases:
     """Test edge cases for GCMI implementation."""
-
+    
     def test_single_sample_class(self):
         """Test that GCMI handles classes with only 1 sample correctly."""
         # Create data where one class has only 1 sample
         x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]])
         y = np.array([0, 0, 1, 1, 2, 2, 3])  # Class 3 has only 1 sample
-
+        
         # Should issue warning but not crash
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -950,12 +960,12 @@ class TestGCMIEdgeCases:
             assert mi >= 0  # MI should be non-negative
             assert len(w) == 1  # Should have warning
             assert "Class 3 has only 1 sample" in str(w[0].message)
-
+    
     def test_empty_class(self):
         """Test that GCMI handles empty classes correctly."""
-        x = np.array([[1.0, 2.0, 3.0, 4.0]])
+        x = np.array([[1.0, 2.0, 3.0, 4.0]])  
         y = np.array([0, 0, 1, 1])
-
+        
         # Specify Ym=3 but only have classes 0 and 1
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -963,12 +973,12 @@ class TestGCMIEdgeCases:
             assert mi >= 0
             assert len(w) == 1
             assert "Class 2 has no samples" in str(w[0].message)
-
+    
     def test_multiple_single_sample_classes(self):
         """Test GCMI with multiple classes having single samples."""
         x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0]])
         y = np.array([0, 1, 2, 3, 4])  # Each class has only 1 sample
-
+        
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             mi = mi_model_gd(x, y)
@@ -977,17 +987,17 @@ class TestGCMIEdgeCases:
             assert len(w) == 5
             for i in range(5):
                 assert f"Class {i} has only 1 sample" in str(w[i].message)
-
+    
     def test_bias_correction_with_small_samples(self):
         """Test bias correction doesn't crash with small sample sizes."""
         # Minimum viable case: 2 samples per class
         x = np.array([[1.0, 1.2, 2.0, 2.2]])
         y = np.array([0, 0, 1, 1])
-
+        
         # Both with and without bias correction should work
         mi_with_bias = mi_model_gd(x, y, biascorrect=True)
         mi_without_bias = mi_model_gd(x, y, biascorrect=False)
-
+        
         assert mi_with_bias >= 0
         assert mi_without_bias >= 0
 

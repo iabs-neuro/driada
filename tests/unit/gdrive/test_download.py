@@ -1,12 +1,11 @@
-import http.client
 import os
-import shutil
-
 import pytest
+from driada.gdrive.download import *
+import shutil
 import requests
 import urllib3
+import http.client
 
-from driada.gdrive.download import *
 
 TEST_LINK = "https://drive.google.com/drive/folders/1rqV0A3Y-miX8QccmkiGEI5r-5K4RdjCj?usp=sharing"
 TEST_DIR = os.path.join(os.getcwd(), "test dir")
@@ -108,11 +107,15 @@ def test_download_whitelist():
         TEST_LINK,  # share link to google drive folder
         key="",  # part of filename to search for
         antikey=None,  # part of name to suppress
-        whitelist=["white.xlsx"],  # list of filenames to be downloaded regardless of their names
+        whitelist=[
+            "white.xlsx"
+        ],  # list of filenames to be downloaded regardless of their names
         extensions=[".txt"],  # allowed file extensions
     )
 
-    assert sorted(os.listdir(TEST_DIR)) == sorted(["test.txt", "test2.txt", "white.xlsx"])
+    assert sorted(os.listdir(TEST_DIR)) == sorted(
+        ["test.txt", "test2.txt", "white.xlsx"]
+    )
 
 
 class TestGDriveModuleImports:
@@ -138,7 +141,7 @@ class TestGDriveModuleImports:
 
     def test_download_functions(self):
         """Test main download functions are accessible."""
-        from driada.gdrive.download import download_gdrive_data, download_part_of_folder
+        from driada.gdrive.download import download_part_of_folder, download_gdrive_data
 
         assert callable(download_part_of_folder)
         assert callable(download_gdrive_data)

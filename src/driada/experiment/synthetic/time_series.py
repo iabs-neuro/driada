@@ -6,13 +6,11 @@ used in synthetic neural data, including binary series, fractional Brownian moti
 and signal processing utilities.
 """
 
-import itertools
-from itertools import groupby
-
 import numpy as np
 from fbm import FBM
-
-from ...utils.data import check_nonnegative, check_positive
+import itertools
+from itertools import groupby
+from ...utils.data import check_positive, check_nonnegative
 
 
 def generate_binary_time_series(length, avg_islands, avg_duration, seed=None):
@@ -34,26 +32,26 @@ def generate_binary_time_series(length, avg_islands, avg_duration, seed=None):
     -------
     ndarray of shape (length,)
         Binary time series with 0s and 1s.
-
+        
     Raises
     ------
     ValueError
         If length or avg_duration are not positive, or avg_islands is negative.
-
+        
     Notes
     -----
     Uses exponential distribution for gaps between islands and normal
     distribution (std = avg_duration/3) for island durations. Automatically
     adjusts number of islands if they don't fit in the requested length.
-    Starting state (0 or 1) is randomly chosen."""
+    Starting state (0 or 1) is randomly chosen.    """
     # Input validation
     check_positive(length=length, avg_duration=avg_duration)
     check_nonnegative(avg_islands=avg_islands)
-
+    
     # Set random seed if provided
     if seed is not None:
         np.random.seed(seed)
-
+        
     series = np.zeros(length, dtype=int)
 
     # Calculate expected total active time and inactive time
@@ -123,27 +121,27 @@ def apply_poisson_to_binary_series(binary_series, rate_0, rate_1, seed=None):
     -------
     ndarray of shape (len(binary_series),)
         Poisson-sampled integer series.
-
+        
     Raises
     ------
     ValueError
         If binary_series contains values other than 0 and 1.
         If rate_0 or rate_1 are negative.
-
+        
     Notes
     -----
     Uses itertools.groupby to efficiently process runs of identical values.
-    Each run is sampled from Poisson distribution with the appropriate rate."""
+    Each run is sampled from Poisson distribution with the appropriate rate.    """
     # Input validation
     binary_series = np.asarray(binary_series)
     if not np.all(np.isin(binary_series, [0, 1])):
         raise ValueError("binary_series must contain only 0s and 1s")
     check_nonnegative(rate_0=rate_0, rate_1=rate_1)
-
+    
     # Set random seed if provided
     if seed is not None:
         np.random.seed(seed)
-
+        
     length = len(binary_series)
     poisson_series = np.zeros(length, dtype=int)
 
@@ -180,23 +178,23 @@ def delete_one_islands(binary_ts, probability, seed=None):
     -------
     ndarray of shape binary_ts.shape
         Modified binary time series (copy).
-
+        
     Raises
     ------
     ValueError
         If binary_ts contains values other than 0 and 1.
         If probability is not in [0, 1].
-
+        
     Notes
     -----
     Creates a copy of the input array. Each island of 1s has an independent
-    probability of being deleted (set to 0s)."""
+    probability of being deleted (set to 0s).    """
     # Input validation
     if not np.all(np.isin(binary_ts, [0, 1])):
         raise ValueError("binary_ts must be binary (0s and 1s)")
     if not 0 <= probability <= 1:
         raise ValueError(f"probability must be in [0, 1], got {probability}")
-
+        
     # Set random seed if provided
     if seed is not None:
         np.random.seed(seed)
@@ -234,22 +232,22 @@ def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
     -------
     ndarray of shape (length,)
         FBM time series.
-
+        
     Raises
     ------
     ValueError
         If length is not positive.
         If hurst is not in (0, 1).
-
+        
     Notes
     -----
     Uses Davies-Harte method for efficient FBM generation. The FBM library
-    is initialized with n=length-1 to generate exactly 'length' points."""
+    is initialized with n=length-1 to generate exactly 'length' points.    """
     # Input validation
     check_positive(length=length)
     if not 0 < hurst < 1:
         raise ValueError(f"hurst must be in (0, 1), got {hurst}")
-
+        
     if seed is not None:
         np.random.seed(seed)
 
@@ -280,24 +278,24 @@ def select_signal_roi(values, seed=None, target_fraction=0.15):
     -------
     tuple of float
         (center, lower_border, upper_border) of the ROI.
-
+        
     Raises
     ------
     ValueError
         If values is empty.
         If target_fraction is not in (0, 1].
-
+        
     Notes
     -----
     Selects a random window containing target_fraction of sorted values.
-    Adds epsilon=1e-10 to boundaries to avoid numerical edge cases."""
+    Adds epsilon=1e-10 to boundaries to avoid numerical edge cases.    """
     # Input validation
     values = np.asarray(values)
     if values.size == 0:
         raise ValueError("values cannot be empty")
     if not 0 < target_fraction <= 1:
         raise ValueError(f"target_fraction must be in (0, 1], got {target_fraction}")
-
+        
     if seed is not None:
         np.random.seed(seed)
 
@@ -342,25 +340,27 @@ def discretize_via_roi(continuous_signal, seed=None):
     -------
     ndarray of shape continuous_signal.shape
         Binary discretized signal (0s and 1s).
-
+        
     Raises
     ------
     ValueError
         If continuous_signal is empty.
-
+        
     Notes
     -----
     Uses select_signal_roi with default target_fraction=0.15. Returns 1 where
-    signal values fall within the selected ROI boundaries (inclusive)."""
+    signal values fall within the selected ROI boundaries (inclusive).    """
     # Input validation
     continuous_signal = np.asarray(continuous_signal)
     if continuous_signal.size == 0:
         raise ValueError("continuous_signal cannot be empty")
-
+        
     # Get ROI boundaries
     _, lower, upper = select_signal_roi(continuous_signal, seed=seed)
 
     # Create binary signal based on ROI
-    binary_signal = ((continuous_signal >= lower) & (continuous_signal <= upper)).astype(int)
+    binary_signal = (
+        (continuous_signal >= lower) & (continuous_signal <= upper)
+    ).astype(int)
 
     return binary_signal

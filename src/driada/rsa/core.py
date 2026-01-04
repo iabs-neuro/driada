@@ -1,22 +1,20 @@
 """
 Core RSA functions for computing and comparing RDMs.
 """
-
 from __future__ import annotations
 
-import logging
-from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
-
 import numpy as np
+import logging
+from typing import Dict, Tuple, Optional, Union, TYPE_CHECKING
 from scipy import stats
 from scipy.spatial.distance import pdist, squareform
 
 from ..dim_reduction.data import MVData
 from ..utils.jit import is_jit_enabled
 from .core_jit import (
-    fast_average_patterns,
     fast_euclidean_distance,
     fast_manhattan_distance,
+    fast_average_patterns,
 )
 
 if TYPE_CHECKING:
@@ -45,7 +43,7 @@ def compute_rdm(
     Returns
     -------
     rdm : np.ndarray
-        Representational dissimilarity matrix (n_items, n_items)"""
+        Representational dissimilarity matrix (n_items, n_items)    """
     # Convert to MVData if needed
     if isinstance(patterns, np.ndarray):
         # MVData expects (n_features, n_items) so transpose
@@ -84,15 +82,14 @@ def compute_rdm(
 
     # Ensure no negative values due to numerical errors
     rdm = np.maximum(rdm, 0)
-
+    
     # Check for NaN or inf values
     if np.any(np.isnan(rdm)) or np.any(np.isinf(rdm)):
         import warnings
-
         warnings.warn(
             "RDM contains NaN or infinite values. This may indicate "
             "constant features or numerical instability.",
-            RuntimeWarning,
+            RuntimeWarning
         )
 
     return rdm
@@ -124,7 +121,7 @@ def compute_rdm_from_timeseries_labels(
     rdm : np.ndarray
         Representational dissimilarity matrix
     unique_labels : np.ndarray
-        The unique labels in order as they appear in the RDM"""
+        The unique labels in order as they appear in the RDM    """
     # Get unique labels (conditions)
     unique_labels = np.unique(labels)
 
@@ -187,11 +184,11 @@ def compute_rdm_from_trials(
     rdm : np.ndarray
         Representational dissimilarity matrix
     unique_labels : np.ndarray
-        The unique trial labels in order as they appear in the RDM"""
+        The unique trial labels in order as they appear in the RDM    """
     # Check if trial_starts are sorted
     if len(trial_starts) > 1 and not np.all(np.diff(trial_starts) > 0):
         raise ValueError("trial_starts must be sorted in ascending order")
-
+    
     n_timepoints = data.shape[1]
     n_trials = len(trial_starts)
 
@@ -202,8 +199,10 @@ def compute_rdm_from_trials(
     for i, (start, label) in enumerate(zip(trial_starts, trial_labels)):
         # Validate trial start
         if start < 0 or start >= n_timepoints:
-            raise ValueError(f"Trial {i} start index {start} is out of bounds [0, {n_timepoints})")
-
+            raise ValueError(
+                f"Trial {i} start index {start} is out of bounds [0, {n_timepoints})"
+            )
+        
         # Determine trial end
         if trial_duration is not None:
             end = min(start + trial_duration, n_timepoints)
@@ -240,7 +239,9 @@ def compute_rdm_from_trials(
     for label in unique_labels:
         # Find all patterns for this label
         label_patterns = [
-            pattern for pattern, l in zip(trial_patterns, trial_labels_list) if l == label
+            pattern
+            for pattern, l in zip(trial_patterns, trial_labels_list)
+            if l == label
         ]
 
         # Average across repetitions of the same condition
@@ -266,7 +267,7 @@ def compute_rdm_from_trials(
 def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -> float:
     """
     Compare two representational dissimilarity matrices.
-
+    
     Quantifies the similarity between two RDMs using correlation or
     cosine similarity metrics. Only the upper triangular portion
     (excluding diagonal) is compared since RDMs are symmetric.
@@ -291,7 +292,7 @@ def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -
         - Correlations ('spearman', 'pearson', 'kendall'): Range [-1, 1]
         - Cosine similarity: Range [0, 1] (NaN if either RDM has zero norm)
         - Returns NaN if correlation cannot be computed (e.g., constant RDMs)
-
+        
     Raises
     ------
     ValueError
@@ -299,61 +300,65 @@ def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -
         If method is not one of the supported options.
     RuntimeWarning
         If either RDM contains NaN values (via warnings.warn).
-
+        
     Notes
     -----
     Only upper triangular values are used since RDMs are symmetric
     and diagonal is uninformative (always 0).
-
+    
     P-values from statistical tests are computed internally but not
     returned. Use bootstrap_rdm_comparison for statistical inference.
-
+    
     Kendall's tau is more robust than Spearman but has O(n²) complexity
     in the number of unique values, making it slow for large RDMs.
-
+    
     For cosine similarity, if either RDM vector has zero norm (all values
     identical), the function returns NaN and issues a warning.
-
+    
     Examples
     --------
     >>> import numpy as np
     >>> # Create two similar RDMs
     >>> rdm1 = np.array([[0, 0.5, 0.8], [0.5, 0, 0.3], [0.8, 0.3, 0]])
     >>> rdm2 = np.array([[0, 0.6, 0.7], [0.6, 0, 0.4], [0.7, 0.4, 0]])
-
+    
     >>> # Compare using different methods
     >>> pearson_sim = compare_rdms(rdm1, rdm2, method='pearson')
     >>> print(f"Pearson correlation: {pearson_sim:.3f}")
     Pearson correlation: 0.954
-
+    
     >>> spearman_sim = compare_rdms(rdm1, rdm2, method='spearman')
     >>> print(f"Spearman correlation: {spearman_sim:.3f}")
     Spearman correlation: 1.000
-
+    
     >>> # Cosine similarity
     >>> cosine_sim = compare_rdms(rdm1, rdm2, method='cosine')
     >>> print(f"Cosine similarity: {cosine_sim:.3f}")
     Cosine similarity: 0.985
-
+    
     See Also
     --------
     ~driada.rsa.core.compute_rdm : Compute RDMs from neural patterns
     ~driada.rsa.core.bootstrap_rdm_comparison : Statistical comparison with confidence intervals
-    ~driada.rsa.core.rsa_compare : High-level interface for comparing datasets"""
+    ~driada.rsa.core.rsa_compare : High-level interface for comparing datasets    """
     # Ensure RDMs are same shape
     if rdm1.shape != rdm2.shape:
-        raise ValueError(f"RDMs must have the same shape. Got {rdm1.shape} and {rdm2.shape}")
+        raise ValueError(
+            f"RDMs must have the same shape. Got {rdm1.shape} and {rdm2.shape}"
+        )
 
     # Extract upper triangular parts (excluding diagonal)
     mask = np.triu(np.ones_like(rdm1, dtype=bool), k=1)
     rdm1_vec = rdm1[mask]
     rdm2_vec = rdm2[mask]
-
+    
     # Check for NaN values
     if np.any(np.isnan(rdm1_vec)) or np.any(np.isnan(rdm2_vec)):
         import warnings
-
-        warnings.warn("RDMs contain NaN values. Correlation may return NaN.", RuntimeWarning)
+        warnings.warn(
+            "RDMs contain NaN values. Correlation may return NaN.",
+            RuntimeWarning
+        )
 
     # Compute similarity
     if method == "spearman":
@@ -367,14 +372,13 @@ def compare_rdms(rdm1: np.ndarray, rdm2: np.ndarray, method: str = "spearman") -
         dot_product = np.dot(rdm1_vec, rdm2_vec)
         norm1 = np.linalg.norm(rdm1_vec)
         norm2 = np.linalg.norm(rdm2_vec)
-
+        
         if norm1 == 0 or norm2 == 0:
             import warnings
-
             warnings.warn(
                 "One or both RDMs have zero norm (all values identical). "
                 "Cosine similarity is undefined, returning NaN.",
-                RuntimeWarning,
+                RuntimeWarning
             )
             similarity = np.nan
         else:
@@ -397,7 +401,7 @@ def bootstrap_rdm_comparison(
 ) -> Dict[str, Union[float, np.ndarray]]:
     """
     Bootstrap test for RDM similarity between two datasets.
-
+    
     Performs statistical inference on RDM similarity using within-condition
     resampling. This maintains the experimental design while estimating
     confidence intervals and assessing reliability of the similarity.
@@ -437,12 +441,12 @@ def bootstrap_rdm_comparison(
         - 'ci_upper': float, 97.5th percentile of bootstrap distribution
         - 'mean': float, mean of bootstrap distribution
         - 'std': float, standard deviation of bootstrap distribution
-
+        
     Raises
     ------
     ValueError
         If datasets don't have the same unique condition labels.
-
+        
     Notes
     -----
     The bootstrap procedure:
@@ -450,17 +454,17 @@ def bootstrap_rdm_comparison(
     2. Maintains the number of samples per condition
     3. Computes RDMs from resampled data
     4. Calculates similarity between resampled RDMs
-
+    
     This within-condition resampling preserves the experimental design
     while capturing trial-by-trial variability.
-
+    
     The p-value tests whether the observed similarity is extreme
     relative to the bootstrap distribution mean. This is NOT a
     standard null hypothesis test but rather a stability assessment.
-
+    
     Uses a local RandomState to avoid modifying global numpy random
     state, ensuring thread safety and reproducibility.
-
+    
     Examples
     --------
     >>> import numpy as np
@@ -468,33 +472,33 @@ def bootstrap_rdm_comparison(
     >>> np.random.seed(42)
     >>> n_features = 20
     >>> n_timepoints = 90
-    >>>
+    >>> 
     >>> # 3 conditions, 30 samples each
     >>> labels = np.repeat(['A', 'B', 'C'], 30)
-    >>>
+    >>> 
     >>> # Create data with condition-specific patterns
     >>> v1_data = np.random.randn(n_features, n_timepoints)
     >>> v2_data = np.random.randn(n_features, n_timepoints)
-    >>>
+    >>> 
     >>> # Bootstrap will resample and compute similarity distribution
     >>> results = bootstrap_rdm_comparison(
     ...     v1_data, v2_data, labels, labels,
     ...     n_bootstrap=50, random_state=42
     ... )
-    >>>
+    >>> 
     >>> # Check that results contain expected keys
     >>> print('Keys:', sorted(results.keys()))
     Keys: ['bootstrap_distribution', 'ci_lower', 'ci_upper', 'mean', 'observed', 'p_value', 'std']
-    >>>
+    >>> 
     >>> # Random data should give low correlation
     >>> print(f"Observed between -1 and 1: {-1 <= results['observed'] <= 1}")
     Observed between -1 and 1: True
-
+    
     See Also
     --------
     ~driada.rsa.core.compare_rdms : Direct RDM comparison without bootstrap
     ~driada.rsa.core.compute_rdm_from_timeseries_labels : Compute RDM from labeled data
-    ~driada.rsa.core.rsa_compare : High-level interface with multiple data types"""
+    ~driada.rsa.core.rsa_compare : High-level interface with multiple data types    """
     # Create a local random number generator to avoid modifying global state
     if random_state is not None:
         rng = np.random.RandomState(random_state)
@@ -509,11 +513,11 @@ def bootstrap_rdm_comparison(
     # Get unique conditions
     unique_conditions1 = np.unique(labels1)
     unique_conditions2 = np.unique(labels2)
-
+    
     # Check that both datasets have same conditions
     if not np.array_equal(unique_conditions1, unique_conditions2):
         raise ValueError("Both datasets must have the same set of condition labels")
-
+    
     # Bootstrap with within-condition resampling
     bootstrap_similarities = []
 
@@ -521,22 +525,22 @@ def bootstrap_rdm_comparison(
         # Resample within each condition to maintain balance
         idx1 = []
         idx2 = []
-
+        
         for condition in unique_conditions1:
             # Get indices for this condition
             cond_idx1 = np.where(labels1 == condition)[0]
             cond_idx2 = np.where(labels2 == condition)[0]
-
+            
             # Resample with replacement within condition
             n_samples1 = len(cond_idx1)
             n_samples2 = len(cond_idx2)
-
+            
             resampled_idx1 = rng.choice(cond_idx1, size=n_samples1, replace=True)
             resampled_idx2 = rng.choice(cond_idx2, size=n_samples2, replace=True)
-
+            
             idx1.extend(resampled_idx1)
             idx2.extend(resampled_idx2)
-
+        
         # Convert to arrays and shuffle to mix conditions
         idx1 = np.array(idx1)
         idx2 = np.array(idx2)
@@ -560,7 +564,7 @@ def bootstrap_rdm_comparison(
     # Compute statistics
     mean_similarity = np.mean(bootstrap_similarities)
     std_similarity = np.std(bootstrap_similarities)
-
+    
     # Compute p-value (two-tailed) - tests if observed is extreme relative to bootstrap mean
     p_value = np.mean(
         np.abs(bootstrap_similarities - mean_similarity)
@@ -630,7 +634,7 @@ def compute_rdm_unified(
         Representational dissimilarity matrix
     labels : np.ndarray or None
         The unique labels/conditions if items were specified
-
+        
     Raises
     ------
     ValueError
@@ -638,13 +642,13 @@ def compute_rdm_unified(
         If trial structure dict missing required keys.
         If metric is not one of the valid options.
         If MVData/Embedding used with trial structure.
-
+        
     Notes
     -----
     Imports are performed inside the function to avoid circular
     dependencies. This has minimal performance impact as the function
     is typically called only a few times per analysis.
-
+    
     When trial_duration is specified in both the items dict and as a
     parameter, the dict value takes precedence and a warning is issued.
 
@@ -670,16 +674,16 @@ def compute_rdm_unified(
     >>> rdm, _ = compute_rdm_unified(mvdata)
     >>> print(f"RDM shape: {rdm.shape}")
     RDM shape: (100, 100)
-
+    
     See Also
     --------
     ~driada.rsa.core.compute_rdm : Direct RDM computation from patterns
     ~driada.rsa.core.compute_rdm_from_timeseries_labels : RDM from labeled timeseries
     ~driada.rsa.core.compute_rdm_from_trials : RDM from trial structure
-    ~driada.rsa.integration.compute_experiment_rdm : RDM from Experiment objects"""
+    ~driada.rsa.integration.compute_experiment_rdm : RDM from Experiment objects    """
     # Import here to avoid circular dependency
-    from ..dim_reduction.embedding import Embedding
     from ..experiment import Experiment
+    from ..dim_reduction.embedding import Embedding
     from .integration import compute_experiment_rdm, compute_mvdata_rdm
 
     # Handle Embedding objects
@@ -695,7 +699,9 @@ def compute_rdm_unified(
                 raise ValueError(
                     "Trial structure not supported for Embedding objects. Use labels array instead."
                 )
-            return compute_mvdata_rdm(mvdata, items, metric=metric, average_method=average_method)
+            return compute_mvdata_rdm(
+                mvdata, items, metric=metric, average_method=average_method
+            )
 
     # Handle Experiment objects
     elif isinstance(data, Experiment):
@@ -722,15 +728,19 @@ def compute_rdm_unified(
                     "Trial structure not supported for MVData. Use labels array instead."
                 )
             # Items should be labels array
-            return compute_mvdata_rdm(data, items, metric=metric, average_method=average_method)
+            return compute_mvdata_rdm(
+                data, items, metric=metric, average_method=average_method
+            )
 
     # Handle numpy arrays
     else:
         # Validate metric
         valid_metrics = ["correlation", "euclidean", "cosine", "manhattan"]
         if metric not in valid_metrics:
-            raise ValueError(f"Invalid metric '{metric}'. Must be one of {valid_metrics}")
-
+            raise ValueError(
+                f"Invalid metric '{metric}'. Must be one of {valid_metrics}"
+            )
+            
         if items is None:
             # Direct pattern RDM - assume rows are patterns
             return compute_rdm(data, metric=metric), None
@@ -739,11 +749,10 @@ def compute_rdm_unified(
             # Handle trial_duration conflict
             if "trial_duration" in items and trial_duration is not None:
                 import warnings
-
                 warnings.warn(
                     "trial_duration specified in both items dict and parameter. "
                     "Using value from items dict.",
-                    UserWarning,
+                    UserWarning
                 )
             return compute_rdm_from_trials(
                 data,
@@ -804,20 +813,20 @@ def rsa_compare(
         Similarity score between the two neural representations.
         Range depends on comparison method: [-1, 1] for correlations,
         [0, 1] for cosine similarity.
-
+        
     Raises
     ------
     ValueError
         If items not specified for Experiment objects.
         If trying to compare Experiment with non-Experiment data.
         If RDMs have incompatible shapes (different numbers of items).
-
+        
     Notes
     -----
     Imports are performed inside the function to avoid circular
     dependencies. Embedding objects are automatically converted to
     MVData for uniform processing.
-
+    
     When comparing arrays or MVData without items specification,
     assumes the data is already averaged per condition (each row
     represents one item/condition).
@@ -829,22 +838,22 @@ def rsa_compare(
     >>> np.random.seed(42)
     >>> n_stimuli = 5
     >>> n_neurons_v1, n_neurons_v2 = 20, 15
-    >>>
+    >>> 
     >>> # Create orthogonal patterns for each stimulus
     >>> v1_data = np.zeros((n_stimuli, n_neurons_v1))
     >>> v2_data = np.zeros((n_stimuli, n_neurons_v2))
-    >>>
+    >>> 
     >>> # Each stimulus activates different neurons in both areas
     >>> for i in range(n_stimuli):
     ...     # V1: each stimulus activates 4 specific neurons
     ...     v1_data[i, i*4:(i+1)*4] = 1.0
     ...     # V2: similar pattern with 3 neurons per stimulus
     ...     v2_data[i, i*3:(i+1)*3] = 1.0
-    >>>
+    >>> 
     >>> # Add small noise for realism
     >>> v1_data += 0.1 * np.random.randn(n_stimuli, n_neurons_v1)
     >>> v2_data += 0.1 * np.random.randn(n_stimuli, n_neurons_v2)
-    >>>
+    >>> 
     >>> # This creates similar RDM structure in both areas
     >>> similarity = rsa_compare(v1_data, v2_data, comparison='spearman')
     >>> print(f"RSA similarity: {similarity:.3f}")
@@ -858,7 +867,7 @@ def rsa_compare(
     >>> labels = np.repeat(['A', 'B', 'C'], 30)  # 30 samples per condition
     >>> # First compute RDMs with labels
     >>> rdm1, _ = compute_rdm_unified(data1, items=labels)
-    >>> rdm2, _ = compute_rdm_unified(data2, items=labels)
+    >>> rdm2, _ = compute_rdm_unified(data2, items=labels) 
     >>> # Both RDMs now have shape (3, 3) for the 3 conditions
     >>> print(f"RDM shapes: {rdm1.shape}, {rdm2.shape}")
     RDM shapes: (3, 3), (3, 3)
@@ -867,15 +876,15 @@ def rsa_compare(
     >>> similarity = compare_rdms(rdm1, rdm2)
     >>> print(f"RSA similarity between -1 and 1: {-1 <= similarity <= 1}")
     RSA similarity between -1 and 1: True
-
+    
     See Also
     --------
     ~driada.rsa.core.compute_rdm_unified : Unified RDM computation interface
     ~driada.rsa.core.compare_rdms : Direct comparison of RDM matrices
-    ~driada.rsa.core.bootstrap_rdm_comparison : Statistical comparison with confidence intervals"""
+    ~driada.rsa.core.bootstrap_rdm_comparison : Statistical comparison with confidence intervals    """
     # Import here to avoid circular dependency
-    from ..dim_reduction.embedding import Embedding
     from ..experiment import Experiment
+    from ..dim_reduction.embedding import Embedding
     from .integration import rsa_between_experiments
 
     if logger is None:
@@ -893,7 +902,9 @@ def rsa_compare(
     # Check if both are Experiment objects
     if isinstance(data1, Experiment) and isinstance(data2, Experiment):
         if items is None:
-            raise ValueError("items must be specified when comparing Experiment objects")
+            raise ValueError(
+                "items must be specified when comparing Experiment objects"
+            )
         logger.debug("Comparing two Experiment objects using RSA")
         return rsa_between_experiments(
             data1,
@@ -918,7 +929,7 @@ def rsa_compare(
         # Compute RDMs
         rdm1 = compute_rdm(data1, metric=metric, logger=logger)
         rdm2 = compute_rdm(data2, metric=metric, logger=logger)
-
+        
         # Check dimension compatibility
         if rdm1.shape != rdm2.shape:
             raise ValueError(

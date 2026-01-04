@@ -1,18 +1,17 @@
 """Complete mocked visual tests with proper return value simulation."""
 
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
-
 import numpy as np
 import pytest
+from unittest.mock import patch, MagicMock
+from types import SimpleNamespace
 
 # Import functions to test
 from driada.intense.visual import (
-    plot_disentanglement_heatmap,
-    plot_disentanglement_summary,
+    plot_pc_activity,
     plot_neuron_feature_density,
     plot_neuron_feature_pair,
-    plot_pc_activity,
+    plot_disentanglement_heatmap,
+    plot_disentanglement_summary,
     plot_selectivity_heatmap,
 )
 
@@ -149,7 +148,9 @@ class TestVisualFunctionsCompletelyMocked:
             )
 
             # Run function
-            result = plot_neuron_feature_density(mock_experiment, "calcium", 0, "binary_feat")
+            result = plot_neuron_feature_density(
+                mock_experiment, "calcium", 0, "binary_feat"
+            )
 
             # Verify
             assert result is ax
@@ -251,7 +252,9 @@ class TestVisualFunctionsCompletelyMocked:
             feat_names = [f"feat{i}" for i in range(n_features)]
 
             # Run function
-            result = plot_disentanglement_summary(disent_matrix, count_matrix, feat_names)
+            result = plot_disentanglement_summary(
+                disent_matrix, count_matrix, feat_names
+            )
 
             # Verify
             assert result is fig
@@ -347,7 +350,9 @@ class TestVisualFunctionsCompletelyMocked:
         )
 
         # Test that spikes with binary features raises NotImplementedError
-        with pytest.raises(NotImplementedError, match="Binary feature density plot for spike data"):
+        with pytest.raises(
+            NotImplementedError, match="Binary feature density plot for spike data"
+        ):
             plot_neuron_feature_density(mock_experiment, "spikes", 0, "binary_feat")
 
 

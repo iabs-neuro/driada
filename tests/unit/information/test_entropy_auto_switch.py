@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-
 from driada.information import entropy
 
 

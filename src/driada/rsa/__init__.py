@@ -6,19 +6,21 @@ dissimilarity matrices (RDMs) from neural population data.
 """
 
 from .core import (
-    bootstrap_rdm_comparison,
-    compare_rdms,
     compute_rdm,
     compute_rdm_from_timeseries_labels,
     compute_rdm_from_trials,
+    compare_rdms,
+    bootstrap_rdm_comparison,
     compute_rdm_unified,
     rsa_compare,
 )
+
 from .integration import (
     compute_experiment_rdm,
     compute_mvdata_rdm,
     rsa_between_experiments,
 )
+
 from .visual import (
     plot_rdm,
     plot_rdm_comparison,

@@ -1,8 +1,7 @@
 """Tests for epsilon graph construction in ProximityGraph"""
 
-import numpy as np
 import pytest
-
+import numpy as np
 from driada.dim_reduction.graph import ProximityGraph
 
 

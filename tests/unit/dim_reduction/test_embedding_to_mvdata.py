@@ -4,7 +4,6 @@ Test suite for Embedding.to_mvdata() conversion functionality.
 
 import numpy as np
 import pytest
-
 from driada.dim_reduction import MVData
 
 
@@ -103,7 +102,7 @@ class TestEmbeddingToMVData:
                 # Check basic properties
                 assert embedding_mvdata.n_dim == params["dim"]
                 assert embedding_mvdata.data_name == f"{method_name}_embedding"
-
+                
                 # Labels may be filtered if graph preprocessing removed nodes
                 # So we just check that labels have the correct length
                 assert len(embedding_mvdata.labels) == embedding_mvdata.n_points

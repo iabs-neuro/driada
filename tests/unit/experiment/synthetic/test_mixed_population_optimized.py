@@ -7,8 +7,8 @@ with reduced parameters for quick execution while maintaining proper test covera
 
 import numpy as np
 import pytest
+from driada.experiment import generate_mixed_population_exp, Experiment
 
-from driada.experiment import Experiment, generate_mixed_population_exp
 
 # Fast test parameters
 FAST_PARAMS = {
@@ -104,7 +104,9 @@ class TestGenerateMixedPopulationExpFast:
         """Minimal test for correlation effects."""
         # The API doesn't support correlation_effects parameter
         # Just test basic generation works
-        exp = generate_mixed_population_exp(n_neurons=8, manifold_fraction=0.5, **FAST_PARAMS)
+        exp = generate_mixed_population_exp(
+            n_neurons=8, manifold_fraction=0.5, **FAST_PARAMS
+        )
 
         # Verify it produces valid experiment
         assert exp.n_cells == 8
@@ -121,7 +123,9 @@ class TestGenerateMixedPopulationExpFast:
 
     def test_calcium_signal_properties(self):
         """Fast test for calcium signal properties."""
-        exp = generate_mixed_population_exp(n_neurons=6, manifold_fraction=0.5, **FAST_PARAMS)
+        exp = generate_mixed_population_exp(
+            n_neurons=6, manifold_fraction=0.5, **FAST_PARAMS
+        )
 
         # Check calcium signals are valid
         for i in range(exp.n_cells):
@@ -204,7 +208,9 @@ class TestParameterValidation:
     def test_invalid_manifold_type(self):
         """Test invalid manifold type."""
         with pytest.raises(ValueError):
-            generate_mixed_population_exp(n_neurons=10, manifold_type="invalid_type", **FAST_PARAMS)
+            generate_mixed_population_exp(
+                n_neurons=10, manifold_type="invalid_type", **FAST_PARAMS
+            )
 
     def test_invalid_neuron_count(self):
         """Test invalid neuron count."""
@@ -255,7 +261,9 @@ class TestPerformanceBenchmarks:
         import time
 
         start = time.time()
-        exp = generate_mixed_population_exp(n_neurons=10, manifold_fraction=0.5, **FAST_PARAMS)
+        exp = generate_mixed_population_exp(
+            n_neurons=10, manifold_fraction=0.5, **FAST_PARAMS
+        )
         duration = time.time() - start
 
         assert duration < 1.0, f"Generation took {duration:.2f}s, should be <1s"
@@ -267,7 +275,9 @@ class TestPerformanceBenchmarks:
 
         start = time.time()
         for _ in range(5):
-            exp = generate_mixed_population_exp(n_neurons=8, manifold_fraction=0.5, **FAST_PARAMS)
+            exp = generate_mixed_population_exp(
+                n_neurons=8, manifold_fraction=0.5, **FAST_PARAMS
+            )
         duration = time.time() - start
 
         assert duration < 5.0, f"5 generations took {duration:.2f}s, should be <5s"

@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-
 from driada.experiment.synthetic.time_series import generate_binary_time_series
 
 

@@ -6,8 +6,8 @@ such as Principal Component Analysis (PCA).
 """
 
 import numpy as np
-from scipy.stats import entropy
 from sklearn.decomposition import PCA
+from scipy.stats import entropy
 
 
 def pca_dimension(data, threshold=0.95, standardize=True):
@@ -198,7 +198,7 @@ def effective_rank(data, standardize=True):
     Roy, O., & Vetterli, M. (2007). The effective rank: A measure of
     effective dimensionality. In 2007 15th European Signal Processing
     Conference (pp. 606-610). IEEE.
-
+    
     Examples
     --------
     >>> import numpy as np
@@ -223,11 +223,11 @@ def effective_rank(data, standardize=True):
 
     # Compute singular values
     _, s, _ = np.linalg.svd(data_standardized, full_matrices=False)
-
+    
     # Remove negligible singular values to avoid numerical issues
     tolerance = np.finfo(float).eps * max(data.shape) * s[0] if len(s) > 0 else 0
     s_positive = s[s > tolerance]
-
+    
     if len(s_positive) == 0:
         return 1.0  # Degenerate case
 

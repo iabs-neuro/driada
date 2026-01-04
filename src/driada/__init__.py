@@ -8,56 +8,54 @@ of intelligent systems, from brain neural recordings in vivo to RNNs.
 __version__ = "0.6.6"
 
 # Core modules
-from . import (
-    dim_reduction,
-    dimensionality,
-    experiment,
-    gdrive,
-    information,
-    integration,
-    intense,
-    network,
-    rsa,
-    utils,
-)
+from . import intense
+from . import information
+from . import experiment
+from . import utils
+from . import rsa
+from . import network
+from . import dim_reduction
+from . import dimensionality
+from . import integration
+from . import gdrive
 
-# Dimensionality reduction classes
-from .dim_reduction import Embedding, MVData
-
-# Dimensionality estimation
-from .dimensionality import eff_dim, nn_dimension, pca_dimension
-
-# Experiment utilities
 # Key classes
-from .experiment import (
-    Experiment,
-    generate_2d_manifold_exp,
-    generate_3d_manifold_exp,
-    generate_circular_manifold_exp,
-    generate_mixed_population_exp,
-    generate_synthetic_exp,
-    load_exp_from_aligned_data,
-    load_exp_from_pickle,
-    load_experiment,
-    save_exp_to_pickle,
+from .experiment import Experiment
+from .information import TimeSeries, MultiTimeSeries
+from .network import Network
+
+# Main INTENSE pipeline functions
+from .intense import (
+    compute_cell_feat_significance,
+    compute_feat_feat_significance,
+    compute_cell_cell_significance,
 )
 
 # Common information theory functions
 from .information import (
-    MultiTimeSeries,
-    TimeSeries,
-    conditional_mi,
     get_mi,
+    conditional_mi,
     interaction_information,
 )
 
-# Main INTENSE pipeline functions
-from .intense import (
-    compute_cell_cell_significance,
-    compute_cell_feat_significance,
-    compute_feat_feat_significance,
+# Experiment utilities
+from .experiment import (
+    load_experiment,
+    load_exp_from_aligned_data,
+    save_exp_to_pickle,
+    load_exp_from_pickle,
+    generate_synthetic_exp,
+    generate_circular_manifold_exp,
+    generate_2d_manifold_exp,
+    generate_3d_manifold_exp,
+    generate_mixed_population_exp,
 )
-from .network import Network
+
+# Dimensionality reduction classes
+from .dim_reduction import MVData, Embedding
+
+# Dimensionality estimation
+from .dimensionality import eff_dim, nn_dimension, pca_dimension
 
 __all__ = [
     # Version

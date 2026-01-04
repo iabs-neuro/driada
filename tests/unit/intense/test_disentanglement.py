@@ -1,16 +1,15 @@
 """Tests for disentanglement module functions."""
 
-import numpy as np
 import pytest
-
-from driada.information.info_base import TimeSeries
+import numpy as np
 from driada.intense.disentanglement import (
-    DEFAULT_MULTIFEATURE_MAP,
-    create_multifeature_map,
-    disentangle_all_selectivities,
     disentangle_pair,
+    disentangle_all_selectivities,
+    create_multifeature_map,
     get_disentanglement_summary,
+    DEFAULT_MULTIFEATURE_MAP,
 )
+from driada.information.info_base import TimeSeries
 
 
 def create_redundant_timeseries(n_points=1000):

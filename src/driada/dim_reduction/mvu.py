@@ -4,7 +4,6 @@ from sklearn.neighbors import NearestNeighbors
 
 try:
     import cvxpy as cp
-
     CVXPY_AVAILABLE = True
 except ImportError:
     CVXPY_AVAILABLE = False
@@ -13,12 +12,12 @@ except ImportError:
 
 class MaximumVarianceUnfolding(object):
     """Maximum Variance Unfolding (MVU) for nonlinear dimensionality reduction.
-
+    
     MVU learns a low-dimensional representation that preserves local distances
     while maximizing the variance of the embedding. It formulates the problem
     as a semidefinite program (SDP) to find a kernel matrix that respects
     local isometry constraints.
-
+    
     Parameters
     ----------
     equation : {'berkley', 'wikipedia'}, default='berkley'
@@ -39,17 +38,17 @@ class MaximumVarianceUnfolding(object):
         repeatedly.
     seed : int, optional
         Random seed for reproducibility.
-
+        
     Attributes
     ----------
     neighborhood_graph : ndarray of shape (n_samples, n_samples)
         Binary matrix indicating k-nearest neighbor connections.
-
+        
     Raises
     ------
     ImportError
         If cvxpy is not installed. Install with pip install cvxpy.
-
+        
     Examples
     --------
     >>> import numpy as np
@@ -62,17 +61,17 @@ class MaximumVarianceUnfolding(object):
     >>> embedding = mvu.fit_transform(data, dim=2, k=5)
     >>> print(embedding.shape)
     (100, 2)
-
+    
     Notes
     -----
     Requires cvxpy package for solving the semidefinite program.
     The algorithm can be slow for large datasets due to the SDP formulation.
     The SDP solver may require tuning for different dataset sizes.
-
+    
     References
     ----------
     Weinberger, K. Q., & Saul, L. K. (2006). An introduction to nonlinear
-    dimensionality reduction by maximum variance unfolding. AAAI."""
+    dimensionality reduction by maximum variance unfolding. AAAI.    """
 
     def __init__(
         self,
@@ -85,11 +84,11 @@ class MaximumVarianceUnfolding(object):
         seed=None,
     ):
         """Initialize Maximum Variance Unfolding instance.
-
+        
         Sets up the MVU solver with specified configuration for the
         semidefinite programming problem. Validates cvxpy availability
         and initializes solver parameters.
-
+        
         Parameters
         ----------
         equation : {'berkley', 'wikipedia'}, default='berkley'
@@ -113,23 +112,23 @@ class MaximumVarianceUnfolding(object):
             similar problems repeatedly.
         seed : int, optional
             Random seed for reproducibility in k-NN graph construction.
-
+            
         Raises
         ------
         ImportError
             If cvxpy is not installed.
-
+            
         Notes
         -----
         The Berkeley formulation often provides better numerical stability
         than the Wikipedia formulation. SCS solver is recommended for most
-        cases as it handles large problems efficiently."""
+        cases as it handles large problems efficiently.        """
         if not CVXPY_AVAILABLE:
             raise ImportError(
                 "cvxpy is required for MVU but not installed. "
                 "Install it with: pip install cvxpy or conda install -c conda-forge cvxpy"
             )
-
+        
         self.equation = equation
         self.solver = solver if solver is not None else cp.SCS
         self.solver_tol = solver_tol
@@ -141,11 +140,11 @@ class MaximumVarianceUnfolding(object):
 
     def fit(self, data, k):
         """Fit MVU model by solving the semidefinite program.
-
+        
         Constructs a k-nearest neighbor graph and solves an SDP to find
         the optimal Gram matrix that preserves local distances while
         maximizing variance.
-
+        
         Parameters
         ----------
         data : ndarray of shape (n_samples, n_features)
@@ -153,13 +152,13 @@ class MaximumVarianceUnfolding(object):
         k : int
             Number of nearest neighbors to preserve distances for.
             Must be large enough to create a connected graph.
-
+            
         Returns
         -------
         ndarray of shape (n_samples, n_samples)
             Optimal Gram matrix Q from the SDP solution.
             This is the inner product matrix of the embedded points.
-
+            
         Raises
         ------
         ValueError
@@ -167,7 +166,7 @@ class MaximumVarianceUnfolding(object):
             is None (some solvers may not converge with disconnected graphs).
         ImportError
             If cvxpy is not installed.
-
+            
         Examples
         --------
         >>> import numpy as np
@@ -189,14 +188,14 @@ class MaximumVarianceUnfolding(object):
         >>> num_significant_negative = np.sum(eigvals < -1e-3)
         >>> print(f"Number of eigenvalues < -1e-3: {num_significant_negative}")
         Number of eigenvalues < -1e-3: 0
-
+            
         Notes
         -----
         The Gram matrix Q satisfies:
         - Q is positive semidefinite
         - Sum of each row is zero (centering constraint)
         - For neighbors i,j: ||x_i - x_j||² = ||y_i - y_j||²
-          where x are original points and y are embedded points"""
+          where x are original points and y are embedded points        """
         # Number of data points in the set
         n = data.shape[0]
 
@@ -256,7 +255,9 @@ class MaximumVarianceUnfolding(object):
         if self.equation == "berkley":
             objective = cp.Maximize(
                 cp.multiply((1 / T), cp.trace(Q))
-                - cp.multiply((1 / (T * T)), cp.trace(cp.matmul(cp.matmul(Q, ONES), ONES.T)))
+                - cp.multiply(
+                    (1 / (T * T)), cp.trace(cp.matmul(cp.matmul(Q, ONES), ONES.T))
+                )
             )
 
             constraints = [Q >> 0, cp.sum(Q, axis=1) == 0]
@@ -264,7 +265,11 @@ class MaximumVarianceUnfolding(object):
                 for j in range(n):
                     if N[i, j] == 1.0:
                         constraints.append(
-                            Q[i, i] - 2 * Q[i, j] + Q[j, j] - (P[i, i] - 2 * P[i, j] + P[j, j]) == 0
+                            Q[i, i]
+                            - 2 * Q[i, j]
+                            + Q[j, j]
+                            - (P[i, i] - 2 * P[i, j] + P[j, j])
+                            == 0
                         )
 
         # Solve the problem with the SCS Solver
@@ -281,10 +286,10 @@ class MaximumVarianceUnfolding(object):
 
     def fit_transform(self, data, dim, k):
         """Fit MVU model and transform data to lower dimension.
-
+        
         Combines fit() and transform steps: solves the SDP to get the
         optimal Gram matrix, then extracts the embedding via eigendecomposition.
-
+        
         Parameters
         ----------
         data : ndarray of shape (n_samples, n_features)
@@ -293,12 +298,12 @@ class MaximumVarianceUnfolding(object):
             Target dimensionality for the embedding.
         k : int
             Number of nearest neighbors to preserve distances for.
-
+            
         Returns
         -------
         ndarray of shape (n_samples, dim)
             Low-dimensional embedding of the data.
-
+            
         Raises
         ------
         ValueError
@@ -306,7 +311,7 @@ class MaximumVarianceUnfolding(object):
             If requested dimension exceeds data samples.
         ImportError
             If cvxpy is not installed.
-
+            
         Examples
         --------
         >>> import numpy as np
@@ -323,7 +328,7 @@ class MaximumVarianceUnfolding(object):
         >>> embedding = mvu.fit_transform(data, dim=2, k=7)
         >>> print(f"Embedded shape: {embedding.shape}")
         Embedded shape: (100, 2)
-
+            
         Notes
         -----
         The embedding is obtained by:
@@ -331,9 +336,9 @@ class MaximumVarianceUnfolding(object):
         2. Eigendecomposition: Q = V * Lambda * V^T
         3. Embedding: Y = sqrt(Lambda_top) * V_top^T
         where Lambda_top and V_top are the top 'dim' eigenvalues/vectors.
-
+        
         Small negative eigenvalues may appear due to numerical errors in the
-        SDP solution. These are thresholded to zero using eig_tol parameter."""
+        SDP solution. These are thresholded to zero using eig_tol parameter.        """
 
         embedded_gramian = self.fit(data, k)
 
@@ -342,7 +347,9 @@ class MaximumVarianceUnfolding(object):
         eigenvalues, eigenvectors = np.linalg.eigh(embedded_gramian)
 
         # Set the eigenvalues that are within +/- eig_tol to 0
-        eigenvalues[np.logical_and(-self.eig_tol < eigenvalues, eigenvalues < self.eig_tol)] = 0.0
+        eigenvalues[
+            np.logical_and(-self.eig_tol < eigenvalues, eigenvalues < self.eig_tol)
+        ] = 0.0
 
         # Assuming the eigenvalues and eigenvectors aren't sorted,
         #    sort them and get the top "dim" ones

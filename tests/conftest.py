@@ -29,7 +29,6 @@ Example:
 """
 
 import os
-
 import pytest
 
 
@@ -362,7 +361,6 @@ def correlated_gaussian_data(correlation_pattern):
 def simple_timeseries():
     """Create a simple TimeSeries for unit tests."""
     import numpy as np
-
     from driada.information.info_base import TimeSeries
 
     values = np.sin(np.linspace(0, 4 * np.pi, 1000)) + 0.1 * np.random.randn(1000)
@@ -373,8 +371,7 @@ def simple_timeseries():
 def multi_timeseries():
     """Create a MultiTimeSeries for unit tests."""
     import numpy as np
-
-    from driada.information.info_base import MultiTimeSeries, TimeSeries
+    from driada.information.info_base import TimeSeries, MultiTimeSeries
 
     n_features = 3
     n_samples = 1000
@@ -393,7 +390,9 @@ def circular_manifold_data():
     """Generate circular manifold data for testing."""
     from driada.experiment.synthetic import generate_circular_manifold_data
 
-    data = generate_circular_manifold_data(n_samples=1000, n_neurons=20, noise_level=0.1, seed=42)
+    data = generate_circular_manifold_data(
+        n_samples=1000, n_neurons=20, noise_level=0.1, seed=42
+    )
     return data
 
 
@@ -402,7 +401,9 @@ def spatial_2d_data():
     """Generate 2D spatial manifold data for testing."""
     from driada.experiment.synthetic import generate_2d_manifold_data
 
-    data = generate_2d_manifold_data(grid_size=20, n_neurons=50, noise_level=0.1, seed=42)
+    data = generate_2d_manifold_data(
+        grid_size=20, n_neurons=50, noise_level=0.1, seed=42
+    )
     return data
 
 

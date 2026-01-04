@@ -6,12 +6,11 @@ manifolds, typically used to model head direction cells.
 """
 
 import numpy as np
-
-from ...information.info_base import MultiTimeSeries, TimeSeries
-from ...utils.data import check_nonnegative, check_positive
-from ..exp_base import Experiment
-from .core import generate_pseudo_calcium_signal, validate_peak_rate
+from .core import validate_peak_rate, generate_pseudo_calcium_signal
 from .utils import get_effective_decay_time
+from ..exp_base import Experiment
+from ...information.info_base import TimeSeries, MultiTimeSeries
+from ...utils.data import check_positive, check_nonnegative
 
 
 def generate_circular_random_walk(length, step_std=0.1, seed=None):
@@ -48,19 +47,19 @@ def generate_circular_random_walk(length, step_std=0.1, seed=None):
     Notes
     -----
     The walk follows: angles[t] = (Σ(i=0 to t) N(0, step_std)) mod 2π
-    where N(0, step_std) represents Gaussian noise."""
+    where N(0, step_std) represents Gaussian noise.    """
     # Input validation
     if not isinstance(length, (int, np.integer)):
         raise TypeError("length must be an integer")
     check_nonnegative(length=length, step_std=step_std)
-
+    
     if seed is not None:
         np.random.seed(seed)
 
     # Handle edge case
     if length == 0:
         return np.array([])
-
+    
     # Generate random steps
     steps = np.random.normal(0, step_std, length)
 
@@ -109,7 +108,7 @@ def von_mises_tuning_curve(angles, preferred_direction, kappa):
     Notes
     -----
     The response follows: response = exp(κ * (cos(θ - θ_pref) - 1))
-    This is a Von Mises distribution normalized to peak at 1."""
+    This is a Von Mises distribution normalized to peak at 1.    """
     # Input validation
     angles = np.asarray(angles)
     if not np.issubdtype(angles.dtype, np.number):
@@ -120,7 +119,7 @@ def von_mises_tuning_curve(angles, preferred_direction, kappa):
         raise TypeError("kappa must be numeric")
     if not np.isfinite(kappa):
         raise ValueError("kappa must be finite")
-
+    
     # Von Mises distribution normalized to max=1
     response = np.exp(kappa * (np.cos(angles - preferred_direction) - 1))
     return response
@@ -187,11 +186,11 @@ def generate_circular_manifold_neurons(
     -----
     Preferred directions are uniformly distributed with small jitter
     (σ=0.1 rad) to break symmetry. Firing rates are computed as:
-    rate = baseline + (peak - baseline) * von_mises_response + noise"""
+    rate = baseline + (peak - baseline) * von_mises_response + noise    """
     # Input validation
     check_positive(n_neurons=n_neurons)
     check_nonnegative(noise_std=noise_std)
-
+    
     # Validate firing rate
     validate_peak_rate(peak_rate, context="generate_circular_manifold_neurons")
 
@@ -214,7 +213,9 @@ def generate_circular_manifold_neurons(
 
     for i in range(n_neurons):
         # Von Mises tuning curve
-        tuning_response = von_mises_tuning_curve(head_direction, preferred_directions[i], kappa)
+        tuning_response = von_mises_tuning_curve(
+            head_direction, preferred_directions[i], kappa
+        )
 
         # Scale to desired firing rate range
         firing_rate = baseline_rate + (peak_rate - baseline_rate) * tuning_response
@@ -302,18 +303,13 @@ def generate_circular_manifold_data(
     2. Generates neural responses with Von Mises tuning
     3. Converts firing rates to spike probabilities
     4. Samples spikes using binomial distribution
-    5. Convolves spikes with calcium kernel and adds noise"""
+    5. Convolves spikes with calcium kernel and adds noise    """
     # Input validation
-    check_positive(
-        n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate, decay_time=decay_time
-    )
-    check_nonnegative(
-        step_std=step_std,
-        baseline_rate=baseline_rate,
-        noise_std=noise_std,
-        calcium_noise_std=calcium_noise_std,
-    )
-
+    check_positive(n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate,
+                  decay_time=decay_time)
+    check_nonnegative(step_std=step_std, baseline_rate=baseline_rate, 
+                     noise_std=noise_std, calcium_noise_std=calcium_noise_std)
+    
     if seed is not None:
         np.random.seed(seed)
 
@@ -387,8 +383,8 @@ def generate_circular_manifold_exp(
     """
     Generate complete experiment with circular manifold (head direction cells).
 
-    Creates a synthetic experiment with head direction cells arranged on a
-    circular manifold. Neurons have Von Mises tuning curves with uniformly
+    Creates a synthetic experiment with head direction cells arranged on a 
+    circular manifold. Neurons have Von Mises tuning curves with uniformly 
     distributed preferred directions.
 
     Parameters
@@ -423,7 +419,7 @@ def generate_circular_manifold_exp(
         Standard deviation of calcium signal noise.
         Must be non-negative. Default is 0.1.
     add_mixed_features : bool, optional
-        Whether to add circular_angle MultiTimeSeries with cos/sin
+        Whether to add circular_angle MultiTimeSeries with cos/sin 
         representation of head direction. Useful for algorithms that
         cannot handle circular variables directly. Default is False.
     seed : int, optional
@@ -465,10 +461,10 @@ def generate_circular_manifold_exp(
     2. Generates neurons with Von Mises tuning curves
     3. Converts firing rates to realistic calcium signals
     4. Packages data into DRIADA Experiment format
-
+    
     The effective decay time is automatically adjusted for short
     experiments to ensure proper shuffle mask generation.
-
+    
     Side effect: The firing_rates array is stored as an attribute
     on the returned Experiment object (exp.firing_rates).
 
@@ -476,7 +472,7 @@ def generate_circular_manifold_exp(
     --------
     >>> # Basic usage
     >>> exp = generate_circular_manifold_exp(n_neurons=10, duration=10, verbose=False)
-
+    
     >>> # With circular angle representation
     >>> exp = generate_circular_manifold_exp(
     ...     n_neurons=10,
@@ -485,7 +481,7 @@ def generate_circular_manifold_exp(
     ...     kappa=6.0,  # Narrower tuning
     ...     verbose=False
     ... )
-
+    
     >>> # Get additional information
     >>> exp, info = generate_circular_manifold_exp(
     ...     n_neurons=10,
@@ -497,46 +493,36 @@ def generate_circular_manifold_exp(
     True
     """
     # Input validation
-    check_positive(
-        n_neurons=n_neurons,
-        duration=duration,
-        fps=fps,
-        kappa=kappa,
-        peak_rate=peak_rate,
-        decay_time=decay_time,
-    )
-    check_nonnegative(
-        step_std=step_std,
-        baseline_rate=baseline_rate,
-        noise_std=noise_std,
-        calcium_noise_std=calcium_noise_std,
-    )
-
+    check_positive(n_neurons=n_neurons, duration=duration, fps=fps, kappa=kappa, 
+                  peak_rate=peak_rate, decay_time=decay_time)
+    check_nonnegative(step_std=step_std, baseline_rate=baseline_rate, 
+                     noise_std=noise_std, calcium_noise_std=calcium_noise_std)
+    
     if not np.isfinite(kappa):
         raise ValueError("kappa must be finite")
-
+    
     if baseline_rate >= peak_rate:
-        raise ValueError(
-            f"baseline_rate ({baseline_rate}) must be less than peak_rate ({peak_rate})"
-        )
-
+        raise ValueError(f"baseline_rate ({baseline_rate}) must be less than peak_rate ({peak_rate})")
+    
     # Calculate effective decay time for shuffle mask
     effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)
 
     # Generate data
-    calcium, head_direction, preferred_directions, firing_rates = generate_circular_manifold_data(
-        n_neurons=n_neurons,
-        duration=duration,
-        sampling_rate=fps,
-        kappa=kappa,
-        step_std=step_std,
-        baseline_rate=baseline_rate,
-        peak_rate=peak_rate,
-        noise_std=noise_std,
-        decay_time=decay_time,
-        calcium_noise_std=calcium_noise_std,
-        seed=seed,
-        verbose=verbose,
+    calcium, head_direction, preferred_directions, firing_rates = (
+        generate_circular_manifold_data(
+            n_neurons=n_neurons,
+            duration=duration,
+            sampling_rate=fps,
+            kappa=kappa,
+            step_std=step_std,
+            baseline_rate=baseline_rate,
+            peak_rate=peak_rate,
+            noise_std=noise_std,
+            decay_time=decay_time,
+            calcium_noise_std=calcium_noise_std,
+            seed=seed,
+            verbose=verbose,
+        )
     )
 
     # Create static features
