@@ -17,14 +17,14 @@ from ..utils.jit import conditional_njit
 
 # Default kinetics parameters (in seconds)
 DEFAULT_T_RISE = 0.25  # Rise time constant (seconds)
-DEFAULT_T_OFF = 2.0    # Decay time constant (seconds)
+DEFAULT_T_OFF = 2.0  # Decay time constant (seconds)
 
 # Kernel generation constants
 KERNEL_LENGTH_FRAMES = 500  # Minimum kernel length; actual length is max(500, 5 × t_off)
 
 
 def spike_form(t, t_rise, t_off):
-    '''Calculate normalized calcium response kernel shape.
+    """Calculate normalized calcium response kernel shape.
 
     Computes the double-exponential kernel used to model calcium
     indicator dynamics with separate rise and decay time constants.
@@ -59,13 +59,13 @@ def spike_form(t, t_rise, t_off):
     >>> kernel = spike_form(t, t_rise=5, t_off=20)
     >>> kernel.max()  # Should be 1.0
     1.0
-    '''
+    """
     check_positive(t_rise=t_rise, t_off=t_off)
     return _spike_form_jit(t, t_rise, t_off)
 
 
 def _spike_form_jit(t, t_rise, t_off):
-    '''JIT-compiled core computation for spike_form.
+    """JIT-compiled core computation for spike_form.
 
     Computes normalized double-exponential calcium response kernel.
     This is the performance-critical inner loop separated for JIT compilation.
@@ -93,11 +93,11 @@ def _spike_form_jit(t, t_rise, t_off):
     -----
     Input validation is performed in the wrapper function spike_form().
     JIT compilation provides significant speedup for large arrays.
-    '''
+    """
     form = (1 - np.exp(-t / t_rise)) * np.exp(-t / t_off)
     max_val = np.max(form)
     if max_val == 0:
-        raise ValueError('Kernel form has zero maximum')
+        raise ValueError("Kernel form has zero maximum")
     return form / max_val
 
 
@@ -106,7 +106,7 @@ _spike_form_jit = conditional_njit(_spike_form_jit)
 
 
 def get_restored_calcium(sp, t_rise, t_off):
-    '''Reconstruct calcium signal from spike train.
+    """Reconstruct calcium signal from spike train.
 
     Convolves spike train with double-exponential kernel to simulate
     calcium indicator dynamics. The output has the same length as the
@@ -149,10 +149,10 @@ def get_restored_calcium(sp, t_rise, t_off):
     >>> ca = get_restored_calcium(sp, t_rise=5, t_off=20)
     >>> ca.shape
     (1000,)
-    '''
+    """
     sp = np.asarray(sp)
     if sp.size == 0:
-        raise ValueError('Spike train cannot be empty')
+        raise ValueError("Spike train cannot be empty")
     check_positive(t_rise=t_rise, t_off=t_off)
 
     # Adaptive kernel length: 5× decay time for complete kernel, minimum 500 frames
@@ -161,22 +161,23 @@ def get_restored_calcium(sp, t_rise, t_off):
     kernel_length = max(KERNEL_LENGTH_FRAMES, int(5 * t_off))
     if kernel_length > 2000:
         import warnings
+
         warnings.warn(
-            f'Kernel length {kernel_length} (from t_off={t_off:.1f} frames) capped at 2000. '
-            f'This may indicate incorrect t_off measurement. Typical calcium indicators have '
-            f't_off < 200 frames (~8-10s @ 20Hz).',
-            UserWarning
+            f"Kernel length {kernel_length} (from t_off={t_off:.1f} frames) capped at 2000. "
+            f"This may indicate incorrect t_off measurement. Typical calcium indicators have "
+            f"t_off < 200 frames (~8-10s @ 20Hz).",
+            UserWarning,
         )
         kernel_length = 2000
 
     x = np.arange(kernel_length)
     spform = spike_form(x, t_rise, t_off)
-    conv = fftconvolve(sp, spform, mode='full')
-    return conv[:len(sp)]
+    conv = fftconvolve(sp, spform, mode="full")
+    return conv[: len(sp)]
 
 
 def ca_mse_error(t_off, ca, spk, t_rise):
-    '''Calculate RMSE between observed calcium and reconstructed from spikes.
+    """Calculate RMSE between observed calcium and reconstructed from spikes.
 
     This function is designed to be used with scipy.optimize.minimize,
     hence the parameter order with t_off first.
@@ -215,11 +216,11 @@ def ca_mse_error(t_off, ca, spk, t_rise):
     >>> error = ca_mse_error(t_off=20, ca=ca, spk=spk, t_rise=5)
     >>> error > 0
     True
-    '''
+    """
     ca = np.asarray(ca)
     spk = np.asarray(spk)
     if len(ca) != len(spk):
-        raise ValueError(f'ca and spk must have same length: {len(ca)} vs {len(spk)}')
+        raise ValueError(f"ca and spk must have same length: {len(ca)} vs {len(spk)}")
     check_positive(t_rise=t_rise, t_off=t_off)
     re_ca = get_restored_calcium(spk, t_rise, t_off)
     return np.sqrt(np.sum((ca - re_ca) ** 2) / len(ca))

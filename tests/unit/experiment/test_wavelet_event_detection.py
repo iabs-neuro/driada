@@ -212,9 +212,7 @@ class TestExtractWvtEvents:
         assert len(st_ev_inds[0]) >= 1
 
         # At least one detected event should be near the true event
-        detected_near_true = any(
-            abs(start - event_start) < 30 for start in st_ev_inds[0]
-        )
+        detected_near_true = any(abs(start - event_start) < 30 for start in st_ev_inds[0])
         assert detected_near_true, f"No event detected near frame {event_start}"
 
     def test_multiple_separated_events(self):
@@ -239,9 +237,7 @@ class TestExtractWvtEvents:
             "max_ampl_thr": 0.01,
         }
 
-        st_ev_inds, end_ev_inds, _ = extract_wvt_events(
-            traces, wvt_kwargs, show_progress=False
-        )
+        st_ev_inds, end_ev_inds, _ = extract_wvt_events(traces, wvt_kwargs, show_progress=False)
 
         # Should detect at least 2 events (might miss some due to thresholds)
         assert len(st_ev_inds[0]) >= 2
@@ -268,9 +264,7 @@ class TestExtractWvtEvents:
                 "max_ampl_thr": 0.01,
             }
 
-            st_ev_inds, _, _ = extract_wvt_events(
-                traces, wvt_kwargs, show_progress=False
-            )
+            st_ev_inds, _, _ = extract_wvt_events(traces, wvt_kwargs, show_progress=False)
 
             # Should detect at least one event at each FPS
             assert len(st_ev_inds[0]) >= 1, f"Failed to detect event at {fps} Hz"
@@ -288,9 +282,7 @@ class TestExtractWvtEvents:
         # Should not raise but return empty or handle gracefully
         # Note: This might raise ValueError due to zero range normalization
         try:
-            st_ev_inds, end_ev_inds, _ = extract_wvt_events(
-                trace, wvt_kwargs, show_progress=False
-            )
+            st_ev_inds, end_ev_inds, _ = extract_wvt_events(trace, wvt_kwargs, show_progress=False)
             # If it doesn't raise, should return empty lists
             assert len(st_ev_inds[0]) == 0
         except ValueError:
@@ -371,8 +363,7 @@ class TestGetCwtRidges:
 
         # Use default GMW parameters: beta=2, gamma=3
         ridges = get_cwt_ridges(
-            sig, wavelet=('gmw', {'beta': 2, 'gamma': 3}),
-            fps=fps, scmin=10, scmax=50
+            sig, wavelet=("gmw", {"beta": 2, "gamma": 3}), fps=fps, scmin=10, scmax=50
         )
 
         # Should find at least one ridge
@@ -392,8 +383,7 @@ class TestGetCwtRidges:
                 sig[event_start + i] += 0.6 * np.exp(-i / 15)
 
         ridges = get_cwt_ridges(
-            sig, wavelet=('gmw', {'beta': 2, 'gamma': 3}),
-            fps=fps, scmin=10, scmax=50
+            sig, wavelet=("gmw", {"beta": 2, "gamma": 3}), fps=fps, scmin=10, scmax=50
         )
 
         # Should find multiple ridges (at least 2)
@@ -405,8 +395,7 @@ class TestGetCwtRidges:
 
         with pytest.raises(ValueError, match="scmin.*must be less than scmax"):
             get_cwt_ridges(
-                sig, wavelet=('gmw', {'beta': 2, 'gamma': 3}),
-                fps=20, scmin=50, scmax=30
+                sig, wavelet=("gmw", {"beta": 2, "gamma": 3}), fps=20, scmin=50, scmax=30
             )
 
     def test_validates_1d_input(self):
@@ -415,8 +404,7 @@ class TestGetCwtRidges:
 
         with pytest.raises(ValueError, match="must be 1D"):
             get_cwt_ridges(
-                sig_2d, wavelet=('gmw', {'beta': 2, 'gamma': 3}),
-                fps=20, scmin=10, scmax=50
+                sig_2d, wavelet=("gmw", {"beta": 2, "gamma": 3}), fps=20, scmin=10, scmax=50
             )
 
     def test_ridge_has_required_attributes(self):
@@ -428,15 +416,14 @@ class TestGetCwtRidges:
         sig[100:150] = np.exp(-np.arange(50) / 15) * 0.8
 
         ridges = get_cwt_ridges(
-            sig, wavelet=('gmw', {'beta': 2, 'gamma': 3}),
-            fps=fps, scmin=5, scmax=30
+            sig, wavelet=("gmw", {"beta": 2, "gamma": 3}), fps=fps, scmin=5, scmax=30
         )
 
         if len(ridges) > 0:
             ridge = ridges[0]
-            assert hasattr(ridge, 'indices')
-            assert hasattr(ridge, 'ampls')  # Not 'amplitudes'
-            assert hasattr(ridge, 'scales')
+            assert hasattr(ridge, "indices")
+            assert hasattr(ridge, "ampls")  # Not 'amplitudes'
+            assert hasattr(ridge, "scales")
 
 
 class TestEventsFromTrace:
@@ -448,14 +435,23 @@ class TestEventsFromTrace:
         scales = get_adaptive_wavelet_scales(fps=20, n_scales=30)
 
         from ssqueezepy import Wavelet
-        wavelet = Wavelet(('gmw', {'beta': 2, 'gamma': 3}))
+
+        wavelet = Wavelet(("gmw", {"beta": 2, "gamma": 3}))
         rel_wvt_times = np.ones(30)
 
         with pytest.raises(ValueError, match="must be 1D"):
             events_from_trace(
-                trace_2d, wavelet, scales, rel_wvt_times, fps=20,
-                sigma=1, eps=4, scale_length_thr=10,
-                max_scale_thr=100, max_ampl_thr=0.01, max_dur_thr=3.0
+                trace_2d,
+                wavelet,
+                scales,
+                rel_wvt_times,
+                fps=20,
+                sigma=1,
+                eps=4,
+                scale_length_thr=10,
+                max_scale_thr=100,
+                max_ampl_thr=0.01,
+                max_dur_thr=3.0,
             )
 
     def test_validates_empty_trace(self):
@@ -464,14 +460,23 @@ class TestEventsFromTrace:
         scales = get_adaptive_wavelet_scales(fps=20, n_scales=30)
 
         from ssqueezepy import Wavelet
-        wavelet = Wavelet(('gmw', {'beta': 2, 'gamma': 3}))
+
+        wavelet = Wavelet(("gmw", {"beta": 2, "gamma": 3}))
         rel_wvt_times = np.ones(30)
 
         with pytest.raises(ValueError, match="cannot be empty"):
             events_from_trace(
-                trace_empty, wavelet, scales, rel_wvt_times, fps=20,
-                sigma=1, eps=4, scale_length_thr=10,
-                max_scale_thr=100, max_ampl_thr=0.01, max_dur_thr=3.0
+                trace_empty,
+                wavelet,
+                scales,
+                rel_wvt_times,
+                fps=20,
+                sigma=1,
+                eps=4,
+                scale_length_thr=10,
+                max_scale_thr=100,
+                max_ampl_thr=0.01,
+                max_dur_thr=3.0,
             )
 
     def test_validates_constant_trace(self):
@@ -480,14 +485,23 @@ class TestEventsFromTrace:
         scales = get_adaptive_wavelet_scales(fps=20, n_scales=30)
 
         from ssqueezepy import Wavelet
-        wavelet = Wavelet(('gmw', {'beta': 2, 'gamma': 3}))
+
+        wavelet = Wavelet(("gmw", {"beta": 2, "gamma": 3}))
         rel_wvt_times = np.ones(30)
 
         with pytest.raises(ValueError, match="zero range"):
             events_from_trace(
-                trace_const, wavelet, scales, rel_wvt_times, fps=20,
-                sigma=1, eps=4, scale_length_thr=10,
-                max_scale_thr=100, max_ampl_thr=0.01, max_dur_thr=3.0
+                trace_const,
+                wavelet,
+                scales,
+                rel_wvt_times,
+                fps=20,
+                sigma=1,
+                eps=4,
+                scale_length_thr=10,
+                max_scale_thr=100,
+                max_ampl_thr=0.01,
+                max_dur_thr=3.0,
             )
 
     def test_validates_wavelet_type(self):
@@ -498,9 +512,17 @@ class TestEventsFromTrace:
 
         with pytest.raises(TypeError, match="must be Wavelet instance"):
             events_from_trace(
-                trace, "not_a_wavelet", scales, rel_wvt_times, fps=20,
-                sigma=1, eps=4, scale_length_thr=10,
-                max_scale_thr=100, max_ampl_thr=0.01, max_dur_thr=3.0
+                trace,
+                "not_a_wavelet",
+                scales,
+                rel_wvt_times,
+                fps=20,
+                sigma=1,
+                eps=4,
+                scale_length_thr=10,
+                max_scale_thr=100,
+                max_ampl_thr=0.01,
+                max_dur_thr=3.0,
             )
 
     def test_validates_scales_times_length_match(self):
@@ -510,13 +532,22 @@ class TestEventsFromTrace:
         rel_wvt_times = np.ones(20)  # Wrong length
 
         from ssqueezepy import Wavelet
-        wavelet = Wavelet(('gmw', {'beta': 2, 'gamma': 3}))
+
+        wavelet = Wavelet(("gmw", {"beta": 2, "gamma": 3}))
 
         with pytest.raises(ValueError, match="same length"):
             events_from_trace(
-                trace, wavelet, scales, rel_wvt_times, fps=20,
-                sigma=1, eps=4, scale_length_thr=10,
-                max_scale_thr=100, max_ampl_thr=0.01, max_dur_thr=3.0
+                trace,
+                wavelet,
+                scales,
+                rel_wvt_times,
+                fps=20,
+                sigma=1,
+                eps=4,
+                scale_length_thr=10,
+                max_scale_thr=100,
+                max_ampl_thr=0.01,
+                max_dur_thr=3.0,
             )
 
 
@@ -574,13 +605,14 @@ class TestEventsToTsArrayNumba:
         assert np.sum(result[0, :15]) > 0  # Start event
         assert np.sum(result[0, 80:]) > 0  # End event
 
+
 class TestWaveletBatchOptimization:
     """Test batch processing optimization with pre-computed wavelet objects."""
 
     def test_extract_wvt_events_with_precomputed_wavelet(self):
         """Pre-computed wavelet should produce identical results to default."""
         from ssqueezepy.wavelets import Wavelet, time_resolution
-        
+
         # Create synthetic calcium trace with clear transient
         fps = 20
         t = np.linspace(0, 10, 200)
@@ -590,18 +622,19 @@ class TestWaveletBatchOptimization:
         transient_end = 80
         trace[transient_start:transient_end] = np.exp(-np.arange(30) / 10) * 0.5
         traces = trace.reshape(1, -1)
-        
-        wvt_kwargs = {'fps': fps}
-        
+
+        wvt_kwargs = {"fps": fps}
+
         # Run without pre-computed wavelet (default path)
         st_ev_default, end_ev_default, ridges_default = extract_wvt_events(
             traces, wvt_kwargs, show_progress=False
         )
-        
+
         # Pre-compute wavelet and time_resolution
         from driada.experiment.wavelet_event_detection import get_adaptive_wavelet_scales
-        gamma = wvt_kwargs.get('gamma', 3)
-        beta = wvt_kwargs.get('beta', 2)
+
+        gamma = wvt_kwargs.get("gamma", 3)
+        beta = wvt_kwargs.get("beta", 2)
         wavelet_precomputed = Wavelet(
             ("gmw", {"gamma": gamma, "beta": beta, "centered_scale": True}), N=8196
         )
@@ -610,13 +643,16 @@ class TestWaveletBatchOptimization:
             time_resolution(wavelet_precomputed, scale=sc, nondim=False, min_decay=200)
             for sc in manual_scales
         ]
-        
+
         # Run with pre-computed wavelet
         st_ev_optimized, end_ev_optimized, ridges_optimized = extract_wvt_events(
-            traces, wvt_kwargs, show_progress=False,
-            wavelet=wavelet_precomputed, rel_wvt_times=rel_wvt_times_precomputed
+            traces,
+            wvt_kwargs,
+            show_progress=False,
+            wavelet=wavelet_precomputed,
+            rel_wvt_times=rel_wvt_times_precomputed,
         )
-        
+
         # Results should be identical
         assert len(st_ev_default) == len(st_ev_optimized)
         assert len(end_ev_default) == len(end_ev_optimized)
@@ -628,20 +664,21 @@ class TestWaveletBatchOptimization:
         """Neuron.reconstruct_spikes should work with pre-computed objects."""
         from driada.experiment.neuron import Neuron
         from ssqueezepy.wavelets import Wavelet, time_resolution
-        
+
         # Create synthetic calcium trace
         fps = 20
         trace = np.zeros(200)
         trace[50:80] = np.exp(-np.arange(30) / 10) * 0.5
-        
+
         neuron = Neuron(cell_id="test", ca=trace, sp=None, fps=fps)
-        
+
         # Reconstruct without optimization (default)
-        neuron.reconstruct_spikes(method='wavelet', fps=fps, iterative=False)
+        neuron.reconstruct_spikes(method="wavelet", fps=fps, iterative=False)
         asp_default = neuron.asp.data.copy()
-        
+
         # Pre-compute wavelet objects
         from driada.experiment.wavelet_event_detection import get_adaptive_wavelet_scales
+
         wavelet_precomputed = Wavelet(
             ("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196
         )
@@ -650,15 +687,18 @@ class TestWaveletBatchOptimization:
             time_resolution(wavelet_precomputed, scale=sc, nondim=False, min_decay=200)
             for sc in manual_scales
         ]
-        
+
         # Create new neuron and reconstruct with optimization
         neuron2 = Neuron(cell_id="test2", ca=trace, sp=None, fps=fps)
         neuron2.reconstruct_spikes(
-            method='wavelet', fps=fps, iterative=False,
-            wavelet=wavelet_precomputed, rel_wvt_times=rel_wvt_times_precomputed
+            method="wavelet",
+            fps=fps,
+            iterative=False,
+            wavelet=wavelet_precomputed,
+            rel_wvt_times=rel_wvt_times_precomputed,
         )
         asp_optimized = neuron2.asp.data
-        
+
         # Results should be identical
         assert np.array_equal(asp_default, asp_optimized)
 
@@ -666,17 +706,18 @@ class TestWaveletBatchOptimization:
         """Iterative reconstruction should work with pre-computed objects."""
         from driada.experiment.neuron import Neuron
         from ssqueezepy.wavelets import Wavelet, time_resolution
-        
+
         # Create synthetic trace with overlapping events
         fps = 20
         trace = np.zeros(300)
         trace[50:100] = np.exp(-np.arange(50) / 15) * 0.6
         trace[90:130] = trace[90:130] + np.exp(-np.arange(40) / 12) * 0.4
-        
+
         neuron = Neuron(cell_id="test", ca=trace, sp=None, fps=fps)
-        
+
         # Pre-compute wavelet objects
         from driada.experiment.wavelet_event_detection import get_adaptive_wavelet_scales
+
         wavelet_precomputed = Wavelet(
             ("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196
         )
@@ -685,13 +726,17 @@ class TestWaveletBatchOptimization:
             time_resolution(wavelet_precomputed, scale=sc, nondim=False, min_decay=200)
             for sc in manual_scales
         ]
-        
+
         # Iterative reconstruction with optimization
         neuron.reconstruct_spikes(
-            method='wavelet', fps=fps, iterative=True, n_iter=3,
-            wavelet=wavelet_precomputed, rel_wvt_times=rel_wvt_times_precomputed
+            method="wavelet",
+            fps=fps,
+            iterative=True,
+            n_iter=3,
+            wavelet=wavelet_precomputed,
+            rel_wvt_times=rel_wvt_times_precomputed,
         )
-        
+
         # Should successfully complete and produce events
         assert neuron.asp is not None
         assert len(neuron.asp.data) == len(trace)
@@ -703,18 +748,17 @@ class TestWaveletBatchOptimization:
         trace = np.zeros(100)
         trace[30:50] = 0.5
         traces = trace.reshape(1, -1)
-        
-        wvt_kwargs = {'fps': fps}
-        
+
+        wvt_kwargs = {"fps": fps}
+
         # Call without explicit None
         st_ev_1, end_ev_1, _ = extract_wvt_events(traces, wvt_kwargs, show_progress=False)
-        
+
         # Call with explicit None
         st_ev_2, end_ev_2, _ = extract_wvt_events(
-            traces, wvt_kwargs, show_progress=False,
-            wavelet=None, rel_wvt_times=None
+            traces, wvt_kwargs, show_progress=False, wavelet=None, rel_wvt_times=None
         )
-        
+
         # Should produce identical results
         assert len(st_ev_1) == len(st_ev_2)
         if len(st_ev_1[0]) > 0:
@@ -724,38 +768,40 @@ class TestWaveletBatchOptimization:
     def test_precomputed_reusable_across_multiple_calls(self):
         """Pre-computed objects should be reusable for multiple neurons."""
         from ssqueezepy.wavelets import Wavelet, time_resolution
-        
+
         fps = 20
         n_neurons = 5
-        
+
         # Create multiple synthetic traces
         traces = []
         for i in range(n_neurons):
             trace = np.zeros(150)
             start = 30 + i * 10
-            trace[start:start+20] = 0.4 + i * 0.1
+            trace[start : start + 20] = 0.4 + i * 0.1
             traces.append(trace)
         traces = np.array(traces)
-        
+
         # Pre-compute once
         from driada.experiment.wavelet_event_detection import get_adaptive_wavelet_scales
-        wavelet_shared = Wavelet(
-            ("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196
-        )
+
+        wavelet_shared = Wavelet(("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196)
         manual_scales = get_adaptive_wavelet_scales(fps)
         rel_wvt_times_shared = [
             time_resolution(wavelet_shared, scale=sc, nondim=False, min_decay=200)
             for sc in manual_scales
         ]
-        
-        wvt_kwargs = {'fps': fps}
-        
+
+        wvt_kwargs = {"fps": fps}
+
         # Use same pre-computed objects for all neurons
         st_ev, end_ev, _ = extract_wvt_events(
-            traces, wvt_kwargs, show_progress=False,
-            wavelet=wavelet_shared, rel_wvt_times=rel_wvt_times_shared
+            traces,
+            wvt_kwargs,
+            show_progress=False,
+            wavelet=wavelet_shared,
+            rel_wvt_times=rel_wvt_times_shared,
         )
-        
+
         # Should successfully process all neurons
         assert len(st_ev) == n_neurons
         assert len(end_ev) == n_neurons

@@ -41,7 +41,7 @@ def plot_embedding_comparison(
         Arrays must be 2D with at least 2 components.
     features : dict, optional
         Dictionary mapping feature names to feature arrays. Arrays must have same
-        length as embeddings. Default features used: 'angle' (circular position 
+        length as embeddings. Default features used: 'angle' (circular position
         in radians [-π, π]) and 'speed'
     feature_names : dict, optional
         Dictionary mapping feature keys to display names
@@ -64,24 +64,26 @@ def plot_embedding_comparison(
     -------
     fig : matplotlib.figure.Figure
         The generated figure
-    
+
     Raises
     ------
     ValueError
         If embeddings are not 2D arrays with at least 2 components, or if
         feature arrays have mismatched lengths
-    
+
     Notes
     -----
     Methods not found in embeddings dict are silently skipped.
-    KDE computation failures are caught and contours are omitted.    """
+    KDE computation failures are caught and contours are omitted."""
     # Validate embeddings
     for method, embedding in embeddings.items():
         if embedding.ndim != 2:
             raise ValueError(f"Embedding for {method} must be 2D, got shape {embedding.shape}")
         if embedding.shape[1] < 2:
-            raise ValueError(f"Embedding for {method} must have at least 2 components, got {embedding.shape[1]}")
-    
+            raise ValueError(
+                f"Embedding for {method} must have at least 2 components, got {embedding.shape[1]}"
+            )
+
     if methods is None:
         methods = list(embeddings.keys())
 
@@ -121,13 +123,15 @@ def plot_embedding_comparison(
             continue
 
         embedding = embeddings[method]
-        
+
         # Validate features match embedding length
         if features is not None:
             for feat_name, feat_array in features.items():
                 if len(feat_array) != len(embedding):
-                    raise ValueError(f"Feature '{feat_name}' length ({len(feat_array)}) "
-                                   f"doesn't match embedding length ({len(embedding)})")
+                    raise ValueError(
+                        f"Feature '{feat_name}' length ({len(feat_array)}) "
+                        f"doesn't match embedding length ({len(embedding)})"
+                    )
 
         # First row: colored by angle/position
         ax1 = fig.add_subplot(gs[0, i])
@@ -149,9 +153,7 @@ def plot_embedding_comparison(
                 edgecolors="none",
             )
 
-            cbar = plt.colorbar(
-                scatter, ax=ax1, label=feature_names.get("angle", "Angle")
-            )
+            cbar = plt.colorbar(scatter, ax=ax1, label=feature_names.get("angle", "Angle"))
             # Set colorbar ticks to show actual angles
             cbar.set_ticks([0, 0.25, 0.5, 0.75, 1])
             cbar.set_ticklabels(["-π", "-π/2", "0", "π/2", "π"])
@@ -192,9 +194,7 @@ def plot_embedding_comparison(
                 edgecolors="none",
             )
 
-            cbar = plt.colorbar(
-                scatter, ax=ax2, label=feature_names.get("speed", "Speed")
-            )
+            cbar = plt.colorbar(scatter, ax=ax2, label=feature_names.get("speed", "Speed"))
 
             # Add percentile markers if requested
             if compute_metrics:
@@ -232,9 +232,7 @@ def plot_embedding_comparison(
 
             # Add arrow markers to show direction
             trajectory_samples = len(embedding)
-            arrow_spacing = max(
-                1, trajectory_samples // default_traj_kwargs["arrow_spacing"]
-            )
+            arrow_spacing = max(1, trajectory_samples // default_traj_kwargs["arrow_spacing"])
 
             for j in range(0, trajectory_samples - arrow_spacing, arrow_spacing):
                 if j + 1 < trajectory_samples:
@@ -330,20 +328,22 @@ def plot_trajectories(
     -------
     fig : matplotlib.figure.Figure
         The generated figure
-    
+
     Raises
     ------
     ValueError
-        If embeddings are not 2D arrays with at least 2 components    """
+        If embeddings are not 2D arrays with at least 2 components"""
     # Validate embeddings
     for method, embedding in embeddings.items():
         if embedding.ndim != 2:
             raise ValueError(f"Embedding for {method} must be 2D, got shape {embedding.shape}")
         if embedding.shape[1] < 2:
-            raise ValueError(f"Embedding for {method} must have at least 2 components, got {embedding.shape[1]}")
+            raise ValueError(
+                f"Embedding for {method} must have at least 2 components, got {embedding.shape[1]}"
+            )
         if len(embedding) == 0:
             raise ValueError(f"Embedding for {method} is empty")
-    
+
     if methods is None:
         methods = list(embeddings.keys())
 
@@ -400,7 +400,7 @@ def plot_trajectories(
                     x_range = embedding[:, 0].max() - embedding[:, 0].min()
                     y_range = embedding[:, 1].max() - embedding[:, 1].min()
                     arrow_scale = min(x_range, y_range) * 0.01
-                    
+
                     ax.arrow(
                         embedding[j, 0],
                         embedding[j, 1],
@@ -493,21 +493,23 @@ def plot_component_interpretation(
     -------
     fig : matplotlib.figure.Figure
         The generated figure
-    
+
     Raises
     ------
     ValueError
-        If MI matrices are not 2D or contain negative values    """
+        If MI matrices are not 2D or contain negative values"""
     # Validate MI matrices
     for method, mi_matrix in mi_matrices.items():
         if mi_matrix.ndim != 2:
             raise ValueError(f"MI matrix for {method} must be 2D, got shape {mi_matrix.shape}")
         if len(feature_names) != mi_matrix.shape[0]:
-            raise ValueError(f"MI matrix for {method} has {mi_matrix.shape[0]} features but "
-                           f"feature_names has {len(feature_names)} names")
+            raise ValueError(
+                f"MI matrix for {method} has {mi_matrix.shape[0]} features but "
+                f"feature_names has {len(feature_names)} names"
+            )
         if np.any(mi_matrix < 0):
             raise ValueError(f"MI matrix for {method} contains negative values")
-    
+
     if methods is None:
         methods = list(mi_matrices.keys())
 
@@ -583,9 +585,7 @@ def plot_component_interpretation(
             # For PCA, show explained variance
             if method.lower() == "pca" and "explained_variance_ratio" in method_meta:
                 var_exp = method_meta["explained_variance_ratio"][:n_comp_show]
-                var_text = "Var explained: " + ", ".join(
-                    [f"{v*100:.1f}%" for v in var_exp]
-                )
+                var_text = "Var explained: " + ", ".join([f"{v*100:.1f}%" for v in var_exp])
                 ax.text(
                     0.5,
                     -0.15,
@@ -653,11 +653,11 @@ def plot_embeddings_grid(
     -------
     fig : matplotlib.figure.Figure or None
         The generated figure, or None if no valid embeddings to plot
-    
+
     Raises
     ------
     ValueError
-        If embeddings are not 2D or label lengths mismatch    """
+        If embeddings are not 2D or label lengths mismatch"""
     if methods is None:
         methods = list(embeddings.keys())
 
@@ -675,8 +675,10 @@ def plot_embeddings_grid(
             if embeddings[method][scenario] is not None:
                 embedding = embeddings[method][scenario]
                 if embedding.ndim != 2 or embedding.shape[1] < 2:
-                    raise ValueError(f"Embedding for {method}/{scenario} must be 2D with "
-                                   f"at least 2 components, got shape {embedding.shape}")
+                    raise ValueError(
+                        f"Embedding for {method}/{scenario} must be 2D with "
+                        f"at least 2 components, got shape {embedding.shape}"
+                    )
                 all_plots.append((method, scenario))
 
     if not all_plots:
@@ -710,15 +712,19 @@ def plot_embeddings_grid(
             if method in labels and scenario in labels[method]:
                 color_labels = labels[method][scenario]
                 if len(color_labels) != len(embedding):
-                    raise ValueError(f"Labels for {method}/{scenario} have length {len(color_labels)} "
-                                   f"but embedding has {len(embedding)} samples")
+                    raise ValueError(
+                        f"Labels for {method}/{scenario} have length {len(color_labels)} "
+                        f"but embedding has {len(embedding)} samples"
+                    )
             else:
                 color_labels = np.arange(len(embedding))
         else:
             color_labels = labels
             if len(color_labels) != len(embedding):
-                raise ValueError(f"Labels have length {len(color_labels)} but embedding "
-                               f"for {method}/{scenario} has {len(embedding)} samples")
+                raise ValueError(
+                    f"Labels have length {len(color_labels)} but embedding "
+                    f"for {method}/{scenario} has {len(embedding)} samples"
+                )
 
         # Create scatter plot
         scatter = ax.scatter(
@@ -794,27 +800,29 @@ def plot_neuron_selectivity_summary(
     Returns
     -------
     fig : matplotlib.figure.Figure
-    
+
     Raises
     ------
     ValueError
-        If total_neurons <= 0 or counts are invalid    """
+        If total_neurons <= 0 or counts are invalid"""
     # Validate inputs using utility functions
     check_positive(total_neurons=total_neurons)
-    
+
     # Validate counts
     for category, count in selectivity_counts.items():
         if not isinstance(count, (int, np.integer)):
-            raise ValueError(f"Count for category '{category}' must be an integer, got {type(count).__name__}")
-    
+            raise ValueError(
+                f"Count for category '{category}' must be an integer, got {type(count).__name__}"
+            )
+
     # Check all counts are non-negative
     check_nonnegative(**selectivity_counts)
-    
+
     # Check sum doesn't exceed total
     total_count = sum(selectivity_counts.values())
     if total_count > total_neurons:
         raise ValueError(f"Sum of counts ({total_count}) exceeds total_neurons ({total_neurons})")
-    
+
     if colors is None:
         # Default colors for common categories
         colors = {
@@ -910,23 +918,23 @@ def plot_component_selectivity_heatmap(
     -------
     fig : matplotlib.figure.Figure
         The generated figure
-    
+
     Raises
     ------
     ValueError
         If selectivity_matrix is not 2D, contains negative values,
-        methods list is empty, or component counts don't match matrix    """
+        methods list is empty, or component counts don't match matrix"""
     # Validate inputs
     if selectivity_matrix.ndim != 2:
         raise ValueError(f"selectivity_matrix must be 2D, got shape {selectivity_matrix.shape}")
-    
+
     if len(methods) == 0:
         raise ValueError("methods list cannot be empty")
-    
+
     # Check for non-negative values
     if np.any(selectivity_matrix < 0):
         raise ValueError("selectivity_matrix cannot contain negative values")
-    
+
     # Check for NaN or inf
     if np.any(~np.isfinite(selectivity_matrix)):
         raise ValueError("selectivity_matrix contains NaN or infinite values")
@@ -936,15 +944,19 @@ def plot_component_selectivity_heatmap(
         # Assume equal components per method
         n_methods = len(methods)
         if total_components % n_methods != 0:
-            raise ValueError(f"Total components ({total_components}) not evenly divisible by number of methods ({n_methods})")
+            raise ValueError(
+                f"Total components ({total_components}) not evenly divisible by number of methods ({n_methods})"
+            )
         n_comp_each = total_components // n_methods
         n_components_per_method = {m: n_comp_each for m in methods}
     else:
         # Validate component counts match matrix
         total_specified = sum(n_components_per_method.values())
         if total_specified != total_components:
-            raise ValueError(f"Sum of components ({total_specified}) doesn't match matrix columns ({total_components})")
-        
+            raise ValueError(
+                f"Sum of components ({total_specified}) doesn't match matrix columns ({total_components})"
+            )
+
         # Ensure all methods have component counts
         for method in methods:
             if method not in n_components_per_method:
@@ -966,9 +978,7 @@ def plot_component_selectivity_heatmap(
         method_matrix = selectivity_matrix[:, comp_start : comp_start + n_comp]
 
         # Plot heatmap
-        im = ax.imshow(
-            method_matrix.T, aspect="auto", cmap="hot", interpolation="nearest"
-        )
+        im = ax.imshow(method_matrix.T, aspect="auto", cmap="hot", interpolation="nearest")
 
         ax.set_xlabel("Neuron ID")
         ax.set_ylabel("Component")

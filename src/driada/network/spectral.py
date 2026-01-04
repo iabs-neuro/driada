@@ -23,7 +23,7 @@ def free_entropy(spectrum, t):
     Raises
     ------
     ValueError
-        If spectrum is empty, if t is not positive, or if all exponentials 
+        If spectrum is empty, if t is not positive, or if all exponentials
         underflow to zero (partition function becomes zero).
 
     See Also
@@ -42,22 +42,24 @@ def free_entropy(spectrum, t):
     >>> spectrum = np.array([0, 1, 2, 3])
     >>> F = free_entropy(spectrum, t=1.0)
     >>> F > 0  # Free entropy is typically positive
-    True    """
+    True"""
     # Input validation
     spectrum = np.asarray(spectrum)
     if spectrum.size == 0:
         raise ValueError("Spectrum array cannot be empty")
     check_positive(t=t)
-    
+
     # eq.2 in https://www.nature.com/articles/s42005-021-00582-8#Sec10
     eigenvalues = np.exp(-t * spectrum)
     Z = np.sum(eigenvalues)
-    
+
     # Check for underflow
     if Z <= 0 or not np.isfinite(Z):
-        raise ValueError(f"Partition function underflow: Z = {Z}. "
-                        "This can happen with large positive eigenvalues and large t.")
-    
+        raise ValueError(
+            f"Partition function underflow: Z = {Z}. "
+            "This can happen with large positive eigenvalues and large t."
+        )
+
     F = np.log2(np.real(Z))
     return F
 
@@ -86,7 +88,7 @@ def q_entropy(spectrum, t, q=1):
     Raises
     ------
     ValueError
-        If spectrum is empty, if t is not positive, if q <= 0, or if 
+        If spectrum is empty, if t is not positive, if q <= 0, or if
         imaginary entropy is detected.
 
     See Also
@@ -99,10 +101,10 @@ def q_entropy(spectrum, t, q=1):
     The Rényi q-entropy is defined as:
     - For q = 1: S_1(ρ) = -Tr(ρ log₂ ρ) (von Neumann entropy)
     - For q ≠ 1: S_q(ρ) = (1/(1-q)) log₂(Tr(ρ^q))
-    
+
     For density matrix ρ = exp(-tL)/Z, this reduces to:
     S_q = (1/(1-q)) log₂(Z^(-q) sum_i exp(-tqλ_i))
-    
+
     The Rényi entropy generalizes information measures:
     - q → 0: S_0 = log₂(rank(ρ)) (Hartley entropy)
     - q = 1: S_1 = von Neumann entropy
@@ -117,13 +119,13 @@ def q_entropy(spectrum, t, q=1):
     Examples
     --------
     >>> spectrum = np.array([0, 1, 2, 3])
-    >>> S = q_entropy(spectrum, t=1.0, q=2)  # Rényi 2-entropy    """
+    >>> S = q_entropy(spectrum, t=1.0, q=2)  # Rényi 2-entropy"""
     # Input validation
     spectrum = np.asarray(spectrum)
     if spectrum.size == 0:
         raise ValueError("Spectrum array cannot be empty")
     check_positive(t=t, q=q)
-    
+
     Z = np.sum(np.exp(-t * spectrum))
     if q != 1:
         eigenvalues = np.exp(-t * q * spectrum)
@@ -155,7 +157,7 @@ def spectral_entropy(spectrum, t, verbose=0):
     Returns
     -------
     float
-        Von Neumann entropy S = -sum(p_i * log2(p_i)), where 
+        Von Neumann entropy S = -sum(p_i * log2(p_i)), where
         p_i = exp(-t*λ_i) / Z and Z = sum(exp(-t*λ_i)).
 
     Raises
@@ -191,27 +193,29 @@ def spectral_entropy(spectrum, t, verbose=0):
     >>> spectrum = np.array([0, 1, 1, 2])  # Laplacian eigenvalues
     >>> S = spectral_entropy(spectrum, t=1.0)
     >>> 0 <= S <= np.log2(len(spectrum))  # Entropy bounds
-    True    """
+    True"""
     # Input validation
     spectrum = np.asarray(spectrum)
     if spectrum.size == 0:
         raise ValueError("Spectrum array cannot be empty")
     check_positive(t=t)
-    
+
     eigenvalues = np.exp(-t * spectrum)
     Z = np.sum(eigenvalues)
-    
+
     # Check for underflow
     if Z <= 0 or not np.isfinite(Z):
-        raise ValueError(f"Partition function underflow: Z = {Z}. "
-                        "This can happen with large positive eigenvalues and large t.")
-    
+        raise ValueError(
+            f"Partition function underflow: Z = {Z}. "
+            "This can happen with large positive eigenvalues and large t."
+        )
+
     norm_eigenvalues = np.trim_zeros(eigenvalues / Z)
-    
+
     # Handle edge case where all probabilities are trimmed
     if len(norm_eigenvalues) == 0:
         return 0.0
-    
+
     S = -np.real(np.sum(np.multiply(norm_eigenvalues, np.log2(norm_eigenvalues))))
 
     if verbose:

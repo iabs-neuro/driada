@@ -173,9 +173,7 @@ def test_mixed_population_defaults(mixed_population_experiment):
             },
             verbose=False,
         )
-        peak_rate_warnings = [
-            warning for warning in w if "peak_rate" in str(warning.message)
-        ]
+        peak_rate_warnings = [warning for warning in w if "peak_rate" in str(warning.message)]
         assert len(peak_rate_warnings) > 0
 
 

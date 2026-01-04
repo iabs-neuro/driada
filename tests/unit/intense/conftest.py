@@ -64,9 +64,7 @@ def base_correlated_signals_large():
     return signals, n, T
 
 
-def _create_windowed_signals(
-    signals, n, T, w=100, noise_scale=0.02
-):  # Reduced from 0.2
+def _create_windowed_signals(signals, n, T, w=100, noise_scale=0.02):  # Reduced from 0.2
     """Apply windowing and noise to signals."""
     # Create windowed version
     np.random.seed(42)

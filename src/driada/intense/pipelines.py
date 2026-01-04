@@ -179,14 +179,14 @@ def compute_cell_feat_significance(
         - 'disent_matrix': Disentanglement results matrix
         - 'count_matrix': Count matrix from disentanglement
         - 'summary': Summary statistics from disentanglement
-    
+
     Raises
     ------
     ValueError
         If data_type is not 'calcium' or 'spikes'
         If features are not found in experiment
         If allow_mixed_dimensions enabled with unknown feature type
-    
+
     Notes
     -----
     - When joint_distr=True, all features are combined into a single multifeature
@@ -194,19 +194,19 @@ def compute_cell_feat_significance(
     - Updates exp.optimal_nf_delays as a side effect
     - Relative MI values are computed using appropriate neural data entropy
     - When with_disentanglement=True, feat-feat uses 1/10 the shuffles of neuron-feat
-    
+
     Examples
     --------
     >>> from driada.experiment.synthetic import generate_synthetic_exp
     >>> import numpy as np
-    >>> 
+    >>>
     >>> # Create small test experiment
-    >>> exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=1, nneurons=3, 
+    >>> exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=1, nneurons=3,
     ...                              duration=60, fps=10, seed=42, verbose=False)
-    >>> 
+    >>>
     >>> # Basic neuron-feature analysis (stage1 for speed)
     >>> stats, sig, info, res = compute_cell_feat_significance(
-    ...     exp, 
+    ...     exp,
     ...     cell_bunch=[0, 1],
     ...     feat_bunch=['d_feat_0'],
     ...     mode='stage1',
@@ -218,7 +218,7 @@ def compute_cell_feat_significance(
     2
     >>> 'd_feat_0' in stats[0]  # Feature present in results
     True
-    >>> 
+    >>>
     >>> # With disentanglement analysis
     >>> result = compute_cell_feat_significance(
     ...     exp,
@@ -233,7 +233,7 @@ def compute_cell_feat_significance(
     5
     >>> stats, sig, info, res, disent = result
     >>> 'disent_matrix' in disent
-    True    """
+    True"""
 
     exp.check_ds(ds)
 
@@ -251,9 +251,7 @@ def compute_cell_feat_significance(
     # min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
     if not allow_mixed_dimensions:
         feats = [
-            exp.dynamic_features[feat_id]
-            for feat_id in feat_ids
-            if feat_id in exp.dynamic_features
+            exp.dynamic_features[feat_id] for feat_id in feat_ids if feat_id in exp.dynamic_features
         ]
         if joint_distr:
             feat_ids = [tuple(sorted(feat_ids))]
@@ -296,9 +294,7 @@ def compute_cell_feat_significance(
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
                 try:
-                    pair_stats = exp.get_neuron_feature_pair_stats(
-                        cell_id, feat_id, mode=data_type
-                    )
+                    pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_id, mode=data_type)
                 except (ValueError, KeyError):
                     if isinstance(feat_id, str):
                         raise ValueError(
@@ -367,9 +363,9 @@ def compute_cell_feat_significance(
                     raise ValueError(
                         f"Feature '{feat_id}' not found in data hashes. This may indicate the feature was not properly initialized."
                     )
-            computed_stats[cell_id][feat_id]["data_hash"] = exp._data_hashes[data_type][
-                feat_id
-            ][cell_id]
+            computed_stats[cell_id][feat_id]["data_hash"] = exp._data_hashes[data_type][feat_id][
+                cell_id
+            ]
 
             me_val = computed_stats[cell_id][feat_id].get("me")
             if me_val is not None and metric == "mi":
@@ -421,8 +417,8 @@ def compute_cell_feat_significance(
     }
 
     intense_res = IntenseResults()
-    intense_res.update('stats', computed_stats)
-    intense_res.update('significance', computed_significance)
+    intense_res.update("stats", computed_stats)
+    intense_res.update("significance", computed_significance)
     intense_res.update("info", info)
     intense_res.update("intense_params", intense_params)
 
@@ -492,9 +488,7 @@ def compute_cell_feat_significance(
                     f"Total mixed selectivity pairs analyzed: {summary['overall_stats']['total_neuron_pairs']}"
                 )
                 if "redundancy_rate" in summary["overall_stats"]:
-                    print(
-                        f"Redundancy rate: {summary['overall_stats']['redundancy_rate']:.1f}%"
-                    )
+                    print(f"Redundancy rate: {summary['overall_stats']['redundancy_rate']:.1f}%")
                 if "independence_rate" in summary["overall_stats"]:
                     print(
                         f"Independence rate: {summary['overall_stats']['independence_rate']:.1f}%"
@@ -624,11 +618,11 @@ def compute_feat_feat_significance(
     Examples
     --------
     >>> from driada.experiment.synthetic import generate_synthetic_exp
-    >>> 
+    >>>
     >>> # Create test experiment
     >>> exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=3,
     ...                              duration=60, fps=10, seed=42, verbose=False)
-    >>> 
+    >>>
     >>> # Compute feature-feature correlations
     >>> sim_mat, sig_mat, pval_mat, features, info = compute_feat_feat_significance(
     ...     exp,
@@ -640,8 +634,8 @@ def compute_feat_feat_significance(
     True
     >>> np.allclose(np.diag(sim_mat), 0)  # Diagonal is zero
     True
-    >>> 
-    >>> # Analyze specific features only  
+    >>>
+    >>> # Analyze specific features only
     >>> sim_mat2, sig_mat2, pval_mat2, features2, info2 = compute_feat_feat_significance(
     ...     exp,
     ...     feat_bunch=['d_feat_0', 'd_feat_1'],
@@ -651,19 +645,19 @@ def compute_feat_feat_significance(
     ... )
     >>> sim_mat2.shape == (2, 2)
     True
-    
+
     Raises
     ------
     ValueError
         If features are not found in experiment
-    
+
     Notes
     -----
     - Only upper triangle is computed for efficiency (matrix is symmetric)
     - Diagonal elements are always zero (self-similarity prevented)
     - No delay optimization is performed between features
     - Supports both discrete and continuous features
-    - Multifeatures are created using aggregate_multiple_ts    """
+    - Multifeatures are created using aggregate_multiple_ts"""
     import numpy as np
 
     # Process feature bunch - default is all features
@@ -902,17 +896,17 @@ def compute_cell_cell_significance(
     >>> from driada.experiment.synthetic import generate_synthetic_exp
     >>> from driada.information.info_base import TimeSeries
     >>> import numpy as np
-    >>> 
+    >>>
     >>> # Create experiment with correlated neurons
     >>> exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=1, nneurons=3,
     ...                              duration=60, fps=10, seed=42, verbose=False)
-    >>> 
+    >>>
     >>> # Make neurons 0 and 1 correlated
     >>> noise = np.random.RandomState(42).randn(len(exp.neurons[0].ca.data)) * 0.1
     >>> exp.neurons[1].ca = TimeSeries(
     ...     exp.neurons[0].ca.data + noise, discrete=False
     ... )
-    >>> 
+    >>>
     >>> # Compute neuron-neuron correlations
     >>> sim_mat, sig_mat, pval_mat, cells, info = compute_cell_cell_significance(
     ...     exp,
@@ -927,19 +921,19 @@ def compute_cell_cell_significance(
     True
     >>> sim_mat[0, 1] > sim_mat[0, 2]  # Neurons 0,1 more correlated than 0,2
     True
-    
+
     Raises
     ------
     ValueError
         If data_type is not 'calcium' or 'spikes'
         If spike data is missing for requested neurons
-    
+
     Notes
     -----
     - Only upper triangle is computed for efficiency (matrix is symmetric)
     - Warns if all neurons have identical spike data
     - Computes network statistics when verbose=True
-    - Synchronous activity assumed (no delay optimization)    """
+    - Synchronous activity assumed (no delay optimization)"""
     import numpy as np
 
     # Check downsampling
@@ -1172,13 +1166,13 @@ def compute_embedding_selectivity(
         - 'significant_neurons': Dict of neurons significantly selective to embedding components
         - 'n_components': Number of embedding components
         - 'component_selectivity': For each component, list of selective neurons
-    
+
     Raises
     ------
     ValueError
         If no embeddings found for specified data_type
         If embedding method not found
-    
+
     Notes
     -----
     - Temporarily adds embedding components as dynamic features
@@ -1186,23 +1180,23 @@ def compute_embedding_selectivity(
     - Component names follow pattern "{method}_comp{index}"
     - Cleanup in finally block ensures experiment state restored
     - Only stage2 significance is considered for results
-    
+
     Examples
     --------
     >>> from driada.experiment.synthetic import generate_synthetic_exp
     >>> from sklearn.decomposition import PCA
     >>> import numpy as np
-    >>> 
+    >>>
     >>> # Create experiment
     >>> exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=1, nneurons=5,
     ...                              duration=60, fps=10, seed=42, verbose=False)
-    >>> 
+    >>>
     >>> # Create and store PCA embedding
     >>> neural_data = np.array([exp.neurons[i].ca.data for i in range(5)]).T
     >>> pca = PCA(n_components=2, random_state=42)
     >>> embedding = pca.fit_transform(neural_data)
     >>> exp.store_embedding(embedding, method_name='pca', data_type='calcium')
-    >>> 
+    >>>
     >>> # Compute embedding selectivity
     >>> results = compute_embedding_selectivity(
     ...     exp,
@@ -1213,19 +1207,19 @@ def compute_embedding_selectivity(
     ...     verbose=False
     ... )  # doctest: +ELLIPSIS
     ...
-    >>> 
+    >>>
     >>> 'pca' in results
     True
     >>> results['pca']['n_components']
     2
     >>> 'component_selectivity' in results['pca']
     True
-    
+
     See Also
     --------
     ~driada.intense.pipelines.compute_cell_feat_significance : Compute selectivity for behavioral features
     ~driada.integration.manifold_analysis.get_functional_organization : Analyze organization in embeddings
-    ~driada.integration.manifold_analysis.compare_embeddings : Compare multiple embedding methods    """
+    ~driada.integration.manifold_analysis.compare_embeddings : Compare multiple embedding methods"""
 
     # Get list of embedding methods to analyze
     if embedding_methods is None:
@@ -1257,9 +1251,7 @@ def compute_embedding_selectivity(
         embedding_features = {}
         for comp_idx in range(n_components):
             feat_name = f"{method_name}_comp{comp_idx}"
-            embedding_features[feat_name] = TimeSeries(
-                embedding_data[:, comp_idx], discrete=False
-            )
+            embedding_features[feat_name] = TimeSeries(embedding_data[:, comp_idx], discrete=False)
 
         # Temporarily add embedding components to dynamic features
         original_features = exp.dynamic_features.copy()
@@ -1313,9 +1305,7 @@ def compute_embedding_selectivity(
                 for feat_name in embedding_features.keys():
                     if feat_name in significance[neuron_id]:
                         sig_info = significance[neuron_id][feat_name]
-                        if sig_info.get(
-                            "stage2", False
-                        ):  # Check if significant in stage 2
+                        if sig_info.get("stage2", False):  # Check if significant in stage 2
                             if neuron_id not in significant_neurons:
                                 significant_neurons[neuron_id] = []
                             significant_neurons[neuron_id].append(feat_name)
@@ -1352,9 +1342,7 @@ def compute_embedding_selectivity(
                 for comp_idx in range(n_components):
                     n_selective = len(component_selectivity[comp_idx])
                     if n_selective > 0:
-                        print(
-                            f"  Component {comp_idx}: {n_selective} selective neurons"
-                        )
+                        print(f"  Component {comp_idx}: {n_selective} selective neurons")
 
         finally:
             # Restore original features

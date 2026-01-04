@@ -274,6 +274,7 @@ class TestBinaryMIScoreValidation:
     def test_binary_mi_score_1d_input_raises_error(self):
         """Test that 1D input raises ValueError."""
         import pytest
+
         contingency_1d = np.array([10, 20, 30])
         with pytest.raises(ValueError, match="must be 2D"):
             binary_mi_score(contingency_1d)
@@ -281,6 +282,7 @@ class TestBinaryMIScoreValidation:
     def test_binary_mi_score_3d_input_raises_error(self):
         """Test that 3D input raises ValueError."""
         import pytest
+
         contingency_3d = np.array([[[10, 20], [30, 40]], [[50, 60], [70, 80]]])
         with pytest.raises(ValueError, match="must be 2D"):
             binary_mi_score(contingency_3d)
@@ -288,6 +290,7 @@ class TestBinaryMIScoreValidation:
     def test_binary_mi_score_negative_values_raises_error(self):
         """Test that negative values in contingency table raise ValueError."""
         import pytest
+
         contingency = np.array([[10, -5], [20, 15]])
         with pytest.raises(ValueError, match="cannot contain negative"):
             binary_mi_score(contingency)

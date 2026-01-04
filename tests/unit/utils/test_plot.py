@@ -105,7 +105,7 @@ class TestMakeBeautiful:
         ax.plot([0, 1], [0, 1], label="Line 1")
         ax.plot([0, 1], [1, 0], label="Line 2")
         ax.legend()
-        make_beautiful(ax, legend_loc='above')
+        make_beautiful(ax, legend_loc="above")
 
         # Check that legend was repositioned
         bbox = ax.legend_.get_bbox_to_anchor()
@@ -119,7 +119,7 @@ class TestMakeBeautiful:
         ax.plot([0, 1], [0, 1], label="Line 1")
         ax.plot([0, 1], [1, 0], label="Line 2")
         ax.legend()
-        make_beautiful(ax, legend_loc='below')
+        make_beautiful(ax, legend_loc="below")
 
         # Check that legend was repositioned
         bbox = ax.legend_.get_bbox_to_anchor()
@@ -132,7 +132,7 @@ class TestMakeBeautiful:
         fig, ax = plt.subplots()
         ax.plot([0, 1], [0, 1], label="Test")
         ax.legend()
-        make_beautiful(ax, legend_loc='upper left')
+        make_beautiful(ax, legend_loc="upper left")
 
         # Legend should be in upper left
         assert ax.legend_._loc == 2  # 2 is the code for 'upper left'
@@ -143,7 +143,7 @@ class TestMakeBeautiful:
         fig, ax = plt.subplots()
         ax.plot([0, 1], [0, 1], label="Test")
         ax.legend()
-        make_beautiful(ax, legend_loc='auto')
+        make_beautiful(ax, legend_loc="auto")
 
         # Should use matplotlib's automatic placement
         assert ax.legend_ is not None
@@ -327,9 +327,7 @@ class TestPlotMat:
     def test_plot_mat_custom_params(self):
         """Test plotting with custom parameters."""
         mat = np.random.rand(10, 10)
-        fig, ax = plot_mat(
-            mat, figsize=(8, 8), cmap="plasma", aspect="equal", vmin=0, vmax=0.5
-        )
+        fig, ax = plot_mat(mat, figsize=(8, 8), cmap="plasma", aspect="equal", vmin=0, vmax=0.5)
 
         # Check figure size
         assert fig.get_size_inches()[0] == 8

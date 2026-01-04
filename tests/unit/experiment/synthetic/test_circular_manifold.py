@@ -107,12 +107,8 @@ def test_von_mises_kappa_effect():
     response_wide = von_mises_tuning_curve(angles, pref_dir, kappa=2.0)
 
     # Test at exact preferred direction
-    response_at_pref_narrow = von_mises_tuning_curve(
-        np.array([pref_dir]), pref_dir, kappa=8.0
-    )
-    response_at_pref_wide = von_mises_tuning_curve(
-        np.array([pref_dir]), pref_dir, kappa=2.0
-    )
+    response_at_pref_narrow = von_mises_tuning_curve(np.array([pref_dir]), pref_dir, kappa=8.0)
+    response_at_pref_wide = von_mises_tuning_curve(np.array([pref_dir]), pref_dir, kappa=2.0)
     assert response_at_pref_narrow[0] == 1.0
     assert response_at_pref_wide[0] == 1.0
 
@@ -146,9 +142,7 @@ def test_generate_circular_manifold_neurons_coverage():
     n_neurons = 20
     head_direction = np.array([0])  # Single time point
 
-    _, pref_dirs = generate_circular_manifold_neurons(
-        n_neurons, head_direction, seed=42
-    )
+    _, pref_dirs = generate_circular_manifold_neurons(n_neurons, head_direction, seed=42)
 
     # Sort preferred directions
     pref_dirs_sorted = np.sort(pref_dirs)
@@ -415,9 +409,7 @@ def test_generate_circular_manifold_exp_reproducibility():
     )
 
     # Info should be identical
-    np.testing.assert_array_equal(
-        info1["preferred_directions"], info2["preferred_directions"]
-    )
+    np.testing.assert_array_equal(info1["preferred_directions"], info2["preferred_directions"])
 
 
 @pytest.mark.parametrize(
@@ -533,9 +525,7 @@ def test_integration_with_intense():
             head_direction_selective += 1
 
     # At least some neurons should be selective for head direction
-    assert (
-        head_direction_selective >= 0
-    )  # May not detect any with aggressive downsampling
+    assert head_direction_selective >= 0  # May not detect any with aggressive downsampling
 
 
 def test_linear_vs_circular_detection():

@@ -14,14 +14,14 @@ from .graph import ProximityGraph
 
 def check_data_for_errors(d, verbose=True):
     """Check data matrix for zero columns which can cause issues in DR methods.
-    
+
     Parameters
     ----------
     d : np.ndarray or scipy.sparse matrix
         Data matrix with shape (n_features, n_samples)
     verbose : bool, default=True
         Whether to print information about zero points
-        
+
     Raises
     ------
     ValueError
@@ -34,10 +34,10 @@ def check_data_for_errors(d, verbose=True):
     else:
         # For dense arrays
         sums = np.sum(np.abs(d), axis=0)
-    
+
     # Find zero columns
     zero_cols = np.where(sums == 0)[0]
-    
+
     if len(zero_cols) > 0:
         if verbose:
             print(f"Found {len(zero_cols)} zero columns at indices: {zero_cols[:10]}")
@@ -45,10 +45,12 @@ def check_data_for_errors(d, verbose=True):
                 print(f"... and {len(zero_cols) - 10} more")
             # Show first zero column if sparse
             if sp.issparse(d):
-                print(f"Example zero column (index {zero_cols[0]}): {d[:, zero_cols[0]].toarray().flatten()}")
+                print(
+                    f"Example zero column (index {zero_cols[0]}): {d[:, zero_cols[0]].toarray().flatten()}"
+                )
             else:
                 print(f"Example zero column (index {zero_cols[0]}): {d[:, zero_cols[0]]}")
-        
+
         raise ValueError(
             f"Data contains {len(zero_cols)} zero columns (all values are 0). "
             f"This can cause issues in dimensionality reduction. "
@@ -59,12 +61,12 @@ def check_data_for_errors(d, verbose=True):
 class MVData(object):
     """
     Main class for multivariate data storage & processing.
-    
+
     This class encapsulates multivariate data and provides methods for
     preprocessing, distance computation, graph construction, and embedding
     generation. Data is stored as a matrix with features as rows and
     samples as columns.
-    
+
     Parameters
     ----------
     data : array-like
@@ -104,7 +106,7 @@ class MVData(object):
         Name of the dataset.
     verbose : bool
         Verbosity flag.
-        
+
     Raises
     ------
     ValueError
@@ -112,7 +114,7 @@ class MVData(object):
         From rescale() if rescale_rows=True and data format is invalid.
         If labels length doesn't match number of points after downsampling.
         If distance matrix shape doesn't match (n_points, n_points).
-        
+
     Notes
     -----
     - Data is downsampled by taking every ds-th column
@@ -132,7 +134,7 @@ class MVData(object):
         allow_zero_columns=False,
     ):
         """Initialize MVData object with multi-dimensional data.
-        
+
         Parameters
         ----------
         data : array-like
@@ -159,7 +161,7 @@ class MVData(object):
             self.ds = int(downsampling)
 
         self.data = to_numpy_array(data)[:, :: self.ds]
-        
+
         # Check for zero columns that could cause issues
         if not allow_zero_columns:
             check_data_for_errors(self.data, verbose=verbose)
@@ -195,24 +197,24 @@ class MVData(object):
 
     def median_filter(self, window):
         """Apply median filter to each row of the data.
-        
+
         Median filtering is useful for removing impulse noise while
         preserving edges in the signal. Operates row-wise on the data.
-        
+
         Parameters
         ----------
         window : int or array-like
             Size of the median filter window. If int, uses a window of
             that size. Must be odd. See scipy.signal.medfilt documentation
             for valid window specifications.
-            
+
         Raises
         ------
         ValueError
             From scipy.signal.medfilt if window size is invalid.
         ImportError
             If scipy.signal is not available.
-            
+
         Notes
         -----
         - Modifies self.data in-place
@@ -273,14 +275,14 @@ class MVData(object):
         -------
         np.ndarray
             Distance matrix of shape (n_samples, n_samples)
-            
+
         Raises
         ------
         ValueError
             If metric name is invalid or metric parameters are incompatible.
         MemoryError
             If dataset is too large for pairwise distance computation.
-            
+
         Notes
         -----
         - The metric 'l2' is automatically converted to 'euclidean' for scipy compatibility
@@ -302,9 +304,7 @@ class MVData(object):
             if metric == "l2":
                 metric = "euclidean"
             # Extract additional parameters for the metric
-            metric_kwargs = {
-                k: v for k, v in m_params.items() if k not in ["metric_name", "sigma"]
-            }
+            metric_kwargs = {k: v for k, v in m_params.items() if k not in ["metric_name", "sigma"]}
             # For minkowski distance, 'p' parameter is needed
             if metric == "minkowski" and "p" in m_params:
                 metric_kwargs["p"] = m_params["p"]
@@ -361,14 +361,14 @@ class MVData(object):
         Exception
             If embedding method is unknown.
             If method requires distance matrix but none available.
-            
+
         Examples
         --------
         >>> import numpy as np
         >>> # Create data: 20 features, 100 samples
         >>> data = np.random.randn(20, 100)
         >>> mvdata = MVData(data)
-        >>> 
+        >>>
         >>> # Get PCA embedding
         >>> emb = mvdata.get_embedding(method='pca', dim=3, verbose=False)
         >>> type(emb).__name__
@@ -457,18 +457,18 @@ class MVData(object):
         else:
             # Extract verbose for non-neural network methods
             build_kwargs = kwargs or {}
-            if 'verbose' in e_params:
-                build_kwargs['verbose'] = e_params['verbose']
+            if "verbose" in e_params:
+                build_kwargs["verbose"] = e_params["verbose"]
             emb.build(kwargs=build_kwargs)
 
         return emb
 
     def get_proximity_graph(self, m_params, g_params):
         """Construct proximity graph from the data.
-        
+
         Creates a graph where nodes are data points and edges connect
         nearby points according to the specified method.
-        
+
         Parameters
         ----------
         m_params : dict
@@ -476,17 +476,17 @@ class MVData(object):
         g_params : dict
             Graph construction parameters including 'g_method_name' and
             method-specific params (e.g., 'nn' for k-NN graphs).
-            
+
         Returns
         -------
         ProximityGraph
             Graph object capturing local neighborhood structure.
-            
+
         Raises
         ------
         Exception
             If g_method_name is not in GRAPH_CONSTRUCTION_METHODS.
-            
+
         See Also
         --------
         ~driada.dim_reduction.graph.ProximityGraph : The graph construction class.

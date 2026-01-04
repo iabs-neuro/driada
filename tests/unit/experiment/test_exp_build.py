@@ -42,9 +42,7 @@ class TestLoadExpFromAlignedData:
         """Basic valid data dictionary."""
         np.random.seed(42)
         return {
-            "calcium": np.random.rand(
-                10, 500
-            ),  # 10 neurons, 500 timepoints (25 sec at 20fps)
+            "calcium": np.random.rand(10, 500),  # 10 neurons, 500 timepoints (25 sec at 20fps)
             "spikes": np.random.randint(0, 2, (10, 500)),
             "position": np.random.rand(500),
             "speed": np.random.rand(500),
@@ -62,9 +60,7 @@ class TestLoadExpFromAlignedData:
             "driada.experiment.exp_build.construct_session_name",
             return_value="test_exp",
         ):
-            exp = load_exp_from_aligned_data(
-                "IABS", exp_params, basic_data, verbose=False
-            )
+            exp = load_exp_from_aligned_data("IABS", exp_params, basic_data, verbose=False)
 
         assert isinstance(exp, Experiment)
         assert exp.n_cells == 10
@@ -103,9 +99,7 @@ class TestLoadExpFromAlignedData:
             "position": np.random.rand(500),
         }
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data("IABS", exp_params, data, verbose=False)
 
         assert exp.n_cells == 5
@@ -121,9 +115,7 @@ class TestLoadExpFromAlignedData:
             "mixed_constant": np.array([1] * 499 + [np.nan]),  # Constant except NaN
         }
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data("IABS", exp_params, data, verbose=False)
 
         # Only good_feature should remain
@@ -141,9 +133,7 @@ class TestLoadExpFromAlignedData:
             "continuous_vals": np.random.rand(500),
         }
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             # Force multi_vals to be continuous
             exp = load_exp_from_aligned_data(
                 "source",
@@ -162,15 +152,11 @@ class TestLoadExpFromAlignedData:
         """Test that force_continuous can override auto-detection."""
         data = {
             "calcium": np.random.rand(3, 500),
-            "feature_a": np.array(
-                [0, 1, 2, 3, 4] * 100
-            ),  # Would be auto-detected as discrete
+            "feature_a": np.array([0, 1, 2, 3, 4] * 100),  # Would be auto-detected as discrete
             "feature_b": np.array([0, 1] * 250),  # Binary, would be discrete
         }
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data(
                 "source",
                 exp_params,
@@ -191,9 +177,7 @@ class TestLoadExpFromAlignedData:
         """Test bad frames masking."""
         bad_frames = [10, 20, 30, 40, 50]  # Remove these frames
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data(
                 "source", exp_params, basic_data, bad_frames=bad_frames, verbose=False
             )
@@ -203,12 +187,8 @@ class TestLoadExpFromAlignedData:
 
     def test_static_features_defaults(self, basic_data, exp_params):
         """Test default static features are set."""
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
-            exp = load_exp_from_aligned_data(
-                "source", exp_params, basic_data, verbose=False
-            )
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
+            exp = load_exp_from_aligned_data("source", exp_params, basic_data, verbose=False)
 
         # Check defaults are set as attributes
         assert hasattr(exp, "t_rise_sec")
@@ -224,9 +204,7 @@ class TestLoadExpFromAlignedData:
             "custom_param": "test",
         }
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data(
                 "source",
                 exp_params,
@@ -244,9 +222,7 @@ class TestLoadExpFromAlignedData:
         """Test reconstruct_spikes parameter is passed correctly."""
         data = {"calcium": np.random.rand(3, 500)}
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             with patch(
                 "driada.experiment.exp_base.Experiment.__init__", return_value=None
             ) as mock_init:
@@ -264,9 +240,7 @@ class TestLoadExpFromAlignedData:
 
     def test_verbose_output(self, basic_data, exp_params, capsys):
         """Test verbose output."""
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             load_exp_from_aligned_data("source", exp_params, basic_data, verbose=True)
 
         captured = capsys.readouterr()
@@ -284,9 +258,7 @@ class TestLoadExpFromAlignedData:
             "good_feature": np.linspace(0, 1, 500),  # Clearly continuous
         }
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data("IABS", exp_params, data, verbose=False)
 
         # Empty feature should be removed
@@ -323,9 +295,7 @@ class TestLoadExperiment:
             "driada.experiment.exp_build.construct_session_name",
             return_value="test_exp",
         ):
-            exp, log = load_experiment(
-                "IABS", {"test": "params"}, root=temp_dir, verbose=False
-            )
+            exp, log = load_experiment("IABS", {"test": "params"}, root=temp_dir, verbose=False)
 
         assert exp.signature == "Test Experiment"
         assert log is None  # No download log when loading from pickle
@@ -340,9 +310,7 @@ class TestLoadExperiment:
             pickle.dump(mock_experiment, f)
 
         # Create aligned data
-        data_path = os.path.join(
-            temp_dir, "test_exp", "Aligned data", "test_exp syn data.npz"
-        )
+        data_path = os.path.join(temp_dir, "test_exp", "Aligned data", "test_exp syn data.npz")
         os.makedirs(os.path.dirname(data_path), exist_ok=True)
         np.savez(data_path, calcium=np.random.rand(5, 500))
 
@@ -351,9 +319,7 @@ class TestLoadExperiment:
             "driada.experiment.exp_build.construct_session_name",
             return_value="test_exp",
         ):
-            with patch(
-                "driada.experiment.exp_build.load_exp_from_aligned_data"
-            ) as mock_load:
+            with patch("driada.experiment.exp_build.load_exp_from_aligned_data") as mock_load:
                 mock_load.return_value = mock_experiment
 
                 exp, log = load_experiment(
@@ -373,12 +339,8 @@ class TestLoadExperiment:
             "driada.experiment.exp_build.construct_session_name",
             return_value="test_exp",
         ):
-            with patch(
-                "driada.experiment.exp_build.initialize_iabs_router"
-            ) as mock_router:
-                with patch(
-                    "driada.experiment.exp_build.download_gdrive_data"
-                ) as mock_download:
+            with patch("driada.experiment.exp_build.initialize_iabs_router") as mock_router:
+                with patch("driada.experiment.exp_build.download_gdrive_data") as mock_download:
                     mock_router.return_value = ("router", "pieces")
                     mock_download.return_value = (True, ["Download successful"])
 
@@ -407,18 +369,12 @@ class TestLoadExperiment:
             "driada.experiment.exp_build.construct_session_name",
             return_value="test_exp",
         ):
-            with patch(
-                "driada.experiment.exp_build.initialize_iabs_router"
-            ) as mock_router:
-                with patch(
-                    "driada.experiment.exp_build.download_gdrive_data"
-                ) as mock_download:
+            with patch("driada.experiment.exp_build.initialize_iabs_router") as mock_router:
+                with patch("driada.experiment.exp_build.download_gdrive_data") as mock_download:
                     mock_router.return_value = ("router", "pieces")
                     mock_download.return_value = (False, ["Download failed"])
 
-                    with pytest.raises(
-                        FileNotFoundError, match="Cannot download test_exp"
-                    ):
+                    with pytest.raises(FileNotFoundError, match="Cannot download test_exp"):
                         load_experiment(
                             "IABS",
                             {"test": "params"},
@@ -432,7 +388,7 @@ class TestLoadExperiment:
         with pytest.raises(
             ValueError, match="For data source 'MyLab', you must provide the 'data_path' parameter"
         ):
-            load_experiment("MyLab", {'name': 'test'}, root=temp_dir)
+            load_experiment("MyLab", {"name": "test"}, root=temp_dir)
 
     def test_save_to_pickle_option(self, temp_dir):
         """Test save_to_pickle parameter."""
@@ -441,9 +397,7 @@ class TestLoadExperiment:
             "driada.experiment.exp_build.construct_session_name",
             return_value="test_exp",
         ):
-            data_path = os.path.join(
-                temp_dir, "test_exp", "Aligned data", "test_exp syn data.npz"
-            )
+            data_path = os.path.join(temp_dir, "test_exp", "Aligned data", "test_exp syn data.npz")
             os.makedirs(os.path.dirname(data_path), exist_ok=True)
             np.savez(data_path, calcium=np.random.rand(5, 500))
 
@@ -485,9 +439,7 @@ class TestLoadExperiment:
         new_root = os.path.join(temp_dir, "new_root")
         assert not os.path.exists(new_root)
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             with patch("driada.experiment.exp_build.load_exp_from_aligned_data"):
                 # This should create the directory
                 try:
@@ -506,7 +458,7 @@ class TestLoadExperiment:
 
         with pytest.raises(ValueError, match="Root must be a folder"):
             load_experiment("IABS", {}, root=root_file)
-    
+
     def test_generic_lab_loading(self, temp_dir):
         """Test loading experiment from generic (non-IABS) lab data."""
         # Create NPZ file with required data
@@ -516,24 +468,20 @@ class TestLoadExperiment:
             calcium=np.random.rand(10, 1000),
             position=np.random.rand(1000),
             speed=np.random.rand(1000),
-            trial_type=np.tile([0, 1, 2, 3], 250)  # Numeric discrete data
+            trial_type=np.tile([0, 1, 2, 3], 250),  # Numeric discrete data
         )
-        
+
         exp, log = load_experiment(
-            "MyLab",
-            {"name": "test_experiment"},
-            data_path=data_path,
-            root=temp_dir,
-            verbose=False
+            "MyLab", {"name": "test_experiment"}, data_path=data_path, root=temp_dir, verbose=False
         )
-        
+
         assert exp.n_cells == 10
         assert exp.n_frames == 1000
         assert hasattr(exp, "position")
         assert hasattr(exp, "speed")
         assert hasattr(exp, "trial_type")
         assert log is None  # No download log for local files
-    
+
     def test_generic_lab_multidimensional_features(self, temp_dir):
         """Test handling of 2D features in generic lab data."""
         # Create NPZ with 2D position data
@@ -543,23 +491,23 @@ class TestLoadExperiment:
             calcium=np.random.rand(10, 1000),  # More neurons and frames to avoid shuffle issues
             position=np.random.rand(2, 1000),  # 2D trajectory
             x_pos=np.random.rand(1000),
-            y_pos=np.random.rand(1000)
+            y_pos=np.random.rand(1000),
         )
-        
+
         exp, _ = load_experiment(
             "NeuroLab",
             {"subject": "rat1", "session": "day1"},
             data_path=data_path,
             root=temp_dir,
             static_features={"fps": 30.0},
-            verbose=False
+            verbose=False,
         )
-        
+
         assert hasattr(exp, "position")
         assert exp.position.n_dim == 2  # Should be MultiTimeSeries with 2 components
         assert hasattr(exp, "x_pos")
         assert hasattr(exp, "y_pos")
-    
+
     def test_generic_lab_scalar_warning(self, temp_dir, capsys):
         """Test warning for scalar values in NPZ file."""
         # Create NPZ with scalar value that should be ignored
@@ -569,18 +517,18 @@ class TestLoadExperiment:
             calcium=np.random.rand(10, 1000),  # More neurons/frames to avoid issues
             position=np.random.rand(1000),
             fps=30.0,  # Scalar - should trigger warning
-            description="test"  # Another scalar
+            description="test",  # Another scalar
         )
-        
+
         exp, _ = load_experiment(
             "MyLab",
             {"name": "test"},
             data_path=data_path,
             root=temp_dir,
             static_features={"fps": 30.0},
-            verbose=True
+            verbose=True,
         )
-        
+
         captured = capsys.readouterr()
         assert "Ignoring scalar value 'fps'" in captured.out
         assert "Ignoring scalar value 'description'" in captured.out
@@ -589,34 +537,30 @@ class TestLoadExperiment:
         assert exp.fps == 30.0  # Should use the provided static value
         # description should not exist at all (not static or dynamic)
         assert not hasattr(exp, "description")
-    
+
     def test_generic_lab_non_numeric_warning(self, temp_dir, capsys):
         """Test warning for non-numeric features in NPZ file."""
         # Create NPZ with string data that should be ignored
         data_path = os.path.join(temp_dir, "string_data.npz")
-        
+
         # We need to use object dtype to store strings in numpy arrays
-        trial_labels = np.array(['A', 'B', 'C', 'D'] * 125, dtype=object)
-        
+        trial_labels = np.array(["A", "B", "C", "D"] * 125, dtype=object)
+
         np.savez(
             data_path,
             calcium=np.random.rand(10, 1000),  # More neurons/frames to avoid issues
             position=np.random.rand(1000),
-            trial_labels=trial_labels  # String data - should trigger warning
+            trial_labels=trial_labels,  # String data - should trigger warning
         )
-        
+
         exp, _ = load_experiment(
-            "MyLab",
-            {"name": "test"},
-            data_path=data_path,
-            root=temp_dir,
-            verbose=True
+            "MyLab", {"name": "test"}, data_path=data_path, root=temp_dir, verbose=True
         )
-        
+
         captured = capsys.readouterr()
         assert "Ignoring non-numeric feature 'trial_labels'" in captured.out
         assert not hasattr(exp, "trial_labels")  # Should not be added
-    
+
     def test_generic_lab_save_pickle(self, temp_dir):
         """Test saving generic lab experiment to pickle."""
         # Create NPZ file
@@ -624,75 +568,53 @@ class TestLoadExperiment:
         np.savez(
             data_path,
             calcium=np.random.rand(10, 1000),  # More neurons/frames
-            position=np.random.rand(1000)
+            position=np.random.rand(1000),
         )
-        
+
         exp, _ = load_experiment(
             "MyLab",
             {"experiment": "navigation", "animal_id": "m1"},
             data_path=data_path,
             root=temp_dir,
             save_to_pickle=True,
-            verbose=False
+            verbose=False,
         )
-        
+
         # Check pickle was created in expected location
         # Note: load_experiment creates path as root/expname/Exp expname.pickle
-        expected_path = os.path.join(
-            temp_dir, "navigation_m1", "Exp navigation_m1.pickle"
-        )
+        expected_path = os.path.join(temp_dir, "navigation_m1", "Exp navigation_m1.pickle")
         assert os.path.exists(expected_path)
-        
+
         # Verify we can load from pickle
         exp2, _ = load_experiment(
-            "MyLab",
-            {"experiment": "navigation", "animal_id": "m1"},
-            root=temp_dir,
-            verbose=False
+            "MyLab", {"experiment": "navigation", "animal_id": "m1"}, root=temp_dir, verbose=False
         )
         assert exp2.n_cells == exp.n_cells
         assert exp2.n_frames == exp.n_frames
-    
+
     def test_generic_lab_missing_calcium(self, temp_dir):
         """Test error when calcium data is missing from NPZ."""
         data_path = os.path.join(temp_dir, "no_calcium.npz")
-        np.savez(
-            data_path,
-            position=np.random.rand(500),
-            speed=np.random.rand(500)
-        )
-        
+        np.savez(data_path, position=np.random.rand(500), speed=np.random.rand(500))
+
         with pytest.raises(ValueError, match="NPZ file must contain 'calcium' key"):
-            load_experiment(
-                "MyLab",
-                {"name": "test"},
-                data_path=data_path,
-                root=temp_dir
-            )
-    
+            load_experiment("MyLab", {"name": "test"}, data_path=data_path, root=temp_dir)
+
     def test_generic_lab_invalid_npz(self, temp_dir):
         """Test error handling for invalid NPZ file."""
         # Create invalid file
         bad_path = os.path.join(temp_dir, "bad.npz")
         with open(bad_path, "w") as f:
             f.write("not a valid npz file")
-        
+
         with pytest.raises(ValueError, match="Failed to load NPZ file"):
-            load_experiment(
-                "MyLab", 
-                {"name": "test"},
-                data_path=bad_path,
-                root=temp_dir
-            )
-    
+            load_experiment("MyLab", {"name": "test"}, data_path=bad_path, root=temp_dir)
+
     def test_generic_lab_file_not_found(self, temp_dir):
         """Test error when data file doesn't exist."""
         with pytest.raises(FileNotFoundError, match="Data file not found"):
             load_experiment(
-                "MyLab",
-                {"name": "test"}, 
-                data_path="/non/existent/file.npz",
-                root=temp_dir
+                "MyLab", {"name": "test"}, data_path="/non/existent/file.npz", root=temp_dir
             )
 
 
@@ -779,9 +701,7 @@ class TestEdgeCases:
             "mixed": np.random.rand(500),  # Mixed values with good variation
         }
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data("source", {}, data, verbose=False)
 
         # Check what was kept/removed
@@ -801,9 +721,7 @@ class TestEdgeCases:
         # Make a copy to compare later
         data_copy = {k: v.copy() for k, v in original_data.items()}
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             load_exp_from_aligned_data("source", {}, original_data, verbose=False)
 
         # Original data should be unchanged
@@ -815,9 +733,7 @@ class TestEdgeCases:
         data = {"calcium": np.random.rand(5, 1000)}
         bad_frames = list(range(0, 1000, 2))  # Every other frame is bad
 
-        with patch(
-            "driada.experiment.exp_build.construct_session_name", return_value="test"
-        ):
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data(
                 "source", {}, data, bad_frames=bad_frames, verbose=False
             )

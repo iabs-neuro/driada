@@ -67,9 +67,7 @@ def small_visual_experiment():
     # Create mock neurons
     for i in range(5):
         neuron = SimpleNamespace()
-        neuron.ca = SimpleNamespace(
-            data=np.random.randn(100), scdata=np.random.randn(100)
-        )
+        neuron.ca = SimpleNamespace(data=np.random.randn(100), scdata=np.random.randn(100))
         neuron.sp = SimpleNamespace(data=np.random.randint(0, 2, 100))
         exp.neurons.append(neuron)
 
@@ -94,9 +92,7 @@ def visual_experiment(small_visual_experiment):
 
     exp.x = SimpleNamespace(data=x_data, scdata=x_data)
     exp.y = SimpleNamespace(data=y_data, scdata=y_data)
-    exp.speed = SimpleNamespace(
-        data=speed_data, scdata=speed_data, is_binary=False, discrete=False
-    )
+    exp.speed = SimpleNamespace(data=speed_data, scdata=speed_data, is_binary=False, discrete=False)
 
     if not hasattr(exp, "signature"):
         exp.signature = "TestExp"
@@ -104,8 +100,6 @@ def visual_experiment(small_visual_experiment):
     # Minimal stats table
     exp.stats_table = {("x", "y"): []}
     for i in range(5):
-        exp.stats_table[("x", "y")].append(
-            {"pval": 0.01 * (i + 1), "rel_mi_beh": 0.5 / (i + 1)}
-        )
+        exp.stats_table[("x", "y")].append({"pval": 0.01 * (i + 1), "rel_mi_beh": 0.5 / (i + 1)})
 
     return exp

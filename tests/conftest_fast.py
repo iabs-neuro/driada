@@ -80,9 +80,7 @@ def cached_test_data():
             if n > 5:
                 C[5, n - 5] = C[n - 5, 5] = 0.7
 
-            signals = np.random.multivariate_normal(
-                np.zeros(n), C, size=T, check_valid="raise"
-            ).T
+            signals = np.random.multivariate_normal(np.zeros(n), C, size=T, check_valid="raise").T
             cache[key] = signals
         return cache[key]
 
@@ -136,9 +134,7 @@ def pytest_configure(config):
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
     config.addinivalue_line("markers", "integration: marks tests as integration tests")
-    config.addinivalue_line(
-        "markers", "performance: marks tests that measure performance"
-    )
+    config.addinivalue_line("markers", "performance: marks tests that measure performance")
 
     # Set parallel execution by default
     if not hasattr(config.option, "numprocesses"):

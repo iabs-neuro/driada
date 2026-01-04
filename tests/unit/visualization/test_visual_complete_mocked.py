@@ -148,9 +148,7 @@ class TestVisualFunctionsCompletelyMocked:
             )
 
             # Run function
-            result = plot_neuron_feature_density(
-                mock_experiment, "calcium", 0, "binary_feat"
-            )
+            result = plot_neuron_feature_density(mock_experiment, "calcium", 0, "binary_feat")
 
             # Verify
             assert result is ax
@@ -252,9 +250,7 @@ class TestVisualFunctionsCompletelyMocked:
             feat_names = [f"feat{i}" for i in range(n_features)]
 
             # Run function
-            result = plot_disentanglement_summary(
-                disent_matrix, count_matrix, feat_names
-            )
+            result = plot_disentanglement_summary(disent_matrix, count_matrix, feat_names)
 
             # Verify
             assert result is fig
@@ -350,9 +346,7 @@ class TestVisualFunctionsCompletelyMocked:
         )
 
         # Test that spikes with binary features raises NotImplementedError
-        with pytest.raises(
-            NotImplementedError, match="Binary feature density plot for spike data"
-        ):
+        with pytest.raises(NotImplementedError, match="Binary feature density plot for spike data"):
             plot_neuron_feature_density(mock_experiment, "spikes", 0, "binary_feat")
 
 

@@ -44,7 +44,7 @@ class TestThresholdDetectionOnNoise:
         # Using n_mad=4 means threshold = median + 4*MAD ≈ baseline + 0.4
         # Very few points should exceed this in pure noise
         neuron.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=5,
             n_mad=4.0,
             adaptive_thresholds=False,  # Use fixed threshold for clarity
@@ -88,7 +88,7 @@ class TestThresholdDetectionOnNoise:
         for n_iter in [1, 3, 5, 10]:
             neuron = Neuron(cell_id=0, ca=pure_noise.copy(), sp=None, fps=fps)
             neuron.reconstruct_spikes(
-                method='threshold',
+                method="threshold",
                 n_iter=n_iter,
                 n_mad=4.0,
                 adaptive_thresholds=False,  # Fixed threshold across iterations
@@ -126,7 +126,7 @@ class TestThresholdDetectionOnNoise:
 
         # Expected threshold at 4 MAD
         expected_median = np.median(signal)
-        expected_mad = median_abs_deviation(signal, scale='normal')
+        expected_mad = median_abs_deviation(signal, scale="normal")
         expected_threshold = expected_median + 4.0 * expected_mad
 
         neuron = Neuron(cell_id=0, ca=signal.copy(), sp=None, fps=fps)
@@ -134,7 +134,7 @@ class TestThresholdDetectionOnNoise:
         # Run detection - if threshold is computed correctly from original,
         # only points above expected_threshold should trigger events
         neuron.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=1,
             n_mad=4.0,
             use_scaled=False,
@@ -145,7 +145,7 @@ class TestThresholdDetectionOnNoise:
             for event in neuron.threshold_events:
                 st, end = int(event.start), int(event.end)
                 # At least some point in the event window should exceed threshold
-                event_max = np.max(signal[st:end+1])
+                event_max = np.max(signal[st : end + 1])
                 assert event_max >= expected_threshold * 0.95, (
                     f"Event at [{st}:{end}] has max={event_max:.2f} but "
                     f"threshold={expected_threshold:.2f}. Threshold may not be "
@@ -169,7 +169,7 @@ class TestThresholdDetectionOnNoise:
 
         neuron = Neuron(cell_id=0, ca=signal.copy(), sp=None, fps=fps)
         neuron.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=3,
             threshold=explicit_threshold,  # Explicit threshold
             use_scaled=False,
@@ -179,11 +179,11 @@ class TestThresholdDetectionOnNoise:
         if neuron.threshold_events is not None and len(neuron.threshold_events) > 0:
             for event in neuron.threshold_events:
                 st, end = int(event.start), int(event.end)
-                event_max = np.max(signal[st:end+1])
+                event_max = np.max(signal[st : end + 1])
                 # Events should only occur where signal exceeds explicit threshold
-                assert event_max >= explicit_threshold * 0.9, (
-                    f"Event found below explicit threshold"
-                )
+                assert (
+                    event_max >= explicit_threshold * 0.9
+                ), f"Event found below explicit threshold"
 
 
 class TestThresholdDetectionWithRealEvents:
@@ -207,11 +207,11 @@ class TestThresholdDetectionWithRealEvents:
         for t in event_times:
             # Exponential decay transient
             decay = np.exp(-np.arange(event_duration) / (event_duration / 3))
-            signal[t:t+event_duration] += event_amplitude * decay
+            signal[t : t + event_duration] += event_amplitude * decay
 
         neuron = Neuron(cell_id=0, ca=signal, sp=None, fps=fps)
         neuron.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=3,
             n_mad=4.0,
             use_scaled=False,
@@ -233,9 +233,9 @@ class TestThresholdDetectionWithRealEvents:
             for true_time in event_times:
                 # At least one detected event should start within 30 frames of true time
                 close_events = [s for s in detected_starts if abs(s - true_time) < 30]
-                assert len(close_events) > 0, (
-                    f"No event detected near true event at frame {true_time}"
-                )
+                assert (
+                    len(close_events) > 0
+                ), f"No event detected near true event at frame {true_time}"
 
     def test_adaptive_thresholds_find_more_events(self):
         """Verify adaptive thresholds find progressively smaller events."""
@@ -257,7 +257,7 @@ class TestThresholdDetectionWithRealEvents:
         # Without adaptive thresholds
         neuron_fixed = Neuron(cell_id=0, ca=signal.copy(), sp=None, fps=fps)
         neuron_fixed.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=5,
             n_mad=4.0,
             adaptive_thresholds=False,
@@ -268,18 +268,20 @@ class TestThresholdDetectionWithRealEvents:
         # With adaptive thresholds
         neuron_adaptive = Neuron(cell_id=0, ca=signal.copy(), sp=None, fps=fps)
         neuron_adaptive.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=5,
             n_mad=4.0,
             adaptive_thresholds=True,
             use_scaled=False,
         )
-        n_events_adaptive = len(neuron_adaptive.threshold_events) if neuron_adaptive.threshold_events else 0
+        n_events_adaptive = (
+            len(neuron_adaptive.threshold_events) if neuron_adaptive.threshold_events else 0
+        )
 
         # Adaptive should find at least as many events
-        assert n_events_adaptive >= n_events_fixed, (
-            f"Adaptive ({n_events_adaptive}) should find >= fixed ({n_events_fixed})"
-        )
+        assert (
+            n_events_adaptive >= n_events_fixed
+        ), f"Adaptive ({n_events_adaptive}) should find >= fixed ({n_events_fixed})"
 
 
 class TestIterativeDetectionMergesDuplicates:
@@ -307,12 +309,12 @@ class TestIterativeDetectionMergesDuplicates:
 
         for t in event_times:
             decay = np.exp(-np.arange(event_duration) / 16)
-            signal[t:t+event_duration] += event_amplitude * decay
+            signal[t : t + event_duration] += event_amplitude * decay
 
         # Run with 1 iteration
         neuron_1iter = Neuron(cell_id=0, ca=signal.copy(), sp=None, fps=fps)
         neuron_1iter.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=1,
             n_mad=4.0,
             use_scaled=False,
@@ -322,7 +324,7 @@ class TestIterativeDetectionMergesDuplicates:
         # Run with 3 iterations
         neuron_3iter = Neuron(cell_id=0, ca=signal.copy(), sp=None, fps=fps)
         neuron_3iter.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=3,
             n_mad=4.0,
             use_scaled=False,
@@ -353,20 +355,28 @@ class TestIterativeDetectionMergesDuplicates:
 
         # Create overlapping events
         signal = np.random.randn(n_frames) * 0.05
-        event_times = [200, 230, 260,  # Cluster of 3
-                       500, 540,        # Cluster of 2
-                       800,             # Isolated
-                       1000, 1020, 1040, 1060]  # Cluster of 4
+        event_times = [
+            200,
+            230,
+            260,  # Cluster of 3
+            500,
+            540,  # Cluster of 2
+            800,  # Isolated
+            1000,
+            1020,
+            1040,
+            1060,
+        ]  # Cluster of 4
 
         for t in event_times:
             remaining = min(60, n_frames - t)
             decay = np.exp(-np.arange(remaining) / tau_decay)
-            signal[t:t+remaining] += 1.5 * decay
+            signal[t : t + remaining] += 1.5 * decay
 
         # Run with 1 iteration
         neuron_1iter = Neuron(cell_id=0, ca=signal.copy(), sp=None, fps=fps)
         neuron_1iter.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=1,
             n_mad=4.0,
             use_scaled=False,
@@ -375,7 +385,7 @@ class TestIterativeDetectionMergesDuplicates:
         # Run with 3 iterations
         neuron_3iter = Neuron(cell_id=0, ca=signal.copy(), sp=None, fps=fps)
         neuron_3iter.reconstruct_spikes(
-            method='threshold',
+            method="threshold",
             n_iter=3,
             n_mad=4.0,
             use_scaled=False,
@@ -393,12 +403,8 @@ class TestIterativeDetectionMergesDuplicates:
         t_rise = neuron_1iter.default_t_rise
         t_off = neuron_1iter.default_t_off
 
-        recon_1iter = Neuron.get_restored_calcium(
-            neuron_1iter.asp.data, t_rise, t_off
-        )[:n_frames]
-        recon_3iter = Neuron.get_restored_calcium(
-            neuron_3iter.asp.data, t_rise, t_off
-        )[:n_frames]
+        recon_1iter = Neuron.get_restored_calcium(neuron_1iter.asp.data, t_rise, t_off)[:n_frames]
+        recon_3iter = Neuron.get_restored_calcium(neuron_3iter.asp.data, t_rise, t_off)[:n_frames]
 
         ss_tot = np.sum((signal - np.mean(signal)) ** 2)
         r2_1iter = 1 - np.sum((signal - recon_1iter) ** 2) / ss_tot

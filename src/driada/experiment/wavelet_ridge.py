@@ -38,32 +38,32 @@ else:
 @conditional_njit()
 def maxpos_numba(x):
     """Find the index of the maximum value in a list or array.
-    
+
     Parameters
     ----------
     x : list or array-like
         The sequence to search for maximum value. Must be non-empty.
-        
+
     Returns
     -------
     int
         Index of the first occurrence of the maximum value.
-        
+
     Raises
     ------
     ValueError
         If x is empty.
-        
+
     Notes
     -----
     This function is JIT-compiled when numba is available for performance.
-    Handles both regular Python lists and numba typed lists.    """
+    Handles both regular Python lists and numba typed lists."""
     if not x:
         raise ValueError("Cannot find maximum of empty sequence")
-        
+
     m = max(x)
     # Handle both list and typed.List
-    if hasattr(x, 'index'):
+    if hasattr(x, "index"):
         return x.index(m)
     else:
         # Fallback for regular lists
@@ -75,14 +75,15 @@ def maxpos_numba(x):
 
 # Conditional compilation for Ridge class
 if is_jit_enabled():
+
     @jitclass(spec)
     class Ridge(object):
         """Container for wavelet ridge information during ridge detection.
-        
+
         A ridge represents a connected path through wavelet transform scales
         where significant coefficients are found. This class tracks the evolution
         of a ridge as it is being constructed.
-        
+
         Attributes
         ----------
         indices : list of float
@@ -111,14 +112,15 @@ if is_jit_enabled():
             Ending time index of the ridge (-1 if not terminated).
         duration : float
             Time duration of the ridge (-1 if not terminated).
-            
+
         Notes
         -----
         This class uses numba's JIT compilation when available for performance.
-        The class is compiled with specific type annotations for optimal speed.        """
+        The class is compiled with specific type annotations for optimal speed."""
+
         def __init__(self, start_index, ampl, start_scale, wvt_time):
             """Initialize a new Ridge object.
-            
+
             Parameters
             ----------
             start_index : float
@@ -129,11 +131,11 @@ if is_jit_enabled():
                 Wavelet scale where the ridge begins.
             wvt_time : float
                 Wavelet time corresponding to the start point.
-                
+
             Notes
             -----
             All summary statistics (length, max_ampl, etc.) are initialized
-            to -1 and will be computed when terminate() is called.            """
+            to -1 and will be computed when terminate() is called."""
             self.indices = typed.List.empty_list(types.float64)
             self.indices.append(start_index)
 
@@ -160,10 +162,10 @@ if is_jit_enabled():
 
         def extend(self, index, ampl, scale, wvt_time):
             """Extend the ridge with a new point.
-            
+
             Adds a new data point to the ridge, updating all tracked attributes.
             Can only be called on non-terminated ridges.
-            
+
             Parameters
             ----------
             index : float
@@ -174,16 +176,16 @@ if is_jit_enabled():
                 Wavelet scale at this point.
             wvt_time : float
                 Wavelet time corresponding to this point.
-                
+
             Raises
             ------
             ValueError
                 If the ridge has already been terminated.
-                
+
             Notes
             -----
             The order of appending is important for maintaining consistency
-            across all ridge attributes.            """
+            across all ridge attributes."""
             if not self.terminated:
                 self.scales.append(scale)
                 self.ampls.append(ampl)
@@ -194,30 +196,30 @@ if is_jit_enabled():
 
         def tip(self):
             """Get the time index of the ridge's current endpoint.
-            
+
             Returns
             -------
             float
                 The time index of the last point in the ridge.
-                
+
             Raises
             ------
             IndexError
                 If the ridge is empty (should not occur in normal use).
-                
+
             Notes
             -----
             This is typically used during ridge construction to determine
-            where to look for the next potential ridge point.            """
+            where to look for the next potential ridge point."""
             return self.indices[-1]
 
         def terminate(self):
             """Finalize the ridge and compute summary statistics.
-            
+
             Marks the ridge as terminated and calculates various summary
             attributes including length, maximum amplitude, duration, etc.
             Can only be called once per ridge.
-            
+
             Notes
             -----
             If already terminated, this method does nothing (silent no-op).
@@ -229,7 +231,7 @@ if is_jit_enabled():
             - max_ampl: Maximum amplitude value
             - start: Starting time index
             - end: Ending time index
-            - duration: Time span of the ridge            """
+            - duration: Time span of the ridge"""
             if self.terminated:
                 pass
             else:
@@ -241,15 +243,16 @@ if is_jit_enabled():
                 self.end = max(self.indices)
                 self.duration = self.end - self.start
                 self.terminated = True
+
 else:
     # Pure Python implementation
     class Ridge(object):
         """Container for wavelet ridge information during ridge detection.
-        
+
         A ridge represents a connected path through wavelet transform scales
         where significant coefficients are found. This class tracks the evolution
         of a ridge as it is being constructed.
-        
+
         Attributes
         ----------
         indices : list of float
@@ -278,13 +281,14 @@ else:
             Ending time index of the ridge (-1 if not terminated).
         duration : float
             Time duration of the ridge (-1 if not terminated).
-            
+
         Notes
         -----
-        This is the pure Python implementation used when numba is not available.        """
+        This is the pure Python implementation used when numba is not available."""
+
         def __init__(self, start_index, ampl, start_scale, wvt_time):
             """Initialize a new Ridge object.
-            
+
             Parameters
             ----------
             start_index : float
@@ -295,11 +299,11 @@ else:
                 Wavelet scale where the ridge begins.
             wvt_time : float
                 Wavelet time corresponding to the start point.
-                
+
             Notes
             -----
             All summary statistics (length, max_ampl, etc.) are initialized
-            to -1 and will be computed when terminate() is called.            """
+            to -1 and will be computed when terminate() is called."""
             self.indices = [start_index]
             self.ampls = [ampl]
             self.birth_scale = start_scale
@@ -316,10 +320,10 @@ else:
 
         def extend(self, index, ampl, scale, wvt_time):
             """Extend the ridge with a new point.
-            
+
             Adds a new data point to the ridge, updating all tracked attributes.
             Can only be called on non-terminated ridges.
-            
+
             Parameters
             ----------
             index : float
@@ -330,16 +334,16 @@ else:
                 Wavelet scale at this point.
             wvt_time : float
                 Wavelet time corresponding to this point.
-                
+
             Raises
             ------
             ValueError
                 If the ridge has already been terminated.
-                
+
             Notes
             -----
             The order of appending is important for maintaining consistency
-            across all ridge attributes.            """
+            across all ridge attributes."""
             if not self.terminated:
                 self.scales.append(scale)
                 self.ampls.append(ampl)
@@ -350,30 +354,30 @@ else:
 
         def tip(self):
             """Get the time index of the ridge's current endpoint.
-            
+
             Returns
             -------
             float
                 The time index of the last point in the ridge.
-                
+
             Raises
             ------
             IndexError
                 If the ridge is empty (should not occur in normal use).
-                
+
             Notes
             -----
             This is typically used during ridge construction to determine
-            where to look for the next potential ridge point.            """
+            where to look for the next potential ridge point."""
             return self.indices[-1]
 
         def terminate(self):
             """Finalize the ridge and compute summary statistics.
-            
+
             Marks the ridge as terminated and calculates various summary
             attributes including length, maximum amplitude, duration, etc.
             Can only be called once per ridge.
-            
+
             Notes
             -----
             If already terminated, this method does nothing (silent no-op).
@@ -385,7 +389,7 @@ else:
             - max_ampl: Maximum amplitude value
             - start: Starting time index
             - end: Ending time index
-            - duration: Time span of the ridge            """
+            - duration: Time span of the ridge"""
             if self.terminated:
                 pass
             else:
@@ -401,11 +405,11 @@ else:
 
 class RidgeInfoContainer(object):
     """Container for finalized ridge information after ridge detection.
-    
+
     This class stores the complete information about a detected ridge
     in a format suitable for further analysis. Unlike the Ridge class,
     this uses numpy arrays for efficient computation.
-    
+
     Parameters
     ----------
     indices : list or array-like
@@ -418,7 +422,7 @@ class RidgeInfoContainer(object):
     wvt_times : list or array-like
         Wavelet times corresponding to the ridge points. Must be non-empty
         and same length as indices.
-        
+
     Attributes
     ----------
     indices : numpy.ndarray
@@ -445,13 +449,13 @@ class RidgeInfoContainer(object):
         Ending time index of the ridge.
     duration : float
         Time duration of the ridge.
-        
+
     Raises
     ------
     ValueError
         If any input array is empty.
         If input arrays have different lengths.
-        
+
     Examples
     --------
     >>> indices = [10, 11, 12, 13]
@@ -467,10 +471,11 @@ class RidgeInfoContainer(object):
     Notes
     -----
     All input arrays are converted to numpy arrays. The class assumes
-    the ridge data comes from a terminated Ridge object.    """
+    the ridge data comes from a terminated Ridge object."""
+
     def __init__(self, indices, ampls, scales, wvt_times):
         """Initialize RidgeInfoContainer with ridge data.
-        
+
         Parameters
         ----------
         indices : array-like
@@ -481,7 +486,7 @@ class RidgeInfoContainer(object):
             Scales at the ridge points.
         wvt_times : array-like
             Time points corresponding to the ridge in wavelet space.
-        
+
         Raises
         ------
         ValueError
@@ -492,7 +497,7 @@ class RidgeInfoContainer(object):
         self.ampls = np.array(ampls)
         self.scales = np.array(scales)
         self.wvt_times = np.array(wvt_times)
-        
+
         # Validate non-empty
         if self.indices.size == 0:
             raise ValueError("indices cannot be empty")
@@ -502,7 +507,7 @@ class RidgeInfoContainer(object):
             raise ValueError("scales cannot be empty")
         if self.wvt_times.size == 0:
             raise ValueError("wvt_times cannot be empty")
-            
+
         # Validate consistent lengths
         lengths = [self.indices.size, self.ampls.size, self.scales.size, self.wvt_times.size]
         if not all(length == lengths[0] for length in lengths):
@@ -520,29 +525,29 @@ class RidgeInfoContainer(object):
 
 def ridges_to_containers(ridges):
     """Convert a list of Ridge objects to RidgeInfoContainer objects.
-    
+
     This function transforms the Ridge objects (which may be JIT-compiled)
     into RidgeInfoContainer objects that use numpy arrays for efficient
     further processing and analysis.
-    
+
     Parameters
     ----------
     ridges : list of Ridge
         List of Ridge objects to convert. Each ridge should be terminated.
-        
+
     Returns
     -------
     list of RidgeInfoContainer
         List of RidgeInfoContainer objects with the same ridge information
         stored in numpy arrays. Empty list if input is empty.
-        
+
     Raises
     ------
     AttributeError
         If any ridge object lacks required attributes.
     ValueError
         If RidgeInfoContainer initialization fails (e.g., empty ridge data).
-        
+
     Examples
     --------
     >>> # Assuming we have detected ridges
@@ -554,11 +559,11 @@ def ridges_to_containers(ridges):
     1
     >>> containers[0].max_ampl
     0.8
-    
+
     Notes
     -----
     The function assumes all ridges have been properly terminated before
-    conversion. Unterminated ridges may have incomplete attribute data.    """
+    conversion. Unterminated ridges may have incomplete attribute data."""
     rcs = [
         RidgeInfoContainer(ridge.indices, ridge.ampls, ridge.scales, ridge.wvt_times)
         for ridge in ridges

@@ -29,9 +29,7 @@ def create_swiss_roll_data(n_samples=1000):
 def create_s_curve_data(n_samples=1000):
     """Create S-curve data helper."""
     random_state = 42
-    data, color = make_s_curve(
-        n_samples=n_samples, noise=0.1, random_state=random_state
-    )
+    data, color = make_s_curve(n_samples=n_samples, noise=0.1, random_state=random_state)
     return data.T, color
 
 
@@ -94,17 +92,17 @@ def test_hlle():
 def test_mvu():
     """Test MVU (Maximum Variance Unfolding)"""
     import platform
-    
+
     # Skip on Windows due to cvxpy installation issues
     if platform.system() == "Windows":
         pytest.skip("MVU tests are skipped on Windows due to cvxpy compatibility issues")
-    
+
     # Check if cvxpy is available
     try:
         import cvxpy
     except ImportError:
         pytest.skip("cvxpy not installed - required for MVU")
-    
+
     # Use small dataset for MVU
     n_points = 50
     data = np.random.randn(5, n_points)
@@ -112,7 +110,7 @@ def test_mvu():
 
     # Use new simplified API
     emb = D.get_embedding(method="mvu", dim=2, nn=10, metric="l2")
-    
+
     # Check the embedding
     assert emb.coords.shape == (2, n_points)
     assert not np.any(np.isnan(emb.coords))
@@ -149,18 +147,18 @@ def test_dmaps():
 
     # Use new simplified API
     emb = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, nn=15, metric="l2")
-    
+
     # Check the embedding
     assert emb.coords.shape == (2, 200)
     assert not np.any(np.isnan(emb.coords))
     assert not np.any(np.isinf(emb.coords))
-    
+
     # Check that reducer stores eigenvalues and eigenvectors
     assert isinstance(emb.reducer_, dict)
-    assert 'eigenvalues' in emb.reducer_
-    assert 'eigenvectors' in emb.reducer_
-    assert 'alpha' in emb.reducer_
-    assert emb.reducer_['alpha'] == 0.5
+    assert "eigenvalues" in emb.reducer_
+    assert "eigenvectors" in emb.reducer_
+    assert "alpha" in emb.reducer_
+    assert emb.reducer_["alpha"] == 0.5
 
 
 def test_dmaps_with_different_alpha():
@@ -169,20 +167,20 @@ def test_dmaps_with_different_alpha():
     n_points = 100
     theta = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
     circle_2d = np.array([np.cos(theta), np.sin(theta)])
-    
+
     # Add noise
     np.random.seed(42)
     data = circle_2d + 0.1 * np.random.randn(2, n_points)
-    
+
     D = MVData(data)
-    
+
     # Test with different alpha values
     for alpha in [0.0, 0.5, 1.0]:
         emb = D.get_embedding(method="dmaps", dim=2, dm_alpha=alpha, nn=10, metric="l2")
-        
+
         assert emb.coords.shape == (2, n_points)
         assert not np.any(np.isnan(emb.coords))
-        assert emb.reducer_['alpha'] == alpha
+        assert emb.reducer_["alpha"] == alpha
 
 
 def test_dmaps_with_different_t():
@@ -190,43 +188,44 @@ def test_dmaps_with_different_t():
     # Create swiss roll data - good for testing multiscale structure
     n_samples = 300
     data, color = make_swiss_roll(n_samples=n_samples, noise=0.05, random_state=42)
-    
+
     # Add some extra dimensions for complexity
     np.random.seed(42)
     extra_data = np.random.randn(2, n_samples)
     high_dim_data = np.vstack([data.T, extra_data])
-    
+
     D = MVData(high_dim_data)
-    
+
     # Test with different t values
     embeddings = []
     variances = []
-    
+
     for t in [1, 5, 10, 20]:
         # Test with different diffusion time parameters
         emb = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=t, nn=15, metric="l2")
-        
+
         embeddings.append(emb.coords)
         variances.append(np.std(emb.coords, axis=1))
-        
+
         # Check that the time parameter was stored
-        assert emb.reducer_['t'] == t
-        
+        assert emb.reducer_["t"] == t
+
         # After graph preprocessing, we may have fewer samples
         assert emb.coords.shape[0] == 2  # 2D embedding
         assert emb.coords.shape[1] <= n_samples  # May lose nodes
         assert not np.any(np.isnan(emb.coords))
-    
+
     # Check that total variance generally decreases with increasing t
     # (as small eigenvalues decay faster, but per-component variance may fluctuate)
     total_variances = [np.sum(v) for v in variances]
     # Allow some tolerance - variance should decrease from t=1 to t=20 overall
-    assert total_variances[0] >= total_variances[-1] * 0.9, \
-        f"Total variance should generally decrease with t: {total_variances[0]} vs {total_variances[-1]}"
-    
+    assert (
+        total_variances[0] >= total_variances[-1] * 0.9
+    ), f"Total variance should generally decrease with t: {total_variances[0]} vs {total_variances[-1]}"
+
     # Check that embeddings are different
     for i in range(len(embeddings) - 1):
-        diff = np.mean(np.abs(embeddings[i] - embeddings[i+1]))
+        diff = np.mean(np.abs(embeddings[i] - embeddings[i + 1]))
         assert diff > 0.001, "Embeddings should differ for different t values"
 
 
@@ -237,9 +236,11 @@ def test_dmaps_multiscale_structure():
     # Set seed for reproducibility and to avoid test interactions
     np.random.seed(42)
     import random
+
     random.seed(42)
     try:
         import torch
+
         torch.manual_seed(42)
     except ImportError:
         pass
@@ -247,57 +248,60 @@ def test_dmaps_multiscale_structure():
     # Large scale: two clusters (closer together to maintain graph connectivity)
     cluster1 = np.random.randn(2, n_samples // 2) + np.array([[-2], [0]])
     cluster2 = np.random.randn(2, n_samples // 2) + np.array([[2], [0]])
-    
+
     # Small scale: add circular structure within each cluster
-    theta1 = np.linspace(0, 2*np.pi, n_samples // 2)
-    theta2 = np.linspace(0, 2*np.pi, n_samples // 2)
-    
+    theta1 = np.linspace(0, 2 * np.pi, n_samples // 2)
+    theta2 = np.linspace(0, 2 * np.pi, n_samples // 2)
+
     cluster1[0] += 0.5 * np.cos(theta1)
     cluster1[1] += 0.5 * np.sin(theta1)
     cluster2[0] += 0.5 * np.cos(theta2)
     cluster2[1] += 0.5 * np.sin(theta2)
-    
+
     # Combine and add noise dimensions
     data = np.hstack([cluster1, cluster2])
     labels = np.array([0] * (n_samples // 2) + [1] * (n_samples // 2))
-    
+
     # Add extra dimensions
     extra_dims = np.random.randn(3, n_samples) * 0.5
     high_dim_data = np.vstack([data, extra_dims])
-    
+
     D = MVData(high_dim_data)
-    
+
     # Small t should preserve local (circular) structure
     emb_small_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=1, nn=10, metric="l2")
-    
+
     # Large t should emphasize global (cluster) structure
     emb_large_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=10, nn=10, metric="l2")
-    
+
     # Check cluster separation in large t embedding
     coords_large_t = emb_large_t.coords.T
-    
+
     # Filter labels to account for lost nodes during graph preprocessing
-    if hasattr(emb_large_t.graph, 'lost_nodes') and len(emb_large_t.graph.lost_nodes) > 0:
+    if hasattr(emb_large_t.graph, "lost_nodes") and len(emb_large_t.graph.lost_nodes) > 0:
         # Keep only labels for nodes that weren't lost
         kept_nodes = [i for i in range(n_samples) if i not in emb_large_t.graph.lost_nodes]
         labels_filtered = labels[kept_nodes]
     else:
         labels_filtered = labels
-    
+
     cluster1_center = np.mean(coords_large_t[labels_filtered == 0], axis=0)
     cluster2_center = np.mean(coords_large_t[labels_filtered == 1], axis=0)
     cluster_separation = np.linalg.norm(cluster1_center - cluster2_center)
-    
+
     # Within-cluster variance (should be small for large t)
-    within_cluster_var = np.mean([
-        np.var(coords_large_t[labels_filtered == 0], axis=0).sum(),
-        np.var(coords_large_t[labels_filtered == 1], axis=0).sum()
-    ])
-    
+    within_cluster_var = np.mean(
+        [
+            np.var(coords_large_t[labels_filtered == 0], axis=0).sum(),
+            np.var(coords_large_t[labels_filtered == 1], axis=0).sum(),
+        ]
+    )
+
     # Separation should be larger than within-cluster variance
     # Use 1.9x threshold to account for numerical precision and node loss variability
-    assert cluster_separation > 1.9 * np.sqrt(within_cluster_var), \
-        "Large t should emphasize cluster separation"
+    assert cluster_separation > 1.9 * np.sqrt(
+        within_cluster_var
+    ), "Large t should emphasize cluster separation"
 
 
 # Integration tests with Experiment objects
@@ -306,9 +310,7 @@ def test_dmaps_multiscale_structure():
 def test_experiment_to_mvdata_pipeline():
     """Test conversion from Experiment to MVData and DR"""
     # Generate synthetic experiment
-    exp = generate_synthetic_exp(
-        n_dfeats=1, n_cfeats=2, nneurons=50, duration=100, seed=42
-    )
+    exp = generate_synthetic_exp(n_dfeats=1, n_cfeats=2, nneurons=50, duration=100, seed=42)
 
     # Extract neural activity
     calcium_data = exp.calcium.data.T  # MVData expects (features, samples)
@@ -509,9 +511,7 @@ def test_swiss_roll_unfolding():
     cont = continuity(X_high, X_low, k=k)
 
     # Should preserve local structure well with proper n_neighbors
-    assert (
-        preservation_rate > 0.5
-    ), f"KNN preservation rate {preservation_rate:.3f} too low"
+    assert preservation_rate > 0.5, f"KNN preservation rate {preservation_rate:.3f} too low"
     # Swiss roll is challenging - realistic thresholds for small sample size
     assert trust > 0.55, f"Trustworthiness {trust:.3f} too low"
     assert cont > 0.55, f"Continuity {cont:.3f} too low"
@@ -547,9 +547,7 @@ def test_circle_preservation():
     X_low = emb.coords.T  # (n_samples, 2)
 
     # Test circular structure preservation
-    circular_metrics = circular_structure_preservation(
-        X_low, true_angles=theta, k_neighbors=3
-    )
+    circular_metrics = circular_structure_preservation(X_low, true_angles=theta, k_neighbors=3)
 
     # Check metrics
     assert (
@@ -646,7 +644,7 @@ def test_linear_vs_nonlinear_on_manifolds():
     iso_emb = D.get_embedding(method="isomap", dim=2, nn=7, metric="l2")
 
     # Account for lost nodes due to disconnected graph preprocessing
-    if hasattr(iso_emb.graph, 'lost_nodes') and len(iso_emb.graph.lost_nodes) > 0:
+    if hasattr(iso_emb.graph, "lost_nodes") and len(iso_emb.graph.lost_nodes) > 0:
         kept_nodes = [i for i in range(n_samples) if i not in iso_emb.graph.lost_nodes]
         data_filtered = data[kept_nodes]
     else:
@@ -673,7 +671,7 @@ def test_dmaps_on_swiss_roll():
     # Generate swiss roll with more noise and higher ambient dimension
     n_samples = 400
     data, color = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=42)
-    
+
     # Add extra dimensions with structured noise to increase complexity
     np.random.seed(42)
     extra_dims = 5
@@ -682,50 +680,53 @@ def test_dmaps_on_swiss_roll():
     # Make some dimensions correlated with the manifold
     extra_data[0] += 0.5 * data[:, 0]  # Partially correlated with X
     extra_data[1] += 0.3 * data[:, 2]  # Partially correlated with Z
-    
+
     # Combine original data with extra dimensions
     high_dim_data = np.vstack([data.T, extra_data])
-    
+
     D = MVData(high_dim_data)
-    
+
     # Apply diffusion maps with parameters suitable for swiss roll
     # Lower alpha (0.5) often works better for manifolds with varying density
     dmaps_emb = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, nn=15, metric="l2")
-    
+
     # Check embedding quality
     assert dmaps_emb.coords.shape == (2, n_samples)
     assert not np.any(np.isnan(dmaps_emb.coords))
-    
+
     # Check that the embedding preserves local structure
     from driada.dim_reduction import knn_preservation_rate
+
     emb_points = dmaps_emb.coords.T
     preservation = knn_preservation_rate(data, emb_points, k=15)
-    
+
     # Diffusion maps should preserve local neighborhoods reasonably well
     assert preservation > 0.4, f"Local structure preservation {preservation:.3f} too low"
-    
+
     # Check that we get meaningful eigenvalues
-    assert 'eigenvalues' in dmaps_emb.reducer_
-    eigenvalues = dmaps_emb.reducer_['eigenvalues']
-    
+    assert "eigenvalues" in dmaps_emb.reducer_
+    eigenvalues = dmaps_emb.reducer_["eigenvalues"]
+
     # All eigenvalues should be positive and <= 1 (properties of Markov matrix)
     assert np.all(eigenvalues > 0), "Eigenvalues should be positive"
     assert np.all(eigenvalues <= 1.0), "Eigenvalues should be <= 1"
-    
+
     # Eigenvalues should be sorted in descending order
     assert np.all(np.diff(eigenvalues) <= 0), "Eigenvalues should be in descending order"
-    
+
     # Test that embedding varies (not collapsed to a point)
     embedding_std = np.std(emb_points, axis=0)
     # Diffusion maps can produce embeddings with smaller variance, especially with eigenvalue scaling
     assert np.all(embedding_std > 0.01), "Embedding should have reasonable variance"
-    
+
     # Also check that the embedding captures structure (correlation with intrinsic parameter)
     # Note: Diffusion maps can sometimes produce embeddings with weaker direct correlation
     # to the intrinsic parameter, especially with noise and extra dimensions
     from scipy.stats import spearmanr
-    corr = max(abs(spearmanr(color, emb_points[:, 0])[0]), 
-               abs(spearmanr(color, emb_points[:, 1])[0]))
+
+    corr = max(
+        abs(spearmanr(color, emb_points[:, 0])[0]), abs(spearmanr(color, emb_points[:, 1])[0])
+    )
     # Relaxed threshold - diffusion maps may not always achieve strong correlation
     # due to the noisy high-dimensional data and the nature of the algorithm
     assert corr > 0.25, f"Embedding should correlate with intrinsic parameter, got {corr:.3f}"

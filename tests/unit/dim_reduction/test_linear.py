@@ -68,9 +68,7 @@ class TestPCADimension:
         n_samples, n_features = 500, 20
         eigenvalues = np.exp(-np.arange(n_features) / 2)
         U = np.linalg.qr(np.random.randn(n_features, n_features))[0]
-        data = (
-            np.random.randn(n_samples, n_features) @ np.diag(np.sqrt(eigenvalues)) @ U.T
-        )
+        data = np.random.randn(n_samples, n_features) @ np.diag(np.sqrt(eigenvalues)) @ U.T
 
         # Test different thresholds
         thresholds = [0.5, 0.8, 0.9, 0.95, 0.99]
@@ -80,9 +78,7 @@ class TestPCADimension:
         assert all(
             dims[i] <= dims[i + 1] for i in range(len(dims) - 1)
         ), f"Dimensions should be non-decreasing: {dims}"
-        assert (
-            dims[0] < dims[-1]
-        ), "Should capture more components with higher threshold"
+        assert dims[0] < dims[-1], "Should capture more components with higher threshold"
 
     def test_standardization_effect(self):
         """Test effect of standardization on dimension estimation."""
@@ -201,9 +197,7 @@ class TestPCADimensionProfile:
 
         # Components should be non-decreasing
         components = profile["n_components"]
-        assert all(
-            components[i] <= components[i + 1] for i in range(len(components) - 1)
-        )
+        assert all(components[i] <= components[i + 1] for i in range(len(components) - 1))
 
     def test_custom_thresholds(self):
         """Test with custom threshold values."""
@@ -302,17 +296,13 @@ class TestEffectiveRank:
         eigenvalues = np.exp(-np.arange(n_features) * decay_rate)
 
         U = np.linalg.qr(np.random.randn(n_features, n_features))[0]
-        data = (
-            np.random.randn(n_samples, n_features) @ np.diag(np.sqrt(eigenvalues)) @ U.T
-        )
+        data = np.random.randn(n_samples, n_features) @ np.diag(np.sqrt(eigenvalues)) @ U.T
 
         rank = effective_rank(data, standardize=False)
 
         # For exponential decay with rate 0.5, effective rank is still fairly high
         # because many eigenvalues contribute (exp(-0.5*i) decays slowly)
-        assert (
-            8 < rank < 15
-        ), f"Expected moderate effective rank for this decay rate, got {rank}"
+        assert 8 < rank < 15, f"Expected moderate effective rank for this decay rate, got {rank}"
 
     def test_comparison_with_pca_dimension(self):
         """Test relationship between effective rank and PCA dimension."""
@@ -460,6 +450,4 @@ class TestIntegration:
             # PCA should give 3 (captures noise)
             # Effective rank should be between 2 and 3
             assert pca_95 == 3, f"{name}: PCA dimension should be 3"
-            assert (
-                2 < eff_rank < 3
-            ), f"{name}: Effective rank should be ~2-3, got {eff_rank}"
+            assert 2 < eff_rank < 3, f"{name}: Effective rank should be ~2-3, got {eff_rank}"

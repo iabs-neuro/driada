@@ -27,21 +27,21 @@ JOINT_ENTROPY_DD_ALWAYS_JIT = True  # Always use JIT for joint entropy
 def entropy_d(x):
     """Calculate entropy for a discrete variable.
 
-    Automatically selects between JIT-compiled and numpy implementations based 
-    on dataset size for optimal performance. JIT version is used for arrays 
+    Automatically selects between JIT-compiled and numpy implementations based
+    on dataset size for optimal performance. JIT version is used for arrays
     smaller than ENTROPY_D_JIT_THRESHOLD (1000 elements).
 
     Parameters
     ----------
     x : array-like
-        Discrete variable values. Should contain numeric values (integers or 
+        Discrete variable values. Should contain numeric values (integers or
         floats representing discrete states).
 
     Returns
     -------
     float
         Entropy in bits.
-    
+
     Raises
     ------
     ValueError
@@ -51,16 +51,16 @@ def entropy_d(x):
     --------
     >>> entropy_d([1, 1, 2, 2])  # uniform binary distribution
     1.0
-    >>> entropy_d([1, 2, 3, 4])  # uniform 4-way distribution  
+    >>> entropy_d([1, 2, 3, 4])  # uniform 4-way distribution
     2.0
 
     Notes
     -----
     For small datasets (< 1000 elements), automatically uses JIT-compiled
     implementation if available. For larger datasets, uses optimized numpy
-    implementation to avoid JIT compilation overhead.    """
+    implementation to avoid JIT compilation overhead."""
     x = np.asarray(x)
-    
+
     # Verify input is numeric
     if not np.issubdtype(x.dtype, np.number):
         raise ValueError(f"Input must be numeric, got dtype: {x.dtype}")
@@ -100,9 +100,9 @@ def probs_to_entropy(p):
 
     Notes
     -----
-    Probabilities are automatically normalized to sum to 1. A small epsilon 
-    (1e-10) is added before taking logarithm to avoid numerical issues with 
-    log(0) and ensure numerical stability.    """
+    Probabilities are automatically normalized to sum to 1. A small epsilon
+    (1e-10) is added before taking logarithm to avoid numerical issues with
+    log(0) and ensure numerical stability."""
     p = np.asarray(p)
     p = p / np.sum(p)  # Normalize to sum to 1
     return -np.sum(p * np.log2(p + 1e-10))  # Add small value to avoid log(0)
@@ -137,7 +137,7 @@ def joint_entropy_dd(x, y):
     -----
     When JIT compilation is available, always uses the JIT version as it is
     consistently faster. Falls back to histogram2d-based implementation
-    if JIT is not available.    """
+    if JIT is not available."""
     x = np.asarray(x)
     y = np.asarray(y)
 
@@ -146,14 +146,12 @@ def joint_entropy_dd(x, y):
         return joint_entropy_dd_jit(x, y)
 
     # Fallback to histogram2d implementation
-    joint_prob = np.histogram2d(
-        x, y, bins=[np.unique(x).size, np.unique(y).size], density=True
-    )[0]
+    joint_prob = np.histogram2d(x, y, bins=[np.unique(x).size, np.unique(y).size], density=True)[0]
     joint_prob /= np.sum(joint_prob)  # Normalize
     return probs_to_entropy(joint_prob.flatten())
 
 
-def conditional_entropy_cdd(z, x, y, k=5, estimator='gcmi'):
+def conditional_entropy_cdd(z, x, y, k=5, estimator="gcmi"):
     """Calculate conditional differential entropy for a continuous variable given two discrete variables.
 
     Computes H(Z|X,Y) where Z is continuous and X,Y are discrete. Two estimators
@@ -184,7 +182,7 @@ def conditional_entropy_cdd(z, x, y, k=5, estimator='gcmi'):
     Examples
     --------
     >>> z = [0.1, 0.2, 0.8, 0.9, 0.3, 0.7]
-    >>> x = [1, 1, 2, 2, 1, 2] 
+    >>> x = [1, 1, 2, 2, 1, 2]
     >>> y = [1, 2, 1, 2, 1, 1]
     >>> result = conditional_entropy_cdd(z, x, y, k=3)
     >>> isinstance(result, float)
@@ -193,11 +191,11 @@ def conditional_entropy_cdd(z, x, y, k=5, estimator='gcmi'):
     Notes
     -----
     GCMI estimator is faster but assumes data follows Gaussian distribution.
-    KSG estimator is slower but works for arbitrary continuous distributions.    """
+    KSG estimator is slower but works for arbitrary continuous distributions."""
     z = np.asarray(z)
     x = np.asarray(x)
     y = np.asarray(y)
-    
+
     unique_x = np.unique(x)
     unique_y = np.unique(y)
 
@@ -207,19 +205,19 @@ def conditional_entropy_cdd(z, x, y, k=5, estimator='gcmi'):
             # Filter z based on x and y
             filtered_z = z[(x == ux) & (y == uy)]
             if len(filtered_z) > k:
-                if estimator == 'ksg':
+                if estimator == "ksg":
                     # Use KSG estimator with k neighbors
                     entropy_val = nonparam_entropy_c(filtered_z.reshape(-1, 1), k=k)
                 else:
                     # Use GCMI estimator (default)
                     entropy_val = ent_g(filtered_z.reshape(1, -1))
-                
+
                 h_conditional += entropy_val * (len(filtered_z) / len(z))
 
     return h_conditional
 
 
-def conditional_entropy_cd(z, x, k=5, estimator='gcmi'):
+def conditional_entropy_cd(z, x, k=5, estimator="gcmi"):
     """Calculate conditional differential entropy for a continuous variable given a discrete variable.
 
     Computes H(Z|X) where Z is continuous and X is discrete. Two estimators
@@ -256,10 +254,10 @@ def conditional_entropy_cd(z, x, k=5, estimator='gcmi'):
     Notes
     -----
     GCMI estimator is faster but assumes data follows Gaussian distribution.
-    KSG estimator is slower but works for arbitrary continuous distributions.    """
+    KSG estimator is slower but works for arbitrary continuous distributions."""
     z = np.asarray(z)
     x = np.asarray(x)
-    
+
     unique_x = np.unique(x)
     h_conditional = 0.0
 
@@ -267,19 +265,19 @@ def conditional_entropy_cd(z, x, k=5, estimator='gcmi'):
         # Filter z based on x
         filtered_z = z[x == ux]
         if len(filtered_z) > k:
-            if estimator == 'ksg':
+            if estimator == "ksg":
                 # Use KSG estimator with k neighbors
                 entropy_val = nonparam_entropy_c(filtered_z.reshape(-1, 1), k=k)
             else:
                 # Use GCMI estimator (default)
                 entropy_val = ent_g(filtered_z.reshape(1, -1))
-            
+
             h_conditional += entropy_val * (len(filtered_z) / len(z))
 
     return h_conditional
 
 
-def joint_entropy_cdd(x, y, z, k=5, estimator='gcmi'):
+def joint_entropy_cdd(x, y, z, k=5, estimator="gcmi"):
     """Calculate joint entropy for two discrete and one continuous variable.
 
     Computes H(X,Y,Z) where X,Y are discrete and Z is continuous using
@@ -310,7 +308,7 @@ def joint_entropy_cdd(x, y, z, k=5, estimator='gcmi'):
     Examples
     --------
     >>> x = [1, 1, 2, 2]
-    >>> y = [1, 2, 1, 2] 
+    >>> y = [1, 2, 1, 2]
     >>> z = [0.1, 0.2, 0.8, 0.9]
     >>> result = joint_entropy_cdd(x, y, z, k=2)
     >>> isinstance(result, float)
@@ -319,18 +317,18 @@ def joint_entropy_cdd(x, y, z, k=5, estimator='gcmi'):
     Notes
     -----
     Discrete component H(X,Y) is computed exactly. Continuous component H(Z|X,Y)
-    uses the specified estimator. Chain rule ensures mathematical correctness.    """
+    uses the specified estimator. Chain rule ensures mathematical correctness."""
     x = np.asarray(x)
     y = np.asarray(y)
     z = np.asarray(z)
-    
+
     H_xy = joint_entropy_dd(x, y)
     H_z_given_xy = conditional_entropy_cdd(z, x, y, k=k, estimator=estimator)
     H_xyz = H_xy + H_z_given_xy
     return H_xyz
 
 
-def joint_entropy_cd(x, z, k=5, estimator='gcmi'):
+def joint_entropy_cd(x, z, k=5, estimator="gcmi"):
     """Calculate joint entropy for one discrete and one continuous variable.
 
     Computes H(X,Z) where X is discrete and Z is continuous using
@@ -367,10 +365,10 @@ def joint_entropy_cd(x, z, k=5, estimator='gcmi'):
     Notes
     -----
     Discrete component H(X) is computed exactly. Continuous component H(Z|X)
-    uses the specified estimator. Chain rule ensures mathematical correctness.    """
+    uses the specified estimator. Chain rule ensures mathematical correctness."""
     x = np.asarray(x)
     z = np.asarray(z)
-    
+
     H_x = entropy_d(x)
     H_z_given_x = conditional_entropy_cd(z, x, k=k, estimator=estimator)
     H_xz = H_x + H_z_given_x

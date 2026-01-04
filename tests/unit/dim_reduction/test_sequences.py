@@ -75,9 +75,7 @@ class TestDRSequence:
     def test_invalid_tuple_format(self, sample_data):
         """Test that invalid tuple format raises error."""
         with pytest.raises(ValueError, match="Invalid step format"):
-            dr_sequence(
-                sample_data, steps=[("pca", {"dim": 2}, "extra")]
-            )  # Too many elements
+            dr_sequence(sample_data, steps=[("pca", {"dim": 2}, "extra")])  # Too many elements
 
     def test_preserves_labels(self):
         """Test that labels are preserved through the sequence."""

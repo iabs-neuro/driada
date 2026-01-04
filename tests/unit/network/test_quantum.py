@@ -62,8 +62,8 @@ class TestJSDivergence:
                 n = max(A.shape[0], B.shape[0])
                 A_pad = np.zeros((n, n))
                 B_pad = np.zeros((n, n))
-                A_pad[:A.shape[0], :A.shape[1]] = A
-                B_pad[:B.shape[0], :B.shape[1]] = B
+                A_pad[: A.shape[0], : A.shape[1]] = A
+                B_pad[: B.shape[0], : B.shape[1]] = B
 
                 jsd = js_divergence(A_pad, B_pad, t=1.0, return_partial_entropies=False)
                 assert jsd >= 0, f"JSD({i},{j}) = {jsd} is negative"
@@ -71,20 +71,24 @@ class TestJSDivergence:
     def test_different_graphs_positive_divergence(self):
         """Different graphs should have positive JS divergence."""
         # Star graph (central node connected to all)
-        star = np.array([
-            [0, 1, 1, 1],
-            [1, 0, 0, 0],
-            [1, 0, 0, 0],
-            [1, 0, 0, 0],
-        ])
+        star = np.array(
+            [
+                [0, 1, 1, 1],
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+            ]
+        )
 
         # Complete graph K4
-        complete = np.array([
-            [0, 1, 1, 1],
-            [1, 0, 1, 1],
-            [1, 1, 0, 1],
-            [1, 1, 1, 0],
-        ])
+        complete = np.array(
+            [
+                [0, 1, 1, 1],
+                [1, 0, 1, 1],
+                [1, 1, 0, 1],
+                [1, 1, 1, 0],
+            ]
+        )
 
         jsd = js_divergence(star, complete, t=1.0, return_partial_entropies=False)
 

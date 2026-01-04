@@ -65,9 +65,7 @@ class TestTimeSeriesTypeDetection:
         # Binary with significant noise (should be continuous)
         data_noisy = data.astype(float) + np.random.normal(0, 0.1, len(data))
         result_noisy = analyze_time_series_type(data_noisy)
-        assert (
-            result_noisy.is_continuous
-        )  # With significant noise, it's no longer discrete
+        assert result_noisy.is_continuous  # With significant noise, it's no longer discrete
 
     def test_categorical_detection(self):
         """Test detection of categorical time series."""
@@ -211,14 +209,10 @@ class TestBackwardCompatibility:
         # Clear continuous
         assert not is_discrete_time_series(np.random.normal(0, 1, 100))
         # Note: linspace creates a perfect timeline, so it's detected as discrete
-        assert not is_discrete_time_series(
-            np.random.uniform(0, 10, 100)
-        )  # Random continuous data
+        assert not is_discrete_time_series(np.random.uniform(0, 10, 100))  # Random continuous data
 
         # With confidence
-        is_discrete, conf = is_discrete_time_series(
-            [1, 2, 3, 4, 5] * 20, return_confidence=True
-        )
+        is_discrete, conf = is_discrete_time_series([1, 2, 3, 4, 5] * 20, return_confidence=True)
         assert is_discrete
         assert 0 < conf <= 1
 
@@ -382,26 +376,20 @@ class TestSubtypeDetection:
         circular_result = {"is_circular": False, "confidence": 0.1}
         periodic_result = {"period": None, "confidence": 0.1}
 
-        result = _detect_continuous_subtype(
-            data, props, circular_result, periodic_result
-        )
+        result = _detect_continuous_subtype(data, props, circular_result, periodic_result)
         assert result["subtype"] == "linear"
 
         # Circular
         circular_result["is_circular"] = True
         circular_result["confidence"] = 0.9
-        result_circ = _detect_continuous_subtype(
-            data, props, circular_result, periodic_result
-        )
+        result_circ = _detect_continuous_subtype(data, props, circular_result, periodic_result)
         assert result_circ["subtype"] == "circular"
 
         # Should remain linear even with periodicity detected
         circular_result["is_circular"] = False
         periodic_result["period"] = 20
         periodic_result["confidence"] = 0.8
-        result_per = _detect_continuous_subtype(
-            data, props, circular_result, periodic_result
-        )
+        result_per = _detect_continuous_subtype(data, props, circular_result, periodic_result)
         assert result_per["subtype"] == "linear"  # We removed periodic subtype
 
 
@@ -552,9 +540,7 @@ class TestAmbiguousTypeDetection:
         from driada.information.info_base import TimeSeries
 
         # Discrete values with small noise
-        data_noisy = np.random.choice([1, 2, 3, 4, 5], 100) + np.random.normal(
-            0, 0.05, 100
-        )
+        data_noisy = np.random.choice([1, 2, 3, 4, 5], 100) + np.random.normal(0, 0.05, 100)
         ts = TimeSeries(data_noisy)
 
         # With small noise, should still detect as continuous

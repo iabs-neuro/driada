@@ -23,11 +23,11 @@ class DRMethod(object):
         Default graph construction parameters (if requires_graph)
     default_metric_params : dict or None
         Default metric parameters (if requires weights)
-        
+
     Notes
     -----
     Boolean attributes are stored internally but accept 0/1 integer values
-    for backward compatibility.    """
+    for backward compatibility."""
 
     def __init__(
         self,
@@ -41,7 +41,7 @@ class DRMethod(object):
         default_metric_params=None,
     ):
         """Initialize a DRMethod configuration object.
-        
+
         Parameters
         ----------
         is_linear : int or bool
@@ -59,7 +59,7 @@ class DRMethod(object):
         default_graph_params : dict or None, default=None
             Default graph construction parameters (if requires_graph).
         default_metric_params : dict or None, default=None
-            Default metric parameters (if requires weights).        """
+            Default metric parameters (if requires weights)."""
         self.is_linear = bool(is_linear)
         self.requires_graph = bool(requires_graph)
         self.requires_distmat = bool(requires_distmat)
@@ -211,7 +211,7 @@ def m_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     -------
     dict
         Filtered parameters appropriate for the chosen metric
-        
+
     Raises
     ------
     KeyError
@@ -219,11 +219,11 @@ def m_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     ValueError
         If metric_name is unknown (not in named_distances, not 'hyperbolic',
         and not callable).
-        
+
     Notes
     -----
     The special metric 'hyperbolic' is supported in addition to the standard
-    pynndescent named_distances. Custom callable metrics are also supported.    """
+    pynndescent named_distances. Custom callable metrics are also supported."""
     name = para["metric_name"]
     appr_keys = ["metric_name"]
 
@@ -253,28 +253,28 @@ def m_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
 
 def g_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     """Filter parameters to keep only those relevant for the graph method.
-    
+
     Different graph construction methods require different parameters.
     This function ensures only the appropriate parameters are passed
     to avoid errors or warnings from unused parameters.
-    
+
     Parameters
     ----------
     para : dict
         Dictionary containing all graph construction parameters.
         Must include 'g_method_name' key.
-        
+
     Returns
     -------
     dict
         Filtered dictionary containing only parameters relevant to the
         specified graph construction method.
-        
+
     Raises
     ------
     KeyError
         If 'g_method_name' key is missing from para dict.
-        
+
     Notes
     -----
     Supported graph methods and their specific parameters:
@@ -282,13 +282,20 @@ def g_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     - 'eps': requires 'eps' (radius) and 'min_density' (minimum graph density)
     - 'eknn': requires 'eps', 'min_density', and 'nn'
     - 'tsne': requires 'perplexity'
-    
+
     All methods support: 'g_method_name', 'max_deleted_nodes', 'weighted',
     'dist_to_aff', 'graph_preprocessing', 'seed'.
 
-    Unknown methods are accepted and will receive only the base parameters.    """
+    Unknown methods are accepted and will receive only the base parameters."""
     gmethod = para["g_method_name"]
-    appr_keys = ["g_method_name", "max_deleted_nodes", "weighted", "dist_to_aff", "graph_preprocessing", "seed"]
+    appr_keys = [
+        "g_method_name",
+        "max_deleted_nodes",
+        "weighted",
+        "dist_to_aff",
+        "graph_preprocessing",
+        "seed",
+    ]
 
     if gmethod in ["knn", "auto_knn", "umap"]:
         appr_keys.extend(["nn"])
@@ -307,38 +314,38 @@ def g_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
 
 def e_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     """Filter parameters to keep only those relevant for the embedding method.
-    
+
     Different dimensionality reduction methods require different parameters.
     This function ensures only the appropriate parameters are passed to
     avoid errors or warnings from unused parameters.
-    
+
     Parameters
     ----------
     para : dict
         Dictionary containing all embedding parameters.
         Must include 'e_method_name' key.
-        
+
     Returns
     -------
     dict
         Filtered dictionary containing only parameters relevant to the
         specified embedding method.
-        
+
     Raises
     ------
     KeyError
         If 'e_method_name' key is missing from para dict.
-        
+
     Notes
     -----
     All methods support: 'e_method', 'e_method_name', 'dim' (target dimension).
-    
+
     Method-specific parameters:
     - 'umap': adds 'min_dist' (minimum distance in low-dimensional space)
     - 'dmaps', 'auto_dmaps': adds 'dm_alpha' (diffusion maps alpha parameter)
       and 'dm_t' (diffusion time)
-      
-    Unknown methods are accepted and will receive only the base parameters.    """
+
+    Unknown methods are accepted and will receive only the base parameters."""
     appr_keys = ["e_method", "e_method_name", "dim"]
 
     if para["e_method_name"] == "umap":
@@ -368,30 +375,30 @@ def merge_params_with_defaults(
     -------
     dict
         Dictionary with 'e_params', 'g_params', 'm_params' keys containing merged parameters.
-        
+
     Raises
     ------
     ValueError
         If method_name is not found in METHODS_DICT.
-        
+
     Notes
     -----
     The function supports two input formats:
-    
+
     1. Structured format with explicit parameter groups:
        {'e_params': {...}, 'g_params': {...}, 'm_params': {...}}
-       
+
     2. Flat format where parameters are auto-distributed:
        - 'n_neighbors' → g_params['nn']
        - 'metric' → m_params['metric_name']
        - 'sigma' → m_params['sigma']
        - 'max_deleted_nodes' → g_params['max_deleted_nodes']
        - All others → e_params
-       
+
     The function also sets graph_preprocessing based on the method's
     handles_disconnected_graphs property:
     - If True: graph_preprocessing = None
-    - If False: graph_preprocessing = 'giant_cc'    """
+    - If False: graph_preprocessing = 'giant_cc'"""
     if method_name not in METHODS_DICT:
         raise ValueError(f"Unknown method: {method_name}")
 
@@ -402,44 +409,28 @@ def merge_params_with_defaults(
     e_params["e_method_name"] = method_name
     e_params["e_method"] = method
 
-    g_params = (
-        method.default_graph_params.copy() if method.default_graph_params else None
-    )
-    
+    g_params = method.default_graph_params.copy() if method.default_graph_params else None
+
     # Set default graph_preprocessing based on handles_disconnected_graphs property
     if g_params is not None:
         if method.handles_disconnected_graphs:
             g_params.setdefault("graph_preprocessing", None)
         else:
             g_params.setdefault("graph_preprocessing", "giant_cc")
-    
-    m_params = (
-        method.default_metric_params.copy() if method.default_metric_params else None
-    )
+
+    m_params = method.default_metric_params.copy() if method.default_metric_params else None
 
     if user_params is None:
         return {"e_params": e_params, "g_params": g_params, "m_params": m_params}
 
     # Handle different input formats
-    if (
-        "e_params" in user_params
-        or "g_params" in user_params
-        or "m_params" in user_params
-    ):
+    if "e_params" in user_params or "g_params" in user_params or "m_params" in user_params:
         # User provided structured parameters
         if "e_params" in user_params and user_params["e_params"]:
             e_params.update(user_params["e_params"])
-        if (
-            "g_params" in user_params
-            and user_params["g_params"]
-            and g_params is not None
-        ):
+        if "g_params" in user_params and user_params["g_params"] and g_params is not None:
             g_params.update(user_params["g_params"])
-        if (
-            "m_params" in user_params
-            and user_params["m_params"]
-            and m_params is not None
-        ):
+        if "m_params" in user_params and user_params["m_params"] and m_params is not None:
             m_params.update(user_params["m_params"])
     else:
         # User provided flat parameters - need to distribute to appropriate dicts
@@ -447,9 +438,14 @@ def merge_params_with_defaults(
         for key, value in user_params.items():
             # Graph parameters (g_params)
             if g_params is not None and key in [
-                "n_neighbors", "nn", "k",  # All aliases for number of neighbors
-                "weighted", "dist_to_aff", "graph_preprocessing",
-                "g_method_name", "max_deleted_nodes"
+                "n_neighbors",
+                "nn",
+                "k",  # All aliases for number of neighbors
+                "weighted",
+                "dist_to_aff",
+                "graph_preprocessing",
+                "g_method_name",
+                "max_deleted_nodes",
             ]:
                 if key in ["n_neighbors", "k"]:  # Map aliases to nn
                     g_params["nn"] = value
@@ -459,9 +455,7 @@ def merge_params_with_defaults(
                     g_params[key] = value
 
             # Metric parameters (m_params)
-            elif m_params is not None and key in [
-                "metric", "metric_name", "sigma"
-            ]:
+            elif m_params is not None and key in ["metric", "metric_name", "sigma"]:
                 if key == "metric":  # Map alias to metric_name
                     m_params["metric_name"] = value
                 else:  # Direct parameters

@@ -15,9 +15,7 @@ n_time_samples = 500  # Reduced from 10000
 @pytest.fixture
 def small_swiss_roll_mvdata():
     """Small swiss roll MVData for fast tests."""
-    data, color = make_swiss_roll(
-        n_samples=n_swiss_roll, noise=0.0, random_state=42, hole=False
-    )
+    data, color = make_swiss_roll(n_samples=n_swiss_roll, noise=0.0, random_state=42, hole=False)
     return MVData(data.T)
 
 
@@ -73,9 +71,7 @@ def test_le(small_swiss_roll_mvdata):
 
 def test_auto_le(small_swiss_roll_mvdata):
 
-    emb = small_swiss_roll_mvdata.get_embedding(
-        method="auto_le", dim=2, nn=5, metric="l2"
-    )
+    emb = small_swiss_roll_mvdata.get_embedding(method="auto_le", dim=2, nn=5, metric="l2")
     # auto_le may drop nodes from disconnected components during graph preprocessing
     assert emb.coords.shape[0] == 2  # Check dimension
     assert emb.coords.shape[1] <= n_swiss_roll  # May lose some nodes
@@ -94,9 +90,7 @@ def test_umap(small_swiss_roll_mvdata):
 
 def test_isomap(small_swiss_roll_mvdata):
 
-    emb = small_swiss_roll_mvdata.get_embedding(
-        method="isomap", dim=2, nn=5, metric="l2"
-    )
+    emb = small_swiss_roll_mvdata.get_embedding(method="isomap", dim=2, nn=5, metric="l2")
     # Isomap may drop nodes from disconnected components during graph preprocessing
     assert emb.coords.shape[0] == 2  # Check dimension
     assert emb.coords.shape[1] <= n_swiss_roll  # May lose some nodes
@@ -174,7 +168,7 @@ def test_check_data_for_errors_dense():
     """Test check_data_for_errors with dense array containing zero columns."""
     # Create dense array with zero columns
     data = np.array([[1, 0, 2, 0], [3, 0, 4, 0], [5, 0, 6, 0]])
-    
+
     with pytest.raises(ValueError, match="Data contains 2 zero columns"):
         check_data_for_errors(data)
 
@@ -183,7 +177,7 @@ def test_check_data_for_errors_valid_data():
     """Test check_data_for_errors with valid data (no zero columns)."""
     # Valid data - no zero columns
     data = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
-    
+
     # Should not raise any exception
     check_data_for_errors(data)  # No exception means success
 
@@ -193,7 +187,7 @@ def test_check_data_for_errors_verbose():
     # Create data with many zero columns
     data = np.zeros((3, 20))
     data[:, [0, 5, 10, 15]] = 1  # Only 4 non-zero columns
-    
+
     # Test verbose output with capsys
     with pytest.raises(ValueError, match="Data contains 16 zero columns"):
         check_data_for_errors(data, verbose=True)
@@ -203,7 +197,7 @@ def test_mvdata_with_zero_columns():
     """Test MVData initialization with data containing zero columns."""
     # Create data with zero columns
     data = np.array([[1, 0, 2], [3, 0, 4], [5, 0, 6]])
-    
+
     # Should raise ValueError due to zero column
     with pytest.raises(ValueError, match="Data contains 1 zero columns"):
         MVData(data)
@@ -288,9 +282,7 @@ def test_get_embedding_no_params_error():
     """Test error when no parameters provided to get_embedding."""
     mvdata = MVData(np.random.rand(5, 20))
 
-    with pytest.raises(
-        ValueError, match="Either 'method' or 'e_params' must be provided"
-    ):
+    with pytest.raises(ValueError, match="Either 'method' or 'e_params' must be provided"):
         mvdata.get_embedding()
 
 

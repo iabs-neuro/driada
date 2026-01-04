@@ -24,11 +24,9 @@ from .matrix_utils import (
 )
 
 
-def _validate_adjacency_matrix(
-    a: Union[np.ndarray, sp.spmatrix], allow_dense: bool = True
-) -> None:
+def _validate_adjacency_matrix(a: Union[np.ndarray, sp.spmatrix], allow_dense: bool = True) -> None:
     """Validate input adjacency matrix.
-    
+
     This function performs comprehensive validation of adjacency matrices
     to ensure they meet the requirements for graph algorithms. It checks
     for proper type, dimensions, and structure.
@@ -39,7 +37,7 @@ def _validate_adjacency_matrix(
         Adjacency matrix to validate. Can be dense numpy array or scipy sparse matrix.
     allow_dense : bool, default True
         Whether to allow dense matrices. If False, only sparse matrices are accepted.
-        
+
     Raises
     ------
     ValueError
@@ -48,16 +46,16 @@ def _validate_adjacency_matrix(
         If matrix is not square.
         If dense matrix provided when allow_dense=False.
         If matrix contains NaN or infinite values.
-        
+
     Examples
     --------
     >>> import numpy as np
     >>> adj = np.array([[0, 1], [1, 0]])
     >>> _validate_adjacency_matrix(adj)  # No error
-    
+
     >>> import scipy.sparse as sp
     >>> sparse_adj = sp.csr_matrix(adj)
-    >>> _validate_adjacency_matrix(sparse_adj)  # No error    """
+    >>> _validate_adjacency_matrix(sparse_adj)  # No error"""
     if not (isinstance(a, np.ndarray) or sp.issparse(a)):
         raise ValueError("Input must be a numpy array or scipy sparse matrix")
 
@@ -69,7 +67,7 @@ def _validate_adjacency_matrix(
 
     if not allow_dense and not sp.issparse(a):
         raise ValueError("This function requires a sparse matrix input")
-    
+
     # Check for NaN or infinite values
     if sp.issparse(a):
         if not np.all(np.isfinite(a.data)):
@@ -91,9 +89,9 @@ def adj_random_rewiring_iom_preserving(
 
     This method rewires edges while preserving three key properties for each node:
     - In-degree: number of incoming edges
-    - Out-degree: number of outgoing edges  
+    - Out-degree: number of outgoing edges
     - Mutual degree: number of bidirectional (reciprocal) connections
-    
+
     It handles symmetric (bidirectional) and non-symmetric (unidirectional) components
     separately to maintain these local connectivity patterns.
 
@@ -116,14 +114,14 @@ def adj_random_rewiring_iom_preserving(
     -------
     scipy.sparse.csr_matrix
         Randomized adjacency matrix.
-        
+
     Notes
     -----
     The algorithm separates the adjacency matrix into symmetric (bidirectional)
     and non-symmetric (unidirectional) components, rewires each separately,
     then recombines them. This ensures preservation of in-degree, out-degree,
     and mutual degree for each node.
-    
+
     Examples
     --------
     >>> import numpy as np
@@ -137,11 +135,11 @@ def adj_random_rewiring_iom_preserving(
     ----------
     Sporns, O., & Kötter, R. (2004). Motifs in brain networks.
     PLoS biology, 2(11), e369.
-    
+
     See Also
     --------
     ~driada.network.randomization.random_rewiring_complete_graph : For complete graphs
-    ~driada.network.randomization.random_rewiring_dense_graph : For dense graphs with gap filling    """
+    ~driada.network.randomization.random_rewiring_dense_graph : For dense graphs with gap filling"""
     # Setup
     logger = logger or logging.getLogger(__name__)
     _validate_adjacency_matrix(a)
@@ -169,9 +167,7 @@ def adj_random_rewiring_iom_preserving(
 
     # Progress tracking for double edges
     if enable_progressbar:
-        pbar = tqdm.tqdm(
-            total=total_double_rewires, desc="Rewiring bidirectional edges"
-        )
+        pbar = tqdm.tqdm(total=total_double_rewires, desc="Rewiring bidirectional edges")
 
     i = 0
     while i < total_double_rewires:
@@ -189,9 +185,7 @@ def adj_random_rewiring_iom_preserving(
             attempts += 1
 
         if attempts >= max_attempts:
-            logger.warning(
-                f"Max attempts reached for finding valid edge pair at iteration {i}"
-            )
+            logger.warning(f"Max attempts reached for finding valid edge pair at iteration {i}")
             break
 
         w1 = s[n1, n2]
@@ -233,9 +227,7 @@ def adj_random_rewiring_iom_preserving(
 
     # Progress tracking for single edges
     if enable_progressbar:
-        pbar = tqdm.tqdm(
-            total=total_single_rewires, desc="Rewiring unidirectional edges"
-        )
+        pbar = tqdm.tqdm(total=total_single_rewires, desc="Rewiring unidirectional edges")
 
     i = 0
     while i < total_single_rewires:
@@ -253,9 +245,7 @@ def adj_random_rewiring_iom_preserving(
             attempts += 1
 
         if attempts >= max_attempts:
-            logger.warning(
-                f"Max attempts reached for finding valid edge pair at iteration {i}"
-            )
+            logger.warning(f"Max attempts reached for finding valid edge pair at iteration {i}")
             break
 
         w1 = ns[n1, n2]
@@ -335,13 +325,13 @@ def random_rewiring_complete_graph(
     ValueError
         If graph is not complete.
         If p is not between 0 and 1.
-        
+
     Notes
     -----
     This function preserves the complete graph structure (all edges present)
     but randomly redistributes the edge weights. For symmetric graphs, symmetry
     is preserved.
-    
+
     Examples
     --------
     >>> import numpy as np
@@ -353,7 +343,7 @@ def random_rewiring_complete_graph(
     >>> randomized = random_rewiring_complete_graph(a, p=0.5)
     >>> # Check that it's still complete
     >>> np.all((randomized > 0) == (a > 0))  # Same structure
-    True    """
+    True"""
     logger = logger or logging.getLogger(__name__)
     _validate_adjacency_matrix(a)
 
@@ -369,9 +359,7 @@ def random_rewiring_complete_graph(
     n_expected = n**2 - n
 
     if n_edges < n_expected:
-        raise ValueError(
-            f"Graph is not complete: has {n_edges} edges, expected {n_expected}"
-        )
+        raise ValueError(f"Graph is not complete: has {n_edges} edges, expected {n_expected}")
 
     if not 0 <= p <= 1:
         raise ValueError(f"p must be between 0 and 1, got {p}")
@@ -441,13 +429,13 @@ def random_rewiring_dense_graph(
     -------
     numpy.ndarray
         Randomized adjacency matrix with preserved degree sequence.
-        
+
     Raises
     ------
     ValueError
         If gap_fill_weight is not positive.
         If matrix is not symmetric.
-        
+
     Examples
     --------
     >>> import numpy as np
@@ -456,10 +444,10 @@ def random_rewiring_dense_graph(
     >>> randomized = random_rewiring_dense_graph(a, random_state=42)
     >>> # Verify degree sequence is preserved
     >>> np.allclose(np.sum(a, axis=0), np.sum(randomized, axis=0))
-    True    """
+    True"""
     logger = logger or logging.getLogger(__name__)
     _validate_adjacency_matrix(a)
-    
+
     if gap_fill_weight <= 0:
         raise ValueError(f"gap_fill_weight must be positive, got {gap_fill_weight}")
 
@@ -473,7 +461,7 @@ def random_rewiring_dense_graph(
     else:
         afull = a.toarray()
         nelem = a.nnz
-        
+
     # Check symmetry
     if not np.allclose(afull, afull.T):
         raise ValueError("This function currently only supports symmetric (undirected) graphs")
@@ -482,9 +470,7 @@ def random_rewiring_dense_graph(
     max_edges = n**2 - n
 
     if nelem != max_edges:
-        logger.debug(
-            f"Graph is not complete ({nelem}/{max_edges} edges), using gap filling"
-        )
+        logger.debug(f"Graph is not complete ({nelem}/{max_edges} edges), using gap filling")
         temp = gap_fill_weight
     else:
         temp = 0
@@ -512,7 +498,7 @@ def get_single_double_edges_lists(
     g: nx.Graph,
 ) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
     """Separate edges into single and double (bidirectional) lists.
-    
+
     This function analyzes a directed graph and categorizes edges based on
     whether they are unidirectional (single) or bidirectional (double).
     For undirected graphs, all edges are considered bidirectional.
@@ -529,14 +515,14 @@ def get_single_double_edges_lists(
     double_edges : List[Tuple[int, int]]
         List of bidirectional edges as (source, target) tuples.
         For bidirectional edges, only one direction is included.
-        
+
     Notes
     -----
     The algorithm works by:
     1. Converting to undirected to find all edge pairs
     2. Checking original graph for directionality
     3. Classifying edges as single or double based on reciprocity
-    
+
     Examples
     --------
     >>> import networkx as nx
@@ -545,7 +531,7 @@ def get_single_double_edges_lists(
     >>> print(f"Single edges: {single}")  # [(1, 2)]
     Single edges: [(1, 2)]
     >>> print(f"Double edges: {double}")  # [(0, 1)]
-    Double edges: [(0, 1)]    """
+    Double edges: [(0, 1)]"""
     single_edges = []
     double_edges = []
     h = nx.to_undirected(g).copy()
@@ -585,7 +571,7 @@ def random_rewiring_IOM_preserving(G: nx.Graph, r: int = 10) -> nx.Graph:
     Warnings
     --------
     This function is deprecated and will be removed in v2.0.
-    Use adj_random_rewiring_iom_preserving() with nx.adjacency_matrix() instead.    """
+    Use adj_random_rewiring_iom_preserving() with nx.adjacency_matrix() instead."""
     warnings.warn(
         "random_rewiring_IOM_preserving is deprecated and will be removed in v2.0. "
         "Use adj_random_rewiring_iom_preserving() instead.",
@@ -611,12 +597,7 @@ def random_rewiring_IOM_preserving(G: nx.Graph, r: int = 10) -> nx.Graph:
         Edge_2 = L2[Edge_index_2]
         [Node_A, Node_B] = Edge_1
         [Node_C, Node_D] = Edge_2
-        while (
-            (Node_A == Node_C)
-            or (Node_A == Node_D)
-            or (Node_B == Node_C)
-            or (Node_B == Node_D)
-        ):
+        while (Node_A == Node_C) or (Node_A == Node_D) or (Node_B == Node_C) or (Node_B == Node_D):
             Edge_index_1 = random.randint(0, Number_of_double_edges - 1)
             Edge_index_2 = random.randint(0, Number_of_double_edges - 1)
             Edge_1 = L2[Edge_index_1]
@@ -693,12 +674,7 @@ def random_rewiring_IOM_preserving(G: nx.Graph, r: int = 10) -> nx.Graph:
         Edge_2 = L1[Edge_index_2]
         [Node_A, Node_B] = Edge_1
         [Node_C, Node_D] = Edge_2
-        while (
-            (Node_A == Node_C)
-            or (Node_A == Node_D)
-            or (Node_B == Node_C)
-            or (Node_B == Node_D)
-        ):
+        while (Node_A == Node_C) or (Node_A == Node_D) or (Node_B == Node_C) or (Node_B == Node_D):
             Edge_index_1 = random.randint(0, Number_of_single_edges - 1)
             Edge_index_2 = random.randint(0, Number_of_single_edges - 1)
             Edge_1 = L1[Edge_index_1]
@@ -822,7 +798,7 @@ def randomize_graph(
     >>> rand_adj = randomize_graph(adj, method='iom', random_state=42)
     >>>
     >>> # Randomize complete graph weights
-    >>> rand_adj = randomize_graph(adj, method='complete', p=0.5)    """
+    >>> rand_adj = randomize_graph(adj, method='complete', p=0.5)"""
     logger = logger or logging.getLogger(__name__)
 
     if method == "iom":
@@ -852,6 +828,5 @@ def randomize_graph(
 
     else:
         raise ValueError(
-            f"Unknown randomization method: {method}. "
-            f"Choose from: 'iom', 'complete', 'dense'"
+            f"Unknown randomization method: {method}. " f"Choose from: 'iom', 'complete', 'dense'"
         )

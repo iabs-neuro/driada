@@ -107,15 +107,11 @@ def test_download_whitelist():
         TEST_LINK,  # share link to google drive folder
         key="",  # part of filename to search for
         antikey=None,  # part of name to suppress
-        whitelist=[
-            "white.xlsx"
-        ],  # list of filenames to be downloaded regardless of their names
+        whitelist=["white.xlsx"],  # list of filenames to be downloaded regardless of their names
         extensions=[".txt"],  # allowed file extensions
     )
 
-    assert sorted(os.listdir(TEST_DIR)) == sorted(
-        ["test.txt", "test2.txt", "white.xlsx"]
-    )
+    assert sorted(os.listdir(TEST_DIR)) == sorted(["test.txt", "test2.txt", "white.xlsx"])
 
 
 class TestGDriveModuleImports:

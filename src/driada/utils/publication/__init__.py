@@ -58,20 +58,17 @@ from .external import ExternalPanel, PanelLabeler, format_panel_label
 
 __all__ = [
     # Layout classes
-    'PanelLayout',
-    'PanelSpec',
-
+    "PanelLayout",
+    "PanelSpec",
     # Style classes
-    'StylePreset',
-
+    "StylePreset",
     # External content utilities
-    'ExternalPanel',
-    'PanelLabeler',
-    'format_panel_label',
-
+    "ExternalPanel",
+    "PanelLabeler",
+    "format_panel_label",
     # Unit conversion utilities
-    'to_inches',
-    'from_inches',
+    "to_inches",
+    "from_inches",
 ]
 
-__version__ = '1.0.0'
+__version__ = "1.0.0"

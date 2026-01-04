@@ -88,7 +88,7 @@ def generate_pseudo_calcium_signal(
     decay_time,
     noise_std,
     rise_time=0.25,
-    kernel='double_exponential'
+    kernel="double_exponential",
 ):
     """Generate a pseudo-calcium imaging signal with configurable kernels.
 
@@ -183,7 +183,7 @@ def generate_pseudo_calcium_signal(
         Generate multiple calcium signals.
     """
     # Validate kernel type
-    valid_kernels = ['double_exponential', 'exponential', 'step']
+    valid_kernels = ["double_exponential", "exponential", "step"]
     if kernel not in valid_kernels:
         raise ValueError(f"kernel must be one of {valid_kernels}, got '{kernel}'")
 
@@ -196,9 +196,7 @@ def generate_pseudo_calcium_signal(
     # Generate calcium events
     num_events = np.random.poisson(event_rate * duration)
     event_times = np.random.uniform(0, duration, num_events)
-    event_amplitudes = np.random.uniform(
-        amplitude_range[0], amplitude_range[1], num_events
-    )
+    event_amplitudes = np.random.uniform(amplitude_range[0], amplitude_range[1], num_events)
 
     # Convert time constants to samples
     rise_time_samples = rise_time * sampling_rate
@@ -213,18 +211,14 @@ def generate_pseudo_calcium_signal(
             t_array = np.arange(num_samples - event_index)
 
             # Generate kernel based on type
-            if kernel == 'double_exponential':
+            if kernel == "double_exponential":
                 transient = _double_exponential_kernel(
                     t_array, a, rise_time_samples, decay_time_samples
                 )
-            elif kernel == 'exponential':
-                transient = _exponential_kernel(
-                    t_array, a, decay_time_samples
-                )
-            elif kernel == 'step':
-                transient = _step_kernel(
-                    t_array, a, decay_time_samples
-                )
+            elif kernel == "exponential":
+                transient = _exponential_kernel(t_array, a, decay_time_samples)
+            elif kernel == "step":
+                transient = _step_kernel(t_array, a, decay_time_samples)
 
             signal[event_index:] += transient
 
@@ -236,15 +230,22 @@ def generate_pseudo_calcium_signal(
 
 
 def generate_pseudo_calcium_multisignal(
-    n, duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std,
-    rise_time=0.25, kernel='double_exponential'
+    n,
+    duration,
+    sampling_rate,
+    event_rate,
+    amplitude_range,
+    decay_time,
+    noise_std,
+    rise_time=0.25,
+    kernel="double_exponential",
 ):
     """Generate multiple pseudo-calcium fluorescence signals.
-    
-    Creates a collection of synthetic calcium signals that simulate the 
+
+    Creates a collection of synthetic calcium signals that simulate the
     fluorescence traces typically observed in calcium imaging experiments.
     Each signal is generated independently with the same parameters.
-    
+
     Parameters
     ----------
     n : int
@@ -271,27 +272,33 @@ def generate_pseudo_calcium_multisignal(
     numpy.ndarray
         Array of shape (n, n_timepoints) containing the generated calcium
         signals. Each row is one neuron's calcium trace.
-        
+
     See Also
     --------
     ~driada.utils.neural.generate_pseudo_calcium_signal :
         Generates a single calcium signal.
-    
+
     Examples
     --------
     >>> # Generate 10 neurons with 30 seconds of data at 30Hz
     >>> signals = generate_pseudo_calcium_multisignal(
-    ...     n=10, duration=30, sampling_rate=30, 
+    ...     n=10, duration=30, sampling_rate=30,
     ...     event_rate=0.5, amplitude_range=(0.5, 2.0),
     ...     decay_time=1.0, noise_std=0.1
     ... )
     >>> signals.shape
-    (10, 900)    """
+    (10, 900)"""
     sigs = []
     for i in range(n):
         sig = generate_pseudo_calcium_signal(
-            duration, sampling_rate, event_rate, amplitude_range, decay_time, noise_std,
-            rise_time=rise_time, kernel=kernel
+            duration,
+            sampling_rate,
+            event_rate,
+            amplitude_range,
+            decay_time,
+            noise_std,
+            rise_time=rise_time,
+            kernel=kernel,
         )
         sigs.append(sig)
 

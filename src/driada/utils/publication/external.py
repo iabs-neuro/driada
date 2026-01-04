@@ -20,10 +20,7 @@ class ExternalPanel:
 
     @staticmethod
     def add_image_panel(
-        ax: plt.Axes,
-        image_path: str,
-        aspect: str = 'equal',
-        hide_axes: bool = True
+        ax: plt.Axes, image_path: str, aspect: str = "equal", hide_axes: bool = True
     ) -> None:
         """Add an external image to a matplotlib axes.
 
@@ -52,17 +49,14 @@ class ExternalPanel:
         if hide_axes:
             ax.set_xticks([])
             ax.set_yticks([])
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['bottom'].set_visible(False)
-            ax.spines['left'].set_visible(False)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+            ax.spines["left"].set_visible(False)
 
     @staticmethod
     def create_placeholder(
-        ax: plt.Axes,
-        text: str = 'External Plot',
-        fontsize: int = 14,
-        color: str = 'gray'
+        ax: plt.Axes, text: str = "External Plot", fontsize: int = 14, color: str = "gray"
     ) -> None:
         """Create a placeholder for external content.
 
@@ -86,26 +80,38 @@ class ExternalPanel:
         >>> plt.show()
         """
         # Draw placeholder box
-        ax.add_patch(plt.Rectangle((0.1, 0.1), 0.8, 0.8,
-                                   fill=False, edgecolor=color,
-                                   linestyle='--', linewidth=2,
-                                   transform=ax.transAxes))
+        ax.add_patch(
+            plt.Rectangle(
+                (0.1, 0.1),
+                0.8,
+                0.8,
+                fill=False,
+                edgecolor=color,
+                linestyle="--",
+                linewidth=2,
+                transform=ax.transAxes,
+            )
+        )
 
         # Add placeholder text
-        ax.text(0.5, 0.5, text,
-               horizontalalignment='center',
-               verticalalignment='center',
-               fontsize=fontsize,
-               color=color,
-               transform=ax.transAxes)
+        ax.text(
+            0.5,
+            0.5,
+            text,
+            horizontalalignment="center",
+            verticalalignment="center",
+            fontsize=fontsize,
+            color=color,
+            transform=ax.transAxes,
+        )
 
         # Hide axes
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-        ax.spines['left'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        ax.spines["left"].set_visible(False)
 
 
 class PanelLabeler:
@@ -136,10 +142,10 @@ class PanelLabeler:
     def __init__(
         self,
         fontsize_pt: float = 12,
-        location: Literal['top_left', 'top_right', 'bottom_left', 'bottom_right'] = 'top_left',
+        location: Literal["top_left", "top_right", "bottom_left", "bottom_right"] = "top_left",
         offset: Optional[Tuple[float, float]] = None,
-        fontweight: str = 'bold',
-        fontfamily: str = 'sans-serif'
+        fontweight: str = "bold",
+        fontfamily: str = "sans-serif",
     ):
         """Initialize PanelLabeler.
 
@@ -165,10 +171,10 @@ class PanelLabeler:
         # Set default offset based on location if not provided
         if offset is None:
             offset_map = {
-                'top_left': (-0.1, 1.05),
-                'top_right': (1.05, 1.05),
-                'bottom_left': (-0.1, -0.1),
-                'bottom_right': (1.05, -0.1)
+                "top_left": (-0.1, 1.05),
+                "top_right": (1.05, 1.05),
+                "bottom_left": (-0.1, -0.1),
+                "bottom_right": (1.05, -0.1),
             }
             self.offset = offset_map[location]
         else:
@@ -176,20 +182,14 @@ class PanelLabeler:
 
         # Set alignment based on location
         alignment_map = {
-            'top_left': ('right', 'bottom'),
-            'top_right': ('left', 'bottom'),
-            'bottom_left': ('right', 'top'),
-            'bottom_right': ('left', 'top')
+            "top_left": ("right", "bottom"),
+            "top_right": ("left", "bottom"),
+            "bottom_left": ("right", "top"),
+            "bottom_right": ("left", "top"),
         }
         self.ha, self.va = alignment_map[location]
 
-    def add_label(
-        self,
-        ax: plt.Axes,
-        label: str,
-        dpi: int = 300,
-        **text_kwargs
-    ) -> None:
+    def add_label(self, ax: plt.Axes, label: str, dpi: int = 300, **text_kwargs) -> None:
         """Add a panel label to an axes.
 
         Parameters
@@ -211,12 +211,12 @@ class PanelLabeler:
         """
         # Merge user kwargs with defaults
         text_params = {
-            'transform': ax.transAxes,
-            'fontsize': self.fontsize_pt,
-            'fontweight': self.fontweight,
-            'fontfamily': self.fontfamily,
-            'horizontalalignment': self.ha,
-            'verticalalignment': self.va
+            "transform": ax.transAxes,
+            "fontsize": self.fontsize_pt,
+            "fontweight": self.fontweight,
+            "fontfamily": self.fontfamily,
+            "horizontalalignment": self.ha,
+            "verticalalignment": self.va,
         }
         text_params.update(text_kwargs)
 
@@ -224,10 +224,7 @@ class PanelLabeler:
         ax.text(self.offset[0], self.offset[1], label, **text_params)
 
     def add_labels_to_dict(
-        self,
-        axes_dict: Dict[str, plt.Axes],
-        dpi: int = 300,
-        **text_kwargs
+        self, axes_dict: Dict[str, plt.Axes], dpi: int = 300, **text_kwargs
     ) -> None:
         """Add labels to all axes in a dictionary.
 
@@ -256,10 +253,7 @@ class PanelLabeler:
             self.add_label(ax, name, dpi=dpi, **text_kwargs)
 
 
-def format_panel_label(
-    index: int,
-    style: Literal['upper', 'lower', 'number'] = 'upper'
-) -> str:
+def format_panel_label(index: int, style: Literal["upper", "lower", "number"] = "upper") -> str:
     """Format panel label from index.
 
     Parameters
@@ -286,11 +280,11 @@ def format_panel_label(
     >>> format_panel_label(2, 'number')
     '3'
     """
-    if style == 'upper':
+    if style == "upper":
         return chr(65 + index)  # A, B, C, ...
-    elif style == 'lower':
+    elif style == "lower":
         return chr(97 + index)  # a, b, c, ...
-    elif style == 'number':
+    elif style == "number":
         return str(index + 1)  # 1, 2, 3, ...
     else:
         raise ValueError(f"Unknown style: {style}. Must be 'upper', 'lower', or 'number'")

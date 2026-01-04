@@ -45,7 +45,7 @@ def dr_sequence(
     Embedding or Tuple[Embedding, List[Embedding]]
         If keep_intermediate=False: Final embedding after all reduction steps
         If keep_intermediate=True: (final_embedding, list_of_intermediate_embeddings)
-        
+
     Raises
     ------
     ValueError
@@ -59,15 +59,15 @@ def dr_sequence(
     Examples
     --------
     Create sample data and perform sequential reduction:
-    
+
     >>> import numpy as np
     >>> from driada.dim_reduction import MVData, dr_sequence
     >>> np.random.seed(42)
-    >>> 
+    >>>
     >>> # Create sample high-dimensional data (100 samples, 50 features)
     >>> data = np.random.randn(50, 100)
     >>> mvdata = MVData(data)
-    >>> 
+    >>>
     >>> # Simple two-step reduction: PCA then t-SNE
     >>> import logging
     >>> # Suppress output for clean doctest
@@ -86,7 +86,7 @@ def dr_sequence(
     (2, 100)
 
     Using default parameters with a simpler sequence:
-    
+
     >>> # Just PCA reduction
     >>> embedding_pca = dr_sequence(
     ...     mvdata,
@@ -98,7 +98,7 @@ def dr_sequence(
     (2, 100)
 
     Keep intermediate results for analysis:
-    
+
     >>> # Two-step reduction keeping intermediates
     >>> final_emb, intermediates = dr_sequence(
     ...     mvdata,
@@ -114,14 +114,14 @@ def dr_sequence(
     (20, 100)
     >>> final_emb.coords.shape
     (3, 100)
-    
+
     Notes
     -----
     - Intermediate results converted to MVData between steps
     - Progress logged with actual dimensions for each step
     - Pre-validates all method names before execution
     - Optional dimension compatibility checking available
-    - Memory-efficient by default (keep_intermediate=False)    """
+    - Memory-efficient by default (keep_intermediate=False)"""
     if not steps:
         raise ValueError("At least one reduction step must be provided")
 
@@ -142,7 +142,7 @@ def dr_sequence(
                 f"Invalid step format at position {i}: {step}. "
                 "Expected method name string or (method, params) tuple."
             )
-        
+
         # Validate method name exists
         if method_name not in METHODS_DICT:
             available_methods = sorted(METHODS_DICT.keys())
@@ -150,59 +150,59 @@ def dr_sequence(
                 f"Unknown method '{method_name}' at step {i+1}. "
                 f"Available methods: {', '.join(available_methods)}"
             )
-        
+
         # Merge with defaults to get actual parameters that will be used
         full_params = merge_params_with_defaults(method_name, user_params)
         parsed_steps.append((method_name, user_params, full_params))
-    
+
     # Validate dimension compatibility if requested
     if validate_compatibility and len(parsed_steps) > 1:
         for i in range(len(parsed_steps) - 1):
             curr_name, curr_user, curr_full = parsed_steps[i]
-            next_name, next_user, next_full = parsed_steps[i+1]
-            
+            next_name, next_user, next_full = parsed_steps[i + 1]
+
             # Get output dimension of current step
-            curr_output_dim = curr_full['e_params'].get('dim', 2)
-            
+            curr_output_dim = curr_full["e_params"].get("dim", 2)
+
             # For certain methods, check if input dimension is reasonable
-            if next_name in ['tsne', 'umap'] and curr_output_dim > 100:
+            if next_name in ["tsne", "umap"] and curr_output_dim > 100:
                 logger.warning(
                     f"Step {i+2} ({next_name}) will receive {curr_output_dim}-dimensional input. "
                     f"Consider reducing to <= 100 dimensions for better performance."
                 )
-    
+
     # Execute the sequence
     current_data = data
     intermediate_embeddings = []
-    
+
     for i, (method_name, user_params, full_params) in enumerate(parsed_steps):
         # Get actual dimension that will be used
-        actual_dim = full_params['e_params'].get('dim', 2)
-        
+        actual_dim = full_params["e_params"].get("dim", 2)
+
         # Log progress with correct dimension
         logger.info(
             f"Step {i+1}/{len(parsed_steps)}: {method_name} "
             f"from dim {current_data.n_dim} to dim {actual_dim}"
         )
-        
+
         try:
             # Apply reduction
             embedding = current_data.get_embedding(method=method_name, **user_params)
-            
+
             # Store intermediate if requested
             if keep_intermediate:
                 intermediate_embeddings.append(embedding)
-            
+
             # Convert to MVData for next step (if not last)
             if i < len(parsed_steps) - 1:
                 current_data = embedding.to_mvdata()
-                
+
         except Exception as e:
             # Provide context about which step failed
             raise RuntimeError(
                 f"Failed at step {i+1}/{len(parsed_steps)} ({method_name}): {str(e)}"
             ) from e
-    
+
     if keep_intermediate:
         return embedding, intermediate_embeddings
     else:
@@ -210,15 +210,15 @@ def dr_sequence(
 
 
 def validate_sequence_dimensions(
-    steps: List[Union[Tuple[str, Dict[str, Any]], str]], 
+    steps: List[Union[Tuple[str, Dict[str, Any]], str]],
     initial_dim: int,
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
 ) -> List[Tuple[str, int, int]]:
     """Validate and report dimension flow through a sequence of reductions.
-    
+
     This function helps plan reduction sequences by showing how dimensions
     will change at each step, without actually performing the reductions.
-    
+
     Parameters
     ----------
     steps : List[Union[Tuple[str, Dict], str]]
@@ -227,22 +227,22 @@ def validate_sequence_dimensions(
         Initial data dimension
     logger : logging.Logger, optional
         Logger for reporting dimension flow
-        
+
     Returns
     -------
     List[Tuple[str, int, int]]
         List of (method_name, input_dim, output_dim) for each step
-        
+
     Raises
     ------
     ValueError
         If any step has invalid format.
         If any reduction method is unknown.
-        
+
     Examples
     --------
     >>> from driada.dim_reduction.sequences import validate_sequence_dimensions
-    >>> 
+    >>>
     >>> # Check dimension flow before running expensive computation
     >>> flow = validate_sequence_dimensions(
     ...     [('pca', {'dim': 50}), 'tsne'],
@@ -250,18 +250,18 @@ def validate_sequence_dimensions(
     ... )
     >>> flow
     [('pca', 1000, 50), ('tsne', 50, 2)]
-    
+
     Notes
     -----
     - Logs dimension changes for each step via provided or module logger
     - Warns when a step attempts to increase dimensions
-    - Does not perform actual reductions, only predicts dimensions    """
+    - Does not perform actual reductions, only predicts dimensions"""
     if logger is None:
         logger = logging.getLogger(__name__)
-        
+
     dimension_flow = []
     current_dim = initial_dim
-    
+
     for i, step in enumerate(steps):
         # Parse step
         if isinstance(step, str):
@@ -271,31 +271,29 @@ def validate_sequence_dimensions(
             method_name, user_params = step
         else:
             raise ValueError(f"Invalid step format: {step}")
-            
+
         # Validate method
         if method_name not in METHODS_DICT:
             raise ValueError(f"Unknown method: {method_name}")
-            
+
         # Get target dimension
         full_params = merge_params_with_defaults(method_name, user_params)
-        target_dim = full_params['e_params'].get('dim', 2)
-        
+        target_dim = full_params["e_params"].get("dim", 2)
+
         # Record flow
         dimension_flow.append((method_name, current_dim, target_dim))
-        
+
         # Log
-        logger.info(
-            f"Step {i+1}: {method_name} will reduce from {current_dim}D to {target_dim}D"
-        )
-        
+        logger.info(f"Step {i+1}: {method_name} will reduce from {current_dim}D to {target_dim}D")
+
         # Check for potential issues
         if target_dim > current_dim:
             logger.warning(
                 f"Step {i+1} ({method_name}) attempts to increase dimensions "
                 f"from {current_dim} to {target_dim}. This may cause issues."
             )
-            
+
         # Update for next iteration
         current_dim = target_dim
-        
+
     return dimension_flow

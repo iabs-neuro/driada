@@ -87,10 +87,7 @@ class TestMultiselectivityPatterns:
                 mixed_count += 1
                 # One weight should be larger than others
                 sorted_weights = np.sort(nonzero)[::-1]
-                if (
-                    len(sorted_weights) >= 2
-                    and sorted_weights[0] > sorted_weights[1] * 1.5
-                ):
+                if len(sorted_weights) >= 2 and sorted_weights[0] > sorted_weights[1] * 1.5:
                     dominant_count += 1
 
         # At least 70% of mixed neurons should show clear dominance
@@ -349,9 +346,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             summary = disent_results["summary"]
             if summary.get("overall_stats"):
                 total_pairs = summary["overall_stats"]["total_neuron_pairs"]
-                assert (
-                    total_pairs > 0
-                ), "Disentanglement found no mixed selectivity pairs"
+                assert total_pairs > 0, "Disentanglement found no mixed selectivity pairs"
             else:
                 # Check count matrix directly
                 if "count_matrix" in disent_results:
@@ -521,9 +516,7 @@ class TestIntegrationWithAnalysisPipeline:
             # Debug: Check detection results
             print(f"\n=== Attempt {attempt+1} ===")
             print(f"Test neurons: {test_neurons}")
-            print(
-                f"Ground truth features per neuron: {n_features_per_neuron[test_neurons]}"
-            )
+            print(f"Ground truth features per neuron: {n_features_per_neuron[test_neurons]}")
 
             # Check how many neurons were detected as selective
             neurons_with_selectivity = 0
@@ -546,9 +539,7 @@ class TestIntegrationWithAnalysisPipeline:
             print(
                 f"Neurons with detected selectivity: {neurons_with_selectivity}/{len(test_neurons)}"
             )
-            print(
-                f"Neurons with detected multi-selectivity: {neurons_with_multi_selectivity}"
-            )
+            print(f"Neurons with detected multi-selectivity: {neurons_with_multi_selectivity}")
 
             # Check if we found mixed selectivity detection (regardless of disentanglement)
             if neurons_with_multi_selectivity >= 2:

@@ -368,9 +368,7 @@ def test_geodesic_distance_correlation_pearson():
     assert -1 <= corr_pearson <= 1
 
     # Compare with Spearman
-    corr_spearman = geodesic_distance_correlation(
-        X, Y, k_neighbors=10, method="spearman"
-    )
+    corr_spearman = geodesic_distance_correlation(X, Y, k_neighbors=10, method="spearman")
     # They should be different but both valid
     assert corr_pearson != corr_spearman
 
@@ -531,9 +529,7 @@ def test_compute_reconstruction_error_circular():
     true_angles = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
     embedding = np.column_stack([np.cos(true_angles), np.sin(true_angles)])
 
-    result = compute_reconstruction_error(
-        embedding, true_angles, manifold_type="circular"
-    )
+    result = compute_reconstruction_error(embedding, true_angles, manifold_type="circular")
     assert result["error"] < 0.01  # Should be very small
     assert result["correlation"] > 0.99  # Should have high correlation
 
@@ -554,9 +550,7 @@ def test_compute_reconstruction_error_spatial():
     true_positions = np.random.randn(50, 2)
 
     # Perfect reconstruction
-    result = compute_reconstruction_error(
-        true_positions, true_positions, manifold_type="spatial"
-    )
+    result = compute_reconstruction_error(true_positions, true_positions, manifold_type="spatial")
     assert result["error"] < 1e-10
     assert result["correlation"] > 0.99
 
@@ -734,15 +728,10 @@ def test_manifold_reconstruction_score_circular():
     scores_good = manifold_reconstruction_score(
         good_embedding, true_angles, manifold_type="circular"
     )
-    scores_bad = manifold_reconstruction_score(
-        bad_embedding, true_angles, manifold_type="circular"
-    )
+    scores_bad = manifold_reconstruction_score(bad_embedding, true_angles, manifold_type="circular")
 
     # Good should be better
-    assert (
-        scores_good["overall_reconstruction_score"]
-        > scores_bad["overall_reconstruction_score"]
-    )
+    assert scores_good["overall_reconstruction_score"] > scores_bad["overall_reconstruction_score"]
     assert scores_good["reconstruction_error"] < scores_bad["reconstruction_error"]
     # Correlation should be better for good reconstruction
     assert scores_good["correlation"] > 0.5
@@ -783,10 +772,7 @@ def test_manifold_reconstruction_score_spatial():
     )
 
     # Good should outperform bad
-    assert (
-        scores_good["overall_reconstruction_score"]
-        > scores_bad["overall_reconstruction_score"]
-    )
+    assert scores_good["overall_reconstruction_score"] > scores_bad["overall_reconstruction_score"]
 
 
 def test_manifold_reconstruction_score_custom_weights():
@@ -911,13 +897,9 @@ def test_compute_embedding_quality_vs_decoding_accuracy():
     embedding += 0.05 * np.random.randn(n_points, 2)
 
     # Compare both methods
-    quality_results = compute_embedding_quality(
-        embedding, true_angles, manifold_type="circular"
-    )
+    quality_results = compute_embedding_quality(embedding, true_angles, manifold_type="circular")
 
-    decoder_results = compute_decoding_accuracy(
-        embedding, true_angles, manifold_type="circular"
-    )
+    decoder_results = compute_decoding_accuracy(embedding, true_angles, manifold_type="circular")
 
     # Embedding quality measures direct angle extraction error
     # Decoder accuracy measures how well a linear model can map embedding to angles

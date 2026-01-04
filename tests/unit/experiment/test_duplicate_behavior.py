@@ -16,9 +16,7 @@ def test_duplicate_behavior_ignore():
     # Create simple time series
     ts1 = TimeSeries(np.sin(np.linspace(0, 4 * np.pi, 100)), "ts1")
     ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), "ts2")
-    ts1_dup = TimeSeries(
-        np.sin(np.linspace(0, 4 * np.pi, 100)), "ts1_dup"
-    )  # Duplicate data
+    ts1_dup = TimeSeries(np.sin(np.linspace(0, 4 * np.pi, 100)), "ts1_dup")  # Duplicate data
 
     # Test with duplicates in both bunches
     ts_bunch1 = [ts1, ts1_dup]  # Contains duplicate

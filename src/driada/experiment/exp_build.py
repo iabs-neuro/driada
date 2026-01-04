@@ -23,20 +23,20 @@ def load_exp_from_aligned_data(
     reconstruct_spikes=None,
 ):
     """Create an Experiment object from aligned neural and behavioral data.
-    
+
     Constructs an Experiment instance from pre-aligned calcium imaging data
     and behavioral variables, automatically determining feature types and
     filtering out constant or invalid features.
-    
+
     Parameters
     ----------
     data_source : str
-        Identifier for the data source (e.g., 'IABS', 'custom'). 
+        Identifier for the data source (e.g., 'IABS', 'custom').
         Used with exp_params to construct the experiment name.
     exp_params : dict
         Experiment parameters dictionary. For IABS data source, requires:
         - 'track': experimental paradigm (e.g., 'linear_track')
-        - 'animal_id': subject identifier 
+        - 'animal_id': subject identifier
         - 'session': session identifier
         For other sources, can contain any metadata for experiment naming.
     data : dict
@@ -58,7 +58,7 @@ def load_exp_from_aligned_data(
     static_features : dict, optional
         Static experimental parameters. Common keys:
         - 't_rise_sec': calcium rise time (default: 0.25)
-        - 't_off_sec': calcium decay time (default: 2.0)  
+        - 't_off_sec': calcium decay time (default: 2.0)
         - 'fps': frame rate in Hz (default: 20.0)
         - Any other experiment-specific constants
     verbose : bool, default=True
@@ -74,24 +74,24 @@ def load_exp_from_aligned_data(
         New workflow (recommended):
         >>> exp = load_exp_from_aligned_data(data_source, exp_params, data)
         >>> exp.reconstruct_all_neurons(method='wavelet', n_iter=3)
-        
+
     Returns
     -------
     Experiment
         Initialized Experiment object with processed data.
-        
+
     Raises
     ------
     TypeError
         If data or exp_params are not dictionaries.
     ValueError
         If data is empty or calcium data is missing.
-        
+
     Side Effects
     ------------
     - Prints feature information if verbose=True
     - Creates deep copy of input data
-    
+
     Notes
     -----
     - Features with ≤1 unique non-NaN values are filtered as "garbage"
@@ -104,7 +104,7 @@ def load_exp_from_aligned_data(
     - Scalar values (0D arrays) are ignored with a warning - use static_features instead
     - Non-numeric features (strings, objects) are ignored with a warning
     - 2D arrays are automatically converted to MultiTimeSeries objects
-    
+
     Examples
     --------
     >>> # Basic usage with minimal data
@@ -117,7 +117,7 @@ def load_exp_from_aligned_data(
     ... }
     >>> exp_params = {
     ...     'track': 'linear_track',
-    ...     'animal_id': 'mouse01', 
+    ...     'animal_id': 'mouse01',
     ...     'session': 'day1'
     ... }
     >>> exp = load_exp_from_aligned_data('IABS', exp_params, data, verbose=False)
@@ -125,7 +125,7 @@ def load_exp_from_aligned_data(
     'Exp linear_track_mouse01_day1'
     >>> sorted(exp.dynamic_features.keys())
     ['position', 'speed', 'trial_type']
-    
+
     >>> # Force discrete variable to be continuous
     >>> exp2 = load_exp_from_aligned_data(
     ...     'IABS', exp_params, data,
@@ -143,12 +143,13 @@ def load_exp_from_aligned_data(
     # Deprecation warning for reconstruct_spikes parameter
     if reconstruct_spikes is not None and reconstruct_spikes is not False:
         import warnings
+
         warnings.warn(
             "The 'reconstruct_spikes' parameter is deprecated. "
             "Load the experiment first, then call exp.reconstruct_all_neurons() separately. "
             "Example: exp = load_exp_from_aligned_data(...); exp.reconstruct_all_neurons(method='wavelet')",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
     # Validate inputs
@@ -157,9 +158,7 @@ def load_exp_from_aligned_data(
     if not data:
         raise ValueError("data dictionary cannot be empty")
     if not isinstance(exp_params, dict):
-        raise TypeError(
-            f"exp_params must be a dictionary, got {type(exp_params).__name__}"
-        )
+        raise TypeError(f"exp_params must be a dictionary, got {type(exp_params).__name__}")
 
     expname = construct_session_name(data_source, exp_params)
     adata = copy.deepcopy(data)
@@ -181,56 +180,62 @@ def load_exp_from_aligned_data(
 
     def is_garbage(vals):
         """Check if values are constant or all NaN.
-        
+
         Parameters
         ----------
         vals : array-like
             Values to check for validity.
-            
+
         Returns
         -------
         bool
             True if values are all NaN, constant, or empty.
-            
+
         Notes
         -----
-        Used to filter out uninformative features from dynamic data.        """
+        Used to filter out uninformative features from dynamic data."""
         # Convert to numpy array for consistent handling
         arr = np.asarray(vals)
-        
+
         # Check if empty
         if arr.size == 0:
             return True
-            
+
         # Check if all NaN or all same value (ignoring NaN)
         nan_mask = np.isnan(arr)
         return np.all(nan_mask) or (len(np.unique(arr[~nan_mask])) <= 1)
 
     # Process dynamic features, handling multidimensional arrays
     filt_dyn_features = {}
-    feat_is_continuous = {f: f in force_continuous for f in dyn_features.keys()} if force_continuous else {}
-    
+    feat_is_continuous = (
+        {f: f in force_continuous for f in dyn_features.keys()} if force_continuous else {}
+    )
+
     for f, vals in dyn_features.items():
         # Convert to numpy array to check dimensions
         vals_array = np.asarray(vals)
-        
+
         # Skip scalar values with warning
         if vals_array.ndim == 0:
             if verbose:
-                print(f"Warning: Ignoring scalar value '{f}' found in NPZ file. "
-                      f"Scalar values should be provided via static_features parameter.")
+                print(
+                    f"Warning: Ignoring scalar value '{f}' found in NPZ file. "
+                    f"Scalar values should be provided via static_features parameter."
+                )
             continue
-        
+
         # Skip non-numeric features with warning
-        if vals_array.dtype.kind in ['U', 'S', 'O']:  # Unicode, bytes, or object
+        if vals_array.dtype.kind in ["U", "S", "O"]:  # Unicode, bytes, or object
             if verbose:
-                print(f"Warning: Ignoring non-numeric feature '{f}' with dtype {vals_array.dtype}. "
-                      f"Only numeric features are supported.")
+                print(
+                    f"Warning: Ignoring non-numeric feature '{f}' with dtype {vals_array.dtype}. "
+                    f"Only numeric features are supported."
+                )
             continue
-            
+
         if is_garbage(vals):
             continue
-        
+
         # Handle based on dimensionality
         if vals_array.ndim == 1:
             # 1D -> TimeSeries
@@ -240,16 +245,15 @@ def load_exp_from_aligned_data(
             else:
                 # Let TimeSeries auto-detect the type
                 filt_dyn_features[f] = TimeSeries(vals_array)
-            
+
         elif vals_array.ndim == 2:
             # 2D -> MultiTimeSeries (each row is a component)
             # This matches Experiment.__init__ behavior
             ts_list = [
-                TimeSeries(vals_array[i, :], discrete=False)
-                for i in range(vals_array.shape[0])
+                TimeSeries(vals_array[i, :], discrete=False) for i in range(vals_array.shape[0])
             ]
             filt_dyn_features[f] = MultiTimeSeries(ts_list)
-            
+
         else:
             # Skip features with unsupported dimensions
             if verbose:
@@ -349,12 +353,12 @@ def load_experiment(
     router_source=None,
 ):
     """Load or create an Experiment object with automatic caching and cloud support.
-    
+
     This function provides a high-level interface for loading experiments with
     smart caching, automatic cloud data download (for IABS data), and pickle
     serialization. It first checks for cached experiments, then loads from
     local data files, and finally downloads from cloud storage if needed.
-    
+
     Parameters
     ----------
     data_source : str
@@ -402,7 +406,7 @@ def load_experiment(
         - str: Direct Google Sheets export URL
         - pandas.DataFrame: Pre-loaded router DataFrame
         Only used when data_source='IABS' and downloading from cloud.
-        
+
     Returns
     -------
     tuple
@@ -411,7 +415,7 @@ def load_experiment(
         load_log : list or None
             Cloud download log if data was downloaded, None otherwise.
             Always None for local loads or pickle loads.
-        
+
     Raises
     ------
     ValueError
@@ -419,7 +423,7 @@ def load_experiment(
         If data_source is not 'IABS' and no data_path provided.
     FileNotFoundError
         If data file not found and cannot be downloaded.
-        
+
     Side Effects
     ------------
     - Creates root directory if it doesn't exist
@@ -427,7 +431,7 @@ def load_experiment(
     - Downloads data from cloud for IABS source (if needed)
     - Saves pickle file if save_to_pickle=True and building from data
     - Prints progress messages if verbose=True
-        
+
     Notes
     -----
     Loading priority:
@@ -435,13 +439,13 @@ def load_experiment(
     2. If local data exists and not force_reload: load from data file
     3. If IABS source: attempt cloud download
     4. Otherwise: raise error
-    
+
     For IABS data, expects cloud structure with 'Aligned data' containing
     npz files with calcium and behavioral data.
-    
+
     The function returns a tuple (exp, load_log) to maintain backward
     compatibility, even though load_log is often None.
-    
+
     Examples
     --------
     >>> # Load IABS data with custom router URL
@@ -452,11 +456,11 @@ def load_experiment(
     ...     router_source=url,
     ...     verbose=False
     ... )
-    
+
     >>> # Load external lab data from NPZ file
     >>> import tempfile
     >>> import numpy as np
-    >>> 
+    >>>
     >>> # Create test data file
     >>> with tempfile.NamedTemporaryFile(delete=False, suffix='.npz') as f:
     ...     temp_data = f.name
@@ -465,7 +469,7 @@ def load_experiment(
     ...     'position': np.random.rand(500) * 100
     ... }
     >>> np.savez(temp_data, **test_data)
-    >>> 
+    >>>
     >>> # Load from local file
     >>> exp, _ = load_experiment(
     ...     'MyLab',
@@ -477,7 +481,7 @@ def load_experiment(
     'Exp test_exp'
     >>> exp.n_cells
     30
-    >>> 
+    >>>
     >>> # Force rebuild even if pickle exists
     >>> with tempfile.TemporaryDirectory() as tmpdir:
     ...     exp2, _ = load_experiment(
@@ -491,10 +495,10 @@ def load_experiment(
     ...     )
     >>> exp2.n_cells
     30
-    >>> 
+    >>>
     >>> # Cleanup
     >>> import os
-    >>> os.unlink(temp_data)    """
+    >>> os.unlink(temp_data)"""
 
     if os.path.exists(root) and not os.path.isdir(root):
         raise ValueError("Root must be a folder!")
@@ -511,9 +515,7 @@ def load_experiment(
     else:
         if data_source == "IABS":
             if data_path is None:
-                data_path = os.path.join(
-                    root, expname, "Aligned data", f"{expname} syn data.npz"
-                )
+                data_path = os.path.join(root, expname, "Aligned data", f"{expname} syn data.npz")
                 if verbose:
                     print(f"Path to data: {data_path}")
 
@@ -527,7 +529,9 @@ def load_experiment(
             if force_reload or not data_exists:
                 if verbose:
                     print("Loading data from cloud storage...")
-                data_router, data_pieces = initialize_iabs_router(root=root, router_source=router_source)
+                data_router, data_pieces = initialize_iabs_router(
+                    root=root, router_source=router_source
+                )
                 success, load_log = download_gdrive_data(
                     data_router,
                     expname,
@@ -541,9 +545,7 @@ def load_experiment(
                     print("===========   BEGINNING OF LOADING LOG   ============")
                     show_output(load_log)
                     print("===========   END OF LOADING LOG   ============")
-                    raise FileNotFoundError(
-                        f"Cannot download {expname}, see loading log above"
-                    )
+                    raise FileNotFoundError(f"Cannot download {expname}, see loading log above")
 
             else:
                 load_log = None
@@ -571,23 +573,23 @@ def load_experiment(
                     f"For data source '{data_source}', you must provide the 'data_path' parameter "
                     "pointing to your NPZ data file."
                 )
-            
+
             if not os.path.exists(data_path):
                 raise FileNotFoundError(f"Data file not found: {data_path}")
-            
+
             if verbose:
                 print(f"Loading data from: {data_path}")
-            
+
             # Load the NPZ file
             try:
                 aligned_data = dict(np.load(data_path, allow_pickle=True))
             except Exception as e:
                 raise ValueError(f"Failed to load NPZ file: {e}")
-            
+
             # Check for required 'calcium' key
-            if 'calcium' not in aligned_data:
+            if "calcium" not in aligned_data:
                 raise ValueError("NPZ file must contain 'calcium' key with neural data")
-            
+
             # Create experiment using the existing function
             Exp = load_exp_from_aligned_data(
                 data_source,
@@ -599,7 +601,7 @@ def load_experiment(
                 bad_frames=bad_frames,
                 reconstruct_spikes=reconstruct_spikes,
             )
-            
+
             # Save to pickle if requested
             if save_to_pickle:
                 # Create experiment name and path if not provided
@@ -609,16 +611,16 @@ def load_experiment(
                     exp_dir = os.path.join(root, data_source, expname)
                     os.makedirs(exp_dir, exist_ok=True)
                     exp_path = os.path.join(exp_dir, f"Exp {expname}.pickle")
-                
+
                 save_exp_to_pickle(Exp, exp_path, verbose=verbose)
-            
+
             # No load_log for external data sources
             return Exp, None
 
 
 def save_exp_to_pickle(exp, path, verbose=True):
     """Save an Experiment object to a pickle file.
-    
+
     Parameters
     ----------
     exp : Experiment
@@ -627,14 +629,14 @@ def save_exp_to_pickle(exp, path, verbose=True):
         File path where the pickle will be saved.
     verbose : bool, default=True
         Whether to print save confirmation.
-        
+
     Raises
     ------
     PermissionError
         If no write permission for the path.
     OSError
         If path is invalid or other OS-related errors.
-        
+
     Examples
     --------
     >>> # Create a test experiment
@@ -642,28 +644,28 @@ def save_exp_to_pickle(exp, path, verbose=True):
     >>> import os
     >>> from driada.experiment import load_demo_experiment
     >>> exp = load_demo_experiment(verbose=False)
-    >>> 
+    >>>
     >>> # Save experiment to temporary file
     >>> with tempfile.NamedTemporaryFile(delete=False, suffix='.pkl') as f:
     ...     temp_path = f.name
     >>> save_exp_to_pickle(exp, temp_path)  # doctest: +ELLIPSIS
     Experiment Exp demo saved to ...
-    
+
     >>> # Save without verbose output
     >>> save_exp_to_pickle(exp, temp_path, verbose=False)
-    >>> 
+    >>>
     >>> # Cleanup
     >>> os.unlink(temp_path)
-    
+
     Notes
     -----
     Uses Python's pickle module with default protocol.
-    Creates parent directories if they don't exist.    """
+    Creates parent directories if they don't exist."""
     # Create parent directories if they don't exist
     parent_dir = os.path.dirname(path)
     if parent_dir:
         os.makedirs(parent_dir, exist_ok=True)
-    
+
     with open(path, "wb") as f:
         pickle.dump(exp, f)
         if verbose:
@@ -672,19 +674,19 @@ def save_exp_to_pickle(exp, path, verbose=True):
 
 def load_exp_from_pickle(path, verbose=True):
     """Load an Experiment object from a pickle file.
-    
+
     Parameters
     ----------
     path : str
         Path to the pickle file.
     verbose : bool, default=True
         Whether to print load confirmation.
-        
+
     Returns
     -------
     Experiment
         The loaded Experiment object.
-        
+
     Raises
     ------
     FileNotFoundError
@@ -693,7 +695,7 @@ def load_exp_from_pickle(path, verbose=True):
         If no read permission for the file.
     OSError
         If path is invalid or other OS-related errors.
-        
+
     Examples
     --------
     >>> # Create and save a test experiment first
@@ -703,24 +705,24 @@ def load_exp_from_pickle(path, verbose=True):
     >>> with tempfile.NamedTemporaryFile(delete=False, suffix='.pkl') as f:
     ...     temp_path = f.name
     >>> save_exp_to_pickle(test_exp, temp_path, verbose=False)
-    >>> 
+    >>>
     >>> # Load experiment from file
     >>> exp = load_exp_from_pickle(temp_path)  # doctest: +ELLIPSIS
     Experiment Exp demo loaded from ...
-    
+
     >>> # Load without verbose output
     >>> exp = load_exp_from_pickle(temp_path, verbose=False)
     >>> exp.signature
     'Exp demo'
-    >>> 
+    >>>
     >>> # Cleanup
     >>> import os
     >>> os.unlink(temp_path)
-    
+
     Notes
     -----
     Uses Python's pickle module for deserialization.
-    Prints experiment signature upon successful load if verbose=True.    """
+    Prints experiment signature upon successful load if verbose=True."""
     with open(path, "rb") as f:
         exp = pickle.load(
             f,
@@ -732,11 +734,11 @@ def load_exp_from_pickle(path, verbose=True):
 
 def load_demo_experiment(name="demo", verbose=False):
     """Load a demonstration experiment for documentation and testing.
-    
+
     This is a convenience function for loading sample data in documentation
     examples and tests. It loads a synthetically generated calcium imaging dataset
     with behavioral data.
-    
+
     Parameters
     ----------
     name : str, default='demo'
@@ -747,7 +749,7 @@ def load_demo_experiment(name="demo", verbose=False):
         - Any descriptive name for specific examples
     verbose : bool, default=False
         Whether to print loading messages.
-        
+
     Returns
     -------
     Experiment
@@ -756,41 +758,41 @@ def load_demo_experiment(name="demo", verbose=False):
         - 10000 time points
         - Sample behavioral features (position, speed, etc.)
         - No spike reconstruction (for speed)
-        
+
     Examples
     --------
     >>> from driada.experiment import load_demo_experiment
-    >>> 
+    >>>
     >>> # Basic usage
     >>> exp = load_demo_experiment()
     >>> print(f"Loaded {exp.n_cells} neurons, {exp.n_frames} frames")
     Loaded 50 neurons, 10000 frames
-    >>> 
+    >>>
     >>> # With custom name
     >>> exp = load_demo_experiment('pca_analysis')
     >>> print(exp.signature)
     Exp pca_analysis
-    >>> 
+    >>>
     >>> # Access data
     >>> calcium_data = exp.calcium.data  # (50, 10000) array
     >>> position = exp.position  # MultiTimeSeries with x,y coordinates
-    
+
     Notes
     -----
     The demo data is located at 'examples/example_data/sample_recording.npz'
     relative to the DRIADA installation directory.
-    
+
     See Also
     --------
     ~driada.experiment.exp_build.load_experiment : Full experiment loading with all options
     ~driada.experiment.synthetic.experiment_generators.generate_synthetic_exp : Generate synthetic data with custom properties
     """
     exp, _ = load_experiment(
-        'MyLab',
-        {'name': name},
-        data_path='examples/example_data/sample_recording.npz',
+        "MyLab",
+        {"name": name},
+        data_path="examples/example_data/sample_recording.npz",
         reconstruct_spikes=False,
         verbose=verbose,
-        save_to_pickle=False
+        save_to_pickle=False,
     )
     return exp

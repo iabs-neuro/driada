@@ -25,29 +25,29 @@ from ..utils.jit import conditional_njit
 
 def _prepare_for_jit(*arrays):
     """Prepare arrays for JIT compilation by ensuring they are contiguous and float type.
-    
+
     This helper function ensures arrays meet the requirements for efficient JIT compilation:
     - C-contiguous memory layout for cache efficiency
     - Float32 or float64 dtype for numerical operations
-    
+
     Parameters
     ----------
     *arrays
         Variable number of arrays to prepare. Can be any dtype or memory layout.
-        
+
     Returns
     -------
     tuple or ndarray
         If multiple arrays: tuple of prepared arrays in the same order as input.
         If single array: the prepared array directly (not wrapped in tuple).
         Each output array is C-contiguous with float32 or float64 dtype.
-        
+
     Notes
     -----
     Arrays that already meet the requirements are returned unchanged.
     Arrays with non-float dtypes are converted to float64.
     Non-contiguous arrays are made contiguous via copy.
-    
+
     Examples
     --------
     >>> x = np.array([1, 2, 3], dtype=np.int32)
@@ -56,13 +56,13 @@ def _prepare_for_jit(*arrays):
     True
     >>> x_prep.flags.c_contiguous
     True
-    
+
     >>> # Multiple arrays
     >>> x = np.array([[1, 2], [3, 4]], order='F')  # Fortran order
     >>> y = np.array([1.0, 2.0])
     >>> x_prep, y_prep = _prepare_for_jit(x, y)
     >>> x_prep.flags.c_contiguous
-    True    """
+    True"""
     prepared = []
     for arr in arrays:
         # Ensure contiguous
@@ -72,8 +72,9 @@ def _prepare_for_jit(*arrays):
         if arr.dtype not in (np.float32, np.float64):
             arr = arr.astype(np.float64)
         prepared.append(arr)
-    
+
     return tuple(prepared) if len(prepared) > 1 else prepared[0]
+
 
 # Import JIT versions if available
 try:
@@ -95,56 +96,56 @@ except ImportError:
 
 def ctransform(x):
     """Copula transformation (empirical CDF).
-    
+
     Transforms data to uniform marginals on (0,1) using the empirical
     cumulative distribution function. This is the first step in copula-based
     mutual information estimation.
-    
+
     Parameters
     ----------
     x : ndarray
         Input data, shape (n_samples,) for 1D or (n_features, n_samples)
         for multivariate data. The transformation is applied along the last
         axis (samples).
-        
+
     Returns
     -------
     ndarray
         Copula-transformed data with same shape as input. Values are in
         the open interval (0, 1), representing empirical CDF values.
-        
+
     Notes
     -----
     The transformation maps each value to its rank divided by (n+1), where
     n is the number of samples. This ensures values are strictly between
     0 and 1 (never exactly 0 or 1), which is important for subsequent
     inverse normal CDF transformation.
-    
+
     Automatically uses JIT-compiled version when available for better
     performance on large datasets.
-    
+
     Examples
     --------
     >>> x = np.array([3.2, 1.1, 4.5, 2.3, 1.1])
     >>> result = ctransform(x)
     >>> np.round(result, 3)
     array([[0.667, 0.167, 0.833, 0.5  , 0.333]])
-    
+
     >>> # 2D multivariate case
     >>> x = np.array([[1, 3, 2], [4, 2, 3]])
     >>> ctransform(x)  # Each row transformed independently
     array([[0.25, 0.75, 0.5 ],
            [0.75, 0.25, 0.5 ]])
-    
+
     See Also
     --------
-    ~driada.information.gcmi.copnorm : Complete copula normalization to standard normal    """
+    ~driada.information.gcmi.copnorm : Complete copula normalization to standard normal"""
     x = np.atleast_2d(x)
 
     # Use JIT version if available
     if _JIT_AVAILABLE:
         x = _prepare_for_jit(x)
-        
+
         if x.shape[0] == 1:
             # 1D case
             return ctransform_jit(x.ravel()).reshape(1, -1)
@@ -161,38 +162,38 @@ def ctransform(x):
 
 def copnorm(x):
     """Copula normalization to standard normal distribution.
-    
+
     Transforms data to have standard normal marginals while preserving
     the copula (dependence structure). This is the key preprocessing step
     for Gaussian Copula Mutual Information (GCMI) estimation.
-    
+
     Parameters
     ----------
     x : ndarray
         Input data, shape (n_samples,) for 1D or (n_features, n_samples)
         for multivariate data. The transformation is applied along the last
         axis (samples).
-        
+
     Returns
     -------
     ndarray
         Copula-normalized data with same shape as input. Each marginal
         distribution is transformed to standard normal N(0,1).
-        
+
     Notes
     -----
     The two-step process:
     1. Apply empirical CDF transform to get uniform marginals (ctransform)
     2. Apply inverse normal CDF to get standard normal marginals
-    
+
     This transformation is:
     - Robust to outliers (rank-based)
     - Preserves all dependence relationships
     - Makes data amenable to Gaussian-based MI estimation
-    
+
     Automatically uses JIT-compiled version when available for better
     performance.
-    
+
     Examples
     --------
     >>> # Transform non-Gaussian data
@@ -203,23 +204,23 @@ def copnorm(x):
     True
     >>> np.abs(np.std(x_norm) - 1) < 0.1  # Close to 1
     True
-    
+
     See Also
     --------
     ~driada.information.gcmi.ctransform : First step of copula normalization
     ~driada.information.gcmi.gcmi_cc : Uses copnorm internally for MI estimation
-    
+
     References
     ----------
     Ince, R. A., et al. (2017). A statistical framework for neuroimaging data
     analysis based on mutual information estimated via a Gaussian copula.
-    Human Brain Mapping, 38(3), 1541-1573.    """
+    Human Brain Mapping, 38(3), 1541-1573."""
     x = np.atleast_2d(x)
 
     # Use JIT version if available
     if _JIT_AVAILABLE:
         x = _prepare_for_jit(x)
-            
+
         if x.shape[0] == 1:
             # 1D case
             return copnorm_jit(x.ravel()).reshape(1, -1)
@@ -236,7 +237,7 @@ def copnorm(x):
 @conditional_njit
 def demean(x):
     """Demean each row of a 2D array.
-    
+
     Subtracts the mean from each row independently, resulting in rows with
     zero mean. This is a common preprocessing step for covariance calculations.
 
@@ -251,25 +252,25 @@ def demean(x):
     ndarray
         Array with same shape as input where each row has zero mean.
         The operation is performed in-place on a copy of the input.
-        
+
     Notes
     -----
     This function is JIT-compiled with numba for performance.
     The demeaning is performed row-wise, treating each row as a separate
     signal or feature to be centered.
-    
+
     Examples
     --------
-    >>> x = np.array([[1.0, 2.0, 3.0], 
+    >>> x = np.array([[1.0, 2.0, 3.0],
     ...               [4.0, 5.0, 6.0]])
     >>> demean(x)
     array([[-1.,  0.,  1.],
            [-1.,  0.,  1.]])
-    
+
     >>> # Verify zero mean
     >>> demeaned = demean(x)
     >>> np.allclose(demeaned.mean(axis=1), 0)
-    True    """
+    True"""
     # Get the number of rows
     num_rows = x.shape[0]
 
@@ -306,18 +307,18 @@ def regularized_cholesky(C, regularization=1e-12):
     -------
     L : ndarray, shape (n, n)
         Lower triangular Cholesky factor such that C ≈ L @ L.T.
-        
+
     Notes
     -----
     The function detects ill-conditioning by comparing the determinant to an
     expected scale based on the trace. For severely ill-conditioned matrices
     (det < expected_scale * 1e-8), it applies stronger adaptive regularization.
-    
+
     The regularization modifies the input as: C_reg = C + reg * I, where I is
     the identity matrix and reg is the regularization parameter.
-    
+
     This function is JIT-compiled with numba for performance.
-    
+
     Examples
     --------
     >>> # Well-conditioned matrix
@@ -325,11 +326,11 @@ def regularized_cholesky(C, regularization=1e-12):
     >>> L = regularized_cholesky(C)
     >>> np.allclose(L @ L.T, C, rtol=1e-10)
     True
-    
+
     >>> # Near-singular matrix
     >>> C = np.array([[1.0, 0.99999], [0.99999, 1.0]])
     >>> L = regularized_cholesky(C)  # Applies regularization
-    >>> # Result is stable despite near-singularity    """
+    >>> # Result is stable despite near-singularity"""
     # Check matrix conditioning using determinant
     det_C = np.linalg.det(C)
     trace_C = np.trace(C)
@@ -355,40 +356,40 @@ def regularized_cholesky(C, regularization=1e-12):
 def ent_g(x, biascorrect=True):
     """
     Entropy of a Gaussian variable in bits.
-    
-    Computes the differential entropy of a (possibly multidimensional) 
+
+    Computes the differential entropy of a (possibly multidimensional)
     Gaussian variable using the covariance matrix. Supports any number
     of features/dimensions.
-    
+
     Parameters
     ----------
     x : array_like, shape (n_features, n_samples) or (n_samples,)
         Data array. If 2D, rows are features/dimensions and columns are samples.
-        If 1D with shape (n,), it is converted to shape (1, n) representing 
+        If 1D with shape (n,), it is converted to shape (1, n) representing
         a single feature with n samples.
         Can handle any number of features (no limit on n_features).
     biascorrect : bool, optional
         Whether to apply bias correction for finite samples. Default is True.
-        
+
     Returns
     -------
     float
         Entropy in bits. For a d-dimensional Gaussian with covariance C:
         H = 0.5 * log(det(2πeC)) / log(2)
-        
+
     Raises
     ------
     ValueError
         If x is a 3D or higher dimensional array (must be 1D or 2D).
-        
+
     Notes
     -----
     The bias correction uses digamma functions to account for finite sample
     effects in covariance estimation. Data is demeaned before computation.
     The function supports high-dimensional data with many features.
-    
+
     This function is JIT-compiled with numba for performance.
-    
+
     Examples
     --------
     >>> # 1D Gaussian entropy
@@ -398,14 +399,14 @@ def ent_g(x, biascorrect=True):
     >>> # Theoretical entropy of N(0,1) is 0.5*log2(2*pi*e) ≈ 2.047
     >>> abs(h - 2.047) < 0.1
     True
-    
+
     >>> # 2D Gaussian entropy
     >>> x = rng.randn(2, 1000)  # 2D standard normal
     >>> h = ent_g(x)
     >>> # Theoretical entropy is d*0.5*log2(2*pi*e) ≈ 2*2.047
     >>> abs(h - 4.094) < 0.2
     True
-    
+
     >>> # Effect of correlation on entropy
     >>> x = rng.randn(2, 1000)
     >>> x[1] = 0.9 * x[0] + 0.1 * rng.randn(1000)  # Correlated
@@ -413,14 +414,14 @@ def ent_g(x, biascorrect=True):
     >>> h_uncorr = ent_g(rng.randn(2, 1000))
     >>> h_corr < h_uncorr  # Correlation reduces entropy
     True
-    
+
     See Also
     --------
     ~driada.information.gcmi.mi_gg : Uses entropy to compute mutual information
-    
+
     References
     ----------
-    Cover, T. M., & Thomas, J. A. (2006). Elements of information theory.    """
+    Cover, T. M., & Thomas, J. A. (2006). Elements of information theory."""
     x = np.atleast_2d(x)
     if x.ndim > 2:
         raise ValueError("x must be a 1D or 2D array with shape (n_features, n_samples)")
@@ -443,10 +444,7 @@ def ent_g(x, biascorrect=True):
     ln2 = np.log(2)
     if biascorrect:
         psiterms = (
-            py_fast_digamma_arr(
-                (Ntrl - np.arange(1, Nvarx + 1, dtype=np.float64)) / 2.0
-            )
-            / 2.0
+            py_fast_digamma_arr((Ntrl - np.arange(1, Nvarx + 1, dtype=np.float64)) / 2.0) / 2.0
         )
         dterm = (ln2 - np.log(Ntrl - 1.0)) / 2.0
         HX = HX - Nvarx * dterm - psiterms.sum()
@@ -494,7 +492,7 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
     -----
     This function assumes data follows a multivariate Gaussian distribution.
     For non-Gaussian data, use copula normalization first (via ctransform).
-    
+
     The bias correction uses the Miller-Madow correction generalized to
     multivariate Gaussians, improving accuracy for small sample sizes.
 
@@ -507,14 +505,14 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
     >>> mi = mi_gg(x, y)
     >>> mi < 0.05  # Should be near 0 for independent variables
     True
-    
+
     >>> # Correlated Gaussian variables
     >>> x = rng.randn(1, 1000)
     >>> y = 0.7 * x + 0.3 * rng.randn(1, 1000)  # Correlated
     >>> mi = mi_gg(x, y)
     >>> mi > 0.5  # Significant mutual information
     True
-    
+
     >>> # Multidimensional case
     >>> x = rng.randn(3, 1000)  # 3D Gaussian
     >>> y = rng.randn(2, 1000)  # 2D Gaussian
@@ -523,24 +521,22 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
     >>> mi = mi_gg(x, y)
     >>> mi > 0.2  # Detects the dependency
     True
-    
+
     See Also
     --------
     ~driada.information.gcmi.gcmi_cc : Gaussian-copula MI for arbitrary continuous distributions
     ~driada.information.gcmi.ent_g : Gaussian entropy used in MI calculation
-    
+
     References
     ----------
     Ince, R. A., et al. (2017). A statistical framework for neuroimaging data
     analysis based on mutual information estimated via a Gaussian copula.
-    Human Brain Mapping, 38(3), 1541-1573.    """
+    Human Brain Mapping, 38(3), 1541-1573."""
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
     if x.ndim > 2 or y.ndim > 2:
-        raise ValueError(
-            "x and y must be 1D or 2D arrays"
-        )
+        raise ValueError("x and y must be 1D or 2D arrays")
     Ntrl = x.shape[1]
     Nvarx = x.shape[0]
     Nvary = y.shape[0]
@@ -586,19 +582,19 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
 def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
     """
     Mutual information between a Gaussian and a discrete variable in bits.
-    
-    Computes MI between a (possibly multidimensional) Gaussian variable x and 
-    a discrete variable y using ANOVA-style model comparison. For 1D x this 
+
+    Computes MI between a (possibly multidimensional) Gaussian variable x and
+    a discrete variable y using ANOVA-style model comparison. For 1D x this
     provides a lower bound to the mutual information.
-    
-    Note: Each discrete class must have at least 2 samples for covariance 
+
+    Note: Each discrete class must have at least 2 samples for covariance
     estimation. Classes with fewer samples will be skipped with a warning.
-    
+
     Parameters
     ----------
     x : array_like, shape (n_features, n_samples) or (n_samples,)
         Gaussian variable data. If 2D, rows are features and columns are samples.
-        If 1D with shape (n,), converted to shape (1, n) representing a single 
+        If 1D with shape (n,), converted to shape (1, n) representing a single
         feature with n samples.
     y : array_like, shape (n_samples,)
         Discrete variable containing integer values in range [0, max(y)].
@@ -611,12 +607,12 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
     demeaned : bool, optional
         Whether input data x already has zero mean (e.g., if copula-normalized).
         Default is False.
-        
+
     Returns
     -------
     float
         Mutual information I(X;Y) in bits.
-        
+
     Raises
     ------
     ValueError
@@ -624,14 +620,14 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
         If y is not a 1D array.
         If number of samples don't match between x and y.
         If Ym is not an integer.
-        
+
     Warnings
     --------
     RuntimeWarning
         If any class has fewer than 2 samples. These classes will be skipped
-        in the MI calculation as covariance estimation requires at least 2 
+        in the MI calculation as covariance estimation requires at least 2
         samples per class.
-    
+
     Examples
     --------
     >>> import numpy as np
@@ -646,11 +642,11 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
     >>> mi_auto = mi_model_gd(x, y)
     >>> isinstance(mi_auto, float)
     True
-        
+
     See Also
     --------
     ~driada.information.gcmi.mi_mixture_gd : MI estimation using mixture of Gaussians model.
-    ~driada.information.gcmi.ent_g : Gaussian entropy estimation    """
+    ~driada.information.gcmi.ent_g : Gaussian entropy estimation"""
 
     x = np.atleast_2d(x)
     # y = np.squeeze(y)
@@ -658,7 +654,7 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
         raise ValueError("x must be a 1D or 2D array with shape (n_features, n_samples)")
     if y.ndim > 1:
         raise ValueError("only univariate discrete variables supported")
-    
+
     # Handle Ym parameter
     if Ym is None:
         # Auto-detect number of states
@@ -668,15 +664,19 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
         if int(Ym) != Ym:
             raise ValueError("Ym should be an integer")
         Ym = int(Ym)
-    
+
     # Check for classes with too few samples
     import warnings
+
     for yi in range(Ym):
         n_samples = np.sum(y == yi)
         if n_samples == 0:
             warnings.warn(f"Class {yi} has no samples and will be skipped", RuntimeWarning)
         elif n_samples == 1:
-            warnings.warn(f"Class {yi} has only 1 sample and will be skipped. At least 2 samples per class are required for covariance estimation.", RuntimeWarning)
+            warnings.warn(
+                f"Class {yi} has only 1 sample and will be skipped. At least 2 samples per class are required for covariance estimation.",
+                RuntimeWarning,
+            )
 
     # Call JIT-compiled implementation
     return _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned)
@@ -685,7 +685,7 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
 @conditional_njit()
 def _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned):
     """JIT-compiled implementation of mi_model_gd.
-    
+
     Parameters
     ----------
     x : ndarray
@@ -698,7 +698,7 @@ def _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned):
         Whether to apply bias correction
     demeaned : bool
         Whether the data is already demeaned
-    
+
     Returns
     -------
     float
@@ -722,13 +722,13 @@ def _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned):
         idx = y == yi
         xm = x[:, idx]
         Ntrl_y[yi] = xm.shape[1]
-        
+
         # Skip classes with too few samples
         if Ntrl_y[yi] < 2:
             # Set weight to 0 and entropy to 0 for this class
             Hcond[yi] = 0.0
             continue
-            
+
         xm = demean(xm)
         Cm = np.dot(xm, xm.T) / float(Ntrl_y[yi] - 1)
         chCm = regularized_cholesky(Cm)
@@ -770,12 +770,12 @@ def _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned):
 
 def gcmi_cc(x, y):
     """Gaussian-Copula Mutual Information between two continuous variables.
-    
+
     Main user-facing function for computing mutual information between
     continuous variables using the Gaussian Copula MI (GCMI) method.
     Handles arbitrary continuous distributions by transforming marginals
     to Gaussian via copula normalization.
-    
+
     Parameters
     ----------
     x : ndarray
@@ -785,13 +785,13 @@ def gcmi_cc(x, y):
     y : ndarray
         Second continuous variable, shape (n_features_y, n_samples) or (n_samples,) for 1D.
         Must have same number of samples as x.
-        
+
     Returns
     -------
     float
         Mutual information in bits. Always non-negative, with 0 indicating
         independence. Provides a lower bound to the true MI.
-        
+
     Notes
     -----
     The GCMI method:
@@ -799,15 +799,15 @@ def gcmi_cc(x, y):
        empirical CDF (copula transform)
     2. Computes MI under the Gaussian copula assumption
     3. Applies bias correction for finite samples
-    
+
     This approach is:
     - Robust to outliers due to rank-based transform
     - Computationally efficient (no density estimation)
     - Provides MI lower bound (exact for jointly Gaussian data)
     - Suitable for continuous neural data (firing rates, LFP, etc.)
-    
+
     For discrete variables, use gcmi_cd or gcmi_ccd instead.
-    
+
     Examples
     --------
     >>> # Linear relationship with non-Gaussian marginals
@@ -817,14 +817,14 @@ def gcmi_cc(x, y):
     >>> mi = gcmi_cc(x, y)
     >>> mi > 1.0  # Detects strong dependency
     True
-    
+
     >>> # Monotonic nonlinear relationship
     >>> x = rng.exponential(size=1000)
     >>> y = np.log(x + 1) + rng.normal(0, 0.1, size=1000)
     >>> mi = gcmi_cc(x, y)
     >>> mi > 0.5  # Detects monotonic dependency
     True
-    
+
     >>> # Multidimensional example
     >>> x = rng.randn(3, 1000)  # 3D variable
     >>> y = rng.randn(2, 1000)  # 2D variable
@@ -833,17 +833,17 @@ def gcmi_cc(x, y):
     >>> mi = gcmi_cc(x, y)
     >>> mi > 0.3  # Detects multivariate dependency
     True
-    
+
     See Also
     --------
     ~driada.information.gcmi.mi_gg : MI for Gaussian variables (without copula transform)
     ~driada.information.gcmi.gccmi_ccd : Conditional MI with discrete conditioning variable
-    
+
     References
     ----------
     Ince, R. A., et al. (2017). A statistical framework for neuroimaging data
     analysis based on mutual information estimated via a Gaussian copula.
-    Human Brain Mapping, 38(3), 1541-1573.    """
+    Human Brain Mapping, 38(3), 1541-1573."""
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
@@ -890,11 +890,11 @@ def gcmi_cc(x, y):
 def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     """
     Conditional mutual information between two Gaussian variables given a third.
-    
-    Computes CMI between two (possibly multidimensional) Gaussian variables 
+
+    Computes CMI between two (possibly multidimensional) Gaussian variables
     x and y, conditioned on a third variable z. Uses entropy decomposition:
     I(X;Y|Z) = H(X|Z) + H(Y|Z) - H(X,Y|Z).
-    
+
     Parameters
     ----------
     x : array_like, shape (n_features_x, n_samples) or (n_samples,)
@@ -909,30 +909,30 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     demeaned : bool, optional
         Whether input data already has zero mean (e.g., if copula-normalized).
         Default is False.
-        
+
     Returns
     -------
     float
         Conditional mutual information I(X;Y|Z) in bits.
-        
+
     Raises
     ------
     ValueError
         If x, y, or z are 3D or higher dimensional arrays.
         If number of samples don't match between x, y, and z.
-    
+
     Notes
     -----
-    Conditional mutual information measures the dependency between X and Y 
-    after accounting for the influence of Z. If X and Y are independent 
+    Conditional mutual information measures the dependency between X and Y
+    after accounting for the influence of Z. If X and Y are independent
     given Z, then I(X;Y|Z) = 0.
-    
+
     This function assumes all variables follow a joint Gaussian distribution.
     For non-Gaussian data, apply copula normalization first.
-    
+
     The entropy decomposition uses:
     I(X;Y|Z) = H(X,Z) + H(Y,Z) - H(X,Y,Z) - H(Z)
-    
+
     Examples
     --------
     >>> # Independent given Z
@@ -948,7 +948,7 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     >>> cmi = cmi_ggg(x, y, z)
     >>> cmi < 0.05  # Near zero when conditioned on Z
     True
-    
+
     >>> # Direct dependency not explained by Z
     >>> z = rng.randn(1, 1000)
     >>> x = rng.randn(1, 1000)
@@ -956,15 +956,15 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
     >>> cmi = cmi_ggg(x, y, z)
     >>> cmi > 0.3  # Still significant after conditioning
     True
-    
+
     See Also
     --------
     ~driada.information.gcmi.mi_gg : Unconditional mutual information
     ~driada.information.gcmi.gccmi_ccd : CMI with discrete conditioning variable
-    
+
     References
     ----------
-    Cover, T. M., & Thomas, J. A. (2006). Elements of information theory.    """
+    Cover, T. M., & Thomas, J. A. (2006). Elements of information theory."""
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
@@ -1032,10 +1032,10 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
 def gccmi_ccd(x, y, z, Zm=None):
     """Gaussian-Copula CMI between 2 continuous variables conditioned on a discrete variable.
 
-    Calculates the conditional mutual information (CMI) between two continuous 
-    variables x and y, conditioned on a discrete variable z, using a Gaussian 
+    Calculates the conditional mutual information (CMI) between two continuous
+    variables x and y, conditioned on a discrete variable z, using a Gaussian
     copula approach. This method can handle multivariate continuous variables.
-    
+
     The Gaussian copula transforms the marginal distributions to standard Gaussian
     while preserving the dependence structure, allowing efficient estimation of
     mutual information.
@@ -1043,13 +1043,13 @@ def gccmi_ccd(x, y, z, Zm=None):
     Parameters
     ----------
     x : array_like, shape (n_features_x, n_samples) or (n_samples,)
-        First continuous variable. If multivariate, features are in rows and 
+        First continuous variable. If multivariate, features are in rows and
         samples in columns.
     y : array_like, shape (n_features_y, n_samples) or (n_samples,)
-        Second continuous variable. If multivariate, features are in rows and 
+        Second continuous variable. If multivariate, features are in rows and
         samples in columns.
     z : array_like, shape (n_samples,)
-        Discrete conditioning variable. Must contain integer values in the range 
+        Discrete conditioning variable. Must contain integer values in the range
         [0, max(z)] (inclusive).
     Zm : int, optional
         Number of unique values in the discrete variable z. If None (default),
@@ -1075,9 +1075,9 @@ def gccmi_ccd(x, y, z, Zm=None):
     value of the discrete conditioning variable z, it transforms the conditional
     distributions of x and y to Gaussian, then computes the CMI using entropy
     calculations on the Gaussian-transformed data.
-    
+
     This is particularly useful for analyzing neural data where the conditioning
-    variable might represent experimental conditions, stimulus types, or 
+    variable might represent experimental conditions, stimulus types, or
     behavioral states.
 
     Examples
@@ -1088,7 +1088,7 @@ def gccmi_ccd(x, y, z, Zm=None):
     >>> z = rng.choice([0, 1, 2], size=n_samples)  # 3 discrete states
     >>> x = np.zeros(n_samples)
     >>> y = np.zeros(n_samples)
-    >>> 
+    >>>
     >>> # Different relationships for each state
     >>> for state in [0, 1, 2]:
     ...     mask = z == state
@@ -1102,16 +1102,16 @@ def gccmi_ccd(x, y, z, Zm=None):
     ...     else:  # Nonlinear in state 2
     ...         x[mask] = rng.uniform(-2, 2, n_state)
     ...         y[mask] = x[mask]**2 + 0.5 * rng.randn(n_state)
-    >>> 
+    >>>
     >>> # Reshape for function input
     >>> x = x.reshape(1, -1)
     >>> y = y.reshape(1, -1)
-    >>> 
+    >>>
     >>> # CMI captures state-dependent relationships
     >>> cmi = gccmi_ccd(x, y, z)
     >>> cmi > 0.2  # Significant CMI due to state-dependent coupling
     True
-    
+
     >>> # Compare with unconditional MI
     >>> mi_uncond = gcmi_cc(x, y)
     >>> cmi > mi_uncond * 0.8  # CMI captures most of the dependency
@@ -1122,12 +1122,12 @@ def gccmi_ccd(x, y, z, Zm=None):
     ~driada.information.gcmi.gcmi_cc : Unconditional Gaussian-copula MI
     ~driada.information.gcmi.cmi_ggg : CMI for all-continuous variables
     ~driada.information.gcmi.gcmi_cd : MI between continuous and discrete variables
-    
+
     References
     ----------
     Ince, R. A., et al. (2017). A statistical framework for neuroimaging data
     analysis based on mutual information estimated via a Gaussian copula.
-    Human Brain Mapping, 38(3), 1541-1573.    """
+    Human Brain Mapping, 38(3), 1541-1573."""
 
     x = np.atleast_2d(x)
     y = np.atleast_2d(y)
@@ -1137,7 +1137,7 @@ def gccmi_ccd(x, y, z, Zm=None):
         raise ValueError("only univariate discrete variables supported")
     if not np.issubdtype(z.dtype, np.integer):
         raise ValueError("z should be an integer array")
-    
+
     # Compute Zm if not provided
     if Zm is None:
         Zm = len(np.unique(z))
@@ -1164,7 +1164,7 @@ def gccmi_ccd(x, y, z, Zm=None):
     # check values of discrete variable
     if z.min() != 0 or z.max() != (Zm - 1):
         raise ValueError("values of discrete variable z are out of bounds")
-    
+
     # Use JIT version if available
     if _JIT_AVAILABLE:
         x, y = _prepare_for_jit(x, y)

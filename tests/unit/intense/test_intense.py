@@ -37,9 +37,7 @@ def create_correlated_ts(
 
     # add noise to remove coinciding values
     small_noise = (
-        np.random.multivariate_normal(
-            np.zeros(n), np.eye(n), size=T, check_valid="raise"
-        ).T
+        np.random.multivariate_normal(np.zeros(n), np.eye(n), size=T, check_valid="raise").T
         * noise_scale
     )
 
@@ -95,9 +93,7 @@ def test_stage1(correlated_ts_medium, fast_test_params):
     )
 
     rel_stats_pairs = retrieve_relevant_from_nested_dict(computed_stats, "pre_rval", 1)
-    rel_sig_pairs = retrieve_relevant_from_nested_dict(
-        computed_significance, "stage1", True
-    )
+    rel_sig_pairs = retrieve_relevant_from_nested_dict(computed_significance, "stage1", True)
     assert rel_sig_pairs == rel_stats_pairs
 
 
@@ -151,9 +147,7 @@ def aggregate_two_ts(ts1, ts2):
     return mts
 
 
-def test_mixed_dimensions(
-    correlated_ts_medium, aggregate_two_ts_func, strict_test_params
-):
+def test_mixed_dimensions(correlated_ts_medium, aggregate_two_ts_func, strict_test_params):
     """Test mixed dimensions with MultiTimeSeries."""
     tslist1, tslist2, n = correlated_ts_medium
     k = n // 2  # num of ts in one block
@@ -325,7 +319,7 @@ def test_two_stage_avsignal(correlated_ts_binarized, balanced_test_params):
     stage1_pairs = retrieve_relevant_from_nested_dict(
         computed_significance, "stage1", True, allow_missing_keys=True
     )
-    
+
     # Stage 1 should find some candidates
     assert len(stage1_pairs) > 0, "Stage 1 should identify candidate pairs"
 
@@ -338,7 +332,7 @@ def test_two_stage_avsignal(correlated_ts_binarized, balanced_test_params):
     # With binarization, we should detect at least one of these
     expected_pairs = {(1, k - 1), (2, k - 2), (5, k - 5)}
     found_pairs = set(rel_sig_pairs)
-    
+
     # Either we find some pairs, or if none, verify it's due to binarization effects
     if len(found_pairs) == 0:
         # Check if the av metric values are actually different
@@ -404,9 +398,7 @@ def test_calculate_optimal_delays():
     ts1 = [TimeSeries(signal1)]
     ts2 = [TimeSeries(signal2)]
 
-    delays = calculate_optimal_delays(
-        ts1, ts2, metric="mi", shift_window=50, ds=1, verbose=False
-    )
+    delays = calculate_optimal_delays(ts1, ts2, metric="mi", shift_window=50, ds=1, verbose=False)
 
     assert delays.shape == (1, 1)
     assert np.abs(delays[0, 0]) <= 50  # Within shift window
@@ -1064,9 +1056,7 @@ def test_correlation_detection_scaled(scaled_correlated_ts, fast_test_params):
     )
 
     # Should detect at least expected_pairs correlations
-    sig_pairs = retrieve_relevant_from_nested_dict(
-        computed_significance, "stage1", True
-    )
+    sig_pairs = retrieve_relevant_from_nested_dict(computed_significance, "stage1", True)
     assert len(sig_pairs) >= expected_pairs
 
     # Verify that detected pairs are marked as significant
@@ -1083,9 +1073,7 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
     exp = small_experiment
 
     # Test backward compatibility - old style single cell/feature
-    me0, shifted_me = get_calcium_feature_me_profile(
-        exp, 0, "d_feat_0", window=20, ds=2
-    )
+    me0, shifted_me = get_calcium_feature_me_profile(exp, 0, "d_feat_0", window=20, ds=2)
     assert isinstance(me0, float)
     assert isinstance(shifted_me, list)
     assert len(shifted_me) == 21  # window=20, ds=2 gives -10 to +10 inclusive = 21 values
@@ -1124,7 +1112,9 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
     # Generate random calcium signals and random features
     np.random.seed(42)
     n_neurons = 10  # Reduced from 20
-    duration = 600  # Increased for better statistics (longer = more reliable null hypothesis testing)
+    duration = (
+        600  # Increased for better statistics (longer = more reliable null hypothesis testing)
+    )
     fps = 20.0
     n_frames = int(duration * fps)
 
@@ -1165,4 +1155,6 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
 
     # With stricter threshold (0.001) and Holm correction, we should get very few false positives
     # Allow up to 2 false positives due to statistical variation (with 10 neurons, 2/10 = 20% FP rate is still reasonable for a test)
-    assert len(sig_neurons) <= 2  # At most 2 false positives expected with multiple testing correction
+    assert (
+        len(sig_neurons) <= 2
+    )  # At most 2 false positives expected with multiple testing correction

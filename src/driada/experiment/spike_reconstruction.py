@@ -27,7 +27,7 @@ def reconstruct_spikes(
     params: Optional[Dict[str, Any]] = None,
     wavelet=None,
     rel_wvt_times=None,
-    use_gpu: bool = False
+    use_gpu: bool = False,
 ) -> Tuple[MultiTimeSeries, Dict[str, Any]]:
     """
     Reconstruct spike trains from calcium signals.
@@ -70,7 +70,7 @@ def reconstruct_spikes(
         - 'method': str - Method used
         - 'parameters': dict - Parameters used
         - Method-specific fields (see individual method docs)
-        
+
     Raises
     ------
     ValueError
@@ -78,9 +78,9 @@ def reconstruct_spikes(
         If fps is not positive.
     AttributeError
         If calcium lacks required attributes (e.g., scdata).
-    TypeError  
+    TypeError
         If callable method has wrong signature.
-        
+
     Examples
     --------
     >>> # Create example calcium data
@@ -90,14 +90,14 @@ def reconstruct_spikes(
     >>> raw_data = np.random.rand(n_neurons, n_frames)
     >>> calcium_ts_list = [TimeSeries(raw_data[i], discrete=False) for i in range(n_neurons)]
     >>> calcium_data = MultiTimeSeries(calcium_ts_list)
-    >>> 
+    >>>
     >>> # Using wavelet method (default)
     >>> spikes, meta = reconstruct_spikes(calcium_data, fps=30.0)
     >>> meta['method']
     'wavelet'
     >>> spikes.n_dim == n_neurons
     True
-    
+
     >>> # Using threshold method with custom parameters
     >>> params = {'threshold_std': 3.0, 'smooth_sigma': 1.5}
     >>> spikes, meta = reconstruct_spikes(calcium_data, 'threshold', 30.0, params)
@@ -105,7 +105,7 @@ def reconstruct_spikes(
     'threshold'
     >>> meta['parameters']['threshold_std']
     3.0
-    
+
     >>> # Using custom reconstruction function
     >>> def custom_method(calcium, fps, params):
     ...     # Simple mock implementation
@@ -119,19 +119,19 @@ def reconstruct_spikes(
     >>> spikes, meta = reconstruct_spikes(calcium_data, custom_method, 30.0)
     >>> meta['custom_info']
     'test'
-    
+
     Notes
     -----
     All built-in methods use the scaled calcium data (calcium.scdata) which
     is normalized to [0, 1]. This ensures consistent behavior across different
-    calcium indicator types and experimental conditions.    """
+    calcium indicator types and experimental conditions."""
     # Input validation
     check_positive(fps=fps)
-    
+
     # Validate calcium has required attributes
-    if not hasattr(calcium, 'scdata'):
+    if not hasattr(calcium, "scdata"):
         raise AttributeError("calcium must have 'scdata' attribute (scaled data)")
-        
+
     params = params or {}
 
     if callable(method):
@@ -152,8 +152,7 @@ def reconstruct_spikes(
 
     else:
         raise ValueError(
-            f"Unknown method '{method}'. Use 'wavelet', 'threshold', "
-            f"or provide a callable."
+            f"Unknown method '{method}'. Use 'wavelet', 'threshold', " f"or provide a callable."
         )
 
 
@@ -163,7 +162,7 @@ def wavelet_reconstruction(
     params: Dict[str, Any],
     wavelet=None,
     rel_wvt_times=None,
-    use_gpu: bool = False
+    use_gpu: bool = False,
 ) -> Tuple[MultiTimeSeries, Dict[str, Any]]:
     """
     Wavelet-based spike reconstruction.
@@ -218,11 +217,11 @@ def wavelet_reconstruction(
     parameter always overrides the default fps value.
 
     For batch processing, pre-compute wavelet and rel_wvt_times once and reuse
-    across multiple calls for significant speedup (8-10x faster).    """
+    across multiple calls for significant speedup (8-10x faster)."""
     # Input validation
     check_positive(fps=fps)
 
-    if not hasattr(calcium, 'scdata'):
+    if not hasattr(calcium, "scdata"):
         raise AttributeError("calcium must have 'scdata' attribute")
 
     # Get scaled calcium data as numpy array for better spike detection
@@ -230,7 +229,9 @@ def wavelet_reconstruction(
 
     # Validate data shape
     if calcium_data.ndim != 2:
-        raise ValueError(f"calcium data must be 2D (neurons x time), got shape {calcium_data.shape}")
+        raise ValueError(
+            f"calcium data must be 2D (neurons x time), got shape {calcium_data.shape}"
+        )
     if calcium_data.size == 0:
         raise ValueError("calcium data cannot be empty")
 
@@ -242,8 +243,7 @@ def wavelet_reconstruction(
         wavelet = Wavelet(("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196)
         manual_scales = get_adaptive_wavelet_scales(fps)
         rel_wvt_times = [
-            time_resolution(wavelet, scale=sc, nondim=False, min_decay=200)
-            for sc in manual_scales
+            time_resolution(wavelet, scale=sc, nondim=False, min_decay=200) for sc in manual_scales
         ]
 
     # Set up wavelet parameters
@@ -253,22 +253,15 @@ def wavelet_reconstruction(
 
     # Extract events with pre-computed wavelet objects
     st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(
-        calcium_data,
-        wvt_kwargs,
-        wavelet=wavelet,
-        rel_wvt_times=rel_wvt_times,
-        use_gpu=use_gpu
+        calcium_data, wvt_kwargs, wavelet=wavelet, rel_wvt_times=rel_wvt_times, use_gpu=use_gpu
     )
 
     # Convert to spike array
-    spikes_data = events_to_ts_array(
-        calcium_data.shape[1], st_ev_inds, end_ev_inds, fps
-    )
+    spikes_data = events_to_ts_array(calcium_data.shape[1], st_ev_inds, end_ev_inds, fps)
 
     # Create spike MultiTimeSeries
     spike_ts_list = [
-        TimeSeries(spikes_data[i, :], discrete=True)
-        for i in range(spikes_data.shape[0])
+        TimeSeries(spikes_data[i, :], discrete=True) for i in range(spikes_data.shape[0])
     ]
     spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
 
@@ -329,11 +322,11 @@ def threshold_reconstruction(
     Notes
     -----
     The derivative is computed with np.diff and zero-padded at the start.
-    This affects the first frame which cannot have a spike detected.    """
+    This affects the first frame which cannot have a spike detected."""
     # Input validation
     check_positive(fps=fps)
 
-    if not hasattr(calcium, 'scdata'):
+    if not hasattr(calcium, "scdata"):
         raise AttributeError("calcium must have 'scdata' attribute")
 
     # Default parameters
@@ -347,8 +340,10 @@ def threshold_reconstruction(
 
     min_spike_frames = int(min_spike_interval * fps)
     if min_spike_interval > 0 and min_spike_frames < 1:
-        raise ValueError(f"min_spike_interval * fps = {min_spike_interval * fps:.2f} < 1, "
-                         "would result in zero minimum distance between spikes")
+        raise ValueError(
+            f"min_spike_interval * fps = {min_spike_interval * fps:.2f} < 1, "
+            "would result in zero minimum distance between spikes"
+        )
 
     calcium_data = np.asarray(calcium.scdata)  # Use scaled data
 
@@ -360,7 +355,7 @@ def threshold_reconstruction(
 
     if calcium_data.size == 0:
         raise ValueError("calcium data cannot be empty")
-        
+
     n_neurons, n_frames = calcium_data.shape
     spikes_data = np.zeros_like(calcium_data)
 
@@ -381,18 +376,14 @@ def threshold_reconstruction(
         threshold = np.mean(diff) + threshold_std * np.std(diff)
 
         # Find peaks in derivative
-        peaks, properties = find_peaks(
-            diff, height=threshold, distance=min_spike_frames
-        )
+        peaks, properties = find_peaks(diff, height=threshold, distance=min_spike_frames)
 
         # Mark spikes
         spikes_data[i, peaks] = 1
         all_spike_times.append(peaks)
 
     # Create spike MultiTimeSeries
-    spike_ts_list = [
-        TimeSeries(spikes_data[i, :], discrete=True) for i in range(n_neurons)
-    ]
+    spike_ts_list = [TimeSeries(spikes_data[i, :], discrete=True) for i in range(n_neurons)]
     spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
 
     # Prepare metadata

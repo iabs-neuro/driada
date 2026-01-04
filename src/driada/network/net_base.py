@@ -67,11 +67,9 @@ def check_matrix_type(mode, is_directed):
     Notes
     -----
     Directed networks support: 'adj', 'lap_out', 'lap_in'.
-    Undirected networks support: 'adj', 'trans', 'lap', 'nlap', 'rwlap'.    """
+    Undirected networks support: 'adj', 'trans', 'lap', 'nlap', 'rwlap'."""
     if mode not in MATRIX_TYPES:
-        raise ValueError(
-            f"Matrix type {mode} is not in allowed matrix types: {MATRIX_TYPES}"
-        )
+        raise ValueError(f"Matrix type {mode} is not in allowed matrix types: {MATRIX_TYPES}")
 
     if is_directed and mode not in DIR_MATRIX_TYPES:
         raise ValueError(
@@ -98,12 +96,12 @@ def check_adjacency(a):
     ------
     ValueError
         If matrix is not square.
-        
+
     Notes
     -----
     This function only checks if the matrix is square. It does not
     validate other adjacency matrix properties like non-negativity
-    or symmetry.    """
+    or symmetry."""
     if a.shape[0] != a.shape[1]:
         raise ValueError(f"Adjacency matrix must be square. Got shape {a.shape}")
 
@@ -128,7 +126,7 @@ def check_directed(directed, real_world):
     Notes
     -----
     Real-world networks must have directed in {0, 1}.
-    Synthetic networks can have 0 <= directed <= 1.    """
+    Synthetic networks can have 0 <= directed <= 1."""
     if real_world:
         if directed not in [0, 1]:
             raise ValueError("Fractional direction is not valid for a real network")
@@ -160,13 +158,13 @@ def check_weights_and_directions(a, weighted, directed):
     -----
     - Directed: matrix is not symmetric (A != A^T)
     - Weighted: matrix has non-binary values
-    - For sparse matrices, checks are done without converting to dense    """
+    - For sparse matrices, checks are done without converting to dense"""
     # Check if matrix is symmetric (directed property)
     if sp.issparse(a):
         is_directed = (a != a.T).nnz > 0
     else:
         is_directed = not np.allclose(a, a.T)
-    
+
     # Check if matrix is weighted
     if sp.issparse(a):
         # For sparse, check if all non-zero values are 0 or 1
@@ -191,50 +189,50 @@ def check_weights_and_directions(a, weighted, directed):
 
 def calculate_directionality_fraction(adj):
     """Calculate the fraction of directed edges in an adjacency matrix.
-    
+
     A fully symmetric matrix has directionality = 0.0
     A fully asymmetric matrix has directionality = 1.0
     A partially directed matrix has 0.0 < directionality < 1.0
-    
+
     Parameters
     ----------
     adj : scipy.sparse matrix or numpy array
         Adjacency matrix. For weighted networks, edges are considered
         symmetric only if weights are equal.
-        
+
     Returns
     -------
     float
         Fraction of directed edges (0.0 to 1.0)
-        
+
     Notes
     -----
     For weighted networks, this function correctly checks weight equality.
     An edge (i,j) with weight w1 and edge (j,i) with weight w2 are only
     considered symmetric if w1 == w2.
-    
+
     The function works efficiently with sparse matrices without converting
-    to dense format when possible.    """
+    to dense format when possible."""
     # For sparse matrices, work directly with COO format
     if sp.issparse(adj):
         # Convert to COO format for easy access to (row, col, data)
         adj_coo = adj.tocoo()
-        
+
         # Remove diagonal entries
         mask = adj_coo.row != adj_coo.col
         rows = adj_coo.row[mask]
         cols = adj_coo.col[mask]
         data = adj_coo.data[mask]
-        
+
         total_edges = len(rows)
         if total_edges == 0:
             return 0.0
-        
+
         # Create a dictionary for fast lookup of edge weights
         edge_dict = {}
         for r, c, d in zip(rows, cols, data):
             edge_dict[(r, c)] = d
-        
+
         # Count symmetric edges (with equal weights)
         symmetric_edges = 0
         for r, c, d in zip(rows, cols, data):
@@ -245,72 +243,70 @@ def calculate_directionality_fraction(adj):
         # For dense matrices
         A_no_diag = adj.copy()
         np.fill_diagonal(A_no_diag, 0)
-        
+
         # Count total edges (non-zero entries)
         total_edges = np.count_nonzero(A_no_diag)
-        
+
         if total_edges == 0:
             return 0.0
-        
+
         # Count symmetric edges with equal weights
         symmetric_edges = 0
         rows, cols = np.nonzero(A_no_diag)
-        
+
         for i, j in zip(rows, cols):
             if i < j:  # Only count each pair once
                 # Check if reciprocal edge exists with same weight
                 if A_no_diag[j, i] != 0 and np.allclose(A_no_diag[i, j], A_no_diag[j, i]):
                     symmetric_edges += 2
-    
+
     # Directed edges are those that don't have a reciprocal edge with same weight
     directed_edges = total_edges - symmetric_edges
-    
+
     # Return fraction of directed edges
     return directed_edges / total_edges
 
 
 def select_construction_pipeline(a, graph):
     """Select construction pipeline and determine directionality.
-    
+
     Determines whether to initialize from adjacency matrix or NetworkX graph,
     and calculates the fraction of directed edges for auto-detection of
     network directionality.
-    
+
     Parameters
     ----------
     a : scipy.sparse matrix or None
         Adjacency matrix. If provided, graph must be None.
     graph : networkx.Graph/DiGraph or None
         NetworkX graph object. If provided, a must be None.
-        
+
     Returns
     -------
     tuple
         (pipeline, directed_fraction) where:
         - pipeline: 'adj' or 'graph' indicating initialization method
         - directed_fraction: float in [0.0, 1.0], fraction of asymmetric edges
-        
+
     Raises
     ------
     ValueError
         If both a and graph are None, or if both are provided.
     TypeError
         If graph is not a supported NetworkX type.
-        
+
     Notes
     -----
     The directed_fraction is always calculated and never None. For undirected
     NetworkX graphs, it returns 0.0. For directed graphs and adjacency matrices,
-    it calculates the actual fraction of asymmetric edges.    """
+    it calculates the actual fraction of asymmetric edges."""
     directed_fraction = None
-    
+
     if a is None:
         if graph is None:
             raise ValueError('Either "adj" or "graph" argument must be non-empty')
         else:
-            if not np.any(
-                [isinstance(graph, gtype) for gtype in SUPPORTED_GRAPH_TYPES]
-            ):
+            if not np.any([isinstance(graph, gtype) for gtype in SUPPORTED_GRAPH_TYPES]):
                 raise TypeError(
                     f"graph should have one of supported graph types: {SUPPORTED_GRAPH_TYPES}"
                 )
@@ -337,12 +333,12 @@ def select_construction_pipeline(a, graph):
 
 class Network:
     """Network analysis class with focus on spectral graph theory.
-    
+
     This class provides a comprehensive interface for analyzing networks using
     spectral methods. It supports both directed and undirected, weighted and
     unweighted networks, and can be initialized from adjacency matrices or
     NetworkX graphs.
-    
+
     Parameters
     ----------
     adj : scipy.sparse matrix, optional
@@ -373,7 +369,7 @@ class Network:
         - directed : bool, optional (auto-detected if not specified)
         - weighted : bool, optional (auto-detected if not specified)
         - real_world : bool, default=True
-        
+
     Attributes
     ----------
     adj : scipy.sparse.csr_matrix
@@ -427,15 +423,15 @@ class Network:
     _calculated_directionality : float or None
         Fraction of directed edges detected during initialization (private).
     _init_to_final_node_mapping : dict or None
-        Mapping from initial to final node indices after preprocessing 
+        Mapping from initial to final node indices after preprocessing
         (private, only when using adjacency without creating graph).
-    
+
     Dynamic Matrix Attributes
     ------------------------
     For each matrix type in ['adj', 'trans', 'lap', 'nlap', 'rwlap'] (undirected)
     or ['adj', 'lap_out', 'lap_in'] (directed), the following attributes are
     dynamically created and initially set to None:
-    
+
     {matrix_type} : scipy.sparse matrix or None
         The matrix itself (computed on demand).
     {matrix_type}_spectrum : ndarray or None
@@ -446,7 +442,7 @@ class Network:
         IPR z-values for eigenvector localization.
     {matrix_type}_ipr : ndarray or None
         Inverse participation ratio values.
-        
+
     Methods
     -------
     is_connected()
@@ -491,22 +487,22 @@ class Network:
         Analyze eigenvector localization.
     construct_lem_embedding(dim)
         Construct Laplacian eigenmaps embedding.
-        
+
     Notes
     -----
     The class uses lazy evaluation for matrix computations - matrices and their
     spectral properties are only computed when first requested. The directionality
     is automatically detected if not specified, using a fractional approach that
     can identify partially directed networks.
-    
+
     The `diagonalize` method may raise exceptions if:
     - The network has isolated nodes when n_cc=1 is expected
     - The network has multiple components when only one is expected
     - Complex eigenvalues/eigenvectors are found for undirected networks
-    
+
     Degree sequences (outdeg, indeg, deg, scaled_outdeg, scaled_indeg) are
     automatically computed during initialization via get_node_degrees().
-    
+
     Matrix types available:
     - 'adj': Adjacency matrix
     - 'trans': Transition matrix (undirected only)
@@ -514,7 +510,7 @@ class Network:
     - 'nlap': Normalized Laplacian (undirected only)
     - 'rwlap': Random walk Laplacian (undirected only)
     - 'lap_out': Out-Laplacian (directed only)
-    - 'lap_in': In-Laplacian (directed only)    """
+    - 'lap_in': In-Laplacian (directed only)"""
 
     def __init__(
         self,
@@ -530,11 +526,11 @@ class Network:
         **network_args,
     ):
         """Initialize a Network object from adjacency matrix or NetworkX graph.
-        
+
         Creates a network representation with automatic detection of directed/weighted
         properties if not specified. Supports preprocessing to extract connected
         components.
-        
+
         Parameters
         ----------
         adj : scipy.sparse matrix or None
@@ -543,7 +539,7 @@ class Network:
             NetworkX graph object. Mutually exclusive with adj parameter.
         preprocessing : str or None, default="giant_cc"
             Preprocessing method:
-            
+
             * None: No preprocessing
             * "remove_isolates": Remove isolated nodes
             * "giant_cc": Extract giant connected component
@@ -562,11 +558,11 @@ class Network:
             Logger instance for logging messages.
         **network_args
             Additional network parameters:
-            
+
             * directed : bool or None (auto-detected if None)
             * weighted : bool or None (auto-detected if None)
             * real_world : bool (affects directionality validation)
-            
+
         Attributes
         ----------
         adj : scipy.sparse matrix
@@ -575,7 +571,7 @@ class Network:
             NetworkX graph representation.
         directed : bool
             Whether the network is directed.
-        weighted : bool  
+        weighted : bool
             Whether the network has weighted edges.
         n : int
             Number of nodes.
@@ -601,17 +597,17 @@ class Network:
             Number of connected components (set during some preprocessing).
         n_scc : int or None
             Number of strongly connected components (set during some preprocessing).
-            
+
         Raises
         ------
         ValueError
             If both adj and graph are provided or neither is provided.
-            
+
         Notes
         -----
         The constructor automatically computes node degrees after initialization.
         For large sparse matrices, auto-detection of directed/weighted properties
-        uses efficient sparse operations to avoid memory issues.        """
+        uses efficient sparse operations to avoid memory issues."""
         self.name = name
         self.verbose = verbose
         self.network_params = network_args
@@ -645,9 +641,7 @@ class Network:
                     # Check if all non-zero values are 1
                     self.weighted = not np.all(np.isin(adj.data, [0, 1]))
                 else:
-                    self.weighted = not np.allclose(
-                        adj, adj.astype(bool).astype(int)
-                    )
+                    self.weighted = not np.allclose(adj, adj.astype(bool).astype(int))
             elif self.init_method == "graph":
                 self.weighted = nx.is_weighted(graph)
 
@@ -688,14 +682,12 @@ class Network:
 
         self.lem_emb = None
 
-    def _preprocess_graph_and_data(
-        self, graph=None, preprocessing=None, pos=None, node_attrs=None
-    ):
+    def _preprocess_graph_and_data(self, graph=None, preprocessing=None, pos=None, node_attrs=None):
         """Preprocess graph by removing isolated nodes or extracting components.
-        
+
         Applies preprocessing to NetworkX graph and filters node positions/attributes
         to match the processed graph. Sets instance attributes based on the result.
-        
+
         Parameters
         ----------
         graph : networkx.Graph or DiGraph
@@ -706,13 +698,13 @@ class Network:
             Node positions to filter.
         node_attrs : dict or None
             Node attributes to filter.
-            
+
         Warning
         -------
         This method assumes node labels remain the same after preprocessing.
         If preprocessing relabels nodes, pos and node_attrs filtering may fail
         with KeyError.
-        
+
         Notes
         -----
         Sets the following instance attributes:
@@ -723,8 +715,8 @@ class Network:
         - self.node_attrs: Filtered node attributes
         - self.n_cc: Number of connected components (only for 'giant_cc' mode)
         - self.n_scc: Number of strongly connected components (only for 'giant_scc' mode)
-        
-        When verbose=True, prints information about removed nodes and edges.        """
+
+        When verbose=True, prints information about removed nodes and edges."""
         if preprocessing is None:
             if self.verbose:
                 print(
@@ -756,17 +748,13 @@ class Network:
 
         # add node positions if provided
         if pos is not None:
-            self.pos = {
-                node: pos[node] for node in graph.nodes() if node in fgraph.nodes()
-            }
+            self.pos = {node: pos[node] for node in graph.nodes() if node in fgraph.nodes()}
         else:
             self.pos = None
 
         if node_attrs is not None:
             self.node_attrs = {
-                node: node_attrs[node]
-                for node in graph.nodes()
-                if node in fgraph.nodes()
+                node: node_attrs[node] for node in graph.nodes() if node in fgraph.nodes()
             }
         else:
             self.node_attrs = None
@@ -779,10 +767,10 @@ class Network:
         self, a=None, preprocessing=None, pos=None, node_attrs=None, create_graph=True
     ):
         """Preprocess adjacency matrix by extracting connected components.
-        
+
         Applies preprocessing to adjacency matrix, creates node mapping for removed
         nodes, and filters positions/attributes accordingly.
-        
+
         Parameters
         ----------
         a : scipy.sparse matrix
@@ -795,24 +783,24 @@ class Network:
             Node attributes to filter.
         create_graph : bool, default=True
             Whether to delegate to graph-based preprocessing.
-            
+
         Warning
         -------
         Edge count reporting for undirected networks assumes perfect symmetry.
         Creates identity mapping even when no nodes are removed (memory overhead).
-        
+
         Notes
         -----
         If create_graph=True, delegates to _preprocess_graph_and_data which may
         lose the original sparse matrix format. Otherwise processes the adjacency
         matrix directly and maintains sparsity.
-        
+
         Sets additional attributes:
         - self._init_to_final_node_mapping: Maps original to final node indices
         - self.graph: Set to None when create_graph=False
         - self.n_cc/n_scc: Set conditionally based on preprocessing mode
-        
-        When verbose=True, prints information about removed nodes and edges.        """
+
+        When verbose=True, prints information about removed nodes and edges."""
         # if NetworkX graph should be created, we revert to graph-based initialization for simplicity
         if create_graph:
             gtype = nx.DiGraph if self.directed else nx.Graph
@@ -830,9 +818,7 @@ class Network:
                 )
             fadj = remove_selfloops_from_adj(a)
             nodes_range = range(fadj.shape[0])
-            node_mapping = dict(
-                zip(nodes_range, nodes_range)
-            )  # no nodes have been deleted
+            node_mapping = dict(zip(nodes_range, nodes_range))  # no nodes have been deleted
 
         elif preprocessing == "remove_isolates":
             a_ = remove_selfloops_from_adj(a)
@@ -862,17 +848,13 @@ class Network:
 
         # add node positions if provided
         if pos is not None:
-            self.pos = {
-                node: pos[node] for node in range(a.shape[0]) if node in node_mapping
-            }
+            self.pos = {node: pos[node] for node in range(a.shape[0]) if node in node_mapping}
         else:
             self.pos = None
 
         if node_attrs is not None:
             self.node_attrs = {
-                node: node_attrs[node]
-                for node in range(a.shape[0])
-                if node in node_mapping
+                node: node_attrs[node] for node in range(a.shape[0]) if node in node_mapping
             }
         else:
             self.node_attrs = None
@@ -884,22 +866,22 @@ class Network:
 
     def is_connected(self):
         """Check if the network is connected.
-        
+
         A network is connected if there is a path between every pair of nodes.
         For directed networks, checks weak connectivity (ignoring edge direction).
-        
+
         Returns
         -------
         bool
-            True if the network has only one connected component, False otherwise.        """
+            True if the network has only one connected component, False otherwise."""
         ccs = list(get_ccs_from_adj(self.adj))
         return len(ccs) == 1
 
     def randomize(self, rmode="shuffle"):
         """Create a randomized version of the network.
-        
+
         Different randomization methods preserve different network properties.
-        
+
         Parameters
         ----------
         rmode : str, default='shuffle'
@@ -908,18 +890,18 @@ class Network:
             - 'graph_iom': In-degree, Out-degree, and Mutual degree preserving (via NetworkX)
             - 'adj_iom': In-degree, Out-degree, and Mutual degree preserving (via adjacency matrix)
             - 'complete': Randomize as complete graph
-            
+
         Returns
         -------
         Network
             New Network object with randomized edges.
-            
+
         Notes
         -----
         IOM methods preserve in-degree, out-degree, and mutual (reciprocal) degree
         sequences for each node. This maintains the local connectivity patterns
         while randomizing the global structure.
-        Shuffle method only preserves edge density.        """
+        Shuffle method only preserves edge density."""
         if rmode == "graph_iom":
             if self.graph is None:
                 raise ValueError("NetworkX graph not available. Use 'adj_iom' mode instead.")
@@ -960,10 +942,10 @@ class Network:
 
     def get_node_degrees(self):
         """Calculate degree sequences for all nodes.
-        
+
         Computes in-degree, out-degree, and total degree for each node.
         Also creates scaled versions normalized to [0, 1].
-        
+
         Sets Attributes
         ---------------
         outdeg : np.ndarray
@@ -975,13 +957,11 @@ class Network:
         scaled_outdeg : np.ndarray
             Out-degrees scaled to [0, 1].
         scaled_indeg : np.ndarray
-            In-degrees scaled to [0, 1].        """
+            In-degrees scaled to [0, 1]."""
         # convert sparse matrix to 0-1 format and sum over specific axis
         self.outdeg = np.array(self.adj.astype(bool).astype(int).sum(axis=0)).ravel()
         self.indeg = np.array(self.adj.astype(bool).astype(int).sum(axis=1)).ravel()
-        self.deg = np.array(
-            (self.adj + self.adj.T).astype(bool).astype(int).sum(axis=1)
-        ).ravel()
+        self.deg = np.array((self.adj + self.adj.T).astype(bool).astype(int).sum(axis=1)).ravel()
 
         min_out = min(self.outdeg)
         min_in = min(self.indeg)
@@ -1004,7 +984,7 @@ class Network:
 
     def get_degree_distr(self, mode="all"):
         """Get degree distribution of the network.
-        
+
         Parameters
         ----------
         mode : str, default='all'
@@ -1012,16 +992,16 @@ class Network:
             - 'all': Total degree
             - 'in': In-degree only
             - 'out': Out-degree only
-            
+
         Returns
         -------
         np.ndarray
             Normalized histogram of degree values.
-            
+
         Raises
         ------
         ValueError
-            If mode is not recognized.        """
+            If mode is not recognized."""
         if mode == "all":
             deg = self.deg
         elif mode == "out":
@@ -1039,9 +1019,9 @@ class Network:
 
     def get_matrix(self, mode):
         """Get a specific matrix representation of the network.
-        
+
         Computes and caches various matrix representations lazily.
-        
+
         Parameters
         ----------
         mode : str
@@ -1051,20 +1031,20 @@ class Network:
             - 'nlap': Normalized Laplacian
             - 'rwlap': Random walk Laplacian
             - 'trans': Transition matrix
-            
+
         Returns
         -------
         scipy.sparse matrix
             The requested matrix representation.
-            
+
         Raises
         ------
         ValueError
             If matrix type is not recognized or not applicable.
-            
+
         Notes
         -----
-        Matrices are computed lazily and cached as instance attributes.        """
+        Matrices are computed lazily and cached as instance attributes."""
         check_matrix_type(mode, self.directed)
         matrix = getattr(self, mode)
         if matrix is None:
@@ -1088,22 +1068,22 @@ class Network:
 
     def get_spectrum(self, mode):
         """Get eigenvalues of a specific matrix representation.
-        
+
         Computes eigendecomposition if not already cached.
-        
+
         Parameters
         ----------
         mode : str
             Matrix type (see get_matrix for options).
-            
+
         Returns
         -------
         np.ndarray
             Eigenvalues of the specified matrix, sorted in ascending order.
-            
+
         Notes
         -----
-        Calls diagonalize() if spectrum not already computed.        """
+        Calls diagonalize() if spectrum not already computed."""
         check_matrix_type(mode, self.directed)
         spectrum = getattr(self, mode + "_spectrum")
         if spectrum is None:
@@ -1114,24 +1094,24 @@ class Network:
 
     def get_eigenvectors(self, mode):
         """Get eigenvectors of a specific matrix representation.
-        
+
         Computes eigendecomposition if not already cached.
-        
+
         Parameters
         ----------
         mode : str
             Matrix type (see get_matrix for options).
-            
+
         Returns
         -------
         np.ndarray
             Eigenvectors of the specified matrix (as columns).
             Column order matches eigenvalue ordering (ascending).
             Shape is (n_nodes, n_nodes).
-            
+
         Notes
         -----
-        Calls diagonalize() if eigenvectors not already computed.        """
+        Calls diagonalize() if eigenvectors not already computed."""
         check_matrix_type(mode, self.directed)
         eigenvectors = getattr(self, mode + "_eigenvectors")
         if eigenvectors is None:
@@ -1142,25 +1122,25 @@ class Network:
 
     def get_ipr(self, mode):
         """Get Inverse Participation Ratio (IPR) for eigenvectors.
-        
+
         IPR measures localization of eigenvectors. Higher values indicate
         more localized eigenvectors.
-        
+
         Parameters
         ----------
         mode : str
             Matrix type (see get_matrix for options).
-            
+
         Returns
         -------
         np.ndarray
             IPR values for each eigenvector.
-            
+
         Notes
         -----
         IPR = sum(|v_i|^4) / (sum(|v_i|^2))^2
         For normalized eigenvectors, this simplifies to IPR = sum(|v_i|^4).
-        Range: 1/n <= IPR <= 1, where n is the number of nodes.        """
+        Range: 1/n <= IPR <= 1, where n is the number of nodes."""
         check_matrix_type(mode, self.directed)
         ipr = getattr(self, mode + "_ipr")
         if ipr is None:
@@ -1171,42 +1151,42 @@ class Network:
 
     def get_z_values(self, mode):
         """Get eigenvalue spacing ratios for the specified matrix mode.
-        
+
         Computes the ratio z_i = (λ_nn - λ_i) / (λ_nnn - λ_i) where λ_nn is the
         nearest neighbor eigenvalue and λ_nnn is the next-nearest neighbor.
         These ratios are useful for analyzing spectral statistics without
         requiring eigenvalue unfolding procedures.
-        
+
         Parameters
         ----------
         mode : str
             Matrix mode to use:
             - Undirected: 'adj', 'trans', 'lap', 'nlap', 'rwlap'
             - Directed: 'adj', 'lap_out', 'lap_in'
-            
+
         Returns
         -------
         dict
             Dictionary mapping eigenvalues to their spacing ratios (z-values).
-            
+
         Notes
         -----
         The spacing ratio is a standard measure in random matrix theory for
         characterizing level statistics. It avoids the need for eigenvalue
         unfolding that is required for simple spacing distributions.
-        
+
         If z-values haven't been calculated yet, this method will trigger
         their calculation via calculate_z_values().
-        
+
         References
         ----------
         Atas, Y. Y., et al. (2013). Distribution of the ratio of consecutive
         level spacings in random matrix ensembles. Physical Review Letters,
         110(8), 084101.
-        
+
         Sá, L., Ribeiro, P., & Prosen, T. (2020). Complex spacing ratios:
         A signature of dissipative quantum chaos. Physical Review X, 10(2),
-        021019. https://link.aps.org/doi/10.1103/PhysRevX.10.021019        """
+        021019. https://link.aps.org/doi/10.1103/PhysRevX.10.021019"""
         check_matrix_type(mode, self.directed)
         zvals = getattr(self, mode + "_zvalues")
         if zvals is None:
@@ -1227,19 +1207,19 @@ class Network:
         -------
         eigenvalues, eigenvectors : array-like
             Partial spectrum and eigenvectors
-            
+
         Raises
         ------
         NotImplementedError
-            This function is not yet implemented.        """
+            This function is not yet implemented."""
         raise NotImplementedError("Partial diagonalization is not yet implemented")
 
     def diagonalize(self, mode="lap", verbose=None):
         """Compute eigenvalues and eigenvectors of the specified matrix.
-        
+
         Performs full eigendecomposition of the network matrix specified by mode.
         Results are cached as attributes for later retrieval.
-        
+
         Parameters
         ----------
         mode : str, optional
@@ -1250,17 +1230,17 @@ class Network:
         verbose : bool or None, optional
             Whether to print progress messages. If None, uses self.verbose.
             Default is None.
-            
+
         Notes
         -----
         After diagonalization, eigenvalues and eigenvectors are stored as:
         - self.{mode}_spectrum: eigenvalues (sorted)
         - self.{mode}_eigenvectors: right eigenvectors (as columns)
-        
+
         The method uses scipy.linalg.eigh for symmetric matrices and
         scipy.linalg.eig for non-symmetric matrices. Complex eigenvalues
         and eigenvectors are allowed for directed networks but will raise
-        an error for undirected networks.        """
+        an error for undirected networks."""
         if verbose is None:
             verbose = self.verbose
 
@@ -1276,9 +1256,7 @@ class Network:
         n = self.n
 
         if n != np.count_nonzero(outdeg) and verbose:
-            self.logger.warning(
-                f"{n - np.count_nonzero(outdeg)} nodes without out-edges"
-            )
+            self.logger.warning(f"{n - np.count_nonzero(outdeg)} nodes without out-edges")
         if n != np.count_nonzero(indeg) and verbose:
             self.logger.warning(f"{n - np.count_nonzero(indeg)} nodes without in-edges")
 
@@ -1344,13 +1322,13 @@ class Network:
 
     def calculate_gromov_hyperbolicity(self, num_samples=100000, return_list=False):
         """Calculate Gromov hyperbolicity of the network.
-        
-        Gromov hyperbolicity measures how "tree-like" a graph is. A tree has 
+
+        Gromov hyperbolicity measures how "tree-like" a graph is. A tree has
         hyperbolicity 0, while graphs with many cycles have higher values.
-        
+
         This implementation uses random sampling of 4-tuples of nodes to estimate
         the hyperbolicity efficiently for large graphs.
-        
+
         Parameters
         ----------
         num_samples : int, default=100000
@@ -1358,55 +1336,59 @@ class Network:
         return_list : bool, default=False
             If True, return the list of all hyperbolicity values.
             If False, return the average.
-            
+
         Returns
         -------
         float or list
             Average hyperbolicity value, or list of all values if return_list=True
-            
+
         References
         ----------
-        - Chalopin, J., Chepoi, V., Dragan, F.F., Ducoffe, G., Mohammed, A., 
-          Vaxès, Y. (2018). "Fast approximation and exact computation of negative 
+        - Chalopin, J., Chepoi, V., Dragan, F.F., Ducoffe, G., Mohammed, A.,
+          Vaxès, Y. (2018). "Fast approximation and exact computation of negative
           curvature parameters of graphs" arXiv:1803.06324
-          
+
         Notes
         -----
         Warning: For large graphs, this precomputes ALL shortest paths which
-        requires O(n²) memory. Use with caution on graphs with >10k nodes.        """
+        requires O(n²) memory. Use with caution on graphs with >10k nodes."""
         import random
-        
+
         # Ensure we have a NetworkX graph
-        if not hasattr(self, 'graph') or self.graph is None:
-            raise ValueError("NetworkX graph not available. Initialize Network with create_nx_graph=True")
-            
+        if not hasattr(self, "graph") or self.graph is None:
+            raise ValueError(
+                "NetworkX graph not available. Initialize Network with create_nx_graph=True"
+            )
+
         G = self.graph
-        
+
         # Check if graph has enough nodes
         if len(G) < 4:
-            raise ValueError(f"Graph must have at least 4 nodes for hyperbolicity calculation, got {len(G)}")
-        
+            raise ValueError(
+                f"Graph must have at least 4 nodes for hyperbolicity calculation, got {len(G)}"
+            )
+
         # Relabel nodes to 0, 1, 2, ... for efficient indexing
         rG = nx.relabel_nodes(G, {list(G.nodes)[i]: i for i in range(len(G.nodes))})
         nds = list(rG.nodes)
-        
+
         # Precompute all shortest paths
         spmat = np.zeros((len(nds), len(nds)))
         gen = nx.all_pairs_dijkstra_path_length(rG, weight=None)
-        
+
         for i in range(len(nds)):
             n0, n0dict = next(gen)
             spmat[n0, np.array(list(n0dict.keys()))] = np.array(list(n0dict.values()))
-        
+
         hsum = 0
         hvals = []
-        
+
         # Sample random 4-tuples and compute hyperbolicity
         for i in range(num_samples):
             # Sample 4 distinct nodes
             node_tuple = random.sample(nds, 4)
             n0, n1, n2, n3 = node_tuple
-            
+
             # Get distances between all pairs
             d01 = spmat[n0, n1]
             d23 = spmat[n2, n3]
@@ -1414,16 +1396,16 @@ class Network:
             d13 = spmat[n1, n3]
             d03 = spmat[n0, n3]
             d12 = spmat[n1, n2]
-            
+
             # Compute the three sums
             s = [d01 + d23, d02 + d13, d03 + d12]
             s.sort()
-            
+
             # Hyperbolicity is half the difference between the two largest sums
             h = (s[-1] - s[-2]) / 2
             hsum += h
             hvals.append(h)
-        
+
         if return_list:
             return hvals
         else:
@@ -1431,43 +1413,43 @@ class Network:
 
     def calculate_z_values(self, mode="lap"):
         """Calculate eigenvalue spacing ratios (z-values) for spectral analysis.
-        
+
         Internal method that computes the spacing ratios z_i = (λ_nn - λ_i) / (λ_nnn - λ_i)
         where λ_nn and λ_nnn are the nearest and next-nearest neighbor eigenvalues
         in the complex plane. These ratios characterize level statistics without
         requiring eigenvalue unfolding.
-        
+
         Parameters
         ----------
         mode : str, default="lap"
             Matrix mode for eigenvalue calculation. See get_matrix() for options.
-            
+
         Raises
         ------
         ValueError
             If fewer than 3 unique eigenvalues exist (minimum needed for ratios).
-            
+
         Notes
         -----
         Results are stored in self.<mode>_zvalues as a dictionary mapping
         eigenvalues to their z-values. Duplicate eigenvalues are removed
         before calculation. Uses k-d tree search in 2D (real, imaginary)
         space for efficient nearest neighbor finding.
-        
+
         The spacing ratio avoids the need for eigenvalue unfolding that is
         required for simple spacing distributions, making it particularly
         useful for analyzing spectra with non-uniform density.
-        
+
         References
         ----------
         Atas, Y. Y., et al. (2013). Distribution of the ratio of consecutive
         level spacings in random matrix ensembles. Physical Review Letters,
         110(8), 084101.
-        
+
         Sá, L., Ribeiro, P., & Prosen, T. (2020). Complex spacing ratios:
         A signature of dissipative quantum chaos. Physical Review X, 10(2),
         021019. https://link.aps.org/doi/10.1103/PhysRevX.10.021019
-        
+
         See Also
         --------
         ~driada.network.net_base.get_z_values : Public interface to retrieve calculated z-values
@@ -1475,9 +1457,7 @@ class Network:
         spectrum = self.get_spectrum(mode)
         seigs = sorted(list(set(spectrum)), key=np.abs)
         if len(seigs) != len(spectrum) and self.verbose:
-            print(
-                "WARNING:", len(spectrum) - len(seigs), "repeated eigenvalues discarded"
-            )
+            print("WARNING:", len(spectrum) - len(seigs), "repeated eigenvalues discarded")
 
         if len(seigs) < 3:
             raise ValueError(
@@ -1493,7 +1473,7 @@ class Network:
         nnbs = np.array([seigs[x] for x in indices[:, 1]])
         nnnbs = np.array([seigs[x] for x in indices[:, 2]])
         # Vectorized computation with division by zero protection
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             zlist = (nnbs - seigs) / (nnnbs - seigs)
             # Replace any inf/nan values with 0
             zlist = np.nan_to_num(zlist, nan=0.0, posinf=0.0, neginf=0.0)
@@ -1503,35 +1483,35 @@ class Network:
 
     def calculate_ipr(self, mode="adj"):
         """Calculate Inverse Participation Ratio (IPR) for eigenvectors.
-        
+
         Internal method that computes the IPR for each eigenvector of the specified
         matrix. IPR quantifies the degree of localization of eigenvectors - higher
         values indicate more localized (less spread out) eigenvectors.
-        
+
         Parameters
         ----------
         mode : str, default="adj"
             Matrix mode for eigenvector calculation. See get_matrix() for options.
-            
+
         Notes
         -----
         For each eigenvector v_i with components v_{i,j}, the IPR is:
         IPR_i = sum_j |v_{i,j}|^4
-        
+
         The IPR ranges from 1/N (completely delocalized) to 1 (completely localized
         on a single node), where N is the number of nodes.
-        
+
         Results are stored in self.<mode>_ipr as an array of IPR values for each
         eigenvector. Also computes eigenvector Shannon entropy but does not store it.
-        
+
         The IPR is widely used in physics to characterize Anderson localization
         and in network science to study eigenvector localization properties.
-        
+
         See Also
         --------
         ~driada.network.net_base.get_ipr : Public interface to retrieve calculated IPR values
         ~driada.network.net_base.get_eigenvectors : Retrieves the eigenvectors used in calculation
-        
+
         Notes
         -----
         Also computes Shannon entropy of eigenvectors internally but does not
@@ -1553,21 +1533,21 @@ class Network:
 
     def _get_lap_spectrum(self, norm=False):
         """Get Laplacian spectrum for directed or undirected networks.
-        
+
         Parameters
         ----------
         norm : bool, default=False
             If True, returns normalized Laplacian spectrum.
-            
+
         Returns
         -------
         np.ndarray
             Eigenvalues of the appropriate Laplacian matrix.
-            
+
         Raises
         ------
         NotImplementedError
-            If normalized Laplacian requested for directed network.        """
+            If normalized Laplacian requested for directed network."""
         if not self.directed:
             if norm:
                 spectrum = self.get_spectrum("nlap")  # could be rwlap as well
@@ -1585,11 +1565,11 @@ class Network:
 
     def calculate_thermodynamic_entropy(self, tlist, verbose=False, norm=False):
         """Calculate von Neumann entropy at different temperatures.
-        
+
         Computes the von Neumann entropy S(ρ) = -Tr(ρ log₂ ρ) for density matrices
         ρ = exp(-tL)/Z constructed from the graph Laplacian spectrum at various
         inverse temperatures t.
-        
+
         Parameters
         ----------
         tlist : array-like
@@ -1600,45 +1580,45 @@ class Network:
         norm : bool, default=False
             If True, uses normalized Laplacian spectrum. If False, uses
             unnormalized Laplacian. Not supported for directed graphs.
-            
+
         Returns
         -------
         list of float
             Von Neumann entropy values S(ρ) for each temperature in tlist.
             Values are in bits (using log₂).
-            
+
         Notes
         -----
         The density matrix ρ = exp(-tL)/Z represents a thermal state where:
         - L is the graph Laplacian (encoding network structure)
         - t is inverse temperature (time parameter in diffusion context)
         - Z = Tr(exp(-tL)) is the partition function
-        
+
         The entropy quantifies the "quantumness" or disorder in the network's
         spectral properties. It interpolates between:
         - t → 0: S → log₂(N) (maximum entropy, uniform distribution)
         - t → ∞: S → 0 (minimum entropy, ground state dominates)
-        
+
         References
         ----------
         De Domenico, M., & Biamonte, J. (2016). Spectral entropies as
         information-theoretic tools for complex network comparison.
         Physical Review X, 6(4), 041062.
-        
+
         See Also
         --------
         ~driada.network.net_base.calculate_free_entropy : Free entropy (log partition function)
-        ~driada.network.net_base.calculate_q_entropy : Generalized Rényi entropy        """
+        ~driada.network.net_base.calculate_q_entropy : Generalized Rényi entropy"""
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [spectral_entropy(spectrum, t, verbose=verbose) for t in tlist]
         return res
 
     def calculate_free_entropy(self, tlist, norm=False):
         """Calculate free entropy (log partition function) at different temperatures.
-        
+
         Computes the free entropy F = log₂(Z) where Z = Tr(exp(-tL)) is the
         partition function derived from the graph Laplacian spectrum.
-        
+
         Parameters
         ----------
         tlist : array-like
@@ -1647,50 +1627,50 @@ class Network:
         norm : bool, default=False
             If True, uses normalized Laplacian spectrum. If False, uses
             unnormalized Laplacian. Not supported for directed graphs.
-            
+
         Returns
         -------
         list of float
             Free entropy values F(t) = log₂(Z(t)) for each temperature.
-            
+
         Notes
         -----
         The free entropy F = log₂(Z) is the logarithm of the partition function
         in bits. This is also known as the Massieu function in statistical physics.
         Note: This differs from the Helmholtz free energy F_Helmholtz = -kT ln(Z).
-        
-        Our measure F = log₂(Z) = ln(Z)/ln(2) represents the effective number of 
+
+        Our measure F = log₂(Z) = ln(Z)/ln(2) represents the effective number of
         accessible states on a logarithmic scale:
-        
+
         - Low t (high T): Many states accessible, large F
         - High t (low T): Few states accessible, small F
-        
+
         The partition function Z = sum_i exp(-tλ_i) sums over all eigenvalues λ_i
         of the Laplacian, encoding the network's spectral properties.
-        
+
         References
         ----------
         Ghavasieh, A., et al. (2021). Multiscale statistical physics of the
         pan-viral interactome unravels the systemic nature of SARS-CoV-2
         infections. Communications Physics, 4(1), 83.
         https://www.nature.com/articles/s42005-021-00582-8
-        
+
         See Also
         --------
         ~driada.network.net_base.calculate_thermodynamic_entropy : Von Neumann entropy
-        ~driada.network.net_base.calculate_q_entropy : Generalized Rényi entropy        """
+        ~driada.network.net_base.calculate_q_entropy : Generalized Rényi entropy"""
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [free_entropy(spectrum, t) for t in tlist]
         return res
 
     def calculate_q_entropy(self, q, tlist, norm=False):
         """Calculate Rényi q-entropy at different temperatures.
-        
+
         Computes the Rényi entropy of order q for density matrices derived from
         the graph Laplacian spectrum. Generalizes von Neumann entropy (q=1) to a
         family of entropy measures with different sensitivities to the probability
         distribution.
-        
+
         Parameters
         ----------
         q : float
@@ -1705,87 +1685,87 @@ class Network:
         norm : bool, default=False
             If True, uses normalized Laplacian spectrum. If False, uses
             unnormalized Laplacian. Not supported for directed graphs.
-            
+
         Returns
         -------
         list of float
             Rényi q-entropy values S_q(ρ) for each temperature in bits.
-            
+
         Raises
         ------
         Exception
             If q ≤ 0 or if complex entropy values are detected.
-            
+
         Notes
         -----
         The Rényi q-entropy is defined as:
         - For q ≠ 1: S_q(ρ) = (1/(1-q)) log(Tr(ρ^q))
         - For q = 1: S_1(ρ) = -Tr(ρ log ρ) (von Neumann entropy)
-        
+
         Different q values emphasize different parts of the spectrum:
         - Small q: Sensitive to small probabilities (rare events)
         - Large q: Sensitive to large probabilities (typical events)
-        
+
         References
         ----------
         De Domenico, M., & Biamonte, J. (2016). Spectral entropies as
         information-theoretic tools for complex network comparison.
         Physical Review X, 6(4), 041062.
-        
+
         See Also
         --------
         ~driada.network.net_base.calculate_thermodynamic_entropy : Von Neumann entropy (q=1 case)
-        ~driada.network.net_base.calculate_free_entropy : Free entropy (log partition function)        """
+        ~driada.network.net_base.calculate_free_entropy : Free entropy (log partition function)"""
         spectrum = self._get_lap_spectrum(norm=norm)
         res = [q_entropy(spectrum, t, q=q) for t in tlist]
         return res
 
     def calculate_estrada_communicability(self):
         """Calculate Estrada communicability index of the network.
-        
+
         The Estrada communicability is the sum of exponentials of the
         adjacency matrix eigenvalues: G = sum(exp(λᵢ)). It measures the
         ease of communication across the entire network.
-        
+
         Returns
         -------
         float
             Estrada communicability index G.
-            
+
         Notes
         -----
         Higher values indicate better overall network communicability.
         This metric is sensitive to the number of closed walks of all lengths.
-        
+
         References
         ----------
         Estrada, E., & Hatano, N. (2008). Communicability in complex networks.
-        Physical Review E, 77(3), 036111.        """
+        Physical Review E, 77(3), 036111."""
         adj_spectrum = self.get_spectrum("adj")
         self.estrada_communicability = sum([np.exp(e) for e in adj_spectrum])
         return self.estrada_communicability
 
     def get_estrada_bipartivity_index(self):
         """Calculate Estrada bipartivity index of the network.
-        
+
         The bipartivity index measures how close a network is to being bipartite.
         It is computed as the ratio of sums of hyperbolic functions of eigenvalues:
         β = (sum(cosh(λᵢ)) - sum(sinh(λᵢ))) / (sum(cosh(λᵢ)) + sum(sinh(λᵢ)))
-        
+
         Returns
         -------
         float
             Bipartivity index between 0 and 1, where 1 indicates perfect bipartivity.
-            
+
         Notes
         -----
         For bipartite graphs, all eigenvalues come in ±λ pairs, making sinh terms cancel.
         The index equals 1 for perfectly bipartite graphs and decreases with deviation.
-        
+
         References
         ----------
         Estrada, E., & Rodríguez-Velázquez, J. A. (2005). Spectral measures of
-        bipartivity in complex networks. Physical Review E, 72(4), 046105.        """
+        bipartivity in complex networks. Physical Review E, 72(4), 046105."""
         adj_spectrum = self.get_spectrum("adj")
         esi1 = sum([np.exp(-e) for e in adj_spectrum])
         esi2 = sum([np.exp(e) for e in adj_spectrum])
@@ -1794,28 +1774,28 @@ class Network:
 
     def localization_signatures(self, mode="lap"):
         """Compute statistical signatures of eigenstate localization.
-        
+
         Analyzes the z-values (eigenvalue spacing ratios) to extract signatures
         that distinguish between localized and delocalized eigenstates.
-        
+
         Parameters
         ----------
         mode : str, default="lap"
             Matrix type to analyze. Must be a valid matrix mode.
-            
+
         Returns
         -------
         tuple of (float, float)
             - mean_cos_phi: Average of cos(arg(z)) over all z-values
             - mean_inv_r_squared: Average of 1/|z|² over all z-values
-            
+
         Notes
         -----
         These signatures help identify Anderson localization transitions.
         Localized states typically show different statistical properties
         in their eigenvalue spacing ratios compared to extended states.
-        
-        Requires prior calculation of z-values via calculate_z_values().        """
+
+        Requires prior calculation of z-values via calculate_z_values()."""
         zvals = self.get_z_values(mode)
 
         mean_cos_phi = np.mean(np.array([np.cos(np.angle(x)) for x in zvals]))
@@ -1830,37 +1810,37 @@ class Network:
 
     def construct_lem_embedding(self, dim):
         """Construct Laplacian Eigenmaps (LEM) embedding of the network.
-        
+
         Computes a low-dimensional embedding that preserves local network structure
         by using the eigenvectors of the graph Laplacian corresponding to the
         smallest non-zero eigenvalues.
-        
+
         Parameters
         ----------
         dim : int
             Target embedding dimension. Must be less than number of nodes.
-            
+
         Returns
         -------
         np.ndarray
             Embedding matrix of shape (n_nodes, dim) where each row is the
             low-dimensional representation of a node.
-            
+
         Notes
         -----
         The embedding minimizes the weighted sum of squared distances between
         connected nodes. The first eigenvector (constant) is excluded as it
         doesn't provide discriminative information.
-        
+
         For disconnected graphs, only the giant component is embedded.
-        
+
         This method modifies self.lem_emb to store the embedding and
         self.lem_eigvals to store the selected eigenvalues.
-        
+
         References
         ----------
         Belkin, M., & Niyogi, P. (2003). Laplacian eigenmaps for dimensionality
-        reduction and data representation. Neural computation, 15(6), 1373-1396.        """
+        reduction and data representation. Neural computation, 15(6), 1373-1396."""
         if self.directed:
             raise Exception("LEM embedding is not implemented for directed graphs")
 
@@ -1874,11 +1854,11 @@ class Network:
         # For Laplacian Eigenmaps, we need the SMALLEST eigenvalues
         # Request dim+1 to include the zero eigenvalue
         start_v = np.ones(K)
-        
+
         # Use SM (Smallest Magnitude) instead of LR (Largest Real)
-        eigvals, eigvecs = eigs(NL, k=min(dim + 1, K-1), which="SM", v0=start_v, maxiter=K * 1000)
+        eigvals, eigvecs = eigs(NL, k=min(dim + 1, K - 1), which="SM", v0=start_v, maxiter=K * 1000)
         eigvals = np.asarray([np.round(np.real(x), 6) for x in eigvals])
-        
+
         # Sort by eigenvalue (smallest first)
         idx = np.argsort(eigvals)
         eigvals = eigvals[idx]
@@ -1891,15 +1871,15 @@ class Network:
                 f"Error while LEM embedding construction: graph is not connected! "
                 f"Found {n_zero_eigvals} zero eigenvalues, expected 1."
             )
-        
+
         # Select the eigenvectors corresponding to the smallest non-zero eigenvalues
         # Skip the first (zero) eigenvalue and its constant eigenvector
         vecs = eigvecs[:, 1 : dim + 1]  # shape: (n_nodes, dim)
-        
+
         # Normalize eigenvectors
         vec_norms = np.sqrt(np.sum(np.abs(vecs) ** 2, axis=0))
         vecs = vecs / vec_norms
-        
+
         # Apply D^{-1/2} transformation
         # explanation: https://jlmelville.github.io/smallvis/spectral.html
         vecs = DH.dot(vecs)  # DH is (n_nodes, n_nodes), vecs is (n_nodes, dim)
