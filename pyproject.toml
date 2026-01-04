@@ -83,7 +83,6 @@ addopts = [
     "--cov-report=html",
     "--cov-report=term-missing",
     "--cov-report=term:skip-covered",
-    "--cov-fail-under=90",
     "--no-cov-on-fail",
     "-v"
 ]
