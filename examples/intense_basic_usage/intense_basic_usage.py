@@ -29,22 +29,22 @@ def main():
 
     # Step 1: Generate synthetic experiment
     print("\n1. Generating synthetic experiment...")
-    print("   - 20 neurons")
+    print("   - 10 neurons")
     print("   - 2 discrete + 2 continuous features")
-    print("   - 5 minutes recording")
+    print("   - 2 minutes recording")
 
     exp = driada.generate_synthetic_exp(
         n_dfeats=2,  # discrete features (e.g., trial type)
         n_cfeats=2,  # continuous features (e.g., x, y position)
-        nneurons=20,  # number of neurons
-        duration=300,  # 5 minutes recording
+        nneurons=10,  # number of neurons
+        duration=120,  # 2 minutes recording
         seed=42,  # reproducible results
     )
 
     print(
-        f"   ✓ Created experiment with {exp.n_cells} neurons and {exp.n_frames} timepoints"
+        f"   [OK] Created experiment with {exp.n_cells} neurons and {exp.n_frames} timepoints"
     )
-    print(f"   ✓ Features: {list(exp.dynamic_features.keys())}")
+    print(f"   [OK] Features: {list(exp.dynamic_features.keys())}")
 
     # Step 2: Analyze neuronal selectivity
     print("\n2. Running INTENSE analysis...")
@@ -60,7 +60,7 @@ def main():
         verbose=False,  # suppress detailed output for cleaner demo
     )
 
-    print("   ✓ Analysis complete")
+    print("   [OK] Analysis complete")
 
     # Step 3: Extract significant results
     print("\n3. Extracting significant results...")
@@ -68,8 +68,8 @@ def main():
     significant_neurons = exp.get_significant_neurons()
     total_pairs = sum(len(features) for features in significant_neurons.values())
 
-    print(f"   ✓ Found {len(significant_neurons)} neurons with significant selectivity")
-    print(f"   ✓ Total significant neuron-feature pairs: {total_pairs}")
+    print(f"   [OK] Found {len(significant_neurons)} neurons with significant selectivity")
+    print(f"   [OK] Total significant neuron-feature pairs: {total_pairs}")
 
     # Step 4: Display results
     print("\n4. Results summary:")
@@ -80,11 +80,11 @@ def main():
             for feat_name in significant_neurons[cell_id]:
                 pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name)
 
-                print(f"   - Neuron {cell_id} ↔ Feature '{feat_name}':")
-                print(f"     • Mutual Information: {pair_stats['pre_rval']:.4f}")
+                print(f"   - Neuron {cell_id} <-> Feature '{feat_name}':")
+                print(f"     - Mutual Information: {pair_stats['pre_rval']:.4f}")
                 if "pval" in pair_stats:
-                    print(f"     • P-value: {pair_stats['pval']:.2e}")
-                print(f"     • Optimal delay: {pair_stats.get('shift_used', 0):.2f}s")
+                    print(f"     - P-value: {pair_stats['pval']:.2e}")
+                print(f"     - Optimal delay: {pair_stats.get('shift_used', 0):.2f}s")
 
         if len(significant_neurons) > 3:
             remaining = len(significant_neurons) - 3
@@ -107,9 +107,9 @@ def main():
         plt.tight_layout()
 
         # Save plot
-        output_path = os.path.join(os.path.dirname(__file__), "basic_usage_result.png")
+        output_path = os.path.join(os.path.dirname(__file__), "intense_basic_usage_result.png")
         plt.savefig(output_path, dpi=150, bbox_inches="tight")
-        print(f"   ✓ Visualization saved to: {output_path}")
+        print(f"   [OK] Visualization saved to: {output_path}")
 
         # Display plot
         plt.show()
