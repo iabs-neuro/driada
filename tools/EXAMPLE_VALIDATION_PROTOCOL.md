@@ -108,6 +108,42 @@ print(f"Mutual Information: {mi:.3f} bits")
 
 **Deliverable**: List of API updates needed
 
+### 3.4 ASCII-Only Enforcement (CRITICAL)
+**Action**: Search for and replace non-ASCII characters in print statements and strings
+- **PROBLEM**: Fancy Unicode symbols (✓, ✗, →, •, etc.) cause UnicodeEncodeError on Windows consoles
+- **REQUIRED**: Use only ASCII characters in all output
+- **MUST FIX BEFORE EXECUTION**: This prevents runtime errors
+
+**Common replacements**:
+```python
+# BAD:
+print("✓ Success")
+print("✗ Failed")
+print("→ Next step")
+print("• Item")
+
+# GOOD:
+print("[OK] Success")
+print("[FAIL] Failed")
+print("-> Next step")
+print("- Item")
+```
+
+**Search patterns** to check:
+- Checkmarks: `✓` `✔` → Replace with `[OK]` or `>`
+- Cross marks: `✗` `✘` → Replace with `[FAIL]` or `X`
+- Arrows: `→` `←` `↔` → Replace with `->` `<-` `<->`
+- Bullets: `•` `·` → Replace with `-` or `*`
+- Box drawing: `│` `─` `┌` etc. → Replace with `|` `-` `+`
+- Math symbols: `≥` `≤` `≠` → Replace with `>=` `<=` `!=`
+
+**Action steps**:
+1. Grep for common Unicode characters in the example file
+2. Replace ALL non-ASCII symbols with ASCII alternatives
+3. Test that file contains only ASCII (use `file.encode('ascii')` check)
+
+**Deliverable**: List of replacements made (if any)
+
 ---
 
 ## PHASE 4: EXECUTION
@@ -252,6 +288,7 @@ For each example, verify:
 - [ ] **Phase 3**: Text explains process, prints show results
 - [ ] **Phase 3**: User-friendly entry point
 - [ ] **Phase 3**: Uses current API patterns
+- [ ] **Phase 3**: ASCII-only characters (no Unicode symbols)
 - [ ] **Phase 4**: Example executes without errors
 - [ ] **Phase 5**: All generated files inventoried
 - [ ] **Phase 5**: All plots visually inspected
@@ -270,11 +307,12 @@ For each example, follow this workflow:
 2. Read example file
 3. Check file organization in code
 4. Check for hardcoded results
-5. Run example with MPLBACKEND=Agg
-6. Inventory generated files
-7. Read all plots/images
-8. Generate report
-9. Update todo list
+5. Check for and replace non-ASCII characters (CRITICAL - prevents runtime errors)
+6. Run example with MPLBACKEND=Agg
+7. Inventory generated files
+8. Read all plots/images
+9. Generate report
+10. Update todo list
 ```
 
 ---
