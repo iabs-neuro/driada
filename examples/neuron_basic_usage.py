@@ -7,7 +7,7 @@ This script demonstrates the core functionality of the Neuron class:
 2. Creating a Neuron object
 3. Reconstructing spikes with wavelet method
 4. Optimizing calcium kinetics
-5. Computing quality metrics (wavelet SNR, reconstruction R²)
+5. Computing quality metrics (wavelet SNR, reconstruction R2)
 
 Run this script to see a complete workflow on synthetic data.
 """
@@ -39,7 +39,7 @@ signal = generate_pseudo_calcium_signal(
     kernel='double_exponential'  # Realistic calcium kernel
 )
 
-print(f"   ✓ Generated signal: {len(signal)} frames ({len(signal)/20:.1f} seconds)")
+print(f"   [OK] Generated signal: {len(signal)} frames ({len(signal)/20:.1f} seconds)")
 
 # =============================================================================
 # Step 2: Create Neuron Object
@@ -53,9 +53,9 @@ neuron = Neuron(
     fps=20.0                # Sampling rate
 )
 
-print(f"   ✓ Neuron created: {neuron.cell_id}")
-print(f"   ✓ Signal length: {neuron.n_frames} frames")
-print(f"   ✓ Sampling rate: {neuron.fps} Hz")
+print(f"   [OK] Neuron created: {neuron.cell_id}")
+print(f"   [OK] Signal length: {neuron.n_frames} frames")
+print(f"   [OK] Sampling rate: {neuron.fps} Hz")
 
 # =============================================================================
 # Step 3: Reconstruct Spikes with Wavelet Method
@@ -68,9 +68,9 @@ spikes = neuron.reconstruct_spikes(
 )
 
 n_events = int(np.sum(neuron.asp.data > 0))
-print(f"   ✓ Detected {n_events} calcium events")
-print(f"   ✓ Spike train stored in neuron.sp")
-print(f"   ✓ Amplitude spikes stored in neuron.asp")
+print(f"   [OK] Detected {n_events} calcium events")
+print(f"   [OK] Spike train stored in neuron.sp")
+print(f"   [OK] Amplitude spikes stored in neuron.asp")
 
 # =============================================================================
 # Step 4: Optimize Calcium Kinetics
@@ -82,9 +82,9 @@ kinetics = neuron.get_kinetics(
     use_cached=False          # Force recomputation
 )
 
-print(f"   ✓ Optimized rise time (t_rise): {kinetics['t_rise']:.3f} seconds")
-print(f"   ✓ Optimized decay time (t_off): {kinetics['t_off']:.3f} seconds")
-print(f"   ✓ Events used: {kinetics['n_events_detected']}")
+print(f"   [OK] Optimized rise time (t_rise): {kinetics['t_rise']:.3f} seconds")
+print(f"   [OK] Optimized decay time (t_off): {kinetics['t_off']:.3f} seconds")
+print(f"   [OK] Events used: {kinetics['n_events_detected']}")
 
 # =============================================================================
 # Step 5: Calculate Wavelet SNR
@@ -93,33 +93,33 @@ print("\n5. Computing wavelet SNR...")
 
 wavelet_snr = neuron.get_wavelet_snr()
 
-print(f"   ✓ Wavelet SNR: {wavelet_snr:.2f}")
-print(f"     (Ratio of event amplitude to baseline noise)")
+print(f"   [OK] Wavelet SNR: {wavelet_snr:.2f}")
+print(f"       (Ratio of event amplitude to baseline noise)")
 
 # =============================================================================
 # Step 6: Calculate Reconstruction Quality Metrics
 # =============================================================================
 print("\n6. Computing reconstruction quality metrics...")
 
-# R² (coefficient of determination)
+# R2 (coefficient of determination)
 r2 = neuron.get_reconstruction_r2()
-print(f"   ✓ Reconstruction R²: {r2:.4f}")
-print(f"     (1.0 = perfect, >0.7 = good quality)")
+print(f"   [OK] Reconstruction R2: {r2:.4f}")
+print(f"       (1.0 = perfect, >0.7 = good quality)")
 
-# Event-only R² (focuses on event regions)
+# Event-only R2 (focuses on event regions)
 r2_events = neuron.get_reconstruction_r2(event_only=True)
-print(f"   ✓ Event-only R²: {r2_events:.4f}")
-print(f"     (Quality in event regions only)")
+print(f"   [OK] Event-only R2: {r2_events:.4f}")
+print(f"       (Quality in event regions only)")
 
 # Normalized RMSE
 nrmse = neuron.get_nrmse()
-print(f"   ✓ Normalized RMSE: {nrmse:.4f}")
-print(f"     (Lower is better)")
+print(f"   [OK] Normalized RMSE: {nrmse:.4f}")
+print(f"       (Lower is better)")
 
 # Normalized MAE
 nmae = neuron.get_nmae()
-print(f"   ✓ Normalized MAE: {nmae:.4f}")
-print(f"     (Lower is better)")
+print(f"   [OK] Normalized MAE: {nmae:.4f}")
+print(f"       (Lower is better)")
 
 # =============================================================================
 # Summary
@@ -133,8 +133,8 @@ print(f"Events detected:     {n_events}")
 print(f"Optimized t_rise:    {kinetics['t_rise']:.3f} s")
 print(f"Optimized t_off:     {kinetics['t_off']:.3f} s")
 print(f"Wavelet SNR:         {wavelet_snr:.2f}")
-print(f"Reconstruction R²:   {r2:.4f}")
-print(f"Event-only R²:       {r2_events:.4f}")
+print(f"Reconstruction R2:   {r2:.4f}")
+print(f"Event-only R2:       {r2_events:.4f}")
 print("=" * 70)
 
-print("\n✓ Example completed successfully!")
+print("\n[OK] Example completed successfully!")
