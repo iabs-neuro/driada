@@ -10,6 +10,7 @@ TODO_DISENTANGLEMENT_TESTS.md
 *.md
 !README*.md
 !readme*.md
+!tools/EXAMPLE_VALIDATION_PROTOCOL.md
 
 # Python
 __pycache__/
