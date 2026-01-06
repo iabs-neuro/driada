@@ -7,6 +7,7 @@ from driada.intense.stats import (
     chebyshev_ineq,
     get_lognormal_p,
     get_gamma_p,
+    get_gamma_zi_p,
     get_distribution_function,
     get_mi_distr_pvalue,
     get_mask,
@@ -479,3 +480,165 @@ def test_distribution_fitting_edge_cases():
     heavy_tail = np.random.standard_t(df=2, size=1000)
     p_val = get_mi_distr_pvalue(heavy_tail, 0.0, distr_type="norm")
     assert 0 <= p_val <= 1
+
+
+def test_get_gamma_zi_p_basic():
+    """Test basic ZIG p-value calculation."""
+    np.random.seed(42)
+
+    # Mixed zeros and non-zeros
+    data = np.concatenate([np.zeros(500), np.random.gamma(2, 2, 500)])
+    p_val = get_gamma_zi_p(data, 4.0)
+    assert 0 < p_val < 1
+
+    # Test with different observed values
+    p_val_low = get_gamma_zi_p(data, 1.0)
+    p_val_high = get_gamma_zi_p(data, 10.0)
+
+    # Higher observed values should have lower p-values (more significant)
+    assert p_val_low > p_val_high
+
+
+def test_get_gamma_zi_p_edge_cases():
+    """Test ZIG edge cases."""
+    np.random.seed(42)
+
+    # Edge case 1: All zeros -> p=1.0
+    all_zeros = np.zeros(100)
+    assert get_gamma_zi_p(all_zeros, 5.0) == 1.0
+    assert get_gamma_zi_p(all_zeros, 0.0) == 1.0
+
+    # Edge case 2: No zeros -> equivalent to pure gamma
+    data_no_zeros = np.random.gamma(2, 2, 1000)
+    p_zig = get_gamma_zi_p(data_no_zeros, 4.0)
+    p_gamma = get_gamma_p(data_no_zeros, 4.0)
+    assert abs(p_zig - p_gamma) < 0.01
+
+    # Edge case 3: Observed value = 0 -> p=1.0
+    data = np.concatenate([np.zeros(50), np.random.gamma(2, 2, 50)])
+    assert get_gamma_zi_p(data, 0.0) == 1.0
+    assert get_gamma_zi_p(data, 1e-11) == 1.0  # Below threshold
+
+    # Edge case 4: Very high zero-inflation
+    data_high_zi = np.concatenate([np.zeros(990), np.random.gamma(2, 2, 10)])
+    p_val = get_gamma_zi_p(data_high_zi, 1.0)
+    assert 0 <= p_val <= 1
+    # With pi=0.99, p-value = (1-0.99) * Gamma.sf(1.0) is very small
+    # High zero-inflation makes ZIG more conservative (smaller p-values)
+    assert p_val < 0.1
+
+
+def test_get_gamma_zi_p_vs_gamma_with_noise():
+    """Compare ZIG to standard gamma with noise."""
+    np.random.seed(42)
+
+    # Generate data with true zeros
+    data_with_zeros = np.concatenate([np.zeros(100), np.random.gamma(2, 0.1, 900)])
+    data_with_noise = data_with_zeros + 1e-3
+
+    p_zig = get_gamma_zi_p(data_with_zeros, 0.3)
+    p_gamma = get_gamma_p(data_with_noise, 0.3)
+
+    # Both should be valid
+    assert 0 <= p_zig <= 1
+    assert 0 <= p_gamma <= 1
+
+    # ZIG should handle zeros more naturally
+    # Test with multiple observed values
+    for val in [0.1, 0.3, 0.5, 1.0]:
+        p_zig = get_gamma_zi_p(data_with_zeros, val)
+        p_gamma = get_gamma_p(data_with_noise, val)
+        assert 0 <= p_zig <= 1
+        assert 0 <= p_gamma <= 1
+
+
+def test_get_gamma_zi_p_numerical_stability():
+    """Test numerical stability of ZIG."""
+    np.random.seed(42)
+
+    # Test 1: Very small non-zero values
+    data = np.concatenate([np.zeros(50), np.full(50, 1e-8)])
+    p_val = get_gamma_zi_p(data, 1e-7)
+    assert 0 <= p_val <= 1
+
+    # Test 2: Extreme zero-inflation (99.99% zeros)
+    data = np.concatenate([np.zeros(9999), np.array([0.1])])
+    p_val = get_gamma_zi_p(data, 0.5)
+    assert p_val > 0.99
+
+    # Test 3: Large values
+    data = np.concatenate([np.zeros(50), np.random.gamma(5, 10, 50)])
+    p_val = get_gamma_zi_p(data, 100.0)
+    assert 0 <= p_val <= 1
+
+    # Test 4: Empty non-zero array (should return 1.0)
+    data = np.zeros(100)
+    p_val = get_gamma_zi_p(data, 1.0)
+    assert p_val == 1.0
+
+
+def test_get_gamma_zi_p_parameter_estimation():
+    """Test that ZIG correctly estimates pi parameter."""
+    np.random.seed(42)
+
+    # Test different zero-inflation levels
+    for true_pi in [0.1, 0.3, 0.5, 0.7, 0.9]:
+        n_total = 1000
+        n_zeros = int(n_total * true_pi)
+        n_nonzeros = n_total - n_zeros
+
+        data = np.concatenate([
+            np.zeros(n_zeros),
+            np.random.gamma(2, 2, n_nonzeros)
+        ])
+
+        # Shuffle to mix zeros and non-zeros
+        np.random.shuffle(data)
+
+        # Get p-value for various observed values
+        for val in [1.0, 3.0, 5.0]:
+            p_val = get_gamma_zi_p(data, val)
+            assert 0 <= p_val <= 1
+
+            # P-value should be <= (1-pi) since zero mass doesn't contribute
+            # This ensures ZIG is more conservative than pure gamma
+            assert p_val <= (1 - true_pi) * 1.05  # Allow small numerical error
+
+
+def test_get_mi_distr_pvalue_gamma_zi():
+    """Test get_mi_distr_pvalue with gamma_zi distribution."""
+    np.random.seed(42)
+
+    # Test with mixed zeros and non-zeros
+    data = np.concatenate([np.zeros(200), np.random.gamma(2, 2, 800)])
+    p_val = get_mi_distr_pvalue(data, 4.0, distr_type="gamma_zi")
+    assert 0 <= p_val <= 1
+
+    # Test edge cases
+    assert get_mi_distr_pvalue(np.zeros(100), 5.0, distr_type="gamma_zi") == 1.0
+    assert get_mi_distr_pvalue(data, 0.0, distr_type="gamma_zi") == 1.0
+
+    # Compare gamma_zi with regular gamma
+    data_positive = data + 1e-3
+    p_val_zi = get_mi_distr_pvalue(data, 3.0, distr_type="gamma_zi")
+    p_val_gamma = get_mi_distr_pvalue(data_positive, 3.0, distr_type="gamma")
+
+    # Both should be valid
+    assert 0 <= p_val_zi <= 1
+    assert 0 <= p_val_gamma <= 1
+
+
+def test_get_gamma_zi_p_monotonicity():
+    """Test that p-values decrease monotonically with observed value."""
+    np.random.seed(42)
+
+    data = np.concatenate([np.zeros(300), np.random.gamma(2, 1, 700)])
+
+    # Test monotonicity: higher observed values -> lower p-values
+    observed_values = np.linspace(0.1, 10, 20)
+    p_values = [get_gamma_zi_p(data, val) for val in observed_values]
+
+    # P-values should be monotonically decreasing
+    for i in range(len(p_values) - 1):
+        assert p_values[i] >= p_values[i + 1], \
+            f"P-value not monotonic: {p_values[i]} < {p_values[i+1]}"

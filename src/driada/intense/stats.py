@@ -109,6 +109,81 @@ def get_gamma_p(data, val):
     return rv.sf(val)
 
 
+def get_gamma_zi_p(data, val, zero_threshold=1e-10):
+    """
+    Calculate p-value using zero-inflated gamma (ZIG) distribution.
+
+    Parameters
+    ----------
+    data : array-like
+        Sample data to fit ZIG distribution (typically shuffled MI values).
+        Can contain zeros and positive values.
+    val : float
+        Observed value to compute p-value for.
+    zero_threshold : float, optional
+        Values below this threshold are considered zeros. Default: 1e-10.
+
+    Returns
+    -------
+    p_value : float
+        P(X >= val) under fitted ZIG distribution.
+
+    Notes
+    -----
+    Zero-Inflated Gamma model:
+    - P(X = 0) = pi (zero inflation parameter)
+    - P(X > 0) = (1-pi) * Gamma(shape, scale)
+
+    P-value calculation:
+    - If val <= zero_threshold: p_value = 1.0 (zeros never significant)
+    - If val > zero_threshold: p_value = (1-pi) * Gamma.sf(val)
+      (zero mass doesn't contribute to tail probability for positive values)
+
+    Edge cases:
+    - All zeros (pi=1): Returns 1.0 for any val
+    - No zeros (pi=0): Equivalent to pure gamma distribution
+    - Gamma fit fails: Returns conservative 1.0
+    """
+    data = np.asarray(data)
+
+    # Handle observed value at or near zero
+    if val <= zero_threshold:
+        return 1.0
+
+    # Estimate zero-inflation parameter pi
+    n_zeros = np.sum(data <= zero_threshold)
+    n_total = len(data)
+    pi = n_zeros / n_total
+
+    # Edge case: All zeros
+    if pi == 1.0:
+        return 1.0
+
+    # Fit gamma to non-zero values
+    non_zero_data = data[data > zero_threshold]
+
+    # Edge case: No non-zero values
+    if len(non_zero_data) == 0:
+        return 1.0
+
+    try:
+        # Fit gamma with fixed location at 0
+        params = gamma.fit(non_zero_data, floc=0)
+        rv = gamma(*params)
+
+        # ZIG p-value: P(X >= val) = (1-pi) * P_gamma(X >= val)
+        # The zero mass doesn't contribute since 0 < val
+        gamma_sf = rv.sf(val)
+        p_value = (1 - pi) * gamma_sf
+
+        # Ensure p-value is in valid range [0, 1]
+        return np.clip(p_value, 0.0, 1.0)
+
+    except Exception:
+        # Conservative: return 1.0 if fitting fails
+        return 1.0
+
+
 def get_distribution_function(dist_name):
     """
     Get distribution function from scipy.stats by name.
@@ -144,7 +219,12 @@ def get_mi_distr_pvalue(data, val, distr_type="gamma"):
     val : float
         Observed value to compute p-value for.
     distr_type : str, optional
-        Distribution type to fit. Default: 'gamma'.
+        Distribution type to fit. Options:
+        - 'gamma': Gamma distribution (requires positive values)
+        - 'gamma_zi': Zero-inflated gamma (handles zeros explicitly)
+        - 'lognorm': Log-normal distribution
+        - Any scipy.stats distribution name
+        Default: 'gamma'.
 
     Returns
     -------
@@ -154,9 +234,15 @@ def get_mi_distr_pvalue(data, val, distr_type="gamma"):
 
     Notes
     -----
+    - For 'gamma_zi', uses zero-inflated gamma model (handles zeros)
     - For 'gamma' and 'lognorm', fits with floc=0 (zero lower bound)
     - For other distributions, uses default fitting
     - Returns conservative p-value (1.0) on fitting errors"""
+    # Special handling for zero-inflated gamma
+    if distr_type == "gamma_zi":
+        return get_gamma_zi_p(data, val)
+
+    # Original logic for other distributions
     distr = get_distribution_function(distr_type)
     try:
         if distr_type in ["gamma", "lognorm"]:

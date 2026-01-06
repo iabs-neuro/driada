@@ -1575,6 +1575,10 @@ def compute_me_stats(
     mask_from_stage2 = np.zeros((n1, n2))
     nhyp = n1 * n2
 
+    # Conditional noise based on distribution type
+    # ZIG handles zeros explicitly, so no noise needed
+    noise_const = 0 if metric_distr_type == "gamma_zi" else noise_ampl
+
     if mode in ["two_stage", "stage1"]:
         npairs_to_check1 = int(np.sum(precomputed_mask_stage1))
         if verbose:
@@ -1592,7 +1596,7 @@ def compute_me_stats(
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
             mask=precomputed_mask_stage1,
-            noise_const=noise_ampl,
+            noise_const=noise_const,
             seed=seed,
             enable_parallelization=enable_parallelization,
             n_jobs=n_jobs,
@@ -1693,7 +1697,7 @@ def compute_me_stats(
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
             mask=combined_mask_for_stage_2,
-            noise_const=noise_ampl,
+            noise_const=noise_const,
             seed=seed,
             enable_parallelization=enable_parallelization,
             n_jobs=n_jobs,

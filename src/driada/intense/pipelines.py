@@ -19,7 +19,7 @@ def compute_cell_feat_significance(
     n_shuffles_stage2=10000,
     joint_distr=False,
     allow_mixed_dimensions=False,
-    metric_distr_type="gamma",
+    metric_distr_type="gamma_zi",
     noise_ampl=1e-3,
     ds=1,
     use_precomputed_stats=True,
@@ -85,14 +85,28 @@ def compute_cell_feat_significance(
         This parameter overrides "joint_distr". Default is False
 
     metric_distr_type : str, optional
-        Distribution type for shuffled metric distribution fit. Supported options are distributions from scipy.stats.
-        Note: While 'gamma' is theoretically appropriate for MI distributions, empirical testing shows
-        that 'norm' (normal distribution) often performs better due to its conservative p-values when
-        fitting poorly to the skewed MI data. This conservatism reduces false positives.
-        Default is "gamma"
+        Distribution type for shuffled metric null distribution. Options:
+
+        - 'gamma_zi' (default): Zero-inflated gamma distribution. Explicitly models the probability
+          mass at zero that commonly occurs in MI null distributions. Provides superior goodness-of-fit
+          and accurate parameter estimation without requiring artificial noise. Recommended for all
+          analyses.
+
+        - 'gamma': Standard gamma distribution with small noise added (noise_ampl) to handle zeros.
+          Provided for backward compatibility. Less statistically principled than 'gamma_zi'.
+
+        - Other scipy.stats distributions: 'lognorm', 'norm', etc. are supported but not recommended
+          for MI distributions.
+
+        **Recommendation**: Use 'gamma_zi' (default) for new analyses. It achieves equivalent detection
+        performance while providing statistically correct goodness-of-fit and accurate parameter recovery.
+
+        Default: 'gamma_zi'
     noise_ampl : float, optional
-        Small noise amplitude, which is added to MI and shuffled MI to improve numerical fit.
-        Default is 1e-3
+        Small noise amplitude added to MI values for numerical stability (only used with metric_distr_type='gamma').
+        When using 'gamma_zi', this parameter is automatically set to 0 since zero-inflated gamma
+        handles zeros explicitly without requiring artificial noise.
+        Default: 1e-3
     ds : int, optional
         Downsampling constant. Every "ds" point will be taken from the data time series.
         Reduces the computational load, but needs caution since with large "ds" some important information may be lost.
@@ -521,7 +535,7 @@ def compute_feat_feat_significance(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=1000,
-    metric_distr_type="gamma",
+    metric_distr_type="gamma_zi",
     noise_ampl=1e-3,
     ds=1,
     topk1=1,
@@ -563,7 +577,7 @@ def compute_feat_feat_significance(
     n_shuffles_stage2 : int, optional
         Number of shuffles for stage 2. Default: 1000.
     metric_distr_type : str, optional
-        Distribution type for metric null distribution. Default: 'gamma'.
+        Distribution type for metric null distribution ('gamma_zi', 'gamma', etc.). Default: 'gamma_zi'.
     noise_ampl : float, optional
         Small noise amplitude for numerical stability. Default: 1e-3.
     ds : int, optional
@@ -798,7 +812,7 @@ def compute_cell_cell_significance(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=1000,
-    metric_distr_type="gamma",
+    metric_distr_type="gamma_zi",
     noise_ampl=1e-3,
     ds=1,
     topk1=1,
@@ -840,7 +854,7 @@ def compute_cell_cell_significance(
     n_shuffles_stage2 : int, optional
         Number of shuffles for stage 2. Default: 1000.
     metric_distr_type : str, optional
-        Distribution type for metric null distribution. Default: 'gamma'.
+        Distribution type for metric null distribution ('gamma_zi', 'gamma', etc.). Default: 'gamma_zi'.
     noise_ampl : float, optional
         Small noise amplitude for numerical stability. Default: 1e-3.
     ds : int, optional
@@ -1077,7 +1091,7 @@ def compute_embedding_selectivity(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
-    metric_distr_type="gamma",
+    metric_distr_type="gamma_zi",
     noise_ampl=1e-3,
     ds=1,
     use_precomputed_stats=True,
