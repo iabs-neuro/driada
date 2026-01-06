@@ -63,6 +63,16 @@ from .mixed_selectivity import (
     generate_synthetic_exp_with_mixed_selectivity,
 )
 
+# Principled tuning-based selectivity
+from .principled_selectivity import (
+    sigmoid_tuning_curve,
+    compute_speed_from_positions,
+    compute_head_direction_from_positions,
+    combine_responses,
+    generate_tuned_selectivity_exp,
+    ground_truth_to_selectivity_matrix,
+)
+
 # High-level experiment generators
 from .experiment_generators import (
     generate_synthetic_data,
@@ -106,6 +116,13 @@ __all__ = [
     "generate_mixed_selective_signal",
     "generate_synthetic_data_mixed_selectivity",
     "generate_synthetic_exp_with_mixed_selectivity",
+    # Principled tuning-based selectivity
+    "sigmoid_tuning_curve",
+    "compute_speed_from_positions",
+    "compute_head_direction_from_positions",
+    "combine_responses",
+    "generate_tuned_selectivity_exp",
+    "ground_truth_to_selectivity_matrix",
     # High-level generators
     "generate_synthetic_data",
     "generate_synthetic_exp",

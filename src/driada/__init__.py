@@ -51,6 +51,9 @@ from .experiment import (
     generate_mixed_population_exp,
 )
 
+# Principled selectivity generator
+from .experiment.synthetic import generate_tuned_selectivity_exp
+
 # Dimensionality reduction classes
 from .dim_reduction import MVData, Embedding
 
@@ -94,6 +97,7 @@ __all__ = [
     "generate_2d_manifold_exp",
     "generate_3d_manifold_exp",
     "generate_mixed_population_exp",
+    "generate_tuned_selectivity_exp",
     # Dimensionality reduction
     "MVData",
     "Embedding",
