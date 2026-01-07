@@ -31,7 +31,7 @@ def compute_cell_feat_significance(
     pval_thr=0.01,
     find_optimal_delays=True,
     skip_delays=[],
-    shift_window=5,
+    shift_window=2,
     verbose=True,
     enable_parallelization=True,
     n_jobs=-1,
@@ -149,7 +149,7 @@ def compute_cell_feat_significance(
     shift_window : int, optional
         Window for optimal shift search (seconds). Optimal shift (in frames) will lie in the range
         -shift_window*fps <= opt_shift <= shift_window*fps.
-        Has no effect if find_optimal_delays = False. Default is 5
+        Has no effect if find_optimal_delays = False. Default is 2
 
     verbose : bool, optional
         Whether to print progress messages. Default is True
@@ -1102,7 +1102,7 @@ def compute_embedding_selectivity(
     multicomp_correction="holm",
     pval_thr=0.01,
     find_optimal_delays=True,
-    shift_window=5,
+    shift_window=2,
     verbose=True,
     enable_parallelization=True,
     n_jobs=-1,
@@ -1159,7 +1159,7 @@ def compute_embedding_selectivity(
     find_optimal_delays : bool
         Find optimal temporal delays between neural activity and embeddings (default: True)
     shift_window : int
-        Window for optimal shift search in seconds (default: 5)
+        Window for optimal shift search in seconds (default: 2)
     verbose : bool
         Print progress information (default: True)
     enable_parallelization : bool

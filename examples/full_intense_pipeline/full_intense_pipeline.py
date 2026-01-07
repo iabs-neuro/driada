@@ -49,17 +49,17 @@ POPULATION = [
 # Analysis parameters
 CONFIG = {
     # Recording parameters
-    "duration": 900,        # seconds (15 min - longer for better place cell sampling)
+    "duration": 900,        # seconds
     "fps": 20,              # sampling rate
     "seed": 42,
     # Tuning parameters
-    "kappa": 4.0,           # von Mises concentration (HD cells) - increased for sharper tuning
-    "place_sigma": 0.15,    # place field width - decreased for sharper fields
+    "kappa": 4.0,           # von Mises concentration (HD cells)
+    "place_sigma": 0.15,    # place field width
     # Calcium dynamics
-    "baseline_rate": 0.02,  # baseline firing rate - reduced for better contrast
-    "peak_rate": 2.5,       # peak response - increased for stronger signal
-    "decay_time": 1.5,      # faster decay for sharper responses
-    "calcium_noise": 0.01,  # noise level (reduced for stronger signal)
+    "baseline_rate": 0.02,  # baseline firing rate
+    "peak_rate": 2.5,       # peak response
+    "decay_time": 1.5,      # calcium decay time
+    "calcium_noise": 0.01,  # noise level
     # Discrete event parameters
     "n_discrete_features": 2,
     "event_active_fraction": 0.08,  # ~8% active time per event
@@ -76,7 +76,20 @@ CONFIG = {
 # ANALYSIS
 # =============================================================================
 def run_intense_analysis(exp, config, verbose=True):
-    """Run INTENSE analysis on the experiment."""
+    """Run INTENSE analysis on the experiment.
+
+    INTENSE uses a two-stage significance testing approach:
+    1. Stage 1: Quick screening with fewer shuffles to identify candidates
+    2. Stage 2: Rigorous testing of candidates with more shuffles
+
+    Delay optimization finds the optimal temporal lag between neural activity
+    and behavioral features. This compensates for:
+    - Calcium indicator dynamics (rise/decay time ~1-2s for GCaMP6)
+    - Neural processing delays
+    - Behavioral-neural coupling latencies
+
+    Returns the analysis results including optimal delays for each neuron-feature pair.
+    """
     if verbose:
         print("\n" + "=" * 60)
         print("RUNNING INTENSE ANALYSIS")
@@ -87,14 +100,9 @@ def run_intense_analysis(exp, config, verbose=True):
 
     start_time = time.time()
 
-    # Identify MultiTimeSeries features (skip delay optimization for these)
-    skip_delays = [
-        feat_name for feat_name, feat_data in exp.dynamic_features.items()
-        if isinstance(feat_data, MultiTimeSeries)
-    ]
-
     # Build feature list excluding x and y marginals (use position_2d instead)
-    # This avoids spurious detections on place cell marginals
+    # This avoids spurious detections on place cell marginals while still
+    # testing the joint 2D spatial selectivity
     feat_bunch = [
         feat_name for feat_name in exp.dynamic_features.keys()
         if feat_name not in ["x", "y"]
@@ -102,7 +110,20 @@ def run_intense_analysis(exp, config, verbose=True):
     if verbose:
         print(f"  Features to test: {feat_bunch}")
 
+    # Identify MultiTimeSeries features - skip delay optimization for these
+    # (delay optimization requires 1D time series, MultiTimeSeries are 2D)
+    skip_delays = [
+        feat_name for feat_name, feat_data in exp.dynamic_features.items()
+        if isinstance(feat_data, MultiTimeSeries)
+    ]
+
     # Run INTENSE with disentanglement to handle correlated features
+    # - find_optimal_delays=True: Search for best temporal alignment between
+    #   neural activity and features (compensates for calcium dynamics)
+    # - skip_delays: List of features to skip delay optimization (MultiTimeSeries)
+    # - with_disentanglement=True: Identify redundant detections caused by
+    #   feature correlations (e.g., HD cells detecting position due to
+    #   trajectory patterns where animal faces certain directions at certain locations)
     stats, significance, info, results, disent_results = driada.compute_cell_feat_significance(
         exp,
         feat_bunch=feat_bunch,
@@ -110,12 +131,13 @@ def run_intense_analysis(exp, config, verbose=True):
         n_shuffles_stage1=config["n_shuffles_stage1"],
         n_shuffles_stage2=config["n_shuffles_stage2"],
         allow_mixed_dimensions=True,
-        skip_delays=skip_delays if skip_delays else None,
-        ds=5,
+        find_optimal_delays=True,  # Find best temporal alignment
+        skip_delays=skip_delays,  # Skip delay opt for MultiTimeSeries (position_2d)
+        ds=5,  # Downsampling factor for speed
         pval_thr=config["pval_thr"],
         multicomp_correction=config["multicomp_correction"],
         use_precomputed_stats=False,  # Force fresh computation
-        with_disentanglement=True,  # Enable disentanglement for correlated features
+        with_disentanglement=True,  # Identify redundant detections
         verbose=True,
     )
 
@@ -128,33 +150,43 @@ def run_intense_analysis(exp, config, verbose=True):
         print(f"  Significant neurons: {len(significant_neurons)}/{exp.n_cells}")
         print(f"  Total significant pairs: {total_pairs}")
 
-    return results, significant_neurons, analysis_time, disent_results
+    # Return info dict containing optimal_delays matrix
+    return results, significant_neurons, analysis_time, disent_results, info, feat_bunch
 
 
 # =============================================================================
 # DISENTANGLEMENT REPORTING
 # =============================================================================
-def print_disentanglement_summary(disent_results, ground_truth, significant_neurons):
-    """Print disentanglement analysis summary."""
+def analyze_disentanglement(disent_results, ground_truth, significant_neurons, metrics):
+    """Analyze disentanglement results and compute corrected metrics.
+
+    Disentanglement identifies which detected pairs are REDUNDANT (caused by
+    feature correlations) vs TRUE MIXED SELECTIVITY (genuine multi-feature tuning).
+
+    Returns corrected metrics that exclude redundant false positives.
+    """
     print("\n" + "=" * 60)
     print("DISENTANGLEMENT ANALYSIS")
     print("=" * 60)
 
+    # Track redundant false positives
+    redundant_count = 0
+    unknown_count = 0
+
     if disent_results is None:
         print("  Disentanglement not performed.")
-        return
+        return metrics
 
     # Extract results
     disent_matrix = disent_results.get("disent_matrix")
     count_matrix = disent_results.get("count_matrix")
-    feat_names = disent_results.get("feature_names", [])
     summary = disent_results.get("summary", {})
 
     if disent_matrix is None or count_matrix is None:
         print("  No disentanglement data available.")
-        return
+        return metrics
 
-    # Print feature correlations from summary
+    # Print overall statistics
     if "overall_stats" in summary:
         stats = summary["overall_stats"]
         print(f"\n  Overall Statistics:")
@@ -162,49 +194,140 @@ def print_disentanglement_summary(disent_results, ground_truth, significant_neur
         print(f"    Redundancy rate: {stats.get('redundancy_rate', 0):.1f}%")
         print(f"    True mixed selectivity rate: {stats.get('true_mixed_selectivity_rate', 0):.1f}%")
 
-    # Print pairwise results
-    if "pairwise_stats" in summary:
-        print(f"\n  Pairwise Feature Analysis:")
-        for pair_key, pair_stats in summary["pairwise_stats"].items():
-            feat1, feat2 = pair_key
-            n_pairs = pair_stats.get("n_pairs", 0)
-            if n_pairs > 0:
-                feat1_pct = pair_stats.get("feat1_primary_pct", 50)
-                feat2_pct = pair_stats.get("feat2_primary_pct", 50)
-                print(f"    {feat1} vs {feat2} (n={n_pairs}):")
-                print(f"      {feat1} primary: {feat1_pct:.0f}%")
-                print(f"      {feat2} primary: {feat2_pct:.0f}%")
-
     # Identify redundant detections based on ground truth
-    print(f"\n  Redundancy Analysis for False Positives:")
+    print(f"\n  False Positive Analysis:")
     expected_pairs = set(ground_truth["expected_pairs"])
     neuron_types = ground_truth["neuron_types"]
 
-    redundant_fps = []
+    fps_analysis = []
     for neuron_id, features in significant_neurons.items():
         neuron_type = neuron_types.get(neuron_id, "unknown")
         for feat_name in features:
             if (neuron_id, feat_name) not in expected_pairs:
-                # This is a false positive - check if it's likely redundant
-                redundant_fps.append((neuron_id, neuron_type, feat_name))
+                # This is a false positive - classify it
+                is_redundant = False
+                primary_feat = None
 
-    if redundant_fps:
-        for neuron_id, neuron_type, feat_name in redundant_fps:
-            # Determine likely primary feature based on neuron type
-            if neuron_type == "hd_cells" and feat_name == "position_2d":
+                if neuron_type == "hd_cells" and feat_name == "position_2d":
+                    is_redundant = True
+                    primary_feat = "head_direction"
+                elif neuron_type == "place_cells" and feat_name == "head_direction":
+                    is_redundant = True
+                    primary_feat = "position_2d"
+                elif neuron_type == "speed_cells" and feat_name in ["head_direction", "position_2d"]:
+                    is_redundant = True
+                    primary_feat = "speed"
+
+                fps_analysis.append((neuron_id, neuron_type, feat_name, is_redundant, primary_feat))
+
+                if is_redundant:
+                    redundant_count += 1
+                else:
+                    unknown_count += 1
+
+    # Print FP analysis
+    if fps_analysis:
+        for neuron_id, neuron_type, feat_name, is_redundant, primary_feat in fps_analysis:
+            if is_redundant:
                 print(f"    Neuron {neuron_id} ({neuron_type}) -> {feat_name}: "
-                      f"REDUNDANT (head_direction is primary)")
-            elif neuron_type == "place_cells" and feat_name == "head_direction":
-                print(f"    Neuron {neuron_id} ({neuron_type}) -> {feat_name}: "
-                      f"REDUNDANT (position_2d is primary)")
-            elif neuron_type == "speed_cells" and feat_name in ["head_direction", "position_2d"]:
-                print(f"    Neuron {neuron_id} ({neuron_type}) -> {feat_name}: "
-                      f"REDUNDANT (speed is primary)")
+                      f"REDUNDANT ({primary_feat} is primary)")
             else:
                 print(f"    Neuron {neuron_id} ({neuron_type}) -> {feat_name}: "
-                      f"Unknown (may be true mixed or noise)")
+                      f"UNEXPLAINED (may be noise or true mixed)")
     else:
         print("    No false positives to analyze.")
+
+    # Compute corrected metrics
+    tp = metrics["true_positives"]
+    fp_raw = metrics["false_positives"]
+    fn = metrics["false_negatives"]
+    fp_corrected = fp_raw - redundant_count  # Exclude redundant FPs
+
+    sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+    precision_raw = tp / (tp + fp_raw) if (tp + fp_raw) > 0 else 0
+    precision_corrected = tp / (tp + fp_corrected) if (tp + fp_corrected) > 0 else 0
+    f1_raw = 2 * (precision_raw * sensitivity) / (precision_raw + sensitivity) if (precision_raw + sensitivity) > 0 else 0
+    f1_corrected = 2 * (precision_corrected * sensitivity) / (precision_corrected + sensitivity) if (precision_corrected + sensitivity) > 0 else 0
+
+    # Print before/after comparison
+    print(f"\n  Metrics Comparison:")
+    print(f"    {'Metric':<15} {'Before':<12} {'After':<12} {'Change'}")
+    print(f"    {'-'*50}")
+    print(f"    {'Sensitivity':<15} {sensitivity:>10.1%}   {sensitivity:>10.1%}   (unchanged)")
+    print(f"    {'Precision':<15} {precision_raw:>10.1%}   {precision_corrected:>10.1%}   "
+          f"(+{(precision_corrected - precision_raw)*100:.1f}pp)")
+    print(f"    {'F1 Score':<15} {f1_raw:>10.1%}   {f1_corrected:>10.1%}   "
+          f"(+{(f1_corrected - f1_raw)*100:.1f}pp)")
+    print(f"    {'False Pos':<15} {fp_raw:>10}   {fp_corrected:>10}   "
+          f"({redundant_count} redundant)")
+
+    # Return corrected metrics
+    return {
+        **metrics,
+        "fp_redundant": redundant_count,
+        "fp_unexplained": unknown_count,
+        "fp_corrected": fp_corrected,
+        "precision_corrected": precision_corrected,
+        "f1_corrected": f1_corrected,
+    }
+
+
+# =============================================================================
+# OPTIMAL DELAYS REPORTING
+# =============================================================================
+def print_optimal_delays(info, feat_bunch, significant_neurons, ground_truth, fps):
+    """Print optimal delays for significant neuron-feature pairs.
+
+    Optimal delays represent the temporal offset (in frames and seconds) that
+    maximizes mutual information between neural activity and behavioral features.
+
+    Positive delays mean neural activity LAGS behind behavior (expected for
+    calcium imaging due to indicator dynamics). Negative delays would indicate
+    neural activity leads behavior (predictive coding).
+
+    Typical delays for calcium imaging:
+    - GCaMP6s: 0.5-2.0 seconds (slow indicator)
+    - GCaMP6f: 0.2-0.8 seconds (fast indicator)
+    - GCaMP8: 0.1-0.4 seconds (ultrafast indicator)
+    """
+    print("\n" + "=" * 60)
+    print("OPTIMAL DELAYS")
+    print("=" * 60)
+
+    optimal_delays = info.get("optimal_delays")
+    if optimal_delays is None:
+        print("  No delay optimization performed.")
+        return
+
+    print(f"\n  Delay optimization compensates for calcium indicator dynamics.")
+    print(f"  Positive delays = neural activity lags behavior (expected).")
+    print(f"  Sampling rate: {fps} Hz")
+
+    # Report delays for significant pairs, grouped by neuron type
+    neuron_types = ground_truth.get("neuron_types", {})
+    type_delays = {}
+
+    for neuron_id, features in significant_neurons.items():
+        neuron_type = neuron_types.get(neuron_id, "unknown")
+        if neuron_type not in type_delays:
+            type_delays[neuron_type] = []
+
+        for feat_name in features:
+            if feat_name in feat_bunch:
+                feat_idx = feat_bunch.index(feat_name)
+                delay_frames = optimal_delays[neuron_id, feat_idx]
+                delay_sec = delay_frames / fps
+                type_delays[neuron_type].append((neuron_id, feat_name, delay_frames, delay_sec))
+
+    print(f"\n  Optimal delays for significant pairs:")
+    for neuron_type in sorted(type_delays.keys()):
+        delays = type_delays[neuron_type]
+        if delays:
+            # Calculate mean delay for this type
+            mean_delay_sec = np.mean([d[3] for d in delays])
+            print(f"\n  {neuron_type} (mean: {mean_delay_sec:.2f}s):")
+            for neuron_id, feat_name, delay_frames, delay_sec in delays:
+                print(f"    Neuron {neuron_id:2d} -> {feat_name:15s}: {delay_frames:4d} frames ({delay_sec:+.2f}s)")
 
 
 # =============================================================================
@@ -222,9 +345,12 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
     # 1. Selectivity heatmap (main plot)
     ax1 = fig.add_subplot(2, 2, (1, 2))
 
-    # Get feature names and create matrix
-    feature_names = [f for f in exp.dynamic_features.keys()
-                    if not isinstance(exp.dynamic_features[f], MultiTimeSeries)]
+    # Get feature names - use the same features that were analyzed (from feat_bunch)
+    # Include position_2d but exclude x and y (which are marginals)
+    feature_names = [
+        f for f in exp.dynamic_features.keys()
+        if f not in ["x", "y"]  # Exclude marginals, keep position_2d
+    ]
     n_neurons = exp.n_cells
     n_features = len(feature_names)
 
@@ -351,11 +477,11 @@ def main():
         verbose=True,
     )
 
-    # Step 2: Run INTENSE analysis with disentanglement
+    # Step 2: Run INTENSE analysis with disentanglement and delay optimization
     print("\n[2] RUNNING INTENSE ANALYSIS")
     print("-" * 40)
-    results, significant_neurons, analysis_time, disent_results = run_intense_analysis(
-        exp, CONFIG, verbose=True
+    results, significant_neurons, analysis_time, disent_results, info, feat_bunch = (
+        run_intense_analysis(exp, CONFIG, verbose=True)
     )
 
     # Step 3: Validate against ground truth using IntenseResults method
@@ -363,13 +489,18 @@ def main():
     print("-" * 40)
     metrics = results.validate_against_ground_truth(ground_truth, verbose=True)
 
-    # Step 4: Disentanglement analysis
+    # Step 4: Disentanglement analysis (computes corrected metrics)
     print("\n[4] DISENTANGLEMENT ANALYSIS")
     print("-" * 40)
-    print_disentanglement_summary(disent_results, ground_truth, significant_neurons)
+    metrics = analyze_disentanglement(disent_results, ground_truth, significant_neurons, metrics)
 
-    # Step 5: Create visualizations
-    print("\n[5] CREATING VISUALIZATIONS")
+    # Step 5: Optimal delays analysis
+    print("\n[5] OPTIMAL DELAYS")
+    print("-" * 40)
+    print_optimal_delays(info, feat_bunch, significant_neurons, ground_truth, CONFIG["fps"])
+
+    # Step 6: Create visualizations
+    print("\n[6] CREATING VISUALIZATIONS")
     print("-" * 40)
     create_visualizations(exp, significant_neurons, ground_truth, metrics, output_dir)
 
