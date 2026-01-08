@@ -6,11 +6,16 @@ meaningful tuning curves for testing INTENSE analysis. Unlike ROI-based discreti
 this approach uses proper tuning curves (von Mises, Gaussian, sigmoid) to create
 realistic feature-selective responses.
 
+This is the CANONICAL synthetic data generator for DRIADA. All other generators
+delegate to this module for consistent behavior.
+
 Key features:
 - Head direction cells with von Mises tuning
-- Place cells with Gaussian place fields
+- Place cells with true 2D Gaussian place fields (position_2d)
+- Place cells with 1D marginal Gaussian tuning (x, y separately)
 - Speed cells with sigmoid tuning
 - Event cells with binary response
+- FBM cells with sigmoid response to fractional Brownian motion features
 - Mixed selectivity neurons with OR/AND combination modes
 - Ground truth structure for validation
 
@@ -18,13 +23,15 @@ Example
 -------
 >>> population = [
 ...     {"name": "hd_cells", "count": 4, "features": ["head_direction"]},
-...     {"name": "place_cells", "count": 4, "features": ["x", "y"], "combination": "and"},
+...     {"name": "place_cells", "count": 4, "features": ["position_2d"]},  # True 2D Gaussian
 ...     {"name": "speed_cells", "count": 4, "features": ["speed"]},
 ...     {"name": "event_cells", "count": 4, "features": ["event_0"]},
+...     {"name": "fbm_cells", "count": 4, "features": ["fbm_0"]},  # FBM feature
 ...     {"name": "mixed", "count": 4, "features": ["head_direction", "event_0"]},
 ...     {"name": "nonselective", "count": 4, "features": []},
 ... ]
->>> exp, ground_truth = generate_tuned_selectivity_exp(population)
+>>> exp = generate_tuned_selectivity_exp(population)
+>>> ground_truth = exp.ground_truth  # Ground truth attached to experiment
 """
 
 from typing import Dict, List, Optional, Tuple, Union
@@ -37,15 +44,17 @@ from driada.information.info_base import MultiTimeSeries, TimeSeries
 
 from .core import generate_pseudo_calcium_signal
 from .manifold_circular import von_mises_tuning_curve
-from .manifold_spatial_2d import generate_2d_random_walk
-from .time_series import generate_binary_time_series
+from .manifold_spatial_2d import generate_2d_random_walk, gaussian_place_field
+from .time_series import generate_binary_time_series, generate_fbm_time_series
 
 # Default tuning parameters for different feature types
 TUNING_DEFAULTS = {
     "head_direction": {"kappa": 2.0},  # von Mises concentration
-    "x": {"sigma": 0.25},  # Gaussian width
-    "y": {"sigma": 0.25},  # Gaussian width
+    "x": {"sigma": 0.25},  # Gaussian width (1D marginal)
+    "y": {"sigma": 0.25},  # Gaussian width (1D marginal)
+    "position_2d": {"sigma": 0.15},  # True 2D Gaussian place field width
     "speed": {"slope": 12.0},  # Sigmoid slope
+    "fbm": {"slope": 8.0, "hurst": 0.7},  # FBM sigmoid slope and Hurst exponent
 }
 
 
@@ -183,17 +192,25 @@ def compute_head_direction_from_positions(
 
 def combine_responses(
     responses: List[np.ndarray],
+    weights: Optional[List[float]] = None,
     mode: str = "or",
 ) -> np.ndarray:
     """
-    Combine multiple response traces using OR or AND logic.
+    Combine multiple response traces using various combination modes.
 
     Parameters
     ----------
     responses : list of ndarray
         List of response traces, each in range [0, 1].
+    weights : list of float, optional
+        Weights for each response. Must sum to 1.0 for weighted modes.
+        If None and using weighted mode, defaults to equal weights.
     mode : str, optional
-        Combination mode: "or" (max) or "and" (min). Default: "or".
+        Combination mode. Options:
+        - "or": Element-wise maximum (any feature active). Default.
+        - "and": Element-wise minimum (all features active).
+        - "weighted_sum": Sum of (response * weight), clipped to [0, 1].
+        - "weighted_or": Maximum of (response * weight).
 
     Returns
     -------
@@ -209,6 +226,8 @@ def combine_responses(
     array([0.5, 0.8, 0.9])
     >>> combine_responses([r1, r2], mode="and")
     array([0.2, 0.3, 0.1])
+    >>> combine_responses([r1, r2], weights=[0.7, 0.3], mode="weighted_sum")
+    array([0.29, 0.65, 0.34])
     """
     if len(responses) == 0:
         raise ValueError("responses list cannot be empty")
@@ -219,8 +238,28 @@ def combine_responses(
         return np.maximum.reduce(responses)
     elif mode == "and":
         return np.minimum.reduce(responses)
+    elif mode in ("weighted_sum", "weighted_or"):
+        # Handle weights
+        if weights is None:
+            weights = [1.0 / len(responses)] * len(responses)
+        if len(weights) != len(responses):
+            raise ValueError(
+                f"Number of weights ({len(weights)}) must match "
+                f"number of responses ({len(responses)})"
+            )
+        if mode == "weighted_sum":
+            total = np.zeros_like(responses[0])
+            for r, w in zip(responses, weights):
+                total += r * w
+            return np.clip(total, 0, 1)
+        else:  # weighted_or
+            weighted = [r * w for r, w in zip(responses, weights)]
+            return np.maximum.reduce(weighted)
     else:
-        raise ValueError(f"Unknown combination mode: {mode}. Use 'or' or 'and'.")
+        raise ValueError(
+            f"Unknown combination mode: {mode}. "
+            "Use 'or', 'and', 'weighted_sum', or 'weighted_or'."
+        )
 
 
 def _get_tuning_param(
@@ -251,13 +290,18 @@ def _generate_random_tuning_param(
     feature_name: str,
     param_name: str,
     rng: np.random.Generator,
-) -> float:
+) -> Union[float, np.ndarray]:
     """Generate randomized per-neuron tuning parameter."""
     if feature_name == "head_direction" and param_name == "pref_dir":
         return rng.uniform(0, 2 * np.pi)
     elif feature_name in ["x", "y"] and param_name == "center":
         return rng.uniform(0.15, 0.85)
+    elif feature_name == "position_2d" and param_name == "center":
+        # Return 2D center for true 2D place field
+        return np.array([rng.uniform(0.15, 0.85), rng.uniform(0.15, 0.85)])
     elif feature_name == "speed" and param_name == "threshold":
+        return rng.uniform(0.3, 0.7)
+    elif feature_name.startswith("fbm_") and param_name == "threshold":
         return rng.uniform(0.3, 0.7)
     else:
         raise ValueError(f"Unknown random param: {feature_name}.{param_name}")
@@ -269,15 +313,18 @@ def generate_tuned_selectivity_exp(
     duration: float = 600,
     fps: float = 20,
     baseline_rate: float = 0.05,
-    peak_rate: float = 1.2,
+    peak_rate: float = 2.0,
     decay_time: float = 2.0,
-    calcium_noise: float = 0.08,
+    calcium_noise: float = 0.02,
+    calcium_amplitude_range: Tuple[float, float] = (0.5, 2.0),
     n_discrete_features: int = 2,
     event_active_fraction: float = 0.08,
     event_avg_duration: float = 0.8,
+    skip_prob: float = 0.0,
+    hurst: float = 0.3,
     seed: Optional[int] = None,
     verbose: bool = True,
-) -> Tuple[Experiment, Dict]:
+) -> "Experiment":
     """
     Generate synthetic experiment with principled tuning-based selectivity.
 
@@ -292,7 +339,13 @@ def generate_tuned_selectivity_exp(
         - "name" : str - Group name (e.g., "hd_cells", "place_cells")
         - "count" : int - Number of neurons in this group
         - "features" : list of str - Feature names this group responds to.
-          Supported: "head_direction", "x", "y", "speed", "event_0", "event_1", etc.
+          Supported features:
+          * "head_direction" - von Mises tuning to heading direction
+          * "position_2d" - True 2D Gaussian place field (recommended for place cells)
+          * "x", "y" - 1D marginal Gaussian tuning to position axes
+          * "speed" - sigmoid tuning to running speed
+          * "event_0", "event_1", ... - binary response to discrete events
+          * "fbm_0", "fbm_1", ... - sigmoid response to FBM continuous features
         - "combination" : str, optional - How to combine multiple features:
           "or" (default) or "and"
         - "tuning_params" : dict, optional - Override default tuning parameters
@@ -306,17 +359,23 @@ def generate_tuned_selectivity_exp(
     baseline_rate : float, optional
         Baseline firing rate (spikes/frame). Default: 0.05.
     peak_rate : float, optional
-        Peak firing rate during selectivity. Default: 1.2.
+        Peak firing rate during selectivity. Default: 2.0.
     decay_time : float, optional
         Calcium decay time constant in seconds. Default: 2.0.
     calcium_noise : float, optional
-        Calcium signal noise standard deviation. Default: 0.08.
+        Calcium signal noise standard deviation. Default: 0.02.
+    calcium_amplitude_range : tuple of float, optional
+        Range for calcium event amplitudes (min, max). Default: (0.5, 2.0).
     n_discrete_features : int, optional
         Number of discrete event features to generate. Default: 2.
     event_active_fraction : float, optional
         Fraction of time each event is active. Default: 0.08.
     event_avg_duration : float, optional
         Average event duration in seconds. Default: 0.8.
+    skip_prob : float, optional
+        Probability of skipping an event (for event features). Default: 0.0.
+    hurst : float, optional
+        Hurst parameter for FBM features. Default: 0.3.
     seed : int, optional
         Random seed for reproducibility.
     verbose : bool, optional
@@ -326,8 +385,7 @@ def generate_tuned_selectivity_exp(
     -------
     exp : Experiment
         DRIADA Experiment object with neural signals and features.
-    ground_truth : dict
-        Ground truth information containing:
+        Ground truth is accessible via exp.ground_truth containing:
         - "expected_pairs" : list of (neuron_idx, feature_name) tuples
         - "neuron_types" : dict mapping neuron_idx to group name
         - "tuning_parameters" : dict with detailed tuning params per neuron
@@ -340,10 +398,10 @@ def generate_tuned_selectivity_exp(
     ...     {"name": "hd_cells", "count": 4, "features": ["head_direction"]},
     ...     {"name": "nonselective", "count": 2, "features": []},
     ... ]
-    >>> exp, gt = generate_tuned_selectivity_exp(population, duration=60, verbose=False)
+    >>> exp = generate_tuned_selectivity_exp(population, duration=60, verbose=False)
     >>> exp.n_cells
     6
-    >>> len(gt["expected_pairs"])
+    >>> len(exp.ground_truth["expected_pairs"])
     4
 
     >>> # Advanced example with custom parameters
@@ -353,7 +411,7 @@ def generate_tuned_selectivity_exp(
     ...     {"name": "conjunctive", "count": 2, "features": ["x", "y"],
     ...      "combination": "and"},  # AND combination
     ... ]
-    >>> exp, gt = generate_tuned_selectivity_exp(
+    >>> exp = generate_tuned_selectivity_exp(
     ...     population, tuning_defaults={"x": {"sigma": 0.3}}, verbose=False
     ... )
     """
@@ -403,20 +461,43 @@ def generate_tuned_selectivity_exp(
         )
         discrete_features[f"event_{i}"] = binary_ts
 
+    # Collect all required FBM features from population config
+    fbm_features = {}
+    all_features_needed = set()
+    for group in population:
+        for feat in group.get("features", []):
+            all_features_needed.add(feat)
+
+    for feat_name in all_features_needed:
+        if feat_name.startswith("fbm_"):
+            # Generate FBM time series for this feature
+            fbm_idx = int(feat_name.split("_")[1])
+            fbm_seed = seed + fbm_idx + 200 if seed is not None else None
+            # Use function parameter hurst as default, allow override via tuning_defaults
+            fbm_hurst = tuning_defaults.get("fbm", {}).get("hurst", hurst) if tuning_defaults else hurst
+            fbm_ts = generate_fbm_time_series(n_frames, fbm_hurst, seed=fbm_seed)
+            # Normalize to [0, 1] for easier threshold setting
+            fbm_ts = (fbm_ts - fbm_ts.min()) / (fbm_ts.max() - fbm_ts.min() + 1e-10)
+            fbm_features[feat_name] = fbm_ts
+
     # Collect all available features
     available_features = {
         "head_direction": head_direction,
         "x": positions[0, :],
         "y": positions[1, :],
         "speed": speed_normalized,
+        "positions_array": positions,  # For position_2d handling
     }
     available_features.update(discrete_features)
+    available_features.update(fbm_features)
 
     if verbose:
         print(f"  Position range: x=[{positions[0].min():.2f}, {positions[0].max():.2f}], "
               f"y=[{positions[1].min():.2f}, {positions[1].max():.2f}]")
         print(f"  Speed range: [{speed.min():.3f}, {speed.max():.3f}]")
         print(f"  Discrete features: {list(discrete_features.keys())}")
+        if fbm_features:
+            print(f"  FBM features: {list(fbm_features.keys())}")
 
     # -------------------------------------------------------------------------
     # Generate neural responses with ground truth
@@ -438,6 +519,7 @@ def generate_tuned_selectivity_exp(
         group_count = group["count"]
         group_features = group.get("features", [])
         combination_mode = group.get("combination", "or")
+        combination_weights = group.get("weights", None)
         user_tuning_params = group.get("tuning_params", {})
 
         if verbose:
@@ -458,20 +540,31 @@ def generate_tuned_selectivity_exp(
             # Generate responses for each feature
             responses = []
             for feat_name in group_features:
-                if feat_name not in available_features:
+                # Check if feature is available (position_2d uses positions_array)
+                if feat_name != "position_2d" and feat_name not in available_features:
                     raise ValueError(f"Unknown feature: {feat_name}")
 
-                feat_data = available_features[feat_name]
                 neuron_tuning = {}
 
                 if feat_name == "head_direction":
+                    feat_data = available_features[feat_name]
                     pref_dir = _generate_random_tuning_param("head_direction", "pref_dir", rng)
                     kappa = _get_tuning_param("head_direction", "kappa",
                                                user_tuning_params, tuning_defaults)
                     response = von_mises_tuning_curve(feat_data, pref_dir, kappa)
                     neuron_tuning = {"pref_dir": pref_dir, "kappa": kappa}
 
+                elif feat_name == "position_2d":
+                    # True 2D Gaussian place field using gaussian_place_field
+                    pos_array = available_features["positions_array"]
+                    center = _generate_random_tuning_param("position_2d", "center", rng)
+                    sigma = _get_tuning_param("position_2d", "sigma",
+                                               user_tuning_params, tuning_defaults)
+                    response = gaussian_place_field(pos_array, center, sigma)
+                    neuron_tuning = {"center": center.tolist(), "sigma": sigma}
+
                 elif feat_name in ["x", "y"]:
+                    feat_data = available_features[feat_name]
                     center = _generate_random_tuning_param(feat_name, "center", rng)
                     sigma = _get_tuning_param(feat_name, "sigma",
                                                user_tuning_params, tuning_defaults)
@@ -480,6 +573,7 @@ def generate_tuned_selectivity_exp(
                     neuron_tuning = {"center": center, "sigma": sigma}
 
                 elif feat_name == "speed":
+                    feat_data = available_features[feat_name]
                     threshold = _generate_random_tuning_param("speed", "threshold", rng)
                     slope = _get_tuning_param("speed", "slope",
                                                user_tuning_params, tuning_defaults)
@@ -488,8 +582,20 @@ def generate_tuned_selectivity_exp(
 
                 elif feat_name.startswith("event_"):
                     # Binary feature - response is the event itself
+                    feat_data = available_features[feat_name]
                     response = feat_data.astype(float)
                     neuron_tuning = {"binary": True}
+
+                elif feat_name.startswith("fbm_"):
+                    # FBM feature - sigmoid response to continuous FBM signal
+                    feat_data = available_features[feat_name]
+                    threshold = _generate_random_tuning_param(feat_name, "threshold", rng)
+                    slope = _get_tuning_param("fbm", "slope",
+                                               user_tuning_params, tuning_defaults)
+                    if slope is None:
+                        slope = TUNING_DEFAULTS.get("fbm", {}).get("slope", 8.0)
+                    response = sigmoid_tuning_curve(feat_data, threshold, slope)
+                    neuron_tuning = {"threshold": threshold, "slope": slope}
 
                 else:
                     raise ValueError(f"Unsupported feature type: {feat_name}")
@@ -510,8 +616,21 @@ def generate_tuned_selectivity_exp(
                         ground_truth["expected_pairs"].append((current_idx, feat_name))
 
             # Combine responses
-            combined_response = combine_responses(responses, mode=combination_mode)
+            combined_response = combine_responses(
+                responses, weights=combination_weights, mode=combination_mode
+            )
             firing_rates[current_idx] = baseline_rate + (peak_rate - baseline_rate) * combined_response
+
+            # Store combination info in ground truth if using weights
+            if combination_weights is not None or combination_mode not in ("or", "and"):
+                weight_dict = {}
+                if combination_weights is not None:
+                    for feat_name, weight in zip(group_features, combination_weights):
+                        weight_dict[feat_name] = weight
+                ground_truth["tuning_parameters"][current_idx]["_combination"] = {
+                    "mode": combination_mode,
+                    "weights": weight_dict if weight_dict else None,
+                }
 
         neuron_idx += group_count
 
@@ -537,7 +656,7 @@ def generate_tuned_selectivity_exp(
             events=events,
             duration=duration,
             sampling_rate=fps,
-            amplitude_range=(0.5, 2.0),
+            amplitude_range=calcium_amplitude_range,
             decay_time=decay_time,
             noise_std=calcium_noise,
         )
@@ -576,6 +695,10 @@ def generate_tuned_selectivity_exp(
     for feat_name, feat_data in discrete_features.items():
         dynamic_features[feat_name] = TimeSeries(data=feat_data, discrete=True)
 
+    # Add FBM features
+    for feat_name, feat_data in fbm_features.items():
+        dynamic_features[feat_name] = TimeSeries(data=feat_data, discrete=False)
+
     # Static features
     static_features = {
         "fps": fps,
@@ -583,7 +706,7 @@ def generate_tuned_selectivity_exp(
         "t_off_sec": min(decay_time, duration / 10),
     }
 
-    # Create experiment
+    # Create experiment with ground_truth attached
     exp = Experiment(
         signature="tuned_selectivity_exp",
         calcium=calcium_signals,
@@ -595,15 +718,16 @@ def generate_tuned_selectivity_exp(
             "n_neurons": n_neurons,
             "duration": duration,
         },
+        ground_truth=ground_truth,
         verbose=False,
     )
 
     if verbose:
         print(f"  Created experiment: {n_neurons} neurons, {n_frames} frames")
         print(f"  Features: {list(dynamic_features.keys())}")
-        print(f"  Expected significant pairs: {len(ground_truth['expected_pairs'])}")
+        print(f"  Expected significant pairs: {len(exp.ground_truth['expected_pairs'])}")
 
-    return exp, ground_truth
+    return exp
 
 
 def ground_truth_to_selectivity_matrix(
@@ -639,8 +763,8 @@ def ground_truth_to_selectivity_matrix(
     ...     {"name": "hd_cells", "count": 2, "features": ["head_direction"]},
     ...     {"name": "speed_cells", "count": 2, "features": ["speed"]},
     ... ]
-    >>> exp, gt = generate_tuned_selectivity_exp(population, duration=30, verbose=False)
-    >>> selectivity_info = ground_truth_to_selectivity_matrix(gt)
+    >>> exp = generate_tuned_selectivity_exp(population, duration=30, verbose=False)
+    >>> selectivity_info = ground_truth_to_selectivity_matrix(exp.ground_truth)
     >>> selectivity_info['matrix'].shape
     (2, 4)
     >>> selectivity_info['feature_names']

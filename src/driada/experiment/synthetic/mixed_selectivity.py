@@ -475,12 +475,12 @@ def generate_synthetic_exp_with_mixed_selectivity(
     Returns
     -------
     exp : Experiment
-        Synthetic experiment with mixed selectivity.
-    selectivity_info : dict
-        Dictionary containing:
-        - 'matrix': ndarray of shape (n_features, n_neurons) - selectivity weights
-        - 'feature_names': list - ordered feature names matching matrix rows
-        - 'multifeature_map': dict - maps component tuples to multifeature names
+        Synthetic experiment with mixed selectivity. Ground truth is attached
+        to ``exp.ground_truth`` with the following keys:
+        - 'expected_pairs': list of (neuron_idx, feature_name) tuples
+        - 'selectivity_matrix': ndarray of shape (n_features, n_neurons)
+        - 'feature_names': list of feature names matching matrix rows
+        - 'multifeature_map': dict mapping component tuples to multifeature names
 
     Raises
     ------
@@ -672,8 +672,8 @@ def generate_synthetic_exp_with_mixed_selectivity(
         reconstruct_spikes=None,
     )
 
-    # Prepare selectivity info
-    # Create multifeature map for return value
+    # Prepare ground truth
+    # Create multifeature map
     multifeature_map = {}
     for i, (mf_key, mf_components) in enumerate(multifeatures_to_create):
         if isinstance(mf_key, str):
@@ -683,10 +683,17 @@ def generate_synthetic_exp_with_mixed_selectivity(
             # For tuple convention: components tuple -> generated name
             multifeature_map[mf_key] = f"multifeature_{i}"
 
-    selectivity_info = {
-        "matrix": selectivity_matrix,
+    # Convert selectivity_matrix to expected_pairs format
+    expected_pairs = []
+    for feat_idx, neuron_idx in zip(*np.where(selectivity_matrix > 0)):
+        expected_pairs.append((neuron_idx, all_feature_names[feat_idx]))
+
+    # Attach ground truth to experiment
+    exp.ground_truth = {
+        "expected_pairs": expected_pairs,
+        "selectivity_matrix": selectivity_matrix,
         "feature_names": all_feature_names,
         "multifeature_map": multifeature_map,
     }
 
-    return exp, selectivity_info
+    return exp

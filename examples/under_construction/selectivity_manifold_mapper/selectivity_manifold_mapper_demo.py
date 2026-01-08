@@ -125,27 +125,7 @@ def generate_rich_synthetic_data(quick_mode: bool = False):
         n_continuous_features=2,
         duration=duration,
         fps=20.0,
-        correlation_mode="independent",  # Features NOT correlated with head direction
         seed=42,
-        manifold_params={
-            "kappa": 2.0,  # Von Mises concentration parameter
-            "noise_std": 0.05,
-            "baseline_rate": 0.1,
-            "peak_rate": 2.0,
-            "decay_time": 2.0,
-            "calcium_noise_std": 0.05,
-        },
-        feature_params={
-            "selectivity_prob": sel_prob,
-            "multi_select_prob": mixed_sel_prob,
-            "rate_0": 0.5,
-            "rate_1": 2.0,
-            "noise_std": 0.05,
-            "hurst": 0.3,
-            "skip_prob": 0.0,
-            "ampl_range": (1.5, 3.5),
-            "decay_time": 2.0,
-        },
         return_info=True,
     )
 

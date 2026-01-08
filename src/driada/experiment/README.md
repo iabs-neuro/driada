@@ -20,16 +20,46 @@ The main container for all experimental data:
 
 ### Synthetic Data Generation
 
-**Manifold Generators:**
-- `generate_circular_manifold_exp()` - Head direction cells
-- `generate_2d_manifold_exp()` - Place cells in 2D
-- `generate_3d_manifold_exp()` - 3D spatial cells
-- `generate_mixed_population_exp()` - Mixed selectivity populations
+**Canonical Generator:**
+- `generate_tuned_selectivity_exp()` - **Recommended** for all synthetic data with ground truth
+
+**Convenience Wrappers:**
+- `generate_mixed_population_exp()` - Mixed manifold + feature-selective populations
+- `generate_synthetic_exp()` - Simple discrete/continuous feature selectivity
+
+**Standalone Manifold Generators:**
+- `generate_circular_manifold_exp()` - Head direction cells only
+- `generate_2d_manifold_exp()` - Place cells only
 
 **Time Series Generators:**
 - `generate_pseudo_calcium_signal()` - Realistic calcium dynamics
 - `generate_binary_time_series()` - Discrete events
 - `generate_fbm_time_series()` - Fractional Brownian motion
+
+### Supported Feature Names
+
+| Feature Type | Name | Description |
+|--------------|------|-------------|
+| Head direction | `head_direction` | Circular [0, 2pi), von Mises tuning |
+| 2D Position | `position_2d` | MultiTimeSeries (x, y), Gaussian place field |
+| X marginal | `x` | 1D position [0, 1], Gaussian tuning |
+| Y marginal | `y` | 1D position [0, 1], Gaussian tuning |
+| Speed | `speed` | Derived from trajectory, sigmoid tuning |
+| Discrete event | `event_0`, `event_1`, ... | Binary 0/1, threshold response |
+| Continuous FBM | `fbm_0`, `fbm_1`, ... | Fractional Brownian motion, sigmoid tuning |
+
+### Ground Truth Structure
+
+All synthetic generators attach ground truth to `exp.ground_truth`:
+
+```python
+exp.ground_truth = {
+    "expected_pairs": [(neuron_idx, feature_name), ...],  # Which neurons respond to which features
+    "neuron_types": {neuron_idx: "group_name", ...},      # Population membership
+    "tuning_parameters": {neuron_idx: {...}, ...},        # Per-neuron tuning params
+    "population_config": [...]                             # Original config
+}
+```
 
 ### Spike Reconstruction
 - `reconstruct_spikes()` - Main interface
@@ -55,19 +85,30 @@ exp = load_exp_from_aligned_data(
     reconstruct_spikes='wavelet'
 )
 
-# Generate synthetic data for testing
-from driada.experiment import generate_circular_manifold_exp
+# Generate synthetic data for testing (canonical generator)
+from driada.experiment.synthetic import generate_tuned_selectivity_exp
 
-exp = generate_circular_manifold_exp(
-    n_neurons=50,
+population = [
+    {"name": "hd_cells", "count": 20, "features": ["head_direction"]},
+    {"name": "place_cells", "count": 20, "features": ["position_2d"]},
+    {"name": "event_cells", "count": 10, "features": ["event_0"]},
+]
+
+exp = generate_tuned_selectivity_exp(
+    population=population,
     duration=600,
     fps=20.0,
-    noise_std=0.1
+    n_discrete_features=2,
+    seed=42,
 )
+
+# Access ground truth for validation
+ground_truth = exp.ground_truth
+print(f"Expected pairs: {len(ground_truth['expected_pairs'])}")
 
 # Access data
 calcium_data = exp.calcium.data  # MultiTimeSeries object
-position = exp.dynamic_features['position_circular'].data
+head_dir = exp.dynamic_features['head_direction'].data
 ```
 
 ## Working with Experiments

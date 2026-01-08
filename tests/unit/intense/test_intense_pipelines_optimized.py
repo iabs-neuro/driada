@@ -40,7 +40,7 @@ def test_compute_cell_feat_significance_with_disentanglement_fast():
 
     # Generate experiment with guaranteed mixed selectivity
     # Use asymmetric weights to ensure disentanglement can detect differences
-    exp, selectivity_info = generate_synthetic_exp_with_mixed_selectivity(
+    exp = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=3,  # Use 3 features for clearer patterns
         n_continuous_feats=2,  # Add continuous features
         n_neurons=20,  # 20 neurons as requested
@@ -61,7 +61,7 @@ def test_compute_cell_feat_significance_with_disentanglement_fast():
 
     # Verify we have mixed selectivity
     # Note: selectivity matrix is (features, neurons) not (neurons, features)
-    selectivity_matrix = selectivity_info["matrix"]
+    selectivity_matrix = exp.ground_truth["selectivity_matrix"]
     # Transpose to get (neurons, features) and find mixed neurons
     mixed_neurons = np.where(np.sum(selectivity_matrix.T > 0, axis=1) >= 2)[0]
     assert (
@@ -183,7 +183,7 @@ def test_mixed_selectivity_generation_fast():
     # Minimal generation - check the actual API
 
     # Generate minimal mixed selectivity experiment
-    exp, selectivity_info = generate_synthetic_exp_with_mixed_selectivity(
+    exp = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=1,
         n_continuous_feats=2,
         n_neurons=5,
@@ -195,8 +195,8 @@ def test_mixed_selectivity_generation_fast():
     )
 
     assert exp.n_cells == 5
-    assert "matrix" in selectivity_info
-    assert selectivity_info["matrix"].shape == (5, 5)  # neurons x features
+    assert "selectivity_matrix" in exp.ground_truth
+    assert exp.ground_truth["selectivity_matrix"].shape == (5, 5)  # neurons x features
 
 
 def test_disentanglement_minimal():
@@ -504,7 +504,7 @@ def test_disentanglement_with_asymmetric_features():
     """Test disentanglement with asymmetric feature relationships (discrete from continuous)."""
 
     # Generate experiment with continuous features and their discrete versions
-    exp, selectivity_info = generate_synthetic_exp_with_mixed_selectivity(
+    exp = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=0,  # No independent discrete features
         n_continuous_feats=2,  # Two continuous features
         n_neurons=10,  # Smaller for focused test
@@ -529,7 +529,7 @@ def test_disentanglement_with_asymmetric_features():
     assert "d_feat_from_c0" in feature_names
 
     # Get neurons with mixed selectivity including continuous/discrete pairs
-    selectivity_matrix = selectivity_info["matrix"]
+    selectivity_matrix = exp.ground_truth["selectivity_matrix"]
     mixed_neurons = np.where(np.sum(selectivity_matrix > 0, axis=0) >= 2)[0]
 
     # Run significance testing

@@ -48,12 +48,12 @@ class TestGenerateMixedPopulationExpFast:
         # Check calcium signals shape
         assert exp.calcium.shape == (10, 300)
 
-        # Check features exist
-        assert "x_position" in exp.dynamic_features
-        assert "y_position" in exp.dynamic_features
+        # Check features exist (new naming convention from generate_tuned_selectivity_exp)
+        assert "x" in exp.dynamic_features
+        assert "y" in exp.dynamic_features
         assert "position_2d" in exp.dynamic_features
 
-    @pytest.mark.parametrize("manifold_type", ["2d_spatial", "circular", "3d_spatial"])
+    @pytest.mark.parametrize("manifold_type", ["2d_spatial", "circular"])
     def test_different_manifold_types_fast(self, manifold_type):
         """Fast test for different manifold types."""
         exp, info = generate_mixed_population_exp(
@@ -68,17 +68,13 @@ class TestGenerateMixedPopulationExpFast:
         composition = info["population_composition"]
         assert composition["manifold_type"] == manifold_type
 
-        # Check appropriate features exist
+        # Check appropriate features exist (new naming convention)
         if manifold_type == "2d_spatial":
-            assert "x_position" in exp.dynamic_features
-            assert "y_position" in exp.dynamic_features
+            assert "x" in exp.dynamic_features
+            assert "y" in exp.dynamic_features
             assert "position_2d" in exp.dynamic_features
         elif manifold_type == "circular":
-            assert "circular_angle" in exp.dynamic_features
-        elif manifold_type == "3d_spatial":
-            assert "x_position" in exp.dynamic_features
-            assert "y_position" in exp.dynamic_features
-            assert "z_position" in exp.dynamic_features
+            assert "head_direction" in exp.dynamic_features
 
     def test_feature_selective_params_fast(self):
         """Fast test for feature-selective neuron parameters."""
@@ -94,9 +90,9 @@ class TestGenerateMixedPopulationExpFast:
         assert exp.n_cells == 8
         assert info["population_composition"]["n_feature_selective"] == 8
 
-        # Check behavioral features
-        discrete_feats = [f for f in exp.dynamic_features if f.startswith("d_feat_")]
-        continuous_feats = [f for f in exp.dynamic_features if f.startswith("c_feat_")]
+        # Check behavioral features (new naming convention: event_N, fbm_N)
+        discrete_feats = [f for f in exp.dynamic_features if f.startswith("event_")]
+        continuous_feats = [f for f in exp.dynamic_features if f.startswith("fbm_")]
         assert len(discrete_feats) == 1
         assert len(continuous_feats) == 2
 
@@ -168,9 +164,10 @@ class TestGenerateMixedPopulationExpFast:
             **FAST_PARAMS,
         )
 
-        assert "c_feat_0" in exp.dynamic_features
-        assert "c_feat_2" in exp.dynamic_features
-        assert "d_feat_0" not in exp.dynamic_features
+        # New naming convention: fbm_N for continuous, event_N for discrete
+        assert "fbm_0" in exp.dynamic_features
+        assert "fbm_2" in exp.dynamic_features
+        assert "event_0" not in exp.dynamic_features
 
         # No continuous features
         exp = generate_mixed_population_exp(
@@ -181,9 +178,9 @@ class TestGenerateMixedPopulationExpFast:
             **FAST_PARAMS,
         )
 
-        assert "d_feat_0" in exp.dynamic_features
-        assert "d_feat_1" in exp.dynamic_features
-        assert "c_feat_0" not in exp.dynamic_features
+        assert "event_0" in exp.dynamic_features
+        assert "event_1" in exp.dynamic_features
+        assert "fbm_0" not in exp.dynamic_features
 
 
 class TestParameterValidation:

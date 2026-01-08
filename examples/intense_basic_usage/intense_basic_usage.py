@@ -81,10 +81,13 @@ def main():
                 pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name)
 
                 print(f"   - Neuron {cell_id} <-> Feature '{feat_name}':")
-                print(f"     - Mutual Information: {pair_stats['pre_rval']:.4f}")
+                print(f"     - Mutual Information: {pair_stats.get('me', 0):.4f} bits")
                 if "pval" in pair_stats:
                     print(f"     - P-value: {pair_stats['pval']:.2e}")
-                print(f"     - Optimal delay: {pair_stats.get('shift_used', 0):.2f}s")
+                # opt_delay is in frames; convert to seconds using experiment fps
+                opt_delay_frames = pair_stats.get("opt_delay", 0)
+                opt_delay_sec = opt_delay_frames / exp.fps if exp.fps else 0
+                print(f"     - Optimal delay: {opt_delay_sec:.2f}s ({opt_delay_frames} frames)")
 
         if len(significant_neurons) > 3:
             remaining = len(significant_neurons) - 3
@@ -120,8 +123,8 @@ def main():
     print("BASIC USAGE EXAMPLE COMPLETE")
     print("=" * 60)
     print("\nNext steps:")
-    print("- Try full_pipeline.py for comprehensive analysis")
-    print("- Try mixed_selectivity.py for advanced disentanglement")
+    print("- Try full_intense_pipeline/ for comprehensive analysis with ground truth")
+    print("- Try mixed_selectivity/ for advanced disentanglement")
     print("- Modify parameters above to explore different scenarios")
 
 

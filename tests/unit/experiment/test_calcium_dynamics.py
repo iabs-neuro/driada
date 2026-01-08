@@ -9,7 +9,6 @@ from driada.experiment.synthetic import (
     validate_peak_rate,
     generate_circular_manifold_neurons,
     generate_2d_manifold_neurons,
-    generate_3d_manifold_neurons,
     generate_circular_manifold_data,
     generate_mixed_population_exp,
 )
@@ -28,14 +27,6 @@ def position_2d_data():
     from driada.experiment.synthetic import generate_2d_random_walk
 
     return generate_2d_random_walk(100, seed=42)
-
-
-@pytest.fixture(scope="module")
-def position_3d_data():
-    """Generate 3D position data once for all tests."""
-    from driada.experiment.synthetic import generate_3d_random_walk
-
-    return generate_3d_random_walk(100, seed=42)
 
 
 @pytest.fixture(scope="module")
@@ -125,29 +116,6 @@ def test_2d_manifold_defaults(position_2d_data):
         assert len(w) == 0
 
 
-def test_3d_manifold_defaults(position_3d_data):
-    """Test that 3D manifold functions use correct defaults."""
-    positions = position_3d_data  # Already in (3, n_timepoints) format
-
-    # Should warn with high peak_rate
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        firing_rates, _ = generate_3d_manifold_neurons(
-            n_neurons=8, positions=positions, peak_rate=4.0  # High rate
-        )
-        assert len(w) == 1
-
-    # Should not warn with default
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        firing_rates, _ = generate_3d_manifold_neurons(
-            n_neurons=8,
-            positions=positions,
-            # Uses default peak_rate=1.0
-        )
-        assert len(w) == 0
-
-
 def test_mixed_population_defaults(mixed_population_experiment):
     """Test that mixed population uses correct defaults."""
     exp = mixed_population_experiment
@@ -217,13 +185,11 @@ def test_parameter_documentation():
     from driada.experiment.synthetic import (
         generate_circular_manifold_neurons,
         generate_2d_manifold_neurons,
-        generate_3d_manifold_neurons,
     )
 
     for func in [
         generate_circular_manifold_neurons,
         generate_2d_manifold_neurons,
-        generate_3d_manifold_neurons,
     ]:
         assert "calcium" in func.__doc__.lower()
         assert "saturation" in func.__doc__.lower() or "2 Hz" in func.__doc__.lower()
@@ -235,23 +201,17 @@ def test_default_values_are_realistic():
     from driada.experiment.synthetic import (
         generate_circular_manifold_neurons,
         generate_2d_manifold_neurons,
-        generate_3d_manifold_neurons,
         generate_2d_manifold_data,
-        generate_3d_manifold_data,
         generate_2d_manifold_exp,
-        generate_3d_manifold_exp,
     )
 
     # Check function signatures for default peak_rate
     functions_to_check = [
         generate_circular_manifold_neurons,
         generate_2d_manifold_neurons,
-        generate_3d_manifold_neurons,
         generate_circular_manifold_data,
         generate_2d_manifold_data,
-        generate_3d_manifold_data,
         generate_2d_manifold_exp,
-        generate_3d_manifold_exp,
     ]
 
     for func in functions_to_check:

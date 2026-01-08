@@ -47,7 +47,6 @@ from .experiment import (
     generate_synthetic_exp,
     generate_circular_manifold_exp,
     generate_2d_manifold_exp,
-    generate_3d_manifold_exp,
     generate_mixed_population_exp,
 )
 
@@ -95,7 +94,6 @@ __all__ = [
     "generate_synthetic_exp",
     "generate_circular_manifold_exp",
     "generate_2d_manifold_exp",
-    "generate_3d_manifold_exp",
     "generate_mixed_population_exp",
     "generate_tuned_selectivity_exp",
     # Dimensionality reduction

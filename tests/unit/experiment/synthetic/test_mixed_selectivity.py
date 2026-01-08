@@ -226,7 +226,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
 
     def test_basic_generation(self):
         """Test basic experiment generation."""
-        exp, info = generate_synthetic_exp_with_mixed_selectivity(
+        exp = generate_synthetic_exp_with_mixed_selectivity(
             n_discrete_feats=2,
             n_continuous_feats=2,
             n_neurons=10,
@@ -241,16 +241,16 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
         assert exp.n_cells == 10
         assert exp.n_frames == 600
 
-        # Check selectivity info
-        assert "matrix" in info
-        assert "feature_names" in info
-        assert info["matrix"].shape[1] == 10  # n_neurons
+        # Check ground truth
+        assert "selectivity_matrix" in exp.ground_truth
+        assert "feature_names" in exp.ground_truth
+        assert exp.ground_truth["selectivity_matrix"].shape[1] == 10  # n_neurons
 
     def test_detectability_of_mixed_selectivity(self):
         """Critical test: Verify generated mixed selectivity is detectable."""
         # Generate with parameters designed for strong selectivity
         # Use only discrete features for clearer signals
-        exp, info = generate_synthetic_exp_with_mixed_selectivity(
+        exp = generate_synthetic_exp_with_mixed_selectivity(
             n_discrete_feats=4,
             n_continuous_feats=0,
             n_neurons=20,
@@ -269,7 +269,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
         )
 
         # Get neurons with mixed selectivity from ground truth
-        selectivity_matrix = info["matrix"]
+        selectivity_matrix = exp.ground_truth["selectivity_matrix"]
         mixed_neurons = np.where(np.sum(selectivity_matrix > 0, axis=0) >= 2)[0]
 
         assert (
@@ -305,7 +305,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             neuron_idx = neuron_id
             ground_truth_selectivity = selectivity_matrix[:, neuron_idx]
             selective_features = np.where(ground_truth_selectivity > 0)[0]
-            feature_names = info["feature_names"]
+            feature_names = exp.ground_truth["feature_names"]
             print(f"\nNeuron {neuron_id}:")
             print(
                 f"  Ground truth: selective to features {[feature_names[i] for i in selective_features]}"
@@ -357,7 +357,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
 
     def test_multifeature_generation(self):
         """Test multifeature generation."""
-        exp, info = generate_synthetic_exp_with_mixed_selectivity(
+        exp = generate_synthetic_exp_with_mixed_selectivity(
             n_discrete_feats=1,
             n_continuous_feats=4,
             n_neurons=10,
@@ -384,7 +384,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
     def test_parameter_sensitivity(self):
         """Test that parameters actually affect detectability."""
         # Test with weak parameters - all neurons selective but weak signals
-        exp_weak, _ = generate_synthetic_exp_with_mixed_selectivity(
+        exp_weak = generate_synthetic_exp_with_mixed_selectivity(
             n_discrete_feats=3,
             n_continuous_feats=0,
             n_neurons=20,
@@ -400,7 +400,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
         )
 
         # Test with strong parameters - all neurons selective with strong signals
-        exp_strong, _ = generate_synthetic_exp_with_mixed_selectivity(
+        exp_strong = generate_synthetic_exp_with_mixed_selectivity(
             n_discrete_feats=3,
             n_continuous_feats=0,
             n_neurons=20,
@@ -461,7 +461,7 @@ class TestIntegrationWithAnalysisPipeline:
             seed = 42 + attempt * 100
 
             # Generate data with higher baseline and much higher active rate
-            exp, info = generate_synthetic_exp_with_mixed_selectivity(
+            exp = generate_synthetic_exp_with_mixed_selectivity(
                 n_discrete_feats=3,
                 n_continuous_feats=0,
                 n_neurons=20,  # More neurons
@@ -479,7 +479,7 @@ class TestIntegrationWithAnalysisPipeline:
             )
 
             # Find neurons with strongest mixed selectivity
-            selectivity_matrix = info["matrix"]
+            selectivity_matrix = exp.ground_truth["selectivity_matrix"]
             n_features_per_neuron = np.sum(selectivity_matrix > 0, axis=0)
             strong_mixed = np.where(n_features_per_neuron >= 2)[0]
 
@@ -570,7 +570,7 @@ class TestIntegrationWithAnalysisPipeline:
 
         # If all attempts failed, run one more with relaxed parameters
         print("\n=== Running final attempt with relaxed parameters ===")
-        exp, info = generate_synthetic_exp_with_mixed_selectivity(
+        exp = generate_synthetic_exp_with_mixed_selectivity(
             n_discrete_feats=3,
             n_continuous_feats=0,
             n_neurons=30,  # More neurons
@@ -588,7 +588,7 @@ class TestIntegrationWithAnalysisPipeline:
         )
 
         # Test without disentanglement requirement
-        selectivity_matrix = info["matrix"]
+        selectivity_matrix = exp.ground_truth["selectivity_matrix"]
         n_features_per_neuron = np.sum(selectivity_matrix > 0, axis=0)
         two_feature_neurons = np.where(n_features_per_neuron == 2)[0][:10]
 
@@ -639,7 +639,7 @@ def test_generation_performance():
     import time
 
     start = time.time()
-    exp, info = generate_synthetic_exp_with_mixed_selectivity(
+    exp = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=5,
         n_continuous_feats=5,
         n_neurons=50,
@@ -657,7 +657,7 @@ def test_edge_cases():
     """Test edge cases in generation."""
     # Many features, few neurons - this is a valid edge case for mixed selectivity
     # Use longer duration to avoid shuffle mask issues
-    exp, info = generate_synthetic_exp_with_mixed_selectivity(
+    exp = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=10,
         n_continuous_feats=10,
         n_neurons=3,
@@ -668,7 +668,7 @@ def test_edge_cases():
     assert exp.n_cells == 3
 
     # Minimal case for mixed selectivity: 2 features, 2 neurons
-    exp, info = generate_synthetic_exp_with_mixed_selectivity(
+    exp = generate_synthetic_exp_with_mixed_selectivity(
         n_discrete_feats=2,
         n_continuous_feats=0,
         n_neurons=2,

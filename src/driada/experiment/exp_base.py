@@ -249,6 +249,7 @@ class Experiment:
         exp_identificators,
         static_features,
         dynamic_features,
+        ground_truth=None,
         **kwargs,
     ):
         """Initialize experiment with neural data and behavioral features.
@@ -281,6 +282,13 @@ class Experiment:
             Time-varying behavioral features (e.g., position, speed).
             Values should be array-like with time dimension matching n_frames.
             Keys become accessible via self.dynamic_features.
+        ground_truth : dict or None, optional
+            Ground truth for synthetic experiments. None for real data.
+            For synthetic data, typically contains:
+            - "expected_pairs": list of (neuron_idx, feature_name) tuples
+            - "tuning_parameters": dict of per-neuron tuning params
+            - "neuron_types": dict mapping neuron_idx to group name
+            - "population_config": original population configuration
         **kwargs
             Additional parameters:
             - optimize_kinetics (bool or str): Optimize kinetics per neuron. Default False.
@@ -368,6 +376,7 @@ class Experiment:
         check_dynamic_features(dynamic_features)
         self.exp_identificators = exp_identificators
         self.signature = signature
+        self.ground_truth = ground_truth  # None for real data, dict for synthetic
 
         for idx in exp_identificators:
             setattr(self, idx, exp_identificators[idx])

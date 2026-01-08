@@ -273,6 +273,18 @@ find . -type f -newer <timestamp_before_run>
 - Use TodoWrite to update status
 - Include brief note about pass/fail status
 
+### 6.4 User Validation (REQUIRED)
+**Action**: WAIT for user to validate results before marking example complete
+- Present summary of example execution to user
+- Show key results and generated visualizations
+- User checks:
+  - **Meaningfulness**: Do results make scientific sense?
+  - **Global picture**: Does example fit within DRIADA's goals?
+  - **Quality**: Are outputs publication-ready?
+- **DO NOT mark example as complete until user explicitly approves**
+
+**Deliverable**: User approval to proceed
+
 ---
 
 ## CHECKLIST SUMMARY
@@ -294,7 +306,8 @@ For each example, verify:
 - [ ] **Phase 5**: All plots visually inspected
 - [ ] **Phase 5**: No overlapping elements or visual issues
 - [ ] **Phase 6**: Clear report of what was generated and where
-- [ ] **Phase 6**: Todo list updated
+- [ ] **Phase 6**: User validated results (meaningfulness, global picture, quality)
+- [ ] **Phase 6**: Todo list updated after user approval
 
 ---
 
@@ -311,8 +324,9 @@ For each example, follow this workflow:
 6. Run example with MPLBACKEND=Agg
 7. Inventory generated files
 8. Read all plots/images
-9. Generate report
-10. Update todo list
+9. Generate report and present to user
+10. WAIT for user validation (meaningfulness, global picture, quality)
+11. Update status file only after user approval
 ```
 
 ---

@@ -41,12 +41,6 @@ from .synthetic import (
     generate_2d_manifold_neurons,
     generate_2d_manifold_data,
     generate_2d_manifold_exp,
-    # 3D spatial manifold functions
-    generate_3d_random_walk,
-    gaussian_place_field_3d,
-    generate_3d_manifold_neurons,
-    generate_3d_manifold_data,
-    generate_3d_manifold_exp,
     # Mixed population generator
     generate_mixed_population_exp,
 )
@@ -101,12 +95,6 @@ __all__ = [
     "generate_2d_manifold_neurons",
     "generate_2d_manifold_data",
     "generate_2d_manifold_exp",
-    # 3D spatial manifold functions
-    "generate_3d_random_walk",
-    "gaussian_place_field_3d",
-    "generate_3d_manifold_neurons",
-    "generate_3d_manifold_data",
-    "generate_3d_manifold_exp",
     # Mixed population generator
     "generate_mixed_population_exp",
     # Neuron analysis

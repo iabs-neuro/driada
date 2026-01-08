@@ -3,8 +3,12 @@ Synthetic data generation for neural manifold analysis.
 
 This module provides functions to generate synthetic neural data with realistic
 properties for testing and demonstration purposes. It supports various manifold
-types (circular, 2D spatial, 3D spatial) and mixed populations with both
-manifold and feature-selective cells.
+types (circular, 2D spatial) and mixed populations with both manifold and
+feature-selective cells.
+
+The canonical generator is `generate_tuned_selectivity_exp()` from
+principled_selectivity.py. Other generators are maintained for backward
+compatibility but delegate to the canonical generator internally.
 
 The original monolithic synthetic.py file has been split into focused modules
 for better organization and maintainability. All functions remain available
@@ -44,15 +48,6 @@ from .manifold_spatial_2d import (
     generate_2d_manifold_neurons,
     generate_2d_manifold_data,
     generate_2d_manifold_exp,
-)
-
-# 3D spatial manifold (3D place cells)
-from .manifold_spatial_3d import (
-    generate_3d_random_walk,
-    gaussian_place_field_3d,
-    generate_3d_manifold_neurons,
-    generate_3d_manifold_data,
-    generate_3d_manifold_exp,
 )
 
 # Mixed selectivity
@@ -105,12 +100,6 @@ __all__ = [
     "generate_2d_manifold_neurons",
     "generate_2d_manifold_data",
     "generate_2d_manifold_exp",
-    # 3D spatial manifold
-    "generate_3d_random_walk",
-    "gaussian_place_field_3d",
-    "generate_3d_manifold_neurons",
-    "generate_3d_manifold_data",
-    "generate_3d_manifold_exp",
     # Mixed selectivity
     "generate_multiselectivity_patterns",
     "generate_mixed_selective_signal",

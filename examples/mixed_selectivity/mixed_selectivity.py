@@ -29,34 +29,33 @@ def generate_mixed_selectivity_data():
     print("\n=== GENERATING MIXED SELECTIVITY DATA ===")
 
     # For demonstration, create a smaller experiment with stronger selectivity
-    exp, selectivity_info = (
-        driada.experiment.generate_synthetic_exp_with_mixed_selectivity(
-            n_discrete_feats=2,  # Fewer features for clearer demonstration
-            n_continuous_feats=2,  # Fewer continuous features
-            n_neurons=30,  # Smaller population for faster analysis
-            n_multifeatures=1,  # One multifeature
-            selectivity_prob=1.0,  # All neurons are selective
-            multi_select_prob=0.8,  # Most have mixed selectivity
-            weights_mode="dominant",  # One feature dominates (clearer for disentanglement)
-            duration=600,  # 10 minutes
-            seed=42,
-            fps=20,
-            verbose=False,
-            create_discrete_pairs=True,  # Create discrete versions of continuous signals for disentanglement demo
-            rate_0=0.1,
-            rate_1=3.0,
-            skip_prob=0.0,
-            ampl_range=(1.5, 3.5),
-            decay_time=2,
-            noise_std=0.05,
-        )
+    exp = driada.experiment.generate_synthetic_exp_with_mixed_selectivity(
+        n_discrete_feats=2,  # Fewer features for clearer demonstration
+        n_continuous_feats=2,  # Fewer continuous features
+        n_neurons=30,  # Smaller population for faster analysis
+        n_multifeatures=1,  # One multifeature
+        selectivity_prob=1.0,  # All neurons are selective
+        multi_select_prob=0.8,  # Most have mixed selectivity
+        weights_mode="dominant",  # One feature dominates (clearer for disentanglement)
+        duration=600,  # 10 minutes
+        seed=42,
+        fps=20,
+        verbose=False,
+        create_discrete_pairs=True,  # Create discrete versions of continuous signals for disentanglement demo
+        rate_0=0.1,
+        rate_1=3.0,
+        skip_prob=0.0,
+        ampl_range=(1.5, 3.5),
+        decay_time=2,
+        noise_std=0.05,
     )
+    # Ground truth is now in exp.ground_truth
 
     print(
         f"Generated experiment: {exp.n_cells} neurons, {len(exp.dynamic_features)} features, {exp.n_frames/exp.fps:.1f}s recording"
     )
 
-    return exp, selectivity_info
+    return exp
 
 
 def run_intense_analysis(exp):
@@ -316,7 +315,7 @@ def main():
     output_dir = os.path.dirname(__file__)
 
     # Step 1: Generate mixed selectivity data with MultiTimeSeries
-    exp, selectivity_info = generate_mixed_selectivity_data()
+    exp = generate_mixed_selectivity_data()
 
     # Step 2: Run INTENSE analysis with disentanglement
     (

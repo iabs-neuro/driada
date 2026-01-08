@@ -1,6 +1,6 @@
 """
-INTENSE → Dimensionality Reduction Pipeline Example
-===================================================
+INTENSE -> Dimensionality Reduction Pipeline Example
+=====================================================
 
 This example demonstrates how INTENSE selectivity analysis can guide
 dimensionality reduction to improve spatial manifold reconstruction.
@@ -11,6 +11,7 @@ Key concepts:
 3. Evaluate reconstruction using spatial correspondence metrics
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -113,7 +114,7 @@ def main(
     filter_params=None,
     include_noisy=False,
 ):
-    """Run the complete INTENSE → DR pipeline example
+    """Run the complete INTENSE -> DR pipeline example
 
     Parameters
     ----------
@@ -139,6 +140,9 @@ def main(
     print("INTENSE-Guided Dimensionality Reduction for Spatial Data")
     print("=" * 70)
 
+    # Output directory for all generated files
+    output_dir = os.path.dirname(os.path.abspath(__file__))
+
     # 1. Generate mixed population data
     print("\n1. Generating mixed population with spatial and non-spatial neurons...")
 
@@ -151,8 +155,8 @@ def main(
     else:
         n_neurons = 300  # More neurons for clearer effects
         duration = 1000  # ~17 minutes for better statistics
-        n_shuffles_1 = 50
-        n_shuffles_2 = 500
+        n_shuffles_1 = 100
+        n_shuffles_2 = 1000
 
     # Always use downsampling for efficiency
     ds = 5
@@ -161,17 +165,8 @@ def main(
         n_neurons=n_neurons,
         manifold_type="2d_spatial",
         manifold_fraction=0.5,  # 1/2 place cells, 1/2 feature cells
-        manifold_params={
-            "field_sigma": 0.15,  # Slightly wider place fields for better coverage
-            "peak_rate": 1.0,  # Lower peak rate to preserve spatial selectivity
-            "baseline_rate": 0.05,  # Lower baseline for better contrast
-            "noise_std": 0.02,  # Lower noise for cleaner signal
-            "decay_time": 2.0,
-            "calcium_noise_std": 0.05,
-        },
         n_discrete_features=3,
         n_continuous_features=3,
-        correlation_mode="independent",
         duration=duration,
         seed=seed,
         verbose=True,
@@ -228,8 +223,8 @@ def main(
     if ds > 1:
         true_positions = true_positions[::ds]
 
-    # 🔍 VERIFICATION: Check ground truth vs detected spatial neurons
-    print("\n🔍 VERIFICATION: Analyzing ground truth vs detected spatial neurons...")
+    # VERIFICATION: Check ground truth vs detected spatial neurons
+    print("\n[CHECK] Analyzing ground truth vs detected spatial neurons...")
 
     # Get ground truth spatial neurons (first 50% are spatial by construction)
     n_true_spatial = int(exp.n_cells * 0.5)  # 50% are spatial
@@ -274,8 +269,8 @@ def main(
     print(f"  Detection Recall: {recall:.3f}")
     print(f"  Detection F1-score: {f1:.3f}")
 
-    # 🔍 VERIFICATION: Test spatial decoding with ground truth neurons
-    print("\n🔍 VERIFICATION: Testing spatial decoding with ground truth neurons...")
+    # VERIFICATION: Test spatial decoding with ground truth neurons
+    print("\n[CHECK] Testing spatial decoding with ground truth neurons...")
 
     # Test with true spatial neurons
     print("  Computing spatial decoding with TRUE spatial neurons...")
@@ -331,18 +326,18 @@ def main(
         + r2_score(y_test[:, 1], y_pred_nonspatial[:, 1])
     ) / 2
 
-    print(f"  Spatial decoding R² - TRUE spatial neurons: {r2_true_spatial:.3f}")
-    print(f"  Spatial decoding R² - TRUE non-spatial neurons: {r2_true_nonspatial:.3f}")
+    print(f"  Spatial decoding R^2 - TRUE spatial neurons: {r2_true_spatial:.3f}")
+    print(f"  Spatial decoding R^2 - TRUE non-spatial neurons: {r2_true_nonspatial:.3f}")
     print(
         f"  Spatial vs Non-spatial ratio: {r2_true_spatial/max(r2_true_nonspatial, 0.001):.2f}x"
     )
 
     # Verify that non-spatial neurons are truly independent
     if r2_true_nonspatial > 0.4:
-        print("  ⚠️  WARNING: Non-spatial neurons show significant spatial decoding!")
+        print("  [WARN] Non-spatial neurons show significant spatial decoding!")
         print("  This suggests the synthetic data generation may have issues.")
     else:
-        print("  ✅ Non-spatial neurons show minimal spatial decoding (as expected)")
+        print("  [OK] Non-spatial neurons show minimal spatial decoding (as expected)")
 
     print(f"  Calcium data shape: {exp.calcium.scdata.shape}")
     print(f"  Downsampled positions shape: {true_positions.shape}")
@@ -543,7 +538,7 @@ def main(
 
                 # Print key metrics
                 print(
-                    f"      Spatial decoding R²: {metrics['spatial_decoding_r2_avg']:.3f}, "
+                    f"      Spatial decoding R^2: {metrics['spatial_decoding_r2_avg']:.3f}, "
                     f"Distance corr: {metrics['distance_correlation']:.3f}, "
                     f"MI: {metrics['spatial_mi_total']:.3f}"
                 )
@@ -609,7 +604,7 @@ def main(
                         scenario
                     ]["embedding"]
                     grid_metrics[method_name][scenario] = {
-                        "R²": results[method_name][scenario]["metrics"][
+                        "R^2": results[method_name][scenario]["metrics"][
                             "spatial_decoding_r2_avg"
                         ]
                     }
@@ -629,7 +624,7 @@ def main(
             colormap="viridis",
             figsize=(18, 12),
             n_cols=4,
-            save_path="intense_dr_pipeline_results.png",
+            save_path=os.path.join(output_dir, "intense_dr_pipeline_results.png"),
             dpi=DEFAULT_DPI,
         )
 
@@ -656,10 +651,9 @@ def main(
         # Create neuron selectivity summary using visual utility
         from driada.utils.visual import plot_neuron_selectivity_summary
 
+        # Use non-overlapping categories for the summary
         selectivity_counts = {
-            "Spatial\n(position_2d)": len(sig_neurons_2d),
-            "Spatial\n(x_position)": len(sig_neurons_x),
-            "Spatial\n(y_position)": len(sig_neurons_y),
+            "Spatial\n(any)": len(spatial_neurons),
             "Non-spatial": exp.n_cells - len(spatial_neurons),
         }
 
@@ -667,7 +661,7 @@ def main(
             selectivity_counts=selectivity_counts,
             total_neurons=exp.n_cells,
             figsize=(8, 6),
-            save_path="intense_dr_neuron_selectivity.png",
+            save_path=os.path.join(output_dir, "intense_dr_neuron_selectivity.png"),
             dpi=DEFAULT_DPI,
         )
         plt.show()
@@ -683,7 +677,7 @@ def main(
 
         # Define metrics to plot
         metrics_to_show = [
-            ("spatial_decoding_r2_avg", "Spatial Decoding R²"),
+            ("spatial_decoding_r2_avg", "Spatial Decoding R^2"),
             ("distance_correlation", "Distance Correlation"),
             ("spatial_mi_total", "Spatial Information (MI)"),
             ("procrustes_disparity", "Procrustes Disparity"),
@@ -757,7 +751,7 @@ def main(
                 ax.set_ylim(0, max(1.0, max(values) * 1.1))
 
         plt.tight_layout()
-        plt.savefig("intense_dr_pipeline_metrics.png", dpi=150, bbox_inches="tight")
+        plt.savefig(os.path.join(output_dir, "intense_dr_pipeline_metrics.png"), dpi=150, bbox_inches="tight")
         plt.show()
 
     # 7. Summary statistics
@@ -786,11 +780,11 @@ def main(
 
     if best_method:
         print(f"  {best_method} with spatial neurons")
-        print(f"  Spatial decoding R²: {best_score:.3f}")
+        print(f"  Spatial decoding R^2: {best_score:.3f}")
 
     print("\nSummary of performance across scenarios:")
 
-    print("\nSpatial decoding R² comparison:")
+    print("\nSpatial decoding R^2 comparison:")
     for method_name in results.keys():
         print(f"\n  {method_name}:")
         scenarios_order = [
@@ -823,7 +817,7 @@ def main(
                     "spatial_decoding_r2_avg"
                 ]
                 imp = (r2_spatial / max(r2_all, 0.001) - 1) * 100
-                print(f"    → Spatial vs All improvement: {imp:+.1f}%")
+                print(f"    -> Spatial vs All improvement: {imp:+.1f}%")
 
             if (
                 "Random half" in results[method_name]
@@ -833,7 +827,7 @@ def main(
                     "spatial_decoding_r2_avg"
                 ]
                 ratio = r2_random / max(r2_all, 0.001)
-                print(f"    → Random half / All ratio: {ratio:.2f}")
+                print(f"    -> Random half / All ratio: {ratio:.2f}")
 
     if include_noisy:
         print("\nNoisy data performance:")
@@ -854,7 +848,7 @@ def main(
                     ]["spatial_decoding_r2_avg"]
                     imp = (r2_spatial / max(r2_all, 0.001) - 1) * 100
                     print(
-                        f"  {method_name}: All {r2_all:.3f} → Spatial {r2_spatial:.3f} ({imp:+.1f}%)"
+                        f"  {method_name}: All {r2_all:.3f} -> Spatial {r2_spatial:.3f} ({imp:+.1f}%)"
                     )
 
     return exp, results

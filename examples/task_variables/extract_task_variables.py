@@ -58,6 +58,9 @@ def generate_task_data(duration=600, fps=20, seed=42):
     print("\n=== GENERATING TASK DATA ===")
     print("Task: 2D navigation with speed modulation and reward signals")
 
+    # Note: Features are independent by design in the simplified generator.
+    # For correlated features simulating realistic task conditions, use
+    # generate_tuned_selectivity_exp() with custom post-processing.
     exp, info = generate_mixed_population_exp(
         n_neurons=200,
         manifold_type="2d_spatial",
@@ -66,28 +69,7 @@ def generate_task_data(duration=600, fps=20, seed=42):
         n_continuous_features=2,
         duration=duration,
         fps=fps,
-        correlation_mode="spatial_correlated",
         seed=seed,
-        manifold_params={
-            "grid_arrangement": True,
-            "field_sigma": 0.15,
-            "noise_std": 0.05,
-            "baseline_rate": 0.1,
-            "peak_rate": 1.0,  # Realistic for calcium imaging
-            "decay_time": 2.0,
-            "calcium_noise_std": 0.05,
-        },
-        feature_params={
-            "selectivity_prob": 0.9,
-            "multi_select_prob": 0.6,
-            "rate_0": 0.5,
-            "rate_1": 4.0,
-            "noise_std": 0.05,
-            "hurst": 0.3,
-            "skip_prob": 0.0,
-            "ampl_range": (1.5, 3.5),
-            "decay_time": 2.0,
-        },
         return_info=True,
     )
 

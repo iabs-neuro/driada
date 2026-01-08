@@ -206,6 +206,49 @@ class TestCombineResponses:
         with pytest.raises(ValueError, match="Unknown combination mode"):
             combine_responses([r1, r2], mode="invalid")
 
+    def test_weighted_sum_mode(self):
+        """Test weighted_sum combination mode."""
+        r1 = np.array([0.2, 0.8, 0.1])
+        r2 = np.array([0.5, 0.3, 0.9])
+        combined = combine_responses([r1, r2], weights=[0.7, 0.3], mode="weighted_sum")
+        # Expected: 0.2*0.7 + 0.5*0.3 = 0.29, 0.8*0.7 + 0.3*0.3 = 0.65, 0.1*0.7 + 0.9*0.3 = 0.34
+        expected = np.array([0.29, 0.65, 0.34])
+        assert np.allclose(combined, expected)
+
+    def test_weighted_or_mode(self):
+        """Test weighted_or combination mode."""
+        r1 = np.array([0.2, 0.8, 0.1])
+        r2 = np.array([0.5, 0.3, 0.9])
+        combined = combine_responses([r1, r2], weights=[0.7, 0.3], mode="weighted_or")
+        # Expected: max(0.2*0.7, 0.5*0.3)=0.15, max(0.8*0.7, 0.3*0.3)=0.56, max(0.1*0.7, 0.9*0.3)=0.27
+        expected = np.array([0.15, 0.56, 0.27])
+        assert np.allclose(combined, expected)
+
+    def test_weighted_sum_default_weights(self):
+        """Test weighted_sum with default equal weights."""
+        r1 = np.array([0.2, 0.8])
+        r2 = np.array([0.6, 0.4])
+        combined = combine_responses([r1, r2], mode="weighted_sum")
+        # Expected with equal weights (0.5, 0.5): (0.2+0.6)/2=0.4, (0.8+0.4)/2=0.6
+        expected = np.array([0.4, 0.6])
+        assert np.allclose(combined, expected)
+
+    def test_weighted_sum_clipping(self):
+        """Test that weighted_sum clips to [0, 1]."""
+        r1 = np.array([0.8, 0.9])
+        r2 = np.array([0.9, 0.8])
+        combined = combine_responses([r1, r2], weights=[0.8, 0.8], mode="weighted_sum")
+        # 0.8*0.8 + 0.9*0.8 = 1.36, should clip to 1.0
+        assert np.all(combined <= 1.0)
+        assert np.all(combined >= 0.0)
+
+    def test_weighted_mismatched_lengths_raises_error(self):
+        """Test that mismatched weights/responses raises ValueError."""
+        r1 = np.array([0.2, 0.8])
+        r2 = np.array([0.5, 0.3])
+        with pytest.raises(ValueError, match="Number of weights"):
+            combine_responses([r1, r2], weights=[0.5, 0.3, 0.2], mode="weighted_sum")
+
 
 class TestGenerateTunedSelectivityExp:
     """Tests for the main experiment generation function."""
@@ -216,9 +259,10 @@ class TestGenerateTunedSelectivityExp:
             {"name": "hd_cells", "count": 2, "features": ["head_direction"]},
             {"name": "nonselective", "count": 2, "features": []},
         ]
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
+        ground_truth = exp.ground_truth
 
         assert exp.n_cells == 4
         assert exp.n_frames == 30 * 20  # 30s at 20 fps
@@ -229,9 +273,10 @@ class TestGenerateTunedSelectivityExp:
             {"name": "hd_cells", "count": 2, "features": ["head_direction"]},
             {"name": "place_cells", "count": 2, "features": ["x", "y"]},
         ]
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
+        ground_truth = exp.ground_truth
 
         # Check required keys
         assert "expected_pairs" in ground_truth
@@ -246,9 +291,10 @@ class TestGenerateTunedSelectivityExp:
             {"name": "speed_cells", "count": 2, "features": ["speed"]},
             {"name": "nonselective", "count": 1, "features": []},
         ]
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
+        ground_truth = exp.ground_truth
 
         expected_pairs = ground_truth["expected_pairs"]
 
@@ -269,9 +315,10 @@ class TestGenerateTunedSelectivityExp:
         population = [
             {"name": "place_cells", "count": 2, "features": ["x", "y"], "combination": "and"},
         ]
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
+        ground_truth = exp.ground_truth
 
         expected_pairs = ground_truth["expected_pairs"]
 
@@ -293,9 +340,10 @@ class TestGenerateTunedSelectivityExp:
             {"name": "hd_cells", "count": 2, "features": ["head_direction"]},
             {"name": "speed_cells", "count": 3, "features": ["speed"]},
         ]
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
+        ground_truth = exp.ground_truth
 
         neuron_types = ground_truth["neuron_types"]
 
@@ -314,9 +362,10 @@ class TestGenerateTunedSelectivityExp:
             {"name": "hd_cells", "count": 1, "features": ["head_direction"]},
             {"name": "speed_cells", "count": 1, "features": ["speed"]},
         ]
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
+        ground_truth = exp.ground_truth
 
         tuning_params = ground_truth["tuning_parameters"]
 
@@ -338,13 +387,14 @@ class TestGenerateTunedSelectivityExp:
         ]
         tuning_defaults = {"head_direction": {"kappa": 5.0}}  # Custom kappa
 
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population,
             tuning_defaults=tuning_defaults,
             duration=30,
             seed=42,
             verbose=False,
         )
+        ground_truth = exp.ground_truth
 
         hd_params = ground_truth["tuning_parameters"][0]["head_direction"]
         assert hd_params["kappa"] == 5.0
@@ -360,9 +410,10 @@ class TestGenerateTunedSelectivityExp:
             },
         ]
 
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
+        ground_truth = exp.ground_truth
 
         hd_params = ground_truth["tuning_parameters"][0]["head_direction"]
         assert hd_params["kappa"] == 8.0
@@ -373,13 +424,14 @@ class TestGenerateTunedSelectivityExp:
             {"name": "event_cells", "count": 2, "features": ["event_0"]},
         ]
 
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population,
             n_discrete_features=2,
             duration=30,
             seed=42,
             verbose=False,
         )
+        ground_truth = exp.ground_truth
 
         # Check that event_0 feature exists
         assert "event_0" in exp.dynamic_features
@@ -400,13 +452,14 @@ class TestGenerateTunedSelectivityExp:
             },
         ]
 
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population,
             n_discrete_features=1,
             duration=30,
             seed=42,
             verbose=False,
         )
+        ground_truth = exp.ground_truth
 
         # Should have 2 neurons x 2 features = 4 expected pairs
         assert len(ground_truth["expected_pairs"]) == 4
@@ -417,10 +470,10 @@ class TestGenerateTunedSelectivityExp:
             {"name": "hd_cells", "count": 2, "features": ["head_direction"]},
         ]
 
-        exp1, gt1 = generate_tuned_selectivity_exp(
+        exp1 = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
-        exp2, gt2 = generate_tuned_selectivity_exp(
+        exp2 = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
 
@@ -431,8 +484,8 @@ class TestGenerateTunedSelectivityExp:
 
         # Tuning parameters should be identical
         assert (
-            gt1["tuning_parameters"][0]["head_direction"]["pref_dir"]
-            == gt2["tuning_parameters"][0]["head_direction"]["pref_dir"]
+            exp1.ground_truth["tuning_parameters"][0]["head_direction"]["pref_dir"]
+            == exp2.ground_truth["tuning_parameters"][0]["head_direction"]["pref_dir"]
         )
 
     def test_different_seeds_produce_different_results(self):
@@ -441,10 +494,10 @@ class TestGenerateTunedSelectivityExp:
             {"name": "hd_cells", "count": 2, "features": ["head_direction"]},
         ]
 
-        exp1, gt1 = generate_tuned_selectivity_exp(
+        exp1 = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
-        exp2, gt2 = generate_tuned_selectivity_exp(
+        exp2 = generate_tuned_selectivity_exp(
             population, duration=30, seed=123, verbose=False
         )
 
@@ -462,7 +515,7 @@ class TestGenerateTunedSelectivityExp:
             {"name": "event_cells", "count": 1, "features": ["event_0"]},
         ]
 
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population,
             n_discrete_features=2,
             duration=30,
@@ -477,6 +530,35 @@ class TestGenerateTunedSelectivityExp:
         assert "event_0" in exp.dynamic_features
         assert "event_1" in exp.dynamic_features
         assert "position_2d" in exp.dynamic_features
+
+    def test_weighted_combination_in_generator(self):
+        """Test weighted combination mode in experiment generation."""
+        population = [
+            {
+                "name": "weighted_mixed",
+                "count": 2,
+                "features": ["head_direction", "event_0"],
+                "weights": [0.7, 0.3],
+                "combination": "weighted_sum",
+            },
+        ]
+
+        exp = generate_tuned_selectivity_exp(
+            population,
+            n_discrete_features=1,
+            duration=30,
+            seed=42,
+            verbose=False,
+        )
+        ground_truth = exp.ground_truth
+
+        # Check that _combination info is stored in ground truth
+        for idx in range(2):
+            params = ground_truth["tuning_parameters"][idx]
+            assert "_combination" in params
+            assert params["_combination"]["mode"] == "weighted_sum"
+            assert params["_combination"]["weights"]["head_direction"] == 0.7
+            assert params["_combination"]["weights"]["event_0"] == 0.3
 
     def test_unknown_feature_raises_error(self):
         """Test that unknown feature raises ValueError."""
@@ -629,9 +711,10 @@ class TestGroundTruthToSelectivityMatrix:
             {"name": "nonselective", "count": 1, "features": []},
         ]
 
-        exp, ground_truth = generate_tuned_selectivity_exp(
+        exp = generate_tuned_selectivity_exp(
             population, duration=30, seed=42, verbose=False
         )
+        ground_truth = exp.ground_truth
 
         result = ground_truth_to_selectivity_matrix(ground_truth)
 

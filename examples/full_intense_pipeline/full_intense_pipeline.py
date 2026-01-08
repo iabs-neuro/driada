@@ -354,14 +354,15 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
     n_neurons = exp.n_cells
     n_features = len(feature_names)
 
-    # Create MI matrix
+    # Create MI matrix using 'me' (Mutual Entropy in bits)
+    # 'me' is the actual information-theoretic measure, not rank-based like 'rval'
     mi_matrix = np.zeros((n_neurons, n_features))
     for neuron_id, features in significant_neurons.items():
         for feat_name in features:
             if feat_name in feature_names:
                 feat_idx = feature_names.index(feat_name)
                 pair_stats = exp.get_neuron_feature_pair_stats(neuron_id, feat_name)
-                mi_matrix[neuron_id, feat_idx] = pair_stats.get("pre_rval", 0)
+                mi_matrix[neuron_id, feat_idx] = pair_stats.get("me", 0)
 
     im = ax1.imshow(mi_matrix, aspect="auto", cmap="viridis")
     ax1.set_xlabel("Features")
@@ -372,7 +373,7 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
 
     # Add colorbar
     cbar = plt.colorbar(im, ax=ax1, shrink=0.8)
-    cbar.set_label("Mutual Information")
+    cbar.set_label("Mutual Information (bits)")
 
     # Add neuron type annotations
     type_colors = {
@@ -406,28 +407,40 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
         ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2,
                 f"{pct:.0f}%", ha="center", va="bottom", fontsize=9)
 
-    # 3. Summary statistics
+    # 3. Summary statistics (before and after disentanglement)
     ax3 = fig.add_subplot(2, 2, 4)
     ax3.axis("off")
+
+    # Get corrected metrics if available
+    has_corrected = "precision_corrected" in metrics
+    prec_raw = metrics["precision"]
+    prec_corr = metrics.get("precision_corrected", prec_raw)
+    f1_raw = metrics["f1"]
+    f1_corr = metrics.get("f1_corrected", f1_raw)
+    fp_redundant = metrics.get("fp_redundant", 0)
 
     summary_text = (
         f"VALIDATION SUMMARY\n"
         f"{'=' * 30}\n\n"
-        f"Overall Metrics:\n"
-        f"  Sensitivity: {metrics['sensitivity']:.1%}\n"
-        f"  Precision:   {metrics['precision']:.1%}\n"
-        f"  F1 Score:    {metrics['f1']:.1%}\n\n"
+        f"{'Metric':<12} {'Raw':>8} {'Corrected':>10}\n"
+        f"{'-' * 30}\n"
+        f"{'Sensitivity':<12} {metrics['sensitivity']:>7.1%}\n"
+        f"{'Precision':<12} {prec_raw:>7.1%}  {prec_corr:>9.1%}\n"
+        f"{'F1 Score':<12} {f1_raw:>7.1%}  {f1_corr:>9.1%}\n\n"
         f"Detection Counts:\n"
         f"  True Positives:  {metrics['true_positives']}\n"
-        f"  False Positives: {metrics['false_positives']}\n"
-        f"  False Negatives: {metrics['false_negatives']}\n\n"
+        f"  False Positives: {metrics['false_positives']}"
+    )
+    if fp_redundant > 0:
+        summary_text += f" ({fp_redundant} redundant)"
+    summary_text += (
+        f"\n  False Negatives: {metrics['false_negatives']}\n\n"
         f"Population:\n"
-        f"  Total neurons: {exp.n_cells}\n"
-        f"  Total features: {len(exp.dynamic_features)}\n"
+        f"  Neurons: {exp.n_cells}, Features: {len(exp.dynamic_features)}\n"
         f"  Expected pairs: {len(ground_truth['expected_pairs'])}\n"
     )
-    ax3.text(0.1, 0.95, summary_text, transform=ax3.transAxes,
-            fontfamily="monospace", fontsize=10, verticalalignment="top")
+    ax3.text(0.05, 0.95, summary_text, transform=ax3.transAxes,
+            fontfamily="monospace", fontsize=9, verticalalignment="top")
 
     plt.tight_layout()
 
@@ -461,7 +474,7 @@ def main():
         "y": {"sigma": CONFIG["place_sigma"]},
     }
 
-    exp, ground_truth = generate_tuned_selectivity_exp(
+    exp = generate_tuned_selectivity_exp(
         population=POPULATION,
         tuning_defaults=tuning_defaults,
         duration=CONFIG["duration"],
@@ -476,6 +489,7 @@ def main():
         seed=CONFIG["seed"],
         verbose=True,
     )
+    ground_truth = exp.ground_truth
 
     # Step 2: Run INTENSE analysis with disentanglement and delay optimization
     print("\n[2] RUNNING INTENSE ANALYSIS")
