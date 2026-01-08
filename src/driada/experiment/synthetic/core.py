@@ -8,6 +8,10 @@ generation functions, including firing rate validation and calcium signal genera
 import numpy as np
 import warnings
 
+# Default calcium indicator rise time in seconds
+# Typical GCaMP6 rise time is ~40ms (0.04s)
+DEFAULT_T_RISE = 0.04
+
 
 def validate_peak_rate(peak_rate, context=""):
     """

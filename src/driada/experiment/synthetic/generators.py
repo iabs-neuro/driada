@@ -37,7 +37,7 @@ from driada.experiment.exp_base import Experiment
 from driada.information.info_base import MultiTimeSeries, TimeSeries
 from driada.utils.data import check_positive, check_nonnegative, check_unit
 
-from .core import validate_peak_rate, generate_pseudo_calcium_signal
+from .core import DEFAULT_T_RISE, validate_peak_rate, generate_pseudo_calcium_signal
 from .utils import get_effective_decay_time
 from .time_series import (
     generate_binary_time_series,
@@ -64,6 +64,66 @@ from .tuning import (
 # =============================================================================
 # Helper Functions (from principled_selectivity)
 # =============================================================================
+
+
+def _firing_rates_to_calcium(
+    firing_rates: np.ndarray,
+    fps: float,
+    duration: float,
+    decay_time: float,
+    calcium_noise: float,
+    amplitude_range: Tuple[float, float],
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Convert firing rates to calcium signals via spike generation.
+
+    This is a common operation used by multiple generators. It converts
+    firing rates to binary spikes using a Poisson process, then convolves
+    with calcium dynamics.
+
+    Parameters
+    ----------
+    firing_rates : ndarray
+        Shape (n_neurons, n_timepoints). Instantaneous firing rates in Hz.
+    fps : float
+        Sampling rate in Hz.
+    duration : float
+        Total duration in seconds.
+    decay_time : float
+        Calcium decay time constant in seconds.
+    calcium_noise : float
+        Noise standard deviation for calcium signal.
+    amplitude_range : tuple of float
+        (min, max) amplitude range for calcium events.
+    rng : np.random.Generator
+        Random number generator for reproducibility.
+
+    Returns
+    -------
+    calcium_signals : ndarray
+        Shape (n_neurons, n_timepoints). Synthetic calcium signals.
+    """
+    n_neurons, n_timepoints = firing_rates.shape
+    calcium_signals = np.zeros((n_neurons, n_timepoints))
+
+    for idx in range(n_neurons):
+        # Generate spikes from firing rates via Poisson process
+        prob_spike = firing_rates[idx] / fps
+        prob_spike = np.clip(prob_spike, 0, 1)
+        events = rng.binomial(1, prob_spike)
+
+        # Convert to calcium signal
+        calcium_signals[idx] = generate_pseudo_calcium_signal(
+            events=events,
+            duration=duration,
+            sampling_rate=fps,
+            amplitude_range=amplitude_range,
+            decay_time=decay_time,
+            noise_std=calcium_noise,
+        )
+
+    return calcium_signals
 
 
 def _selectivity_matrix_to_config(
@@ -93,7 +153,7 @@ def _selectivity_matrix_to_config(
         How to combine multiple features. Default: "weighted_or".
     feature_name_map : dict, optional
         Mapping from feature_names to canonical names.
-        E.g., {"d_feat_0": "event_0", "c_feat_0": "fbm_0"}.
+        E.g., {"my_discrete": "event_0", "my_continuous": "fbm_0"}.
     rate_0 : float, optional
         Baseline rate for threshold tuning. Default: 0.1.
     rate_1 : float, optional
@@ -305,6 +365,9 @@ def generate_tuned_selectivity_exp(
     ...     population, tuning_defaults={"x": {"sigma": 0.3}}, verbose=False
     ... )
     """
+    # Validate peak rate
+    validate_peak_rate(peak_rate, context="generate_tuned_selectivity_exp")
+
     rng = np.random.default_rng(seed)
 
     n_frames = int(duration * fps)
@@ -312,31 +375,51 @@ def generate_tuned_selectivity_exp(
     # Calculate total neurons
     n_neurons = sum(group["count"] for group in population)
 
+    # Collect all feature names referenced in population config
+    required_features = set()
+    for group in population:
+        for feat in group.get("features", []):
+            required_features.add(feat)
+
+    # Determine which behavioral features are needed
+    needs_head_direction = "head_direction" in required_features
+    needs_position_2d = "position_2d" in required_features
+    needs_x = "x" in required_features
+    needs_y = "y" in required_features
+    needs_speed = "speed" in required_features
+    # If any position-related feature is needed, we need the trajectory
+    needs_trajectory = needs_head_direction or needs_position_2d or needs_x or needs_y or needs_speed
+
     if verbose:
         print(f"Generating {n_neurons} neurons with principled selectivity...")
 
     # -------------------------------------------------------------------------
-    # Generate behavioral features
+    # Generate behavioral features (only if needed)
     # -------------------------------------------------------------------------
-    if verbose:
-        print("Generating behavioral trajectory...")
+    positions = None
+    head_direction = None
+    speed_normalized = None
 
-    # 2D random walk for position
-    positions = generate_2d_random_walk(
-        n_frames,
-        bounds=(0, 1),
-        step_size=0.02,
-        momentum=0.8,
-        seed=seed,
-    )
+    if needs_trajectory:
+        if verbose:
+            print("Generating behavioral trajectory...")
 
-    # Derive head direction from movement
-    head_direction = compute_head_direction_from_positions(positions)
+        # 2D random walk for position
+        positions = generate_2d_random_walk(
+            n_frames,
+            bounds=(0, 1),
+            step_size=0.02,
+            momentum=0.8,
+            seed=seed,
+        )
 
-    # Derive speed from movement
-    speed = compute_speed_from_positions(positions, fps)
-    # Normalize speed to [0, 1] for easier threshold setting
-    speed_normalized = (speed - speed.min()) / (speed.max() - speed.min() + 1e-10)
+        # Derive head direction from movement
+        head_direction = compute_head_direction_from_positions(positions)
+
+        # Derive speed from movement
+        speed = compute_speed_from_positions(positions, fps)
+        # Normalize speed to [0, 1] for easier threshold setting
+        speed_normalized = (speed - speed.min()) / (speed.max() - speed.min() + 1e-10)
 
     # Generate discrete event features
     discrete_features = {}
@@ -371,20 +454,21 @@ def generate_tuned_selectivity_exp(
             fbm_features[feat_name] = fbm_ts
 
     # Collect all available features
-    available_features = {
-        "head_direction": head_direction,
-        "x": positions[0, :],
-        "y": positions[1, :],
-        "speed": speed_normalized,
-        "positions_array": positions,  # For position_2d handling
-    }
+    available_features = {}
+    if needs_trajectory:
+        available_features["head_direction"] = head_direction
+        available_features["x"] = positions[0, :]
+        available_features["y"] = positions[1, :]
+        available_features["speed"] = speed_normalized
+        available_features["positions_array"] = positions  # For position_2d handling
     available_features.update(discrete_features)
     available_features.update(fbm_features)
 
     if verbose:
-        print(f"  Position range: x=[{positions[0].min():.2f}, {positions[0].max():.2f}], "
-              f"y=[{positions[1].min():.2f}, {positions[1].max():.2f}]")
-        print(f"  Speed range: [{speed.min():.3f}, {speed.max():.3f}]")
+        if needs_trajectory:
+            print(f"  Position range: x=[{positions[0].min():.2f}, {positions[0].max():.2f}], "
+                  f"y=[{positions[1].min():.2f}, {positions[1].max():.2f}]")
+            print(f"  Speed range: [{speed.min():.3f}, {speed.max():.3f}]")
         print(f"  Discrete features: {list(discrete_features.keys())}")
         if fbm_features:
             print(f"  FBM features: {list(fbm_features.keys())}")
@@ -574,22 +658,15 @@ def generate_tuned_selectivity_exp(
     if verbose:
         print("Converting to calcium signals...")
 
-    calcium_signals = np.zeros((n_neurons, n_frames))
-    for idx in range(n_neurons):
-        # Generate spikes from firing rates
-        prob_spike = firing_rates[idx] / fps
-        prob_spike = np.clip(prob_spike, 0, 1)
-        events = rng.binomial(1, prob_spike)
-
-        # Convert to calcium
-        calcium_signals[idx] = generate_pseudo_calcium_signal(
-            events=events,
-            duration=duration,
-            sampling_rate=fps,
-            amplitude_range=calcium_amplitude_range,
-            decay_time=decay_time,
-            noise_std=calcium_noise,
-        )
+    calcium_signals = _firing_rates_to_calcium(
+        firing_rates=firing_rates,
+        fps=fps,
+        duration=duration,
+        decay_time=decay_time,
+        calcium_noise=calcium_noise,
+        amplitude_range=calcium_amplitude_range,
+        rng=rng,
+    )
 
     # -------------------------------------------------------------------------
     # Create Experiment object
@@ -597,29 +674,27 @@ def generate_tuned_selectivity_exp(
     if verbose:
         print("Creating Experiment object...")
 
-    # TimeSeries for continuous features
-    hd_ts = TimeSeries(data=head_direction, discrete=False)
-    x_ts = TimeSeries(data=positions[0, :], discrete=False)
-    y_ts = TimeSeries(data=positions[1, :], discrete=False)
-    speed_ts = TimeSeries(data=speed_normalized, discrete=False)
+    # Build dynamic features - only add features that are actually referenced
+    dynamic_features = {}
 
-    # MultiTimeSeries for position
-    position_mts = MultiTimeSeries(
-        [
-            TimeSeries(data=positions[0, :], discrete=False),
-            TimeSeries(data=positions[1, :], discrete=False),
-        ],
-        allow_zero_columns=True,
-    )
-
-    # Build dynamic features
-    dynamic_features = {
-        "head_direction": hd_ts,
-        "x": x_ts,
-        "y": y_ts,
-        "speed": speed_ts,
-        "position_2d": position_mts,
-    }
+    # Add behavioral features only if needed
+    if needs_head_direction:
+        dynamic_features["head_direction"] = TimeSeries(data=head_direction, discrete=False)
+    if needs_x:
+        dynamic_features["x"] = TimeSeries(data=positions[0, :], discrete=False)
+    if needs_y:
+        dynamic_features["y"] = TimeSeries(data=positions[1, :], discrete=False)
+    if needs_speed:
+        dynamic_features["speed"] = TimeSeries(data=speed_normalized, discrete=False)
+    if needs_position_2d:
+        position_mts = MultiTimeSeries(
+            [
+                TimeSeries(data=positions[0, :], discrete=False),
+                TimeSeries(data=positions[1, :], discrete=False),
+            ],
+            allow_zero_columns=True,
+        )
+        dynamic_features["position_2d"] = position_mts
 
     # Add discrete features
     for feat_name, feat_data in discrete_features.items():
@@ -632,7 +707,7 @@ def generate_tuned_selectivity_exp(
     # Static features
     static_features = {
         "fps": fps,
-        "t_rise_sec": 0.04,
+        "t_rise_sec": DEFAULT_T_RISE,
         "t_off_sec": min(decay_time, duration / 10),
     }
 
@@ -772,28 +847,27 @@ def generate_multiselectivity_patterns(
     if weights_mode not in valid_modes:
         raise ValueError(f"weights_mode must be one of {valid_modes}")
 
-    if seed is not None:
-        np.random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     selectivity_matrix = np.zeros((n_features, n_neurons))
 
     for j in range(n_neurons):
-        if np.random.rand() > selectivity_prob:
+        if rng.random() > selectivity_prob:
             continue
 
-        n_select = np.random.choice([2, 3], p=[0.7, 0.3]) if np.random.rand() < multi_select_prob else 1
+        n_select = rng.choice([2, 3], p=[0.7, 0.3]) if rng.random() < multi_select_prob else 1
         n_select = min(n_select, n_features)
         if n_select == 0:
             continue
 
-        selected = np.random.choice(n_features, n_select, replace=False)
+        selected = rng.choice(n_features, n_select, replace=False)
 
         if weights_mode == "equal":
             weights = np.ones(n_select) / n_select
         elif weights_mode == "dominant":
-            weights = np.random.dirichlet([5] + [1] * (n_select - 1))
+            weights = rng.dirichlet([5] + [1] * (n_select - 1))
         else:
-            weights = np.random.dirichlet(np.ones(n_select))
+            weights = rng.dirichlet(np.ones(n_select))
 
         selectivity_matrix[selected, j] = weights
 
@@ -1001,8 +1075,7 @@ def generate_circular_manifold_neurons(
     # Validate firing rate
     validate_peak_rate(peak_rate, context="generate_circular_manifold_neurons")
 
-    if seed is not None:
-        np.random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     head_direction = np.asarray(head_direction)
     n_timepoints = len(head_direction)
@@ -1012,7 +1085,7 @@ def generate_circular_manifold_neurons(
 
     # Add small random jitter to break perfect symmetry
     JITTER_STD = 0.1  # radians, approximately 5.7 degrees
-    jitter = np.random.normal(0, JITTER_STD, n_neurons)
+    jitter = rng.normal(0, JITTER_STD, n_neurons)
     preferred_directions = (preferred_directions + jitter) % (2 * np.pi)
 
     # Generate firing rates for each neuron
@@ -1026,7 +1099,7 @@ def generate_circular_manifold_neurons(
         firing_rate = baseline_rate + (peak_rate - baseline_rate) * tuning_response
 
         # Add noise
-        noise = np.random.normal(0, noise_std, n_timepoints)
+        noise = rng.normal(0, noise_std, n_timepoints)
         firing_rate = np.maximum(0, firing_rate + noise)  # Ensure non-negative
 
         firing_rates[i, :] = firing_rate
@@ -1045,6 +1118,7 @@ def generate_circular_manifold_data(
     noise_std=0.05,
     decay_time=2.0,
     calcium_noise_std=0.1,
+    amplitude_range=(0.5, 2.0),
     seed=None,
     verbose=True,
 ):
@@ -1106,8 +1180,7 @@ def generate_circular_manifold_data(
         calcium_noise_std=calcium_noise_std,
     )
 
-    if seed is not None:
-        np.random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     n_timepoints = int(duration * sampling_rate)
 
@@ -1135,24 +1208,15 @@ def generate_circular_manifold_data(
     # Convert firing rates to calcium signals
     if verbose:
         print("  Converting to calcium signals...")
-    calcium_signals = np.zeros((n_neurons, n_timepoints))
-
-    for i in range(n_neurons):
-        # Generate Poisson events from firing rates
-        prob_spike = firing_rates[i, :] / sampling_rate
-        prob_spike = np.clip(prob_spike, 0, 1)  # Ensure valid probability
-        events = np.random.binomial(1, prob_spike)
-
-        # Convert to calcium using existing function
-        calcium_signal = generate_pseudo_calcium_signal(
-            events=events,
-            duration=duration,
-            sampling_rate=sampling_rate,
-            amplitude_range=(0.5, 2.0),
-            decay_time=decay_time,
-            noise_std=calcium_noise_std,
-        )
-        calcium_signals[i, :] = calcium_signal
+    calcium_signals = _firing_rates_to_calcium(
+        firing_rates=firing_rates,
+        fps=sampling_rate,
+        duration=duration,
+        decay_time=decay_time,
+        calcium_noise=calcium_noise_std,
+        amplitude_range=amplitude_range,
+        rng=rng,
+    )
 
     if verbose:
         print("  Done!")
@@ -1289,7 +1353,7 @@ def generate_circular_manifold_exp(
     # Create static features
     static_features = {
         "fps": fps,
-        "t_rise_sec": 0.04,
+        "t_rise_sec": DEFAULT_T_RISE,
         "t_off_sec": effective_decay_time,  # Use effective decay time for shuffle mask
         "manifold_type": "circular",
         "kappa": kappa,
@@ -1431,8 +1495,7 @@ def generate_2d_manifold_neurons(
     if len(bounds) != 2 or bounds[0] >= bounds[1]:
         raise ValueError("bounds must be (min, max) with min < max")
 
-    if seed is not None:
-        np.random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     positions = np.asarray(positions)
     if positions.shape[0] != 2:
@@ -1458,12 +1521,12 @@ def generate_2d_manifold_neurons(
         place_field_centers = np.array(centers[:n_neurons])
 
         # Add small jitter
-        jitter = np.random.normal(0, 0.02, place_field_centers.shape)
+        jitter = rng.normal(0, 0.02, place_field_centers.shape)
         place_field_centers += jitter
         place_field_centers = np.clip(place_field_centers, bounds[0], bounds[1])
     else:
         # Random placement
-        place_field_centers = np.random.uniform(bounds[0], bounds[1], (n_neurons, 2))
+        place_field_centers = rng.uniform(bounds[0], bounds[1], (n_neurons, 2))
 
     # Generate firing rates
     firing_rates = np.zeros((n_neurons, n_timepoints))
@@ -1476,7 +1539,7 @@ def generate_2d_manifold_neurons(
         firing_rate = baseline_rate + (peak_rate - baseline_rate) * place_response
 
         # Add noise
-        noise = np.random.normal(0, noise_std, n_timepoints)
+        noise = rng.normal(0, noise_std, n_timepoints)
         firing_rate = np.maximum(0, firing_rate + noise)
 
         firing_rates[i, :] = firing_rate
@@ -1497,6 +1560,7 @@ def generate_2d_manifold_data(
     grid_arrangement=True,
     decay_time=2.0,
     calcium_noise_std=0.1,
+    amplitude_range=(0.5, 2.0),
     bounds=(0, 1),
     seed=None,
     verbose=True,
@@ -1571,8 +1635,7 @@ def generate_2d_manifold_data(
     if not 0 <= momentum <= 1:
         raise ValueError("momentum must be in range [0, 1]")
 
-    if seed is not None:
-        np.random.seed(seed)
+    rng = np.random.default_rng(seed)
 
     n_timepoints = int(duration * sampling_rate)
 
@@ -1602,24 +1665,15 @@ def generate_2d_manifold_data(
     # Convert to calcium signals
     if verbose:
         print("  Converting to calcium signals...")
-    calcium_signals = np.zeros((n_neurons, n_timepoints))
-
-    for i in range(n_neurons):
-        # Generate Poisson events
-        prob_spike = firing_rates[i, :] / sampling_rate
-        prob_spike = np.clip(prob_spike, 0, 1)
-        events = np.random.binomial(1, prob_spike)
-
-        # Convert to calcium
-        calcium_signal = generate_pseudo_calcium_signal(
-            events=events,
-            duration=duration,
-            sampling_rate=sampling_rate,
-            amplitude_range=(0.5, 2.0),
-            decay_time=decay_time,
-            noise_std=calcium_noise_std,
-        )
-        calcium_signals[i, :] = calcium_signal
+    calcium_signals = _firing_rates_to_calcium(
+        firing_rates=firing_rates,
+        fps=sampling_rate,
+        duration=duration,
+        decay_time=decay_time,
+        calcium_noise=calcium_noise_std,
+        amplitude_range=amplitude_range,
+        rng=rng,
+    )
 
     if verbose:
         print("  Done!")
@@ -1722,7 +1776,7 @@ def generate_2d_manifold_exp(
     # Create static features
     static_features = {
         "fps": fps,
-        "t_rise_sec": 0.04,
+        "t_rise_sec": DEFAULT_T_RISE,
         "t_off_sec": effective_decay_time,  # Use effective decay time for shuffle mask
         "manifold_type": "2d_spatial",
         "field_sigma": field_sigma,
@@ -1906,6 +1960,8 @@ def generate_synthetic_data(
     if ftype not in ["c", "d"]:
         raise ValueError(f"ftype must be 'c' or 'd', got '{ftype}'")
 
+    rng = np.random.default_rng(seed)
+
     gt = np.zeros((nfeats, nneurons))
     length = int(duration * sampling_rate)
 
@@ -1929,12 +1985,10 @@ def generate_synthetic_data(
                         fbm_series = generate_fbm_time_series(length, hurst, seed=feature_seed)
                         all_feats.append(fbm_series)
                     else:
-                        # Use seed for reproducibility
+                        # Use seed for reproducibility via generate_binary_time_series
                         feature_seed = seed + i if seed is not None else None
-                        if feature_seed is not None:
-                            np.random.seed(feature_seed)
                         binary_series = generate_binary_time_series(
-                            length, avg_islands, avg_duration * sampling_rate
+                            length, avg_islands, avg_duration * sampling_rate, seed=feature_seed
                         )
                         all_feats.append(binary_series)
                 return np.vstack(all_feats), np.array([]).reshape(0, length), gt
@@ -1974,7 +2028,7 @@ def generate_synthetic_data(
 
     # Handle feature selection for neurons
     if nfeats > 0:
-        fois = np.random.choice(np.arange(nfeats), size=nneurons)
+        fois = rng.choice(np.arange(nfeats), size=nneurons)
         gt[fois, np.arange(nneurons)] = 1  # add info about ground truth feature-signal connections
     else:
         # If no features, neurons won't be selective to any feature
@@ -1996,7 +2050,7 @@ def generate_synthetic_data(
             # Apply random per-neuron shift to break correlations
             if apply_random_neuron_shifts:
                 # Apply a unique random shift for this neuron
-                neuron_shift = np.random.randint(0, length)
+                neuron_shift = rng.integers(0, length)
                 csignal = np.roll(csignal, neuron_shift)
                 if verbose and j < 3:  # Print for first 3 neurons only
                     print(
@@ -2014,7 +2068,7 @@ def generate_synthetic_data(
             # Apply random per-neuron shift to break correlations
             if apply_random_neuron_shifts:
                 # Apply a unique random shift for this neuron
-                neuron_shift = np.random.randint(0, length)
+                neuron_shift = rng.integers(0, length)
                 binary_series = np.roll(binary_series, neuron_shift)
                 if verbose and j < 3:  # Print for first 3 neurons only
                     print(
@@ -2181,6 +2235,7 @@ def generate_mixed_population_exp(
     seed=None,
     verbose=True,
     return_info=False,
+    manifold_params=None,
 ):
     """
     Generate synthetic experiment with mixed population of manifold and feature-selective cells.
@@ -2215,6 +2270,14 @@ def generate_mixed_population_exp(
         If True, return (exp, info) tuple for backward compatibility.
         Ground truth is always available via exp.ground_truth regardless.
         Default: False.
+    manifold_params : dict, optional
+        Override tuning parameters for manifold cells. Supported keys:
+        - field_sigma: Size of place field (default: 0.15)
+        - baseline_rate: Baseline firing rate (default: 0.05)
+        - peak_rate: Peak firing rate (default: 2.0)
+        - noise_std: Noise standard deviation (default: 0.02)
+        - decay_time: Calcium decay time (default: 2.0)
+        - calcium_noise_std: Calcium noise (default: 0.02)
 
     Returns
     -------
@@ -2290,11 +2353,39 @@ def generate_mixed_population_exp(
             }
         )
 
+    # Build tuning_defaults from manifold_params if provided
+    tuning_defaults = None
+    baseline_rate = 0.05
+    peak_rate = 2.0
+    decay_time = 2.0
+    calcium_noise = 0.02
+
+    if manifold_params is not None:
+        tuning_defaults = {}
+        if "field_sigma" in manifold_params:
+            tuning_defaults["position_2d"] = {"sigma": manifold_params["field_sigma"]}
+        if "baseline_rate" in manifold_params:
+            baseline_rate = manifold_params["baseline_rate"]
+        if "peak_rate" in manifold_params:
+            peak_rate = manifold_params["peak_rate"]
+        if "decay_time" in manifold_params:
+            decay_time = manifold_params["decay_time"]
+        if "calcium_noise_std" in manifold_params:
+            calcium_noise = manifold_params["calcium_noise_std"]
+        # noise_std maps to calcium_noise as well (legacy compatibility)
+        if "noise_std" in manifold_params:
+            calcium_noise = manifold_params["noise_std"]
+
     # Generate experiment using canonical generator
     exp = generate_tuned_selectivity_exp(
         population=population,
+        tuning_defaults=tuning_defaults,
         duration=duration,
         fps=fps,
+        baseline_rate=baseline_rate,
+        peak_rate=peak_rate,
+        decay_time=decay_time,
+        calcium_noise=calcium_noise,
         n_discrete_features=n_discrete_features,
         seed=seed,
         verbose=verbose,
