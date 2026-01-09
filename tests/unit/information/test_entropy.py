@@ -336,3 +336,185 @@ def test_numerical_stability():
     z_large = np.random.randn(1000) * 1e10
     H_cond_large = conditional_entropy_cd(z_large, x, k=5)
     assert np.isfinite(H_cond_large)
+
+
+class TestMiCdFft:
+    """Tests for FFT-accelerated discrete-continuous MI."""
+
+    def test_matches_loop_binary(self):
+        """Verify FFT produces identical MI as per-shift loop for binary labels."""
+        from driada.information.entropy import mi_cd_fft
+        from driada.information.gcmi import mi_model_gd
+
+        np.random.seed(42)
+        n = 500
+        z = np.random.randn(n)
+        x = np.random.randint(0, 2, n)
+        shifts = np.array([0, 10, 50, 100, 200])
+
+        # FFT version (no bias correction for comparison)
+        mi_fft = mi_cd_fft(z, x, shifts, biascorrect=False)
+
+        # Loop version
+        mi_loop = np.array([
+            mi_model_gd(z.reshape(1, -1), np.roll(x, int(s)), biascorrect=False)
+            for s in shifts
+        ])
+
+        # Should match to machine precision (both use same variance formula)
+        np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-10, atol=1e-14)
+
+    def test_matches_loop_multiclass(self):
+        """Verify FFT works correctly for multi-class labels."""
+        from driada.information.entropy import mi_cd_fft
+        from driada.information.gcmi import mi_model_gd
+
+        np.random.seed(42)
+        n = 600
+        z = np.random.randn(n)
+        x = np.random.randint(0, 3, n)  # 3 classes
+        shifts = np.array([0, 20, 100])
+
+        # FFT version (no bias correction for comparison)
+        mi_fft = mi_cd_fft(z, x, shifts, biascorrect=False)
+        mi_loop = np.array([
+            mi_model_gd(z.reshape(1, -1), np.roll(x, int(s)), biascorrect=False)
+            for s in shifts
+        ])
+
+        # Should match to machine precision (both use same variance formula)
+        np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-10, atol=1e-14)
+
+    def test_matches_loop_with_biascorrect(self):
+        """Verify FFT produces identical MI as loop when biascorrect=True."""
+        from driada.information.entropy import mi_cd_fft
+        from driada.information.gcmi import mi_model_gd
+
+        np.random.seed(42)
+        n = 500
+        z = np.random.randn(n)
+        x = np.random.randint(0, 2, n)
+        shifts = np.array([0, 10, 50, 100, 200])
+
+        # FFT version with bias correction
+        mi_fft = mi_cd_fft(z, x, shifts, biascorrect=True)
+
+        # Loop version with bias correction
+        mi_loop = np.array([
+            mi_model_gd(z.reshape(1, -1), np.roll(x, int(s)), biascorrect=True)
+            for s in shifts
+        ])
+
+        # Should match to machine precision
+        np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-10, atol=1e-14)
+
+    def test_all_shifts(self):
+        """Test returning all shifts when shifts=None."""
+        from driada.information.entropy import mi_cd_fft
+
+        np.random.seed(42)
+        n = 100
+        z = np.random.randn(n)
+        x = np.random.randint(0, 2, n)
+
+        mi_all = mi_cd_fft(z, x)
+
+        assert mi_all.shape == (n,)
+        assert np.all(mi_all >= 0)
+        assert np.all(np.isfinite(mi_all))
+
+    def test_non_negative(self):
+        """MI values should always be non-negative."""
+        from driada.information.entropy import mi_cd_fft
+
+        np.random.seed(42)
+        n = 500
+        z = np.random.randn(n)
+        x = np.random.randint(0, 2, n)
+
+        mi_all = mi_cd_fft(z, x)
+        assert np.all(mi_all >= 0)
+
+    def test_shift_invariance(self):
+        """Specific shifts should match corresponding elements of all shifts."""
+        from driada.information.entropy import mi_cd_fft
+
+        np.random.seed(42)
+        n = 200
+        z = np.random.randn(n)
+        x = np.random.randint(0, 2, n)
+
+        shifts = np.array([0, 5, 50, 150])
+        mi_specific = mi_cd_fft(z, x, shifts)
+        mi_all = mi_cd_fft(z, x)
+
+        np.testing.assert_array_almost_equal(mi_specific, mi_all[shifts])
+
+    def test_correlated_variables(self):
+        """Test that MI is higher for correlated variables."""
+        from driada.information.entropy import mi_cd_fft
+
+        np.random.seed(42)
+        n = 1000
+
+        # Create correlated data: z depends on x
+        x = np.random.randint(0, 2, n)
+        z_correlated = x.astype(float) * 2.0 + np.random.randn(n) * 0.5
+
+        # Independent data
+        z_independent = np.random.randn(n)
+
+        mi_corr = mi_cd_fft(z_correlated, x, np.array([0]))[0]
+        mi_ind = mi_cd_fft(z_independent, x, np.array([0]))[0]
+
+        # Correlated should have higher MI
+        assert mi_corr > mi_ind
+        assert mi_corr > 0.1  # Should have substantial MI
+
+    def test_small_classes_skipped(self):
+        """Test that classes with <2 samples are handled gracefully."""
+        from driada.information.entropy import mi_cd_fft
+
+        np.random.seed(42)
+        n = 100
+        z = np.random.randn(n)
+        # Create labels where class 2 has only 1 sample
+        x = np.zeros(n, dtype=int)
+        x[:50] = 0
+        x[50:99] = 1
+        x[99] = 2  # Only 1 sample
+
+        mi = mi_cd_fft(z, x, np.array([0]))
+        assert np.isfinite(mi[0])
+        assert mi[0] >= 0
+
+    def test_circular_shift_correctness(self):
+        """Verify that circular correlation correctly computes shifted sums."""
+        from driada.information.entropy import mi_cd_fft
+
+        np.random.seed(42)
+        n = 100
+        z = np.random.randn(n)
+        x = np.random.randint(0, 2, n)
+
+        # Test specific shifts
+        for shift in [0, 10, 50, 90]:
+            mi_single = mi_cd_fft(z, x, np.array([shift]))[0]
+            mi_all = mi_cd_fft(z, x)[shift]
+            assert np.isclose(mi_single, mi_all)
+
+    def test_wrapper_function(self):
+        """Test the wrapper function in info_base.py."""
+        from driada.information.info_base import compute_mi_gd_fft
+        from driada.information.entropy import mi_cd_fft
+
+        np.random.seed(42)
+        n = 200
+        z = np.random.randn(n)
+        x = np.random.randint(0, 2, n)
+        shifts = np.array([0, 10, 50])
+
+        mi_wrapper = compute_mi_gd_fft(z, x, shifts)
+        mi_direct = mi_cd_fft(z, x, shifts)
+
+        np.testing.assert_array_equal(mi_wrapper, mi_direct)

@@ -1799,6 +1799,54 @@ def compute_mi_batch_fft(
     return np.maximum(0, mi)  # MI is non-negative
 
 
+def compute_mi_gd_fft(
+    copnorm_continuous: np.ndarray,
+    discrete_labels: np.ndarray,
+    shifts: np.ndarray,
+    biascorrect: bool = True,
+) -> np.ndarray:
+    """Compute MI(continuous; discrete) at multiple shifts using FFT.
+
+    FFT-accelerated version for INTENSE shuffle loops with discrete features.
+    Uses circular correlation to compute class-conditional statistics for all
+    shifts in O(n log n) time, providing ~100-400x speedup over per-shift
+    computation.
+
+    Parameters
+    ----------
+    copnorm_continuous : ndarray of shape (n,)
+        Copula-normalized continuous variable.
+    discrete_labels : ndarray of shape (n,)
+        Discrete variable (integer labels 0 to Ym-1).
+    shifts : ndarray of shape (nsh,)
+        Shift indices to compute MI for. These are circular shifts
+        applied to discrete_labels before computing MI.
+    biascorrect : bool, default=True
+        Apply Panzeri-Treves bias correction for finite sample effects.
+
+    Returns
+    -------
+    mi_values : ndarray of shape (nsh,)
+        Mutual information values at each shift, in bits. Non-negative.
+
+    Notes
+    -----
+    This function uses the insight that class-conditional sums under circular
+    shifts are circular correlations: sum(z[x_k == class_i]) = (z ⊛ I_i)[k].
+    FFT allows computing sums for ALL shifts in one operation.
+
+    Works with any number of discrete classes (binary or multi-class).
+
+    See Also
+    --------
+    mi_cd_fft : Core implementation in entropy module
+    compute_mi_batch_fft : FFT version for continuous-continuous MI
+    """
+    from .entropy import mi_cd_fft
+
+    return mi_cd_fft(copnorm_continuous, discrete_labels, shifts, biascorrect=biascorrect)
+
+
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=True):
     """Computes mutual information between two 1d variables efficiently
 

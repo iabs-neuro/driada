@@ -709,10 +709,11 @@ def _mi_model_gd_jit(x, y, Ym, biascorrect, demeaned):
 
     if y.size != Ntrl:
         raise ValueError("number of trials do not match")
-    """
+
+    # Demean x for unconditional entropy (consistency with per-class demeaning)
     if not demeaned:
-        x = x - x.mean(axis=1)[:,np.newaxis]
-    """
+        x = demean(x)
+
     # class-conditional entropies
     Ntrl_y = np.zeros(Ym)
     Hcond = np.zeros(Ym)

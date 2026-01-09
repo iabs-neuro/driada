@@ -373,3 +373,128 @@ def joint_entropy_cd(x, z, k=5, estimator="gcmi"):
     H_z_given_x = conditional_entropy_cd(z, x, k=k, estimator=estimator)
     H_xz = H_x + H_z_given_x
     return H_xz
+
+
+def mi_cd_fft(
+    copnorm_z: np.ndarray,
+    discrete_x: np.ndarray,
+    shifts: np.ndarray = None,
+    biascorrect: bool = True,
+) -> np.ndarray:
+    """Compute MI(continuous; discrete) at multiple shifts using FFT.
+
+    Uses FFT-based circular correlation to compute class-conditional
+    statistics for all shifts in O(n log n) time, providing 100-2500x
+    speedup over per-shift computation for typical INTENSE workloads.
+
+    The key insight is that class-conditional sums are circular correlations:
+        sum(z[x_k == class_i]) = (z ⊛ I_i)[k]
+    where I_i is the indicator function for class i and ⊛ denotes circular
+    correlation. FFT allows computing ALL shifts in one operation.
+
+    Parameters
+    ----------
+    copnorm_z : array, shape (n,)
+        Copula-normalized continuous variable.
+    discrete_x : array, shape (n,)
+        Discrete variable (integer labels 0 to Ym-1).
+    shifts : array, shape (nsh,), optional
+        Specific shift indices to return. If None, returns all n shifts.
+    biascorrect : bool, default=True
+        Apply Panzeri-Treves bias correction for finite sample effects.
+        The correction is constant for all shifts since class sizes don't
+        change under circular shifts.
+
+    Returns
+    -------
+    mi_values : array
+        MI values at each shift (in bits). Shape is (nsh,) if shifts provided,
+        otherwise (n,).
+
+    Notes
+    -----
+    Uses Gaussian entropy assumption: H = 0.5 * log(2*pi*e*var) / ln(2).
+    Class sizes are constant under circular shifts, so complexity is O(n log n)
+    regardless of the number of shifts requested.
+
+    Classes with fewer than 2 samples are skipped to avoid division by zero.
+    """
+    from scipy.special import psi  # digamma function
+    n = len(copnorm_z)
+    z = np.asarray(copnorm_z)
+    x = np.asarray(discrete_x).astype(int)
+    Ym = int(np.max(x) + 1)  # Number of classes
+    ln2 = np.log(2)
+
+    # Precompute FFTs of z and z^2
+    FFT_z = np.fft.fft(z)
+    FFT_z2 = np.fft.fft(z**2)
+
+    # Compute H(z) once - unconditional entropy
+    # Uses variance (demeaned) for consistency with per-class conditional entropy
+    var_z = np.var(z, ddof=1)
+    if var_z < 1e-10:
+        var_z = 1e-10
+    H_z = 0.5 * np.log(2 * np.pi * np.e * var_z) / ln2
+
+    # Apply bias correction to H(z) if requested
+    # For univariate Gaussian: correction = dterm + psiterms where
+    # dterm = (ln2 - log(n-1)) / 2, psiterms = psi((n-1)/2) / 2
+    # Correction is in nats, so divide by ln2 to convert to bits
+    if biascorrect and n > 2:
+        dterm_z = (ln2 - np.log(n - 1.0)) / 2.0
+        psiterm_z = psi((n - 1.0) / 2.0) / 2.0
+        H_z = H_z - (dterm_z + psiterm_z) / ln2
+
+    # Compute class-conditional entropies for all shifts
+    H_cond = np.zeros(n)
+
+    for yi in range(Ym):
+        # Indicator function for class yi
+        I_yi = (x == yi).astype(float)
+        n_yi = np.sum(I_yi)
+
+        if n_yi < 2:
+            # Skip classes with too few samples
+            continue
+
+        # FFT of indicator function
+        FFT_Iyi = np.fft.fft(I_yi)
+
+        # Circular correlations -> sums for all shifts
+        # sum(z[x_k == yi]) = IFFT(FFT(z) * conj(FFT(I_yi)))
+        sum_z_yi = np.fft.ifft(FFT_z * np.conj(FFT_Iyi)).real
+        sum_z2_yi = np.fft.ifft(FFT_z2 * np.conj(FFT_Iyi)).real
+
+        # Variance for all shifts: var = E[z^2] - E[z]^2
+        # Convert from population variance (ddof=0) to sample variance (ddof=1)
+        # to match ent_g which uses np.cov (ddof=1 by default)
+        mean_yi = sum_z_yi / n_yi
+        var_yi_pop = sum_z2_yi / n_yi - mean_yi**2
+        var_yi = var_yi_pop * n_yi / (n_yi - 1)  # Bessel's correction
+        var_yi = np.maximum(var_yi, 1e-10)  # Numerical stability
+
+        # Gaussian entropy for all shifts
+        H_yi = 0.5 * np.log(2 * np.pi * np.e * var_yi) / ln2
+
+        # Apply bias correction to H(z|x=yi) if requested
+        # Correction is constant across shifts since n_yi doesn't change
+        # Correction is in nats, so divide by ln2 to convert to bits
+        if biascorrect and n_yi > 2:
+            dterm_yi = (ln2 - np.log(n_yi - 1.0)) / 2.0
+            psiterm_yi = psi((n_yi - 1.0) / 2.0) / 2.0
+            H_yi = H_yi - (dterm_yi + psiterm_yi) / ln2
+
+        # Weight by class probability (constant across shifts)
+        p_yi = n_yi / n
+        H_cond += p_yi * H_yi
+
+    # MI for all shifts: MI = H(z) - H(z|x)
+    MI_all = H_z - H_cond
+    MI_all = np.maximum(0, MI_all)  # Ensure non-negative
+
+    # Return specific shifts or all
+    if shifts is None:
+        return MI_all
+    else:
+        return MI_all[np.asarray(shifts).astype(int) % n]

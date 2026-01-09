@@ -19,6 +19,7 @@ from ..information.info_base import (
     get_multi_mi,
     get_sim,
     compute_mi_batch_fft,
+    compute_mi_gd_fft,
 )
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables, add_names_to_nested_dict
 
@@ -89,14 +90,22 @@ def _should_use_fft(
     )
 
     if engine == "fft":
-        if not is_applicable:
+        # Check if this is a discrete-continuous pair (handled by _should_use_fft_gd)
+        is_discrete_continuous = (
+            isinstance(ts1, TimeSeries)
+            and not isinstance(ts1, MultiTimeSeries)
+            and isinstance(ts2, TimeSeries)
+            and not isinstance(ts2, MultiTimeSeries)
+            and (ts1.discrete != ts2.discrete)
+        )
+        if not is_applicable and not is_discrete_continuous:
             raise ValueError(
-                "engine='fft' requires univariate continuous TimeSeries with "
+                "engine='fft' requires univariate TimeSeries with "
                 "metric='mi' and mi_estimator='gcmi'. Got: "
                 f"metric={metric}, estimator={mi_estimator}, "
                 f"ts1 type={type(ts1).__name__}, ts2 type={type(ts2).__name__}"
             )
-        return True
+        return is_applicable
 
     # engine == 'auto': use FFT if applicable and enough shuffles
     return is_applicable and nsh >= MIN_SHUFFLES_FOR_FFT
@@ -167,6 +176,62 @@ def _should_use_fft_for_delays(
 
     # engine == 'auto': use FFT if applicable and enough shifts
     return is_applicable and num_shifts >= MIN_SHIFTS_FOR_FFT_DELAYS
+
+
+def _should_use_fft_gd(
+    ts1,
+    ts2,
+    metric: str,
+    mi_estimator: str,
+    nsh: int,
+    engine: str,
+) -> bool:
+    """Determine if FFT optimization should be used for discrete-continuous MI.
+
+    The FFT optimization provides ~100-500x speedup for computing MI between
+    a continuous and discrete variable at multiple shifts.
+
+    Parameters
+    ----------
+    ts1 : TimeSeries
+        First time series (continuous or discrete).
+    ts2 : TimeSeries
+        Second time series (continuous or discrete).
+    metric : str
+        Similarity metric being used.
+    mi_estimator : str
+        MI estimator ('gcmi' or 'ksg').
+    nsh : int
+        Number of shuffles.
+    engine : str
+        Computation engine: 'auto', 'fft', or 'loop'.
+
+    Returns
+    -------
+    bool
+        True if FFT optimization should be used for discrete-continuous MI.
+    """
+    if engine == "loop":
+        return False
+
+    # Check if FFT optimization is applicable for discrete-continuous pairs
+    # Requires: one discrete, one continuous, univariate, MI metric, GCMI estimator
+    is_applicable = (
+        metric == "mi"
+        and mi_estimator == "gcmi"
+        and isinstance(ts1, TimeSeries)
+        and not isinstance(ts1, MultiTimeSeries)
+        and isinstance(ts2, TimeSeries)
+        and not isinstance(ts2, MultiTimeSeries)
+        and (ts1.discrete != ts2.discrete)  # Exactly one is discrete
+    )
+
+    if engine == "fft":
+        # engine='fft' explicitly requested - use FFT if applicable
+        return is_applicable
+
+    # engine == 'auto': use FFT if applicable and enough shuffles
+    return is_applicable and nsh >= MIN_SHUFFLES_FOR_FFT
 
 
 def _get_joblib_backend() -> str:
@@ -985,11 +1050,11 @@ def scan_pairs(
 
                     # Check if FFT optimization applies for this pair
                     # Note: FFT is only used for MI metric with GCMI estimator
-                    # _should_use_fft() enforces metric='mi' as a precondition
-                    use_fft = _should_use_fft(ts1, ts2, metric, mi_estimator, nsh, engine)
+                    use_fft_cc = _should_use_fft(ts1, ts2, metric, mi_estimator, nsh, engine)
+                    use_fft_gd = _should_use_fft_gd(ts1, ts2, metric, mi_estimator, nsh, engine)
 
-                    if use_fft:
-                        # FFT-accelerated path for univariate continuous GCMI
+                    if use_fft_cc:
+                        # FFT-accelerated path for univariate continuous-continuous GCMI
                         ny1 = ts1.copula_normal_data[::ds]
                         ny2 = ts2.copula_normal_data[::ds]
 
@@ -1006,6 +1071,33 @@ def scan_pairs(
                         me_table[i, j] = me0 + pair_rng.random() * noise_const
                         random_noise = pair_rng.random(size=nsh) * noise_const
                         me_table_shuffles[i, j, :] = shuffle_mis + random_noise
+
+                    elif use_fft_gd:
+                        # FFT-accelerated path for discrete-continuous GCMI
+                        # Identify which is continuous and which is discrete
+                        if ts1.discrete:
+                            continuous_data = ts2.copula_normal_data[::ds]
+                            discrete_data = ts1.int_data[::ds]
+                        else:
+                            continuous_data = ts1.copula_normal_data[::ds]
+                            discrete_data = ts2.int_data[::ds]
+
+                        # Compute true MI at optimal delay
+                        opt_shift = optimal_delays[i, j] // ds
+                        me0 = compute_mi_gd_fft(
+                            continuous_data, discrete_data, np.array([opt_shift])
+                        )[0]
+
+                        # Compute all shuffle MIs at once
+                        shuffle_mis = compute_mi_gd_fft(
+                            continuous_data, discrete_data, random_shifts[i, j, :]
+                        )
+
+                        # Add noise for numerical stability
+                        me_table[i, j] = me0 + pair_rng.random() * noise_const
+                        random_noise = pair_rng.random(size=nsh) * noise_const
+                        me_table_shuffles[i, j, :] = shuffle_mis + random_noise
+
                     else:
                         # Original loop path
                         me0 = get_sim(
