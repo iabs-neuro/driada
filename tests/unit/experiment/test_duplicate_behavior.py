@@ -112,7 +112,7 @@ def test_duplicate_behavior_in_pipelines(small_experiment):
     stats, significance, info, results = compute_cell_feat_significance(
         exp,
         cell_bunch=[0, 1],
-        feat_bunch=["d_feat_0"],
+        feat_bunch=["event_0"],
         mode="stage1",
         n_shuffles_stage1=5,
         duplicate_behavior="ignore",
@@ -124,7 +124,7 @@ def test_duplicate_behavior_in_pipelines(small_experiment):
     # Test compute_feat_feat_significance
     sim_mat, sig_mat, pval_mat, feat_ids, info = compute_feat_feat_significance(
         exp,
-        feat_bunch=["d_feat_0", "d_feat_1"],
+        feat_bunch=["event_0", "event_1"],
         mode="stage1",
         n_shuffles_stage1=5,
         duplicate_behavior="warn",

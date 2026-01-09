@@ -8,9 +8,35 @@ generation functions, including firing rate validation and calcium signal genera
 import numpy as np
 import warnings
 
-# Default calcium indicator rise time in seconds
-# Typical GCaMP6 rise time is ~40ms (0.04s)
-DEFAULT_T_RISE = 0.04
+# =============================================================================
+# Default Parameters for Synthetic Data Generation
+# =============================================================================
+
+DEFAULT_SYNTHETIC_PARAMS = {
+    # Calcium indicator dynamics
+    "t_rise": 0.05,  # Rise time in seconds
+    "decay_time": 2.0,  # Decay time constant in seconds
+    "calcium_noise": 0.02,  # Noise std for calcium signal
+    "amplitude_range": (0.5, 2.0),  # Calcium event amplitude range
+    # Firing rates
+    "baseline_rate": 0.1,  # Baseline firing rate in Hz
+    "peak_rate": 1.0,  # Peak firing rate in Hz
+    "firing_noise": 0.05,  # Noise std added to firing rates
+    # Recording parameters
+    "fps": 20.0,  # Sampling rate in Hz
+    "duration": 600,  # Duration in seconds
+}
+
+# Convenience aliases for direct access
+DEFAULT_T_RISE = DEFAULT_SYNTHETIC_PARAMS["t_rise"]
+DEFAULT_DECAY_TIME = DEFAULT_SYNTHETIC_PARAMS["decay_time"]
+DEFAULT_CALCIUM_NOISE = DEFAULT_SYNTHETIC_PARAMS["calcium_noise"]
+DEFAULT_AMPLITUDE_RANGE = DEFAULT_SYNTHETIC_PARAMS["amplitude_range"]
+DEFAULT_BASELINE_RATE = DEFAULT_SYNTHETIC_PARAMS["baseline_rate"]
+DEFAULT_PEAK_RATE = DEFAULT_SYNTHETIC_PARAMS["peak_rate"]
+DEFAULT_FIRING_NOISE = DEFAULT_SYNTHETIC_PARAMS["firing_noise"]
+DEFAULT_FPS = DEFAULT_SYNTHETIC_PARAMS["fps"]
+DEFAULT_DURATION = DEFAULT_SYNTHETIC_PARAMS["duration"]
 
 
 def validate_peak_rate(peak_rate, context=""):

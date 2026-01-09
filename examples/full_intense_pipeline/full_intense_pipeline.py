@@ -354,8 +354,7 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
     n_neurons = exp.n_cells
     n_features = len(feature_names)
 
-    # Create MI matrix using 'me' (Mutual Entropy in bits)
-    # 'me' is the actual information-theoretic measure, not rank-based like 'rval'
+    # Create MI matrix using 'me'
     mi_matrix = np.zeros((n_neurons, n_features))
     for neuron_id, features in significant_neurons.items():
         for feat_name in features:

@@ -168,7 +168,7 @@ def test_generate_circular_manifold_neurons_tuning():
         kappa=4.0,
         baseline_rate=0.1,
         peak_rate=2.0,
-        noise_std=0.01,
+        firing_noise=0.01,
         seed=42,
     )
 
@@ -197,7 +197,7 @@ def test_generate_circular_manifold_neurons_noise():
         head_direction,
         baseline_rate=0.5,
         peak_rate=2.0,
-        noise_std=0.1,
+        firing_noise=0.1,
         seed=42,
     )
 
@@ -215,7 +215,7 @@ def test_generate_circular_manifold_data_basic():
     fps = 20
 
     calcium, head_dir, pref_dirs, firing_rates = generate_circular_manifold_data(
-        n_neurons, duration, fps, seed=42, verbose=False
+        n_neurons, duration=duration, fps=fps, seed=42, verbose=False
     )
 
     n_timepoints = int(duration * fps)
@@ -238,8 +238,8 @@ def test_generate_circular_manifold_data_calcium():
         kappa=8.0,  # Increased for stronger tuning
         baseline_rate=0.1,  # Lower baseline for better SNR
         peak_rate=2.0,  # Reduced peak_rate to avoid warning
-        noise_std=0.01,  # Reduced noise
-        calcium_noise_std=0.01,  # Reduced calcium noise
+        firing_noise=0.01,  # Reduced noise
+        calcium_noise=0.01,  # Reduced calcium noise
         add_mixed_features=True,  # Create circular_angle MultiTimeSeries
         seed=42,
         verbose=False,
@@ -455,8 +455,8 @@ def test_edge_cases():
     exp, info = generate_circular_manifold_exp(
         n_neurons=20,
         duration=20,
-        noise_std=0.5,
-        calcium_noise_std=0.5,
+        firing_noise=0.5,
+        calcium_noise=0.5,
         verbose=False,
         return_info=True,
     )
@@ -494,8 +494,8 @@ def test_integration_with_intense():
         kappa=8.0,  # Stronger tuning
         baseline_rate=0.05,
         peak_rate=2.0,  # Reasonable dynamic range
-        noise_std=0.005,  # Even lower noise
-        calcium_noise_std=0.01,  # Low calcium noise
+        firing_noise=0.005,  # Even lower noise
+        calcium_noise=0.01,  # Low calcium noise
         seed=42,
         verbose=False,
         return_info=True,
@@ -540,8 +540,8 @@ def test_linear_vs_circular_detection():
         kappa=6.0,  # Strong tuning
         baseline_rate=0.05,
         peak_rate=2.0,  # Reasonable peak rate
-        noise_std=0.01,
-        calcium_noise_std=0.05,
+        firing_noise=0.01,
+        calcium_noise=0.05,
         add_mixed_features=True,  # Need circular_angle for comparison
         seed=123,  # Changed seed
         verbose=False,

@@ -37,7 +37,7 @@ from driada.experiment.exp_base import Experiment
 from driada.information.info_base import MultiTimeSeries, TimeSeries
 from driada.utils.data import check_positive, check_nonnegative, check_unit
 
-from .core import DEFAULT_T_RISE, validate_peak_rate, generate_pseudo_calcium_signal
+from .core import DEFAULT_T_RISE, DEFAULT_SYNTHETIC_PARAMS, validate_peak_rate, generate_pseudo_calcium_signal
 from .utils import get_effective_decay_time
 from .time_series import (
     generate_binary_time_series,
@@ -132,8 +132,8 @@ def _selectivity_matrix_to_config(
     tuning_type: str = "threshold",
     combination_mode: str = "weighted_or",
     feature_name_map: Optional[Dict[str, str]] = None,
-    rate_0: float = 0.1,
-    rate_1: float = 1.0,
+    baseline_rate: float = 0.1,
+    peak_rate: float = 1.0,
 ) -> List[Dict]:
     """
     Convert a selectivity matrix to population config format.
@@ -154,9 +154,9 @@ def _selectivity_matrix_to_config(
     feature_name_map : dict, optional
         Mapping from feature_names to canonical names.
         E.g., {"my_discrete": "event_0", "my_continuous": "fbm_0"}.
-    rate_0 : float, optional
+    baseline_rate : float, optional
         Baseline rate for threshold tuning. Default: 0.1.
-    rate_1 : float, optional
+    peak_rate : float, optional
         Peak rate for threshold tuning. Default: 1.0.
 
     Returns
@@ -885,12 +885,12 @@ def generate_synthetic_exp_with_mixed_selectivity(
     seed=42,
     fps=20,
     verbose=True,
-    rate_0=0.1,
-    rate_1=1.0,
+    baseline_rate=0.1,
+    peak_rate=1.0,
     skip_prob=0.1,
-    ampl_range=(0.5, 2),
+    calcium_amplitude_range=(0.5, 2),
     decay_time=2,
-    noise_std=0.1,
+    calcium_noise=0.02,
     hurst=0.3,
     target_active_fraction=0.05,
     avg_active_duration=0.5,
@@ -921,16 +921,16 @@ def generate_synthetic_exp_with_mixed_selectivity(
         Sampling rate in Hz. Default: 20.
     verbose : bool
         Print progress. Default: True.
-    rate_0, rate_1 : float
+    baseline_rate, peak_rate : float
         Baseline and active firing rates. Default: 0.1, 1.0.
     skip_prob : float
         Probability of skipping spikes. Default: 0.1.
-    ampl_range : tuple
+    calcium_amplitude_range : tuple
         Calcium amplitude range. Default: (0.5, 2).
     decay_time : float
         Calcium decay time. Default: 2.
-    noise_std : float
-        Noise standard deviation. Default: 0.1.
+    calcium_noise : float
+        Calcium noise standard deviation. Default: 0.1.
     hurst : float
         Hurst parameter for FBM. Default: 0.3.
     target_active_fraction : float
@@ -975,8 +975,8 @@ def generate_synthetic_exp_with_mixed_selectivity(
         feature_names,
         tuning_type="threshold",
         combination_mode="weighted_sum",
-        rate_0=rate_0,
-        rate_1=rate_1,
+        baseline_rate=baseline_rate,
+        peak_rate=peak_rate,
     )
 
     # Call canonical generator - ONE Experiment
@@ -984,11 +984,11 @@ def generate_synthetic_exp_with_mixed_selectivity(
         population=population_config,
         duration=duration,
         fps=fps,
-        baseline_rate=rate_0,
-        peak_rate=rate_1,
+        baseline_rate=baseline_rate,
+        peak_rate=peak_rate,
         decay_time=decay_time,
-        calcium_noise=noise_std,
-        calcium_amplitude_range=ampl_range,
+        calcium_noise=calcium_noise,
+        calcium_amplitude_range=calcium_amplitude_range,
         n_discrete_features=n_discrete_feats,
         event_active_fraction=target_active_fraction,
         event_avg_duration=avg_active_duration,
@@ -1024,10 +1024,8 @@ def generate_circular_manifold_neurons(
     n_neurons,
     head_direction,
     kappa=4.0,
-    baseline_rate=0.1,
-    peak_rate=1.0,
-    noise_std=0.05,
     seed=None,
+    **kwargs,
 ):
     """
     Generate population of head direction cells with Von Mises tuning.
@@ -1046,18 +1044,11 @@ def generate_circular_manifold_neurons(
     kappa : float, optional
         Concentration parameter for Von Mises tuning curves.
         Typical values: 2-8 (higher = narrower tuning). Default is 4.0.
-    baseline_rate : float, optional
-        Baseline firing rate when far from preferred direction in Hz.
-        Default is 0.1 Hz (realistic for sparse firing neurons).
-    peak_rate : float, optional
-        Peak firing rate at preferred direction in Hz.
-        Default is 1.0 Hz (realistic for calcium imaging).
-        Values >2 Hz may cause calcium signal saturation.
-    noise_std : float, optional
-        Standard deviation of Gaussian noise added to firing rates.
-        Default is 0.05. Must be non-negative.
     seed : int, optional
         Random seed for reproducibility.
+    **kwargs : dict
+        Additional parameters from DEFAULT_SYNTHETIC_PARAMS:
+        baseline_rate, peak_rate, firing_noise.
 
     Returns
     -------
@@ -1068,9 +1059,15 @@ def generate_circular_manifold_neurons(
         Preferred direction for each neuron in radians [0, 2*pi).
         Shape: (n_neurons,).
     """
+    # Merge with defaults
+    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
+    baseline_rate = params["baseline_rate"]
+    peak_rate = params["peak_rate"]
+    firing_noise = params["firing_noise"]
+
     # Input validation
     check_positive(n_neurons=n_neurons)
-    check_nonnegative(noise_std=noise_std)
+    check_nonnegative(firing_noise=firing_noise)
 
     # Validate firing rate
     validate_peak_rate(peak_rate, context="generate_circular_manifold_neurons")
@@ -1099,7 +1096,7 @@ def generate_circular_manifold_neurons(
         firing_rate = baseline_rate + (peak_rate - baseline_rate) * tuning_response
 
         # Add noise
-        noise = rng.normal(0, noise_std, n_timepoints)
+        noise = rng.normal(0, firing_noise, n_timepoints)
         firing_rate = np.maximum(0, firing_rate + noise)  # Ensure non-negative
 
         firing_rates[i, :] = firing_rate
@@ -1109,18 +1106,11 @@ def generate_circular_manifold_neurons(
 
 def generate_circular_manifold_data(
     n_neurons,
-    duration=600,
-    sampling_rate=20.0,
     kappa=4.0,
     step_std=0.1,
-    baseline_rate=0.1,
-    peak_rate=1.0,
-    noise_std=0.05,
-    decay_time=2.0,
-    calcium_noise_std=0.1,
-    amplitude_range=(0.5, 2.0),
     seed=None,
     verbose=True,
+    **kwargs,
 ):
     """
     Generate synthetic data with neurons on circular manifold (head direction cells).
@@ -1132,31 +1122,20 @@ def generate_circular_manifold_data(
     ----------
     n_neurons : int
         Number of neurons. Must be positive.
-    duration : float, optional
-        Duration in seconds. Must be positive. Default is 600.
-    sampling_rate : float, optional
-        Sampling rate in Hz. Must be positive. Default is 20.0.
     kappa : float, optional
         Von Mises concentration parameter (tuning width).
         Default is 4.0. Higher values give narrower tuning.
     step_std : float, optional
         Standard deviation of head direction random walk steps in radians.
         Must be non-negative. Default is 0.1.
-    baseline_rate : float, optional
-        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
-    peak_rate : float, optional
-        Peak firing rate at preferred direction in Hz. Default is 1.0.
-        Values >2 Hz may cause calcium signal saturation.
-    noise_std : float, optional
-        Noise in firing rates. Must be non-negative. Default is 0.05.
-    decay_time : float, optional
-        Calcium decay time constant in seconds. Must be positive. Default is 2.0.
-    calcium_noise_std : float, optional
-        Noise in calcium signal. Must be non-negative. Default is 0.1.
     seed : int, optional
         Random seed for reproducibility.
     verbose : bool, optional
         Print progress messages. Default is True.
+    **kwargs : dict
+        Additional parameters from DEFAULT_SYNTHETIC_PARAMS:
+        duration, fps, baseline_rate, peak_rate, firing_noise,
+        decay_time, calcium_noise, amplitude_range.
 
     Returns
     -------
@@ -1169,6 +1148,17 @@ def generate_circular_manifold_data(
     firing_rates : ndarray
         Underlying firing rates in Hz.
     """
+    # Merge with defaults
+    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
+    duration = params["duration"]
+    sampling_rate = params["fps"]
+    baseline_rate = params["baseline_rate"]
+    peak_rate = params["peak_rate"]
+    firing_noise = params["firing_noise"]
+    decay_time = params["decay_time"]
+    calcium_noise = params["calcium_noise"]
+    amplitude_range = params["amplitude_range"]
+
     # Input validation
     check_positive(
         n_neurons=n_neurons, duration=duration, sampling_rate=sampling_rate, decay_time=decay_time
@@ -1176,8 +1166,8 @@ def generate_circular_manifold_data(
     check_nonnegative(
         step_std=step_std,
         baseline_rate=baseline_rate,
-        noise_std=noise_std,
-        calcium_noise_std=calcium_noise_std,
+        firing_noise=firing_noise,
+        calcium_noise=calcium_noise,
     )
 
     rng = np.random.default_rng(seed)
@@ -1199,10 +1189,10 @@ def generate_circular_manifold_data(
         n_neurons,
         head_direction,
         kappa,
-        baseline_rate,
-        peak_rate,
-        noise_std,
         seed=(seed + 1) if seed is not None else None,
+        baseline_rate=baseline_rate,
+        peak_rate=peak_rate,
+        firing_noise=firing_noise,
     )
 
     # Convert firing rates to calcium signals
@@ -1213,7 +1203,7 @@ def generate_circular_manifold_data(
         fps=sampling_rate,
         duration=duration,
         decay_time=decay_time,
-        calcium_noise=calcium_noise_std,
+        calcium_noise=calcium_noise,
         amplitude_range=amplitude_range,
         rng=rng,
     )
@@ -1226,19 +1216,13 @@ def generate_circular_manifold_data(
 
 def generate_circular_manifold_exp(
     n_neurons=100,
-    duration=600,
-    fps=20.0,
     kappa=4.0,
     step_std=0.1,
-    baseline_rate=0.1,
-    peak_rate=1.0,
-    noise_std=0.05,
-    decay_time=2.0,
-    calcium_noise_std=0.1,
     add_mixed_features=False,
     seed=None,
     verbose=True,
     return_info=False,
+    **kwargs,
 ):
     """
     Generate complete experiment with circular manifold (head direction cells).
@@ -1251,10 +1235,6 @@ def generate_circular_manifold_exp(
     ----------
     n_neurons : int, optional
         Number of neurons. Must be positive. Default is 100.
-    duration : float, optional
-        Duration in seconds. Must be positive. Default is 600.
-    fps : float, optional
-        Sampling rate (frames per second). Must be positive. Default is 20.0.
     kappa : float, optional
         Von Mises concentration parameter (tuning width).
         Higher values give narrower tuning. Must be positive.
@@ -1262,22 +1242,6 @@ def generate_circular_manifold_exp(
     step_std : float, optional
         Head direction random walk step size in radians.
         Must be non-negative. Default is 0.1 (~5.7 degrees).
-    baseline_rate : float, optional
-        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
-    peak_rate : float, optional
-        Peak firing rate at preferred direction in Hz. Must be positive
-        and greater than baseline_rate. Default is 1.0.
-        Values >2 Hz may cause calcium signal saturation.
-    noise_std : float, optional
-        Standard deviation of firing rate noise. Must be non-negative.
-        Default is 0.05.
-    decay_time : float, optional
-        Calcium indicator decay time constant in seconds.
-        Must be positive. Default is 2.0.
-        For short experiments (<=30s), automatically limited to 0.5s.
-    calcium_noise_std : float, optional
-        Standard deviation of calcium signal noise.
-        Must be non-negative. Default is 0.1.
     add_mixed_features : bool, optional
         Whether to add circular_angle MultiTimeSeries with cos/sin
         representation of head direction. Useful for algorithms that
@@ -1289,6 +1253,10 @@ def generate_circular_manifold_exp(
     return_info : bool, optional
         If True, return additional information dictionary.
         Default is False.
+    **kwargs : dict
+        Additional parameters from DEFAULT_SYNTHETIC_PARAMS:
+        duration, fps, baseline_rate, peak_rate, firing_noise,
+        decay_time, calcium_noise, amplitude_range.
 
     Returns
     -------
@@ -1297,7 +1265,6 @@ def generate_circular_manifold_exp(
         - calcium signals as main data
         - static features: fps, decay times, manifold parameters
         - dynamic features: head_direction (and circular_angle if requested)
-        - firing_rates stored as exp.firing_rates attribute
     info : dict, optional
         Only returned if return_info=True. Contains:
         - 'manifold_type': "circular"
@@ -1307,6 +1274,15 @@ def generate_circular_manifold_exp(
         - 'firing_rates': underlying firing rates
         - 'parameters': dict of all generation parameters
     """
+    # Merge with defaults
+    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
+    duration = params["duration"]
+    fps = params["fps"]
+    baseline_rate = params["baseline_rate"]
+    peak_rate = params["peak_rate"]
+    firing_noise = params["firing_noise"]
+    decay_time = params["decay_time"]
+    calcium_noise = params["calcium_noise"]
     # Input validation
     check_positive(
         n_neurons=n_neurons,
@@ -1319,8 +1295,8 @@ def generate_circular_manifold_exp(
     check_nonnegative(
         step_std=step_std,
         baseline_rate=baseline_rate,
-        noise_std=noise_std,
-        calcium_noise_std=calcium_noise_std,
+        firing_noise=firing_noise,
+        calcium_noise=calcium_noise,
     )
 
     if not np.isfinite(kappa):
@@ -1334,20 +1310,14 @@ def generate_circular_manifold_exp(
     # Calculate effective decay time for shuffle mask
     effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)
 
-    # Generate data
+    # Generate data - pass kwargs through to share defaults
     calcium, head_direction, preferred_directions, firing_rates = generate_circular_manifold_data(
         n_neurons=n_neurons,
-        duration=duration,
-        sampling_rate=fps,
         kappa=kappa,
         step_std=step_std,
-        baseline_rate=baseline_rate,
-        peak_rate=peak_rate,
-        noise_std=noise_std,
-        decay_time=decay_time,
-        calcium_noise_std=calcium_noise_std,
         seed=seed,
         verbose=verbose,
+        **kwargs,
     )
 
     # Create static features
@@ -1398,9 +1368,6 @@ def generate_circular_manifold_exp(
         verbose=verbose,
     )
 
-    # Store firing rates as additional data
-    exp.firing_rates = firing_rates
-
     # Create info dictionary if requested
     if return_info:
         info = {
@@ -1414,9 +1381,9 @@ def generate_circular_manifold_exp(
                 "step_std": step_std,
                 "baseline_rate": baseline_rate,
                 "peak_rate": peak_rate,
-                "noise_std": noise_std,
+                "firing_noise": firing_noise,
                 "decay_time": decay_time,
-                "calcium_noise_std": calcium_noise_std,
+                "calcium_noise": calcium_noise,
             },
         }
         return exp, info
@@ -1433,12 +1400,10 @@ def generate_2d_manifold_neurons(
     n_neurons,
     positions,
     field_sigma=0.1,
-    baseline_rate=0.1,
-    peak_rate=1.0,
-    noise_std=0.05,
     grid_arrangement=True,
     bounds=(0, 1),
     seed=None,
+    **kwargs,
 ):
     """
     Generate population of place cells with 2D Gaussian place fields.
@@ -1455,15 +1420,6 @@ def generate_2d_manifold_neurons(
         Shape (2, n_timepoints) with x, y positions.
     field_sigma : float, optional
         Width of place fields. Must be positive. Default is 0.1.
-    baseline_rate : float, optional
-        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
-        Should be less than peak_rate.
-    peak_rate : float, optional
-        Peak firing rate at place field center in Hz. Default is 1.0.
-        Values >2 Hz may cause calcium signal saturation.
-    noise_std : float, optional
-        Standard deviation of Gaussian noise in firing rates.
-        Must be non-negative. Default is 0.05.
     grid_arrangement : bool, optional
         If True, arrange place fields in a grid. Otherwise random.
         Default is True.
@@ -1472,6 +1428,9 @@ def generate_2d_manifold_neurons(
         Must have bounds[0] < bounds[1].
     seed : int, optional
         Random seed for reproducibility.
+    **kwargs : dict
+        Additional parameters from DEFAULT_SYNTHETIC_PARAMS:
+        baseline_rate, peak_rate, firing_noise.
 
     Returns
     -------
@@ -1481,9 +1440,14 @@ def generate_2d_manifold_neurons(
     place_field_centers : ndarray
         Shape (n_neurons, 2) with x, y coordinates of place field centers.
     """
+    # Merge with defaults
+    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
+    baseline_rate = params["baseline_rate"]
+    peak_rate = params["peak_rate"]
+    firing_noise = params["firing_noise"]
     # Input validation
     check_positive(n_neurons=n_neurons, field_sigma=field_sigma)
-    check_nonnegative(baseline_rate=baseline_rate, noise_std=noise_std)
+    check_nonnegative(baseline_rate=baseline_rate, firing_noise=firing_noise)
 
     # Validate firing rate
     validate_peak_rate(peak_rate, context="generate_2d_manifold_neurons")
@@ -1539,7 +1503,7 @@ def generate_2d_manifold_neurons(
         firing_rate = baseline_rate + (peak_rate - baseline_rate) * place_response
 
         # Add noise
-        noise = rng.normal(0, noise_std, n_timepoints)
+        noise = rng.normal(0, firing_noise, n_timepoints)
         firing_rate = np.maximum(0, firing_rate + noise)
 
         firing_rates[i, :] = firing_rate
@@ -1549,21 +1513,14 @@ def generate_2d_manifold_neurons(
 
 def generate_2d_manifold_data(
     n_neurons,
-    duration=600,
-    sampling_rate=20.0,
     field_sigma=0.1,
     step_size=0.02,
     momentum=0.8,
-    baseline_rate=0.1,
-    peak_rate=1.0,
-    noise_std=0.05,
     grid_arrangement=True,
-    decay_time=2.0,
-    calcium_noise_std=0.1,
-    amplitude_range=(0.5, 2.0),
     bounds=(0, 1),
     seed=None,
     verbose=True,
+    **kwargs,
 ):
     """
     Generate synthetic data with neurons on 2D spatial manifold (place cells).
@@ -1576,35 +1533,24 @@ def generate_2d_manifold_data(
     ----------
     n_neurons : int
         Number of neurons. Must be positive.
-    duration : float, optional
-        Duration in seconds. Must be positive. Default is 600.
-    sampling_rate : float, optional
-        Sampling rate in Hz. Must be positive. Default is 20.0.
     field_sigma : float, optional
         Width of place fields. Must be positive. Default is 0.1.
     step_size : float, optional
         Step size for random walk. Must be positive. Default is 0.02.
     momentum : float, optional
         Momentum for smoother trajectories. Must be in [0, 1]. Default is 0.8.
-    baseline_rate : float, optional
-        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
-    peak_rate : float, optional
-        Peak firing rate in Hz. Default is 1.0.
-        Values >2 Hz may cause calcium signal saturation.
-    noise_std : float, optional
-        Firing rate noise. Must be non-negative. Default is 0.05.
     grid_arrangement : bool, optional
         If True, arrange place fields in grid. Default is True.
-    decay_time : float, optional
-        Calcium decay time constant in seconds. Must be positive. Default is 2.0.
-    calcium_noise_std : float, optional
-        Calcium signal noise. Must be non-negative. Default is 0.1.
     bounds : tuple, optional
         Spatial bounds (min, max). Default is (0, 1).
     seed : int, optional
         Random seed for reproducibility.
     verbose : bool, optional
         Print progress messages. Default is True.
+    **kwargs : dict
+        Additional parameters from DEFAULT_SYNTHETIC_PARAMS:
+        duration, fps, baseline_rate, peak_rate, firing_noise,
+        decay_time, calcium_noise, amplitude_range.
 
     Returns
     -------
@@ -1617,6 +1563,17 @@ def generate_2d_manifold_data(
     firing_rates : ndarray
         Underlying firing rates in Hz (n_neurons x n_timepoints).
     """
+    # Merge with defaults
+    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
+    duration = params["duration"]
+    sampling_rate = params["fps"]
+    baseline_rate = params["baseline_rate"]
+    peak_rate = params["peak_rate"]
+    firing_noise = params["firing_noise"]
+    decay_time = params["decay_time"]
+    calcium_noise = params["calcium_noise"]
+    amplitude_range = params["amplitude_range"]
+
     # Input validation
     check_positive(
         n_neurons=n_neurons,
@@ -1627,7 +1584,7 @@ def generate_2d_manifold_data(
         decay_time=decay_time,
     )
     check_nonnegative(
-        baseline_rate=baseline_rate, noise_std=noise_std, calcium_noise_std=calcium_noise_std
+        baseline_rate=baseline_rate, firing_noise=firing_noise, calcium_noise=calcium_noise
     )
 
     if not isinstance(momentum, (int, float)):
@@ -1647,19 +1604,17 @@ def generate_2d_manifold_data(
         print("  Generating 2D random walk trajectory...")
     positions = generate_2d_random_walk(n_timepoints, bounds, step_size, momentum, seed)
 
-    # Generate neural responses
+    # Generate neural responses - pass kwargs through to share defaults
     if verbose:
         print("  Generating neural responses with place fields...")
     firing_rates, place_field_centers = generate_2d_manifold_neurons(
         n_neurons,
         positions,
-        field_sigma,
-        baseline_rate,
-        peak_rate,
-        noise_std,
-        grid_arrangement,
-        bounds,
+        field_sigma=field_sigma,
+        grid_arrangement=grid_arrangement,
+        bounds=bounds,
         seed=(seed + 1) if seed is not None else None,
+        **kwargs,
     )
 
     # Convert to calcium signals
@@ -1670,7 +1625,7 @@ def generate_2d_manifold_data(
         fps=sampling_rate,
         duration=duration,
         decay_time=decay_time,
-        calcium_noise=calcium_noise_std,
+        calcium_noise=calcium_noise,
         amplitude_range=amplitude_range,
         rng=rng,
     )
@@ -1683,21 +1638,15 @@ def generate_2d_manifold_data(
 
 def generate_2d_manifold_exp(
     n_neurons=100,
-    duration=600,
-    fps=20.0,
     field_sigma=0.1,
     step_size=0.02,
     momentum=0.8,
-    baseline_rate=0.1,
-    peak_rate=1.0,
-    noise_std=0.05,
     grid_arrangement=True,
-    decay_time=2.0,
-    calcium_noise_std=0.1,
     bounds=(0, 1),
     seed=None,
     verbose=True,
     return_info=False,
+    **kwargs,
 ):
     """
     Generate complete experiment with 2D spatial manifold (place cells).
@@ -1709,29 +1658,14 @@ def generate_2d_manifold_exp(
     ----------
     n_neurons : int, optional
         Number of neurons. Must be positive. Default is 100.
-    duration : float, optional
-        Duration in seconds. Must be positive. Default is 600.
-    fps : float, optional
-        Sampling rate (frames per second). Must be positive. Default is 20.0.
     field_sigma : float, optional
         Place field width. Must be positive. Default is 0.1.
     step_size : float, optional
         Random walk step size. Must be positive. Default is 0.02.
     momentum : float, optional
         Trajectory smoothness factor. Must be in [0, 1]. Default is 0.8.
-    baseline_rate : float, optional
-        Baseline firing rate in Hz. Must be non-negative. Default is 0.1.
-    peak_rate : float, optional
-        Peak firing rate in Hz. Default is 1.0.
-        Values >2 Hz may cause calcium signal saturation.
-    noise_std : float, optional
-        Firing rate noise. Must be non-negative. Default is 0.05.
     grid_arrangement : bool, optional
         If True, arrange place fields in grid. Default is True.
-    decay_time : float, optional
-        Calcium decay time in seconds. Must be positive. Default is 2.0.
-    calcium_noise_std : float, optional
-        Calcium signal noise. Must be non-negative. Default is 0.1.
     bounds : tuple, optional
         Spatial bounds (min, max). Default is (0, 1).
     seed : int, optional
@@ -1741,6 +1675,10 @@ def generate_2d_manifold_exp(
     return_info : bool, optional
         If True, return (exp, info) tuple with additional information.
         Default is False.
+    **kwargs : dict
+        Additional parameters from DEFAULT_SYNTHETIC_PARAMS:
+        duration, fps, baseline_rate, peak_rate, firing_noise,
+        decay_time, calcium_noise, amplitude_range.
 
     Returns
     -------
@@ -1751,26 +1689,30 @@ def generate_2d_manifold_exp(
         manifold_type, n_neurons, positions, place_field_centers,
         firing_rates, and all parameters.
     """
+    # Merge with defaults
+    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
+    duration = params["duration"]
+    fps = params["fps"]
+    baseline_rate = params["baseline_rate"]
+    peak_rate = params["peak_rate"]
+    firing_noise = params["firing_noise"]
+    decay_time = params["decay_time"]
+    calcium_noise = params["calcium_noise"]
+
     # Calculate effective decay time for shuffle mask
     effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)
 
-    # Generate data
+    # Generate data - pass kwargs through to share defaults
     calcium, positions, place_field_centers, firing_rates = generate_2d_manifold_data(
         n_neurons=n_neurons,
-        duration=duration,
-        sampling_rate=fps,
         field_sigma=field_sigma,
         step_size=step_size,
         momentum=momentum,
-        baseline_rate=baseline_rate,
-        peak_rate=peak_rate,
-        noise_std=noise_std,
         grid_arrangement=grid_arrangement,
-        decay_time=decay_time,
-        calcium_noise_std=calcium_noise_std,
         bounds=bounds,
         seed=seed,
         verbose=verbose,
+        **kwargs,
     )
 
     # Create static features
@@ -1819,9 +1761,6 @@ def generate_2d_manifold_exp(
         },
     )
 
-    # Store firing rates
-    exp.firing_rates = firing_rates
-
     # Create info dictionary if requested
     if return_info:
         info = {
@@ -1836,10 +1775,10 @@ def generate_2d_manifold_exp(
                 "momentum": momentum,
                 "baseline_rate": baseline_rate,
                 "peak_rate": peak_rate,
-                "noise_std": noise_std,
+                "firing_noise": firing_noise,
                 "grid_arrangement": grid_arrangement,
                 "decay_time": decay_time,
-                "calcium_noise_std": calcium_noise_std,
+                "calcium_noise": calcium_noise,
                 "bounds": bounds,
             },
         }
@@ -1860,15 +1799,15 @@ def generate_synthetic_data(
     duration=600,
     seed=42,
     sampling_rate=20.0,
-    rate_0=0.1,
-    rate_1=1.0,
+    baseline_rate=0.1,
+    peak_rate=1.0,
     skip_prob=0.0,
     hurst=0.5,
-    ampl_range=(0.5, 2),
+    calcium_amplitude_range=(0.5, 2),
     decay_time=2,
     avg_islands=10,
     avg_duration=5,
-    noise_std=0.1,
+    calcium_noise=0.02,
     verbose=True,
     pregenerated_features=None,
     apply_random_neuron_shifts=False,
@@ -1899,15 +1838,15 @@ def generate_synthetic_data(
         Random seed for reproducibility.
     sampling_rate : float
         Sampling rate in Hz. Must be positive.
-    rate_0 : float
+    baseline_rate : float
         Baseline firing rate in Hz. Must be non-negative.
-    rate_1 : float
+    peak_rate : float
         Active firing rate in Hz. Must be non-negative.
     skip_prob : float
         Probability of skipping islands. Must be in [0, 1].
     hurst : float
         Hurst parameter for FBM (0-1). 0.5 = random walk.
-    ampl_range : tuple
+    calcium_amplitude_range : tuple
         (min, max) amplitude range for calcium events.
     decay_time : float
         Calcium decay time constant in seconds. Must be positive.
@@ -1915,8 +1854,8 @@ def generate_synthetic_data(
         Average number of islands for discrete features. Must be positive.
     avg_duration : int
         Average duration of islands in seconds. Must be positive.
-    noise_std : float
-        Noise standard deviation. Must be non-negative.
+    calcium_noise : float
+        Noise standard deviation for calcium signal. Must be non-negative.
     verbose : bool
         Print progress messages.
     pregenerated_features : list, optional
@@ -1939,12 +1878,12 @@ def generate_synthetic_data(
         nneurons=nneurons,
         duration=duration,
         sampling_rate=sampling_rate,
-        rate_0=rate_0,
-        rate_1=rate_1,
+        baseline_rate=baseline_rate,
+        peak_rate=peak_rate,
         skip_prob=skip_prob,
         hurst=hurst,
         decay_time=decay_time,
-        noise_std=noise_std,
+        calcium_noise=calcium_noise,
         avg_islands=avg_islands,
         avg_duration=avg_duration,
     )
@@ -1954,9 +1893,12 @@ def generate_synthetic_data(
         raise ValueError(f"skip_prob must be in [0, 1], got {skip_prob}")
     if not 0 <= hurst <= 1:
         raise ValueError(f"hurst must be in [0, 1], got {hurst}")
-    if len(ampl_range) != 2 or ampl_range[0] > ampl_range[1]:
-        raise ValueError(f"ampl_range must be (min, max) with min <= max, got {ampl_range}")
-    check_nonnegative(ampl_min=ampl_range[0], ampl_max=ampl_range[1])
+    if len(calcium_amplitude_range) != 2 or calcium_amplitude_range[0] > calcium_amplitude_range[1]:
+        raise ValueError(
+            f"calcium_amplitude_range must be (min, max) with min <= max, "
+            f"got {calcium_amplitude_range}"
+        )
+    check_nonnegative(ampl_min=calcium_amplitude_range[0], ampl_max=calcium_amplitude_range[1])
     if ftype not in ["c", "d"]:
         raise ValueError(f"ftype must be 'c' or 'd', got '{ftype}'")
 
@@ -2083,7 +2025,7 @@ def generate_synthetic_data(
 
         # Apply Poisson process
         poisson_series = apply_poisson_to_binary_series(
-            mod_binary_series, rate_0 / sampling_rate, rate_1 / sampling_rate
+            mod_binary_series, baseline_rate / sampling_rate, peak_rate / sampling_rate
         )
 
         # Generate pseudo-calcium
@@ -2091,9 +2033,9 @@ def generate_synthetic_data(
             duration=duration,
             events=poisson_series,
             sampling_rate=sampling_rate,
-            amplitude_range=ampl_range,
+            amplitude_range=calcium_amplitude_range,
             decay_time=decay_time,
-            noise_std=noise_std,
+            noise_std=calcium_noise,
         )
 
         all_signals.append(pseudo_calcium_signal)
@@ -2275,9 +2217,9 @@ def generate_mixed_population_exp(
         - field_sigma: Size of place field (default: 0.15)
         - baseline_rate: Baseline firing rate (default: 0.05)
         - peak_rate: Peak firing rate (default: 2.0)
-        - noise_std: Noise standard deviation (default: 0.02)
+        - firing_noise: Firing rate noise (default: 0.05)
         - decay_time: Calcium decay time (default: 2.0)
-        - calcium_noise_std: Calcium noise (default: 0.02)
+        - calcium_noise: Calcium signal noise (default: 0.02)
 
     Returns
     -------
@@ -2370,9 +2312,12 @@ def generate_mixed_population_exp(
             peak_rate = manifold_params["peak_rate"]
         if "decay_time" in manifold_params:
             decay_time = manifold_params["decay_time"]
+        # Support new canonical name
+        if "calcium_noise" in manifold_params:
+            calcium_noise = manifold_params["calcium_noise"]
+        # Legacy compatibility: calcium_noise_std and noise_std map to calcium_noise
         if "calcium_noise_std" in manifold_params:
             calcium_noise = manifold_params["calcium_noise_std"]
-        # noise_std maps to calcium_noise as well (legacy compatibility)
         if "noise_std" in manifold_params:
             calcium_noise = manifold_params["noise_std"]
 

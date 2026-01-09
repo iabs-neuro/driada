@@ -362,3 +362,159 @@ def discretize_via_roi(continuous_signal, seed=None):
     binary_signal = ((continuous_signal >= lower) & (continuous_signal <= upper)).astype(int)
 
     return binary_signal
+
+
+# =============================================================================
+# Random Walk Generators (consolidated from manifold_*.py)
+# =============================================================================
+
+
+def generate_circular_random_walk(length, step_std=0.1, seed=None):
+    """
+    Generate a random walk on a circle (head direction trajectory).
+
+    Simulates angular motion by accumulating Gaussian-distributed steps
+    and wrapping to [0, 2pi). Useful for modeling head direction in
+    navigation experiments.
+
+    Parameters
+    ----------
+    length : int
+        Number of time points. Must be non-negative.
+    step_std : float, optional
+        Standard deviation of angular steps in radians. Must be non-negative.
+        Default is 0.1 radians (~5.7 degrees). Typical values: 0.05-0.5.
+    seed : int, optional
+        Random seed for reproducibility. If None, uses current random state.
+
+    Returns
+    -------
+    angles : ndarray
+        Array of angles in radians [0, 2pi). Shape: (length,).
+        Returns empty array if length is 0.
+
+    Raises
+    ------
+    ValueError
+        If length is negative or step_std is negative.
+    TypeError
+        If inputs are not numeric.
+
+    Notes
+    -----
+    The walk follows: angles[t] = (sum(i=0 to t) N(0, step_std)) mod 2pi
+    where N(0, step_std) represents Gaussian noise.
+    """
+    # Input validation
+    if not isinstance(length, (int, np.integer)):
+        raise TypeError("length must be an integer")
+    check_nonnegative(length=length, step_std=step_std)
+
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Handle edge case
+    if length == 0:
+        return np.array([])
+
+    # Generate random steps
+    steps = np.random.normal(0, step_std, length)
+
+    # Cumulative sum to get trajectory
+    angles = np.cumsum(steps)
+
+    # Wrap to [0, 2pi)
+    angles = angles % (2 * np.pi)
+
+    return angles
+
+
+def generate_2d_random_walk(length, bounds=(0, 1), step_size=0.02, momentum=0.8, seed=None):
+    """
+    Generate a 2D random walk trajectory within bounded region.
+
+    Creates a smooth random walk using momentum-based updates with boundary
+    bouncing. The walker starts at a random position and moves with inertia,
+    bouncing off walls elastically.
+
+    Parameters
+    ----------
+    length : int
+        Number of time points. Must be positive.
+    bounds : tuple, optional
+        (min, max) bounds for x and y coordinates. Default is (0, 1).
+        Must have bounds[0] < bounds[1].
+    step_size : float, optional
+        Step size for random walk. Must be positive. Default is 0.02.
+        Typical values: 0.01-0.1 relative to bounds size.
+    momentum : float, optional
+        Momentum factor for smoother trajectories. Must be in [0, 1].
+        Default is 0.8. Higher values give smoother paths.
+    seed : int, optional
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    positions : ndarray
+        Shape (2, length) with x, y coordinates. Each row contains
+        x and y coordinates respectively.
+
+    Raises
+    ------
+    ValueError
+        If length is not positive, step_size is not positive, momentum is
+        not in [0, 1], or bounds[0] >= bounds[1].
+    TypeError
+        If inputs are not numeric types.
+
+    Notes
+    -----
+    The walk follows:
+    velocity = momentum * velocity + (1 - momentum) * N(0, step_size)
+    position[t] = position[t-1] + velocity
+
+    When hitting boundaries, the relevant velocity component is reversed.
+    """
+    # Input validation
+    if not isinstance(length, (int, np.integer)):
+        raise TypeError("length must be an integer")
+    check_positive(length=length, step_size=step_size)
+
+    if not isinstance(momentum, (int, float)):
+        raise TypeError("momentum must be numeric")
+    if not 0 <= momentum <= 1:
+        raise ValueError("momentum must be in range [0, 1]")
+
+    if len(bounds) != 2:
+        raise ValueError("bounds must be a tuple of (min, max)")
+    if bounds[0] >= bounds[1]:
+        raise ValueError("bounds must have min < max")
+
+    if seed is not None:
+        np.random.seed(seed)
+
+    positions = np.zeros((2, length))
+    velocity = np.zeros(2)
+
+    # Initialize at random position
+    positions[:, 0] = np.random.uniform(bounds[0], bounds[1], 2)
+
+    for t in range(1, length):
+        # Random walk with momentum
+        velocity = momentum * velocity + (1 - momentum) * np.random.randn(2) * step_size
+
+        # Update position
+        new_pos = positions[:, t - 1] + velocity
+
+        # Bounce off walls
+        for dim in range(2):
+            if new_pos[dim] < bounds[0]:
+                new_pos[dim] = bounds[0]
+                velocity[dim] = -velocity[dim]
+            elif new_pos[dim] > bounds[1]:
+                new_pos[dim] = bounds[1]
+                velocity[dim] = -velocity[dim]
+
+        positions[:, t] = new_pos
+
+    return positions

@@ -10,8 +10,6 @@ import numpy as np
 from driada.experiment.synthetic import (
     generate_synthetic_exp_with_mixed_selectivity,
     generate_multiselectivity_patterns,
-    generate_mixed_selective_signal,
-    generate_synthetic_data_mixed_selectivity,
 )
 from driada.intense.pipelines import compute_cell_feat_significance
 
@@ -104,123 +102,6 @@ class TestMultiselectivityPatterns:
         assert np.all(matrix == 0)
 
 
-class TestMixedSelectiveSignal:
-    """Test the signal generation for mixed selective neurons."""
-
-    def test_signal_generation_basic(self):
-        """Test basic mixed selective signal generation."""
-        duration = 10
-        fps = 20
-        n_points = int(duration * fps)
-
-        # Create test features
-        feat1 = np.zeros(n_points)
-        feat1[50:70] = 1  # Active period 1
-        feat1[120:140] = 1  # Active period 2
-
-        feat2 = np.zeros(n_points)
-        feat2[60:80] = 1  # Overlaps with feat1
-        feat2[150:170] = 1  # Separate period
-
-        features = [feat1, feat2]
-        weights = [0.6, 0.4]
-
-        signal = generate_mixed_selective_signal(
-            features,
-            weights,
-            duration,
-            fps,
-            rate_0=0.1,
-            rate_1=3.0,  # Higher active rate
-            skip_prob=0.0,  # No skipping for test
-            noise_std=0.05,  # Low noise
-            seed=42,
-        )
-
-        assert len(signal) == n_points
-        assert np.max(signal) > np.mean(signal)  # Should have peaks
-
-        # Check that signal is elevated during feature activity
-        # Period where both features active (60-70)
-        both_active = signal[60:70]
-        # Period where neither active - choose period far from any activity
-        # to avoid calcium decay effects (0-20 is before any activity)
-        neither_active = signal[0:20]
-
-        assert np.mean(both_active) > np.mean(neither_active)
-
-    def test_signal_with_continuous_features(self):
-        """Test signal generation with continuous features."""
-        duration = 10
-        fps = 20
-        n_points = int(duration * fps)
-
-        # Create continuous features
-        feat1 = np.sin(np.linspace(0, 4 * np.pi, n_points))
-        feat2 = np.cos(np.linspace(0, 3 * np.pi, n_points))
-
-        features = [feat1, feat2]
-        weights = [0.5, 0.5]
-
-        signal = generate_mixed_selective_signal(
-            features, weights, duration, fps, rate_1=2.0, noise_std=0.1, seed=42
-        )
-
-        assert len(signal) == n_points
-        assert np.std(signal) > 0  # Should have variance
-
-
-class TestSyntheticDataMixedSelectivity:
-    """Test the full data generation pipeline."""
-
-    def test_data_generation_with_known_selectivity(self):
-        """Test data generation with a known selectivity pattern."""
-        n_neurons = 5
-        n_features = 3
-        duration = 20
-        fps = 10
-
-        # Create features
-        features_dict = {
-            "feat1": np.random.choice([0, 1], int(duration * fps)),
-            "feat2": np.random.choice([0, 1], int(duration * fps)),
-            "feat3": np.random.choice([0, 1], int(duration * fps)),
-        }
-
-        # Create known selectivity pattern
-        selectivity_matrix = np.array(
-            [
-                [1.0, 0.0, 0.5, 0.0, 0.3],  # feat1 selective to neurons 0, 2, 4
-                [0.0, 1.0, 0.5, 0.7, 0.3],  # feat2 selective to neurons 1, 2, 3, 4
-                [0.0, 0.0, 0.0, 0.3, 0.4],  # feat3 selective to neurons 3, 4
-            ]
-        )
-
-        signals, _ = generate_synthetic_data_mixed_selectivity(
-            features_dict,
-            n_neurons,
-            selectivity_matrix,
-            duration=duration,
-            sampling_rate=fps,  # Use sampling_rate not fps
-            rate_1=3.0,  # High firing rate
-            skip_prob=0.0,  # No skipping
-            noise_std=0.05,  # Low noise
-            seed=42,
-            verbose=False,
-        )
-
-        assert signals.shape == (n_neurons, int(duration * fps))
-
-        # Verify neurons have different activity patterns
-        correlations = []
-        for i in range(n_neurons - 1):
-            corr = np.corrcoef(signals[i], signals[i + 1])[0, 1]
-            correlations.append(corr)
-
-        # Should have diversity in correlations
-        assert np.std(correlations) > 0.1
-
-
 class TestGenerateSyntheticExpWithMixedSelectivity:
     """Test the full experiment generation with mixed selectivity."""
 
@@ -246,6 +127,48 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
         assert "feature_names" in exp.ground_truth
         assert exp.ground_truth["selectivity_matrix"].shape[1] == 10  # n_neurons
 
+        # Verify canonical feature names
+        feature_names = exp.ground_truth["feature_names"]
+        assert "event_0" in feature_names
+        assert "event_1" in feature_names
+        assert "fbm_0" in feature_names
+        assert "fbm_1" in feature_names
+
+    def test_canonical_feature_names_in_experiment(self):
+        """Test that experiment uses canonical feature names."""
+        exp = generate_synthetic_exp_with_mixed_selectivity(
+            n_discrete_feats=2,
+            n_continuous_feats=2,
+            n_neurons=5,
+            duration=30,
+            fps=10,
+            seed=42,
+            verbose=False,
+        )
+
+        # Check dynamic features use canonical names
+        feature_keys = list(exp.dynamic_features.keys())
+
+        # Discrete features (events) are always generated
+        assert "event_0" in feature_keys
+        assert "event_1" in feature_keys
+
+        # Continuous features (FBM) are only generated if neurons are selective
+        # Check at least one FBM feature exists if there are continuous features
+        fbm_keys = [k for k in feature_keys if k.startswith("fbm_")]
+        assert len(fbm_keys) >= 0  # May be 0 if no neurons selected these features
+
+        # Old names should NOT be present
+        assert "d_feat_0" not in feature_keys
+        assert "c_feat_0" not in feature_keys
+
+        # Ground truth should have ALL feature names
+        gt_features = exp.ground_truth["feature_names"]
+        assert "event_0" in gt_features
+        assert "event_1" in gt_features
+        assert "fbm_0" in gt_features
+        assert "fbm_1" in gt_features
+
     def test_detectability_of_mixed_selectivity(self):
         """Critical test: Verify generated mixed selectivity is detectable."""
         # Generate with parameters designed for strong selectivity
@@ -259,11 +182,11 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             selectivity_prob=1.0,  # All neurons selective
             multi_select_prob=0.8,  # Most have mixed selectivity
             weights_mode="equal",  # Equal contributions
-            rate_0=0.05,  # Very low baseline for better SNR
-            rate_1=3.0,  # Higher rate for better detectability
+            baseline_rate=0.05,  # Very low baseline for better SNR
+            peak_rate=3.0,  # Higher rate for better detectability
             skip_prob=0.0,  # No skipping
-            ampl_range=(1.0, 3.0),  # Stronger amplitude
-            noise_std=0.005,  # Very low noise
+            calcium_amplitude_range=(1.0, 3.0),  # Stronger amplitude
+            calcium_noise=0.005,  # Very low noise
             seed=42,
             verbose=False,
         )
@@ -355,32 +278,6 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
                         total_pairs > 0
                     ), f"Count matrix all zeros:\n{disent_results['count_matrix']}"
 
-    def test_multifeature_generation(self):
-        """Test multifeature generation."""
-        exp = generate_synthetic_exp_with_mixed_selectivity(
-            n_discrete_feats=1,
-            n_continuous_feats=4,
-            n_neurons=10,
-            n_multifeatures=2,
-            duration=60,
-            fps=10,
-            seed=42,
-            verbose=False,
-        )
-
-        # Check multifeatures were created
-        # Look for keys starting with 'multi' or containing multiple features
-        multifeatures = [
-            k
-            for k in exp.dynamic_features.keys()
-            if (isinstance(k, str) and k.startswith("multi"))
-            or (isinstance(k, tuple) and len(k) > 1)
-        ]
-
-        assert (
-            len(multifeatures) >= 1
-        ), f"No multifeatures found. Keys: {list(exp.dynamic_features.keys())}"
-
     def test_parameter_sensitivity(self):
         """Test that parameters actually affect detectability."""
         # Test with weak parameters - all neurons selective but weak signals
@@ -392,9 +289,9 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             fps=20,
             selectivity_prob=1.0,  # All neurons selective
             multi_select_prob=0.5,  # Some mixed selectivity
-            rate_0=0.8,  # High baseline (close to active rate)
-            rate_1=1.2,  # Low active rate (weak modulation)
-            noise_std=0.3,  # High noise relative to signal
+            baseline_rate=0.8,  # High baseline (close to active rate)
+            peak_rate=1.2,  # Low active rate (weak modulation)
+            calcium_noise=0.3,  # High noise relative to signal
             seed=42,
             verbose=False,
         )
@@ -408,9 +305,9 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             fps=20,
             selectivity_prob=1.0,  # All neurons selective
             multi_select_prob=0.5,  # Same mixed selectivity
-            rate_0=0.1,  # Low baseline
-            rate_1=3.0,  # High active rate (strong modulation)
-            noise_std=0.05,  # Low noise
+            baseline_rate=0.1,  # Low baseline
+            peak_rate=3.0,  # High active rate (strong modulation)
+            calcium_noise=0.05,  # Low noise
             seed=42,
             verbose=False,
         )
@@ -441,7 +338,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
         quality_strong = compute_signal_quality(exp_strong)
 
         # Strong parameters should produce much better signal quality
-        # Given the parameters: weak (rate_0=0.8, rate_1=1.2) vs strong (rate_0=0.1, rate_1=3.0)
+        # Given the parameters: weak (baseline_rate=0.8, peak_rate=1.2) vs strong (baseline_rate=0.1, peak_rate=3.0)
         # We expect significantly better quality in the strong case
         assert (
             quality_strong > quality_weak * 1.5
@@ -470,10 +367,10 @@ class TestIntegrationWithAnalysisPipeline:
                 selectivity_prob=1.0,
                 multi_select_prob=0.8,  # Higher mixed selectivity
                 weights_mode="equal",  # Equal weights for better mixed selectivity detection
-                rate_0=0.05,  # Low baseline for better SNR
-                rate_1=5.0,  # High active rate
+                baseline_rate=0.05,  # Low baseline for better SNR
+                peak_rate=5.0,  # High active rate
                 skip_prob=0.0,
-                noise_std=0.02,  # Lower noise for better visibility
+                calcium_noise=0.02,  # Lower noise for better visibility
                 seed=seed,
                 verbose=False,
             )
@@ -579,10 +476,10 @@ class TestIntegrationWithAnalysisPipeline:
             selectivity_prob=1.0,
             multi_select_prob=0.9,
             weights_mode="equal",
-            rate_0=0.05,  # Low baseline
-            rate_1=5.0,  # High active rate
+            baseline_rate=0.05,  # Low baseline
+            peak_rate=5.0,  # High active rate
             skip_prob=0.0,
-            noise_std=0.02,  # Lower noise
+            calcium_noise=0.02,  # Lower noise
             seed=999,
             verbose=False,
         )

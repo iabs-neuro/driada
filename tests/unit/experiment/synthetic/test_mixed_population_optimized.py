@@ -48,9 +48,8 @@ class TestGenerateMixedPopulationExpFast:
         # Check calcium signals shape
         assert exp.calcium.shape == (10, 300)
 
-        # Check features exist (new naming convention from generate_tuned_selectivity_exp)
-        assert "x" in exp.dynamic_features
-        assert "y" in exp.dynamic_features
+        # Check features exist - only features referenced in population config are added
+        # For 2d_spatial manifold, only position_2d is used (not x, y separately)
         assert "position_2d" in exp.dynamic_features
 
     @pytest.mark.parametrize("manifold_type", ["2d_spatial", "circular"])
@@ -68,10 +67,8 @@ class TestGenerateMixedPopulationExpFast:
         composition = info["population_composition"]
         assert composition["manifold_type"] == manifold_type
 
-        # Check appropriate features exist (new naming convention)
+        # Check appropriate features exist - only features in population config are added
         if manifold_type == "2d_spatial":
-            assert "x" in exp.dynamic_features
-            assert "y" in exp.dynamic_features
             assert "position_2d" in exp.dynamic_features
         elif manifold_type == "circular":
             assert "head_direction" in exp.dynamic_features

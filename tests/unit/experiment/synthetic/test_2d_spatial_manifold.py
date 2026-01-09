@@ -195,7 +195,7 @@ class TestGenerate2DManifoldData:
         fps = 20
 
         calcium, positions, centers, rates = generate_2d_manifold_data(
-            n_neurons, duration, fps, seed=42, verbose=False
+            n_neurons, duration=duration, fps=fps, seed=42, verbose=False
         )
 
         n_timepoints = int(duration * fps)
@@ -249,10 +249,10 @@ class TestGenerate2DManifoldExp:
         assert "momentum" in params
         assert "baseline_rate" in params
         assert "peak_rate" in params
-        assert "noise_std" in params
+        assert "firing_noise" in params
         assert "grid_arrangement" in params
         assert "decay_time" in params
-        assert "calcium_noise_std" in params
+        assert "calcium_noise" in params
         assert "bounds" in params
 
         # Check data shapes
@@ -266,7 +266,7 @@ class TestGenerate2DManifoldExp:
         duration = 30
 
         exp, info = generate_2d_manifold_exp(
-            n_neurons, duration, verbose=False, seed=42, return_info=True
+            n_neurons, duration=duration, verbose=False, seed=42, return_info=True
         )
 
         # Check experiment structure
@@ -297,8 +297,8 @@ class TestGenerate2DManifoldExp:
             momentum=0.7,  # Smoother movement
             peak_rate=2.0,  # Reasonable peak rate
             baseline_rate=0.05,  # Low baseline
-            noise_std=0.02,  # Low noise
-            calcium_noise_std=0.05,  # Moderate calcium noise
+            firing_noise=0.02,  # Low noise
+            calcium_noise=0.05,  # Moderate calcium noise
             decay_time=1.5,  # Reasonable decay
             verbose=False,
             seed=123,  # Changed seed

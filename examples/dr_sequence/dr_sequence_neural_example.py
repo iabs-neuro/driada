@@ -7,7 +7,7 @@ manifold learning on high-dimensional neural activity data.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from driada.experiment.synthetic.manifold_spatial_2d import generate_2d_manifold_data
+from driada.experiment.synthetic import generate_2d_manifold_data
 from driada.dim_reduction import MVData, dr_sequence
 from driada.dim_reduction.manifold_metrics import (
     knn_preservation_rate,

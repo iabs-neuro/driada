@@ -49,12 +49,11 @@ def test_compute_cell_feat_significance_with_disentanglement_fast():
         selectivity_prob=1.0,  # All neurons are selective
         multi_select_prob=0.8,  # 80% have mixed selectivity (16 neurons)
         weights_mode="dominant",  # One feature dominates - creates asymmetry
-        create_discrete_pairs=True,  # Create d_feat_from_c features
         skip_prob=0.0,  # No spike skipping for clearer signals
-        rate_0=0.5,  # Higher baseline rate
-        rate_1=10.0,  # Much higher active rate for better detection
-        ampl_range=(0.5, 2.0),  # Standard calcium responses
-        noise_std=0.005,  # Very low noise
+        baseline_rate=0.5,  # Higher baseline rate
+        peak_rate=10.0,  # Much higher active rate for better detection
+        calcium_amplitude_range=(0.5, 2.0),  # Standard calcium responses
+        calcium_noise=0.005,  # Very low noise
         seed=42,
         verbose=False,
     )
@@ -183,10 +182,15 @@ def test_mixed_selectivity_generation_fast():
     # Minimal generation - check the actual API
 
     # Generate minimal mixed selectivity experiment
+    n_discrete = 1
+    n_continuous = 2
+    n_neurons = 5
+    n_features = n_discrete + n_continuous
+
     exp = generate_synthetic_exp_with_mixed_selectivity(
-        n_discrete_feats=1,
-        n_continuous_feats=2,
-        n_neurons=5,
+        n_discrete_feats=n_discrete,
+        n_continuous_feats=n_continuous,
+        n_neurons=n_neurons,
         duration=60,  # Increased to avoid shuffle mask error
         fps=10,
         selectivity_prob=0.8,
@@ -194,9 +198,10 @@ def test_mixed_selectivity_generation_fast():
         verbose=False,
     )
 
-    assert exp.n_cells == 5
+    assert exp.n_cells == n_neurons
     assert "selectivity_matrix" in exp.ground_truth
-    assert exp.ground_truth["selectivity_matrix"].shape == (5, 5)  # neurons x features
+    # Selectivity matrix shape is (n_features, n_neurons)
+    assert exp.ground_truth["selectivity_matrix"].shape == (n_features, n_neurons)
 
 
 def test_disentanglement_minimal():
@@ -449,17 +454,17 @@ def test_compute_feat_feat_significance_edge_cases(small_experiment):
     assert len(feat_ids) == 0
 
     # Test with multifeatures - use continuous features since multifeatures don't support discrete
-    # The small_experiment fixture has c_feat_0 and c_feat_1
-    multifeature = ("c_feat_0", "c_feat_1")
+    # The small_experiment fixture has fbm_0 and fbm_1
+    multifeature = ("fbm_0", "fbm_1")
     sim_mat2, sig_mat2, pval_mat2, feat_ids2, info2 = compute_feat_feat_significance(
         exp,
-        feat_bunch=["d_feat_0", multifeature],  # Mix discrete and multifeature
+        feat_bunch=["event_0", multifeature],  # Mix discrete and multifeature
         verbose=True,
         **FAST_PARAMS,
     )
 
     assert len(feat_ids2) == 2
-    assert "d_feat_0" in feat_ids2
+    assert "event_0" in feat_ids2
     assert multifeature in feat_ids2
 
 
@@ -490,7 +495,7 @@ def test_compute_cell_feat_significance_error_paths(small_experiment):
     result = compute_cell_feat_significance(
         exp,
         cell_bunch=[0, 1],
-        feat_bunch=["d_feat_0", "d_feat_1"],
+        feat_bunch=["event_0", "event_1"],
         allow_mixed_dimensions=True,
         use_precomputed_stats=False,  # Don't use precomputed stats
         verbose=True,  # Test verbose paths
@@ -500,6 +505,7 @@ def test_compute_cell_feat_significance_error_paths(small_experiment):
     assert len(result) == 4
 
 
+@pytest.mark.skip(reason="create_discrete_pairs feature removed in API consolidation")
 def test_disentanglement_with_asymmetric_features():
     """Test disentanglement with asymmetric feature relationships (discrete from continuous)."""
 
@@ -513,19 +519,18 @@ def test_disentanglement_with_asymmetric_features():
         selectivity_prob=1.0,  # All neurons selective
         multi_select_prob=1.0,  # All have mixed selectivity
         weights_mode="dominant",  # Asymmetric weights - key for detection!
-        create_discrete_pairs=True,  # Creates d_feat_from_c0, d_feat_from_c1
         skip_prob=0.0,
-        rate_0=0.5,
-        rate_1=10.0,
-        ampl_range=(0.5, 2.0),
-        noise_std=0.005,
+        baseline_rate=0.5,
+        peak_rate=10.0,
+        calcium_amplitude_range=(0.5, 2.0),
+        calcium_noise=0.005,
         seed=123,  # Different seed
         verbose=False,
     )
 
     # Find neurons selective to both continuous and discrete versions
     feature_names = list(exp.dynamic_features.keys())
-    assert "c_feat_0" in feature_names
+    assert "fbm_0" in feature_names
     assert "d_feat_from_c0" in feature_names
 
     # Get neurons with mixed selectivity including continuous/discrete pairs

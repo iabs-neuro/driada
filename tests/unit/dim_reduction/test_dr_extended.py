@@ -332,7 +332,7 @@ def test_circular_manifold_extraction():
         n_neurons=50,  # Reduced from 100
         duration=150,  # Reduced from 300
         kappa=4.0,  # Von Mises concentration parameter
-        noise_std=0.1,
+        firing_noise=0.1,
         seed=42,
         return_info=True,
     )

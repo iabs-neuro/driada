@@ -437,7 +437,7 @@ class TestSpatialAnalysisPipeline:
             field_sigma=0.15,  # Wider field for better detection
             baseline_rate=0.5,  # Hz
             peak_rate=10.0,  # Hz
-            noise_std=0.1,
+            firing_noise=0.1,
             grid_arrangement=False,
             seed=42,
         )
@@ -446,7 +446,7 @@ class TestSpatialAnalysisPipeline:
         centers[0] = [0.5, 0.5]
 
         # Regenerate with fixed center
-        from driada.experiment.synthetic.manifold_spatial_2d import gaussian_place_field
+        from driada.experiment.synthetic import gaussian_place_field
 
         place_response = gaussian_place_field(positions.T, centers[0], sigma=0.15)
         firing_rate = 0.5 + (10.0 - 0.5) * place_response

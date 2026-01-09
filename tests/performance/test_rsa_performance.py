@@ -149,17 +149,17 @@ def test_caching_performance():
 
     # First computation (no cache)
     start = time.time()
-    rdm1, labels1 = exp.compute_rdm("d_feat_0", use_cache=True)
+    rdm1, labels1 = exp.compute_rdm("event_0", use_cache=True)
     time_first = time.time() - start
 
     # Second computation (should use cache)
     start = time.time()
-    rdm2, labels2 = exp.compute_rdm("d_feat_0", use_cache=True)
+    rdm2, labels2 = exp.compute_rdm("event_0", use_cache=True)
     time_cached = time.time() - start
 
     # Third computation (bypass cache)
     start = time.time()
-    rdm3, labels3 = exp.compute_rdm("d_feat_0", use_cache=False)
+    rdm3, labels3 = exp.compute_rdm("event_0", use_cache=False)
     time_no_cache = time.time() - start
 
     print(f"\nFirst computation:    {time_first:.4f} s")

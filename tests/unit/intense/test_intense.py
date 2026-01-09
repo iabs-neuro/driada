@@ -1073,14 +1073,14 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
     exp = small_experiment
 
     # Test backward compatibility - old style single cell/feature
-    me0, shifted_me = get_calcium_feature_me_profile(exp, 0, "d_feat_0", window=20, ds=2)
+    me0, shifted_me = get_calcium_feature_me_profile(exp, 0, "event_0", window=20, ds=2)
     assert isinstance(me0, float)
     assert isinstance(shifted_me, list)
     assert len(shifted_me) == 21  # window=20, ds=2 gives -10 to +10 inclusive = 21 values
 
     # Test new style with cbunch/fbunch
     results = get_calcium_feature_me_profile(
-        exp, cbunch=[0, 1], fbunch=["d_feat_0", "c_feat_0"], window=20, ds=2
+        exp, cbunch=[0, 1], fbunch=["event_0", "fbm_0"], window=20, ds=2
     )
 
     # Check structure
@@ -1088,19 +1088,19 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
     assert len(results) == 2  # 2 cells
     assert 0 in results and 1 in results
     assert len(results[0]) == 2  # 2 features
-    assert "d_feat_0" in results[0] and "c_feat_0" in results[0]
-    assert "me0" in results[0]["d_feat_0"]
-    assert "shifted_me" in results[0]["d_feat_0"]
+    assert "event_0" in results[0] and "fbm_0" in results[0]
+    assert "me0" in results[0]["event_0"]
+    assert "shifted_me" in results[0]["event_0"]
 
     # Test cbunch=None (all cells)
     results_all = get_calcium_feature_me_profile(
-        exp, cbunch=None, fbunch=["d_feat_0"], window=10, ds=2
+        exp, cbunch=None, fbunch=["event_0"], window=10, ds=2
     )
     assert len(results_all) == exp.n_cells  # All cells in fixture
 
     # Test invalid cell index
     with pytest.raises(ValueError, match="out of range"):
-        get_calcium_feature_me_profile(exp, cbunch=[10], fbunch=["d_feat_0"])
+        get_calcium_feature_me_profile(exp, cbunch=[10], fbunch=["event_0"])
 
 
 def test_intense_handles_no_significant_neurons(balanced_test_params):
@@ -1132,7 +1132,7 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
         None,  # No spikes
         {},  # No identificators
         {"fps": fps},
-        {"c_feat_0": TimeSeries(feature_data, discrete=False)},
+        {"fbm_0": TimeSeries(feature_data, discrete=False)},
         reconstruct_spikes=None,
     )
 

@@ -24,7 +24,17 @@ All functions remain available through this __init__.py for backward compatibili
 # Core utilities and calcium dynamics
 # =============================================================================
 from .core import (
+    # Default parameters
     DEFAULT_T_RISE,
+    DEFAULT_DECAY_TIME,
+    DEFAULT_CALCIUM_NOISE,
+    DEFAULT_AMPLITUDE_RANGE,
+    DEFAULT_BASELINE_RATE,
+    DEFAULT_PEAK_RATE,
+    DEFAULT_FIRING_NOISE,
+    DEFAULT_FPS,
+    DEFAULT_DURATION,
+    # Functions
     validate_peak_rate,
     generate_pseudo_calcium_signal,
     generate_pseudo_calcium_multisignal,
@@ -86,8 +96,17 @@ from .generators import (
 # Export all functions for backward compatibility
 # =============================================================================
 __all__ = [
-    # Core utilities
+    # Default parameters
     "DEFAULT_T_RISE",
+    "DEFAULT_DECAY_TIME",
+    "DEFAULT_CALCIUM_NOISE",
+    "DEFAULT_AMPLITUDE_RANGE",
+    "DEFAULT_BASELINE_RATE",
+    "DEFAULT_PEAK_RATE",
+    "DEFAULT_FIRING_NOISE",
+    "DEFAULT_FPS",
+    "DEFAULT_DURATION",
+    # Core utilities
     "validate_peak_rate",
     "generate_pseudo_calcium_signal",
     "generate_pseudo_calcium_multisignal",

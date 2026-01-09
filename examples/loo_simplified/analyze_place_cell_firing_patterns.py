@@ -27,7 +27,7 @@ import logging
 from typing import Dict, Tuple, List, Optional
 
 from driada.experiment.synthetic import generate_mixed_population_exp
-from driada.experiment.synthetic.manifold_spatial_2d import gaussian_place_field
+from driada.experiment.synthetic import gaussian_place_field
 from driada.utils.data import check_positive
 
 

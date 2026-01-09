@@ -87,7 +87,7 @@ def base_circular_manifold_exp_fast():
     key = "circular_fast"
     if key not in _experiment_cache:
         _experiment_cache[key] = generate_circular_manifold_exp(
-            n_neurons=20, duration=100, noise_std=0.1, seed=42
+            n_neurons=20, duration=100, firing_noise=0.1, seed=42
         )
     return _experiment_cache[key]
 
@@ -98,7 +98,7 @@ def base_circular_manifold_exp_balanced():
     key = "circular_balanced"
     if key not in _experiment_cache:
         _experiment_cache[key] = generate_circular_manifold_exp(
-            n_neurons=30, duration=200, noise_std=0.1, seed=42
+            n_neurons=30, duration=200, firing_noise=0.1, seed=42
         )
     return _experiment_cache[key]
 
@@ -109,7 +109,7 @@ def base_circular_manifold_exp_thorough():
     key = "circular_thorough"
     if key not in _experiment_cache:
         _experiment_cache[key] = generate_circular_manifold_exp(
-            n_neurons=40, duration=400, noise_std=0.05, seed=42
+            n_neurons=40, duration=400, firing_noise=0.05, seed=42
         )
     return _experiment_cache[key]
 
@@ -154,7 +154,7 @@ def base_2d_manifold_exp_fast():
     key = "2d_fast"
     if key not in _experiment_cache:
         _experiment_cache[key] = generate_2d_manifold_exp(
-            n_neurons=20, duration=100, noise_std=0.2, seed=123
+            n_neurons=20, duration=100, firing_noise=0.2, seed=123
         )
     return _experiment_cache[key]
 
@@ -165,7 +165,7 @@ def base_2d_manifold_exp_balanced():
     key = "2d_balanced"
     if key not in _experiment_cache:
         _experiment_cache[key] = generate_2d_manifold_exp(
-            n_neurons=25, duration=200, noise_std=0.2, seed=123
+            n_neurons=25, duration=200, firing_noise=0.2, seed=123
         )
     return _experiment_cache[key]
 
@@ -176,7 +176,7 @@ def base_2d_manifold_exp_thorough():
     key = "2d_thorough"
     if key not in _experiment_cache:
         _experiment_cache[key] = generate_2d_manifold_exp(
-            n_neurons=40, duration=400, noise_std=0.1, seed=123
+            n_neurons=40, duration=400, firing_noise=0.1, seed=123
         )
     return _experiment_cache[key]
 

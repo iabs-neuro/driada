@@ -507,7 +507,11 @@ class TestGenerateTunedSelectivityExp:
         assert not np.allclose(calcium1, calcium2)
 
     def test_all_features_present(self):
-        """Test that all expected features are in experiment."""
+        """Test that all expected features are in experiment.
+
+        Only features referenced in the population config should be included.
+        Unreferenced features (like position_2d) should NOT be added.
+        """
         population = [
             {"name": "hd_cells", "count": 1, "features": ["head_direction"]},
             {"name": "place_cells", "count": 1, "features": ["x", "y"]},
@@ -523,13 +527,15 @@ class TestGenerateTunedSelectivityExp:
             verbose=False,
         )
 
+        # Features referenced in population config should be present
         assert "head_direction" in exp.dynamic_features
         assert "x" in exp.dynamic_features
         assert "y" in exp.dynamic_features
         assert "speed" in exp.dynamic_features
         assert "event_0" in exp.dynamic_features
         assert "event_1" in exp.dynamic_features
-        assert "position_2d" in exp.dynamic_features
+        # position_2d should NOT be present since it's not referenced
+        assert "position_2d" not in exp.dynamic_features
 
     def test_weighted_combination_in_generator(self):
         """Test weighted combination mode in experiment generation."""
@@ -736,3 +742,145 @@ class TestGroundTruthToSelectivityMatrix:
 
         # Neuron 4 is nonselective
         assert result["matrix"][:, 4].sum() == 0
+
+
+class TestThresholdResponse:
+    """Tests for threshold_response function."""
+
+    def test_binary_discretization(self):
+        """Test binary threshold discretization."""
+        from driada.experiment.synthetic import threshold_response
+
+        feature = np.array([0.1, 0.3, 0.7, 0.9, 0.2])
+        response = threshold_response(feature, discretization="binary", threshold=0.5)
+        expected = np.array([0.0, 0.0, 1.0, 1.0, 0.0])
+        np.testing.assert_array_equal(response, expected)
+
+    def test_roi_discretization(self):
+        """Test ROI-based discretization."""
+        from driada.experiment.synthetic import threshold_response
+
+        # Generate a feature with known structure
+        np.random.seed(42)
+        feature = np.random.randn(100)
+        feature = (feature - feature.min()) / (feature.max() - feature.min())
+
+        response = threshold_response(feature, discretization="roi", seed=42)
+
+        # Response should be binary
+        assert set(np.unique(response)).issubset({0.0, 1.0})
+        # ROI should capture approximately 15% of values
+        active_fraction = response.mean()
+        assert 0.05 < active_fraction < 0.30  # Allow some variance
+
+    def test_invalid_discretization_raises_error(self):
+        """Test that invalid discretization mode raises error."""
+        from driada.experiment.synthetic import threshold_response
+
+        feature = np.array([0.1, 0.5, 0.9])
+        with pytest.raises(ValueError, match="Unknown discretization"):
+            threshold_response(feature, discretization="invalid")
+
+
+class TestThresholdTuningType:
+    """Tests for tuning_type='threshold' in generate_tuned_selectivity_exp."""
+
+    def test_threshold_tuning_type_basic(self):
+        """Test basic threshold tuning type."""
+        population = [
+            {
+                "name": "threshold_cells",
+                "count": 3,
+                "features": ["fbm_0"],
+                "tuning_type": "threshold",
+            },
+        ]
+
+        exp = generate_tuned_selectivity_exp(
+            population,
+            duration=30,
+            seed=42,
+            verbose=False,
+        )
+
+        assert exp.n_cells == 3
+        # Check tuning parameters recorded
+        for neuron_idx in range(3):
+            params = exp.ground_truth["tuning_parameters"][neuron_idx]
+            assert "fbm_0" in params
+            assert params["fbm_0"]["tuning_type"] == "threshold"
+
+    def test_threshold_tuning_with_events(self):
+        """Test threshold tuning with event features (already binary)."""
+        population = [
+            {
+                "name": "event_threshold",
+                "count": 2,
+                "features": ["event_0"],
+                "tuning_type": "threshold",
+            },
+        ]
+
+        exp = generate_tuned_selectivity_exp(
+            population,
+            duration=30,
+            seed=42,
+            n_discrete_features=1,
+            verbose=False,
+        )
+
+        assert exp.n_cells == 2
+        # Events should still work with threshold mode
+        for neuron_idx in range(2):
+            params = exp.ground_truth["tuning_parameters"][neuron_idx]
+            assert "event_0" in params
+            assert params["event_0"].get("binary", False)
+
+    def test_threshold_vs_default_different_responses(self):
+        """Test that threshold mode produces different responses than default."""
+        # Default (sigmoid) tuning
+        pop_sigmoid = [
+            {"name": "sigmoid", "count": 2, "features": ["fbm_0"]},
+        ]
+        exp_sigmoid = generate_tuned_selectivity_exp(
+            pop_sigmoid, duration=30, seed=42, verbose=False
+        )
+
+        # Threshold tuning
+        pop_threshold = [
+            {"name": "threshold", "count": 2, "features": ["fbm_0"],
+             "tuning_type": "threshold"},
+        ]
+        exp_threshold = generate_tuned_selectivity_exp(
+            pop_threshold, duration=30, seed=42, verbose=False
+        )
+
+        # The tuning parameters should be different
+        sig_params = exp_sigmoid.ground_truth["tuning_parameters"][0]["fbm_0"]
+        thresh_params = exp_threshold.ground_truth["tuning_parameters"][0]["fbm_0"]
+
+        # Sigmoid has "slope" and "threshold", threshold mode has "tuning_type"
+        assert "slope" in sig_params
+        assert "tuning_type" in thresh_params
+        assert thresh_params["tuning_type"] == "threshold"
+
+    def test_threshold_binary_discretization_mode(self):
+        """Test threshold mode with binary discretization."""
+        population = [
+            {
+                "name": "threshold_binary",
+                "count": 2,
+                "features": ["speed"],
+                "tuning_type": "threshold",
+                "discretization": "binary",
+            },
+        ]
+
+        exp = generate_tuned_selectivity_exp(
+            population, duration=30, seed=42, verbose=False
+        )
+
+        # Check discretization mode recorded
+        params = exp.ground_truth["tuning_parameters"][0]["speed"]
+        assert params["tuning_type"] == "threshold"
+        assert params["discretization"] == "binary"

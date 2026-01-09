@@ -246,7 +246,7 @@ def test_disentangle_all_selectivities_multifeature(multifeature_experiment):
     exp._set_selectivity_tables("calcium")
 
     # Get available continuous features
-    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith("c_feat_")]
+    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith("fbm_")]
 
     # Add x and y attributes from first two continuous features
     exp.x = exp.dynamic_features[c_feats[0]]
@@ -314,7 +314,7 @@ def test_create_multifeature_map_valid(multifeature_experiment):
     exp = multifeature_experiment
 
     # Get actual continuous features
-    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith("c_feat_")]
+    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith("fbm_")]
 
     # Add attributes from actual features
     exp.x = exp.dynamic_features[c_feats[0]]
@@ -340,7 +340,7 @@ def test_create_multifeature_map_invalid(continuous_only_experiment):
     exp = continuous_only_experiment
 
     # Get first continuous feature
-    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith("c_feat_")]
+    c_feats = [k for k in exp.dynamic_features.keys() if k.startswith("fbm_")]
     if c_feats:
         exp.x = exp.dynamic_features[c_feats[0]]
     # Don't add y
