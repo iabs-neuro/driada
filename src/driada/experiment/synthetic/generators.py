@@ -66,6 +66,44 @@ from .tuning import (
 # =============================================================================
 
 
+def _extract_synthetic_params(**kwargs) -> dict:
+    """
+    Extract and merge synthetic data parameters with defaults.
+
+    Consolidates the common pattern of merging user kwargs with
+    DEFAULT_SYNTHETIC_PARAMS and extracting individual parameters.
+
+    Parameters
+    ----------
+    **kwargs : dict
+        User-provided parameters to override defaults.
+
+    Returns
+    -------
+    params : dict
+        Merged parameters with all standard synthetic data keys:
+        - duration: Recording duration in seconds
+        - fps: Sampling rate in Hz
+        - baseline_rate: Baseline firing rate
+        - peak_rate: Peak firing rate
+        - firing_noise: Firing rate noise std
+        - decay_time: Calcium decay time constant
+        - calcium_noise: Calcium signal noise std
+        - amplitude_range: (min, max) calcium event amplitudes
+    """
+    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
+    return {
+        "duration": params["duration"],
+        "fps": params["fps"],
+        "baseline_rate": params["baseline_rate"],
+        "peak_rate": params["peak_rate"],
+        "firing_noise": params["firing_noise"],
+        "decay_time": params["decay_time"],
+        "calcium_noise": params["calcium_noise"],
+        "amplitude_range": params["amplitude_range"],
+    }
+
+
 def _firing_rates_to_calcium(
     firing_rates: np.ndarray,
     fps: float,
@@ -1063,11 +1101,11 @@ def generate_circular_manifold_neurons(
         Preferred direction for each neuron in radians [0, 2*pi).
         Shape: (n_neurons,).
     """
-    # Merge with defaults
-    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
-    baseline_rate = params["baseline_rate"]
-    peak_rate = params["peak_rate"]
-    firing_noise = params["firing_noise"]
+    # Extract parameters using helper
+    p = _extract_synthetic_params(**kwargs)
+    baseline_rate = p["baseline_rate"]
+    peak_rate = p["peak_rate"]
+    firing_noise = p["firing_noise"]
 
     # Input validation
     check_positive(n_neurons=n_neurons)
@@ -1152,16 +1190,16 @@ def generate_circular_manifold_data(
     firing_rates : ndarray
         Underlying firing rates in Hz.
     """
-    # Merge with defaults
-    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
-    duration = params["duration"]
-    sampling_rate = params["fps"]
-    baseline_rate = params["baseline_rate"]
-    peak_rate = params["peak_rate"]
-    firing_noise = params["firing_noise"]
-    decay_time = params["decay_time"]
-    calcium_noise = params["calcium_noise"]
-    amplitude_range = params["amplitude_range"]
+    # Extract parameters using helper
+    p = _extract_synthetic_params(**kwargs)
+    duration = p["duration"]
+    sampling_rate = p["fps"]
+    baseline_rate = p["baseline_rate"]
+    peak_rate = p["peak_rate"]
+    firing_noise = p["firing_noise"]
+    decay_time = p["decay_time"]
+    calcium_noise = p["calcium_noise"]
+    amplitude_range = p["amplitude_range"]
 
     # Input validation
     check_positive(
@@ -1278,15 +1316,16 @@ def generate_circular_manifold_exp(
         - 'firing_rates': underlying firing rates
         - 'parameters': dict of all generation parameters
     """
-    # Merge with defaults
-    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
-    duration = params["duration"]
-    fps = params["fps"]
-    baseline_rate = params["baseline_rate"]
-    peak_rate = params["peak_rate"]
-    firing_noise = params["firing_noise"]
-    decay_time = params["decay_time"]
-    calcium_noise = params["calcium_noise"]
+    # Extract parameters using helper
+    p = _extract_synthetic_params(**kwargs)
+    duration = p["duration"]
+    fps = p["fps"]
+    baseline_rate = p["baseline_rate"]
+    peak_rate = p["peak_rate"]
+    firing_noise = p["firing_noise"]
+    decay_time = p["decay_time"]
+    calcium_noise = p["calcium_noise"]
+
     # Input validation
     check_positive(
         n_neurons=n_neurons,
@@ -1444,11 +1483,12 @@ def generate_2d_manifold_neurons(
     place_field_centers : ndarray
         Shape (n_neurons, 2) with x, y coordinates of place field centers.
     """
-    # Merge with defaults
-    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
-    baseline_rate = params["baseline_rate"]
-    peak_rate = params["peak_rate"]
-    firing_noise = params["firing_noise"]
+    # Extract parameters using helper
+    p = _extract_synthetic_params(**kwargs)
+    baseline_rate = p["baseline_rate"]
+    peak_rate = p["peak_rate"]
+    firing_noise = p["firing_noise"]
+
     # Input validation
     check_positive(n_neurons=n_neurons, field_sigma=field_sigma)
     check_nonnegative(baseline_rate=baseline_rate, firing_noise=firing_noise)
@@ -1567,16 +1607,16 @@ def generate_2d_manifold_data(
     firing_rates : ndarray
         Underlying firing rates in Hz (n_neurons x n_timepoints).
     """
-    # Merge with defaults
-    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
-    duration = params["duration"]
-    sampling_rate = params["fps"]
-    baseline_rate = params["baseline_rate"]
-    peak_rate = params["peak_rate"]
-    firing_noise = params["firing_noise"]
-    decay_time = params["decay_time"]
-    calcium_noise = params["calcium_noise"]
-    amplitude_range = params["amplitude_range"]
+    # Extract parameters using helper
+    p = _extract_synthetic_params(**kwargs)
+    duration = p["duration"]
+    sampling_rate = p["fps"]
+    baseline_rate = p["baseline_rate"]
+    peak_rate = p["peak_rate"]
+    firing_noise = p["firing_noise"]
+    decay_time = p["decay_time"]
+    calcium_noise = p["calcium_noise"]
+    amplitude_range = p["amplitude_range"]
 
     # Input validation
     check_positive(
@@ -1693,15 +1733,15 @@ def generate_2d_manifold_exp(
         manifold_type, n_neurons, positions, place_field_centers,
         firing_rates, and all parameters.
     """
-    # Merge with defaults
-    params = {**DEFAULT_SYNTHETIC_PARAMS, **kwargs}
-    duration = params["duration"]
-    fps = params["fps"]
-    baseline_rate = params["baseline_rate"]
-    peak_rate = params["peak_rate"]
-    firing_noise = params["firing_noise"]
-    decay_time = params["decay_time"]
-    calcium_noise = params["calcium_noise"]
+    # Extract parameters using helper
+    p = _extract_synthetic_params(**kwargs)
+    duration = p["duration"]
+    fps = p["fps"]
+    baseline_rate = p["baseline_rate"]
+    peak_rate = p["peak_rate"]
+    firing_noise = p["firing_noise"]
+    decay_time = p["decay_time"]
+    calcium_noise = p["calcium_noise"]
 
     # Calculate effective decay time for shuffle mask
     effective_decay_time = get_effective_decay_time(decay_time, duration, verbose)

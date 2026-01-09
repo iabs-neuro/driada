@@ -642,3 +642,52 @@ def test_get_gamma_zi_p_monotonicity():
     for i in range(len(p_values) - 1):
         assert p_values[i] >= p_values[i + 1], \
             f"P-value not monotonic: {p_values[i]} < {p_values[i+1]}"
+
+
+def test_get_gamma_zi_p_fit_failure():
+    """Test ZIG gracefully handles gamma fit failures."""
+    # Edge case: Single non-zero value (gamma fit may fail)
+    data = np.concatenate([np.zeros(99), np.array([0.5])])
+    p_val = get_gamma_zi_p(data, 1.0)
+    assert 0 <= p_val <= 1  # Should return valid p-value or 1.0
+
+    # Edge case: All identical non-zero values (zero variance)
+    data = np.concatenate([np.zeros(50), np.full(50, 1.0)])
+    p_val = get_gamma_zi_p(data, 2.0)
+    assert 0 <= p_val <= 1
+
+    # Edge case: Extremely small non-zero values that may cause numerical issues
+    data = np.concatenate([np.zeros(50), np.full(50, 1e-15)])
+    p_val = get_gamma_zi_p(data, 1e-10)
+    assert 0 <= p_val <= 1
+
+
+def test_get_gamma_zi_p_real_mi_scenario():
+    """Test ZIG with data resembling real MI null distributions."""
+    np.random.seed(42)
+
+    # Simulate shuffled MI values: many near-zero, some positive
+    # This mimics what we see with circular shuffling of neural data
+    n_shuffles = 1000
+
+    # ~30% exact zeros (no information), rest small positive values
+    n_zeros = int(0.3 * n_shuffles)
+    n_positive = n_shuffles - n_zeros
+
+    # Positive MI values typically follow right-skewed distribution
+    positive_mi = np.abs(np.random.normal(0, 0.05, n_positive))
+    shuffled_mi = np.concatenate([np.zeros(n_zeros), positive_mi])
+    np.random.shuffle(shuffled_mi)
+
+    # Test p-values for various "true" MI values
+    # Low true MI should have high p-value (not significant)
+    p_low = get_gamma_zi_p(shuffled_mi, 0.01)
+    assert p_low > 0.1, "Low MI should not be significant"
+
+    # High true MI should have low p-value (significant)
+    p_high = get_gamma_zi_p(shuffled_mi, 0.2)
+    assert p_high < 0.1, "High MI should be significant"
+
+    # Very high true MI should be very significant
+    p_very_high = get_gamma_zi_p(shuffled_mi, 0.5)
+    assert p_very_high < 0.01, "Very high MI should be very significant"

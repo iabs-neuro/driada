@@ -3,6 +3,9 @@ import scipy
 from scipy.stats import lognorm, gamma, rankdata
 from ..utils.data import populate_nested_dict
 
+# Default distribution type for p-value calculation from shuffled MI values
+DEFAULT_METRIC_DISTR_TYPE = "gamma_zi"
+
 
 def chebyshev_ineq(data, val):
     """
@@ -386,7 +389,7 @@ def criterion2(pair_stats, nsh2, pval_thr, topk=5):
         return False
 
 
-def get_all_nonempty_pvals(all_stats, ids1, ids2):
+def get_all_nonempty_pvals(all_stats, ids1, ids2) -> list:
     """
     Extract all non-empty p-values from nested statistics dictionary.
 
@@ -417,7 +420,7 @@ def get_table_of_stats(
     metable,
     optimal_delays,
     precomputed_mask=None,
-    metric_distr_type="gamma",
+    metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     nsh=0,
     stage=1,
 ):
@@ -480,7 +483,7 @@ def get_table_of_stats(
     return stage_stats
 
 
-def merge_stage_stats(stage1_stats, stage2_stats):
+def merge_stage_stats(stage1_stats, stage2_stats) -> dict:
     """
     Merge statistics from stage 1 and stage 2.
 
@@ -508,7 +511,7 @@ def merge_stage_stats(stage1_stats, stage2_stats):
     return merged_stats
 
 
-def merge_stage_significance(stage_1_significance, stage_2_significance):
+def merge_stage_significance(stage_1_significance, stage_2_significance) -> dict:
     """
     Merge significance results from stage 1 and stage 2.
 

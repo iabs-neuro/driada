@@ -9,6 +9,7 @@ and signal processing utilities.
 from __future__ import annotations
 
 import itertools
+import warnings
 from itertools import groupby
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,25 @@ from ...utils.data import check_nonnegative, check_positive
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike, NDArray
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+# Small epsilon to avoid boundary issues in ROI selection
+EPSILON_ROI_BOUNDARY = 1e-10
+
+# Default fraction of data to include in ROI for signal discretization
+DEFAULT_TARGET_FRACTION = 0.15
+
+# Default step size for circular random walk (radians, ~5.7 degrees)
+DEFAULT_CIRCULAR_STEP_STD = 0.1
+
+# Default step size for 2D random walk (relative to bounds)
+DEFAULT_2D_STEP_SIZE = 0.02
+
+# Default momentum for 2D random walk (trajectory smoothness)
+DEFAULT_2D_MOMENTUM = 0.8
 
 
 def generate_binary_time_series(
@@ -157,7 +177,7 @@ def apply_poisson_to_binary_series(
 
     current_pos = 0
     for value, group in itertools.groupby(binary_series):
-        run_length = len(list(group))
+        run_length = sum(1 for _ in group)  # Avoid creating list in memory
         if value == 0:
             poisson_series[current_pos : current_pos + run_length] = rng.poisson(
                 rate_0, run_length
@@ -255,14 +275,28 @@ def generate_fbm_time_series(
     Notes
     -----
     Uses Davies-Harte method for efficient FBM generation. The FBM library
-    is initialized with n=length-1 to generate exactly 'length' points."""
+    is initialized with n=length-1 to generate exactly 'length' points.
+
+    Warnings
+    --------
+    The FBM library uses numpy's global random state internally. When seed is
+    provided, this function sets np.random.seed(seed), which affects global
+    state and may not guarantee reproducibility in parallel/multi-threaded
+    contexts. For parallel execution, consider generating FBM series
+    sequentially or accepting non-deterministic results."""
     # Input validation
     check_positive(length=length)
     if not 0 < hurst < 1:
         raise ValueError(f"hurst must be in (0, 1), got {hurst}")
 
-    # Note: FBM library uses np.random internally, so we seed globally for it
+    # FBM library uses np.random internally, so we must seed globally
     if seed is not None:
+        warnings.warn(
+            "FBM generation uses global np.random state. The seed parameter "
+            "may not guarantee reproducibility in parallel/multi-threaded contexts.",
+            UserWarning,
+            stacklevel=2,
+        )
         np.random.seed(seed)
 
     f = FBM(n=length - 1, hurst=hurst, length=1.0, method="daviesharte")
@@ -276,7 +310,7 @@ def generate_fbm_time_series(
 
 
 def select_signal_roi(
-    values: ArrayLike, seed: int | None = None, target_fraction: float = 0.15
+    values: ArrayLike, seed: int | None = None, target_fraction: float = DEFAULT_TARGET_FRACTION
 ) -> tuple[float, float, float]:
     """
     Select a region of interest (ROI) from signal values.
@@ -334,7 +368,7 @@ def select_signal_roi(
     center = (lower_border + upper_border) / 2
 
     # Add small epsilon to avoid boundary issues
-    epsilon = 1e-10
+    epsilon = EPSILON_ROI_BOUNDARY
     lower_border -= epsilon
     upper_border += epsilon
 
@@ -388,7 +422,7 @@ def discretize_via_roi(
 
 
 def generate_circular_random_walk(
-    length: int, step_std: float = 0.1, seed: int | None = None
+    length: int, step_std: float = DEFAULT_CIRCULAR_STEP_STD, seed: int | None = None
 ) -> NDArray[np.float64]:
     """
     Generate a random walk on a circle (head direction trajectory).
@@ -452,8 +486,8 @@ def generate_circular_random_walk(
 def generate_2d_random_walk(
     length: int,
     bounds: tuple[float, float] = (0, 1),
-    step_size: float = 0.02,
-    momentum: float = 0.8,
+    step_size: float = DEFAULT_2D_STEP_SIZE,
+    momentum: float = DEFAULT_2D_MOMENTUM,
     seed: int | None = None,
 ) -> NDArray[np.float64]:
     """
