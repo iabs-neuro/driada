@@ -1073,14 +1073,15 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
     exp = small_experiment
 
     # Test backward compatibility - old style single cell/feature
-    me0, shifted_me = get_calcium_feature_me_profile(exp, 0, "event_0", window=20, ds=2)
+    # shift_window=1 second with fps=20 gives window=20 frames
+    me0, shifted_me = get_calcium_feature_me_profile(exp, 0, "event_0", shift_window=1, ds=2)
     assert isinstance(me0, float)
     assert isinstance(shifted_me, list)
-    assert len(shifted_me) == 21  # window=20, ds=2 gives -10 to +10 inclusive = 21 values
+    assert len(shifted_me) == 21  # window=20 frames, ds=2 gives -10 to +10 inclusive = 21 values
 
     # Test new style with cbunch/fbunch
     results = get_calcium_feature_me_profile(
-        exp, cbunch=[0, 1], fbunch=["event_0", "fbm_0"], window=20, ds=2
+        exp, cbunch=[0, 1], fbunch=["event_0", "fbm_0"], shift_window=1, ds=2
     )
 
     # Check structure
@@ -1094,13 +1095,266 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
 
     # Test cbunch=None (all cells)
     results_all = get_calcium_feature_me_profile(
-        exp, cbunch=None, fbunch=["event_0"], window=10, ds=2
+        exp, cbunch=None, fbunch=["event_0"], shift_window=0.5, ds=2
     )
     assert len(results_all) == exp.n_cells  # All cells in fixture
 
     # Test invalid cell index
     with pytest.raises(ValueError, match="out of range"):
         get_calcium_feature_me_profile(exp, cbunch=[10], fbunch=["event_0"])
+
+
+# Tests for FFT delay optimization
+
+
+def test_optimal_delays_fft_matches_loop_correlated():
+    """Test that FFT and loop engines produce identical delays for correlated signals."""
+    from driada.intense.intense_base import calculate_optimal_delays
+
+    # Create correlated signals with known delay
+    length = 1000
+    known_delay = 15  # frames
+
+    np.random.seed(42)
+    base_signal = np.random.randn(length + 50)
+
+    # Create delayed version (signal2 lags behind signal1)
+    signal1 = base_signal[:length]
+    signal2 = base_signal[known_delay : length + known_delay]
+
+    # Add some noise
+    signal1 += 0.3 * np.random.randn(length)
+    signal2 += 0.3 * np.random.randn(length)
+
+    ts1 = [TimeSeries(signal1, discrete=False)]
+    ts2 = [TimeSeries(signal2, discrete=False)]
+
+    # Run with FFT engine
+    delays_fft = calculate_optimal_delays(
+        ts1,
+        ts2,
+        metric="mi",
+        shift_window=50,
+        ds=1,
+        verbose=False,
+        mi_estimator="gcmi",
+        engine="fft",
+    )
+
+    # Run with loop engine
+    delays_loop = calculate_optimal_delays(
+        ts1,
+        ts2,
+        metric="mi",
+        shift_window=50,
+        ds=1,
+        verbose=False,
+        mi_estimator="gcmi",
+        engine="loop",
+    )
+
+    # Both should detect the known delay
+    assert delays_fft.shape == (1, 1)
+    assert delays_loop.shape == (1, 1)
+
+    # For correlated signals, both methods should produce identical results
+    assert delays_fft[0, 0] == delays_loop[0, 0], (
+        f"FFT ({delays_fft[0, 0]}) and loop ({delays_loop[0, 0]}) "
+        f"should match for correlated signals"
+    )
+
+    # Should detect delay close to known value
+    assert np.abs(delays_fft[0, 0] - known_delay) <= 3, (
+        f"Detected delay {delays_fft[0, 0]} should be close to known delay {known_delay}"
+    )
+
+
+def test_optimal_delays_fft_auto_selection():
+    """Test that engine='auto' selects FFT when conditions are met."""
+    from driada.intense.intense_base import (
+        calculate_optimal_delays,
+        MIN_SHIFTS_FOR_FFT_DELAYS,
+    )
+
+    # Create test signals
+    length = 500
+    np.random.seed(42)
+    signal1 = np.random.randn(length)
+    signal2 = np.random.randn(length)
+
+    ts1 = [TimeSeries(signal1, discrete=False)]
+    ts2 = [TimeSeries(signal2, discrete=False)]
+
+    # With shift_window large enough to exceed MIN_SHIFTS_FOR_FFT_DELAYS
+    # shift_window=50, ds=1 gives ~100 shifts, should use FFT
+    delays = calculate_optimal_delays(
+        ts1,
+        ts2,
+        metric="mi",
+        shift_window=50,
+        ds=1,
+        verbose=False,
+        mi_estimator="gcmi",
+        engine="auto",
+    )
+
+    assert delays.shape == (1, 1)
+    # Result should be reasonable (within window)
+    assert np.abs(delays[0, 0]) <= 50
+
+
+def test_optimal_delays_fft_fallback_for_discrete():
+    """Test that FFT falls back to loop for discrete TimeSeries."""
+    from driada.intense.intense_base import calculate_optimal_delays
+
+    length = 200
+    np.random.seed(42)
+
+    # Create continuous and discrete signals
+    cont_signal = np.random.randn(length)
+    disc_signal = np.random.randint(0, 3, size=length).astype(float)
+
+    ts_cont = [TimeSeries(cont_signal, discrete=False)]
+    ts_disc = [TimeSeries(disc_signal, discrete=True)]
+
+    # engine='auto' should fall back to loop for discrete data
+    delays = calculate_optimal_delays(
+        ts_cont,
+        ts_disc,
+        metric="mi",
+        shift_window=20,
+        ds=1,
+        verbose=False,
+        mi_estimator="gcmi",
+        engine="auto",
+    )
+
+    assert delays.shape == (1, 1)
+
+    # engine='fft' should raise error for discrete data
+    with pytest.raises(ValueError, match="engine='fft'.*requires"):
+        calculate_optimal_delays(
+            ts_cont,
+            ts_disc,
+            metric="mi",
+            shift_window=20,
+            ds=1,
+            verbose=False,
+            mi_estimator="gcmi",
+            engine="fft",
+        )
+
+
+def test_optimal_delays_fft_fallback_for_multitimeseries():
+    """Test that FFT falls back to loop for MultiTimeSeries."""
+    from driada.intense.intense_base import _should_use_fft_for_delays
+
+    length = 200
+    np.random.seed(42)
+
+    # Create univariate and multivariate signals
+    signal1 = np.random.randn(length)
+    signal2a = np.random.randn(length)
+    signal2b = np.random.randn(length)
+
+    ts_uni = TimeSeries(signal1, discrete=False)
+    ts_multi = MultiTimeSeries(
+        [TimeSeries(signal2a, discrete=False), TimeSeries(signal2b, discrete=False)]
+    )
+
+    # engine='auto' should return False for MultiTimeSeries (will fall back to loop)
+    use_fft = _should_use_fft_for_delays(
+        ts_uni, ts_multi, metric="mi", mi_estimator="gcmi", num_shifts=50, engine="auto"
+    )
+    assert use_fft is False
+
+    # engine='fft' should raise error for MultiTimeSeries
+    with pytest.raises(ValueError, match="engine='fft'.*requires"):
+        _should_use_fft_for_delays(
+            ts_uni, ts_multi, metric="mi", mi_estimator="gcmi", num_shifts=50, engine="fft"
+        )
+
+
+def test_optimal_delays_parallel_fft_matches_loop():
+    """Test parallel FFT delay calculation matches loop for correlated signals."""
+    from driada.intense.intense_base import calculate_optimal_delays_parallel
+
+    # Create multiple correlated pairs with different known delays
+    length = 800
+    np.random.seed(42)
+
+    delays_known = [10, 20]
+    ts1_list = []
+    ts2_list = []
+
+    for delay in delays_known:
+        base = np.random.randn(length + 50)
+        s1 = base[:length] + 0.3 * np.random.randn(length)
+        s2 = base[delay : length + delay] + 0.3 * np.random.randn(length)
+        ts1_list.append(TimeSeries(s1, discrete=False))
+        ts2_list.append(TimeSeries(s2, discrete=False))
+
+    # Run with FFT
+    delays_fft = calculate_optimal_delays_parallel(
+        ts1_list,
+        ts2_list,
+        metric="mi",
+        shift_window=40,
+        ds=1,
+        verbose=False,
+        n_jobs=2,
+        mi_estimator="gcmi",
+        engine="fft",
+    )
+
+    # Run with loop
+    delays_loop = calculate_optimal_delays_parallel(
+        ts1_list,
+        ts2_list,
+        metric="mi",
+        shift_window=40,
+        ds=1,
+        verbose=False,
+        n_jobs=2,
+        mi_estimator="gcmi",
+        engine="loop",
+    )
+
+    # Diagonal should match (where correlation exists)
+    for i in range(len(delays_known)):
+        assert delays_fft[i, i] == delays_loop[i, i], (
+            f"Pair ({i},{i}): FFT={delays_fft[i, i]}, loop={delays_loop[i, i]}"
+        )
+        # Should be close to known delay
+        assert np.abs(delays_fft[i, i] - delays_known[i]) <= 5
+
+
+def test_optimal_delays_engine_loop_explicit():
+    """Test explicit loop engine works correctly."""
+    from driada.intense.intense_base import calculate_optimal_delays
+
+    length = 300
+    np.random.seed(42)
+    signal1 = np.random.randn(length)
+    signal2 = np.random.randn(length)
+
+    ts1 = [TimeSeries(signal1, discrete=False)]
+    ts2 = [TimeSeries(signal2, discrete=False)]
+
+    # Explicit loop engine should work without errors
+    delays = calculate_optimal_delays(
+        ts1,
+        ts2,
+        metric="mi",
+        shift_window=30,
+        ds=1,
+        verbose=False,
+        mi_estimator="gcmi",
+        engine="loop",
+    )
+
+    assert delays.shape == (1, 1)
+    assert np.abs(delays[0, 0]) <= 30
 
 
 def test_intense_handles_no_significant_neurons(balanced_test_params):
