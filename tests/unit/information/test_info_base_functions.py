@@ -16,7 +16,9 @@ from driada.information.info_base import (
     interaction_information,
     TimeSeries,
     MultiTimeSeries,
+    compute_mi_batch_fft,
 )
+from driada.information.gcmi import copnorm, mi_gg
 
 
 class TestGetStatsFunction:
@@ -1065,3 +1067,152 @@ class TestCopulaDownsampling:
             else:
                 # Larger error acceptable for large ds
                 assert abs(mi_gcmi - mi_theory) < 0.3
+
+
+class TestComputeMiBatchFft:
+    """Test compute_mi_batch_fft FFT-accelerated MI computation."""
+
+    def test_matches_loop_random_data(self):
+        """Verify FFT batch gives same results as per-shift loop."""
+        rng = np.random.default_rng(42)
+        # copnorm returns 2D (1, n), flatten to 1D for compute_mi_batch_fft
+        x = copnorm(rng.normal(0, 1, 1000)).ravel()
+        y = copnorm(rng.normal(0, 1, 1000)).ravel()
+        shifts = rng.integers(0, 1000, size=100)
+
+        # FFT batch
+        mi_batch = compute_mi_batch_fft(x, y, shifts)
+
+        # Loop (current implementation) - mi_gg expects 2D, so reshape
+        mi_loop = []
+        for s in shifts:
+            y_shifted = np.roll(y, s)
+            mi_loop.append(mi_gg(x.reshape(1, -1), y_shifted.reshape(1, -1), True, True))
+        mi_loop = np.array(mi_loop)
+
+        np.testing.assert_allclose(mi_batch, mi_loop, rtol=1e-6)
+
+    def test_matches_loop_correlated_data(self):
+        """Verify FFT matches loop for correlated data with known MI."""
+        rng = np.random.default_rng(123)
+        n = 2000
+        rho = 0.7
+
+        # Create correlated pair
+        x_raw = rng.normal(0, 1, n)
+        y_raw = rho * x_raw + np.sqrt(1 - rho**2) * rng.normal(0, 1, n)
+
+        x = copnorm(x_raw).ravel()
+        y = copnorm(y_raw).ravel()
+        shifts = np.array([0, 10, 50, 100, 500])
+
+        # FFT batch
+        mi_batch = compute_mi_batch_fft(x, y, shifts)
+
+        # Loop - mi_gg expects 2D, so reshape
+        mi_loop = []
+        for s in shifts:
+            y_shifted = np.roll(y, s)
+            mi_loop.append(mi_gg(x.reshape(1, -1), y_shifted.reshape(1, -1), True, True))
+        mi_loop = np.array(mi_loop)
+
+        np.testing.assert_allclose(mi_batch, mi_loop, rtol=1e-6)
+
+        # At shift=0, MI should be close to theoretical value
+        mi_theory = -0.5 * np.log(1 - rho**2) / np.log(2)
+        assert abs(mi_batch[0] - mi_theory) < 0.1
+
+    def test_single_shift(self):
+        """Test with single shift."""
+        rng = np.random.default_rng(456)
+        x = copnorm(rng.normal(0, 1, 500)).ravel()
+        y = copnorm(rng.normal(0, 1, 500)).ravel()
+
+        mi_batch = compute_mi_batch_fft(x, y, np.array([42]))
+        mi_single = mi_gg(x.reshape(1, -1), np.roll(y, 42).reshape(1, -1), True, True)
+
+        np.testing.assert_allclose(mi_batch[0], mi_single, rtol=1e-6)
+
+    def test_zero_shift(self):
+        """Test shift=0 matches direct computation."""
+        rng = np.random.default_rng(789)
+        x = copnorm(rng.normal(0, 1, 1000)).ravel()
+        y = copnorm(rng.normal(0, 1, 1000)).ravel()
+
+        mi_batch = compute_mi_batch_fft(x, y, np.array([0]))
+        mi_direct = mi_gg(x.reshape(1, -1), y.reshape(1, -1), True, True)
+
+        np.testing.assert_allclose(mi_batch[0], mi_direct, rtol=1e-6)
+
+    def test_without_bias_correction(self):
+        """Test with bias correction disabled."""
+        rng = np.random.default_rng(111)
+        x = copnorm(rng.normal(0, 1, 500)).ravel()
+        y = copnorm(rng.normal(0, 1, 500)).ravel()
+        shifts = np.array([0, 25, 50])
+
+        # FFT without bias correction
+        mi_batch = compute_mi_batch_fft(x, y, shifts, biascorrect=False)
+
+        # Loop without bias correction - mi_gg expects 2D
+        mi_loop = []
+        for s in shifts:
+            y_shifted = np.roll(y, s)
+            mi_loop.append(mi_gg(x.reshape(1, -1), y_shifted.reshape(1, -1), biascorrect=False, demeaned=True))
+        mi_loop = np.array(mi_loop)
+
+        np.testing.assert_allclose(mi_batch, mi_loop, rtol=1e-6)
+
+    def test_returns_nonnegative(self):
+        """Test that all returned values are non-negative."""
+        rng = np.random.default_rng(222)
+        x = copnorm(rng.normal(0, 1, 500)).ravel()
+        y = copnorm(rng.normal(0, 1, 500)).ravel()
+        shifts = rng.integers(0, 500, size=200)
+
+        mi_batch = compute_mi_batch_fft(x, y, shifts)
+
+        assert np.all(mi_batch >= 0)
+
+    def test_zero_variance_returns_zeros(self):
+        """Test that constant input returns zeros."""
+        x = np.ones(100)  # Zero variance, already 1D
+        y = copnorm(np.random.randn(100)).ravel()
+        shifts = np.array([0, 10, 50])
+
+        mi_batch = compute_mi_batch_fft(x, y, shifts)
+
+        np.testing.assert_array_equal(mi_batch, np.zeros(3))
+
+    def test_small_sample_size(self):
+        """Test with small sample size."""
+        rng = np.random.default_rng(333)
+        x = copnorm(rng.normal(0, 1, 50)).ravel()
+        y = copnorm(rng.normal(0, 1, 50)).ravel()
+        shifts = np.array([0, 5, 10, 25])
+
+        mi_batch = compute_mi_batch_fft(x, y, shifts)
+        mi_loop = []
+        for s in shifts:
+            y_shifted = np.roll(y, s)
+            mi_loop.append(mi_gg(x.reshape(1, -1), y_shifted.reshape(1, -1), True, True))
+        mi_loop = np.array(mi_loop)
+
+        np.testing.assert_allclose(mi_batch, mi_loop, rtol=1e-5)
+
+    def test_large_shifts(self):
+        """Test with shifts spanning full array range."""
+        rng = np.random.default_rng(444)
+        n = 1000
+        x = copnorm(rng.normal(0, 1, n)).ravel()
+        y = copnorm(rng.normal(0, 1, n)).ravel()
+        shifts = np.array([0, n // 4, n // 2, 3 * n // 4, n - 1])
+
+        mi_batch = compute_mi_batch_fft(x, y, shifts)
+        mi_loop = []
+        for s in shifts:
+            y_shifted = np.roll(y, s)
+            mi_loop.append(mi_gg(x.reshape(1, -1), y_shifted.reshape(1, -1), True, True))
+        mi_loop = np.array(mi_loop)
+
+        np.testing.assert_allclose(mi_batch, mi_loop, rtol=1e-6)

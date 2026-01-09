@@ -11,15 +11,95 @@ from .stats import (
     get_all_nonempty_pvals,
     merge_stage_stats,
     merge_stage_significance,
+    DEFAULT_METRIC_DISTR_TYPE,
 )
-from ..information.info_base import TimeSeries, MultiTimeSeries, get_multi_mi, get_sim
+from ..information.info_base import (
+    TimeSeries,
+    MultiTimeSeries,
+    get_multi_mi,
+    get_sim,
+    compute_mi_batch_fft,
+)
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables, add_names_to_nested_dict
 
 # Lazy joblib backend selection to avoid unconditional torch import
 _JOBLIB_BACKEND = None
 
+# Default noise amplitude added to MI values for numerical stability
+DEFAULT_NOISE_AMPLITUDE = 1e-3
 
-def _get_joblib_backend():
+# Minimum number of shuffles to benefit from FFT optimization
+MIN_SHUFFLES_FOR_FFT = 50
+
+
+def _should_use_fft(
+    ts1,
+    ts2,
+    metric: str,
+    mi_estimator: str,
+    nsh: int,
+    engine: str,
+) -> bool:
+    """Determine if FFT optimization should be used for MI computation.
+
+    The FFT optimization provides ~100x speedup for computing MI at multiple shifts
+    when all conditions are met: univariate continuous TimeSeries with GCMI estimator.
+
+    Parameters
+    ----------
+    ts1 : TimeSeries or MultiTimeSeries
+        First time series.
+    ts2 : TimeSeries or MultiTimeSeries
+        Second time series.
+    metric : str
+        Similarity metric being used.
+    mi_estimator : str
+        MI estimator ('gcmi' or 'ksg').
+    nsh : int
+        Number of shuffles.
+    engine : str
+        Computation engine: 'auto', 'fft', or 'loop'.
+
+    Returns
+    -------
+    bool
+        True if FFT optimization should be used.
+
+    Raises
+    ------
+    ValueError
+        If engine='fft' but conditions are not met.
+    """
+    if engine == "loop":
+        return False
+
+    # Check if FFT optimization is applicable
+    is_applicable = (
+        metric == "mi"
+        and mi_estimator == "gcmi"
+        and isinstance(ts1, TimeSeries)
+        and not isinstance(ts1, MultiTimeSeries)
+        and isinstance(ts2, TimeSeries)
+        and not isinstance(ts2, MultiTimeSeries)
+        and not ts1.discrete
+        and not ts2.discrete
+    )
+
+    if engine == "fft":
+        if not is_applicable:
+            raise ValueError(
+                "engine='fft' requires univariate continuous TimeSeries with "
+                "metric='mi' and mi_estimator='gcmi'. Got: "
+                f"metric={metric}, estimator={mi_estimator}, "
+                f"ts1 type={type(ts1).__name__}, ts2 type={type(ts2).__name__}"
+            )
+        return True
+
+    # engine == 'auto': use FFT if applicable and enough shuffles
+    return is_applicable and nsh >= MIN_SHUFFLES_FOR_FFT
+
+
+def _get_joblib_backend() -> str:
     """Get joblib backend, checking torch availability only on first call.
 
     Uses threading backend if PyTorch is available to avoid forking issues
@@ -38,7 +118,7 @@ def _get_joblib_backend():
     return _JOBLIB_BACKEND
 
 
-def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False):
+def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False) -> None:
     """
     Validate time series bunches for INTENSE computations.
 
@@ -104,7 +184,7 @@ def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=Fa
         raise ValueError(f"Time series lengths don't match: {lengths1[0]} vs {lengths2[0]}")
 
 
-def validate_metric(metric, allow_scipy=True):
+def validate_metric(metric, allow_scipy=True) -> str:
     """
     Validate metric name and check if it's supported.
 
@@ -169,7 +249,7 @@ def validate_metric(metric, allow_scipy=True):
     )
 
 
-def validate_common_parameters(shift_window=None, ds=None, nsh=None, noise_const=None):
+def validate_common_parameters(shift_window=None, ds=None, nsh=None, noise_const=None) -> None:
     """
     Validate common INTENSE parameters.
 
@@ -230,7 +310,7 @@ def calculate_optimal_delays(
     ds,
     verbose=True,
     enable_progressbar=True,
-):
+) -> np.ndarray:
     """
     Calculate optimal temporal delays between pairs of time series.
 
@@ -317,7 +397,7 @@ def calculate_optimal_delays(
 
 def calculate_optimal_delays_parallel(
     ts_bunch1, ts_bunch2, metric, shift_window, ds, verbose=True, n_jobs=-1
-):
+) -> np.ndarray:
     """
     Calculate optimal temporal delays between pairs of time series using parallel processing.
 
@@ -418,12 +498,12 @@ def get_calcium_feature_me_profile(
     feat_id=None,
     cbunch=None,
     fbunch=None,
-    window=1000,
+    shift_window=2,
     ds=1,
     metric="mi",
     mi_estimator="gcmi",
     data_type="calcium",
-):
+) -> dict:
     """
     Compute metric profile between neurons and behavioral features across time shifts.
 
@@ -441,8 +521,9 @@ def get_calcium_feature_me_profile(
     fbunch : str, iterable or None, optional
         Feature names. If None (default), all single features will be analyzed.
         Takes precedence over feat_id if both provided.
-    window : int, optional
-        Maximum shift to test in each direction (frames). Default: 1000.
+    shift_window : int, optional
+        Maximum shift to test in each direction (seconds). Default: 2.
+        Converted to frames internally using exp.fps.
     ds : int, optional
         Downsampling factor. Default: 1 (no downsampling).
     metric : str, optional
@@ -470,7 +551,8 @@ def get_calcium_feature_me_profile(
 
     Notes
     -----
-    - Total number of shifts tested: 2 * window / ds
+    - shift_window is in seconds, converted to frames using exp.fps
+    - Total number of shifts tested: 2 * shift_window * fps / ds
     - Multi-feature analysis (tuple feat_id) only supported for metric='mi'
     - Progress bar shows computation progress
 
@@ -496,8 +578,11 @@ def get_calcium_feature_me_profile(
     validate_common_parameters(ds=ds)
     validate_metric(metric)
 
-    if window <= 0:
-        raise ValueError(f"window must be positive, got {window}")
+    if shift_window <= 0:
+        raise ValueError(f"shift_window must be positive, got {shift_window}")
+
+    # Convert shift_window from seconds to frames
+    window = int(shift_window * exp.fps)
 
     # Check if single cell/feature mode (backward compatibility)
     single_mode = cell_id is not None and feat_id is not None and cbunch is None and fbunch is None
@@ -581,12 +666,13 @@ def scan_pairs(
     joint_distr=False,
     ds=1,
     mask=None,
-    noise_const=1e-3,
+    noise_const=DEFAULT_NOISE_AMPLITUDE,
     seed=None,
     allow_mixed_dimensions=False,
     enable_progressbar=True,
     start_index=0,
-):
+    engine="auto",
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate similarity metric and shuffled distributions for pairs of time series.
 
@@ -628,6 +714,11 @@ def scan_pairs(
     start_index : int, default=0
         Global starting index for ts_bunch1. Used internally by parallel processing
         to ensure deterministic random number generation.
+    engine : {'auto', 'fft', 'loop'}, default='auto'
+        Computation engine for MI shuffles:
+        - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
+        - 'fft': Force FFT (raises error if not applicable)
+        - 'loop': Force per-shift loop (original behavior)
 
     Returns
     -------
@@ -644,7 +735,8 @@ def scan_pairs(
     - True metric values: me_total[:,:,0]
     - Shuffled values: me_total[:,:,1:]
     - Random shifts are drawn uniformly from time series length
-    - Noise is added as: value * (1 + noise_const * U(-1,1))"""
+    - Noise is added as: value * (1 + noise_const * U(-1,1))
+    - FFT optimization provides ~100x speedup for univariate continuous GCMI"""
 
     # Validate inputs
     validate_time_series_bunches(
@@ -665,7 +757,9 @@ def scan_pairs(
     if seed is None:
         seed = 0
 
-    np.random.seed(seed)
+    # Note: Per-pair deterministic seeding is used via np.random.RandomState(pair_seed)
+    # where pair_seed = seed + global_i * 10000 + j * 100
+    # This ensures reproducibility without polluting global RNG state
 
     lengths1 = [
         len(ts.data) if isinstance(ts, TimeSeries) else ts.data.shape[1] for ts in ts_bunch1
@@ -697,7 +791,8 @@ def scan_pairs(
             pair_rng = np.random.RandomState(pair_seed)
 
             # Combine shuffle masks from ts1 and all ts in tsbunch2
-            combined_shuffle_mask = ts1.shuffle_mask.copy()
+            # Note: & operator creates new array, no copy needed
+            combined_shuffle_mask = ts1.shuffle_mask
             for ts2 in ts_bunch2:
                 combined_shuffle_mask = combined_shuffle_mask & ts2.shuffle_mask
             # move shuffle mask according to optimal shift
@@ -749,7 +844,7 @@ def scan_pairs(
                 )  # add small noise for better fitting
 
                 random_noise = (
-                    pair_rng.random(size=len(random_shifts[i, 0, :])) * noise_const
+                    pair_rng.random(size=nsh) * noise_const
                 )  # add small noise for better fitting
                 for k, shift in enumerate(random_shifts[i, 0, :]):
                     mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift, estimator=mi_estimator)
@@ -762,37 +857,62 @@ def scan_pairs(
         else:
             for j, ts2 in enumerate(ts_bunch2):
                 if mask[i, j] == 1:
-                    me0 = get_sim(
-                        ts1,
-                        ts2,
-                        metric,
-                        ds=ds,
-                        shift=optimal_delays[i, j] // ds,
-                        estimator=mi_estimator,
-                        check_for_coincidence=True,
-                    )  # default metric without shuffling
-
                     # Use deterministic RNG for this pair
                     pair_seed = seed + global_i * 10000 + j * 100 if seed is not None else None
                     pair_rng = np.random.RandomState(pair_seed)
 
-                    me_table[i, j] = (
-                        me0 + pair_rng.random() * noise_const
-                    )  # add small noise for better fitting
+                    # Check if FFT optimization applies for this pair
+                    # Note: FFT is only used for MI metric with GCMI estimator
+                    # _should_use_fft() enforces metric='mi' as a precondition
+                    use_fft = _should_use_fft(ts1, ts2, metric, mi_estimator, nsh, engine)
 
-                    random_noise = (
-                        pair_rng.random(size=len(random_shifts[i, j, :])) * noise_const
-                    )  # add small noise for better fitting
+                    if use_fft:
+                        # FFT-accelerated path for univariate continuous GCMI
+                        ny1 = ts1.copula_normal_data[::ds]
+                        ny2 = ts2.copula_normal_data[::ds]
 
-                    for k, shift in enumerate(random_shifts[i, j, :]):
-                        # mi = get_1d_mi(ts1, ts2, shift=shift, ds=ds)
-                        me = get_sim(ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator)
+                        # Compute true MI at optimal delay
+                        opt_shift = optimal_delays[i, j] // ds
+                        me0 = compute_mi_batch_fft(ny1, ny2, np.array([opt_shift]))[0]
 
-                        me_table_shuffles[i, j, k] = me + random_noise[k]
+                        # Compute all shuffle MIs at once
+                        shuffle_mis = compute_mi_batch_fft(
+                            ny1, ny2, random_shifts[i, j, :]
+                        )
+
+                        # Add noise for numerical stability
+                        me_table[i, j] = me0 + pair_rng.random() * noise_const
+                        random_noise = pair_rng.random(size=nsh) * noise_const
+                        me_table_shuffles[i, j, :] = shuffle_mis + random_noise
+                    else:
+                        # Original loop path
+                        me0 = get_sim(
+                            ts1,
+                            ts2,
+                            metric,
+                            ds=ds,
+                            shift=optimal_delays[i, j] // ds,
+                            estimator=mi_estimator,
+                            check_for_coincidence=True,
+                        )  # default metric without shuffling
+
+                        me_table[i, j] = (
+                            me0 + pair_rng.random() * noise_const
+                        )  # add small noise for better fitting
+
+                        random_noise = (
+                            pair_rng.random(size=nsh) * noise_const
+                        )  # add small noise for better fitting
+
+                        for k, shift in enumerate(random_shifts[i, j, :]):
+                            me = get_sim(
+                                ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator
+                            )
+                            me_table_shuffles[i, j, k] = me + random_noise[k]
 
                 else:
                     me_table[i, j] = None
-                    me_table_shuffles[i, j, :] = np.array([None for _ in range(nsh)])
+                    me_table_shuffles[i, j, :] = np.full(nsh, None)
 
     me_total = np.dstack((me_table, me_table_shuffles))
 
@@ -810,10 +930,11 @@ def scan_pairs_parallel(
     allow_mixed_dimensions=False,
     ds=1,
     mask=None,
-    noise_const=1e-3,
+    noise_const=DEFAULT_NOISE_AMPLITUDE,
     seed=None,
     n_jobs=-1,
-):
+    engine="auto",
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate metric values and shuffles for time series pairs using parallel processing.
 
@@ -850,6 +971,11 @@ def scan_pairs_parallel(
         Random seed for reproducibility.
     n_jobs : int, default=-1
         Number of parallel jobs. -1 uses all cores.
+    engine : {'auto', 'fft', 'loop'}, default='auto'
+        Computation engine for MI shuffles:
+        - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
+        - 'fft': Force FFT (raises error if not applicable)
+        - 'loop': Force per-shift loop (original behavior)
 
     Returns
     -------
@@ -869,6 +995,7 @@ def scan_pairs_parallel(
     - Each worker handles a subset of ts_bunch1 against all of ts_bunch2
     - Uses threading backend if PyTorch present (checked lazily), else loky
     - Random seeding ensures reproducibility across different mask configurations
+    - FFT optimization provides ~100x speedup for univariate continuous GCMI
 
     See Also
     --------
@@ -942,6 +1069,7 @@ def scan_pairs_parallel(
             seed=seed,
             enable_progressbar=False,
             start_index=split_ts_bunch1_inds[worker_idx][0],
+            engine=engine,
         )
         for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
     )
@@ -965,11 +1093,12 @@ def scan_pairs_router(
     allow_mixed_dimensions=False,
     ds=1,
     mask=None,
-    noise_const=1e-3,
+    noise_const=DEFAULT_NOISE_AMPLITUDE,
     seed=None,
     enable_parallelization=True,
     n_jobs=-1,
-):
+    engine="auto",
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Route metric computation to parallel or sequential implementation.
 
@@ -1008,6 +1137,11 @@ def scan_pairs_router(
         Whether to use parallel processing.
     n_jobs : int, default=-1
         Number of parallel jobs if parallelization enabled. -1 uses all cores.
+    engine : {'auto', 'fft', 'loop'}, default='auto'
+        Computation engine for MI shuffles:
+        - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
+        - 'fft': Force FFT (raises error if not applicable)
+        - 'loop': Force per-shift loop (original behavior)
 
     Returns
     -------
@@ -1021,6 +1155,8 @@ def scan_pairs_router(
     This function automatically chooses between sequential and parallel
     implementations based on the enable_parallelization flag. It's the
     recommended entry point for scan_pairs functionality.
+
+    FFT optimization provides ~100x speedup for univariate continuous GCMI.
 
     See Also
     --------
@@ -1061,6 +1197,7 @@ def scan_pairs_router(
             noise_const=noise_const,
             seed=seed,
             n_jobs=n_jobs,
+            engine=engine,
         )
 
     else:
@@ -1077,6 +1214,7 @@ def scan_pairs_router(
             mask=mask,
             seed=seed,
             noise_const=noise_const,
+            engine=engine,
         )
 
     return random_shifts, me_total
@@ -1437,8 +1575,8 @@ def compute_me_stats(
     n_shuffles_stage2=10000,
     joint_distr=False,
     allow_mixed_dimensions=False,
-    metric_distr_type="gamma",
-    noise_ampl=1e-3,
+    metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
+    noise_ampl=DEFAULT_NOISE_AMPLITUDE,
     ds=1,
     topk1=1,
     topk2=5,
@@ -1452,6 +1590,7 @@ def compute_me_stats(
     enable_parallelization=True,
     n_jobs=-1,
     duplicate_behavior="ignore",
+    engine="auto",
 ):
     """
     Calculates similarity metric statistics for TimeSeries or MultiTimeSeries pairs
@@ -1569,6 +1708,13 @@ def compute_me_stats(
         - 'ignore': Process duplicates normally (default)
         - 'raise': Raise an error if duplicates are found
         - 'warn': Print a warning but continue processing
+
+    engine : {'auto', 'fft', 'loop'}, default='auto'
+        Computation engine for MI shuffles:
+        - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
+        - 'fft': Force FFT (raises error if not applicable)
+        - 'loop': Force per-shift loop (original behavior)
+        FFT optimization provides ~100x speedup for Stage 2.
 
     Returns
     -------
@@ -1756,6 +1902,7 @@ def compute_me_stats(
             seed=seed,
             enable_parallelization=enable_parallelization,
             n_jobs=n_jobs,
+            engine=engine,
         )
 
         # turn computed data tables from stage 1 and precomputed data into dict of stats dicts
@@ -1857,6 +2004,7 @@ def compute_me_stats(
             seed=seed,
             enable_parallelization=enable_parallelization,
             n_jobs=n_jobs,
+            engine=engine,
         )
 
         # turn data tables from stage 2 to array of stats dicts
@@ -1931,7 +2079,7 @@ def compute_me_stats(
         return final_stats, final_significance, accumulated_info
 
 
-def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs):
+def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs) -> float:
     """
     Calculate p-value threshold for multiple hypothesis correction.
 

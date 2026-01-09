@@ -1,6 +1,6 @@
 import numpy as np
 
-from .stats import stats_not_empty
+from .stats import stats_not_empty, DEFAULT_METRIC_DISTR_TYPE
 from .intense_base import compute_me_stats, IntenseResults
 from ..information.info_base import TimeSeries, MultiTimeSeries
 from .disentanglement import disentangle_all_selectivities, DEFAULT_MULTIFEATURE_MAP
@@ -19,7 +19,7 @@ def compute_cell_feat_significance(
     n_shuffles_stage2=10000,
     joint_distr=False,
     allow_mixed_dimensions=False,
-    metric_distr_type="gamma_zi",
+    metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=1e-3,
     ds=1,
     use_precomputed_stats=True,
@@ -39,7 +39,8 @@ def compute_cell_feat_significance(
     with_disentanglement=False,
     multifeature_map=None,
     duplicate_behavior="ignore",
-):
+    engine="auto",
+) -> tuple:
     """
     Calculates significant neuron-feature pairs
 
@@ -175,6 +176,12 @@ def compute_cell_feat_significance(
         - 'raise': Raise an error if duplicates are found
         - 'warn': Print a warning but continue processing.
         Default is 'ignore'
+    engine : {'auto', 'fft', 'loop'}, optional
+        Computation engine for MI shuffles:
+        - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
+        - 'fft': Force FFT (raises error if not applicable)
+        - 'loop': Force per-shift loop (original behavior)
+        FFT provides ~100x speedup for Stage 2. Default is 'auto'
 
     Returns
     -------
@@ -365,6 +372,7 @@ def compute_cell_feat_significance(
         n_jobs=n_jobs,
         seed=seed,
         duplicate_behavior=duplicate_behavior,
+        engine=engine,
     )
 
     exp.optimal_nf_delays = info["optimal_delays"]
@@ -448,7 +456,7 @@ def compute_cell_feat_significance(
             metric=metric,
             mode=mode,
             n_shuffles_stage1=n_shuffles_stage1,
-            n_shuffles_stage2=n_shuffles_stage2 // 10,  # Reduce shuffles for feat-feat
+            n_shuffles_stage2=n_shuffles_stage2,
             metric_distr_type=metric_distr_type,
             noise_ampl=noise_ampl,
             ds=ds,
@@ -535,7 +543,7 @@ def compute_feat_feat_significance(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=1000,
-    metric_distr_type="gamma_zi",
+    metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=1e-3,
     ds=1,
     topk1=1,
@@ -549,7 +557,7 @@ def compute_feat_feat_significance(
     duplicate_behavior="ignore",
     # FUTURE: Add save_computed_stats=True, use_precomputed_stats=True parameters
     # to enable caching of feat-feat results in experiment object similar to cell-feat
-):
+) -> tuple:
     """
     Compute pairwise significance between all behavioral features.
 
@@ -747,6 +755,7 @@ def compute_feat_feat_significance(
         n_jobs=n_jobs,
         seed=seed,
         duplicate_behavior="ignore",  # Default behavior for feature-feature comparison
+        engine="auto",  # FFT optimization when applicable
     )
 
     # Extract matrices from results
@@ -812,7 +821,7 @@ def compute_cell_cell_significance(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=1000,
-    metric_distr_type="gamma_zi",
+    metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=1e-3,
     ds=1,
     topk1=1,
@@ -826,7 +835,7 @@ def compute_cell_cell_significance(
     duplicate_behavior="ignore",
     # FUTURE: Add save_computed_stats=True, use_precomputed_stats=True parameters
     # to enable caching of cell-cell results in experiment object similar to cell-feat
-):
+) -> tuple:
     """
     Compute pairwise functional correlations between neurons using INTENSE.
 
@@ -1022,6 +1031,7 @@ def compute_cell_cell_significance(
         n_jobs=n_jobs,
         seed=seed,
         duplicate_behavior="ignore",  # Default behavior for cell-cell comparison
+        engine="auto",  # FFT optimization when applicable
     )
 
     # Extract matrices from results
@@ -1091,7 +1101,7 @@ def compute_embedding_selectivity(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
-    metric_distr_type="gamma_zi",
+    metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=1e-3,
     ds=1,
     use_precomputed_stats=True,
@@ -1107,7 +1117,7 @@ def compute_embedding_selectivity(
     enable_parallelization=True,
     n_jobs=-1,
     seed=42,
-):
+) -> dict:
     """
     Compute INTENSE selectivity between neurons and dimensionality reduction embeddings.
 
