@@ -81,11 +81,9 @@ class TestBinaryTimeSeries:
         avg_islands = 5
         avg_duration = 20
 
-        np.random.seed(42)
-        series1 = generate_binary_time_series(length, avg_islands, avg_duration)
-
-        np.random.seed(42)
-        series2 = generate_binary_time_series(length, avg_islands, avg_duration)
+        # Use explicit seed parameter for reproducibility
+        series1 = generate_binary_time_series(length, avg_islands, avg_duration, seed=42)
+        series2 = generate_binary_time_series(length, avg_islands, avg_duration, seed=42)
 
         assert np.array_equal(series1, series2)
 

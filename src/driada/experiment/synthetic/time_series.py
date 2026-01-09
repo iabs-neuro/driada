@@ -6,14 +6,24 @@ used in synthetic neural data, including binary series, fractional Brownian moti
 and signal processing utilities.
 """
 
-import numpy as np
-from fbm import FBM
+from __future__ import annotations
+
 import itertools
 from itertools import groupby
-from ...utils.data import check_positive, check_nonnegative
+from typing import TYPE_CHECKING
+
+import numpy as np
+from fbm import FBM
+
+from ...utils.data import check_nonnegative, check_positive
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike, NDArray
 
 
-def generate_binary_time_series(length, avg_islands, avg_duration, seed=None):
+def generate_binary_time_series(
+    length: int, avg_islands: int, avg_duration: int, seed: int | None = None
+) -> NDArray[np.int_]:
     """
     Generate a binary time series with islands of 1s.
 
@@ -48,9 +58,8 @@ def generate_binary_time_series(length, avg_islands, avg_duration, seed=None):
     check_positive(length=length, avg_duration=avg_duration)
     check_nonnegative(avg_islands=avg_islands)
 
-    # Set random seed if provided
-    if seed is not None:
-        np.random.seed(seed)
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
 
     series = np.zeros(length, dtype=int)
 
@@ -74,15 +83,15 @@ def generate_binary_time_series(length, avg_islands, avg_duration, seed=None):
     island_count = 0
 
     # Randomly decide if we start with on or off
-    current_state = np.random.randint(0, 2)
+    current_state = rng.integers(0, 2)
 
     while position < length and island_count < avg_islands:
         if current_state == 0:
             # Off state: use exponential distribution around average gap
-            duration = max(1, int(np.random.exponential(avg_gap)))
+            duration = max(1, int(rng.exponential(avg_gap)))
         else:
             # On state: use normal distribution around average duration
-            duration = max(1, int(np.random.normal(avg_duration, avg_duration / 3)))
+            duration = max(1, int(rng.normal(avg_duration, avg_duration / 3)))
             island_count += 1
 
         # Ensure we don't go past the series length
@@ -102,7 +111,9 @@ def generate_binary_time_series(length, avg_islands, avg_duration, seed=None):
     return series
 
 
-def apply_poisson_to_binary_series(binary_series, rate_0, rate_1, seed=None):
+def apply_poisson_to_binary_series(
+    binary_series: ArrayLike, rate_0: float, rate_1: float, seed: int | None = None
+) -> NDArray[np.int_]:
     """
     Apply Poisson sampling to a binary series based on its state.
 
@@ -138,9 +149,8 @@ def apply_poisson_to_binary_series(binary_series, rate_0, rate_1, seed=None):
         raise ValueError("binary_series must contain only 0s and 1s")
     check_nonnegative(rate_0=rate_0, rate_1=rate_1)
 
-    # Set random seed if provided
-    if seed is not None:
-        np.random.seed(seed)
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
 
     length = len(binary_series)
     poisson_series = np.zeros(length, dtype=int)
@@ -149,11 +159,11 @@ def apply_poisson_to_binary_series(binary_series, rate_0, rate_1, seed=None):
     for value, group in itertools.groupby(binary_series):
         run_length = len(list(group))
         if value == 0:
-            poisson_series[current_pos : current_pos + run_length] = np.random.poisson(
+            poisson_series[current_pos : current_pos + run_length] = rng.poisson(
                 rate_0, run_length
             )
         else:
-            poisson_series[current_pos : current_pos + run_length] = np.random.poisson(
+            poisson_series[current_pos : current_pos + run_length] = rng.poisson(
                 rate_1, run_length
             )
         current_pos += run_length
@@ -161,7 +171,9 @@ def apply_poisson_to_binary_series(binary_series, rate_0, rate_1, seed=None):
     return poisson_series
 
 
-def delete_one_islands(binary_ts, probability, seed=None):
+def delete_one_islands(
+    binary_ts: ArrayLike, probability: float, seed: int | None = None
+) -> NDArray[np.int_]:
     """
     Delete islands of 1s from a binary time series with given probability.
 
@@ -195,9 +207,8 @@ def delete_one_islands(binary_ts, probability, seed=None):
     if not 0 <= probability <= 1:
         raise ValueError(f"probability must be in [0, 1], got {probability}")
 
-    # Set random seed if provided
-    if seed is not None:
-        np.random.seed(seed)
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
 
     # Create a copy of the input array
     result = binary_ts.copy()
@@ -206,14 +217,16 @@ def delete_one_islands(binary_ts, probability, seed=None):
     start = 0
     for key, group in groupby(binary_ts):
         length = sum(1 for _ in group)  # Count elements in the group
-        if key == 1 and np.random.random() < probability:
+        if key == 1 and rng.random() < probability:
             result[start : start + length] = 0
         start += length
 
     return result
 
 
-def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
+def generate_fbm_time_series(
+    length: int, hurst: float, seed: int | None = None, roll_shift: int | None = None
+) -> NDArray[np.float64]:
     """
     Generate fractional Brownian motion time series.
 
@@ -248,6 +261,7 @@ def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
     if not 0 < hurst < 1:
         raise ValueError(f"hurst must be in (0, 1), got {hurst}")
 
+    # Note: FBM library uses np.random internally, so we seed globally for it
     if seed is not None:
         np.random.seed(seed)
 
@@ -261,7 +275,9 @@ def generate_fbm_time_series(length, hurst, seed=None, roll_shift=None):
     return fbm_series
 
 
-def select_signal_roi(values, seed=None, target_fraction=0.15):
+def select_signal_roi(
+    values: ArrayLike, seed: int | None = None, target_fraction: float = 0.15
+) -> tuple[float, float, float]:
     """
     Select a region of interest (ROI) from signal values.
 
@@ -296,8 +312,8 @@ def select_signal_roi(values, seed=None, target_fraction=0.15):
     if not 0 < target_fraction <= 1:
         raise ValueError(f"target_fraction must be in (0, 1], got {target_fraction}")
 
-    if seed is not None:
-        np.random.seed(seed)
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
 
     # Sort values to find percentiles
     sorted_values = np.sort(values)
@@ -309,7 +325,7 @@ def select_signal_roi(values, seed=None, target_fraction=0.15):
     # Choose a random starting position for the window
     # Ensure we don't go out of bounds
     max_start = n - window_size
-    start_idx = np.random.randint(0, max_start + 1)
+    start_idx = rng.integers(0, max_start + 1)
     end_idx = start_idx + window_size
 
     # Get the boundaries
@@ -325,7 +341,9 @@ def select_signal_roi(values, seed=None, target_fraction=0.15):
     return center, lower_border, upper_border
 
 
-def discretize_via_roi(continuous_signal, seed=None):
+def discretize_via_roi(
+    continuous_signal: ArrayLike, seed: int | None = None
+) -> NDArray[np.int_]:
     """
     Discretize a continuous signal based on ROI selection.
 
@@ -369,7 +387,9 @@ def discretize_via_roi(continuous_signal, seed=None):
 # =============================================================================
 
 
-def generate_circular_random_walk(length, step_std=0.1, seed=None):
+def generate_circular_random_walk(
+    length: int, step_std: float = 0.1, seed: int | None = None
+) -> NDArray[np.float64]:
     """
     Generate a random walk on a circle (head direction trajectory).
 
@@ -410,15 +430,15 @@ def generate_circular_random_walk(length, step_std=0.1, seed=None):
         raise TypeError("length must be an integer")
     check_nonnegative(length=length, step_std=step_std)
 
-    if seed is not None:
-        np.random.seed(seed)
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
 
     # Handle edge case
     if length == 0:
         return np.array([])
 
     # Generate random steps
-    steps = np.random.normal(0, step_std, length)
+    steps = rng.normal(0, step_std, length)
 
     # Cumulative sum to get trajectory
     angles = np.cumsum(steps)
@@ -429,7 +449,13 @@ def generate_circular_random_walk(length, step_std=0.1, seed=None):
     return angles
 
 
-def generate_2d_random_walk(length, bounds=(0, 1), step_size=0.02, momentum=0.8, seed=None):
+def generate_2d_random_walk(
+    length: int,
+    bounds: tuple[float, float] = (0, 1),
+    step_size: float = 0.02,
+    momentum: float = 0.8,
+    seed: int | None = None,
+) -> NDArray[np.float64]:
     """
     Generate a 2D random walk trajectory within bounded region.
 
@@ -490,18 +516,18 @@ def generate_2d_random_walk(length, bounds=(0, 1), step_size=0.02, momentum=0.8,
     if bounds[0] >= bounds[1]:
         raise ValueError("bounds must have min < max")
 
-    if seed is not None:
-        np.random.seed(seed)
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
 
     positions = np.zeros((2, length))
     velocity = np.zeros(2)
 
     # Initialize at random position
-    positions[:, 0] = np.random.uniform(bounds[0], bounds[1], 2)
+    positions[:, 0] = rng.uniform(bounds[0], bounds[1], 2)
 
     for t in range(1, length):
         # Random walk with momentum
-        velocity = momentum * velocity + (1 - momentum) * np.random.randn(2) * step_size
+        velocity = momentum * velocity + (1 - momentum) * rng.standard_normal(2) * step_size
 
         # Update position
         new_pos = positions[:, t - 1] + velocity

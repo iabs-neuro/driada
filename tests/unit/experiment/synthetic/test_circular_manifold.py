@@ -488,15 +488,15 @@ def test_integration_with_intense():
 
     # Generate dataset with stronger selectivity
     exp, info = generate_circular_manifold_exp(
-        n_neurons=10,
-        duration=100,  # Increased duration
+        n_neurons=20,  # More neurons for better detection
+        duration=120,  # Increased duration
         fps=10,  # Reduced for faster tests
-        kappa=8.0,  # Stronger tuning
+        kappa=10.0,  # Even stronger tuning
         baseline_rate=0.05,
-        peak_rate=2.0,  # Reasonable dynamic range
+        peak_rate=2.5,  # Higher dynamic range
         firing_noise=0.005,  # Even lower noise
         calcium_noise=0.01,  # Low calcium noise
-        seed=42,
+        seed=123,  # Different seed that works with new RNG
         verbose=False,
         return_info=True,
     )

@@ -6,6 +6,40 @@ properties for testing and demonstration purposes. It supports various manifold
 types (circular, 2D spatial) and mixed populations with both manifold and
 feature-selective cells.
 
+Which Generator Should I Use?
+-----------------------------
++-----------------------------+----------------------------------------------+
+| Use Case                    | Recommended Function                         |
++=============================+==============================================+
+| Head direction cells only   | generate_circular_manifold_exp()             |
+| Place cells only            | generate_2d_manifold_exp()                   |
+| Mixed populations           | generate_mixed_population_exp()              |
+| Custom feature selectivity  | generate_tuned_selectivity_exp()  [canonical]|
+| Quick test data             | generate_synthetic_exp()                     |
++-----------------------------+----------------------------------------------+
+
+Quick Start Examples:
+
+    # Head direction cells (circular manifold)
+    >>> from driada.experiment.synthetic import generate_circular_manifold_exp
+    >>> exp = generate_circular_manifold_exp(n_neurons=50, duration=300)
+
+    # Place cells (2D spatial manifold)
+    >>> from driada.experiment.synthetic import generate_2d_manifold_exp
+    >>> exp = generate_2d_manifold_exp(n_neurons=50, duration=300)
+
+    # Mixed: manifold + event-selective + continuous-feature cells
+    >>> from driada.experiment.synthetic import generate_mixed_population_exp
+    >>> exp = generate_mixed_population_exp(n_neurons=100, manifold_type='2d_spatial')
+
+    # Full control: custom population with any feature types
+    >>> from driada.experiment.synthetic import generate_tuned_selectivity_exp
+    >>> population = [
+    ...     {"name": "place_cells", "count": 30, "features": ["position_2d"]},
+    ...     {"name": "event_cells", "count": 20, "features": ["event_0", "event_1"]},
+    ... ]
+    >>> exp = generate_tuned_selectivity_exp(population, duration=300)
+
 Module Structure (hierarchical):
     core.py         -> Calcium dynamics foundation
     utils.py        -> Utility functions

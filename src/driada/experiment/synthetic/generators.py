@@ -113,6 +113,9 @@ def _firing_rates_to_calcium(
         prob_spike = np.clip(prob_spike, 0, 1)
         events = rng.binomial(1, prob_spike)
 
+        # Generate unique seed for this neuron's calcium signal
+        neuron_seed = int(rng.integers(0, 2**31))
+
         # Convert to calcium signal
         calcium_signals[idx] = generate_pseudo_calcium_signal(
             events=events,
@@ -121,6 +124,7 @@ def _firing_rates_to_calcium(
             amplitude_range=amplitude_range,
             decay_time=decay_time,
             noise_std=calcium_noise,
+            seed=neuron_seed,
         )
 
     return calcium_signals
@@ -886,7 +890,7 @@ def generate_synthetic_exp_with_mixed_selectivity(
     fps=20,
     verbose=True,
     baseline_rate=0.1,
-    peak_rate=1.0,
+    peak_rate=2.0,
     skip_prob=0.1,
     calcium_amplitude_range=(0.5, 2),
     decay_time=2,
@@ -1800,7 +1804,7 @@ def generate_synthetic_data(
     seed=42,
     sampling_rate=20.0,
     baseline_rate=0.1,
-    peak_rate=1.0,
+    peak_rate=2.0,
     skip_prob=0.0,
     hurst=0.5,
     calcium_amplitude_range=(0.5, 2),
@@ -1980,11 +1984,15 @@ def generate_synthetic_data(
     for j in tqdm.tqdm(np.arange(nneurons), disable=not verbose):
         foi = fois[j]
 
+        # Generate unique seeds for this neuron's random operations
+        neuron_base_seed = int(rng.integers(0, 2**31))
+
         # Handle case where there are no features
         if foi == -1 or nfeats == 0:
             # Generate random baseline activity
             binary_series = generate_binary_time_series(
-                length, avg_islands // 2, avg_duration * sampling_rate // 2
+                length, avg_islands // 2, avg_duration * sampling_rate // 2,
+                seed=neuron_base_seed
             )
         elif ftype == "c":
             csignal = all_feats[foi].copy()  # Make a copy to avoid modifying the original
@@ -1999,7 +2007,7 @@ def generate_synthetic_data(
                         f"      Neuron {j}: Applied shift={neuron_shift} to continuous feature {foi}"
                     )
 
-            loc, lower_border, upper_border = select_signal_roi(csignal, seed=seed)
+            loc, lower_border, upper_border = select_signal_roi(csignal, seed=neuron_base_seed)
             # Generate binary series from a continuous one
             binary_series = np.zeros(length)
             binary_series[np.where((csignal >= lower_border) & (csignal <= upper_border))] = 1
@@ -2021,11 +2029,12 @@ def generate_synthetic_data(
             raise ValueError(f"Unknown feature type: {ftype}")
 
         # randomly skip some on periods
-        mod_binary_series = delete_one_islands(binary_series, skip_prob)
+        mod_binary_series = delete_one_islands(binary_series, skip_prob, seed=neuron_base_seed + 1)
 
         # Apply Poisson process
         poisson_series = apply_poisson_to_binary_series(
-            mod_binary_series, baseline_rate / sampling_rate, peak_rate / sampling_rate
+            mod_binary_series, baseline_rate / sampling_rate, peak_rate / sampling_rate,
+            seed=neuron_base_seed + 2
         )
 
         # Generate pseudo-calcium
@@ -2036,6 +2045,7 @@ def generate_synthetic_data(
             amplitude_range=calcium_amplitude_range,
             decay_time=decay_time,
             noise_std=calcium_noise,
+            seed=neuron_base_seed + 3,
         )
 
         all_signals.append(pseudo_calcium_signal)
@@ -2060,7 +2070,6 @@ def generate_synthetic_exp(
     nneurons=500,
     seed=0,
     fps=20,
-    with_spikes=False,
     duration=1200,
     **kwargs,
 ):
@@ -2083,8 +2092,6 @@ def generate_synthetic_exp(
         Random seed for reproducibility. Default: 0.
     fps : float, optional
         Frames per second. Default: 20.
-    with_spikes : bool, optional
-        If True, reconstruct spikes from calcium using wavelet method. Default: False.
     duration : int, optional
         Duration of the experiment in seconds. Default: 1200.
     **kwargs : dict, optional
@@ -2152,16 +2159,6 @@ def generate_synthetic_exp(
         seed=seed,
         **tuned_kwargs,
     )
-
-    # TODO: Add spike reconstruction if requested
-    # Currently not supported via the thin wrapper
-    if with_spikes:
-        import warnings
-        warnings.warn(
-            "with_spikes=True is not yet supported in the thin wrapper. "
-            "Spikes not reconstructed.",
-            UserWarning,
-        )
 
     return exp
 

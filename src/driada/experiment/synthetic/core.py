@@ -20,7 +20,7 @@ DEFAULT_SYNTHETIC_PARAMS = {
     "amplitude_range": (0.5, 2.0),  # Calcium event amplitude range
     # Firing rates
     "baseline_rate": 0.1,  # Baseline firing rate in Hz
-    "peak_rate": 1.0,  # Peak firing rate in Hz
+    "peak_rate": 2.0,  # Peak firing rate in Hz (realistic for calcium imaging)
     "firing_noise": 0.05,  # Noise std added to firing rates
     # Recording parameters
     "fps": 20.0,  # Sampling rate in Hz
@@ -124,6 +124,7 @@ def generate_pseudo_calcium_signal(
     amplitude_range=(0.5, 2),
     decay_time=2,
     noise_std=0.1,
+    seed=None,
 ):
     """Generate a pseudo-calcium imaging signal with noise.
 
@@ -153,6 +154,8 @@ def generate_pseudo_calcium_signal(
         Must be positive.
     noise_std : float, default=0.1
         Standard deviation of additive Gaussian noise. Must be non-negative.
+    seed : int, optional
+        Random seed for reproducibility. Default is None.
 
     Returns
     -------
@@ -201,6 +204,9 @@ def generate_pseudo_calcium_signal(
             f"amplitude_range must be (min, max) with min <= max, got {amplitude_range}"
         )
 
+    # Initialize RNG
+    rng = np.random.default_rng(seed)
+
     if events is None:
         if duration <= 0:
             raise ValueError(f"duration must be positive, got {duration}")
@@ -211,16 +217,16 @@ def generate_pseudo_calcium_signal(
         num_samples = int(duration * sampling_rate)
 
         # Generate calcium events
-        num_events = np.random.poisson(event_rate * duration)
-        event_times = np.random.uniform(0, duration, num_events)
-        event_amplitudes = np.random.uniform(amplitude_range[0], amplitude_range[1], num_events)
+        num_events = rng.poisson(event_rate * duration)
+        event_times = rng.uniform(0, duration, num_events)
+        event_amplitudes = rng.uniform(amplitude_range[0], amplitude_range[1], num_events)
 
     else:
         num_samples = len(events)
         event_times = np.where(events > 0)[0]
         # Use amplitude_range to modulate event amplitudes instead of using binary values
         if len(event_times) > 0:
-            event_amplitudes = np.random.uniform(
+            event_amplitudes = rng.uniform(
                 amplitude_range[0], amplitude_range[1], len(event_times)
             )
         else:
@@ -240,7 +246,7 @@ def generate_pseudo_calcium_signal(
         signal[event_index:] += a * decay
 
     # Add Gaussian noise
-    noise = np.random.normal(0, noise_std, num_samples)
+    noise = rng.normal(0, noise_std, num_samples)
     signal += noise
 
     return signal
@@ -255,6 +261,7 @@ def generate_pseudo_calcium_multisignal(
     amplitude_range=(0.5, 2),
     decay_time=2,
     noise_std=0.1,
+    seed=None,
 ):
     """
     Generate multiple pseudo calcium signals.
@@ -278,6 +285,8 @@ def generate_pseudo_calcium_multisignal(
         Time constant for the decay of calcium events in seconds.
     noise_std : float, default=0.1
         Standard deviation of the Gaussian noise.
+    seed : int, optional
+        Random seed for reproducibility. Default is None.
 
     Returns
     -------
@@ -317,11 +326,17 @@ def generate_pseudo_calcium_multisignal(
         if events.shape[0] != n:
             raise ValueError(f"events first dimension {events.shape[0]} must match n={n}")
 
+    # Initialize RNG for seed generation
+    rng = np.random.default_rng(seed)
+
     sigs = []
     for i in range(n):
         local_events = None
         if events is not None:
             local_events = events[i, :]
+
+        # Generate unique seed for each neuron
+        neuron_seed = int(rng.integers(0, 2**31))
 
         sig = generate_pseudo_calcium_signal(
             events=local_events,
@@ -331,6 +346,7 @@ def generate_pseudo_calcium_multisignal(
             amplitude_range=amplitude_range,
             decay_time=decay_time,
             noise_std=noise_std,
+            seed=neuron_seed,
         )
         sigs.append(sig)
 
