@@ -14,7 +14,7 @@ Run this script to see a complete workflow on synthetic data.
 
 import numpy as np
 from driada.experiment.neuron import Neuron
-from driada.utils.neural import generate_pseudo_calcium_signal
+from driada.experiment.synthetic import generate_pseudo_calcium_signal
 
 # Set random seed for reproducibility
 np.random.seed(42)

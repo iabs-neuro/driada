@@ -28,12 +28,6 @@ from .matrix import (
     is_positive_definite,
 )
 
-# Neural data utilities
-from .neural import (
-    generate_pseudo_calcium_signal,
-    generate_pseudo_calcium_multisignal,
-)
-
 # Plotting utilities
 from .plot import (
     make_beautiful,
@@ -105,9 +99,6 @@ __all__ = [
     # Matrix operations
     "nearestPD",
     "is_positive_definite",
-    # Neural data
-    "generate_pseudo_calcium_signal",
-    "generate_pseudo_calcium_multisignal",
     # Plotting
     "make_beautiful",
     "create_default_figure",

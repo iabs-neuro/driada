@@ -23,7 +23,7 @@ Key Takeaways:
 import numpy as np
 import matplotlib.pyplot as plt
 from driada.experiment.neuron import Neuron
-from driada.utils.neural import generate_pseudo_calcium_signal
+from driada.experiment.synthetic import generate_pseudo_calcium_signal
 import time
 
 

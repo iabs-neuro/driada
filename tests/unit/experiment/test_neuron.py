@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch
 from driada.experiment.neuron import Neuron, MIN_CA_SHIFT
 from driada.information.info_base import TimeSeries
-from driada.utils.neural import generate_pseudo_calcium_multisignal
+from driada.experiment.synthetic import generate_pseudo_calcium_multisignal
 from driada.experiment.wavelet_event_detection import (
     WVT_EVENT_DETECTION_PARAMS,
     extract_wvt_events,
@@ -446,13 +446,13 @@ class TestIntegration:
         noise_std = 0.1
 
         pseudo_calcium = generate_pseudo_calcium_multisignal(
-            n,
-            duration,
-            sampling_rate,
-            event_rate,
-            amplitude_range,
-            decay_time,
-            noise_std,
+            n=n,
+            duration=duration,
+            sampling_rate=sampling_rate,
+            event_rate=event_rate,
+            amplitude_range=amplitude_range,
+            decay_time=decay_time,
+            noise_std=noise_std,
         )
 
         st_ev_inds, end_ev_inds, all_ridges = extract_wvt_events(pseudo_calcium, wvt_kwargs)

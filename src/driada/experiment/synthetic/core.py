@@ -116,6 +116,96 @@ def validate_peak_rate(peak_rate, context=""):
         warnings.warn(warning_msg, UserWarning, stacklevel=2)
 
 
+# =============================================================================
+# Calcium Transient Kernels
+# =============================================================================
+
+
+def _double_exponential_kernel(t, amplitude, rise_time, decay_time):
+    """Generate double-exponential calcium transient kernel.
+
+    Models realistic calcium indicator dynamics with separate rise and decay phases.
+    Form: (1 - exp(-t/rise)) * exp(-t/decay)
+
+    Parameters
+    ----------
+    t : ndarray
+        Time array in samples.
+    amplitude : float
+        Peak amplitude of the transient.
+    rise_time : float
+        Rise time constant in samples.
+    decay_time : float
+        Decay time constant in samples.
+
+    Returns
+    -------
+    ndarray
+        Calcium transient waveform normalized to peak amplitude.
+    """
+    kernel = (1 - np.exp(-t / rise_time)) * np.exp(-t / decay_time)
+    # Normalize to peak = 1, then scale by amplitude
+    if np.max(kernel) > 0:
+        kernel = kernel / np.max(kernel) * amplitude
+    return kernel
+
+
+def _exponential_kernel(t, amplitude, decay_time):
+    """Generate simple exponential decay kernel.
+
+    Models instantaneous rise followed by exponential decay.
+    Form: amplitude * exp(-t/decay)
+
+    Parameters
+    ----------
+    t : ndarray
+        Time array in samples.
+    amplitude : float
+        Peak amplitude of the transient.
+    decay_time : float
+        Decay time constant in samples.
+
+    Returns
+    -------
+    ndarray
+        Calcium transient waveform.
+    """
+    return amplitude * np.exp(-t / decay_time)
+
+
+def _step_kernel(t, amplitude, decay_time, sharpness=5.0):
+    """Generate non-physiological step-like kernel for control.
+
+    Models unrealistic calcium dynamics with sharp edges.
+    Useful as negative control for testing model assumptions.
+
+    Parameters
+    ----------
+    t : ndarray
+        Time array in samples.
+    amplitude : float
+        Plateau amplitude.
+    decay_time : float
+        Duration of plateau in samples.
+    sharpness : float, optional
+        Controls edge sharpness (higher = sharper). Default 5.0.
+
+    Returns
+    -------
+    ndarray
+        Step-like waveform.
+    """
+    # Sigmoid rise and fall
+    rise = 1 / (1 + np.exp(-sharpness * (t / decay_time - 0.1)))
+    fall = 1 / (1 + np.exp(sharpness * (t / decay_time - 0.9)))
+    return amplitude * rise * fall
+
+
+# =============================================================================
+# Calcium Signal Generation
+# =============================================================================
+
+
 def generate_pseudo_calcium_signal(
     events=None,
     duration=600,
@@ -125,11 +215,14 @@ def generate_pseudo_calcium_signal(
     decay_time=2,
     noise_std=0.1,
     seed=None,
+    rise_time=None,
+    kernel="exponential",
 ):
-    """Generate a pseudo-calcium imaging signal with noise.
+    """Generate a pseudo-calcium imaging signal with configurable dynamics.
 
     Creates a synthetic calcium fluorescence signal that mimics GCaMP-like
-    dynamics with exponential decay, random event amplitudes, and Gaussian noise.
+    dynamics with configurable kernel shapes, random event amplitudes, and
+    Gaussian noise.
 
     Parameters
     ----------
@@ -156,6 +249,19 @@ def generate_pseudo_calcium_signal(
         Standard deviation of additive Gaussian noise. Must be non-negative.
     seed : int, optional
         Random seed for reproducibility. Default is None.
+    rise_time : float, optional
+        Rise time constant in seconds. Only used for 'double_exponential' kernel.
+        Default is None, which uses 0.25s (typical for GCaMP indicators).
+    kernel : {'exponential', 'double_exponential', 'step'}, default='exponential'
+        Type of calcium transient kernel:
+
+        - 'exponential': Simple exponential decay with instantaneous rise.
+          Form: amplitude * exp(-t/decay_time). Fast but less realistic.
+        - 'double_exponential': Physiologically realistic kernel with separate
+          rise and decay phases. Form: (1 - exp(-t/rise)) * exp(-t/decay).
+          Matches real GCaMP dynamics.
+        - 'step': Non-physiological step-like waveform with sharp edges.
+          Useful as negative control for testing model assumptions.
 
     Returns
     -------
@@ -168,12 +274,13 @@ def generate_pseudo_calcium_signal(
         If duration, sampling_rate, or decay_time <= 0.
         If event_rate or noise_std < 0.
         If amplitude_range[0] > amplitude_range[1].
+        If kernel is not one of the valid options.
 
     Notes
     -----
-    The calcium signal is modeled as a sum of exponentially decaying transients
-    triggered at event times, plus additive Gaussian noise. This approximates
-    the dynamics of genetically encoded calcium indicators like GCaMP6.
+    The calcium signal is modeled as a sum of transients triggered at event times,
+    plus additive Gaussian noise. This approximates the dynamics of genetically
+    encoded calcium indicators like GCaMP6.
 
     When events is None: Event times are drawn uniformly in [0, duration) seconds.
     When events is provided: Non-zero indices are treated as event sample indices.
@@ -182,15 +289,26 @@ def generate_pseudo_calcium_signal(
 
     Examples
     --------
-    >>> # Generate random calcium signal
+    >>> # Generate random calcium signal with simple exponential decay
     >>> signal = generate_pseudo_calcium_signal(duration=100, event_rate=0.5)
     >>> signal.shape
     (2000,)
 
+    >>> # Generate with realistic double-exponential dynamics
+    >>> signal = generate_pseudo_calcium_signal(
+    ...     duration=100, event_rate=0.5,
+    ...     kernel='double_exponential', rise_time=0.25
+    ... )
+
     >>> # Generate from specific spike times
     >>> spikes = np.zeros(1000)
     >>> spikes[[100, 200, 300]] = 1  # 3 spike events at sample indices
-    >>> signal = generate_pseudo_calcium_signal(events=spikes)"""
+    >>> signal = generate_pseudo_calcium_signal(events=spikes)
+    """
+    # Validate kernel type
+    valid_kernels = ["exponential", "double_exponential", "step"]
+    if kernel not in valid_kernels:
+        raise ValueError(f"kernel must be one of {valid_kernels}, got '{kernel}'")
 
     # Input validation
     if sampling_rate <= 0:
@@ -203,6 +321,10 @@ def generate_pseudo_calcium_signal(
         raise ValueError(
             f"amplitude_range must be (min, max) with min <= max, got {amplitude_range}"
         )
+
+    # Default rise_time for double_exponential
+    if rise_time is None:
+        rise_time = 0.25  # Typical GCaMP rise time
 
     # Initialize RNG
     rng = np.random.default_rng(seed)
@@ -232,6 +354,10 @@ def generate_pseudo_calcium_signal(
         else:
             event_amplitudes = np.array([])
 
+    # Convert time constants to samples
+    rise_time_samples = rise_time * sampling_rate
+    decay_time_samples = decay_time * sampling_rate
+
     # Initialize the signal with zeros
     signal = np.zeros(num_samples)
 
@@ -242,8 +368,24 @@ def generate_pseudo_calcium_signal(
         else:
             event_index = int(t)
 
-        decay = np.exp(-np.arange(num_samples - event_index) / (decay_time * sampling_rate))
-        signal[event_index:] += a * decay
+        # Ensure event_index is within bounds
+        if event_index >= num_samples:
+            continue
+
+        # Time array for this event
+        t_array = np.arange(num_samples - event_index)
+
+        # Generate kernel based on type
+        if kernel == "double_exponential":
+            transient = _double_exponential_kernel(
+                t_array, a, rise_time_samples, decay_time_samples
+            )
+        elif kernel == "exponential":
+            transient = _exponential_kernel(t_array, a, decay_time_samples)
+        elif kernel == "step":
+            transient = _step_kernel(t_array, a, decay_time_samples)
+
+        signal[event_index:] += transient
 
     # Add Gaussian noise
     noise = rng.normal(0, noise_std, num_samples)
@@ -262,6 +404,8 @@ def generate_pseudo_calcium_multisignal(
     decay_time=2,
     noise_std=0.1,
     seed=None,
+    rise_time=None,
+    kernel="exponential",
 ):
     """
     Generate multiple pseudo calcium signals.
@@ -287,6 +431,12 @@ def generate_pseudo_calcium_multisignal(
         Standard deviation of the Gaussian noise.
     seed : int, optional
         Random seed for reproducibility. Default is None.
+    rise_time : float, optional
+        Rise time constant in seconds. Only used for 'double_exponential' kernel.
+        Default is None, which uses 0.25s.
+    kernel : {'exponential', 'double_exponential', 'step'}, default='exponential'
+        Type of calcium transient kernel. See generate_pseudo_calcium_signal
+        for details on each kernel type.
 
     Returns
     -------
@@ -347,6 +497,8 @@ def generate_pseudo_calcium_multisignal(
             decay_time=decay_time,
             noise_std=noise_std,
             seed=neuron_seed,
+            rise_time=rise_time,
+            kernel=kernel,
         )
         sigs.append(sig)
 
