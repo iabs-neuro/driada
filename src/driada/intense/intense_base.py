@@ -52,14 +52,14 @@ FFT_MULTIVARIATE = "mts"    # MultiTimeSeries + univariate TimeSeries
 
 def _get_ts_key(ts):
     """
-    Get stable identifier for TimeSeries that persists across pickling.
+    Get stable identifier for TimeSeries based on its name attribute.
 
     This function generates a stable key for cache lookups that works across
     both threading and loky (pickling) joblib backends.
 
-    Priority:
-    1. Use ts.name if available and non-empty
-    2. Fall back to hash of data characteristics (first/last values, length, discrete flag)
+    All TimeSeries/MultiTimeSeries objects MUST have a name attribute set.
+    Names should be assigned at creation or by INTENSE pipelines before
+    calling compute_me_stats.
 
     Parameters
     ----------
@@ -68,38 +68,30 @@ def _get_ts_key(ts):
 
     Returns
     -------
-    str or int
-        Stable identifier that persists across pickling.
-        Returns string (name) when available, else integer (hash).
+    str
+        The name attribute of the TimeSeries.
+
+    Raises
+    ------
+    ValueError
+        If the TimeSeries does not have a name attribute or the name is empty.
 
     Notes
     -----
-    - Keys are stable across pickling (names and data are pickled with objects)
-    - Same TimeSeries object always yields same key
-    - Assumes names are unique within a bundle, or data differs
+    - Keys are stable across pickling (names are pickled with objects)
+    - Assumes names are unique within a bundle
     - Used for FFT cache keys and random seed generation
+    - INTENSE pipelines assign temporary names to unnamed objects on entry
     """
     if hasattr(ts, 'name') and ts.name:
         return ts.name
 
-    # Fallback: hash data characteristics for deterministic key
-    # Handle both TimeSeries (1D) and MultiTimeSeries (2D)
-    if ts.data.ndim == 1:
-        # TimeSeries: use first/last values
-        first_val = float(ts.data[0]) if len(ts.data) > 0 else 0.0
-        last_val = float(ts.data[-1]) if len(ts.data) > 0 else 0.0
-    else:
-        # MultiTimeSeries: use first/last of first dimension
-        first_val = float(ts.data[0, 0]) if ts.data.shape[1] > 0 else 0.0
-        last_val = float(ts.data[0, -1]) if ts.data.shape[1] > 0 else 0.0
-
-    data_sig = (
-        first_val,
-        last_val,
-        tuple(ts.data.shape),  # Use shape tuple instead of len for MultiTimeSeries
-        bool(ts.discrete),
+    # Should never reach here if naming strategy is complete
+    raise ValueError(
+        f"TimeSeries missing name attribute. "
+        f"All TimeSeries/MultiTimeSeries must have names for FFT cache and seeding. "
+        f"Shape: {ts.data.shape}, discrete: {ts.discrete}"
     )
-    return hash(data_sig)
 
 
 def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed, ds=1):
@@ -2444,286 +2436,309 @@ def compute_me_stats(
 
     accumulated_info = dict()
 
-    # Check if we're comparing the same bunch with itself
-    same_data_bunch = ts_bunch1 is ts_bunch2
+    # Temporary naming: Save original names and assign temporary names if missing
+    # This ensures all TimeSeries have names for FFT cache keys
+    original_names1 = [ts.name if hasattr(ts, 'name') else None for ts in ts_bunch1]
+    original_names2 = [ts.name if hasattr(ts, 'name') else None for ts in ts_bunch2]
 
-    n1 = len(ts_bunch1)
-    n2 = len(ts_bunch2)
-    if not allow_mixed_dimensions:
-        n2 = 1 if joint_distr else len(ts_bunch2)
+    # Assign temporary names if missing
+    for i, ts in enumerate(ts_bunch1):
+        if not hasattr(ts, 'name') or ts.name is None or ts.name == '':
+            # Use names1 if provided, else generate temp name
+            ts.name = str(names1[i]) if names1 and i < len(names1) else f"_ts1_{i}"
 
-        tsbunch1_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch1])
-        tsbunch2_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch2])
-        if not (tsbunch1_is_1d and tsbunch2_is_1d):
-            raise ValueError(
-                "Multiple time series types found, but allow_mixed_dimensions=False."
-                "Consider setting it to True"
-            )
+    for j, ts in enumerate(ts_bunch2):
+        if not hasattr(ts, 'name') or ts.name is None or ts.name == '':
+            # Use names2 if provided, else generate temp name
+            ts.name = str(names2[j]) if names2 and j < len(names2) else f"_ts2_{j}"
 
-    if precomputed_mask_stage1 is None:
-        precomputed_mask_stage1 = np.ones((n1, n2))
-    else:
-        # Create a copy to avoid modifying the input
-        precomputed_mask_stage1 = precomputed_mask_stage1.copy()
+    try:
+        # Check if we're comparing the same bunch with itself
+        same_data_bunch = ts_bunch1 is ts_bunch2
 
-    if precomputed_mask_stage2 is None:
-        precomputed_mask_stage2 = np.ones((n1, n2))
-    else:
-        # Create a copy to avoid modifying the input
-        precomputed_mask_stage2 = precomputed_mask_stage2.copy()
+        n1 = len(ts_bunch1)
+        n2 = len(ts_bunch2)
+        if not allow_mixed_dimensions:
+            n2 = 1 if joint_distr else len(ts_bunch2)
 
-    # If comparing the same bunch with itself, mask out the diagonal
-    # to avoid computing MI of a TimeSeries with itself at zero shift
-    if same_data_bunch:
-        np.fill_diagonal(precomputed_mask_stage1, 0)
-        np.fill_diagonal(precomputed_mask_stage2, 0)
+            tsbunch1_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch1])
+            tsbunch2_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch2])
+            if not (tsbunch1_is_1d and tsbunch2_is_1d):
+                raise ValueError(
+                    "Multiple time series types found, but allow_mixed_dimensions=False."
+                    "Consider setting it to True"
+                )
 
-    # Handle duplicate TimeSeries based on duplicate_behavior parameter
-    if duplicate_behavior in ["raise", "warn"]:
-        # Check for duplicates in ts_bunch1
-        ts1_ids = []
-        for ts in ts_bunch1:
-            ts_id = id(ts.data) if hasattr(ts, "data") else id(ts)
-            ts1_ids.append(ts_id)
+        if precomputed_mask_stage1 is None:
+            precomputed_mask_stage1 = np.ones((n1, n2))
+        else:
+            # Create a copy to avoid modifying the input
+            precomputed_mask_stage1 = precomputed_mask_stage1.copy()
 
-        if len(set(ts1_ids)) < len(ts1_ids):
-            msg = "Duplicate TimeSeries objects found in ts_bunch1"
-            if duplicate_behavior == "raise":
-                raise ValueError(msg)
-            else:  # warn
-                print(f"Warning: {msg}")
+        if precomputed_mask_stage2 is None:
+            precomputed_mask_stage2 = np.ones((n1, n2))
+        else:
+            # Create a copy to avoid modifying the input
+            precomputed_mask_stage2 = precomputed_mask_stage2.copy()
 
-        # Check for duplicates in ts_bunch2 (if not joint_distr)
-        if not joint_distr:
-            ts2_ids = []
-            for ts in ts_bunch2:
+        # If comparing the same bunch with itself, mask out the diagonal
+        # to avoid computing MI of a TimeSeries with itself at zero shift
+        if same_data_bunch:
+            np.fill_diagonal(precomputed_mask_stage1, 0)
+            np.fill_diagonal(precomputed_mask_stage2, 0)
+
+        # Handle duplicate TimeSeries based on duplicate_behavior parameter
+        if duplicate_behavior in ["raise", "warn"]:
+            # Check for duplicates in ts_bunch1
+            ts1_ids = []
+            for ts in ts_bunch1:
                 ts_id = id(ts.data) if hasattr(ts, "data") else id(ts)
-                ts2_ids.append(ts_id)
+                ts1_ids.append(ts_id)
 
-            if len(set(ts2_ids)) < len(ts2_ids):
-                msg = "Duplicate TimeSeries objects found in ts_bunch2"
+            if len(set(ts1_ids)) < len(ts1_ids):
+                msg = "Duplicate TimeSeries objects found in ts_bunch1"
                 if duplicate_behavior == "raise":
                     raise ValueError(msg)
                 else:  # warn
                     print(f"Warning: {msg}")
 
-    optimal_delays = np.zeros((n1, n2), dtype=int)
-    ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if _ not in skip_delays]
-    ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if _ not in skip_delays])
+            # Check for duplicates in ts_bunch2 (if not joint_distr)
+            if not joint_distr:
+                ts2_ids = []
+                for ts in ts_bunch2:
+                    ts_id = id(ts.data) if hasattr(ts, "data") else id(ts)
+                    ts2_ids.append(ts_id)
 
-    # Build FFT cache once at the start for reuse across delays + stages
-    fft_cache = _build_fft_cache(
-        ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr
-    )
+                if len(set(ts2_ids)) < len(ts2_ids):
+                    msg = "Duplicate TimeSeries objects found in ts_bunch2"
+                    if duplicate_behavior == "raise":
+                        raise ValueError(msg)
+                    else:  # warn
+                        print(f"Warning: {msg}")
 
-    if find_optimal_delays:
-        # Use unified fft_cache - no need for separate delay cache
-        # Since cache uses stable keys, ts_with_delays objects are already cached
-        if enable_parallelization:
-            optimal_delays_res = calculate_optimal_delays_parallel(
-                ts_bunch1,
-                ts_with_delays,
-                metric,
-                shift_window,
-                ds,
-                verbose=verbose,
-                n_jobs=n_jobs,
-                mi_estimator=mi_estimator,
-                engine=engine,
-                fft_cache=fft_cache,
-            )
+        optimal_delays = np.zeros((n1, n2), dtype=int)
+        ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if _ not in skip_delays]
+        ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if _ not in skip_delays])
+
+        # Build FFT cache once at the start for reuse across delays + stages
+        fft_cache = _build_fft_cache(
+            ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr
+        )
+
+        if find_optimal_delays:
+            # Use unified fft_cache - no need for separate delay cache
+            # Since cache uses stable keys, ts_with_delays objects are already cached
+            if enable_parallelization:
+                optimal_delays_res = calculate_optimal_delays_parallel(
+                    ts_bunch1,
+                    ts_with_delays,
+                    metric,
+                    shift_window,
+                    ds,
+                    verbose=verbose,
+                    n_jobs=n_jobs,
+                    mi_estimator=mi_estimator,
+                    engine=engine,
+                    fft_cache=fft_cache,
+                )
+            else:
+                optimal_delays_res = calculate_optimal_delays(
+                    ts_bunch1,
+                    ts_with_delays,
+                    metric,
+                    shift_window,
+                    ds,
+                    verbose=verbose,
+                    mi_estimator=mi_estimator,
+                    engine=engine,
+                    fft_cache=fft_cache,
+                )
+
+            optimal_delays[:, ts_with_delays_inds] = optimal_delays_res
+
+        accumulated_info["optimal_delays"] = optimal_delays
+
+        # Initialize masks based on mode
+        if mode == "stage2":
+            # For stage2-only mode, assume all pairs pass stage 1
+            mask_from_stage1 = np.ones((n1, n2))
         else:
-            optimal_delays_res = calculate_optimal_delays(
+            mask_from_stage1 = np.zeros((n1, n2))
+
+        mask_from_stage2 = np.zeros((n1, n2))
+        nhyp = n1 * n2
+
+        # Conditional noise based on distribution type
+        # ZIG handles zeros explicitly, so no noise needed
+        noise_const = 0 if metric_distr_type == "gamma_zi" else noise_ampl
+
+        if mode in ["two_stage", "stage1"]:
+            npairs_to_check1 = int(np.sum(precomputed_mask_stage1))
+            if verbose:
+                print(f"Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs")
+
+            # STAGE 1 - primary scanning using scan_stage abstraction
+            config_stage1 = StageConfig(
+                stage_num=1,
+                n_shuffles=n_shuffles_stage1,
+                mask=precomputed_mask_stage1,
+                topk=topk1,
+            )
+
+            stage_1_stats, stage_1_significance, stage_1_info = scan_stage(
                 ts_bunch1,
-                ts_with_delays,
-                metric,
-                shift_window,
-                ds,
-                verbose=verbose,
+                ts_bunch2,
+                config_stage1,
+                optimal_delays,
+                metric=metric,
                 mi_estimator=mi_estimator,
+                metric_distr_type=metric_distr_type,
+                noise_const=noise_const,
+                ds=ds,
+                seed=seed,
+                joint_distr=joint_distr,
+                allow_mixed_dimensions=allow_mixed_dimensions,
+                enable_parallelization=enable_parallelization,
+                n_jobs=n_jobs,
                 engine=engine,
                 fft_cache=fft_cache,
+                verbose=False,  # We handle verbose output here
             )
 
-        optimal_delays[:, ts_with_delays_inds] = optimal_delays_res
+            # Extract results from scan_stage
+            random_shifts1 = stage_1_info["random_shifts"]
+            me_total1 = stage_1_info["me_total"]
+            mask_from_stage1 = stage_1_info["pass_mask"]
 
-    accumulated_info["optimal_delays"] = optimal_delays
-
-    # Initialize masks based on mode
-    if mode == "stage2":
-        # For stage2-only mode, assume all pairs pass stage 1
-        mask_from_stage1 = np.ones((n1, n2))
-    else:
-        mask_from_stage1 = np.zeros((n1, n2))
-
-    mask_from_stage2 = np.zeros((n1, n2))
-    nhyp = n1 * n2
-
-    # Conditional noise based on distribution type
-    # ZIG handles zeros explicitly, so no noise needed
-    noise_const = 0 if metric_distr_type == "gamma_zi" else noise_ampl
-
-    if mode in ["two_stage", "stage1"]:
-        npairs_to_check1 = int(np.sum(precomputed_mask_stage1))
-        if verbose:
-            print(f"Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs")
-
-        # STAGE 1 - primary scanning using scan_stage abstraction
-        config_stage1 = StageConfig(
-            stage_num=1,
-            n_shuffles=n_shuffles_stage1,
-            mask=precomputed_mask_stage1,
-            topk=topk1,
-        )
-
-        stage_1_stats, stage_1_significance, stage_1_info = scan_stage(
-            ts_bunch1,
-            ts_bunch2,
-            config_stage1,
-            optimal_delays,
-            metric=metric,
-            mi_estimator=mi_estimator,
-            metric_distr_type=metric_distr_type,
-            noise_const=noise_const,
-            ds=ds,
-            seed=seed,
-            joint_distr=joint_distr,
-            allow_mixed_dimensions=allow_mixed_dimensions,
-            enable_parallelization=enable_parallelization,
-            n_jobs=n_jobs,
-            engine=engine,
-            fft_cache=fft_cache,
-            verbose=False,  # We handle verbose output here
-        )
-
-        # Extract results from scan_stage
-        random_shifts1 = stage_1_info["random_shifts"]
-        me_total1 = stage_1_info["me_total"]
-        mask_from_stage1 = stage_1_info["pass_mask"]
-
-        # Convert to per-quantity tables for accumulated_info
-        stage_1_stats_per_quantity = nested_dict_to_seq_of_tables(
-            stage_1_stats, ordered_names1=range(n1), ordered_names2=range(n2)
-        )
-        stage_1_significance_per_quantity = nested_dict_to_seq_of_tables(
-            stage_1_significance, ordered_names1=range(n1), ordered_names2=range(n2)
-        )
-
-        accumulated_info.update(
-            {
-                "stage_1_significance": stage_1_significance_per_quantity,
-                "stage_1_stats": stage_1_stats_per_quantity,
-                "random_shifts1": random_shifts1,
-                "me_total1": me_total1,
-            }
-        )
-
-        nhyp = int(np.sum(mask_from_stage1))  # number of hypotheses for further statistical testing
-        if verbose:
-            print("Stage 1 results:")
-            print(
-                f"{nhyp/n1/n2*100:.2f}% ({nhyp}/{n1*n2}) of possible pairs identified as candidates"
+            # Convert to per-quantity tables for accumulated_info
+            stage_1_stats_per_quantity = nested_dict_to_seq_of_tables(
+                stage_1_stats, ordered_names1=range(n1), ordered_names2=range(n2)
+            )
+            stage_1_significance_per_quantity = nested_dict_to_seq_of_tables(
+                stage_1_significance, ordered_names1=range(n1), ordered_names2=range(n2)
             )
 
-    if mode == "stage1" or nhyp == 0:
-        final_stats = add_names_to_nested_dict(stage_1_stats, names1, names2)
-        final_significance = add_names_to_nested_dict(stage_1_significance, names1, names2)
-
-        return final_stats, final_significance, accumulated_info
-
-    elif mode == "stage2":
-        # For stage2-only mode, create empty stage 1 structures
-        stage_1_stats = populate_nested_dict(dict(), range(n1), range(n2))
-        stage_1_significance = populate_nested_dict(dict(), range(n1), range(n2))
-        # Set all pairs as passing stage 1 with placeholder values
-        for i in range(n1):
-            for j in range(n2):
-                stage_1_stats[i][j] = {"pre_rval": None, "pre_pval": None}
-                stage_1_significance[i][j]["stage1"] = True
-
-    # Now proceed with stage 2
-    if mode in ["two_stage", "stage2"]:
-        # STAGE 2 - full-scale scanning
-        combined_mask_for_stage_2 = np.ones((n1, n2))
-        combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = (
-            0  # exclude non-significant pairs from stage1
-        )
-        combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = (
-            0  # exclude precomputed stage 2 pairs
-        )
-
-        npairs_to_check2 = int(np.sum(combined_mask_for_stage_2))
-        if verbose:
-            print(f"Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs")
-
-        # STAGE 2 using scan_stage abstraction
-        config_stage2 = StageConfig(
-            stage_num=2,
-            n_shuffles=n_shuffles_stage2,
-            mask=combined_mask_for_stage_2,
-            topk=topk2,
-            pval_thr=pval_thr,
-            multicomp_correction=multicomp_correction,
-        )
-
-        stage_2_stats, stage_2_significance, stage_2_info = scan_stage(
-            ts_bunch1,
-            ts_bunch2,
-            config_stage2,
-            optimal_delays,
-            metric=metric,
-            mi_estimator=mi_estimator,
-            metric_distr_type=metric_distr_type,
-            noise_const=noise_const,
-            ds=ds,
-            seed=seed,
-            joint_distr=joint_distr,
-            allow_mixed_dimensions=allow_mixed_dimensions,
-            enable_parallelization=enable_parallelization,
-            n_jobs=n_jobs,
-            engine=engine,
-            fft_cache=fft_cache,
-            verbose=False,  # We handle verbose output here
-        )
-
-        # Extract results from scan_stage
-        random_shifts2 = stage_2_info["random_shifts"]
-        me_total2 = stage_2_info["me_total"]
-        mask_from_stage2 = stage_2_info["pass_mask"]
-        multicorr_thr = stage_2_info["multicorr_thr"]
-
-        # Convert to per-quantity tables for accumulated_info
-        stage_2_stats_per_quantity = nested_dict_to_seq_of_tables(
-            stage_2_stats, ordered_names1=range(n1), ordered_names2=range(n2)
-        )
-        stage_2_significance_per_quantity = nested_dict_to_seq_of_tables(
-            stage_2_significance, ordered_names1=range(n1), ordered_names2=range(n2)
-        )
-
-        accumulated_info.update(
-            {
-                "stage_2_significance": stage_2_significance_per_quantity,
-                "stage_2_stats": stage_2_stats_per_quantity,
-                "random_shifts2": random_shifts2,
-                "me_total2": me_total2,
-                "corrected_pval_thr": multicorr_thr,
-                "group_pval_thr": pval_thr,
-            }
-        )
-
-        num2 = int(np.sum(mask_from_stage2))
-        if verbose:
-            print("Stage 2 results:")
-            print(
-                f"{num2/n1/n2*100:.2f}% ({num2}/{n1*n2}) of possible pairs identified as significant"
+            accumulated_info.update(
+                {
+                    "stage_1_significance": stage_1_significance_per_quantity,
+                    "stage_1_stats": stage_1_stats_per_quantity,
+                    "random_shifts1": random_shifts1,
+                    "me_total1": me_total1,
+                }
             )
 
-        # Always merge stats for consistency
-        merged_stats = merge_stage_stats(stage_1_stats, stage_2_stats)
-        merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
-        final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
-        final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
-        return final_stats, final_significance, accumulated_info
+            nhyp = int(np.sum(mask_from_stage1))  # number of hypotheses for further statistical testing
+            if verbose:
+                print("Stage 1 results:")
+                print(
+                    f"{nhyp/n1/n2*100:.2f}% ({nhyp}/{n1*n2}) of possible pairs identified as candidates"
+                )
+
+        if mode == "stage1" or nhyp == 0:
+            final_stats = add_names_to_nested_dict(stage_1_stats, names1, names2)
+            final_significance = add_names_to_nested_dict(stage_1_significance, names1, names2)
+
+            return final_stats, final_significance, accumulated_info
+
+        elif mode == "stage2":
+            # For stage2-only mode, create empty stage 1 structures
+            stage_1_stats = populate_nested_dict(dict(), range(n1), range(n2))
+            stage_1_significance = populate_nested_dict(dict(), range(n1), range(n2))
+            # Set all pairs as passing stage 1 with placeholder values
+            for i in range(n1):
+                for j in range(n2):
+                    stage_1_stats[i][j] = {"pre_rval": None, "pre_pval": None}
+                    stage_1_significance[i][j]["stage1"] = True
+
+        # Now proceed with stage 2
+        if mode in ["two_stage", "stage2"]:
+            # STAGE 2 - full-scale scanning
+            combined_mask_for_stage_2 = np.ones((n1, n2))
+            combined_mask_for_stage_2[np.where(mask_from_stage1 == 0)] = (
+                0  # exclude non-significant pairs from stage1
+            )
+            combined_mask_for_stage_2[np.where(precomputed_mask_stage2 == 0)] = (
+                0  # exclude precomputed stage 2 pairs
+            )
+
+            npairs_to_check2 = int(np.sum(combined_mask_for_stage_2))
+            if verbose:
+                print(f"Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs")
+
+            # STAGE 2 using scan_stage abstraction
+            config_stage2 = StageConfig(
+                stage_num=2,
+                n_shuffles=n_shuffles_stage2,
+                mask=combined_mask_for_stage_2,
+                topk=topk2,
+                pval_thr=pval_thr,
+                multicomp_correction=multicomp_correction,
+            )
+
+            stage_2_stats, stage_2_significance, stage_2_info = scan_stage(
+                ts_bunch1,
+                ts_bunch2,
+                config_stage2,
+                optimal_delays,
+                metric=metric,
+                mi_estimator=mi_estimator,
+                metric_distr_type=metric_distr_type,
+                noise_const=noise_const,
+                ds=ds,
+                seed=seed,
+                joint_distr=joint_distr,
+                allow_mixed_dimensions=allow_mixed_dimensions,
+                enable_parallelization=enable_parallelization,
+                n_jobs=n_jobs,
+                engine=engine,
+                fft_cache=fft_cache,
+                verbose=False,  # We handle verbose output here
+            )
+
+            # Extract results from scan_stage
+            random_shifts2 = stage_2_info["random_shifts"]
+            me_total2 = stage_2_info["me_total"]
+            mask_from_stage2 = stage_2_info["pass_mask"]
+            multicorr_thr = stage_2_info["multicorr_thr"]
+
+            # Convert to per-quantity tables for accumulated_info
+            stage_2_stats_per_quantity = nested_dict_to_seq_of_tables(
+                stage_2_stats, ordered_names1=range(n1), ordered_names2=range(n2)
+            )
+            stage_2_significance_per_quantity = nested_dict_to_seq_of_tables(
+                stage_2_significance, ordered_names1=range(n1), ordered_names2=range(n2)
+            )
+
+            accumulated_info.update(
+                {
+                    "stage_2_significance": stage_2_significance_per_quantity,
+                    "stage_2_stats": stage_2_stats_per_quantity,
+                    "random_shifts2": random_shifts2,
+                    "me_total2": me_total2,
+                    "corrected_pval_thr": multicorr_thr,
+                    "group_pval_thr": pval_thr,
+                }
+            )
+
+            num2 = int(np.sum(mask_from_stage2))
+            if verbose:
+                print("Stage 2 results:")
+                print(
+                    f"{num2/n1/n2*100:.2f}% ({num2}/{n1*n2}) of possible pairs identified as significant"
+                )
+
+            # Always merge stats for consistency
+            merged_stats = merge_stage_stats(stage_1_stats, stage_2_stats)
+            merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
+            final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
+            final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
+            return final_stats, final_significance, accumulated_info
+    finally:
+        # Restore original names to leave objects unchanged
+        for i, ts in enumerate(ts_bunch1):
+            ts.name = original_names1[i]
+        for j, ts in enumerate(ts_bunch2):
+            ts.name = original_names2[j]
 
 
 def get_multicomp_correction_thr(fwer, mode="holm", **multicomp_kwargs) -> float:

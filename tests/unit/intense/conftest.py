@@ -93,7 +93,7 @@ def _binarize_ts(ts, thr="av"):
     else:
         raise ValueError("binarize_ts called on discrete TimeSeries")
 
-    return TimeSeries(bin_data, discrete=True)
+    return TimeSeries(bin_data, discrete=True, name="binarized_ts")
 
 
 @pytest.fixture
@@ -103,8 +103,8 @@ def correlated_ts_small(base_correlated_signals_small):
     cropped_signals = _create_windowed_signals(signals, n, T)
 
     # Create time series lists
-    tslist1 = [TimeSeries(sig, discrete=False) for sig in cropped_signals[: n // 2, :]]
-    tslist2 = [TimeSeries(sig, discrete=False) for sig in cropped_signals[n // 2 :, :]]
+    tslist1 = [TimeSeries(sig, discrete=False, name=f"ts1_{i}") for i, sig in enumerate(cropped_signals[: n // 2, :])]
+    tslist2 = [TimeSeries(sig, discrete=False, name=f"ts2_{i}") for i, sig in enumerate(cropped_signals[n // 2 :, :])]
 
     # Set shuffle masks
     for ts in tslist1 + tslist2:
@@ -120,8 +120,8 @@ def correlated_ts_medium(base_correlated_signals_medium):
     cropped_signals = _create_windowed_signals(signals, n, T)
 
     # Create time series lists
-    tslist1 = [TimeSeries(sig, discrete=False) for sig in cropped_signals[: n // 2, :]]
-    tslist2 = [TimeSeries(sig, discrete=False) for sig in cropped_signals[n // 2 :, :]]
+    tslist1 = [TimeSeries(sig, discrete=False, name=f"ts1_{i}") for i, sig in enumerate(cropped_signals[: n // 2, :])]
+    tslist2 = [TimeSeries(sig, discrete=False, name=f"ts2_{i}") for i, sig in enumerate(cropped_signals[n // 2 :, :])]
 
     # Set shuffle masks
     for ts in tslist1 + tslist2:
@@ -137,8 +137,8 @@ def correlated_ts_binarized(base_correlated_signals_medium):
     cropped_signals = _create_windowed_signals(signals, n, T, noise_scale=0.01)
 
     # Create time series lists
-    tslist1 = [TimeSeries(sig, discrete=False) for sig in cropped_signals[: n // 2, :]]
-    tslist2 = [TimeSeries(sig, discrete=False) for sig in cropped_signals[n // 2 :, :]]
+    tslist1 = [TimeSeries(sig, discrete=False, name=f"ts1_{i}") for i, sig in enumerate(cropped_signals[: n // 2, :])]
+    tslist2 = [TimeSeries(sig, discrete=False, name=f"ts2_{i}") for i, sig in enumerate(cropped_signals[n // 2 :, :])]
 
     # Binarize second half
     tslist2 = [_binarize_ts(ts, "av") for ts in tslist2]
@@ -158,12 +158,12 @@ def aggregate_two_ts_func():
         # Add small noise to break degeneracy
         np.random.seed(42)
         mod_lts1 = TimeSeries(
-            ts1.data + np.random.random(size=len(ts1.data)) * 1e-6, discrete=False
+            ts1.data + np.random.random(size=len(ts1.data)) * 1e-6, discrete=False, name="agg_ts1"
         )
         mod_lts2 = TimeSeries(
-            ts2.data + np.random.random(size=len(ts2.data)) * 1e-6, discrete=False
+            ts2.data + np.random.random(size=len(ts2.data)) * 1e-6, discrete=False, name="agg_ts2"
         )
-        mts = MultiTimeSeries([mod_lts1, mod_lts2])
+        mts = MultiTimeSeries([mod_lts1, mod_lts2], name="aggregated_mts")
         return mts
 
     return aggregate
@@ -225,8 +225,8 @@ def scaled_correlated_ts(request):
     cropped_signals = _create_windowed_signals(signals, n, T)
 
     # Create time series lists
-    tslist1 = [TimeSeries(sig, discrete=False) for sig in cropped_signals[: n // 2, :]]
-    tslist2 = [TimeSeries(sig, discrete=False) for sig in cropped_signals[n // 2 :, :]]
+    tslist1 = [TimeSeries(sig, discrete=False, name=f"ts1_{i}") for i, sig in enumerate(cropped_signals[: n // 2, :])]
+    tslist2 = [TimeSeries(sig, discrete=False, name=f"ts2_{i}") for i, sig in enumerate(cropped_signals[n // 2 :, :])]
 
     # Set shuffle masks
     for ts in tslist1 + tslist2:

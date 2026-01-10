@@ -637,8 +637,8 @@ def test_scan_pairs():
     # Create test data
     n = 3
     length = 100
-    ts_bunch1 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
-    ts_bunch2 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    ts_bunch1 = [TimeSeries(np.random.randn(length), name=f"ts1_{i}") for i in range(n)]
+    ts_bunch2 = [TimeSeries(np.random.randn(length), name=f"ts2_{i}") for i in range(n)]
 
     # Create optimal delays array (required parameter)
     optimal_delays = np.zeros((n, n), dtype=int)
@@ -666,8 +666,8 @@ def test_scan_pairs_router():
     # Create small test data
     n = 2
     length = 50
-    ts_bunch1 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
-    ts_bunch2 = [TimeSeries(np.random.randn(length)) for _ in range(n)]
+    ts_bunch1 = [TimeSeries(np.random.randn(length), name=f"ts1_{i}") for i in range(n)]
+    ts_bunch2 = [TimeSeries(np.random.randn(length), name=f"ts2_{i}") for i in range(n)]
 
     # Create optimal delays array
     optimal_delays = np.zeros((n, n), dtype=int)

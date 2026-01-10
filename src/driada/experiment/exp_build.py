@@ -241,18 +241,18 @@ def load_exp_from_aligned_data(
             # 1D -> TimeSeries
             if f in force_continuous:
                 # User explicitly wants this to be continuous
-                filt_dyn_features[f] = TimeSeries(vals_array, discrete=False)
+                filt_dyn_features[f] = TimeSeries(vals_array, discrete=False, name=f)
             else:
                 # Let TimeSeries auto-detect the type
-                filt_dyn_features[f] = TimeSeries(vals_array)
+                filt_dyn_features[f] = TimeSeries(vals_array, name=f)
 
         elif vals_array.ndim == 2:
             # 2D -> MultiTimeSeries (each row is a component)
             # This matches Experiment.__init__ behavior
             ts_list = [
-                TimeSeries(vals_array[i, :], discrete=False) for i in range(vals_array.shape[0])
+                TimeSeries(vals_array[i, :], discrete=False, name=f"{f}_{i}") for i in range(vals_array.shape[0])
             ]
-            filt_dyn_features[f] = MultiTimeSeries(ts_list)
+            filt_dyn_features[f] = MultiTimeSeries(ts_list, name=f)
 
         else:
             # Skip features with unsupported dimensions
@@ -294,7 +294,7 @@ def load_exp_from_aligned_data(
                     # Force this feature to be continuous
                     if filt_dyn_features[fn].discrete:
                         filt_dyn_features[fn] = TimeSeries(
-                            filt_dyn_features[fn].data, discrete=False
+                            filt_dyn_features[fn].data, discrete=False, name=fn
                         )
                         if verbose:
                             print(f"Feature '{fn}' forced to be continuous")
@@ -729,6 +729,33 @@ def load_exp_from_pickle(path, verbose=True):
         )
         if verbose:
             print(f"Experiment {exp.signature} loaded from {path}\n")
+
+    # Backward compatibility: Assign names to unnamed dynamic features
+    from ..information.info_base import MultiTimeSeries
+    for feat_id, feat_obj in exp.dynamic_features.items():
+        if hasattr(feat_obj, 'name') and (feat_obj.name is None or feat_obj.name == ''):
+            feat_obj.name = str(feat_id)  # Use feature key as name
+
+            # For MultiTimeSeries, also name components if they lack names
+            if isinstance(feat_obj, MultiTimeSeries):
+                if hasattr(feat_obj, 'ts_list'):
+                    for i, component in enumerate(feat_obj.ts_list):
+                        if not hasattr(component, 'name') or component.name is None or component.name == '':
+                            component.name = f"{feat_id}_{i}"
+
+    # Backward compatibility: Assign names to neurons if missing
+    if hasattr(exp, 'neurons'):
+        for i, neuron in enumerate(exp.neurons):
+            if hasattr(neuron, 'ca') and neuron.ca is not None:
+                if not hasattr(neuron.ca, 'name') or neuron.ca.name is None or neuron.ca.name == '':
+                    neuron.ca.name = f"neuron_{i}_ca"
+            if hasattr(neuron, 'sp') and neuron.sp is not None:
+                if not hasattr(neuron.sp, 'name') or neuron.sp.name is None or neuron.sp.name == '':
+                    neuron.sp.name = f"neuron_{i}_sp"
+            if hasattr(neuron, 'asp') and neuron.asp is not None:
+                if not hasattr(neuron.asp, 'name') or neuron.asp.name is None or neuron.asp.name == '':
+                    neuron.asp.name = f"neuron_{i}_asp"
+
     return exp
 
 

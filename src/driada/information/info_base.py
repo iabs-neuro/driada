@@ -861,6 +861,7 @@ class MultiTimeSeries(MVData):
         discrete=None,
         shuffle_mask=None,
         allow_zero_columns=False,
+        name=None,
     ):
         """Initialize MultiTimeSeries object.
 
@@ -885,12 +886,18 @@ class MultiTimeSeries(MVData):
             Boolean mask for valid shuffle positions
         allow_zero_columns : bool, default=False
             Whether to allow time points where all series are zero
+        name : str, optional
+            Name for the MultiTimeSeries. If provided and components lack names,
+            they will be auto-named as "{name}_{i}".
 
         Notes
         -----
         This method handles both numpy array and list of TimeSeries inputs,
         validates compatibility, combines data and metadata, and initializes
         the parent MVData class for dimensionality reduction capabilities.
+
+        If a name is provided, components without names will automatically be
+        named "{name}_{i}" (e.g., "position_2d_0", "position_2d_1").
         """
         # Handle both numpy array and list of TimeSeries inputs
         if isinstance(data_or_tslist, np.ndarray):
@@ -928,6 +935,17 @@ class MultiTimeSeries(MVData):
 
         # Store allow_zero_columns for later use (e.g., in filter method)
         self.allow_zero_columns = allow_zero_columns
+
+        # Store TimeSeries list for component access
+        self.ts_list = tslist
+
+        # Store name attribute and auto-name components if needed
+        self.name = name
+        if name is not None:
+            # Auto-name components if they lack names
+            for i, ts in enumerate(tslist):
+                if not hasattr(ts, 'name') or ts.name is None or ts.name == '':
+                    ts.name = f"{name}_{i}"
 
         # Initialize MVData parent class
         super().__init__(

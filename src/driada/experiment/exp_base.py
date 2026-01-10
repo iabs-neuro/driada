@@ -422,21 +422,21 @@ class Experiment:
                     if isinstance(feat_data, np.ndarray):
                         if feat_data.ndim == 1:
                             # 1D array -> TimeSeries
-                            dynamic_features[feat_id] = TimeSeries(feat_data)
+                            dynamic_features[feat_id] = TimeSeries(feat_data, name=feat_id)
                         elif feat_data.ndim == 2:
                             # 2D array -> MultiTimeSeries (each row is a component)
                             ts_list = [
-                                TimeSeries(feat_data[i, :], discrete=False)
+                                TimeSeries(feat_data[i, :], discrete=False, name=f"{feat_id}_{i}")
                                 for i in range(feat_data.shape[0])
                             ]
-                            dynamic_features[feat_id] = MultiTimeSeries(ts_list)
+                            dynamic_features[feat_id] = MultiTimeSeries(ts_list, name=feat_id)
                         else:
                             raise ValueError(
                                 f"Feature {feat_id} has unsupported dimensionality: {feat_data.ndim}D"
                             )
                     else:
                         # Assume it's 1D data if not numpy array
-                        dynamic_features[feat_id] = TimeSeries(feat_data)
+                        dynamic_features[feat_id] = TimeSeries(feat_data, name=feat_id)
 
         self.n_cells = calcium.shape[0]
         self.n_frames = calcium.shape[1]
@@ -466,16 +466,16 @@ class Experiment:
             (
                 neuron.sp
                 if neuron.sp is not None
-                else TimeSeries(np.zeros(self.n_frames), discrete=True)
+                else TimeSeries(np.zeros(self.n_frames), discrete=True, name=f"neuron_{i}_sp_zero")
             )
-            for neuron in self.neurons
+            for i, neuron in enumerate(self.neurons)
         ]
 
         # Create MultiTimeSeries from the TimeSeries objects in neurons
         # This preserves the individual shuffle masks created by each Neuron
-        self.calcium = MultiTimeSeries(calcium_ts_list)
+        self.calcium = MultiTimeSeries(calcium_ts_list, name="calcium")
         # Allow zero columns for spikes since many neurons might not spike
-        self.spikes = MultiTimeSeries(spikes_ts_list, allow_zero_columns=True)
+        self.spikes = MultiTimeSeries(spikes_ts_list, allow_zero_columns=True, name="spikes")
 
         self.dynamic_features = dynamic_features
 
@@ -808,26 +808,39 @@ class Experiment:
         for feat_id in dynamic_features:
             current_ts = dynamic_features[feat_id]
             if isinstance(current_ts, TimeSeries):
-                f_ts = TimeSeries(current_ts.data[~bad_frames_mask], discrete=current_ts.discrete)
+                f_ts = TimeSeries(
+                    current_ts.data[~bad_frames_mask],
+                    discrete=current_ts.discrete,
+                    name=current_ts.name if hasattr(current_ts, 'name') else feat_id
+                )
             elif isinstance(current_ts, MultiTimeSeries):
                 # Handle MultiTimeSeries by trimming each component
                 filtered_components = []
                 for i in range(current_ts.n_dim):
                     component_data = current_ts.data[i, ~bad_frames_mask]
+                    # Preserve component name if it exists
+                    component_name = None
+                    if hasattr(current_ts, 'ts_list') and i < len(current_ts.ts_list):
+                        orig_component = current_ts.ts_list[i]
+                        component_name = orig_component.name if hasattr(orig_component, 'name') else f"{feat_id}_{i}"
+                    else:
+                        component_name = f"{feat_id}_{i}"
                     filtered_components.append(
-                        TimeSeries(component_data, discrete=current_ts.discrete)
+                        TimeSeries(component_data, discrete=current_ts.discrete, name=component_name)
                     )
-                f_ts = MultiTimeSeries(filtered_components)
+                # Preserve parent name if it exists
+                parent_name = current_ts.name if hasattr(current_ts, 'name') else feat_id
+                f_ts = MultiTimeSeries(filtered_components, name=parent_name)
             elif isinstance(current_ts, np.ndarray):
                 # Handle raw arrays
                 if current_ts.ndim == 1:
-                    f_ts = TimeSeries(current_ts[~bad_frames_mask])
+                    f_ts = TimeSeries(current_ts[~bad_frames_mask], name=feat_id)
                 else:
                     # Multi-dimensional array
                     f_ts = current_ts[:, ~bad_frames_mask]
             else:
                 # Fallback for other types
-                f_ts = TimeSeries(current_ts[~bad_frames_mask])
+                f_ts = TimeSeries(current_ts[~bad_frames_mask], name=feat_id)
 
             f_dynamic_features[feat_id] = f_ts
 
@@ -1553,7 +1566,7 @@ class Experiment:
             # Create MultiTimeSeries from list of TimeSeries
             from ..information.info_base import MultiTimeSeries
 
-            return MultiTimeSeries(ts_list)
+            return MultiTimeSeries(ts_list, name="shuffled_calcium")
 
     def get_multicell_shuffled_spikes(
         self, cbunch=None, method="isi_based", return_array=True, **kwargs
@@ -1612,7 +1625,7 @@ class Experiment:
             # Create MultiTimeSeries from list of TimeSeries
             from ..information.info_base import MultiTimeSeries
 
-            return MultiTimeSeries(ts_list)
+            return MultiTimeSeries(ts_list, name="shuffled_spikes")
 
     def get_stats_slice(
         self,
@@ -1848,8 +1861,8 @@ class Experiment:
             from ..information.info_base import TimeSeries, MultiTimeSeries
 
             # Calcium data is always continuous, so explicitly set discrete=False
-            ts_list = [TimeSeries(calcium[i, :], discrete=False) for i in range(calcium.shape[0])]
-            calcium_mts = MultiTimeSeries(ts_list, allow_zero_columns=True)
+            ts_list = [TimeSeries(calcium[i, :], discrete=False, name=f"calcium_{i}") for i in range(calcium.shape[0])]
+            calcium_mts = MultiTimeSeries(ts_list, allow_zero_columns=True, name="calcium")
         else:
             calcium_mts = calcium
 
@@ -1960,12 +1973,12 @@ class Experiment:
         import numpy as np
 
         spike_ts_list = []
-        for neuron in self.neurons:
+        for i, neuron in enumerate(self.neurons):
             if neuron.sp is not None:
                 spike_ts_list.append(neuron.sp)
             else:
-                spike_ts_list.append(TimeSeries(np.zeros(self.n_frames), discrete=True))
-        self.spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True)
+                spike_ts_list.append(TimeSeries(np.zeros(self.n_frames), discrete=True, name=f"neuron_{i}_sp_zero"))
+        self.spikes = MultiTimeSeries(spike_ts_list, allow_zero_columns=True, name="spikes")
 
     def get_significant_neurons(
         self,
@@ -2306,7 +2319,10 @@ class Experiment:
         if len(neuron_indices) != self.n_cells:
             subset_data = multi_ts.data[neuron_indices, :]
             multi_ts = MultiTimeSeries(
-                subset_data, discrete=multi_ts.discrete, allow_zero_columns=(data_type == "spikes")
+                subset_data,
+                discrete=multi_ts.discrete,
+                allow_zero_columns=(data_type == "spikes"),
+                name=multi_ts.name if hasattr(multi_ts, 'name') else data_type
             )
 
         # Apply downsampling if requested
@@ -2321,6 +2337,7 @@ class Experiment:
                 downsampled_data,
                 discrete=multi_ts.discrete,
                 allow_zero_columns=(data_type == "spikes"),
+                name=multi_ts.name if hasattr(multi_ts, 'name') else data_type
             )
             logging.info(f"Downsampling data by factor {ds}: {multi_ts.data.shape[1]} timepoints")
 

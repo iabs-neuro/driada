@@ -293,7 +293,9 @@ def compute_cell_feat_significance(
                             f"Feature '{f}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}"
                         )
                 parts = [exp.dynamic_features[f] for f in feat_id]
-                mts = MultiTimeSeries(parts)
+                # Create MultiTimeSeries with name from tuple
+                mts_name = "_".join(str(f) for f in feat_id)
+                mts = MultiTimeSeries(parts, name=mts_name)
                 feats.append(mts)
             else:
                 raise ValueError("Unknown feature id type")
@@ -343,7 +345,26 @@ def compute_cell_feat_significance(
     else:
         raise ValueError("Wrong mode!")
 
-    computed_stats, computed_significance, info = compute_me_stats(
+    # Temporary naming: Save original names and assign temporary names if missing
+    # This ensures all TimeSeries have names for FFT cache keys
+    original_signal_names = [sig.name if hasattr(sig, 'name') else None for sig in signals]
+    original_feat_names = [feat.name if hasattr(feat, 'name') else None for feat in feats]
+
+    # Assign temporary names to signals if missing
+    for i, sig in enumerate(signals):
+        if not hasattr(sig, 'name') or sig.name is None or sig.name == '':
+            sig.name = f"_neuron_{cell_ids[i]}"
+
+    # Assign temporary names to feats if missing
+    for j, feat in enumerate(feats):
+        if not hasattr(feat, 'name') or feat.name is None or feat.name == '':
+            if isinstance(feat_ids[j], tuple):
+                feat.name = f"_mts_{'_'.join(str(f) for f in feat_ids[j])}"
+            else:
+                feat.name = f"_feat_{feat_ids[j]}"
+
+    try:
+        computed_stats, computed_significance, info = compute_me_stats(
         signals,
         feats,
         mode=mode,
@@ -373,166 +394,172 @@ def compute_cell_feat_significance(
         seed=seed,
         duplicate_behavior=duplicate_behavior,
         engine=engine,
-    )
-
-    exp.optimal_nf_delays = info["optimal_delays"]
-    # add hash data and update Experiment saved statistics and significance if needed
-    for i, cell_id in enumerate(cell_ids):
-        for j, feat_id in enumerate(feat_ids):
-            # Check for non-existing feature if use_precomputed_stats==False
-            if not use_precomputed_stats:
-                if feat_id not in exp._data_hashes[data_type]:
-                    raise ValueError(
-                        f"Feature '{feat_id}' not found in data hashes. This may indicate the feature was not properly initialized."
-                    )
-            computed_stats[cell_id][feat_id]["data_hash"] = exp._data_hashes[data_type][feat_id][
-                cell_id
-            ]
-
-            me_val = computed_stats[cell_id][feat_id].get("me")
-            if me_val is not None and metric == "mi":
-                feat_entropy = exp.get_feature_entropy(feat_id, ds=ds)
-                # Get entropy from appropriate data type
-                if data_type == "calcium":
-                    neural_entropy = exp.neurons[int(cell_id)].ca.get_entropy(ds=ds)
-                elif data_type == "spikes":
-                    neural_entropy = exp.neurons[int(cell_id)].sp.get_entropy(ds=ds)
-                computed_stats[cell_id][feat_id]["rel_me_beh"] = me_val / feat_entropy
-                computed_stats[cell_id][feat_id]["rel_me_ca"] = me_val / neural_entropy
-
-            if save_computed_stats:
-                stage2_only = True if mode == "stage2" else False
-                if combined_precomputed_mask[i, j]:
-                    exp.update_neuron_feature_pair_stats(
-                        computed_stats[cell_id][feat_id],
-                        cell_id,
-                        feat_id,
-                        mode=data_type,
-                        force_update=force_update,
-                        stage2_only=stage2_only,
-                    )
-
-                    sig = computed_significance[cell_id][feat_id]
-                    exp.update_neuron_feature_pair_significance(
-                        sig, cell_id, feat_id, mode=data_type
-                    )
-
-    # save all results to a single object
-    intense_params = {
-        "neurons": {i: cell_ids[i] for i in range(len(cell_ids))},
-        "feat_bunch": {i: feat_ids[i] for i in range(len(feat_ids))},
-        "data_type": data_type,
-        "mode": mode,
-        "metric": metric,
-        "n_shuffles_stage1": n_shuffles_stage1,
-        "n_shuffles_stage2": n_shuffles_stage2,
-        "joint_distr": joint_distr,
-        "metric_distr_type": metric_distr_type,
-        "noise_ampl": noise_ampl,
-        "ds": ds,
-        "topk1": topk1,
-        "topk2": topk2,
-        "multicomp_correction": multicomp_correction,
-        "pval_thr": pval_thr,
-        "find_optimal_delays": find_optimal_delays,
-        "shift_window": shift_window,
-    }
-
-    intense_res = IntenseResults()
-    intense_res.update("stats", computed_stats)
-    intense_res.update("significance", computed_significance)
-    intense_res.update("info", info)
-    intense_res.update("intense_params", intense_params)
-
-    # Perform disentanglement analysis if requested
-    if with_disentanglement:
-        if verbose:
-            print("\nPerforming mixed selectivity disentanglement analysis...")
-
-        # Step 1: Compute feature-feature significance
-        _, feat_feat_significance, _, feat_names, _ = compute_feat_feat_significance(
-            exp,
-            feat_bunch=feat_bunch if feat_bunch is not None else "all",
-            metric=metric,
-            mode=mode,
-            n_shuffles_stage1=n_shuffles_stage1,
-            n_shuffles_stage2=n_shuffles_stage2,
-            metric_distr_type=metric_distr_type,
-            noise_ampl=noise_ampl,
-            ds=ds,
-            topk1=topk1,
-            topk2=topk2,
-            multicomp_correction=multicomp_correction,
-            pval_thr=pval_thr,
-            verbose=verbose,
-            enable_parallelization=enable_parallelization,
-            n_jobs=n_jobs,
-            seed=seed,
         )
 
-        # Step 2: Use default multifeature map if not provided
-        if multifeature_map is None:
-            multifeature_map = DEFAULT_MULTIFEATURE_MAP
+        exp.optimal_nf_delays = info["optimal_delays"]
+        # add hash data and update Experiment saved statistics and significance if needed
+        for i, cell_id in enumerate(cell_ids):
+            for j, feat_id in enumerate(feat_ids):
+                # Check for non-existing feature if use_precomputed_stats==False
+                if not use_precomputed_stats:
+                    if feat_id not in exp._data_hashes[data_type]:
+                        raise ValueError(
+                            f"Feature '{feat_id}' not found in data hashes. This may indicate the feature was not properly initialized."
+                        )
+                computed_stats[cell_id][feat_id]["data_hash"] = exp._data_hashes[data_type][feat_id][
+                    cell_id
+                ]
 
-        # Step 3: Run disentanglement analysis
-        disent_matrix, count_matrix = disentangle_all_selectivities(
-            exp,
-            feat_names,
-            ds=ds,
-            multifeature_map=multifeature_map,
-            feat_feat_significance=feat_feat_significance,
-            cell_bunch=cell_ids,
-        )
+                me_val = computed_stats[cell_id][feat_id].get("me")
+                if me_val is not None and metric == "mi":
+                    feat_entropy = exp.get_feature_entropy(feat_id, ds=ds)
+                    # Get entropy from appropriate data type
+                    if data_type == "calcium":
+                        neural_entropy = exp.neurons[int(cell_id)].ca.get_entropy(ds=ds)
+                    elif data_type == "spikes":
+                        neural_entropy = exp.neurons[int(cell_id)].sp.get_entropy(ds=ds)
+                    computed_stats[cell_id][feat_id]["rel_me_beh"] = me_val / feat_entropy
+                    computed_stats[cell_id][feat_id]["rel_me_ca"] = me_val / neural_entropy
 
-        # Step 4: Get summary statistics
-        from .disentanglement import get_disentanglement_summary
+                if save_computed_stats:
+                    stage2_only = True if mode == "stage2" else False
+                    if combined_precomputed_mask[i, j]:
+                        exp.update_neuron_feature_pair_stats(
+                            computed_stats[cell_id][feat_id],
+                            cell_id,
+                            feat_id,
+                            mode=data_type,
+                            force_update=force_update,
+                            stage2_only=stage2_only,
+                        )
 
-        summary = get_disentanglement_summary(
-            disent_matrix, count_matrix, feat_names, feat_feat_significance
-        )
+                        sig = computed_significance[cell_id][feat_id]
+                        exp.update_neuron_feature_pair_significance(
+                            sig, cell_id, feat_id, mode=data_type
+                        )
 
-        # Package disentanglement results
-        disentanglement_results = {
-            "feat_feat_significance": feat_feat_significance,
-            "disent_matrix": disent_matrix,
-            "count_matrix": count_matrix,
-            "feature_names": feat_names,
-            "summary": summary,
+        # save all results to a single object
+        intense_params = {
+            "neurons": {i: cell_ids[i] for i in range(len(cell_ids))},
+            "feat_bunch": {i: feat_ids[i] for i in range(len(feat_ids))},
+            "data_type": data_type,
+            "mode": mode,
+            "metric": metric,
+            "n_shuffles_stage1": n_shuffles_stage1,
+            "n_shuffles_stage2": n_shuffles_stage2,
+            "joint_distr": joint_distr,
+            "metric_distr_type": metric_distr_type,
+            "noise_ampl": noise_ampl,
+            "ds": ds,
+            "topk1": topk1,
+            "topk2": topk2,
+            "multicomp_correction": multicomp_correction,
+            "pval_thr": pval_thr,
+            "find_optimal_delays": find_optimal_delays,
+            "shift_window": shift_window,
         }
 
-        # Add to IntenseResults
-        intense_res.update("disentanglement", disentanglement_results)
+        intense_res = IntenseResults()
+        intense_res.update("stats", computed_stats)
+        intense_res.update("significance", computed_significance)
+        intense_res.update("info", info)
+        intense_res.update("intense_params", intense_params)
 
-        if verbose:
-            print("\nDisentanglement analysis complete!")
-            if summary.get("overall_stats"):
-                print(
-                    f"Total mixed selectivity pairs analyzed: {summary['overall_stats']['total_neuron_pairs']}"
-                )
-                if "redundancy_rate" in summary["overall_stats"]:
-                    print(f"Redundancy rate: {summary['overall_stats']['redundancy_rate']:.1f}%")
-                if "independence_rate" in summary["overall_stats"]:
+        # Perform disentanglement analysis if requested
+        if with_disentanglement:
+            if verbose:
+                print("\nPerforming mixed selectivity disentanglement analysis...")
+
+            # Step 1: Compute feature-feature significance
+            _, feat_feat_significance, _, feat_names, _ = compute_feat_feat_significance(
+                exp,
+                feat_bunch=feat_bunch if feat_bunch is not None else "all",
+                metric=metric,
+                mode=mode,
+                n_shuffles_stage1=n_shuffles_stage1,
+                n_shuffles_stage2=n_shuffles_stage2,
+                metric_distr_type=metric_distr_type,
+                noise_ampl=noise_ampl,
+                ds=ds,
+                topk1=topk1,
+                topk2=topk2,
+                multicomp_correction=multicomp_correction,
+                pval_thr=pval_thr,
+                verbose=verbose,
+                enable_parallelization=enable_parallelization,
+                n_jobs=n_jobs,
+                seed=seed,
+            )
+
+            # Step 2: Use default multifeature map if not provided
+            if multifeature_map is None:
+                multifeature_map = DEFAULT_MULTIFEATURE_MAP
+
+            # Step 3: Run disentanglement analysis
+            disent_matrix, count_matrix = disentangle_all_selectivities(
+                exp,
+                feat_names,
+                ds=ds,
+                multifeature_map=multifeature_map,
+                feat_feat_significance=feat_feat_significance,
+                cell_bunch=cell_ids,
+            )
+
+            # Step 4: Get summary statistics
+            from .disentanglement import get_disentanglement_summary
+
+            summary = get_disentanglement_summary(
+                disent_matrix, count_matrix, feat_names, feat_feat_significance
+            )
+
+            # Package disentanglement results
+            disentanglement_results = {
+                "feat_feat_significance": feat_feat_significance,
+                "disent_matrix": disent_matrix,
+                "count_matrix": count_matrix,
+                "feature_names": feat_names,
+                "summary": summary,
+            }
+
+            # Add to IntenseResults
+            intense_res.update("disentanglement", disentanglement_results)
+
+            if verbose:
+                print("\nDisentanglement analysis complete!")
+                if summary.get("overall_stats"):
                     print(
-                        f"Independence rate: {summary['overall_stats']['independence_rate']:.1f}%"
+                        f"Total mixed selectivity pairs analyzed: {summary['overall_stats']['total_neuron_pairs']}"
                     )
-                if "true_mixed_selectivity_rate" in summary["overall_stats"]:
-                    print(
-                        f"True mixed selectivity rate: {summary['overall_stats']['true_mixed_selectivity_rate']:.1f}%"
-                    )
-            else:
-                print("No mixed selectivity pairs found in the selected neurons.")
+                    if "redundancy_rate" in summary["overall_stats"]:
+                        print(f"Redundancy rate: {summary['overall_stats']['redundancy_rate']:.1f}%")
+                    if "independence_rate" in summary["overall_stats"]:
+                        print(
+                            f"Independence rate: {summary['overall_stats']['independence_rate']:.1f}%"
+                        )
+                    if "true_mixed_selectivity_rate" in summary["overall_stats"]:
+                        print(
+                            f"True mixed selectivity rate: {summary['overall_stats']['true_mixed_selectivity_rate']:.1f}%"
+                        )
+                else:
+                    print("No mixed selectivity pairs found in the selected neurons.")
 
-        # Return with disentanglement results
-        return (
-            computed_stats,
-            computed_significance,
-            info,
-            intense_res,
-            disentanglement_results,
-        )
+            # Return with disentanglement results
+            return (
+                computed_stats,
+                computed_significance,
+                info,
+                intense_res,
+                disentanglement_results,
+            )
 
-    # Return multiple values for backward compatibility
-    return computed_stats, computed_significance, info, intense_res
+        # Return multiple values for backward compatibility
+        return computed_stats, computed_significance, info, intense_res
+    finally:
+        # Restore original names to leave objects unchanged
+        for i, sig in enumerate(signals):
+            sig.name = original_signal_names[i]
+        for j, feat in enumerate(feats):
+            feat.name = original_feat_names[j]
 
 
 def compute_feat_feat_significance(
@@ -725,9 +752,22 @@ def compute_feat_feat_significance(
     precomputed_mask_stage1 = np.triu(np.ones((n_features, n_features)), k=1)
     precomputed_mask_stage2 = np.triu(np.ones((n_features, n_features)), k=1)
 
-    # Call compute_me_stats with features against themselves
-    # Note: optimal delays are disabled (set to False)
-    stats, significance, info = compute_me_stats(
+    # Temporary naming: Save original names and assign temporary names if missing
+    # This ensures all TimeSeries have names for FFT cache keys
+    original_feat_names = [feat.name if hasattr(feat, 'name') else None for feat in feature_ts]
+
+    # Assign temporary names to features if missing
+    for j, feat in enumerate(feature_ts):
+        if not hasattr(feat, 'name') or feat.name is None or feat.name == '':
+            if isinstance(feat_ids[j], tuple):
+                feat.name = f"_feat_{'_'.join(str(f) for f in feat_ids[j])}"
+            else:
+                feat.name = f"_feat_{feat_ids[j]}"
+
+    try:
+        # Call compute_me_stats with features against themselves
+        # Note: optimal delays are disabled (set to False)
+        stats, significance, info = compute_me_stats(
         feature_ts,
         feature_ts,
         names1=feat_ids,
@@ -756,60 +796,64 @@ def compute_feat_feat_significance(
         seed=seed,
         duplicate_behavior="ignore",  # Default behavior for feature-feature comparison
         engine="auto",  # FFT optimization when applicable
-    )
+        )
 
-    # Extract matrices from results
-    similarity_matrix = np.zeros((n_features, n_features))
-    significance_matrix = np.zeros((n_features, n_features))
-    p_value_matrix = np.ones((n_features, n_features))
+        # Extract matrices from results
+        similarity_matrix = np.zeros((n_features, n_features))
+        significance_matrix = np.zeros((n_features, n_features))
+        p_value_matrix = np.ones((n_features, n_features))
 
-    # Fill matrices from stats and significance dictionaries
-    # Since we only computed upper triangle, we need to fill both upper and lower
-    for i, feat1 in enumerate(feat_ids):
-        for j, feat2 in enumerate(feat_ids):
-            if i == j:
-                # Diagonal is already 0
-                continue
+        # Fill matrices from stats and significance dictionaries
+        # Since we only computed upper triangle, we need to fill both upper and lower
+        for i, feat1 in enumerate(feat_ids):
+            for j, feat2 in enumerate(feat_ids):
+                if i == j:
+                    # Diagonal is already 0
+                    continue
 
-            # Convert tuples to strings for dictionary keys if needed
-            key1 = str(feat1) if isinstance(feat1, tuple) else feat1
-            key2 = str(feat2) if isinstance(feat2, tuple) else feat2
+                # Convert tuples to strings for dictionary keys if needed
+                key1 = str(feat1) if isinstance(feat1, tuple) else feat1
+                key2 = str(feat2) if isinstance(feat2, tuple) else feat2
 
-            # We computed only upper triangle, so check if this pair was computed
-            if i < j:
-                # Upper triangle - get from stats
-                if key1 in stats and key2 in stats[key1]:
-                    stats_dict = stats[key1][key2]
-                    if stats_dict:  # Check if dict is not empty
-                        similarity_matrix[i, j] = stats_dict.get("me", 0)
-                        p_value_matrix[i, j] = stats_dict.get("p", 1)
+                # We computed only upper triangle, so check if this pair was computed
+                if i < j:
+                    # Upper triangle - get from stats
+                    if key1 in stats and key2 in stats[key1]:
+                        stats_dict = stats[key1][key2]
+                        if stats_dict:  # Check if dict is not empty
+                            similarity_matrix[i, j] = stats_dict.get("me", 0)
+                            p_value_matrix[i, j] = stats_dict.get("p", 1)
 
-                    sig_dict = significance.get(key1, {}).get(key2, {})
-                    if sig_dict.get("stage2") is not None:
-                        significance_matrix[i, j] = float(sig_dict["stage2"])
-                    elif sig_dict.get("stage1") is not None:
-                        significance_matrix[i, j] = float(sig_dict["stage1"])
-            else:
-                # Lower triangle - copy from upper triangle for symmetry
-                similarity_matrix[i, j] = similarity_matrix[j, i]
-                p_value_matrix[i, j] = p_value_matrix[j, i]
-                significance_matrix[i, j] = significance_matrix[j, i]
+                        sig_dict = significance.get(key1, {}).get(key2, {})
+                        if sig_dict.get("stage2") is not None:
+                            significance_matrix[i, j] = float(sig_dict["stage2"])
+                        elif sig_dict.get("stage1") is not None:
+                            significance_matrix[i, j] = float(sig_dict["stage1"])
+                else:
+                    # Lower triangle - copy from upper triangle for symmetry
+                    similarity_matrix[i, j] = similarity_matrix[j, i]
+                    p_value_matrix[i, j] = p_value_matrix[j, i]
+                    significance_matrix[i, j] = significance_matrix[j, i]
 
-    # Ensure diagonal is zero (should already be due to coincidence check)
-    np.fill_diagonal(similarity_matrix, 0)
-    np.fill_diagonal(significance_matrix, 0)
-    np.fill_diagonal(p_value_matrix, 1)
+        # Ensure diagonal is zero (should already be due to coincidence check)
+        np.fill_diagonal(similarity_matrix, 0)
+        np.fill_diagonal(significance_matrix, 0)
+        np.fill_diagonal(p_value_matrix, 1)
 
-    if verbose:
-        print("\nBehavioral similarity matrix computation complete!")
-        print(f"Feature pairs analyzed: {n_features * n_features}")
-        print(f"Significant pairs (stage 1): {info.get('n_significant_stage1', 0)}")
-        print(f"Significant pairs (final): {np.sum(significance_matrix)}")
-        # Count unique significant pairs (upper triangle only)
-        unique_sig = np.sum(np.triu(significance_matrix, k=1))
-        print(f"Unique significant pairs: {unique_sig}")
+        if verbose:
+            print("\nBehavioral similarity matrix computation complete!")
+            print(f"Feature pairs analyzed: {n_features * n_features}")
+            print(f"Significant pairs (stage 1): {info.get('n_significant_stage1', 0)}")
+            print(f"Significant pairs (final): {np.sum(significance_matrix)}")
+            # Count unique significant pairs (upper triangle only)
+            unique_sig = np.sum(np.triu(significance_matrix, k=1))
+            print(f"Unique significant pairs: {unique_sig}")
 
-    return similarity_matrix, significance_matrix, p_value_matrix, feat_ids, info
+        return similarity_matrix, significance_matrix, p_value_matrix, feat_ids, info
+    finally:
+        # Restore original names to leave objects unchanged
+        for j, feat in enumerate(feature_ts):
+            feat.name = original_feat_names[j]
 
 
 def compute_cell_cell_significance(
@@ -1001,9 +1045,19 @@ def compute_cell_cell_significance(
     precomputed_mask_stage1 = np.triu(np.ones((n_cells, n_cells)), k=1)
     precomputed_mask_stage2 = np.triu(np.ones((n_cells, n_cells)), k=1)
 
-    # Call compute_me_stats with neurons against themselves
-    # Note: optimal delays are disabled (set to False) for synchronous analysis
-    stats, significance, info = compute_me_stats(
+    # Temporary naming: Save original names and assign temporary names if missing
+    # This ensures all TimeSeries have names for FFT cache keys
+    original_signal_names = [sig.name if hasattr(sig, 'name') else None for sig in signals]
+
+    # Assign temporary names to signals if missing
+    for i, sig in enumerate(signals):
+        if not hasattr(sig, 'name') or sig.name is None or sig.name == '':
+            sig.name = f"_neuron_{cell_ids[i]}"
+
+    try:
+        # Call compute_me_stats with neurons against themselves
+        # Note: optimal delays are disabled (set to False) for synchronous analysis
+        stats, significance, info = compute_me_stats(
         signals,
         signals,
         names1=cell_ids,
@@ -1032,63 +1086,67 @@ def compute_cell_cell_significance(
         seed=seed,
         duplicate_behavior="ignore",  # Default behavior for cell-cell comparison
         engine="auto",  # FFT optimization when applicable
-    )
+        )
 
-    # Extract matrices from results
-    similarity_matrix = np.zeros((n_cells, n_cells))
-    significance_matrix = np.zeros((n_cells, n_cells))
-    p_value_matrix = np.ones((n_cells, n_cells))
+        # Extract matrices from results
+        similarity_matrix = np.zeros((n_cells, n_cells))
+        significance_matrix = np.zeros((n_cells, n_cells))
+        p_value_matrix = np.ones((n_cells, n_cells))
 
-    # Fill matrices from stats and significance dictionaries
-    # Since we only computed upper triangle, we need to fill both upper and lower
-    for i, cell1 in enumerate(cell_ids):
-        for j, cell2 in enumerate(cell_ids):
-            if i == j:
-                # Diagonal is already 0
-                continue
+        # Fill matrices from stats and significance dictionaries
+        # Since we only computed upper triangle, we need to fill both upper and lower
+        for i, cell1 in enumerate(cell_ids):
+            for j, cell2 in enumerate(cell_ids):
+                if i == j:
+                    # Diagonal is already 0
+                    continue
 
-            # We computed only upper triangle, so check if this pair was computed
-            if i < j:
-                # Upper triangle - get from stats
-                if cell1 in stats and cell2 in stats[cell1]:
-                    stats_dict = stats[cell1][cell2]
-                    if stats_dict:  # Check if dict is not empty
-                        similarity_matrix[i, j] = stats_dict.get("me", 0)
-                        p_value_matrix[i, j] = stats_dict.get("p", 1)
+                # We computed only upper triangle, so check if this pair was computed
+                if i < j:
+                    # Upper triangle - get from stats
+                    if cell1 in stats and cell2 in stats[cell1]:
+                        stats_dict = stats[cell1][cell2]
+                        if stats_dict:  # Check if dict is not empty
+                            similarity_matrix[i, j] = stats_dict.get("me", 0)
+                            p_value_matrix[i, j] = stats_dict.get("p", 1)
 
-                    sig_dict = significance.get(cell1, {}).get(cell2, {})
-                    if sig_dict.get("stage2") is not None:
-                        significance_matrix[i, j] = float(sig_dict["stage2"])
-                    elif sig_dict.get("stage1") is not None:
-                        significance_matrix[i, j] = float(sig_dict["stage1"])
-            else:
-                # Lower triangle - copy from upper triangle for symmetry
-                similarity_matrix[i, j] = similarity_matrix[j, i]
-                p_value_matrix[i, j] = p_value_matrix[j, i]
-                significance_matrix[i, j] = significance_matrix[j, i]
+                        sig_dict = significance.get(cell1, {}).get(cell2, {})
+                        if sig_dict.get("stage2") is not None:
+                            significance_matrix[i, j] = float(sig_dict["stage2"])
+                        elif sig_dict.get("stage1") is not None:
+                            significance_matrix[i, j] = float(sig_dict["stage1"])
+                else:
+                    # Lower triangle - copy from upper triangle for symmetry
+                    similarity_matrix[i, j] = similarity_matrix[j, i]
+                    p_value_matrix[i, j] = p_value_matrix[j, i]
+                    significance_matrix[i, j] = significance_matrix[j, i]
 
-    # Ensure diagonal is zero (should already be due to coincidence check)
-    np.fill_diagonal(similarity_matrix, 0)
-    np.fill_diagonal(significance_matrix, 0)
-    np.fill_diagonal(p_value_matrix, 1)
+        # Ensure diagonal is zero (should already be due to coincidence check)
+        np.fill_diagonal(similarity_matrix, 0)
+        np.fill_diagonal(significance_matrix, 0)
+        np.fill_diagonal(p_value_matrix, 1)
 
-    if verbose:
-        print("\nNeuronal similarity matrix computation complete!")
-        print(f"Neuron pairs analyzed: {n_cells * n_cells}")
-        print(f"Significant pairs (stage 1): {info.get('n_significant_stage1', 0)}")
-        print(f"Significant pairs (final): {np.sum(significance_matrix)}")
-        # Count unique significant pairs (upper triangle only)
-        unique_sig = np.sum(np.triu(significance_matrix, k=1))
-        print(f"Unique significant pairs: {unique_sig}")
+        if verbose:
+            print("\nNeuronal similarity matrix computation complete!")
+            print(f"Neuron pairs analyzed: {n_cells * n_cells}")
+            print(f"Significant pairs (stage 1): {info.get('n_significant_stage1', 0)}")
+            print(f"Significant pairs (final): {np.sum(significance_matrix)}")
+            # Count unique significant pairs (upper triangle only)
+            unique_sig = np.sum(np.triu(significance_matrix, k=1))
+            print(f"Unique significant pairs: {unique_sig}")
 
-        # Basic network statistics
-        if unique_sig > 0:
-            avg_connections = np.sum(significance_matrix) / n_cells
-            print(f"Average connections per neuron: {avg_connections:.2f}")
-            max_connections = np.max(np.sum(significance_matrix, axis=1))
-            print(f"Maximum connections for a single neuron: {int(max_connections)}")
+            # Basic network statistics
+            if unique_sig > 0:
+                avg_connections = np.sum(significance_matrix) / n_cells
+                print(f"Average connections per neuron: {avg_connections:.2f}")
+                max_connections = np.max(np.sum(significance_matrix, axis=1))
+                print(f"Maximum connections for a single neuron: {int(max_connections)}")
 
-    return similarity_matrix, significance_matrix, p_value_matrix, cell_ids, info
+        return similarity_matrix, significance_matrix, p_value_matrix, cell_ids, info
+    finally:
+        # Restore original names to leave objects unchanged
+        for i, sig in enumerate(signals):
+            sig.name = original_signal_names[i]
 
 
 def compute_embedding_selectivity(
@@ -1275,7 +1333,7 @@ def compute_embedding_selectivity(
         embedding_features = {}
         for comp_idx in range(n_components):
             feat_name = f"{method_name}_comp{comp_idx}"
-            embedding_features[feat_name] = TimeSeries(embedding_data[:, comp_idx], discrete=False)
+            embedding_features[feat_name] = TimeSeries(embedding_data[:, comp_idx], discrete=False, name=feat_name)
 
         # Temporarily add embedding components to dynamic features
         original_features = exp.dynamic_features.copy()

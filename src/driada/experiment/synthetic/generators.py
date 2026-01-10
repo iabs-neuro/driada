@@ -731,13 +731,12 @@ def generate_tuned_selectivity_exp(
     if needs_position_2d:
         position_mts = MultiTimeSeries(
             [
-                TimeSeries(data=positions[0, :], discrete=False, name="x"),
-                TimeSeries(data=positions[1, :], discrete=False, name="y"),
+                TimeSeries(data=positions[0, :], discrete=False, name="position_2d_0"),
+                TimeSeries(data=positions[1, :], discrete=False, name="position_2d_1"),
             ],
             allow_zero_columns=True,
+            name="position_2d"
         )
-        # Assign name after creation
-        position_mts.name = "position_2d"
         dynamic_features["position_2d"] = position_mts
 
     # Add discrete features
@@ -1377,7 +1376,7 @@ def generate_circular_manifold_exp(
     }
 
     # Create dynamic features
-    head_direction_ts = TimeSeries(data=head_direction, discrete=False)
+    head_direction_ts = TimeSeries(data=head_direction, discrete=False, name="head_direction")
 
     dynamic_features = {"head_direction": head_direction_ts}
 
@@ -1389,9 +1388,10 @@ def generate_circular_manifold_exp(
         sin_component = np.sin(head_direction)
         circular_angle_mts = MultiTimeSeries(
             [
-                TimeSeries(data=cos_component, discrete=False),
-                TimeSeries(data=sin_component, discrete=False),
-            ]
+                TimeSeries(data=cos_component, discrete=False, name="circular_angle_0"),
+                TimeSeries(data=sin_component, discrete=False, name="circular_angle_1"),
+            ],
+            name="circular_angle"
         )
         dynamic_features["circular_angle"] = circular_angle_mts
 
@@ -1777,16 +1777,17 @@ def generate_2d_manifold_exp(
     # Note: allow_zero_columns=True because random walk can hit boundaries (e.g., (0,0))
     position_ts = MultiTimeSeries(
         [
-            TimeSeries(positions[0, :], discrete=False),
-            TimeSeries(positions[1, :], discrete=False),
+            TimeSeries(positions[0, :], discrete=False, name="position_2d_0"),
+            TimeSeries(positions[1, :], discrete=False, name="position_2d_1"),
         ],
         allow_zero_columns=True,
+        name="position_2d"
     )
 
     # Also create separate x, y features
-    x_ts = TimeSeries(data=positions[0, :], discrete=False)
+    x_ts = TimeSeries(data=positions[0, :], discrete=False, name="x")
 
-    y_ts = TimeSeries(data=positions[1, :], discrete=False)
+    y_ts = TimeSeries(data=positions[1, :], discrete=False, name="y")
 
     dynamic_features = {"position_2d": position_ts, "x": x_ts, "y": y_ts}
 
