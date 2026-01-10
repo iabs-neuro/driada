@@ -50,6 +50,113 @@ FFT_DISCRETE = "gd"         # Gaussian-discrete (one discrete, one continuous)
 FFT_MULTIVARIATE = "mts"    # MultiTimeSeries + univariate TimeSeries
 
 
+def _get_ts_key(ts):
+    """
+    Get stable identifier for TimeSeries that persists across pickling.
+
+    This function generates a stable key for cache lookups that works across
+    both threading and loky (pickling) joblib backends.
+
+    Priority:
+    1. Use ts.name if available and non-empty
+    2. Fall back to hash of data characteristics (first/last values, length, discrete flag)
+
+    Parameters
+    ----------
+    ts : TimeSeries or MultiTimeSeries
+        Time series object to get key for.
+
+    Returns
+    -------
+    str or int
+        Stable identifier that persists across pickling.
+        Returns string (name) when available, else integer (hash).
+
+    Notes
+    -----
+    - Keys are stable across pickling (names and data are pickled with objects)
+    - Same TimeSeries object always yields same key
+    - Assumes names are unique within a bundle, or data differs
+    - Used for FFT cache keys and random seed generation
+    """
+    if hasattr(ts, 'name') and ts.name:
+        return ts.name
+
+    # Fallback: hash data characteristics for deterministic key
+    # Handle both TimeSeries (1D) and MultiTimeSeries (2D)
+    if ts.data.ndim == 1:
+        # TimeSeries: use first/last values
+        first_val = float(ts.data[0]) if len(ts.data) > 0 else 0.0
+        last_val = float(ts.data[-1]) if len(ts.data) > 0 else 0.0
+    else:
+        # MultiTimeSeries: use first/last of first dimension
+        first_val = float(ts.data[0, 0]) if ts.data.shape[1] > 0 else 0.0
+        last_val = float(ts.data[0, -1]) if ts.data.shape[1] > 0 else 0.0
+
+    data_sig = (
+        first_val,
+        last_val,
+        tuple(ts.data.shape),  # Use shape tuple instead of len for MultiTimeSeries
+        bool(ts.discrete),
+    )
+    return hash(data_sig)
+
+
+def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed, ds=1):
+    """
+    Generate all random shifts upfront using deterministic per-pair seeding.
+
+    Pre-computes random shifts for all pairs before parallelization, enabling
+    workers to use pre-computed shifts without needing global indices for seeding.
+
+    Parameters
+    ----------
+    ts_bunch1 : list
+        First set of time series (e.g., neurons).
+    ts_bunch2 : list
+        Second set of time series (e.g., features).
+    optimal_delays : np.ndarray
+        Optimal delays of shape (len(ts_bunch1), len(ts_bunch2)).
+    nsh : int
+        Number of random shifts to generate per pair.
+    seed : int
+        Base random seed for reproducibility.
+    ds : int, default=1
+        Downsampling factor.
+
+    Returns
+    -------
+    random_shifts : np.ndarray
+        Array of shape (len(ts_bunch1), len(ts_bunch2), nsh) containing
+        pre-generated random shifts for each pair.
+
+    Notes
+    -----
+    - Uses stable keys (_get_ts_key) for deterministic seeding
+    - Seeds are based on (key1, key2) pairs, not global indices
+    - Stable across pickling (works with both threading and loky backends)
+    - Respects shuffle masks for each time series
+    """
+    n1, n2 = len(ts_bunch1), len(ts_bunch2)
+    random_shifts = np.zeros((n1, n2, nsh), dtype=int)
+
+    for i, ts1 in enumerate(ts_bunch1):
+        for j, ts2 in enumerate(ts_bunch2):
+            # Seed based on stable keys (deterministic across pickling)
+            key1 = _get_ts_key(ts1)
+            key2 = _get_ts_key(ts2)
+            pair_seed = seed + hash((key1, key2)) % 1000000
+            pair_rng = np.random.RandomState(pair_seed)
+
+            # Generate shifts respecting shuffle masks
+            combined_mask = ts1.shuffle_mask & ts2.shuffle_mask
+            combined_mask = np.roll(combined_mask, int(optimal_delays[i, j]))
+            indices = np.arange(len(ts1.data))[combined_mask]
+            random_shifts[i, j, :] = pair_rng.choice(indices, size=nsh) // ds
+
+    return random_shifts
+
+
 @dataclass
 class FFTCacheEntry:
     """Cache entry for pre-computed FFT data.
@@ -270,10 +377,15 @@ def _build_fft_cache(
     engine: str,
     joint_distr: bool = False,
 ) -> dict:
-    """Build FFT cache for all pairs.
+    """Build FFT cache for all pairs using stable keys.
 
     Pre-computes FFT data for all neuron-feature pairs that support FFT,
     enabling reuse across delay optimization, Stage 1, and Stage 2.
+
+    Uses stable keys (TimeSeries names or data hashes) instead of positional
+    indices, allowing cache to work correctly with both threading and loky
+    joblib backends, and enabling automatic cache reuse when the same
+    TimeSeries objects appear in different contexts (e.g., ts_with_delays subset).
 
     Parameters
     ----------
@@ -295,32 +407,38 @@ def _build_fft_cache(
     Returns
     -------
     dict
-        Dictionary mapping (i, j) tuple to FFTCacheEntry or None.
+        Dictionary mapping (key1, key2) tuple to FFTCacheEntry or None.
+        Keys are stable identifiers from _get_ts_key() (names or hashes).
         None indicates loop fallback should be used for that pair.
     """
     cache = {}
-    n1 = len(ts_bunch1)
-    n2 = 1 if joint_distr else len(ts_bunch2)
 
-    for i, ts1 in enumerate(ts_bunch1):
+    for ts1 in ts_bunch1:
         if joint_distr:
             # Joint distribution mode - no FFT support
-            cache[(i, 0)] = None
+            # Use first ts2 as representative (all treated as single multifeature)
+            key1 = _get_ts_key(ts1)
+            key2 = _get_ts_key(ts_bunch2[0]) if ts_bunch2 else 0
+            cache[(key1, key2)] = None
         else:
-            for j, ts2 in enumerate(ts_bunch2):
+            for ts2 in ts_bunch2:
                 # Use count=1 since we just need type, not threshold check
                 fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
 
+                # Get stable keys for cache
+                key1 = _get_ts_key(ts1)
+                key2 = _get_ts_key(ts2)
+
                 if fft_type is not None:
                     data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
-                    cache[(i, j)] = FFTCacheEntry(
+                    cache[(key1, key2)] = FFTCacheEntry(
                         fft_type=fft_type,
                         data1=data1,
                         data2=data2,
                         compute_fn=_FFT_COMPUTE[fft_type],
                     )
                 else:
-                    cache[(i, j)] = None
+                    cache[(key1, key2)] = None
 
     return cache
 
@@ -539,7 +657,6 @@ def calculate_optimal_delays(
     mi_estimator="gcmi",
     engine="auto",
     fft_cache: dict = None,
-    start_index: int = 0,
 ) -> np.ndarray:
     """
     Calculate optimal temporal delays between pairs of time series.
@@ -573,11 +690,9 @@ def calculate_optimal_delays(
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
     fft_cache : dict, optional
-        Pre-computed FFT cache from _build_fft_cache. Keys are (i, j) tuples
-        using global indices. If provided, avoids redundant data extraction.
-    start_index : int, default=0
-        Global index offset for ts_bunch1. Used for parallel execution to
-        correctly look up cache entries with global indices.
+        Pre-computed FFT cache from _build_fft_cache. Keys are (key1, key2) tuples
+        using stable identifiers from _get_ts_key(). If provided, avoids redundant
+        data extraction.
 
     Returns
     -------
@@ -638,11 +753,11 @@ def calculate_optimal_delays(
     for i, ts1 in tqdm.tqdm(
         enumerate(ts_bunch1), total=len(ts_bunch1), disable=not enable_progressbar
     ):
-        global_i = start_index + i
-
         for j, ts2 in enumerate(ts_bunch2):
-            # Check cache first (uses global indices)
-            cache_entry = fft_cache.get((global_i, j)) if fft_cache else None
+            # Check cache first (uses stable keys)
+            cache_entry = fft_cache.get(
+                (_get_ts_key(ts1), _get_ts_key(ts2))
+            ) if fft_cache else None
 
             if cache_entry is not None:
                 # Use cached FFT data
@@ -730,8 +845,8 @@ def calculate_optimal_delays_parallel(
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
     fft_cache : dict, optional
-        Pre-computed FFT cache from _build_fft_cache. Keys are (i, j) tuples
-        using global indices. Passed to each worker for cache reuse.
+        Pre-computed FFT cache from _build_fft_cache. Keys are (key1, key2) tuples
+        using stable identifiers from _get_ts_key(). Passed to each worker for cache reuse.
 
     Returns
     -------
@@ -796,7 +911,6 @@ def calculate_optimal_delays_parallel(
             mi_estimator=mi_estimator,
             engine=engine,
             fft_cache=fft_cache,
-            start_index=split_ts_bunch1_inds[worker_idx][0],
         )
         for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
     )
@@ -978,6 +1092,7 @@ def scan_pairs(
     metric,
     nsh,
     optimal_delays,
+    random_shifts=None,
     mi_estimator="gcmi",
     joint_distr=False,
     ds=1,
@@ -986,7 +1101,6 @@ def scan_pairs(
     seed=None,
     allow_mixed_dimensions=False,
     enable_progressbar=True,
-    start_index=0,
     engine="auto",
     fft_cache: dict = None,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -1009,6 +1123,9 @@ def scan_pairs(
     optimal_delays : np.ndarray
         Optimal delays array of shape (len(ts_bunch1), len(ts_bunch2)) or
         (len(ts_bunch1), 1) if joint_distr=True. Contains best shifts in frames.
+    random_shifts : np.ndarray, optional
+        Pre-generated random shifts of shape (len(ts_bunch1), len(ts_bunch2), nsh).
+        If None, shifts will be generated using seed and stable keys.
     mi_estimator : str, default='gcmi'
         Mutual information estimator to use when metric='mi'.
         Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
@@ -1028,17 +1145,15 @@ def scan_pairs(
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
     enable_progressbar : bool, default=True
         Whether to show progress bar during computation.
-    start_index : int, default=0
-        Global starting index for ts_bunch1. Used internally by parallel processing
-        to ensure deterministic random number generation.
     engine : {'auto', 'fft', 'loop'}, default='auto'
         Computation engine for MI shuffles:
         - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
     fft_cache : dict, optional
-        Pre-computed FFT cache from _build_fft_cache. Keys are (i, j) tuples
-        using global indices. If provided, avoids redundant data extraction.
+        Pre-computed FFT cache from _build_fft_cache. Keys are (key1, key2) tuples
+        using stable identifiers from _get_ts_key(). If provided, avoids redundant
+        data extraction.
 
     Returns
     -------
@@ -1097,41 +1212,42 @@ def scan_pairs(
 
     me_table = np.zeros((n1, n2))
     me_table_shuffles = np.zeros((n1, n2, nsh))
-    random_shifts = np.zeros((n1, n2, nsh), dtype=int)
 
-    # fill random shifts according to the allowed shuffles masks of both time series
-    for i, ts1 in enumerate(ts_bunch1):
-        # Use global index for deterministic seeding
-        global_i = start_index + i
+    # Generate random shifts if not provided
+    if random_shifts is None:
+        random_shifts = np.zeros((n1, n2, nsh), dtype=int)
 
-        if joint_distr:
-            # Create deterministic seed for this specific (global_i, 0) pair
-            # This ensures same results regardless of parallel execution
-            pair_seed = seed + global_i * 10000 if seed is not None else None
-            pair_rng = np.random.RandomState(pair_seed)
-
-            # Combine shuffle masks from ts1 and all ts in tsbunch2
-            # Note: & operator creates new array, no copy needed
-            combined_shuffle_mask = ts1.shuffle_mask
-            for ts2 in ts_bunch2:
-                combined_shuffle_mask = combined_shuffle_mask & ts2.shuffle_mask
-            # move shuffle mask according to optimal shift
-            combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, 0]))
-            indices_to_select = np.arange(t)[combined_shuffle_mask]
-            random_shifts[i, 0, :] = pair_rng.choice(indices_to_select, size=nsh) // ds
-
-        else:
-            for j, ts2 in enumerate(ts_bunch2):
-                # Create deterministic seed for this specific (global_i, j) pair
-                # This ensures same results regardless of parallel execution
-                pair_seed = seed + global_i * 10000 + j * 100 if seed is not None else None
+        # Generate shifts using stable keys (no start_index needed)
+        for i, ts1 in enumerate(ts_bunch1):
+            if joint_distr:
+                # Create deterministic seed using stable keys
+                key1 = _get_ts_key(ts1)
+                key2 = _get_ts_key(ts_bunch2[0]) if ts_bunch2 else 0
+                pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
                 pair_rng = np.random.RandomState(pair_seed)
 
-                combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
+                # Combine shuffle masks from ts1 and all ts in tsbunch2
+                combined_shuffle_mask = ts1.shuffle_mask
+                for ts2 in ts_bunch2:
+                    combined_shuffle_mask = combined_shuffle_mask & ts2.shuffle_mask
                 # move shuffle mask according to optimal shift
-                combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, j]))
+                combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, 0]))
                 indices_to_select = np.arange(t)[combined_shuffle_mask]
-                random_shifts[i, j, :] = pair_rng.choice(indices_to_select, size=nsh) // ds
+                random_shifts[i, 0, :] = pair_rng.choice(indices_to_select, size=nsh) // ds
+
+            else:
+                for j, ts2 in enumerate(ts_bunch2):
+                    # Create deterministic seed using stable keys
+                    key1 = _get_ts_key(ts1)
+                    key2 = _get_ts_key(ts2)
+                    pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
+                    pair_rng = np.random.RandomState(pair_seed)
+
+                    combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
+                    # move shuffle mask according to optimal shift
+                    combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, j]))
+                    indices_to_select = np.arange(t)[combined_shuffle_mask]
+                    random_shifts[i, j, :] = pair_rng.choice(indices_to_select, size=nsh) // ds
 
     # calculate similarity metric arrays
     for i, ts1 in tqdm.tqdm(
@@ -1141,9 +1257,6 @@ def scan_pairs(
         leave=True,
         disable=not enable_progressbar,
     ):
-        # Use global index for deterministic seeding
-        global_i = start_index + i
-
         # DEPRECATED: This joint_distr branch is deprecated and will be removed in v2.0
         # Use MultiTimeSeries for joint distribution handling instead
         # FUTURE: Remove this entire branch in v2.0
@@ -1155,8 +1268,10 @@ def scan_pairs(
                 me0 = get_multi_mi(
                     ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0] // ds, estimator=mi_estimator
                 )
-                # Use deterministic RNG for this pair
-                pair_seed = seed + global_i * 10000 if seed is not None else None
+                # Use deterministic RNG for this pair (stable key seeding)
+                key1 = _get_ts_key(ts1)
+                key2 = _get_ts_key(ts_bunch2[0]) if ts_bunch2 else 0
+                pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
                 pair_rng = np.random.RandomState(pair_seed)
 
                 me_table[i, 0] = (
@@ -1177,12 +1292,14 @@ def scan_pairs(
         else:
             for j, ts2 in enumerate(ts_bunch2):
                 if mask[i, j] == 1:
-                    # Use deterministic RNG for this pair
-                    pair_seed = seed + global_i * 10000 + j * 100 if seed is not None else None
+                    # Use deterministic RNG for this pair (stable key seeding)
+                    key1 = _get_ts_key(ts1)
+                    key2 = _get_ts_key(ts2)
+                    pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
                     pair_rng = np.random.RandomState(pair_seed)
 
-                    # Check cache first, then compute FFT type if needed
-                    cache_entry = fft_cache.get((global_i, j)) if fft_cache else None
+                    # Check cache first, then compute FFT type if needed (using stable keys)
+                    cache_entry = fft_cache.get((key1, key2)) if fft_cache else None
 
                     if cache_entry is not None:
                         # Use cached FFT data
@@ -1338,9 +1455,9 @@ def scan_pairs_parallel(
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
     fft_cache : dict, optional
-        Pre-computed FFT cache mapping (global_i, j) tuples to FFTCacheEntry objects.
-        If provided, avoids redundant data extraction. If None, FFT type is computed
-        fresh for each pair.
+        Pre-computed FFT cache mapping (key1, key2) tuples to FFTCacheEntry objects.
+        Keys are stable identifiers from _get_ts_key(). If provided, avoids redundant
+        data extraction. If None, FFT type is computed fresh for each pair.
 
     Returns
     -------
@@ -1402,7 +1519,6 @@ def scan_pairs_parallel(
         )
 
     me_total = np.zeros((n1, n2, nsh + 1))
-    random_shifts = np.zeros((n1, n2, nsh), dtype=int)
 
     if n_jobs == -1:
         n_jobs = min(multiprocessing.cpu_count(), n1)
@@ -1413,9 +1529,16 @@ def scan_pairs_parallel(
         n2 = 1 if joint_distr else len(ts_bunch2)
         mask = np.ones((n1, n2))
 
+    # Pre-generate ALL random shifts upfront using stable key seeding
+    random_shifts = _generate_random_shifts_grid(
+        ts_bunch1, ts_bunch2, optimal_delays, nsh, seed if seed is not None else 0, ds
+    )
+
+    # Split work across workers
     split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs)
     split_ts_bunch1 = [np.array(ts_bunch1)[idxs] for idxs in split_ts_bunch1_inds]
     split_optimal_delays = [optimal_delays[idxs] for idxs in split_ts_bunch1_inds]
+    split_random_shifts = [random_shifts[idxs] for idxs in split_ts_bunch1_inds]
     split_mask = [mask[idxs] for idxs in split_ts_bunch1_inds]
 
     parallel_result = Parallel(n_jobs=n_jobs, backend=_get_joblib_backend(), verbose=True)(
@@ -1425,6 +1548,7 @@ def scan_pairs_parallel(
             metric,
             nsh,
             split_optimal_delays[worker_idx],
+            split_random_shifts[worker_idx],  # Pre-generated, pre-split shifts
             mi_estimator,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
@@ -1433,7 +1557,6 @@ def scan_pairs_parallel(
             noise_const=noise_const,
             seed=seed,
             enable_progressbar=False,
-            start_index=split_ts_bunch1_inds[worker_idx][0],
             engine=engine,
             fft_cache=fft_cache,
         )
@@ -1579,7 +1702,8 @@ def scan_pairs_router(
             metric,
             nsh,
             optimal_delays,
-            mi_estimator,
+            random_shifts=None,  # Generate shifts inside scan_pairs
+            mi_estimator=mi_estimator,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
@@ -2393,10 +2517,8 @@ def compute_me_stats(
     )
 
     if find_optimal_delays:
-        # Build delay-specific cache for ts_with_delays subset
-        delay_fft_cache = _build_fft_cache(
-            ts_bunch1, ts_with_delays, metric, mi_estimator, ds, engine, joint_distr=False
-        )
+        # Use unified fft_cache - no need for separate delay cache
+        # Since cache uses stable keys, ts_with_delays objects are already cached
         if enable_parallelization:
             optimal_delays_res = calculate_optimal_delays_parallel(
                 ts_bunch1,
@@ -2408,7 +2530,7 @@ def compute_me_stats(
                 n_jobs=n_jobs,
                 mi_estimator=mi_estimator,
                 engine=engine,
-                fft_cache=delay_fft_cache,
+                fft_cache=fft_cache,
             )
         else:
             optimal_delays_res = calculate_optimal_delays(
@@ -2420,7 +2542,7 @@ def compute_me_stats(
                 verbose=verbose,
                 mi_estimator=mi_estimator,
                 engine=engine,
-                fft_cache=delay_fft_cache,
+                fft_cache=fft_cache,
             )
 
         optimal_delays[:, ts_with_delays_inds] = optimal_delays_res

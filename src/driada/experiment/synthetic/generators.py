@@ -721,30 +721,32 @@ def generate_tuned_selectivity_exp(
 
     # Add behavioral features only if needed
     if needs_head_direction:
-        dynamic_features["head_direction"] = TimeSeries(data=head_direction, discrete=False)
+        dynamic_features["head_direction"] = TimeSeries(data=head_direction, discrete=False, name="head_direction")
     if needs_x:
-        dynamic_features["x"] = TimeSeries(data=positions[0, :], discrete=False)
+        dynamic_features["x"] = TimeSeries(data=positions[0, :], discrete=False, name="x")
     if needs_y:
-        dynamic_features["y"] = TimeSeries(data=positions[1, :], discrete=False)
+        dynamic_features["y"] = TimeSeries(data=positions[1, :], discrete=False, name="y")
     if needs_speed:
-        dynamic_features["speed"] = TimeSeries(data=speed_normalized, discrete=False)
+        dynamic_features["speed"] = TimeSeries(data=speed_normalized, discrete=False, name="speed")
     if needs_position_2d:
         position_mts = MultiTimeSeries(
             [
-                TimeSeries(data=positions[0, :], discrete=False),
-                TimeSeries(data=positions[1, :], discrete=False),
+                TimeSeries(data=positions[0, :], discrete=False, name="x"),
+                TimeSeries(data=positions[1, :], discrete=False, name="y"),
             ],
             allow_zero_columns=True,
         )
+        # Assign name after creation
+        position_mts.name = "position_2d"
         dynamic_features["position_2d"] = position_mts
 
     # Add discrete features
     for feat_name, feat_data in discrete_features.items():
-        dynamic_features[feat_name] = TimeSeries(data=feat_data, discrete=True)
+        dynamic_features[feat_name] = TimeSeries(data=feat_data, discrete=True, name=feat_name)
 
     # Add FBM features
     for feat_name, feat_data in fbm_features.items():
-        dynamic_features[feat_name] = TimeSeries(data=feat_data, discrete=False)
+        dynamic_features[feat_name] = TimeSeries(data=feat_data, discrete=False, name=feat_name)
 
     # Static features
     static_features = {
