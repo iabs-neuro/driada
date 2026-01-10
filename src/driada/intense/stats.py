@@ -389,6 +389,74 @@ def criterion2(pair_stats, nsh2, pval_thr, topk=5):
         return False
 
 
+def apply_stage_criterion(
+    stage_stats: dict,
+    stage_num: int,
+    n1: int,
+    n2: int,
+    n_shuffles: int,
+    topk: int,
+    multicorr_thr: float = None,
+) -> tuple:
+    """Apply stage-appropriate significance criterion to all pairs.
+
+    Thin wrapper that delegates to criterion1 (Stage 1) or criterion2 (Stage 2)
+    based on stage_num. Enables unified scan_stage() function.
+
+    Parameters
+    ----------
+    stage_stats : dict
+        Nested dictionary with statistics from get_table_of_stats.
+    stage_num : int
+        Stage number (1 or 2).
+    n1 : int
+        Number of items in first dimension (neurons).
+    n2 : int
+        Number of items in second dimension (features).
+    n_shuffles : int
+        Number of shuffles used in this stage.
+    topk : int
+        True MI should rank in top k among shuffles.
+    multicorr_thr : float, optional
+        Multiple comparison corrected p-value threshold.
+        Required for stage_num=2, ignored for stage_num=1.
+
+    Returns
+    -------
+    significance : dict
+        Nested dict with boolean significance for each pair.
+        Keys are stage-specific: 'stage1' or 'stage2'.
+    pass_mask : np.ndarray
+        Binary mask of shape (n1, n2) with 1 for pairs that passed.
+    """
+    pass_mask = np.zeros((n1, n2))
+    significance = populate_nested_dict(dict(), range(n1), range(n2))
+
+    if stage_num == 1:
+        sig_key = "stage1"
+        for i in range(n1):
+            for j in range(n2):
+                passed = criterion1(stage_stats[i][j], n_shuffles, topk=topk)
+                if passed:
+                    pass_mask[i, j] = 1
+                significance[i][j] = {sig_key: passed}
+    else:
+        # Stage 2 - requires multicorr_thr
+        if multicorr_thr is None:
+            raise ValueError("multicorr_thr required for stage 2")
+        sig_key = "stage2"
+        for i in range(n1):
+            for j in range(n2):
+                passed = criterion2(
+                    stage_stats[i][j], n_shuffles, multicorr_thr, topk=topk
+                )
+                if passed:
+                    pass_mask[i, j] = 1
+                significance[i][j] = {sig_key: passed}
+
+    return significance, pass_mask
+
+
 def get_all_nonempty_pvals(all_stats, ids1, ids2) -> list:
     """
     Extract all non-empty p-values from nested statistics dictionary.

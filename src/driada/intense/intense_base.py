@@ -1,5 +1,7 @@
 import numpy as np
 import tqdm
+from dataclasses import dataclass
+from typing import Callable, Optional
 from joblib import Parallel, delayed
 import multiprocessing
 
@@ -8,6 +10,7 @@ from .stats import (
     get_table_of_stats,
     criterion1,
     criterion2,
+    apply_stage_criterion,
     get_all_nonempty_pvals,
     merge_stage_stats,
     merge_stage_significance,
@@ -45,6 +48,61 @@ MAX_FFT_MTS_DIMENSIONS = 3
 FFT_CONTINUOUS = "cc"       # Continuous-continuous (univariate 1D-1D)
 FFT_DISCRETE = "gd"         # Gaussian-discrete (one discrete, one continuous)
 FFT_MULTIVARIATE = "mts"    # MultiTimeSeries + univariate TimeSeries
+
+
+@dataclass
+class FFTCacheEntry:
+    """Cache entry for pre-computed FFT data.
+
+    Stores extracted and downsampled data ready for FFT computation,
+    avoiding redundant data extraction across delay optimization and stages.
+
+    Attributes
+    ----------
+    fft_type : str
+        FFT type constant (FFT_CONTINUOUS, FFT_DISCRETE, FFT_MULTIVARIATE).
+    data1 : np.ndarray
+        First array, already extracted and downsampled.
+    data2 : np.ndarray
+        Second array, already extracted and downsampled.
+    compute_fn : Callable
+        Direct reference to the compute function (_FFT_COMPUTE[fft_type]).
+    """
+    fft_type: str
+    data1: np.ndarray
+    data2: np.ndarray
+    compute_fn: Callable
+
+
+@dataclass
+class StageConfig:
+    """Configuration for a single stage of INTENSE computation.
+
+    Encapsulates all stage-specific parameters to enable unified
+    scan_stage() function for both Stage 1 and Stage 2.
+
+    Attributes
+    ----------
+    stage_num : int
+        Stage number (1 or 2).
+    n_shuffles : int
+        Number of shuffles for this stage.
+    mask : np.ndarray
+        Binary mask indicating which pairs to compute.
+    topk : int
+        True MI should rank in top k among shuffles.
+    pval_thr : float, optional
+        Base p-value threshold (Stage 2 only). Default 0.05.
+    multicomp_correction : str, optional
+        Multiple comparison correction method (Stage 2 only).
+        Options: 'holm', 'bonferroni', etc.
+    """
+    stage_num: int
+    n_shuffles: int
+    mask: np.ndarray
+    topk: int
+    pval_thr: Optional[float] = None
+    multicomp_correction: Optional[str] = None
 
 
 def get_fft_type(
@@ -201,6 +259,70 @@ _FFT_COMPUTE = {
     FFT_DISCRETE: compute_mi_gd_fft,
     FFT_MULTIVARIATE: compute_mi_mts_fft,
 }
+
+
+def _build_fft_cache(
+    ts_bunch1: list,
+    ts_bunch2: list,
+    metric: str,
+    mi_estimator: str,
+    ds: int,
+    engine: str,
+    joint_distr: bool = False,
+) -> dict:
+    """Build FFT cache for all pairs.
+
+    Pre-computes FFT data for all neuron-feature pairs that support FFT,
+    enabling reuse across delay optimization, Stage 1, and Stage 2.
+
+    Parameters
+    ----------
+    ts_bunch1 : list
+        First set of time series (e.g., neurons).
+    ts_bunch2 : list
+        Second set of time series (e.g., features).
+    metric : str
+        Similarity metric being used.
+    mi_estimator : str
+        MI estimator ('gcmi' or 'ksg').
+    ds : int
+        Downsampling factor.
+    engine : str
+        Computation engine: 'auto', 'fft', or 'loop'.
+    joint_distr : bool
+        If True, ts_bunch2 is treated as a single multifeature.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping (i, j) tuple to FFTCacheEntry or None.
+        None indicates loop fallback should be used for that pair.
+    """
+    cache = {}
+    n1 = len(ts_bunch1)
+    n2 = 1 if joint_distr else len(ts_bunch2)
+
+    for i, ts1 in enumerate(ts_bunch1):
+        if joint_distr:
+            # Joint distribution mode - no FFT support
+            cache[(i, 0)] = None
+        else:
+            for j, ts2 in enumerate(ts_bunch2):
+                # Use count=1 since we just need type, not threshold check
+                fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
+
+                if fft_type is not None:
+                    data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
+                    cache[(i, j)] = FFTCacheEntry(
+                        fft_type=fft_type,
+                        data1=data1,
+                        data2=data2,
+                        compute_fn=_FFT_COMPUTE[fft_type],
+                    )
+                else:
+                    cache[(i, j)] = None
+
+    return cache
 
 
 def _get_joblib_backend() -> str:
@@ -416,6 +538,8 @@ def calculate_optimal_delays(
     enable_progressbar=True,
     mi_estimator="gcmi",
     engine="auto",
+    fft_cache: dict = None,
+    start_index: int = 0,
 ) -> np.ndarray:
     """
     Calculate optimal temporal delays between pairs of time series.
@@ -448,6 +572,12 @@ def calculate_optimal_delays(
         - 'auto': Use FFT when applicable (univariate continuous GCMI with >= 20 shifts)
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
+    fft_cache : dict, optional
+        Pre-computed FFT cache from _build_fft_cache. Keys are (i, j) tuples
+        using global indices. If provided, avoids redundant data extraction.
+    start_index : int, default=0
+        Global index offset for ts_bunch1. Used for parallel execution to
+        correctly look up cache entries with global indices.
 
     Returns
     -------
@@ -494,9 +624,8 @@ def calculate_optimal_delays(
     optimal_delays = np.zeros((len(ts_bunch1), len(ts_bunch2)), dtype=int)
     shifts = np.arange(-shift_window, shift_window + ds, ds) // ds
 
-    # Pre-compute FFT types for each feature to avoid repeated calls inside loop.
-    # For delay optimization, only FFT_CONTINUOUS is currently supported.
-    if len(ts_bunch1) > 0:
+    # Pre-compute FFT types for each feature (only if no cache provided)
+    if fft_cache is None and len(ts_bunch1) > 0:
         fft_types = [
             get_fft_type(
                 ts_bunch1[0], ts2, metric, mi_estimator, len(shifts), engine, for_delays=True
@@ -504,28 +633,26 @@ def calculate_optimal_delays(
             for ts2 in ts_bunch2
         ]
     else:
-        fft_types = []
+        fft_types = None
 
     for i, ts1 in tqdm.tqdm(
         enumerate(ts_bunch1), total=len(ts_bunch1), disable=not enable_progressbar
     ):
-        for j, ts2 in enumerate(ts_bunch2):
-            # Use pre-computed FFT type for this feature
-            fft_type = fft_types[j]
+        global_i = start_index + i
 
-            if fft_type is not None:
-                # Unified FFT-accelerated path for all FFT types
-                data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
-                compute_fn = _FFT_COMPUTE[fft_type]
+        for j, ts2 in enumerate(ts_bunch2):
+            # Check cache first (uses global indices)
+            cache_entry = fft_cache.get((global_i, j)) if fft_cache else None
+
+            if cache_entry is not None:
+                # Use cached FFT data
+                data1, data2 = cache_entry.data1, cache_entry.data2
+                compute_fn = cache_entry.compute_fn
 
                 # Get data length for shift conversion
-                if isinstance(data1, np.ndarray):
-                    n = len(data1) if data1.ndim == 1 else data1.shape[-1]
-                else:
-                    n = len(data1)
+                n = len(data1) if data1.ndim == 1 else data1.shape[-1]
 
                 # Convert shifts to non-negative indices for FFT
-                # FFT uses circular correlation, so negative shifts map to n - |shift|
                 fft_shifts = np.where(shifts >= 0, shifts, n + shifts).astype(int)
 
                 # Compute MI at all shifts in one FFT call
@@ -533,8 +660,20 @@ def calculate_optimal_delays(
 
                 best_idx = np.argmax(mi_values)
                 optimal_delays[i, j] = int(shifts[best_idx] * ds)
+            elif fft_types is not None and fft_types[j] is not None:
+                # No cache but FFT applicable - extract data fresh
+                fft_type = fft_types[j]
+                data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
+                compute_fn = _FFT_COMPUTE[fft_type]
+
+                n = len(data1) if data1.ndim == 1 else data1.shape[-1]
+                fft_shifts = np.where(shifts >= 0, shifts, n + shifts).astype(int)
+                mi_values = compute_fn(data1, data2, fft_shifts)
+
+                best_idx = np.argmax(mi_values)
+                optimal_delays[i, j] = int(shifts[best_idx] * ds)
             else:
-                # Original loop path
+                # Loop fallback
                 shifted_me = []
                 for shift in shifts:
                     lag_me = get_sim(
@@ -558,6 +697,7 @@ def calculate_optimal_delays_parallel(
     n_jobs=-1,
     mi_estimator="gcmi",
     engine="auto",
+    fft_cache: dict = None,
 ) -> np.ndarray:
     """
     Calculate optimal temporal delays between pairs of time series using parallel processing.
@@ -589,6 +729,9 @@ def calculate_optimal_delays_parallel(
         - 'auto': Use FFT when applicable (univariate continuous GCMI with >= 20 shifts)
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
+    fft_cache : dict, optional
+        Pre-computed FFT cache from _build_fft_cache. Keys are (i, j) tuples
+        using global indices. Passed to each worker for cache reuse.
 
     Returns
     -------
@@ -652,8 +795,10 @@ def calculate_optimal_delays_parallel(
             enable_progressbar=False,
             mi_estimator=mi_estimator,
             engine=engine,
+            fft_cache=fft_cache,
+            start_index=split_ts_bunch1_inds[worker_idx][0],
         )
-        for small_ts_bunch in split_ts_bunch1
+        for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
     )
 
     for i, pd in enumerate(parallel_delays):
@@ -843,6 +988,7 @@ def scan_pairs(
     enable_progressbar=True,
     start_index=0,
     engine="auto",
+    fft_cache: dict = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate similarity metric and shuffled distributions for pairs of time series.
@@ -890,6 +1036,9 @@ def scan_pairs(
         - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
+    fft_cache : dict, optional
+        Pre-computed FFT cache from _build_fft_cache. Keys are (i, j) tuples
+        using global indices. If provided, avoids redundant data extraction.
 
     Returns
     -------
@@ -1032,13 +1181,13 @@ def scan_pairs(
                     pair_seed = seed + global_i * 10000 + j * 100 if seed is not None else None
                     pair_rng = np.random.RandomState(pair_seed)
 
-                    # Compute FFT type for this specific pair
-                    fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, nsh, engine)
+                    # Check cache first, then compute FFT type if needed
+                    cache_entry = fft_cache.get((global_i, j)) if fft_cache else None
 
-                    if fft_type is not None:
-                        # Unified FFT-accelerated path
-                        data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
-                        compute_fn = _FFT_COMPUTE[fft_type]
+                    if cache_entry is not None:
+                        # Use cached FFT data
+                        data1, data2 = cache_entry.data1, cache_entry.data2
+                        compute_fn = cache_entry.compute_fn
 
                         # Compute true MI at optimal delay
                         opt_shift = optimal_delays[i, j] // ds
@@ -1052,8 +1201,55 @@ def scan_pairs(
                         random_noise = pair_rng.random(size=nsh) * noise_const
                         me_table_shuffles[i, j, :] = shuffle_mis + random_noise
 
+                    elif fft_cache is None:
+                        # No cache provided - compute FFT type fresh
+                        fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, nsh, engine)
+
+                        if fft_type is not None:
+                            # Unified FFT-accelerated path
+                            data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
+                            compute_fn = _FFT_COMPUTE[fft_type]
+
+                            # Compute true MI at optimal delay
+                            opt_shift = optimal_delays[i, j] // ds
+                            me0 = compute_fn(data1, data2, np.array([opt_shift]))[0]
+
+                            # Compute all shuffle MIs at once
+                            shuffle_mis = compute_fn(data1, data2, random_shifts[i, j, :])
+
+                            # Add noise for numerical stability
+                            me_table[i, j] = me0 + pair_rng.random() * noise_const
+                            random_noise = pair_rng.random(size=nsh) * noise_const
+                            me_table_shuffles[i, j, :] = shuffle_mis + random_noise
+
+                        else:
+                            # Original loop path (no FFT available)
+                            me0 = get_sim(
+                                ts1,
+                                ts2,
+                                metric,
+                                ds=ds,
+                                shift=optimal_delays[i, j] // ds,
+                                estimator=mi_estimator,
+                                check_for_coincidence=True,
+                            )  # default metric without shuffling
+
+                            me_table[i, j] = (
+                                me0 + pair_rng.random() * noise_const
+                            )  # add small noise for better fitting
+
+                            random_noise = (
+                                pair_rng.random(size=nsh) * noise_const
+                            )  # add small noise for better fitting
+
+                            for k, shift in enumerate(random_shifts[i, j, :]):
+                                me = get_sim(
+                                    ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator
+                                )
+                                me_table_shuffles[i, j, k] = me + random_noise[k]
+
                     else:
-                        # Original loop path
+                        # Cache provided but entry is None - loop fallback required
                         me0 = get_sim(
                             ts1,
                             ts2,
@@ -1062,15 +1258,11 @@ def scan_pairs(
                             shift=optimal_delays[i, j] // ds,
                             estimator=mi_estimator,
                             check_for_coincidence=True,
-                        )  # default metric without shuffling
+                        )
 
-                        me_table[i, j] = (
-                            me0 + pair_rng.random() * noise_const
-                        )  # add small noise for better fitting
+                        me_table[i, j] = me0 + pair_rng.random() * noise_const
 
-                        random_noise = (
-                            pair_rng.random(size=nsh) * noise_const
-                        )  # add small noise for better fitting
+                        random_noise = pair_rng.random(size=nsh) * noise_const
 
                         for k, shift in enumerate(random_shifts[i, j, :]):
                             me = get_sim(
@@ -1102,6 +1294,7 @@ def scan_pairs_parallel(
     seed=None,
     n_jobs=-1,
     engine="auto",
+    fft_cache: dict = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate metric values and shuffles for time series pairs using parallel processing.
@@ -1144,6 +1337,10 @@ def scan_pairs_parallel(
         - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
+    fft_cache : dict, optional
+        Pre-computed FFT cache mapping (global_i, j) tuples to FFTCacheEntry objects.
+        If provided, avoids redundant data extraction. If None, FFT type is computed
+        fresh for each pair.
 
     Returns
     -------
@@ -1238,6 +1435,7 @@ def scan_pairs_parallel(
             enable_progressbar=False,
             start_index=split_ts_bunch1_inds[worker_idx][0],
             engine=engine,
+            fft_cache=fft_cache,
         )
         for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
     )
@@ -1266,6 +1464,7 @@ def scan_pairs_router(
     enable_parallelization=True,
     n_jobs=-1,
     engine="auto",
+    fft_cache: dict = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Route metric computation to parallel or sequential implementation.
@@ -1310,6 +1509,10 @@ def scan_pairs_router(
         - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
+    fft_cache : dict, optional
+        Pre-computed FFT cache mapping (global_i, j) tuples to FFTCacheEntry objects.
+        If provided, avoids redundant data extraction. If None, FFT type is computed
+        fresh for each pair. Use _build_fft_cache() to create this cache.
 
     Returns
     -------
@@ -1366,6 +1569,7 @@ def scan_pairs_router(
             seed=seed,
             n_jobs=n_jobs,
             engine=engine,
+            fft_cache=fft_cache,
         )
 
     else:
@@ -1383,9 +1587,170 @@ def scan_pairs_router(
             seed=seed,
             noise_const=noise_const,
             engine=engine,
+            fft_cache=fft_cache,
         )
 
     return random_shifts, me_total
+
+
+def scan_stage(
+    ts_bunch1: list,
+    ts_bunch2: list,
+    config: StageConfig,
+    optimal_delays: np.ndarray,
+    metric: str,
+    mi_estimator: str,
+    metric_distr_type: str,
+    noise_const: float,
+    ds: int,
+    seed: int,
+    joint_distr: bool,
+    allow_mixed_dimensions: bool,
+    enable_parallelization: bool,
+    n_jobs: int,
+    engine: str,
+    fft_cache: dict = None,
+    verbose: bool = True,
+) -> tuple[dict, dict, dict]:
+    """
+    Execute a single stage of INTENSE computation.
+
+    This function encapsulates the common logic between Stage 1 and Stage 2:
+    1. Scan pairs to compute metric values and shuffle distributions
+    2. Compute statistical tables from the results
+    3. Apply the appropriate criterion:
+       - Stage 1: criterion1 (rank-based filtering using topk)
+       - Stage 2: criterion2 (p-value based with multiple comparison correction)
+
+    For Stage 2, the multiple comparison correction threshold is computed
+    internally from the stage statistics using config.pval_thr and
+    config.multicomp_correction.
+
+    Parameters
+    ----------
+    ts_bunch1 : list of TimeSeries or MultiTimeSeries
+        First set of time series (typically neural signals).
+    ts_bunch2 : list of TimeSeries or MultiTimeSeries
+        Second set of time series (typically behavioral variables).
+    config : StageConfig
+        Configuration for this stage (stage number, n_shuffles, mask, topk, etc.).
+    optimal_delays : np.ndarray
+        Optimal delays array of shape (len(ts_bunch1), len(ts_bunch2)).
+    metric : str
+        Similarity metric to compute.
+    mi_estimator : str
+        Mutual information estimator ('gcmi' or 'ksg').
+    metric_distr_type : str
+        Distribution type for fitting shuffled metric values.
+    noise_const : float
+        Small noise amplitude added for numerical stability.
+    ds : int
+        Downsampling factor.
+    seed : int
+        Random seed for reproducibility.
+    joint_distr : bool
+        If True, all ts_bunch2 are treated as single multivariate feature.
+    allow_mixed_dimensions : bool
+        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
+    enable_parallelization : bool
+        Whether to use parallel processing.
+    n_jobs : int
+        Number of parallel jobs if parallelization enabled.
+    engine : str
+        Computation engine ('auto', 'fft', 'loop').
+    fft_cache : dict, optional
+        Pre-computed FFT cache for accelerated computation.
+    verbose : bool, default=True
+        Whether to print stage information.
+
+    Returns
+    -------
+    stage_stats : dict
+        Statistical results for all pairs from get_table_of_stats.
+    stage_significance : dict
+        Significance results for all pairs from apply_stage_criterion.
+    stage_info : dict
+        Additional information including:
+        - 'random_shifts': Random shifts array used for shuffling
+        - 'me_total': Full metric values array (true + shuffles)
+        - 'pass_mask': Binary mask of pairs that passed the criterion
+        - 'multicorr_thr': Multiple comparison threshold (Stage 2 only, None for Stage 1)
+    """
+    n1 = len(ts_bunch1)
+    n2 = 1 if joint_distr else len(ts_bunch2)
+
+    if verbose:
+        print(f"Stage {config.stage_num}: {config.n_shuffles} shuffles")
+
+    # 1. Scan pairs
+    random_shifts, me_total = scan_pairs_router(
+        ts_bunch1,
+        ts_bunch2,
+        metric,
+        config.n_shuffles,
+        optimal_delays,
+        mi_estimator,
+        joint_distr=joint_distr,
+        allow_mixed_dimensions=allow_mixed_dimensions,
+        ds=ds,
+        mask=config.mask,
+        noise_const=noise_const,
+        seed=seed,
+        enable_parallelization=enable_parallelization,
+        n_jobs=n_jobs,
+        engine=engine,
+        fft_cache=fft_cache,
+    )
+
+    # 2. Compute stats
+    stage_stats = get_table_of_stats(
+        me_total,
+        optimal_delays,
+        precomputed_mask=config.mask,
+        metric_distr_type=metric_distr_type,
+        nsh=config.n_shuffles,
+        stage=config.stage_num,
+    )
+
+    # 3. Apply criterion
+    if config.stage_num == 1:
+        stage_significance, pass_mask = apply_stage_criterion(
+            stage_stats,
+            stage_num=1,
+            n1=n1,
+            n2=n2,
+            n_shuffles=config.n_shuffles,
+            topk=config.topk,
+        )
+        multicorr_thr = None
+    else:
+        # Stage 2: compute multicorr_thr from p-values, then apply criterion
+        nhyp = int(np.sum(config.mask))
+        all_pvals = get_all_nonempty_pvals(stage_stats, range(n1), range(n2))
+        multicorr_thr = get_multicomp_correction_thr(
+            config.pval_thr,
+            mode=config.multicomp_correction,
+            all_pvals=all_pvals,
+            nhyp=nhyp,
+        )
+        stage_significance, pass_mask = apply_stage_criterion(
+            stage_stats,
+            stage_num=2,
+            n1=n1,
+            n2=n2,
+            n_shuffles=config.n_shuffles,
+            topk=config.topk,
+            multicorr_thr=multicorr_thr,
+        )
+
+    stage_info = {
+        "random_shifts": random_shifts,
+        "me_total": me_total,
+        "pass_mask": pass_mask,
+        "multicorr_thr": multicorr_thr,
+    }
+
+    return stage_stats, stage_significance, stage_info
 
 
 class IntenseResults(object):
@@ -2022,7 +2387,16 @@ def compute_me_stats(
     ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if _ not in skip_delays]
     ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if _ not in skip_delays])
 
+    # Build FFT cache once at the start for reuse across delays + stages
+    fft_cache = _build_fft_cache(
+        ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr
+    )
+
     if find_optimal_delays:
+        # Build delay-specific cache for ts_with_delays subset
+        delay_fft_cache = _build_fft_cache(
+            ts_bunch1, ts_with_delays, metric, mi_estimator, ds, engine, joint_distr=False
+        )
         if enable_parallelization:
             optimal_delays_res = calculate_optimal_delays_parallel(
                 ts_bunch1,
@@ -2034,6 +2408,7 @@ def compute_me_stats(
                 n_jobs=n_jobs,
                 mi_estimator=mi_estimator,
                 engine=engine,
+                fft_cache=delay_fft_cache,
             )
         else:
             optimal_delays_res = calculate_optimal_delays(
@@ -2045,6 +2420,7 @@ def compute_me_stats(
                 verbose=verbose,
                 mi_estimator=mi_estimator,
                 engine=engine,
+                fft_cache=delay_fft_cache,
             )
 
         optimal_delays[:, ts_with_delays_inds] = optimal_delays_res
@@ -2070,62 +2446,47 @@ def compute_me_stats(
         if verbose:
             print(f"Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs")
 
-        # STAGE 1 - primary scanning
-        random_shifts1, me_total1 = scan_pairs_router(
+        # STAGE 1 - primary scanning using scan_stage abstraction
+        config_stage1 = StageConfig(
+            stage_num=1,
+            n_shuffles=n_shuffles_stage1,
+            mask=precomputed_mask_stage1,
+            topk=topk1,
+        )
+
+        stage_1_stats, stage_1_significance, stage_1_info = scan_stage(
             ts_bunch1,
             ts_bunch2,
-            metric,
-            n_shuffles_stage1,
+            config_stage1,
             optimal_delays,
-            mi_estimator,
+            metric=metric,
+            mi_estimator=mi_estimator,
+            metric_distr_type=metric_distr_type,
+            noise_const=noise_const,
+            ds=ds,
+            seed=seed,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
-            ds=ds,
-            mask=precomputed_mask_stage1,
-            noise_const=noise_const,
-            seed=seed,
             enable_parallelization=enable_parallelization,
             n_jobs=n_jobs,
             engine=engine,
+            fft_cache=fft_cache,
+            verbose=False,  # We handle verbose output here
         )
 
-        # turn computed data tables from stage 1 and precomputed data into dict of stats dicts
-        stage_1_stats = get_table_of_stats(
-            me_total1,
-            optimal_delays,
-            metric_distr_type=metric_distr_type,
-            nsh=n_shuffles_stage1,
-            precomputed_mask=precomputed_mask_stage1,
-            stage=1,
-        )
+        # Extract results from scan_stage
+        random_shifts1 = stage_1_info["random_shifts"]
+        me_total1 = stage_1_info["me_total"]
+        mask_from_stage1 = stage_1_info["pass_mask"]
 
+        # Convert to per-quantity tables for accumulated_info
         stage_1_stats_per_quantity = nested_dict_to_seq_of_tables(
             stage_1_stats, ordered_names1=range(n1), ordered_names2=range(n2)
         )
-        # print(stage_1_stats_per_quantity)
-
-        # select potentially significant pairs for stage 2
-        # 0 in mask values means the pair MI is definitely insignificant, stage 2 calculation will be skipped.
-        # 1 in mask values means the pair MI is potentially significant, stage 2 calculation will proceed.
-
-        if verbose:
-            print("Computing significance for all pairs in stage 1...")
-
-        stage_1_significance = populate_nested_dict(dict(), range(n1), range(n2))
-        for i in range(n1):
-            for j in range(n2):
-                pair_passes_stage1 = criterion1(stage_1_stats[i][j], n_shuffles_stage1, topk=topk1)
-                if pair_passes_stage1:
-                    mask_from_stage1[i, j] = 1
-
-                sig1 = {"stage1": pair_passes_stage1}
-                stage_1_significance[i][j].update(sig1)
-
         stage_1_significance_per_quantity = nested_dict_to_seq_of_tables(
             stage_1_significance, ordered_names1=range(n1), ordered_names2=range(n2)
         )
 
-        # print(stage_1_significance_per_quantity)
         accumulated_info.update(
             {
                 "stage_1_significance": stage_1_significance_per_quantity,
@@ -2173,70 +2534,50 @@ def compute_me_stats(
         if verbose:
             print(f"Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs")
 
-        random_shifts2, me_total2 = scan_pairs_router(
+        # STAGE 2 using scan_stage abstraction
+        config_stage2 = StageConfig(
+            stage_num=2,
+            n_shuffles=n_shuffles_stage2,
+            mask=combined_mask_for_stage_2,
+            topk=topk2,
+            pval_thr=pval_thr,
+            multicomp_correction=multicomp_correction,
+        )
+
+        stage_2_stats, stage_2_significance, stage_2_info = scan_stage(
             ts_bunch1,
             ts_bunch2,
-            metric,
-            n_shuffles_stage2,
+            config_stage2,
             optimal_delays,
-            mi_estimator,
+            metric=metric,
+            mi_estimator=mi_estimator,
+            metric_distr_type=metric_distr_type,
+            noise_const=noise_const,
+            ds=ds,
+            seed=seed,
             joint_distr=joint_distr,
             allow_mixed_dimensions=allow_mixed_dimensions,
-            ds=ds,
-            mask=combined_mask_for_stage_2,
-            noise_const=noise_const,
-            seed=seed,
             enable_parallelization=enable_parallelization,
             n_jobs=n_jobs,
             engine=engine,
+            fft_cache=fft_cache,
+            verbose=False,  # We handle verbose output here
         )
 
-        # turn data tables from stage 2 to array of stats dicts
-        stage_2_stats = get_table_of_stats(
-            me_total2,
-            optimal_delays,
-            metric_distr_type=metric_distr_type,
-            nsh=n_shuffles_stage2,
-            precomputed_mask=combined_mask_for_stage_2,
-            stage=2,
-        )
+        # Extract results from scan_stage
+        random_shifts2 = stage_2_info["random_shifts"]
+        me_total2 = stage_2_info["me_total"]
+        mask_from_stage2 = stage_2_info["pass_mask"]
+        multicorr_thr = stage_2_info["multicorr_thr"]
 
+        # Convert to per-quantity tables for accumulated_info
         stage_2_stats_per_quantity = nested_dict_to_seq_of_tables(
             stage_2_stats, ordered_names1=range(n1), ordered_names2=range(n2)
         )
-        # print(stage_2_stats_per_quantity)
-
-        # select significant pairs after stage 2
-        if verbose:
-            print("Computing significance for all pairs in stage 2...")
-        all_pvals = None
-        if multicomp_correction in [
-            "holm",
-            "fdr_bh",
-        ]:  # these procedures require all p-values
-            all_pvals = get_all_nonempty_pvals(stage_2_stats, range(n1), range(n2))
-
-        multicorr_thr = get_multicomp_correction_thr(
-            pval_thr, mode=multicomp_correction, all_pvals=all_pvals, nhyp=nhyp
-        )
-
-        stage_2_significance = populate_nested_dict(dict(), range(n1), range(n2))
-        for i in range(n1):
-            for j in range(n2):
-                pair_passes_stage2 = criterion2(
-                    stage_2_stats[i][j], n_shuffles_stage2, multicorr_thr, topk=topk2
-                )
-                if pair_passes_stage2:
-                    mask_from_stage2[i, j] = 1
-
-                sig2 = {"stage2": pair_passes_stage2}
-                stage_2_significance[i][j] = sig2
-
         stage_2_significance_per_quantity = nested_dict_to_seq_of_tables(
             stage_2_significance, ordered_names1=range(n1), ordered_names2=range(n2)
         )
 
-        # print(stage_2_significance_per_quantity)
         accumulated_info.update(
             {
                 "stage_2_significance": stage_2_significance_per_quantity,
