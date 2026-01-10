@@ -14,9 +14,9 @@ from driada.information.info_base import TimeSeries
 def test_duplicate_behavior_ignore():
     """Test that 'ignore' behavior processes duplicates normally."""
     # Create simple time series
-    ts1 = TimeSeries(np.sin(np.linspace(0, 4 * np.pi, 100)), "ts1")
-    ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), "ts2")
-    ts1_dup = TimeSeries(np.sin(np.linspace(0, 4 * np.pi, 100)), "ts1_dup")  # Duplicate data
+    ts1 = TimeSeries(np.sin(np.linspace(0, 4 * np.pi, 100)), name="ts1")
+    ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), name="ts2")
+    ts1_dup = TimeSeries(np.sin(np.linspace(0, 4 * np.pi, 100)), name="ts1_dup")  # Duplicate data
 
     # Test with duplicates in both bunches
     ts_bunch1 = [ts1, ts1_dup]  # Contains duplicate
@@ -30,7 +30,8 @@ def test_duplicate_behavior_ignore():
         names2=["ts2"],
         metric="mi",
         mode="stage1",
-        n_shuffles_stage1=10,
+        n_shuffles_stage1=100,
+        ds=5,
         duplicate_behavior="ignore",
         verbose=False,
     )
@@ -43,9 +44,9 @@ def test_duplicate_behavior_warn(capfd):
     """Test that 'warn' behavior prints warning but continues."""
     # Create time series with shared data reference
     data = np.sin(np.linspace(0, 4 * np.pi, 100))
-    ts1 = TimeSeries(data, "ts1")
-    ts1_dup = TimeSeries(data, "ts1_dup")  # Same data reference
-    ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), "ts2")
+    ts1 = TimeSeries(data, name="ts1")
+    ts1_dup = TimeSeries(data, name="ts1_dup")  # Same data reference
+    ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), name="ts2")
 
     # Test with duplicates
     ts_bunch1 = [ts1, ts1_dup]
@@ -59,7 +60,8 @@ def test_duplicate_behavior_warn(capfd):
         names2=["ts2"],
         metric="mi",
         mode="stage1",
-        n_shuffles_stage1=10,
+        n_shuffles_stage1=100,
+        ds=5,
         duplicate_behavior="warn",
         verbose=False,
     )
@@ -80,9 +82,9 @@ def test_duplicate_behavior_raise():
     """Test that 'raise' behavior raises error on duplicates."""
     # Create time series with shared data reference
     data = np.sin(np.linspace(0, 4 * np.pi, 100))
-    ts1 = TimeSeries(data, "ts1")
-    ts1_dup = TimeSeries(data, "ts1_dup")  # Same data reference
-    ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), "ts2")
+    ts1 = TimeSeries(data, name="ts1")
+    ts1_dup = TimeSeries(data, name="ts1_dup")  # Same data reference
+    ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), name="ts2")
 
     # Test with duplicates in ts_bunch1
     ts_bunch1 = [ts1, ts1_dup]
@@ -97,7 +99,8 @@ def test_duplicate_behavior_raise():
             names2=["ts2"],
             metric="mi",
             mode="stage1",
-            n_shuffles_stage1=10,
+            n_shuffles_stage1=100,
+        ds=5,
             duplicate_behavior="raise",
             verbose=False,
         )
@@ -114,7 +117,8 @@ def test_duplicate_behavior_in_pipelines(small_experiment):
         cell_bunch=[0, 1],
         feat_bunch=["event_0"],
         mode="stage1",
-        n_shuffles_stage1=5,
+        n_shuffles_stage1=100,
+        ds=5,
         duplicate_behavior="ignore",
         verbose=False,
         seed=42,
@@ -126,7 +130,8 @@ def test_duplicate_behavior_in_pipelines(small_experiment):
         exp,
         feat_bunch=["event_0", "event_1"],
         mode="stage1",
-        n_shuffles_stage1=5,
+        n_shuffles_stage1=100,
+        ds=5,
         duplicate_behavior="warn",
         verbose=False,
         seed=42,
@@ -138,7 +143,8 @@ def test_duplicate_behavior_in_pipelines(small_experiment):
         exp,
         cell_bunch=[0, 1, 2],
         mode="stage1",
-        n_shuffles_stage1=5,
+        n_shuffles_stage1=100,
+        ds=5,
         duplicate_behavior="ignore",
         verbose=False,
         seed=42,
@@ -149,9 +155,9 @@ def test_duplicate_behavior_in_pipelines(small_experiment):
 def test_no_duplicates_all_behaviors():
     """Test that all behaviors work correctly when no duplicates exist."""
     # Create unique time series
-    ts1 = TimeSeries(np.sin(np.linspace(0, 4 * np.pi, 100)), "ts1")
-    ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), "ts2")
-    ts3 = TimeSeries(np.sin(np.linspace(0, 2 * np.pi, 100)), "ts3")
+    ts1 = TimeSeries(np.sin(np.linspace(0, 4 * np.pi, 100)), name="ts1")
+    ts2 = TimeSeries(np.cos(np.linspace(0, 4 * np.pi, 100)), name="ts2")
+    ts3 = TimeSeries(np.sin(np.linspace(0, 2 * np.pi, 100)), name="ts3")
 
     # Test bunches with no duplicates
     ts_bunch1 = [ts1]
@@ -166,7 +172,8 @@ def test_no_duplicates_all_behaviors():
             names2=["ts2", "ts3"],
             metric="mi",
             mode="stage1",
-            n_shuffles_stage1=10,
+            n_shuffles_stage1=100,
+        ds=5,
             duplicate_behavior=behavior,
             verbose=False,
         )

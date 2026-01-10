@@ -77,8 +77,9 @@ def test_compute_cell_feat_significance_with_disentanglement_fast():
         cell_bunch=cell_bunch,  # Use neurons with mixed selectivity
         feat_bunch=None,
         mode="two_stage",  # Need two_stage for get_significant_neurons to work
-        n_shuffles_stage1=10,  # Very few shuffles for speed
-        n_shuffles_stage2=100,  # Minimal stage 2 shuffles
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=5000,
+        ds=5,
         metric="mi",
         metric_distr_type="norm",  # Use normal distribution
         pval_thr=0.1,  # Very lenient p-value threshold
@@ -543,8 +544,9 @@ def test_disentanglement_with_asymmetric_features():
         cell_bunch=mixed_neurons[:5].tolist(),
         feat_bunch=None,
         mode="two_stage",  # Need two_stage for proper detection
-        n_shuffles_stage1=10,
-        n_shuffles_stage2=100,
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=5000,
+        ds=5,
         metric="mi",
         pval_thr=0.05,
         with_disentanglement=True,
@@ -579,7 +581,7 @@ def test_intense_with_ksg_estimator(small_experiment):
         feat_bunch=None,
         mi_estimator="ksg",  # Use KSG estimator
         mode="stage1",
-        n_shuffles_stage1=5,
+        n_shuffles_stage1=100,
         ds=5,
         enable_parallelization=False,
         seed=42,
@@ -592,7 +594,7 @@ def test_intense_with_ksg_estimator(small_experiment):
         feat_bunch=None,
         mi_estimator="gcmi",  # Use GCMI estimator (default)
         mode="stage1",
-        n_shuffles_stage1=5,
+        n_shuffles_stage1=100,
         ds=5,
         enable_parallelization=False,
         seed=42,
@@ -649,7 +651,7 @@ def test_intense_with_ksg_estimator(small_experiment):
         exp,
         mi_estimator="ksg",
         mode="stage1",
-        n_shuffles_stage1=5,
+        n_shuffles_stage1=100,
         ds=5,
         enable_parallelization=False,
         seed=42,
@@ -667,7 +669,7 @@ def test_intense_with_ksg_estimator(small_experiment):
         cell_bunch=[0, 1, 2],
         mi_estimator="ksg",
         mode="stage1",
-        n_shuffles_stage1=5,
+        n_shuffles_stage1=100,
         ds=5,
         enable_parallelization=False,
         seed=42,

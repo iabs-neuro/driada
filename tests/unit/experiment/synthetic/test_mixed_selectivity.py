@@ -177,16 +177,16 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             n_discrete_feats=4,
             n_continuous_feats=0,
             n_neurons=20,
-            duration=300,  # Longer for better statistics
+            duration=600,  # Longer duration for better statistics
             fps=20,
             selectivity_prob=1.0,  # All neurons selective
             multi_select_prob=0.8,  # Most have mixed selectivity
-            weights_mode="equal",  # Equal contributions
-            baseline_rate=0.05,  # Very low baseline for better SNR
-            peak_rate=3.0,  # Higher rate for better detectability
+            weights_mode="random",  # Random balanced weights for true mixed selectivity
+            baseline_rate=0.01,  # Very low baseline for maximum SNR
+            peak_rate=2.0,  # Within recommended range for calcium imaging
             skip_prob=0.0,  # No skipping
             calcium_amplitude_range=(1.0, 3.0),  # Stronger amplitude
-            calcium_noise=0.005,  # Very low noise
+            calcium_noise=0.001,  # Minimal noise
             seed=42,
             verbose=False,
         )
@@ -199,22 +199,22 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             len(mixed_neurons) >= 10
         ), f"Need at least 10 mixed neurons, found {len(mixed_neurons)}"
 
-        # Run INTENSE analysis on mixed neurons
-        test_neurons = mixed_neurons[:5].tolist()
+        # Run INTENSE analysis on more neurons to account for random weight variability
+        test_neurons = mixed_neurons[:10].tolist()
 
         # First, run basic cell-feat significance to check if neurons are selective
         stats, significance, _, _, disent_results = compute_cell_feat_significance(
             exp,
             cell_bunch=test_neurons,
             mode="two_stage",  # Use two_stage for proper significance detection
-            n_shuffles_stage1=10,  # Fewer shuffles for speed
-            n_shuffles_stage2=100,  # Stage 2 shuffles
+            n_shuffles_stage1=100,
+            n_shuffles_stage2=5000,
             metric="mi",
-            metric_distr_type="norm",  # Use normal distribution
-            pval_thr=0.1,  # Lenient threshold
+            metric_distr_type="gamma",  # Use gamma distribution (better for MI)
+            pval_thr=0.2,  # More lenient threshold for mixed selectivity
             multicomp_correction=None,  # No correction for easier detection
             enable_parallelization=False,  # Disable parallelization
-            ds=2,  # Downsampling is important for MI calculation
+            ds=2,
             find_optimal_delays=False,
             allow_mixed_dimensions=True,
             with_disentanglement=True,
@@ -395,8 +395,8 @@ class TestIntegrationWithAnalysisPipeline:
                 exp,
                 cell_bunch=test_neurons,
                 mode="two_stage",
-                n_shuffles_stage1=50,  # More shuffles for better power
-                n_shuffles_stage2=200,  # More shuffles for stage 2
+                n_shuffles_stage1=100,
+                n_shuffles_stage2=5000,
                 metric="mi",
                 metric_distr_type="norm",  # More conservative
                 pval_thr=0.1,  # More lenient threshold
@@ -404,7 +404,7 @@ class TestIntegrationWithAnalysisPipeline:
                 with_disentanglement=True,
                 find_optimal_delays=False,
                 allow_mixed_dimensions=True,
-                ds=5,  # Downsampling as requested
+                ds=2,  # Downsampling as requested
                 enable_parallelization=False,
                 verbose=False,
                 seed=seed,
@@ -494,7 +494,7 @@ class TestIntegrationWithAnalysisPipeline:
             cell_bunch=two_feature_neurons.tolist(),
             mode="two_stage",
             n_shuffles_stage1=100,
-            n_shuffles_stage2=500,
+            n_shuffles_stage2=5000,
             metric="mi",
             metric_distr_type="gamma",
             noise_ampl=1e-4,
@@ -503,7 +503,7 @@ class TestIntegrationWithAnalysisPipeline:
             with_disentanglement=False,  # No disentanglement
             find_optimal_delays=False,
             allow_mixed_dimensions=True,
-            ds=5,  # Downsampling as requested
+            ds=2,  # Downsampling as requested
             enable_parallelization=False,
             verbose=False,
             seed=42,

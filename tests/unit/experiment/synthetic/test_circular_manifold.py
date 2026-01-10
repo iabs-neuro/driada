@@ -253,10 +253,10 @@ def test_generate_circular_manifold_data_calcium():
         feat_bunch=["circular_angle"],  # Test circular multifeature approach
         mode="two_stage",  # Need two_stage for significance to be computed
         find_optimal_delays=False,  # Disable delays for multifeature
-        n_shuffles_stage1=10,  # Reduced shuffles
-        n_shuffles_stage2=50,  # Reduced shuffles
-        ds=3,  # Reduced downsampling for better detection
-        metric_distr_type="norm",  # Use normal distribution for metric
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=5000,
+        ds=2,  # Lower ds to preserve temporal structure
+        metric_distr_type="gamma",  # Correct distribution for MI
         enable_parallelization=False,  # Disable parallelization
         allow_mixed_dimensions=True,  # Allow MultiTimeSeries
         save_computed_stats=True,  # Save results to experiment
@@ -273,7 +273,7 @@ def test_generate_circular_manifold_data_calcium():
     # This approach should work much better than linear head_direction
     assert (
         circular_selective >= 1
-    ), f"Expected ≥1 selective neurons with circular_angle, got {circular_selective}"  # Reduced threshold due to aggressive downsampling
+    ), f"Expected ≥1 selective neurons with circular_angle, got {circular_selective}"
 
     # Calcium signals should have reasonable properties
     calcium = exp.calcium.data
@@ -505,9 +505,9 @@ def test_integration_with_intense():
     stats, significance, _, _ = compute_cell_feat_significance(
         exp,
         find_optimal_delays=False,  # Disable delays for MultiTimeSeries (current limitation)
-        n_shuffles_stage1=10,  # Reduced shuffles
-        n_shuffles_stage2=50,  # Reduced shuffles
-        ds=2,  # Reduced downsampling for better detection
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=5000,
+        ds=5,
         metric_distr_type="norm",  # Use normal distribution for metric
         enable_parallelization=False,  # Disable parallelization
         allow_mixed_dimensions=True,  # Allow MultiTimeSeries
@@ -553,8 +553,8 @@ def test_linear_vs_circular_detection():
         exp,
         feat_bunch=["head_direction"],
         find_optimal_delays=True,  # Can use delays with single TimeSeries
-        n_shuffles_stage1=10,  # Reduced shuffles
-        n_shuffles_stage2=100,  # Increased shuffles
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=5000,
         ds=5,  # Downsample by 5x
         enable_parallelization=False,  # Disable parallelization
         allow_mixed_dimensions=True,
@@ -576,8 +576,8 @@ def test_linear_vs_circular_detection():
         exp,
         feat_bunch=["circular_angle"],
         find_optimal_delays=False,  # Must disable for MultiTimeSeries
-        n_shuffles_stage1=10,  # Reduced shuffles
-        n_shuffles_stage2=100,  # Increased shuffles
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=5000,
         ds=5,  # Downsample by 5x
         enable_parallelization=False,  # Disable parallelization
         allow_mixed_dimensions=True,

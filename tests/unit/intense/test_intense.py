@@ -201,9 +201,9 @@ def test_mirror(correlated_ts_medium, aggregate_two_ts_func, strict_test_params)
     k = n // 2  # num of ts in one block
 
     lts1, lts2 = tslist2[-2:]
-    mts1 = aggregate_two_ts_func(lts1, lts2)
+    mts1 = aggregate_two_ts_func(lts1, lts2, name="aggregated_mts_1")
     fts1, fts2 = tslist2[:2]
-    mts2 = aggregate_two_ts_func(fts1, fts2)
+    mts2 = aggregate_two_ts_func(fts1, fts2, name="aggregated_mts_2")
 
     mod_tslist2 = tslist2 + [mts1, mts2]
     # we expect the correlation between mts1 (index k) and ts with indices k-2, k-1
@@ -811,7 +811,8 @@ def test_compute_cell_feat_significance_integration(small_experiment):
         feat_bunch=[test_feature],  # Just 1 feature
         metric="mi",
         mode="stage1",  # Just stage 1 for speed
-        n_shuffles_stage1=10,  # Minimal shuffles
+        n_shuffles_stage1=100,
+        ds=5,
         verbose=False,
         enable_parallelization=True,
         use_precomputed_stats=False,
@@ -1018,8 +1019,9 @@ def test_compute_me_stats_stage2_only():
         ts_bunch1,
         ts_bunch2,
         mode="stage2",
-        n_shuffles_stage1=10,
-        n_shuffles_stage2=20,
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=5000,
+        ds=5,
         metric="mi",
         verbose=False,
         enable_parallelization=True,

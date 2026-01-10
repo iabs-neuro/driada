@@ -1076,7 +1076,11 @@ def generate_circular_manifold_neurons(
     Creates a population of neurons with uniformly distributed preferred
     directions on the circle, each responding to head direction with
     Von Mises tuning curves. Includes realistic noise and ensures
-    non-negative firing rates.
+    non-negative firing rates suitable for calcium imaging.
+
+    Firing rates are designed to avoid calcium saturation. Default peak_rate
+    of 1.0 Hz produces realistic calcium signals, while rates above 2 Hz may
+    cause saturation in GCaMP indicators.
 
     Parameters
     ----------
@@ -1455,7 +1459,12 @@ def generate_2d_manifold_neurons(
 
     Creates a population of neurons with place fields either arranged in a
     regular grid or randomly distributed. Each neuron responds maximally
-    when the animal is at its place field center.
+    when the animal is at its place field center. Firing rates are designed
+    for realistic calcium imaging.
+
+    Firing rates are designed to avoid calcium saturation. Default peak_rate
+    of 1.0 Hz produces realistic calcium signals, while rates above 2 Hz may
+    cause saturation in GCaMP indicators.
 
     Parameters
     ----------

@@ -309,9 +309,9 @@ class TestGenerate2DManifoldExp:
             exp,
             feat_bunch=["x", "y"],
             mode="two_stage",
-            n_shuffles_stage1=10,
-            n_shuffles_stage2=50,
-            ds=5,  # Downsample by 5x
+            n_shuffles_stage1=100,
+            n_shuffles_stage2=5000,
+            ds=2,
             enable_parallelization=False,  # Disable parallelization
             verbose=False,
         )
@@ -332,9 +332,9 @@ class TestGenerate2DManifoldExp:
             feat_bunch=["position_2d"],
             find_optimal_delays=False,  # Must disable for MultiTimeSeries
             mode="two_stage",
-            n_shuffles_stage1=10,
-            n_shuffles_stage2=1000,  # Increased shuffles for robustness
-            ds=5,  # Downsample by 5x
+            n_shuffles_stage1=100,
+            n_shuffles_stage2=5000,
+            ds=2,
             enable_parallelization=False,  # Disable parallelization
             allow_mixed_dimensions=True,
             verbose=False,

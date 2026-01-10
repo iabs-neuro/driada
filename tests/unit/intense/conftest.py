@@ -93,7 +93,10 @@ def _binarize_ts(ts, thr="av"):
     else:
         raise ValueError("binarize_ts called on discrete TimeSeries")
 
-    return TimeSeries(bin_data, discrete=True, name="binarized_ts")
+    # Preserve original name with _bin suffix, or use original name if it has one
+    original_name = getattr(ts, 'name', None)
+    new_name = f"{original_name}_bin" if original_name else "binarized_ts"
+    return TimeSeries(bin_data, discrete=True, name=new_name)
 
 
 @pytest.fixture
@@ -154,16 +157,16 @@ def correlated_ts_binarized(base_correlated_signals_medium):
 def aggregate_two_ts_func():
     """Function to aggregate two time series into MultiTimeSeries."""
 
-    def aggregate(ts1, ts2):
+    def aggregate(ts1, ts2, name="aggregated_mts"):
         # Add small noise to break degeneracy
         np.random.seed(42)
         mod_lts1 = TimeSeries(
-            ts1.data + np.random.random(size=len(ts1.data)) * 1e-6, discrete=False, name="agg_ts1"
+            ts1.data + np.random.random(size=len(ts1.data)) * 1e-6, discrete=False, name=f"{name}_0"
         )
         mod_lts2 = TimeSeries(
-            ts2.data + np.random.random(size=len(ts2.data)) * 1e-6, discrete=False, name="agg_ts2"
+            ts2.data + np.random.random(size=len(ts2.data)) * 1e-6, discrete=False, name=f"{name}_1"
         )
-        mts = MultiTimeSeries([mod_lts1, mod_lts2], name="aggregated_mts")
+        mts = MultiTimeSeries([mod_lts1, mod_lts2], name=name)
         return mts
 
     return aggregate
@@ -173,8 +176,8 @@ def aggregate_two_ts_func():
 def fast_test_params():
     """Optimized parameters for fast test execution."""
     return {
-        "n_shuffles_stage1": 20,
-        "n_shuffles_stage2": 100,
+        "n_shuffles_stage1": 100,
+        "n_shuffles_stage2": 5000,
         "ds": 5,
         "noise_ampl": 1e-4,  # Reduced noise
         "enable_parallelization": False,  # Disabled for faster single tests
@@ -186,8 +189,8 @@ def fast_test_params():
 def balanced_test_params():
     """Balanced parameters for accuracy vs speed."""
     return {
-        "n_shuffles_stage1": 50,
-        "n_shuffles_stage2": 500,
+        "n_shuffles_stage1": 100,
+        "n_shuffles_stage2": 5000,
         "ds": 5,
         "noise_ampl": 1e-4,  # Reduced noise
         "enable_parallelization": False,  # Disabled for faster single tests
@@ -200,8 +203,8 @@ def strict_test_params():
     """Strict parameters to reduce false positives."""
     return {
         "n_shuffles_stage1": 100,
-        "n_shuffles_stage2": 1000,
-        "ds": 5,  # Changed from 2 to 5
+        "n_shuffles_stage2": 5000,
+        "ds": 5,
         "noise_ampl": 1e-4,  # Reduced noise
         "multicomp_correction": "holm",
         "pval_thr": 0.001,

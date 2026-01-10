@@ -732,16 +732,17 @@ def load_exp_from_pickle(path, verbose=True):
 
     # Backward compatibility: Assign names to unnamed dynamic features
     from ..information.info_base import MultiTimeSeries
-    for feat_id, feat_obj in exp.dynamic_features.items():
-        if hasattr(feat_obj, 'name') and (feat_obj.name is None or feat_obj.name == ''):
-            feat_obj.name = str(feat_id)  # Use feature key as name
+    if hasattr(exp, 'dynamic_features'):
+        for feat_id, feat_obj in exp.dynamic_features.items():
+            if hasattr(feat_obj, 'name') and (feat_obj.name is None or feat_obj.name == ''):
+                feat_obj.name = str(feat_id)  # Use feature key as name
 
-            # For MultiTimeSeries, also name components if they lack names
-            if isinstance(feat_obj, MultiTimeSeries):
-                if hasattr(feat_obj, 'ts_list'):
-                    for i, component in enumerate(feat_obj.ts_list):
-                        if not hasattr(component, 'name') or component.name is None or component.name == '':
-                            component.name = f"{feat_id}_{i}"
+                # For MultiTimeSeries, also name components if they lack names
+                if isinstance(feat_obj, MultiTimeSeries):
+                    if hasattr(feat_obj, 'ts_list'):
+                        for i, component in enumerate(feat_obj.ts_list):
+                            if not hasattr(component, 'name') or component.name is None or component.name == '':
+                                component.name = f"{feat_id}_{i}"
 
     # Backward compatibility: Assign names to neurons if missing
     if hasattr(exp, 'neurons'):

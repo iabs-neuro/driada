@@ -225,7 +225,7 @@ class Neuron:
             raise ValueError("Calcium signal cannot be empty")
         check_positive(fps=fps, default_t_rise=default_t_rise, default_t_off=default_t_off)
         self.cell_id = cell_id
-        self.ca = TimeSeries(Neuron.calcium_preprocessing(ca, seed=seed), discrete=False, name="ca")
+        self.ca = TimeSeries(Neuron.calcium_preprocessing(ca, seed=seed), discrete=False, name=f"neuron_{self.cell_id}_ca")
         from sklearn.preprocessing import MinMaxScaler
 
         self.ca_scaler = MinMaxScaler()
@@ -238,7 +238,7 @@ class Neuron:
                 raise ValueError(
                     f"""Spike train length {len(sp)} must match calcium length {len(ca)}"""
                 )
-            self.sp = TimeSeries(sp.astype(int), discrete=True, name="sp")
+            self.sp = TimeSeries(sp.astype(int), discrete=True, name=f"neuron_{self.cell_id}_sp")
         self.n_frames = len(self.ca.data)
         self.fps = fps
         self.sp_count = np.sum(self.sp.data) if self.sp is not None else 0
@@ -247,7 +247,7 @@ class Neuron:
             asp = np.asarray(asp)
             if len(asp) != len(ca):
                 raise ValueError(f"""asp length {len(asp)} must match calcium length {len(ca)}""")
-            self.asp = TimeSeries(asp, discrete=False, name="asp")
+            self.asp = TimeSeries(asp, discrete=False, name=f"neuron_{self.cell_id}_asp")
         else:
             self.asp = None
         self.wvt_ridges = wvt_ridges
@@ -684,7 +684,7 @@ class Neuron:
         t_rise = self.t_rise if self.t_rise is not None else self.default_t_rise
         t_off = self.t_off if self.t_off is not None else self.default_t_off
         ca_recon = Neuron.get_restored_calcium(self.asp.data, t_rise, t_off)
-        self._reconstructed = TimeSeries(ca_recon, discrete=False, name="reconstructed")
+        self._reconstructed = TimeSeries(ca_recon, discrete=False, name=f"neuron_{self.cell_id}_reconstructed")
         self._reconstructed_scaled = self.ca_scaler.transform(ca_recon.reshape(-1, 1)).reshape(-1)
 
     def _extract_amplitudes(
@@ -771,8 +771,8 @@ class Neuron:
             ASP array (amplitude spikes).
         """
         if len(st_inds) == 0 or len(amplitudes) == 0:
-            self.asp = TimeSeries(np.zeros(self.n_frames), discrete=False, name="asp")
-            self.sp = TimeSeries(np.zeros(self.n_frames, dtype=int), discrete=True, name="sp")
+            self.asp = TimeSeries(np.zeros(self.n_frames), discrete=False, name=f"neuron_{self.cell_id}_asp")
+            self.sp = TimeSeries(np.zeros(self.n_frames, dtype=int), discrete=True, name=f"neuron_{self.cell_id}_sp")
             self.sp_count = 0
             return np.zeros(self.n_frames)
 
@@ -788,8 +788,8 @@ class Neuron:
             fps=fps,
         )
         sp = (asp > 0).astype(int)
-        self.asp = TimeSeries(asp, discrete=False, name="asp")
-        self.sp = TimeSeries(sp, discrete=True, name="sp")
+        self.asp = TimeSeries(asp, discrete=False, name=f"neuron_{self.cell_id}_asp")
+        self.sp = TimeSeries(sp, discrete=True, name=f"neuron_{self.cell_id}_sp")
         self.sp_count = int(np.sum(sp))
         return asp
 
@@ -820,11 +820,11 @@ class Neuron:
             st_ev_inds_2d = [list(st_inds)]
             end_ev_inds_2d = [list(end_inds)]
             events = events_to_ts_array(self.n_frames, st_ev_inds_2d, end_ev_inds_2d, fps)
-            self.events = TimeSeries(events.flatten(), discrete=True, name="events")
+            self.events = TimeSeries(events.flatten(), discrete=True, name=f"neuron_{self.cell_id}_events")
             return events.flatten()
         else:
             events = np.zeros(self.n_frames, dtype=int)
-            self.events = TimeSeries(events, discrete=True, name="events")
+            self.events = TimeSeries(events, discrete=True, name=f"neuron_{self.cell_id}_events")
             return events
 
     def _finalize_reconstruction(self, fps):
@@ -2114,7 +2114,7 @@ class Neuron:
         else:
             from ..information.info_base import TimeSeries
 
-            return TimeSeries(data=shuffled_data, discrete=False, name="shuffled_ca")
+            return TimeSeries(data=shuffled_data, discrete=False, name=f"neuron_{self.cell_id}_shuffled_ca")
 
     def _shuffle_calcium_data_waveform_based(self, seed=None, **kwargs):
         """Shuffle calcium by reconstructing from ISI-shuffled spikes.
@@ -2316,7 +2316,7 @@ class Neuron:
         else:
             from ..information.info_base import TimeSeries
 
-            return TimeSeries(data=shuffled_data, discrete=True, name="shuffled_sp")  # discrete=True for spikes
+            return TimeSeries(data=shuffled_data, discrete=True, name=f"neuron_{self.cell_id}_shuffled_sp")  # discrete=True for spikes
 
     def reconstructed(self):
         """Get reconstructed calcium signal from amplitude spikes (cached).
@@ -2423,7 +2423,7 @@ class Neuron:
             reconstructed_data = Neuron.get_restored_calcium(
                 spike_data, t_rise_frames, t_off_frames
             )
-            return TimeSeries(reconstructed_data, discrete=False, name="reconstructed")
+            return TimeSeries(reconstructed_data, discrete=False, name=f"neuron_{self.cell_id}_reconstructed")
         if self._reconstructed is None:
             # Prefer asp, fall back to sp for backward compatibility
             if self.asp is not None:
@@ -2444,7 +2444,7 @@ class Neuron:
             t_rise = self.t_rise if self.t_rise is not None else self.default_t_rise
             t_off = self.t_off if self.t_off is not None else self.default_t_off
             reconstructed_data = Neuron.get_restored_calcium(spike_data, t_rise, t_off)
-            self._reconstructed = TimeSeries(reconstructed_data, discrete=False, name="reconstructed")
+            self._reconstructed = TimeSeries(reconstructed_data, discrete=False, name=f"neuron_{self.cell_id}_reconstructed")
         return self._reconstructed
 
     def _shuffle_spikes_data_isi_based(self, seed=None):

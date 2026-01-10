@@ -521,7 +521,7 @@ def compute_spatial_information(
                 TimeSeries(neural_activity[i], discrete=False)
                 for i in range(neural_activity.shape[0])
             ]
-            neural_ts = MultiTimeSeries(neural_ts_list)
+            neural_ts = MultiTimeSeries(neural_ts_list, allow_zero_columns=True)
     else:
         neural_ts = neural_activity
 
@@ -530,7 +530,7 @@ def compute_spatial_information(
             raise ValueError("Positions must be 2D (X, Y)")
         x_ts = TimeSeries(positions[:, 0], discrete=False)
         y_ts = TimeSeries(positions[:, 1], discrete=False)
-        pos_2d_ts = MultiTimeSeries([x_ts, y_ts])
+        pos_2d_ts = MultiTimeSeries([x_ts, y_ts], allow_zero_columns=True)
     else:
         # Assume positions is already properly formatted
         if isinstance(positions, MultiTimeSeries):

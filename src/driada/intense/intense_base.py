@@ -403,6 +403,29 @@ def _build_fft_cache(
         Keys are stable identifiers from _get_ts_key() (names or hashes).
         None indicates loop fallback should be used for that pair.
     """
+    # Efficient duplicate name check: only validates when duplicate names exist
+    all_ts = list(ts_bunch1) + list(ts_bunch2)
+    all_names = [_get_ts_key(ts) for ts in all_ts]  # Will raise if any unnamed
+
+    # Fast path: if all names unique, no duplicates possible
+    if len(set(all_names)) != len(all_ts):
+        # Slow path: duplicates exist, check if they're the same object
+        name_to_ts_ids = {}
+        for ts in all_ts:
+            name = _get_ts_key(ts)
+            if name not in name_to_ts_ids:
+                name_to_ts_ids[name] = []
+            name_to_ts_ids[name].append(id(ts))
+
+        # Check if any name has multiple different objects
+        for name, ts_ids in name_to_ts_ids.items():
+            if len(set(ts_ids)) > 1:
+                # Same name, different objects = COLLISION!
+                raise ValueError(
+                    f"Cache collision: TimeSeries name '{name}' used for {len(set(ts_ids))} "
+                    f"different objects! This causes different data to share FFT cache."
+                )
+
     cache = {}
 
     for ts1 in ts_bunch1:
