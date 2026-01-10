@@ -460,22 +460,27 @@ def get_table_of_stats(
     for i in range(a):
         for j in range(b):
             if precomputed_mask[i, j]:
-                new_stats = {}  # DEFAULT_STATS.copy()
+                new_stats = {}
                 me = metable[i, j, 0]
-                random_mi_samples = metable[i, j, 1:]
-                pval = get_mi_distr_pvalue(random_mi_samples, me, distr_type=metric_distr_type)
                 opt_delay = optimal_delays[i, j]
 
                 if stage == 1:
+                    # Stage 1 only needs rank - skip expensive p-value fitting
+                    # criterion1() only checks pre_rval, not pre_pval
                     new_stats["pre_rval"] = ranks[i, j]
-                    new_stats["pre_pval"] = pval
+                    new_stats["pre_pval"] = None  # Not computed for performance
                     new_stats["opt_delay"] = opt_delay
-                    new_stats["me"] = metable[i, j, 0]  # Add MI value for stage 1 too
+                    new_stats["me"] = me
 
                 elif stage == 2:
+                    # Stage 2 needs p-value for multiple comparison correction
+                    random_mi_samples = metable[i, j, 1:]
+                    pval = get_mi_distr_pvalue(
+                        random_mi_samples, me, distr_type=metric_distr_type
+                    )
                     new_stats["rval"] = ranks[i, j]
                     new_stats["pval"] = pval
-                    new_stats["me"] = metable[i, j, 0]
+                    new_stats["me"] = me
                     new_stats["opt_delay"] = opt_delay
 
                 stage_stats[i][j].update(new_stats)

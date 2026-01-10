@@ -1204,7 +1204,7 @@ def test_optimal_delays_fft_auto_selection():
 
 
 def test_optimal_delays_fft_fallback_for_discrete():
-    """Test that FFT falls back to loop for discrete TimeSeries."""
+    """Test that FFT supports discrete-continuous pairs via FFT_DISCRETE."""
     from driada.intense.intense_base import calculate_optimal_delays
 
     length = 200
@@ -1217,7 +1217,7 @@ def test_optimal_delays_fft_fallback_for_discrete():
     ts_cont = [TimeSeries(cont_signal, discrete=False)]
     ts_disc = [TimeSeries(disc_signal, discrete=True)]
 
-    # engine='auto' should fall back to loop for discrete data
+    # engine='auto' should use FFT for discrete-continuous pairs
     delays = calculate_optimal_delays(
         ts_cont,
         ts_disc,
@@ -1231,23 +1231,26 @@ def test_optimal_delays_fft_fallback_for_discrete():
 
     assert delays.shape == (1, 1)
 
-    # engine='fft' should raise error for discrete data
-    with pytest.raises(ValueError, match="engine='fft'.*requires"):
-        calculate_optimal_delays(
-            ts_cont,
-            ts_disc,
-            metric="mi",
-            shift_window=20,
-            ds=1,
-            verbose=False,
-            mi_estimator="gcmi",
-            engine="fft",
-        )
+    # engine='fft' should now work for discrete-continuous pairs (FFT_DISCRETE)
+    delays_fft = calculate_optimal_delays(
+        ts_cont,
+        ts_disc,
+        metric="mi",
+        shift_window=20,
+        ds=1,
+        verbose=False,
+        mi_estimator="gcmi",
+        engine="fft",
+    )
+
+    assert delays_fft.shape == (1, 1)
+    # Results should be similar (may differ slightly due to implementation)
+    assert np.allclose(delays, delays_fft, atol=5)  # Allow small difference in delay frames
 
 
-def test_optimal_delays_fft_fallback_for_multitimeseries():
-    """Test that FFT falls back to loop for MultiTimeSeries."""
-    from driada.intense.intense_base import _should_use_fft_for_delays
+def test_optimal_delays_fft_supports_multitimeseries():
+    """Test that FFT supports MultiTimeSeries via FFT_MULTIVARIATE."""
+    from driada.intense.intense_base import get_fft_type, FFT_MULTIVARIATE
 
     length = 200
     np.random.seed(42)
@@ -1262,17 +1265,17 @@ def test_optimal_delays_fft_fallback_for_multitimeseries():
         [TimeSeries(signal2a, discrete=False), TimeSeries(signal2b, discrete=False)]
     )
 
-    # engine='auto' should return False for MultiTimeSeries (will fall back to loop)
-    use_fft = _should_use_fft_for_delays(
-        ts_uni, ts_multi, metric="mi", mi_estimator="gcmi", num_shifts=50, engine="auto"
+    # get_fft_type should return FFT_MULTIVARIATE for MTS pairs
+    fft_type = get_fft_type(
+        ts_uni, ts_multi, metric="mi", mi_estimator="gcmi", count=50, engine="auto"
     )
-    assert use_fft is False
+    assert fft_type == FFT_MULTIVARIATE
 
-    # engine='fft' should raise error for MultiTimeSeries
-    with pytest.raises(ValueError, match="engine='fft'.*requires"):
-        _should_use_fft_for_delays(
-            ts_uni, ts_multi, metric="mi", mi_estimator="gcmi", num_shifts=50, engine="fft"
-        )
+    # engine='fft' should also work for MultiTimeSeries
+    fft_type_forced = get_fft_type(
+        ts_uni, ts_multi, metric="mi", mi_estimator="gcmi", count=50, engine="fft"
+    )
+    assert fft_type_forced == FFT_MULTIVARIATE
 
 
 def test_optimal_delays_parallel_fft_matches_loop():

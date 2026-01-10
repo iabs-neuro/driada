@@ -16,7 +16,7 @@ from .gcmi import (
     cmi_ggg,
     gccmi_ccd,
 )
-from .info_utils import binary_mi_score, py_fast_digamma
+from .info_utils import binary_mi_score, py_fast_digamma, py_fast_digamma_arr
 from ..utils.data import correlation_matrix
 from .entropy import entropy_d, joint_entropy_dd, joint_entropy_cd, joint_entropy_cdd
 from ..dim_reduction.data import MVData
@@ -1845,6 +1845,286 @@ def compute_mi_gd_fft(
     from .entropy import mi_cd_fft
 
     return mi_cd_fft(copnorm_continuous, discrete_labels, shifts, biascorrect=biascorrect)
+
+
+def compute_mi_mts_fft(
+    copnorm_z: np.ndarray,
+    copnorm_x: np.ndarray,
+    shifts: np.ndarray,
+    biascorrect: bool = True,
+) -> np.ndarray:
+    """Compute MI(1D; dD) at multiple shifts using FFT for MultiTimeSeries.
+
+    FFT-accelerated MI computation between a univariate TimeSeries and a
+    d-dimensional MultiTimeSeries. Uses circular correlation to compute
+    cross-covariances for all shifts in O(d * n log n) time, then evaluates
+    MI via vectorized determinant computation.
+
+    Parameters
+    ----------
+    copnorm_z : ndarray of shape (n,)
+        Copula-normalized univariate variable (e.g., neural activity).
+    copnorm_x : ndarray of shape (d, n)
+        Copula-normalized multivariate variable (e.g., 2D position).
+        Each row is one dimension.
+    shifts : ndarray of shape (nsh,)
+        Shift indices to compute MI for. These are circular shifts
+        applied to copnorm_x before computing MI.
+    biascorrect : bool, default=True
+        Apply Panzeri-Treves bias correction for finite sample effects.
+
+    Returns
+    -------
+    mi_values : ndarray of shape (nsh,)
+        Mutual information values at each shift, in bits. Non-negative.
+
+    Raises
+    ------
+    NotImplementedError
+        If copnorm_x has more than 3 dimensions (d > 3).
+
+    Notes
+    -----
+    For d=2 (3x3 determinant) and d=3 (4x4 determinant), uses closed-form
+    vectorized determinant formulas for maximum performance.
+
+    The FFT computes cross-covariances Cov(Z, Xi) for all n possible shifts
+    in O(n log n) time per dimension. The invariant statistics (Var(Z),
+    covariance within X) are computed once.
+
+    Complexity: O(d * n log n) regardless of number of shifts, plus O(nsh)
+    for the vectorized determinant computation.
+
+    See Also
+    --------
+    compute_mi_batch_fft : FFT version for 1D-1D MI
+    compute_mi_gd_fft : FFT version for discrete-continuous MI
+    mi_gg : Reference implementation for multivariate Gaussian MI
+    """
+    n = len(copnorm_z)
+    copnorm_x = np.atleast_2d(copnorm_x)
+    d = copnorm_x.shape[0]  # dimensionality of MultiTimeSeries
+    nsh = len(shifts)
+    ln2 = np.log(2)
+
+    if d > 3:
+        raise NotImplementedError(
+            f"FFT-accelerated MI for MultiTimeSeries with d > 3 is not implemented. "
+            f"Got d={d}. Use engine='loop' for higher dimensions."
+        )
+
+    # Demean all variables (copnorm should be ~zero mean, but ensure stability)
+    z = copnorm_z - copnorm_z.mean()
+    x = copnorm_x - copnorm_x.mean(axis=1, keepdims=True)
+
+    # --- Step 1: Compute shift-invariant statistics (once) ---
+
+    # Variance of z (scalar)
+    var_z = np.var(z, ddof=1)
+
+    # Handle edge case of zero variance
+    if var_z < 1e-15:
+        return np.zeros(nsh)
+
+    # Covariance matrix of x (d x d) - shift-invariant
+    if d == 1:
+        cov_xx = np.array([[np.var(x[0], ddof=1)]])
+    else:
+        cov_xx = np.cov(x)  # uses ddof=1 by default
+
+    # H(Z) in nats (normalizations cancel for MI)
+    H_Z = 0.5 * np.log(var_z)
+
+    # H(X) via Cholesky - computed once
+    from .gcmi import regularized_cholesky
+
+    chol_xx = regularized_cholesky(cov_xx)
+    H_X = np.sum(np.log(np.diag(chol_xx)))
+
+    # --- Step 2: Compute shift-dependent cross-covariances via FFT ---
+
+    # FFT of z
+    fft_z = np.fft.rfft(z)
+
+    # Cross-covariance Cov(Z, Xi) for all shifts
+    cov_zx_all = np.zeros((d, n))
+    for i in range(d):
+        fft_xi = np.fft.rfft(x[i])
+        cross_corr = np.fft.irfft(fft_z * np.conj(fft_xi), n=n)
+        # Convert to covariance: cross_corr[s] = sum_j z[j] * x[i,(j+s) mod n]
+        # So cov[s] = cross_corr[s] / (n-1)
+        cov_zx_all[i] = cross_corr / (n - 1)
+
+    # Extract specific shifts
+    shifts_int = shifts.astype(int) % n
+    cov_zx = cov_zx_all[:, shifts_int]  # shape (d, nsh)
+
+    # --- Step 3: Compute H(Z,X) for all shifts (vectorized determinants) ---
+
+    if d == 1:
+        # 2x2 case: det = var_z * var_x - cov_zx^2
+        var_x = cov_xx[0, 0]
+        det_joint = var_z * var_x - cov_zx[0, :] ** 2
+        det_joint = np.maximum(det_joint, 1e-20)
+        H_ZX = 0.5 * np.log(det_joint)
+
+    elif d == 2:
+        # 3x3 case: closed-form determinant
+        H_ZX = _compute_joint_entropy_3x3_mts(var_z, cov_xx, cov_zx)
+
+    elif d == 3:
+        # 4x4 case: closed-form determinant
+        H_ZX = _compute_joint_entropy_4x4_mts(var_z, cov_xx, cov_zx)
+
+    # --- Step 4: Compute MI = H(Z) + H(X) - H(Z,X) ---
+
+    # Apply bias correction before combining
+    if biascorrect and n > 2:
+        # From mi_gg: bias correction terms
+        # psiterms = psi((n - k) / 2) / 2 for k = 1, 2, ..., dim
+        # dterm = (ln2 - log(n-1)) / 2
+        dterm = (ln2 - np.log(n - 1.0)) / 2.0
+
+        Nvarx = d
+        Nvary = 1
+        Nvarxy = d + 1
+
+        psiterms = py_fast_digamma_arr((n - np.arange(1, Nvarxy + 1)) / 2.0) / 2.0
+
+        H_Z = H_Z - Nvary * dterm - psiterms[:Nvary].sum()
+        H_X = H_X - Nvarx * dterm - psiterms[:Nvarx].sum()
+        H_ZX = H_ZX - Nvarxy * dterm - psiterms[:Nvarxy].sum()
+
+    MI = (H_Z + H_X - H_ZX) / ln2
+
+    return np.maximum(0, MI)
+
+
+def _compute_joint_entropy_3x3_mts(
+    var_z: float, cov_xx: np.ndarray, cov_zx: np.ndarray
+) -> np.ndarray:
+    """Vectorized 3x3 determinant for joint entropy H(Z,X) with d=2.
+
+    Joint covariance matrix structure:
+    [[var_z,    cov_zx[0], cov_zx[1]],
+     [cov_zx[0], cov_xx[0,0], cov_xx[0,1]],
+     [cov_zx[1], cov_xx[0,1], cov_xx[1,1]]]
+
+    Parameters
+    ----------
+    var_z : float
+        Variance of z (scalar).
+    cov_xx : ndarray of shape (2, 2)
+        Covariance matrix of x (shift-invariant).
+    cov_zx : ndarray of shape (2, nsh)
+        Cross-covariances Cov(Z, Xi) for each shift.
+
+    Returns
+    -------
+    H_ZX : ndarray of shape (nsh,)
+        Joint entropy H(Z,X) for each shift, in nats.
+    """
+    # Matrix elements (using cofactor expansion along first row)
+    # Sigma = [[a, b, c], [b, d, e], [c, e, f]]
+    a = var_z
+    b = cov_zx[0, :]  # shape (nsh,)
+    c = cov_zx[1, :]  # shape (nsh,)
+    d_val = cov_xx[0, 0]
+    e = cov_xx[0, 1]
+    f = cov_xx[1, 1]
+
+    # det = a*(d*f - e^2) - b*(b*f - c*e) + c*(b*e - c*d)
+    # Simplify: det = a*det_xx - b^2*f + b*c*e + c*b*e - c^2*d
+    #              = a*det_xx - f*b^2 - d*c^2 + 2*e*b*c
+    det_xx = d_val * f - e * e  # scalar (shift-invariant)
+    det = a * det_xx - f * b**2 - d_val * c**2 + 2 * e * b * c
+
+    # Ensure positive for log
+    det = np.maximum(det, 1e-20)
+
+    return 0.5 * np.log(det)
+
+
+def _compute_joint_entropy_4x4_mts(
+    var_z: float, cov_xx: np.ndarray, cov_zx: np.ndarray
+) -> np.ndarray:
+    """Vectorized 4x4 determinant for joint entropy H(Z,X) with d=3.
+
+    Joint covariance matrix structure:
+    [[var_z,     cov_zx[0], cov_zx[1], cov_zx[2]],
+     [cov_zx[0], c00,       c01,       c02      ],
+     [cov_zx[1], c01,       c11,       c12      ],
+     [cov_zx[2], c02,       c12,       c22      ]]
+
+    Parameters
+    ----------
+    var_z : float
+        Variance of z (scalar).
+    cov_xx : ndarray of shape (3, 3)
+        Covariance matrix of x (shift-invariant).
+    cov_zx : ndarray of shape (3, nsh)
+        Cross-covariances Cov(Z, Xi) for each shift.
+
+    Returns
+    -------
+    H_ZX : ndarray of shape (nsh,)
+        Joint entropy H(Z,X) for each shift, in nats.
+    """
+    # Extract elements for clarity
+    a = var_z
+    b = cov_zx[0, :]  # shape (nsh,)
+    c = cov_zx[1, :]
+    d = cov_zx[2, :]
+
+    # Covariance matrix elements of X (shift-invariant)
+    c00 = cov_xx[0, 0]
+    c01 = cov_xx[0, 1]
+    c02 = cov_xx[0, 2]
+    c11 = cov_xx[1, 1]
+    c12 = cov_xx[1, 2]
+    c22 = cov_xx[2, 2]
+
+    # Use cofactor expansion along first row:
+    # det(A) = a * M00 - b * M01 + c * M02 - d * M03
+    # where M_ij is the (i,j) minor
+
+    # M00 = det of 3x3 submatrix excluding row 0 and col 0
+    # [[c00, c01, c02], [c01, c11, c12], [c02, c12, c22]]
+    M00 = c00 * (c11 * c22 - c12 * c12) - c01 * (c01 * c22 - c12 * c02) + c02 * (
+        c01 * c12 - c11 * c02
+    )
+
+    # M01 = det of 3x3 submatrix excluding row 0 and col 1
+    # [[b, c01, c02], [c, c11, c12], [d, c12, c22]]
+    M01 = (
+        b * (c11 * c22 - c12 * c12)
+        - c01 * (c * c22 - c12 * d)
+        + c02 * (c * c12 - c11 * d)
+    )
+
+    # M02 = det of 3x3 submatrix excluding row 0 and col 2
+    # [[b, c00, c02], [c, c01, c12], [d, c02, c22]]
+    M02 = (
+        b * (c01 * c22 - c12 * c02)
+        - c00 * (c * c22 - c12 * d)
+        + c02 * (c * c02 - c01 * d)
+    )
+
+    # M03 = det of 3x3 submatrix excluding row 0 and col 3
+    # [[b, c00, c01], [c, c01, c11], [d, c02, c12]]
+    M03 = (
+        b * (c01 * c12 - c11 * c02)
+        - c00 * (c * c12 - c11 * d)
+        + c01 * (c * c02 - c01 * d)
+    )
+
+    # Full determinant
+    det = a * M00 - b * M01 + c * M02 - d * M03
+
+    # Ensure positive for log
+    det = np.maximum(det, 1e-20)
+
+    return 0.5 * np.log(det)
 
 
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=True):
