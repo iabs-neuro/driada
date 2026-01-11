@@ -1920,10 +1920,29 @@ def compute_mi_mts_fft(
     mi_gg : Reference implementation for multivariate Gaussian MI
     """
     n = len(copnorm_z)
-    copnorm_x = np.atleast_2d(copnorm_x)
+
+    # Explicit shape validation to prevent transpose bugs
+    if copnorm_x.ndim == 1:
+        copnorm_x = copnorm_x.reshape(1, -1)
+    elif copnorm_x.ndim == 2:
+        # Validate shape is (d, n) not (n, d)
+        if copnorm_x.shape[0] > copnorm_x.shape[1]:
+            raise ValueError(
+                f"MultiTimeSeries data shape looks transposed: {copnorm_x.shape}. "
+                f"Expected shape (d, n) with d <= 3 and n > d."
+            )
+    else:
+        raise ValueError(f"copnorm_x must be 1D or 2D, got {copnorm_x.ndim}D")
+
     d = copnorm_x.shape[0]  # dimensionality of MultiTimeSeries
     nsh = len(shifts)
     ln2 = np.log(2)
+
+    # Validate minimum sample size for bias correction (ddof=1 requires n >= 2)
+    if n < 2:
+        raise ValueError(
+            f"MultiTimeSeries FFT requires at least 2 samples for bias correction. Got n={n}."
+        )
 
     if d > 3:
         raise NotImplementedError(
@@ -2055,10 +2074,25 @@ def _compute_joint_entropy_3x3_mts(
     # Simplify: det = a*det_xx - b^2*f + b*c*e + c*b*e - c^2*d
     #              = a*det_xx - f*b^2 - d*c^2 + 2*e*b*c
     det_xx = d_val * f - e * e  # scalar (shift-invariant)
+
+    # Check for ill-conditioned covariance before using det_xx
+    if det_xx < 1e-15:
+        raise ValueError(
+            f"Covariance matrix is nearly singular (det_xx={det_xx:.2e}). "
+            f"MultiTimeSeries dimensions may be linearly dependent."
+        )
+
     det = a * det_xx - f * b**2 - d_val * c**2 + 2 * e * b * c
 
-    # Ensure positive for log
-    det = np.maximum(det, 1e-20)
+    # Check conditional covariance and regularize if needed
+    if np.any(det < 1e-15):
+        import warnings
+        warnings.warn(
+            f"Conditional covariance determinant near zero (min={np.min(det):.2e}). "
+            f"MI estimate may be unreliable. Applying regularization.",
+            UserWarning
+        )
+        det = np.maximum(det, 1e-15)
 
     return 0.5 * np.log(det)
 

@@ -405,26 +405,27 @@ def _build_fft_cache(
     """
     # Efficient duplicate name check: only validates when duplicate names exist
     all_ts = list(ts_bunch1) + list(ts_bunch2)
-    all_names = [_get_ts_key(ts) for ts in all_ts]  # Will raise if any unnamed
+    # Cache (ts, name) pairs to avoid calling _get_ts_key() twice
+    ts_name_pairs = [(ts, _get_ts_key(ts)) for ts in all_ts]  # Will raise if any unnamed
+    all_names = [name for _, name in ts_name_pairs]
 
     # Fast path: if all names unique, no duplicates possible
     if len(set(all_names)) != len(all_ts):
-        # Slow path: duplicates exist, check if they're the same object
-        name_to_ts_ids = {}
-        for ts in all_ts:
-            name = _get_ts_key(ts)
-            if name not in name_to_ts_ids:
-                name_to_ts_ids[name] = []
-            name_to_ts_ids[name].append(id(ts))
-
-        # Check if any name has multiple different objects
-        for name, ts_ids in name_to_ts_ids.items():
-            if len(set(ts_ids)) > 1:
-                # Same name, different objects = COLLISION!
-                raise ValueError(
-                    f"Cache collision: TimeSeries name '{name}' used for {len(set(ts_ids))} "
-                    f"different objects! This causes different data to share FFT cache."
-                )
+        # Slow path: duplicates exist, check if they have different data
+        # Use data equality instead of id() for pickle stability (loky backend)
+        name_to_data = {}
+        for ts, name in ts_name_pairs:
+            if name not in name_to_data:
+                # First occurrence of this name - store reference data
+                name_to_data[name] = ts.data
+            else:
+                # Duplicate name - check if data matches
+                if not np.array_equal(name_to_data[name], ts.data):
+                    # Same name, different data = COLLISION!
+                    raise ValueError(
+                        f"Cache collision: TimeSeries name '{name}' maps to different data! "
+                        f"Same names must have identical data to share FFT cache."
+                    )
 
     cache = {}
 
@@ -911,10 +912,20 @@ def calculate_optimal_delays_parallel(
     if n_jobs == -1:
         n_jobs = min(multiprocessing.cpu_count(), len(ts_bunch1))
 
-    split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs)
+    # Limit n_jobs to number of items to avoid empty worker splits
+    n_jobs_effective = min(n_jobs, len(ts_bunch1))
+    if n_jobs_effective < n_jobs and verbose:
+        import warnings
+        warnings.warn(
+            f"Requested {n_jobs} parallel jobs but only {len(ts_bunch1)} items to process. "
+            f"Using {n_jobs_effective} workers to avoid empty splits.",
+            UserWarning
+        )
+
+    split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs_effective)
     split_ts_bunch1 = [np.array(ts_bunch1)[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_delays = Parallel(n_jobs=n_jobs, backend=_get_joblib_backend(), verbose=True)(
+    parallel_delays = Parallel(n_jobs=n_jobs_effective, backend=_get_joblib_backend(), verbose=True)(
         delayed(calculate_optimal_delays)(
             small_ts_bunch,
             ts_bunch2,
@@ -1549,14 +1560,24 @@ def scan_pairs_parallel(
         ts_bunch1, ts_bunch2, optimal_delays, nsh, seed if seed is not None else 0, ds
     )
 
+    # Limit n_jobs to number of items to avoid empty worker splits
+    n_jobs_effective = min(n_jobs, len(ts_bunch1))
+    if n_jobs_effective < n_jobs:
+        import warnings
+        warnings.warn(
+            f"Requested {n_jobs} parallel jobs but only {len(ts_bunch1)} items to process. "
+            f"Using {n_jobs_effective} workers to avoid empty splits.",
+            UserWarning
+        )
+
     # Split work across workers
-    split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs)
+    split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs_effective)
     split_ts_bunch1 = [np.array(ts_bunch1)[idxs] for idxs in split_ts_bunch1_inds]
     split_optimal_delays = [optimal_delays[idxs] for idxs in split_ts_bunch1_inds]
     split_random_shifts = [random_shifts[idxs] for idxs in split_ts_bunch1_inds]
     split_mask = [mask[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_result = Parallel(n_jobs=n_jobs, backend=_get_joblib_backend(), verbose=True)(
+    parallel_result = Parallel(n_jobs=n_jobs_effective, backend=_get_joblib_backend(), verbose=True)(
         delayed(scan_pairs)(
             small_ts_bunch,
             ts_bunch2,
@@ -2540,6 +2561,16 @@ def compute_me_stats(
                         print(f"Warning: {msg}")
 
         optimal_delays = np.zeros((n1, n2), dtype=int)
+
+        # Validate skip_delays indices before use
+        if skip_delays:
+            invalid_indices = [i for i in skip_delays if i < 0 or i >= len(ts_bunch2)]
+            if invalid_indices:
+                raise ValueError(
+                    f"skip_delays contains invalid indices {invalid_indices}. "
+                    f"Valid range: [0, {len(ts_bunch2)-1}] for {len(ts_bunch2)} features."
+                )
+
         ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if _ not in skip_delays]
         ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if _ not in skip_delays])
 
@@ -2757,6 +2788,11 @@ def compute_me_stats(
             final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
             return final_stats, final_significance, accumulated_info
     finally:
+        # Free FFT cache memory explicitly to prevent accumulation
+        if 'fft_cache' in locals() and fft_cache is not None:
+            fft_cache.clear()
+            del fft_cache
+
         # Restore original names to leave objects unchanged
         for i, ts in enumerate(ts_bunch1):
             ts.name = original_names1[i]
