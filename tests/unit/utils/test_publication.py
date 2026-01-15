@@ -190,18 +190,18 @@ class TestStylePreset:
         # Double the linear dimensions (16×16 vs 8×8): scale = sqrt(256/64) = 2.0
         assert style.calculate_scale_factor((16, 16), "cm") == pytest.approx(2.0)
 
-    def test_nature_journal_preset(self):
+    def test_publication_default_preset(self):
         """Test Nature journal preset uses fixed scaling by default."""
-        style = StylePreset.nature_journal()
+        style = StylePreset.publication_default()
 
-        assert style.name == "nature"
+        assert style.name == "publication"
         assert style.scaling_mode == "fixed"
         assert style.base_spine_width == 1.5
         assert style.base_label_size == 10
 
-    def test_nature_journal_with_area_scaling(self):
+    def test_publication_default_with_area_scaling(self):
         """Test Nature journal preset with area scaling."""
-        style = StylePreset.nature_journal(scaling_mode="area")
+        style = StylePreset.publication_default(scaling_mode="area")
 
         assert style.scaling_mode == "area"
         # Different sizes should have different scale factors
@@ -217,7 +217,7 @@ class TestStylePreset:
     def test_apply_to_axes(self):
         """Test applying style to axes."""
         fig, ax = plt.subplots()
-        style = StylePreset.nature_journal()
+        style = StylePreset.publication_default()
 
         # Should not raise
         style.apply_to_axes(ax, (8, 6), "cm")
@@ -231,7 +231,7 @@ class TestStylePreset:
 
     def test_copy_preset(self):
         """Test copying preset with modifications."""
-        original = StylePreset.nature_journal()
+        original = StylePreset.publication_default()
         modified = original.copy(base_label_size=12, scaling_mode="area")
 
         assert modified.base_label_size == 12
@@ -287,7 +287,7 @@ class TestIntegration:
         layout.add_panel("B", size=(12, 12), position=(0, 1))
         layout.set_grid(rows=1, cols=2)
 
-        style = StylePreset.nature_journal()  # Uses fixed scaling
+        style = StylePreset.publication_default()  # Uses fixed scaling
         fig, axes = layout.create_figure(style=style)
 
         # Add some content
@@ -313,7 +313,7 @@ class TestIntegration:
         layout.add_panel("D", size=(16, 5), position=(1, 0), col_span=3)
         layout.set_grid(rows=2, cols=3)
 
-        style = StylePreset.nature_journal()
+        style = StylePreset.publication_default()
         fig, axes = layout.create_figure(style=style)
 
         assert len(axes) == 4

@@ -392,6 +392,10 @@ def plot_neuron_feature_pair(
     ds=1,
     add_density_plot=True,
     ax=None,
+    axs=None,
+    style=None,
+    panel_size=None,
+    skip_tight_layout=False,
     title=None,
     bcolor="g",
     neuron_label=None,
@@ -418,7 +422,18 @@ def plot_neuron_feature_pair(
     add_density_plot : bool, optional
         Whether to add density subplot. Default: True.
     ax : matplotlib.axes.Axes, optional
-        Axes to plot on. Forces add_density_plot=False when provided.
+        Single axis to plot on. Forces add_density_plot=False when provided.
+    axs : tuple of matplotlib.axes.Axes, optional
+        Tuple of (ax_timeseries, ax_density) for external 2-panel layout.
+        Enables density plot with external axes.
+    style : StylePreset, optional
+        Style preset from publication framework. If None, uses
+        StylePreset.from_make_beautiful() for backward compatibility.
+    panel_size : tuple of float, optional
+        (width, height) in cm for style scaling. Default: (20, 6).
+    skip_tight_layout : bool, optional
+        If True, skip plt.tight_layout() call. Useful for subfigure layouts.
+        Default: False.
     title : str, optional
         Custom title for the plot.
     bcolor : str, optional
@@ -445,10 +460,10 @@ def plot_neuron_feature_pair(
     Notes
     -----
     - Discrete features shown as shaded regions where active
-    - Uses make_beautiful() for axis styling with legends below
+    - Uses StylePreset for axis styling with legends below
     - Y-axis formatted to 1 decimal place
     - Dark gray for non-feature distribution in density plot
-    - Calls plt.tight_layout() with bottom adjustment for legends
+    - Calls plt.tight_layout() with bottom adjustment for legends (unless skip_tight_layout=True)
 
     Examples
     --------
@@ -466,6 +481,19 @@ def plot_neuron_feature_pair(
     ...                               non_feature_label='No Object')
     >>> plt.close(fig)
     """
+    from ..utils.publication import StylePreset
+
+    # Default to standalone preset if not provided
+    if style is None:
+        style = StylePreset.from_make_beautiful()
+
+    # Default panel size for standalone
+    if panel_size is None:
+        panel_size = (20, 6)
+
+    # Get scaled style values
+    line_width = style.get_line_width(panel_size, 'cm')
+    kde_line_width = line_width * 1.5
 
     ind2 = min(exp.n_frames, ind2)
     ca = exp.neurons[cell_id].ca.scdata[ind1:ind2][::ds]
@@ -482,23 +510,29 @@ def plot_neuron_feature_pair(
     if non_feature_label is None:
         non_feature_label = f"non-{featname}"
 
-    if ax is None:
-        if add_density_plot:
-            fig, axs = plt.subplots(1, 2, figsize=(20, 6), width_ratios=[0.7, 0.3], dpi=300)
-            ax0, ax1 = axs
-            ax1 = make_beautiful(ax1, legend_loc="below", legend_offset=0.25, legend_ncol=1)
-        else:
-            fig, ax0 = plt.subplots(figsize=(20, 6), dpi=300)
-            ax1 = None
-    else:
+    # Handle axes: axs tuple > ax single > create new
+    if axs is not None:
+        # External 2-panel axes provided
+        ax0, ax1 = axs
+        fig = ax0.figure
+    elif ax is not None:
+        # Single axis provided - no density plot
         ax0 = ax
         ax1 = None
         add_density_plot = False
         fig = ax0.figure
+    else:
+        # Create new figure
+        if add_density_plot:
+            fig, axes_tuple = plt.subplots(1, 2, figsize=(20, 6), width_ratios=[0.7, 0.3], dpi=300)
+            ax0, ax1 = axes_tuple
+        else:
+            fig, ax0 = plt.subplots(figsize=(20, 6), dpi=300)
+            ax1 = None
 
     xvals = np.arange(ind1, ind2)[::ds] / 20.0
 
-    ax0.plot(xvals, ca, c="b", linewidth=3, alpha=0.6, label=neuron_label)
+    ax0.plot(xvals, ca, c="b", linewidth=line_width, alpha=0.6, label=neuron_label)
     if feature.discrete:
         ax0 = plot_shadowed_groups(
             ax0,
@@ -509,50 +543,57 @@ def plot_neuron_feature_pair(
             label=feature_label,
         )
     else:
-        ax0.plot(xvals, rbdata, c="r", linewidth=2, alpha=0.5, label=feature_label)
+        ax0.plot(xvals, rbdata, c="r", linewidth=line_width * 0.7, alpha=0.5, label=feature_label)
 
-    # Changed ncol from 2 to 1 to stack labels vertically
-    ax0.legend(fontsize=24, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=1, frameon=False)
-    ax0.set_xlabel("time, s", fontsize=30)
-    ax0.set_ylabel("signal", fontsize=30)
+    # Set axis labels
+    ax0.set_xlabel("time, s")
+    ax0.set_ylabel("signal")
 
     if title is None:
         title = f"{exp.signature} Neuron {cell_id}, feature {featname}"
 
-    # apply styling with ncol=1 for vertical stacking
-    ax0 = make_beautiful(
-        ax0, legend_loc="below", legend_offset=0.25, legend_fontsize=24, legend_ncol=1
+    # Apply framework styling
+    style.apply_to_axes(ax0, panel_size, 'cm')
+
+    # Legend for time series
+    ax0.legend(
+        fontsize=style.base_legend_fontsize,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.25),
+        ncol=1,
+        frameon=style.legend_frameon,
     )
 
     # Format y-axis tick labels to 1 decimal place with proper rounding
     ax0.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f"{round(x, 6):.1f}"))
 
-    if add_density_plot:
+    if add_density_plot and ax1 is not None:
         if feature.discrete:
             vals0 = np.log10(ca[np.where((rbdata == min(rbdata)) & (ca > 0))] + 1e-10)
             vals1 = np.log10(ca[np.where((rbdata == max(rbdata)) & (ca > 0))] + 1e-10)
             if len(vals0) > 0 and len(vals1) > 0:
                 wsd = wasserstein_distance(vals0, vals1)
                 _ = sns.kdeplot(
-                    vals0, ax=ax1, c="dimgray", label=non_feature_label, linewidth=5, bw_adjust=0.1
+                    vals0, ax=ax1, c="dimgray", label=non_feature_label,
+                    linewidth=kde_line_width, bw_adjust=0.1
                 )
                 _ = sns.kdeplot(
-                    vals1, ax=ax1, c=bcolor, label=feature_label, linewidth=5, bw_adjust=0.1
+                    vals1, ax=ax1, c=bcolor, label=feature_label,
+                    linewidth=kde_line_width, bw_adjust=0.1
                 )
+
+                ax1.set_xlabel(r"$\log$(signal)")
+                ax1.set_ylabel("density")
+
+                # Apply framework styling
+                style.apply_to_axes(ax1, panel_size, 'cm')
 
                 ax1.legend(
                     loc="upper center",
                     bbox_to_anchor=(0.5, -0.25),
-                    fontsize=20,
+                    fontsize=style.base_legend_fontsize,
                     ncol=1,
-                    frameon=False,
-                )
-                ax1.set_xlabel(r"$\log$(signal)", fontsize=30)
-                ax1.set_ylabel("density", fontsize=30)
-
-                # apply styling with ncol=1
-                ax1 = make_beautiful(
-                    ax1, legend_loc="below", legend_offset=0.25, legend_fontsize=24, legend_ncol=1
+                    frameon=style.legend_frameon,
                 )
 
                 ax1.set_xlim(-4.0, 0.5)
@@ -571,20 +612,19 @@ def plot_neuron_feature_pair(
 
             # plot a density
             ax1.pcolormesh(xi, yi, zi.reshape(xi.shape), shading="auto", cmap="coolwarm")
-            ax1.set_xlabel(r"$\log$(signal)", fontsize=30)
-            ax1.set_ylabel(rf"$\log$({featname})", fontsize=30)
+            ax1.set_xlabel(r"$\log$(signal)")
+            ax1.set_ylabel(rf"$\log$({featname})")
 
-            # apply styling with ncol=1
-            ax1 = make_beautiful(
-                ax1, legend_loc="below", legend_offset=0.25, legend_fontsize=24, legend_ncol=1
-            )
+            # Apply framework styling
+            style.apply_to_axes(ax1, panel_size, 'cm')
 
             # Format y-axis tick labels to 1 decimal place for density plot
             ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f"{x:.1f}"))
 
-    plt.tight_layout()
-    # Add extra space at bottom for legends
-    plt.subplots_adjust(bottom=0.15)
+    if not skip_tight_layout:
+        plt.tight_layout()
+        # Add extra space at bottom for legends
+        plt.subplots_adjust(bottom=0.15)
 
     return fig
 

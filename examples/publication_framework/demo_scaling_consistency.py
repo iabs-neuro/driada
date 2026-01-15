@@ -47,7 +47,7 @@ def demo_scaling_consistency():
     layout.set_grid(rows=2, cols=2)
 
     # Create figure with auto-scaling style
-    style = StylePreset.nature_journal()
+    style = StylePreset.publication_default()
     fig, axes = layout.create_figure(style=style)
 
     # Plot the SAME data in all three panels
@@ -132,7 +132,7 @@ def demo_with_vs_without_scaling():
     layout2.set_grid(rows=1, cols=2)
 
     # Use the default StylePreset with fixed physical sizing
-    style = StylePreset.nature_journal()  # Default: scaling_mode='fixed'
+    style = StylePreset.publication_default()  # Default: scaling_mode='fixed'
     fig2, axes2 = layout2.create_figure(style=style)
 
     for name, ax in axes2.items():
@@ -171,7 +171,7 @@ def demo_realistic_multi_panel():
     layout.add_panel('D', size=(16.2, 5), position=(1, 0), col_span=3)
     layout.set_grid(rows=2, cols=3)
 
-    style = StylePreset.nature_journal()
+    style = StylePreset.publication_default()
     fig, axes = layout.create_figure(style=style)
 
     # Panel A: Scatter

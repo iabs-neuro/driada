@@ -5,8 +5,9 @@ based on panel physical size to maintain consistent visual density across panels
 """
 
 import numpy as np
-from typing import Tuple, Optional, Literal
-from dataclasses import dataclass
+import matplotlib.pyplot as plt
+from typing import Tuple, Optional, Literal, Dict, List, Any
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -45,6 +46,12 @@ class StylePreset:
         Title font size in points (same physical size on all panels)
     base_legend_fontsize : float, default 8
         Legend font size in points (same physical size on all panels)
+    base_line_width : float, default 1.5
+        Line width for data visualization in points
+    base_marker_size : float, default 3.0
+        Marker size for scatter plots in points
+    base_annotation_fontsize : float, default 8.0
+        Font size for text annotations (e.g., "neuron 36") in points
     scaling_mode : {'fixed', 'area'}, default 'fixed'
         Scaling behavior:
         - 'fixed': Same physical size on all panels (DEFAULT, recommended)
@@ -52,8 +59,8 @@ class StylePreset:
 
     Examples
     --------
-    >>> # Create a Nature journal preset with fixed physical sizing
-    >>> style = StylePreset.nature_journal()
+    >>> # Create a publication preset with fixed physical sizing
+    >>> style = StylePreset.publication_default()
     >>> # Apply to any panel - fonts will have same physical size
     >>> style.apply_to_axes(ax, (8, 8), 'cm')
     >>> style.apply_to_axes(ax2, (4, 4), 'cm')  # Same font size as above!
@@ -72,6 +79,11 @@ class StylePreset:
     base_label_size: float = 10
     base_title_size: float = 10
     base_legend_fontsize: float = 8
+
+    # Data visualization parameters (for plot lines, markers, annotations)
+    base_line_width: float = 1.5
+    base_marker_size: float = 3.0
+    base_annotation_fontsize: float = 8.0
 
     # Additional style parameters
     legend_frameon: bool = False
@@ -119,6 +131,78 @@ class StylePreset:
 
         return scale
 
+    def get_line_width(
+        self,
+        panel_size: Optional[Tuple[float, float]] = None,
+        panel_units: Literal["cm", "inches"] = "cm",
+    ) -> float:
+        """Get scaled line width for data visualization.
+
+        Parameters
+        ----------
+        panel_size : tuple of float, optional
+            (width, height) of the panel. If None, returns base value.
+        panel_units : {'cm', 'inches'}, default 'cm'
+            Units for panel_size
+
+        Returns
+        -------
+        float
+            Line width in points, scaled according to scaling_mode
+        """
+        if panel_size is None:
+            return self.base_line_width
+        scale = self.calculate_scale_factor(panel_size, panel_units)
+        return self.base_line_width * scale
+
+    def get_marker_size(
+        self,
+        panel_size: Optional[Tuple[float, float]] = None,
+        panel_units: Literal["cm", "inches"] = "cm",
+    ) -> float:
+        """Get scaled marker size for scatter plots.
+
+        Parameters
+        ----------
+        panel_size : tuple of float, optional
+            (width, height) of the panel. If None, returns base value.
+        panel_units : {'cm', 'inches'}, default 'cm'
+            Units for panel_size
+
+        Returns
+        -------
+        float
+            Marker size in points, scaled according to scaling_mode
+        """
+        if panel_size is None:
+            return self.base_marker_size
+        scale = self.calculate_scale_factor(panel_size, panel_units)
+        return self.base_marker_size * scale
+
+    def get_annotation_fontsize(
+        self,
+        panel_size: Optional[Tuple[float, float]] = None,
+        panel_units: Literal["cm", "inches"] = "cm",
+    ) -> float:
+        """Get scaled font size for text annotations.
+
+        Parameters
+        ----------
+        panel_size : tuple of float, optional
+            (width, height) of the panel. If None, returns base value.
+        panel_units : {'cm', 'inches'}, default 'cm'
+            Units for panel_size
+
+        Returns
+        -------
+        float
+            Font size in points, scaled according to scaling_mode
+        """
+        if panel_size is None:
+            return self.base_annotation_fontsize
+        scale = self.calculate_scale_factor(panel_size, panel_units)
+        return self.base_annotation_fontsize * scale
+
     def apply_to_axes(
         self, ax, panel_size: Tuple[float, float], panel_units: Literal["cm", "inches"] = "cm"
     ) -> None:
@@ -135,7 +219,7 @@ class StylePreset:
 
         Examples
         --------
-        >>> style = StylePreset.nature_journal()
+        >>> style = StylePreset.publication_default()
         >>> fig, ax = plt.subplots(figsize=(3, 3))
         >>> style.apply_to_axes(ax, (8, 8), 'cm')
         """
@@ -185,11 +269,148 @@ class StylePreset:
         # Note: tight_layout is better handled at figure save time with bbox_inches='tight'
         # We don't force margins here to allow flexibility in plot content
 
-    @classmethod
-    def nature_journal(cls, scaling_mode: Literal["fixed", "area"] = "fixed") -> "StylePreset":
-        """Create a preset styled for Nature journal specifications.
+    def apply_to_subfigure(
+        self,
+        subfig: "plt.SubFigure",
+        panel_size: Tuple[float, float],
+        panel_units: Literal["cm", "inches"] = "cm",
+        legend_config: Optional[Dict[str, Any]] = None,
+        margins: Optional[Dict[str, float]] = None,
+    ) -> None:
+        """Apply consistent styling to ALL axes in a subfigure.
 
-        Nature requires figures with precise dimensions and professional appearance.
+        This method is designed for multi-panel figures where each panel is a
+        SubFigure that may contain multiple internal axes (e.g., stacked traces).
+        It ensures all axes within the subfigure have consistent styling.
+
+        Parameters
+        ----------
+        subfig : matplotlib.figure.SubFigure
+            The subfigure containing axes to style
+        panel_size : tuple of float
+            (width, height) of the panel in panel_units
+        panel_units : {'cm', 'inches'}, default 'cm'
+            Units for panel_size
+        legend_config : dict, optional
+            Configuration for legend positioning:
+            - 'ax_index': int, which axis to attach legend to (default: -1, last axis)
+            - 'loc': str, 'below' or 'right' (default: 'below')
+            - 'ncol': int, number of columns (default: 2)
+            - 'handles': list, explicit legend handles (optional)
+            - 'labels': list, explicit legend labels (optional)
+        margins : dict, optional
+            Subfigure margins as fractions: {'left', 'right', 'top', 'bottom', 'hspace', 'wspace'}
+            Default: {'left': 0.12, 'right': 0.95, 'top': 0.95, 'bottom': 0.18}
+
+        Examples
+        --------
+        >>> layout = PanelLayout(units='cm', dpi=300)
+        >>> layout.add_panel('A', size=(11.85, 7.0), position=(0, 0))
+        >>> fig, subfigs = layout.create_figure_with_subfigures()
+        >>> axs = subfigs['A'].subplots(3, 1, sharex=True)
+        >>> # ... plot data ...
+        >>> style = StylePreset.fixed_size()
+        >>> style.apply_to_subfigure(
+        ...     subfigs['A'],
+        ...     layout.get_panel_size('A'),
+        ...     legend_config={'loc': 'below', 'ncol': 2}
+        ... )
+        """
+        # Get all axes in the subfigure
+        axes = subfig.get_axes()
+        if not axes:
+            return
+
+        # Apply styling to each axis
+        for ax in axes:
+            self.apply_to_axes(ax, panel_size, panel_units)
+
+        # Apply margins
+        default_margins = {
+            'left': 0.12,
+            'right': 0.95,
+            'top': 0.95,
+            'bottom': 0.18,
+            'hspace': 0.08,
+            'wspace': 0.3,
+        }
+        if margins:
+            default_margins.update(margins)
+        subfig.subplots_adjust(**default_margins)
+
+        # Handle legend positioning
+        if legend_config:
+            self._apply_legend_to_subfigure(axes, legend_config)
+
+    def _apply_legend_to_subfigure(
+        self,
+        axes: List[plt.Axes],
+        config: Dict[str, Any],
+    ) -> None:
+        """Position legend consistently within a subfigure.
+
+        Parameters
+        ----------
+        axes : list of matplotlib.axes.Axes
+            List of axes in the subfigure
+        config : dict
+            Legend configuration with keys:
+            - 'ax_index': int, which axis to attach legend to (default: -1)
+            - 'loc': str, 'below' or 'right' (default: 'below')
+            - 'ncol': int, number of columns (default: 2)
+            - 'handles': list, explicit legend handles (optional)
+            - 'labels': list, explicit legend labels (optional)
+            - 'offset': float, vertical offset for 'below' (default: 0.15)
+        """
+        ax_idx = config.get('ax_index', -1)
+        ax = axes[ax_idx]
+        loc = config.get('loc', 'below')
+        ncol = config.get('ncol', 2)
+        offset = config.get('offset', 0.15)
+        handles = config.get('handles')
+        labels = config.get('labels')
+
+        # Calculate scale factor for legend fontsize
+        # (legend_config might be applied after apply_to_axes, so we use base values)
+        legend_fontsize = self.base_legend_fontsize
+
+        legend_kwargs = {
+            'frameon': self.legend_frameon,
+            'fontsize': legend_fontsize,
+            'ncol': ncol,
+        }
+
+        if handles is not None:
+            legend_kwargs['handles'] = handles
+        if labels is not None:
+            legend_kwargs['labels'] = labels
+
+        if loc == 'below':
+            legend_kwargs.update({
+                'loc': 'upper center',
+                'bbox_to_anchor': (0.5, -offset),
+                'borderaxespad': 0.0,
+            })
+        elif loc == 'right':
+            legend_kwargs.update({
+                'loc': 'center left',
+                'bbox_to_anchor': (1.02, 0.5),
+                'borderaxespad': 0.0,
+            })
+        elif loc == 'above':
+            legend_kwargs.update({
+                'loc': 'lower center',
+                'bbox_to_anchor': (0.5, 1 + offset),
+                'borderaxespad': 0.0,
+            })
+
+        ax.legend(**legend_kwargs)
+
+    @classmethod
+    def publication_default(cls, scaling_mode: Literal["fixed", "area"] = "fixed") -> "StylePreset":
+        """Create a preset with sensible defaults for publication figures.
+
+        Provides professional-looking figures with readable fonts and clean lines.
         By default, uses fixed physical sizing so all panels have identical font
         and line sizes when measured with a ruler on the printed page.
 
@@ -202,18 +423,18 @@ class StylePreset:
         Returns
         -------
         StylePreset
-            Configured preset for Nature journal
+            Configured preset for publication figures
 
         Examples
         --------
         >>> # Default: fixed physical size across all panels
-        >>> style = StylePreset.nature_journal()
+        >>> style = StylePreset.publication_default()
         >>>
         >>> # Optional: area-based scaling for visual density preservation
-        >>> style_area = StylePreset.nature_journal(scaling_mode='area')
+        >>> style_area = StylePreset.publication_default(scaling_mode='area')
         """
         return cls(
-            name="nature",
+            name="publication",
             reference_size=(8.0, 8.0),
             reference_units="cm",
             base_spine_width=1.5,
@@ -224,6 +445,9 @@ class StylePreset:
             base_label_size=10,
             base_title_size=10,
             base_legend_fontsize=8,
+            base_line_width=1.5,
+            base_marker_size=3.0,
+            base_annotation_fontsize=8.0,
             legend_frameon=False,
             lowercase_labels=False,
             tight_layout=True,
@@ -239,7 +463,7 @@ class StylePreset:
         ensuring consistent absolute physical size when printed.
 
         Note: This is now the DEFAULT behavior, so StylePreset() and
-        StylePreset.nature_journal() already use fixed sizing. This method
+        StylePreset.publication_default() already use fixed sizing. This method
         is provided for explicit clarity.
 
         Parameters
@@ -271,6 +495,9 @@ class StylePreset:
             "base_label_size": 10,
             "base_title_size": 10,
             "base_legend_fontsize": 8,
+            "base_line_width": 1.5,
+            "base_marker_size": 3.0,
+            "base_annotation_fontsize": 8.0,
             "legend_frameon": False,
             "lowercase_labels": False,
             "tight_layout": True,
@@ -338,6 +565,9 @@ class StylePreset:
             base_label_size=label_size,
             base_title_size=title_size,
             base_legend_fontsize=legend_fontsize,
+            base_line_width=2.0,  # make_beautiful typical default
+            base_marker_size=5.0,
+            base_annotation_fontsize=20.0,
             legend_frameon=False,
             lowercase_labels=True,  # make_beautiful default
             tight_layout=True,
@@ -358,7 +588,7 @@ class StylePreset:
 
         Examples
         --------
-        >>> style = StylePreset.nature_journal()
+        >>> style = StylePreset.publication_default()
         >>> larger_fonts = style.copy(base_label_size=12, base_title_size=14)
         >>> area_scaled = style.copy(scaling_mode='area')
         """
@@ -375,6 +605,9 @@ class StylePreset:
             "base_label_size": self.base_label_size,
             "base_title_size": self.base_title_size,
             "base_legend_fontsize": self.base_legend_fontsize,
+            "base_line_width": self.base_line_width,
+            "base_marker_size": self.base_marker_size,
+            "base_annotation_fontsize": self.base_annotation_fontsize,
             "legend_frameon": self.legend_frameon,
             "lowercase_labels": self.lowercase_labels,
             "tight_layout": self.tight_layout,

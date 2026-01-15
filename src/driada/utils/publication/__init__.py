@@ -34,7 +34,7 @@ Quick Start
 >>> layout.set_grid(rows=1, cols=2)
 >>>
 >>> # Create figure - all panels get SAME physical font/line sizes
->>> style = StylePreset.nature_journal()
+>>> style = StylePreset.publication_default()
 >>> fig, axes = layout.create_figure(style=style)
 >>>
 >>> # Plot data - fonts will be identical physical size in both panels!

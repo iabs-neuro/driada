@@ -41,7 +41,7 @@ def demo_simple_two_panel():
     layout.set_grid(rows=1, cols=2)
 
     # Create figure with Nature journal styling
-    style = StylePreset.nature_journal()
+    style = StylePreset.publication_default()
     fig, axes = layout.create_figure(style=style)
 
     # Plot data
@@ -88,7 +88,7 @@ def demo_complex_layout():
     layout.set_grid(rows=2, cols=2)
 
     # Create figure with auto-scaling
-    style = StylePreset.nature_journal()
+    style = StylePreset.publication_default()
     fig, axes = layout.create_figure(style=style)
 
     # Panel A: Scatter plot
@@ -179,7 +179,7 @@ def demo_external_panel():
     layout.set_grid(rows=1, cols=2)
 
     # Create figure
-    style = StylePreset.nature_journal()
+    style = StylePreset.publication_default()
     fig, axes = layout.create_figure(style=style)
 
     # Panel A: Python plot
@@ -220,7 +220,7 @@ def demo_units_comparison():
     layout_cm.add_panel('A', size=(8, 6))
     layout_cm.set_grid(rows=1, cols=1)
 
-    style = StylePreset.nature_journal()
+    style = StylePreset.publication_default()
     fig1, axes1 = layout_cm.create_figure(style=style)
     axes1['A'].plot(x, y, 'b-')
     axes1['A'].set_xlabel('X (cm units)')
