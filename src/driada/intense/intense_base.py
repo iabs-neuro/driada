@@ -2254,6 +2254,78 @@ class IntenseResults(object):
 
         return metrics
 
+    def memory_usage(self):
+        """
+        Return memory usage breakdown in bytes.
+
+        Analyzes the memory consumption of all stored data in the IntenseResults
+        object, providing a detailed breakdown by attribute. Useful for diagnosing
+        memory issues and verifying that memory optimizations (like store_random_shifts=False)
+        are working as expected.
+
+        Returns
+        -------
+        usage : dict
+            Dictionary mapping attribute names to their memory usage in bytes.
+            Keys include:
+            - "info.{key}": Memory for each numpy array in the info dict
+            - "info.{key}": Memory for DataFrames in info (sum of all columns)
+            - "stats": Approximate memory for stats dict
+            - "significance": Approximate memory for significance dict
+
+        Notes
+        -----
+        - For numpy arrays, uses the .nbytes attribute for accurate measurement
+        - For pandas DataFrames, uses memory_usage(deep=True) for accurate measurement
+        - For other objects, uses sys.getsizeof() which may underestimate nested structures
+        - The "random_shifts1" and "random_shifts2" arrays are the largest consumers
+          when store_random_shifts=True
+
+        Examples
+        --------
+        >>> from driada.intense import IntenseResults
+        >>> import numpy as np
+        >>> results = IntenseResults()
+        >>> results.update('info', {
+        ...     'me_total1': np.zeros((10, 5, 101)),
+        ...     'me_total2': np.zeros((10, 5, 10001))
+        ... })
+        >>> usage = results.memory_usage()
+        >>> 'info.me_total1' in usage
+        True
+        >>> usage['info.me_total1']
+        40400
+        """
+        import sys
+        import numpy as np
+
+        usage = {}
+
+        if hasattr(self, 'info') and isinstance(self.info, dict):
+            for key, val in self.info.items():
+                if isinstance(val, np.ndarray):
+                    usage[f"info.{key}"] = val.nbytes
+                elif isinstance(val, list) and val:
+                    # Check if list of DataFrames
+                    if hasattr(val[0], 'memory_usage'):
+                        total = sum(df.memory_usage(deep=True).sum() for df in val)
+                        usage[f"info.{key}"] = int(total)
+                    else:
+                        usage[f"info.{key}"] = sys.getsizeof(val)
+                else:
+                    usage[f"info.{key}"] = sys.getsizeof(val)
+
+        if hasattr(self, 'stats'):
+            usage["stats"] = sys.getsizeof(self.stats)
+
+        if hasattr(self, 'significance'):
+            usage["significance"] = sys.getsizeof(self.significance)
+
+        if hasattr(self, 'intense_params'):
+            usage["intense_params"] = sys.getsizeof(self.intense_params)
+
+        return usage
+
 
 def compute_me_stats(
     ts_bunch1,
@@ -2285,6 +2357,7 @@ def compute_me_stats(
     n_jobs=-1,
     duplicate_behavior="ignore",
     engine="auto",
+    store_random_shifts=False,
 ):
     """
     Calculates similarity metric statistics for TimeSeries or MultiTimeSeries pairs
@@ -2416,6 +2489,12 @@ def compute_me_stats(
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
         FFT optimization provides ~100x speedup for Stage 2.
+
+    store_random_shifts : bool, default=False
+        Whether to store the random shift indices used during shuffle computation.
+        When False (default), random_shifts1 and random_shifts2 arrays are not stored
+        in accumulated_info, saving significant memory (e.g., ~400MB for typical datasets).
+        Set to True if you need the shift indices for debugging or reproducibility analysis.
 
     Returns
     -------
@@ -2673,14 +2752,14 @@ def compute_me_stats(
                 stage_1_significance, ordered_names1=range(n1), ordered_names2=range(n2)
             )
 
-            accumulated_info.update(
-                {
-                    "stage_1_significance": stage_1_significance_per_quantity,
-                    "stage_1_stats": stage_1_stats_per_quantity,
-                    "random_shifts1": random_shifts1,
-                    "me_total1": me_total1,
-                }
-            )
+            stage1_info = {
+                "stage_1_significance": stage_1_significance_per_quantity,
+                "stage_1_stats": stage_1_stats_per_quantity,
+                "me_total1": me_total1,
+            }
+            if store_random_shifts:
+                stage1_info["random_shifts1"] = random_shifts1
+            accumulated_info.update(stage1_info)
 
             nhyp = int(np.sum(mask_from_stage1))  # number of hypotheses for further statistical testing
             if verbose:
@@ -2764,16 +2843,16 @@ def compute_me_stats(
                 stage_2_significance, ordered_names1=range(n1), ordered_names2=range(n2)
             )
 
-            accumulated_info.update(
-                {
-                    "stage_2_significance": stage_2_significance_per_quantity,
-                    "stage_2_stats": stage_2_stats_per_quantity,
-                    "random_shifts2": random_shifts2,
-                    "me_total2": me_total2,
-                    "corrected_pval_thr": multicorr_thr,
-                    "group_pval_thr": pval_thr,
-                }
-            )
+            stage2_info = {
+                "stage_2_significance": stage_2_significance_per_quantity,
+                "stage_2_stats": stage_2_stats_per_quantity,
+                "me_total2": me_total2,
+                "corrected_pval_thr": multicorr_thr,
+                "group_pval_thr": pval_thr,
+            }
+            if store_random_shifts:
+                stage2_info["random_shifts2"] = random_shifts2
+            accumulated_info.update(stage2_info)
 
             num2 = int(np.sum(mask_from_stage2))
             if verbose:

@@ -40,6 +40,7 @@ def compute_cell_feat_significance(
     multifeature_map=None,
     duplicate_behavior="ignore",
     engine="auto",
+    store_random_shifts=False,
 ) -> tuple:
     """
     Calculates significant neuron-feature pairs
@@ -182,6 +183,12 @@ def compute_cell_feat_significance(
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
         FFT provides ~100x speedup for Stage 2. Default is 'auto'
+    store_random_shifts : bool, optional
+        Whether to store the random shift indices used during shuffle computation.
+        When False (default), random_shifts1 and random_shifts2 arrays are not stored,
+        saving significant memory (~400MB for typical datasets with N=500, M=20).
+        Set to True if you need the shift indices for debugging or reproducibility analysis.
+        Default is False
 
     Returns
     -------
@@ -394,6 +401,7 @@ def compute_cell_feat_significance(
         seed=seed,
         duplicate_behavior=duplicate_behavior,
         engine=engine,
+        store_random_shifts=store_random_shifts,
         )
 
         exp.optimal_nf_delays = info["optimal_delays"]
