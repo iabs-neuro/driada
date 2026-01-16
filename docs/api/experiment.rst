@@ -50,7 +50,6 @@ Quick Links
    * :func:`~driada.experiment.generate_synthetic_exp` - Basic synthetic data
    * :func:`~driada.experiment.generate_circular_manifold_exp` - Head direction cells
    * :func:`~driada.experiment.generate_2d_manifold_exp` - 2D place cells
-   * :func:`~driada.experiment.generate_3d_manifold_exp` - 3D spatial cells
    * :func:`~driada.experiment.generate_mixed_population_exp` - Mixed populations
    * :doc:`experiment/synthetic` - All synthetic data generators
 

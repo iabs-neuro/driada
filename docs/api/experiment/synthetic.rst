@@ -11,7 +11,6 @@ Functions
 .. autofunction:: driada.experiment.generate_synthetic_exp
 .. autofunction:: driada.experiment.generate_circular_manifold_exp
 .. autofunction:: driada.experiment.generate_2d_manifold_exp
-.. autofunction:: driada.experiment.generate_3d_manifold_exp
 .. autofunction:: driada.experiment.generate_mixed_population_exp
 
 Usage Examples
@@ -80,28 +79,6 @@ Head Direction Cells (Circular Manifold)
    # exp, info = generate_2d_manifold_exp(..., return_info=True)
    # position = info['position']  # (2, n_frames)
    # place_fields = info['place_fields']  # neuron receptive fields
-
-3D Grid Cells
-^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   from driada.experiment import generate_3d_manifold_exp
-   
-   # Generate 3D grid cell population
-   exp = generate_3d_manifold_exp(
-       n_neurons=50,
-       duration=60,          # 1 minute (for demo)
-       fps=20,
-       field_sigma=0.1,      # receptive field size
-       step_size=0.02,       # movement step
-       momentum=0.8,         # movement momentum
-       noise_std=0.2
-   )
-   
-   # Access data if return_info=True
-   # exp, info = generate_3d_manifold_exp(..., return_info=True)
-   # position_3d = info['position']  # (3, n_frames)
 
 Mixed Selectivity Population
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

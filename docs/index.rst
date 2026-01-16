@@ -11,15 +11,6 @@ Welcome to DRIADA's documentation!
 
    installation
    quickstart
-   
-.. toctree::
-   :maxdepth: 2
-   :caption: User Guide
-
-   user_guide/intense
-   user_guide/dimensionality_reduction
-   user_guide/integration
-   user_guide/examples
 
 .. toctree::
    :maxdepth: 2
