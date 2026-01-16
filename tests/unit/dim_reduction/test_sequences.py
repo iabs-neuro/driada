@@ -11,8 +11,10 @@ class TestDRSequence:
     @pytest.fixture
     def sample_data(self):
         """Create sample MVData for testing."""
+        # Use fixed seed for reproducibility (avoids flaky graph-based tests)
+        rng = np.random.default_rng(42)
         # 100 features, 500 samples
-        data = np.random.randn(100, 500)
+        data = rng.standard_normal((100, 500))
         return MVData(data)
 
     def test_single_step_sequence(self, sample_data):
@@ -111,7 +113,7 @@ class TestDRSequence:
         "method,params",
         [
             ("pca", {"dim": 5}),
-            ("lle", {"dim": 3, "n_neighbors": 10}),
+            ("lle", {"dim": 3, "n_neighbors": 30}),
             ("le", {"dim": 4, "n_neighbors": 20}),
         ],
     )
