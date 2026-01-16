@@ -22,7 +22,7 @@ The API automatically handles:
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_swiss_roll
 
-from driada.dim_reduction import MVData
+from driada.dim_reduction import MVData, dr_sequence
 
 
 def generate_demo_data():
@@ -57,7 +57,7 @@ def demo_dr_methods():
     print("   With parameters:")
     print("     emb = mvdata.get_embedding(method='pca', dim=3)")
     emb_pca = mvdata.get_embedding(method="pca")
-    print(f"   → Result shape: {emb_pca.coords.shape}")
+    print(f"   -> Result shape: {emb_pca.coords.shape}")
 
     # Manifold learning methods
     print("\n--- Manifold Learning Methods ---")
@@ -68,7 +68,7 @@ def demo_dr_methods():
     print("   With parameters:")
     print("     emb = mvdata.get_embedding(method='isomap', n_neighbors=30, dim=3)")
     emb_iso = mvdata.get_embedding(method="isomap")
-    print(f"   → Result shape: {emb_iso.coords.shape}")
+    print(f"   -> Result shape: {emb_iso.coords.shape}")
 
     print("\n3. LLE (Locally Linear Embedding):")
     print("   Default usage:")
@@ -76,7 +76,7 @@ def demo_dr_methods():
     print("   With parameters:")
     print("     emb = mvdata.get_embedding(method='lle', n_neighbors=20)")
     emb_lle = mvdata.get_embedding(method="lle")
-    print(f"   → Result shape: {emb_lle.coords.shape}")
+    print(f"   -> Result shape: {emb_lle.coords.shape}")
 
     print("\n4. Laplacian Eigenmaps:")
     print("   Default usage:")
@@ -84,7 +84,7 @@ def demo_dr_methods():
     print("   With parameters:")
     print("     emb = mvdata.get_embedding(method='le', n_neighbors=20)")
     emb_le = mvdata.get_embedding(method="le")
-    print(f"   → Result shape: {emb_le.coords.shape}")
+    print(f"   -> Result shape: {emb_le.coords.shape}")
 
     # Visualization methods
     print("\n--- Visualization Methods ---")
@@ -95,7 +95,7 @@ def demo_dr_methods():
     print("   With parameters:")
     print("     emb = mvdata.get_embedding(method='tsne', perplexity=50)")
     emb_tsne = mvdata.get_embedding(method="tsne", perplexity=50)
-    print(f"   → Result shape: {emb_tsne.coords.shape}")
+    print(f"   -> Result shape: {emb_tsne.coords.shape}")
 
     print("\n6. UMAP (Uniform Manifold Approximation and Projection):")
     print("   Default usage:")
@@ -105,7 +105,7 @@ def demo_dr_methods():
         "     emb = mvdata.get_embedding(method='umap', n_neighbors=50, min_dist=0.3)"
     )
     emb_umap = mvdata.get_embedding(method="umap", n_neighbors=50, min_dist=0.3)
-    print(f"   → Result shape: {emb_umap.coords.shape}")
+    print(f"   -> Result shape: {emb_umap.coords.shape}")
 
     # Distance-based methods
     print("\n--- Distance-based Methods ---")
@@ -116,7 +116,7 @@ def demo_dr_methods():
     print("     emb = mvdata.get_embedding(method='mds')")
     mvdata.get_distmat()
     emb_mds = mvdata.get_embedding(method="mds")
-    print(f"   → Result shape: {emb_mds.coords.shape}")
+    print(f"   -> Result shape: {emb_mds.coords.shape}")
 
     # Show parameter options
     print("\n" + "=" * 60)
@@ -168,7 +168,7 @@ def visualize_embeddings(embeddings, names, color):
 
 
 def show_advanced_usage():
-    """Show advanced usage patterns."""
+    """Show and validate advanced usage patterns."""
     print("\n" + "=" * 60)
     print("ADVANCED USAGE PATTERNS")
     print("=" * 60)
@@ -177,29 +177,59 @@ def show_advanced_usage():
     X, _ = generate_demo_data()
     mvdata = MVData(X)
 
-    print("\n1. Working with high-dimensional data:")
-    print("   # Project to higher dimensions first, then visualize")
-    print("   emb_5d = mvdata.get_embedding(method='pca', dim=5)")
-    print("   # Create new MVData from embedding for further reduction")
-    print("   mvdata_5d = MVData(emb_5d.coords)")
-    print("   emb_2d = mvdata_5d.get_embedding(method='tsne')")
+    print("\n1. High-dimensional data (generate 100D Gaussian data):")
+    print("   high_dim_data = np.random.randn(100, 500)  # 100 features, 500 samples")
+    import numpy as np
+    high_dim_data = np.random.randn(100, 500)
+    mvdata_highdim = MVData(high_dim_data)
+
+    print("   emb_10d = mvdata_highdim.get_embedding(method='pca', dim=10)")
+    emb_10d = mvdata_highdim.get_embedding(method='pca', dim=10)
+    print(f"   -> 10D embedding shape: {emb_10d.coords.shape}")
+
+    print("   mvdata_10d = MVData(emb_10d.coords)")
+    print("   emb_2d = mvdata_10d.get_embedding(method='umap')")
+    mvdata_10d = MVData(emb_10d.coords)
+    emb_2d = mvdata_10d.get_embedding(method='umap')
+    print(f"   -> Final 2D embedding shape: {emb_2d.coords.shape}")
 
     print("\n2. Using custom metrics:")
-    print("   # For methods that support custom metrics")
     print("   emb = mvdata.get_embedding(method='isomap', metric='cosine')")
+    emb_cosine = mvdata.get_embedding(method='isomap', metric='cosine')
+    print(f"   -> Cosine metric embedding shape: {emb_cosine.coords.shape}")
 
     print("\n3. Handling sparse data:")
-    print("   # MVData automatically handles sparse matrices")
-    print("   from scipy.sparse import csr_matrix")
+    from scipy.sparse import csr_matrix
     print("   sparse_data = csr_matrix(X)")
+    sparse_data = csr_matrix(X)
+    print(f"   -> Sparse matrix shape: {sparse_data.shape}")
+
     print("   mvdata_sparse = MVData(sparse_data)")
     print("   emb = mvdata_sparse.get_embedding(method='pca')")
+    mvdata_sparse = MVData(sparse_data)
+    emb_sparse = mvdata_sparse.get_embedding(method='pca')
+    print(f"   -> Sparse data embedding shape: {emb_sparse.coords.shape}")
 
-    print("\n4. Chaining embeddings:")
-    print("   # Use one embedding as input to another")
-    print("   emb1 = mvdata.get_embedding(method='pca', dim=50)")
-    print("   mvdata2 = MVData(emb1.coords)")
-    print("   emb2 = mvdata2.get_embedding(method='umap')")
+    print("\n4. Sequential dimensionality reduction (use high-dim data):")
+    print("   Method 1 (intuitive - manual chaining):")
+    print("     emb1 = mvdata_highdim.get_embedding(method='pca', dim=20)")
+    print("     mvdata2 = MVData(emb1.coords)")
+    print("     emb2 = mvdata2.get_embedding(method='umap', dim=2)")
+    emb1_seq = mvdata_highdim.get_embedding(method='pca', dim=20)
+    mvdata2_seq = MVData(emb1_seq.coords)
+    emb2_seq = mvdata2_seq.get_embedding(method='umap', dim=2)
+    print(f"   -> Result shape: {emb2_seq.coords.shape}")
+
+    print("\n   Method 2 (recommended - using dr_sequence):")
+    print("     emb = dr_sequence(mvdata_highdim, steps=[")
+    print("         ('pca', {'dim': 20}),")
+    print("         ('umap', {'dim': 2})")
+    print("     ])")
+    emb_seq = dr_sequence(mvdata_highdim, steps=[
+        ('pca', {'dim': 20}),
+        ('umap', {'dim': 2})
+    ])
+    print(f"   -> Result shape: {emb_seq.coords.shape}")
 
 
 def main():

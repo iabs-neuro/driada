@@ -29,12 +29,12 @@ print("=" * 70)
 print("\n1. Generating synthetic calcium signal...")
 
 signal = generate_pseudo_calcium_signal(
-    duration=100.0,              # Signal duration in seconds
+    duration=200.0,              # Signal duration in seconds
     sampling_rate=20.0,          # Sampling rate (Hz)
     event_rate=0.15,             # Average event rate (Hz)
-    amplitude_range=(1.0, 3.0),  # Event amplitude range (dF/F0)
-    decay_time=2.0,              # Calcium decay time constant (seconds)
-    rise_time=0.25,              # Calcium rise time constant (seconds)
+    amplitude_range=(1.0, 2.0),  # Event amplitude range (dF/F0)
+    decay_time=1.5,              # Calcium decay time constant (seconds)
+    rise_time=0.15,              # Calcium rise time constant (seconds)
     noise_std=0.05,              # Additive Gaussian noise level
     kernel='double_exponential'  # Realistic calcium kernel
 )

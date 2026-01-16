@@ -43,6 +43,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2026-01-13
+
+**🚀 Major performance and stability release**
+
+### Performance
+- **FFT Acceleration for INTENSE** - 10-100x speedup through FFT-based mutual information computation across shuffle loops, delay calculation, and discrete-continuous MI operations. Unified FFT pipeline with intelligent caching.
+
+### Critical Fixes
+- **Cache Collision Bug** - Fixed critical bug where all neurons returned identical MI values due to generic TimeSeries naming causing FFT cache collisions. Implemented comprehensive naming strategy ensuring unique cache keys.
+
+### Added
+- **Zero-Inflated Gamma (ZIG)** distribution for improved MI null hypothesis testing
+- **Tuned Selectivity Generator** with disentanglement analysis metrics for INTENSE pipeline
+- **Configurable Random Seeds** for graph construction ensuring reproducible manifold learning experiments
+- **Publication Framework Enhancements** - Extended `StylePreset` with sizing parameters and accessor methods
+
+### Changed
+- **Synthetic Data Module** - Consolidated all generators into unified `generators.py` with standardized signatures, explicit kwargs, and improved reproducibility
+- **Examples Updated** - Validated and improved 10+ examples including complete RSA rewrite using tuned selectivity generator, enhanced Network Analysis with spectral properties, and updates across INTENSE, dimensionality reduction, and manifold examples
+- **Code Quality** - Applied Black formatter (line-length 100) across codebase
+
+### Statistics
+- 215 files changed, 20,762 insertions, 14,960 deletions
+- 41 new tests added (FFT cache, multicomp correction, MTS FFT)
+- Test coverage: `intense_base` 81.85%, `info_base` 88.48%
+- All 1,681 tests passing
+
+---
+
 ## [0.6.6] - 2025-12-XX
 
 ### Added

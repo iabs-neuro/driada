@@ -57,8 +57,8 @@ def plot_rdm(
     if ax is None:
         # Create figure with optional dendrogram
         if dendrogram_ratio > 0:
-            # Use create_default_figure for consistent styling
-            fig, _ = create_default_figure(figsize=figsize, squeeze=False)
+            # Create figure
+            fig = plt.figure(figsize=figsize)
 
             # Create grid for dendrogram and heatmap
             gs = fig.add_gridspec(
@@ -75,6 +75,10 @@ def plot_rdm(
             ax_dendro_left = fig.add_subplot(gs[1, 0])
             ax_main = fig.add_subplot(gs[1, 1])
 
+            # Hide the unused corner
+            ax_corner = fig.add_subplot(gs[0, 0])
+            ax_corner.axis('off')
+
             # Compute linkage
             linkage_matrix = linkage(rdm, method="average")
 
@@ -86,9 +90,9 @@ def plot_rdm(
                 linkage_matrix, ax=ax_dendro_left, orientation="left", no_labels=True
             )
 
-            # Hide dendrogram axes
-            ax_dendro_top.set_visible(False)
-            ax_dendro_left.set_visible(False)
+            # Completely hide dendrogram axes (not just invisible)
+            ax_dendro_top.axis('off')
+            ax_dendro_left.axis('off')
 
             # Reorder RDM according to dendrogram
             order = dendro_top["leaves"]
@@ -96,9 +100,9 @@ def plot_rdm(
             labels_ordered = [labels[i] for i in order]
 
             ax = ax_main
-            make_beautiful(ax)  # Apply DRIADA styling
         else:
-            fig, ax = create_default_figure(figsize=figsize)
+            fig = plt.figure(figsize=figsize)
+            ax = fig.add_subplot(111)
             rdm_ordered = rdm
             labels_ordered = labels
     else:
@@ -107,13 +111,16 @@ def plot_rdm(
         labels_ordered = labels
 
     # Plot heatmap
-    im = ax.imshow(rdm_ordered, cmap=cmap, aspect="auto")
+    im = ax.imshow(rdm_ordered, cmap=cmap, aspect="auto", interpolation='nearest')
 
-    # Set ticks and labels
+    # Set ticks and labels with proper styling
     ax.set_xticks(np.arange(n_items))
     ax.set_yticks(np.arange(n_items))
-    ax.set_xticklabels(labels_ordered, rotation=45, ha="right")
-    ax.set_yticklabels(labels_ordered)
+    ax.set_xticklabels(labels_ordered, rotation=45, ha="right", fontsize=11)
+    ax.set_yticklabels(labels_ordered, fontsize=11)
+
+    # Style tick parameters
+    ax.tick_params(axis='both', which='major', width=2, length=6, labelsize=11)
 
     # Add values if requested
     if show_values and n_items <= 20:  # Only show values for small RDMs
@@ -127,27 +134,27 @@ def plot_rdm(
                     ha="center",
                     va="center",
                     color=text_color,
-                    fontsize=8,
+                    fontsize=10,
                 )
 
-    # Add colorbar
+    # Add colorbar with proper positioning
     cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label(cbar_label)
+    cbar.set_label(cbar_label, fontsize=12)
+    cbar.ax.tick_params(labelsize=10, width=2, length=4)
 
     # Add title
     if title:
-        ax.set_title(title, pad=20)
+        ax.set_title(title, pad=20, fontsize=14, fontweight='bold')
 
     # Add grid
     ax.grid(False)
 
-    # Apply DRIADA styling if not already applied
-    if not hasattr(ax, "_driada_styled"):
-        make_beautiful(ax)
-        ax._driada_styled = True
+    # Style spines
+    for spine in ax.spines.values():
+        spine.set_linewidth(2)
 
-    # Tight layout
-    plt.tight_layout()
+    # Adjust layout to prevent overlap (use rect to leave space for colorbar)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     return fig
 
@@ -197,8 +204,8 @@ def plot_rdm_comparison(
     if titles is None:
         titles = [f"RDM {i+1}" for i in range(n_rdms)]
 
-    # Use create_default_figure for consistent styling
-    fig, axes = create_default_figure(figsize=figsize, ncols=n_rdms)
+    # Create figure with subplots
+    fig, axes = plt.subplots(1, n_rdms, figsize=figsize)
     if n_rdms == 1:
         axes = [axes]
 
@@ -209,22 +216,29 @@ def plot_rdm_comparison(
     for i, (rdm, ax, title) in enumerate(zip(rdms, axes, titles)):
         im = ax.imshow(rdm, cmap=cmap, aspect="auto", vmin=vmin, vmax=vmax)
 
-        # Set labels
+        # Set labels with proper styling
         if labels is not None:
             n_items = rdm.shape[0]
             ax.set_xticks(np.arange(n_items))
             ax.set_yticks(np.arange(n_items))
-            ax.set_xticklabels(labels, rotation=45, ha="right")
+            ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=12)
             if i == 0:  # Only show y labels on first plot
-                ax.set_yticklabels(labels)
+                ax.set_yticklabels(labels, fontsize=12)
             else:
                 ax.set_yticklabels([])
 
-        ax.set_title(title)
+        ax.set_title(title, fontsize=14, fontweight='bold', pad=10)
+        ax.tick_params(width=2, length=6)
+        ax.grid(False)
+
+        # Style spines
+        for spine in ax.spines.values():
+            spine.set_linewidth(2)
 
     # Add single colorbar
     cbar = fig.colorbar(im, ax=axes, fraction=0.046, pad=0.04)
-    cbar.set_label("Dissimilarity")
+    cbar.set_label("Dissimilarity", fontsize=12)
+    cbar.ax.tick_params(labelsize=10, width=2, length=4)
 
-    plt.tight_layout()
+    fig.tight_layout()
     return fig

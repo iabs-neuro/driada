@@ -1,8 +1,8 @@
 """
-Example comparing direct LE vs PCA→LE sequence on synthetic neural data.
+Example comparing direct UMAP vs PCA->UMAP sequence on synthetic neural data.
 
-This demonstrates how sequential dimensionality reduction can improve
-manifold learning on high-dimensional neural activity data.
+This demonstrates the effects of sequential dimensionality reduction on
+manifold learning for high-dimensional neural activity data.
 """
 
 import numpy as np
@@ -52,11 +52,11 @@ def main():
     # Generate synthetic data with 2D spatial manifold
     calcium, positions, place_field_centers, firing_rates = generate_2d_manifold_data(
         n_neurons=100,
-        duration=200,  # seconds
+        duration=800,  # seconds
         sampling_rate=20.0,  # Hz
         field_sigma=0.1,
         step_size=0.02,
-        seed=123,  # Changed seed
+        seed=123,
         verbose=True,
     )
 
@@ -70,17 +70,17 @@ def main():
     # Create MVData object with downsampling
     mvdata = MVData(neural_data, downsampling=5)
 
-    # Approach 1: Direct LE on all neurons
-    print("\n=== Approach 1: Direct LE ===")
-    embedding_direct = mvdata.get_embedding(method="le", dim=2, n_neighbors=20)
+    # Approach 1: Direct UMAP on all neurons
+    print("\n=== Approach 1: Direct UMAP ===")
+    embedding_direct = mvdata.get_embedding(method="umap", dim=2, n_neighbors=50, min_dist=0.8)
 
-    # Approach 2: PCA → LE sequence
-    print("\n=== Approach 2: PCA → LE ===")
+    # Approach 2: PCA -> UMAP sequence
+    print("\n=== Approach 2: PCA -> UMAP ===")
     embedding_sequence = dr_sequence(
         mvdata,
         steps=[
-            ("pca", {"dim": 10}),  # First reduce to 10 PCs
-            ("le", {"dim": 2, "n_neighbors": 20}),  # Then apply LE
+            ("pca", {"dim": 20}),  # First reduce to 20 PCs
+            ("umap", {"dim": 2, "n_neighbors": 50, "min_dist": 0.8}),  # Then apply UMAP
         ],
     )
 
@@ -98,11 +98,11 @@ def main():
         true_positions_ds, embedding_sequence.coords
     )
 
-    print("\nDirect LE:")
+    print("\nDirect UMAP:")
     for name, value in metrics_direct.items():
         print(f"  {name}: {value:.4f}")
 
-    print("\nPCA → LE:")
+    print("\nPCA -> UMAP:")
     for name, value in metrics_sequence.items():
         print(f"  {name}: {value:.4f}")
 
@@ -124,7 +124,7 @@ def main():
     ax1.set_ylabel("Y position")
     ax1.set_aspect("equal")
 
-    # Plot direct LE embedding
+    # Plot direct UMAP embedding
     ax2 = plt.subplot(132)
     ax2.scatter(
         embedding_direct.coords[0],
@@ -135,13 +135,13 @@ def main():
         s=20,
     )
     ax2.set_title(
-        f'Direct LE\n(Manifold score: {metrics_direct["manifold_score"]:.3f})'
+        f'Direct UMAP\n(Manifold score: {metrics_direct["manifold_score"]:.3f})'
     )
-    ax2.set_xlabel("LE 1")
-    ax2.set_ylabel("LE 2")
+    ax2.set_xlabel("UMAP 1")
+    ax2.set_ylabel("UMAP 2")
     ax2.set_aspect("equal")
 
-    # Plot PCA→LE embedding
+    # Plot PCA->UMAP embedding
     ax3 = plt.subplot(133)
     ax3.scatter(
         embedding_sequence.coords[0],
@@ -152,10 +152,10 @@ def main():
         s=20,
     )
     ax3.set_title(
-        f'PCA → LE\n(Manifold score: {metrics_sequence["manifold_score"]:.3f})'
+        f'PCA -> UMAP\n(Manifold score: {metrics_sequence["manifold_score"]:.3f})'
     )
-    ax3.set_xlabel("LE 1")
-    ax3.set_ylabel("LE 2")
+    ax3.set_xlabel("UMAP 1")
+    ax3.set_ylabel("UMAP 2")
     ax3.set_aspect("equal")
 
     plt.colorbar(scatter, ax=[ax1, ax2, ax3], label="Time", fraction=0.02)
@@ -165,7 +165,7 @@ def main():
 
     # Print improvement percentages
     print("\n=== Method Comparison ===")
-    print("PCA → LE improves over Direct LE:")
+    print("PCA -> UMAP vs Direct UMAP:")
     for metric in ["knn_preservation", "trustworthiness", "continuity"]:
         improvement = (
             (metrics_sequence[metric] - metrics_direct[metric])
@@ -177,8 +177,8 @@ def main():
     # Create a detailed comparison plot using DRIADA's plotting utilities
     # Prepare embeddings for plot_embedding_comparison
     embeddings_dict = {
-        "Direct LE": embedding_direct.coords.T,  # (n_samples, 2)
-        "PCA → LE": embedding_sequence.coords.T,  # (n_samples, 2)
+        "Direct UMAP": embedding_direct.coords.T,  # (n_samples, 2)
+        "PCA -> UMAP": embedding_sequence.coords.T,  # (n_samples, 2)
     }
 
     # Create features for coloring
@@ -232,8 +232,8 @@ def main():
     values_direct = [metrics_direct[m] for m in metrics_names]
     values_sequence = [metrics_sequence[m] for m in metrics_names]
 
-    ax.bar(x - width / 2, values_direct, width, label="Direct LE", alpha=0.8)
-    ax.bar(x + width / 2, values_sequence, width, label="PCA → LE", alpha=0.8)
+    ax.bar(x - width / 2, values_direct, width, label="Direct UMAP", alpha=0.8)
+    ax.bar(x + width / 2, values_sequence, width, label="PCA -> UMAP", alpha=0.8)
 
     ax.set_ylabel("Score")
     ax.set_title("Manifold Preservation Metrics")

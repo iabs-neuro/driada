@@ -84,6 +84,10 @@ temp/
 archive/
 deprecated/
 
+# Examples not ready for release
+examples/_archived/
+examples/under_construction/
+
 # Coverage and debug files
 coverage.json
 coverage.xml
@@ -101,6 +105,11 @@ DOC_VERIFICATION*.txt
 /debug_*.py
 /check_*.py
 /visualize_*.py
+/diagnose_*.py
+/trace_*.py
+/time_*.py
+/quick_*.py
+/original_*.py
 /analysis_*/
 
 # All tools directory scripts
@@ -117,6 +126,10 @@ docs_internal/
 
 # Tool-generated reports
 *_report.txt
+
+# Tools directory (untracked except for Python scripts)
+tools/*
+!tools/*.py
 
 # Papers folder
 papers/

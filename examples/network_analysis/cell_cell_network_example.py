@@ -6,68 +6,96 @@ This example demonstrates:
 2. Creating networks from significance results
 3. Analyzing network properties using spectral methods
 4. Visualizing functional modules and network structure
+
+Performance: ~2 min for 120 neurons (ds=5, 10k shuffles)
+File size: 13 KB sparse network format
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 import scipy.sparse as sp
-from matplotlib.patches import Rectangle
 
 # DRIADA imports
 import driada
-from driada import TimeSeries
 from driada.network import Network
 from driada.network.drawing import draw_degree_distr, draw_spectrum
 from driada.intense import compute_cell_cell_significance
+from driada.utils.plot import create_default_figure
 
 
-def create_modular_experiment(n_modules=3, neurons_per_module=20, duration=300, seed=42):
-    """Create synthetic experiment with modular structure."""
-    np.random.seed(seed)
-    
-    # Total neurons
-    n_neurons = n_modules * neurons_per_module
-    
-    # Generate base experiment
-    exp = driada.generate_synthetic_exp(
-        n_dfeats=3,  # Dynamic features
-        n_cfeats=0,  # No categorical features needed
-        nneurons=n_neurons,
+def create_modular_experiment(duration=300, seed=42):
+    """
+    Create synthetic experiment with hierarchical modular structure.
+
+    Creates 120 neurons in 6 functional groups:
+    - 3 single-feature modules (30 neurons each): respond to event_0, event_1, or event_2
+    - 3 dual-feature modules (10 neurons each): respond to pairs of events in OR mode
+      (event_0 OR event_1, event_0 OR event_2, event_1 OR event_2)
+
+    This creates a realistic hierarchical network with both specialized
+    and multi-selective neurons.
+    """
+    from driada.experiment.synthetic import generate_tuned_selectivity_exp
+
+    # Create population with mixed selectivity
+    population = [
+        # Single-feature modules (30 neurons each)
+        {
+            "name": "event_0_cells",
+            "count": 30,
+            "features": ["event_0"],
+        },
+        {
+            "name": "event_1_cells",
+            "count": 30,
+            "features": ["event_1"],
+        },
+        {
+            "name": "event_2_cells",
+            "count": 30,
+            "features": ["event_2"],
+        },
+        # Dual-feature modules (10 neurons each, OR combination)
+        {
+            "name": "event_0_or_1_cells",
+            "count": 10,
+            "features": ["event_0", "event_1"],
+            "combination": "or",
+        },
+        {
+            "name": "event_0_or_2_cells",
+            "count": 10,
+            "features": ["event_0", "event_2"],
+            "combination": "or",
+        },
+        {
+            "name": "event_1_or_2_cells",
+            "count": 10,
+            "features": ["event_1", "event_2"],
+            "combination": "or",
+        },
+    ]
+
+    # Generate experiment with hierarchical structure
+    exp = generate_tuned_selectivity_exp(
+        population=population,
+        n_discrete_features=3,  # Three distinct events
         duration=duration,
-        seed=seed
+        fps=20.0,
+        baseline_rate=0.05,
+        peak_rate=2.0,
+        decay_time=2.0,
+        calcium_noise=0.02,
+        seed=seed,
+        verbose=True
     )
-    
-    # Create modular structure in neural activity
-    # Neurons within modules have correlated activity
-    time_points = int(duration * 20)  # 20 Hz
-    
-    for module_idx in range(n_modules):
-        # Get neurons in this module
-        start_idx = module_idx * neurons_per_module
-        end_idx = (module_idx + 1) * neurons_per_module
-        
-        # Create shared signal for this module
-        module_signal = np.random.randn(time_points) * 0.5
-        module_signal = np.convolve(module_signal, np.ones(10)/10, mode='same')  # Smooth
-        
-        # Add module signal to each neuron with some noise
-        for neuron_idx in range(start_idx, end_idx):
-            neuron = exp.neurons[neuron_idx]
-            # Add module signal + individual noise
-            neuron.ca.data += module_signal + np.random.randn(time_points) * 0.3
-    
-    # Add some inter-module connections (weaker correlations)
-    for i in range(5):  # 5 inter-module pairs
-        n1 = np.random.randint(0, n_neurons)
-        n2 = np.random.randint(0, n_neurons)
-        if n1 // neurons_per_module != n2 // neurons_per_module:  # Different modules
-            shared = np.random.randn(time_points) * 0.2
-            shared = np.convolve(shared, np.ones(10)/10, mode='same')
-            exp.neurons[n1].ca.data += shared
-            exp.neurons[n2].ca.data += shared
-    
-    return exp, n_modules, neurons_per_module
+
+    # Return info about true module structure
+    n_modules = 6
+    module_sizes = [30, 30, 30, 10, 10, 10]
+
+    return exp, n_modules, module_sizes
 
 
 def analyze_cell_cell_network(exp, data_type='calcium', pval_thr=0.01):
@@ -81,8 +109,9 @@ def analyze_cell_cell_network(exp, data_type='calcium', pval_thr=0.01):
     sim_mat, sig_mat, pval_mat, cells, info = compute_cell_cell_significance(
         exp,
         data_type=data_type,
-        n_shuffles_stage1=50,     # Reduced for example
-        n_shuffles_stage2=1000,   # Reduced for example
+        ds=5,                      # Downsample by 5x for speed (~5x faster)
+        n_shuffles_stage1=100,     # Stage 1 screening
+        n_shuffles_stage2=10000,   # FFT makes high shuffle counts fast!
         pval_thr=pval_thr,
         multicomp_correction='holm',
         verbose=True
@@ -170,7 +199,7 @@ def analyze_network_properties(net):
     
     # Degree statistics
     degrees = [d for n, d in net.graph.degree()]
-    print(f"Average degree: {np.mean(degrees):.2f} ± {np.std(degrees):.2f}")
+    print(f"Average degree: {np.mean(degrees):.2f} +- {np.std(degrees):.2f}")
     print(f"Max degree: {np.max(degrees)}")
     
     # Clustering coefficient
@@ -203,11 +232,17 @@ def analyze_network_properties(net):
     return degrees
 
 
-def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, n_modules_true=None):
-    """Create comprehensive visualization of results."""
-    
+def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, module_sizes_true=None):
+    """Create comprehensive visualization of results with consistent module colors."""
+
     fig = plt.figure(figsize=(16, 12))
-    
+
+    # Get unique modules and create consistent color mapping
+    unique_modules = sorted(set(module_assignment.values()))
+    n_modules = len(unique_modules)
+    module_colors = plt.cm.tab10(np.linspace(0, 1, n_modules))
+    module_to_color = {mod: module_colors[i] for i, mod in enumerate(unique_modules)}
+
     # 1. Similarity matrix
     ax1 = plt.subplot(2, 3, 1)
     im1 = ax1.imshow(sim_mat, cmap='hot', aspect='auto')
@@ -215,43 +250,53 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, n_modules
     ax1.set_xlabel('Neuron ID')
     ax1.set_ylabel('Neuron ID')
     plt.colorbar(im1, ax=ax1, fraction=0.046)
-    
-    # Add module boundaries if known
-    if n_modules_true is not None:
-        neurons_per_module = len(cells) // n_modules_true
-        for i in range(1, n_modules_true):
-            ax1.axhline(i * neurons_per_module - 0.5, color='cyan', linewidth=2)
-            ax1.axvline(i * neurons_per_module - 0.5, color='cyan', linewidth=2)
-    
+
+    # Add module boundaries if known (for 90/90/90/10/10/10 structure)
+    if module_sizes_true is not None:
+        cumsum = np.cumsum([0] + module_sizes_true)
+        for boundary in cumsum[1:-1]:
+            ax1.axhline(boundary - 0.5, color='cyan', linewidth=2)
+            ax1.axvline(boundary - 0.5, color='cyan', linewidth=2)
+
     # 2. Significance matrix
     ax2 = plt.subplot(2, 3, 2)
     ax2.imshow(sig_mat, cmap='RdBu_r', aspect='auto', vmin=0, vmax=1)
     ax2.set_title('Significance Matrix', fontsize=12)
     ax2.set_xlabel('Neuron ID')
     ax2.set_ylabel('Neuron ID')
-    
-    # 3. Network visualization with modules
+
+    # 3. Network visualization with modules using spring layout
     ax3 = plt.subplot(2, 3, 3)
-    
-    # Create layout emphasizing modules
-    pos = nx.spring_layout(net.graph, k=2, iterations=50, seed=42)
-    
-    # Draw nodes colored by module
-    node_colors = [module_assignment.get(node, 0) for node in net.graph.nodes()]
-    nx.draw_networkx_nodes(net.graph, pos, node_color=node_colors, 
-                          cmap='tab10', node_size=100, ax=ax3)
-    
+
+    # Use spring layout with parameters optimized for clustering
+    pos = nx.spring_layout(
+        net.graph,
+        k=1.5/np.sqrt(len(net.graph)),  # Optimal distance
+        iterations=100,  # More iterations for better convergence
+        seed=42
+    )
+
+    # Draw nodes colored by detected module
+    node_colors = [module_to_color[module_assignment[node]] for node in net.graph.nodes()]
+    nx.draw_networkx_nodes(
+        net.graph, pos,
+        node_color=node_colors,
+        node_size=20,  # Smaller for 300 nodes
+        ax=ax3,
+        alpha=0.8
+    )
+
     # Draw edges
     if net.weighted:
         edges = net.graph.edges()
         weights = [net.graph[u][v]['weight'] for u, v in edges]
-        nx.draw_networkx_edges(net.graph, pos, alpha=0.3, width=weights, ax=ax3)
+        nx.draw_networkx_edges(net.graph, pos, alpha=0.1, width=weights, ax=ax3)
     else:
-        nx.draw_networkx_edges(net.graph, pos, alpha=0.3, ax=ax3)
-    
+        nx.draw_networkx_edges(net.graph, pos, alpha=0.1, ax=ax3)
+
     ax3.set_title('Functional Network Modules', fontsize=12)
     ax3.axis('off')
-    
+
     # 4. Degree distribution
     ax4 = plt.subplot(2, 3, 4)
     degrees = [d for n, d in net.graph.degree()]
@@ -260,18 +305,18 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, n_modules
     ax4.set_ylabel('Count')
     ax4.set_title('Degree Distribution', fontsize=12)
     ax4.grid(True, alpha=0.3)
-    
+
     # 5. Module size distribution
     ax5 = plt.subplot(2, 3, 5)
-    module_sizes = {}
+    detected_sizes = {}
     for node, module in module_assignment.items():
-        module_sizes[module] = module_sizes.get(module, 0) + 1
-    
-    modules = list(module_sizes.keys())
-    sizes = list(module_sizes.values())
-    colors = plt.cm.tab10(np.arange(len(modules)))
-    
-    ax5.bar(modules, sizes, color=colors[:len(modules)])
+        detected_sizes[module] = detected_sizes.get(module, 0) + 1
+
+    modules = sorted(detected_sizes.keys())
+    sizes = [detected_sizes[m] for m in modules]
+    colors = [module_to_color[m] for m in modules]
+
+    ax5.bar(modules, sizes, color=colors)
     ax5.set_xlabel('Module ID')
     ax5.set_ylabel('Number of Neurons')
     ax5.set_title('Module Sizes', fontsize=12)
@@ -293,65 +338,232 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, n_modules
     return fig
 
 
+def save_network(filename, sim_mat, sig_mat, pval_mat, cells, info):
+    """
+    Save network as sparse adjacency matrix with essential metadata only.
+
+    Saves only:
+    - Sparse adjacency matrix (significant connections)
+    - Similarity/p-values for significant edges only
+    - Cell IDs and scalar metadata
+    - Excludes large shuffle arrays (random_shifts, me_total)
+
+    Parameters
+    ----------
+    filename : str
+        Output filename (without extension). Will save as .npz file.
+    sim_mat : np.ndarray
+        Similarity matrix
+    sig_mat : np.ndarray
+        Significance matrix
+    pval_mat : np.ndarray
+        P-value matrix
+    cells : list
+        List of cell IDs
+    info : dict
+        Metadata dictionary from INTENSE
+    """
+    import scipy.sparse as sp
+
+    # Get indices of significant connections
+    sig_indices = np.where(sig_mat > 0)
+
+    # Extract only significant edges (sparse format)
+    sparse_data = {
+        'sig_mat_data': sig_mat[sig_indices],  # Binary significance
+        'sim_values': sim_mat[sig_indices],    # Similarity for significant edges
+        'pval_values': pval_mat[sig_indices],  # P-values for significant edges
+        'sig_indices_i': sig_indices[0],       # Row indices
+        'sig_indices_j': sig_indices[1],       # Column indices
+        'matrix_shape': np.array(sig_mat.shape),  # Shape for reconstruction
+        'cells': np.array(cells),
+    }
+
+    # Add optimal delays if available (only for significant edges)
+    if 'optimal_delays' in info:
+        sparse_data['optimal_delays'] = info['optimal_delays'][sig_indices]
+
+    # Add only scalar metadata (exclude huge shuffle arrays!)
+    exclude_keys = {'random_shifts1', 'me_total1', 'random_shifts2', 'me_total2'}
+    for k, v in info.items():
+        if k not in exclude_keys and isinstance(v, (int, float, str, np.integer, np.floating)):
+            sparse_data[f'info_{k}'] = v
+
+    # Save as compressed NPZ
+    filename = filename if filename.endswith('.npz') else f"{filename}.npz"
+    np.savez_compressed(filename, **sparse_data)
+
+    # Report size savings
+    n_sig = len(sig_indices[0])
+    n_total = sig_mat.shape[0] * sig_mat.shape[1]
+    density = n_sig / n_total
+    print(f"Network saved to {filename}")
+    print(f"  Significant edges: {n_sig}/{n_total} ({density*100:.2f}% density)")
+    print(f"  Sparse storage: ~{n_sig * 32 / 1024:.1f} KB (vs {n_total * 8 / 1024:.1f} KB full matrix)")
+
+
+def load_network(filename):
+    """
+    Load network from sparse format.
+
+    Parameters
+    ----------
+    filename : str
+        Input filename (with or without .npz extension)
+
+    Returns
+    -------
+    sim_mat : np.ndarray
+        Similarity matrix (reconstructed from sparse)
+    sig_mat : np.ndarray
+        Significance matrix (reconstructed from sparse)
+    pval_mat : np.ndarray
+        P-value matrix (reconstructed from sparse)
+    cells : list
+        List of cell IDs
+    info : dict
+        Metadata dictionary
+    """
+    if not filename.endswith('.npz'):
+        filename = f"{filename}.npz"
+
+    data = np.load(filename, allow_pickle=True)
+
+    # Load sparse format
+    shape = tuple(data['matrix_shape'])
+    sig_indices_i = data['sig_indices_i']
+    sig_indices_j = data['sig_indices_j']
+
+    # Initialize full matrices
+    sig_mat = np.zeros(shape)
+    sim_mat = np.zeros(shape)
+    pval_mat = np.ones(shape)  # Initialize with 1.0 (non-significant)
+
+    # Fill in significant edges
+    sig_mat[sig_indices_i, sig_indices_j] = data['sig_mat_data']
+    sim_mat[sig_indices_i, sig_indices_j] = data['sim_values']
+    pval_mat[sig_indices_i, sig_indices_j] = data['pval_values']
+
+    cells = data['cells'].tolist()
+
+    # Reconstruct info dict (with optimal delays if present)
+    info = {}
+    if 'optimal_delays' in data:
+        info['optimal_delays'] = np.zeros(shape)
+        info['optimal_delays'][sig_indices_i, sig_indices_j] = data['optimal_delays']
+
+    # Add scalar metadata
+    for k, v in data.items():
+        if k.startswith('info_'):
+            info[k.replace('info_', '')] = v
+
+    print(f"Network loaded from {filename}")
+    print(f"  Neurons: {len(cells)}")
+    print(f"  Significant connections: {len(sig_indices_i) // 2:.0f} (undirected)")
+
+    return sim_mat, sig_mat, pval_mat, cells, info
+
+
 def main():
-    """Run complete cell-cell network analysis example."""
-    
-    # Create synthetic experiment with modular structure
-    print("Creating synthetic experiment with modular structure...")
-    exp, n_modules_true, neurons_per_module = create_modular_experiment(
-        n_modules=3, 
-        neurons_per_module=20, 
-        duration=300
+    """Run complete cell-cell network analysis example with save/load support."""
+    import argparse
+
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description='Neural network analysis with INTENSE cell-cell connectivity'
     )
-    print(f"Created {len(exp.neurons)} neurons in {n_modules_true} true modules")
-    
-    # Compute cell-cell significance
-    sim_mat, sig_mat, pval_mat, cells, info = analyze_cell_cell_network(
-        exp, 
-        data_type='calcium',
-        pval_thr=0.01
+    parser.add_argument(
+        '--load',
+        type=str,
+        default=None,
+        help='Load pre-computed network from .npz file instead of computing'
     )
-    
+    parser.add_argument(
+        '--save',
+        type=str,
+        default=None,
+        help='Save computed network to .npz file'
+    )
+    parser.add_argument(
+        '--duration',
+        type=int,
+        default=300,
+        help='Recording duration in seconds (default: 300)'
+    )
+    parser.add_argument(
+        '--pval',
+        type=float,
+        default=0.001,
+        help='P-value threshold for significance (default: 0.001)'
+    )
+    args = parser.parse_args()
+
+    # Either load network or compute it
+    if args.load:
+        print(f"Loading pre-computed network from {args.load}...")
+        sim_mat, sig_mat, pval_mat, cells, info = load_network(args.load)
+        module_sizes_true = [30, 30, 30, 10, 10, 10]  # Known structure
+    else:
+        # Create synthetic experiment with hierarchical modular structure
+        print("Creating synthetic experiment with hierarchical modular structure...")
+        print("  120 neurons: 30+30+30 (single-feature) + 10+10+10 (dual-feature)")
+        exp, n_modules_true, module_sizes_true = create_modular_experiment(
+            duration=args.duration
+        )
+        print(f"Created {len(exp.neurons)} neurons in {n_modules_true} functional groups")
+
+        # Compute cell-cell significance
+        sim_mat, sig_mat, pval_mat, cells, info = analyze_cell_cell_network(
+            exp,
+            data_type='calcium',
+            pval_thr=args.pval
+        )
+
+        # Save network if requested
+        if args.save:
+            save_network(args.save, sim_mat, sig_mat, pval_mat, cells, info)
+
     # Create functional networks
     net_binary, net_weighted = create_functional_network(sig_mat, sim_mat, cells)
-    
+
     # Detect functional modules
     communities, module_assignment = detect_functional_modules(net_weighted, cells)
-    
+
     # Analyze network properties
     degrees = analyze_network_properties(net_weighted)
-    
+
     # Visualize results
     print("\nCreating visualizations...")
     fig = visualize_results(
-        sim_mat, sig_mat, cells, net_weighted, 
-        module_assignment, n_modules_true
+        sim_mat, sig_mat, cells, net_weighted,
+        module_assignment, module_sizes_true
     )
     plt.savefig('cell_cell_network_analysis.png', dpi=150, bbox_inches='tight')
     plt.show()
-    
+
     # Additional network visualizations
     print("\nCreating network property visualizations...")
-    
-    # Degree distribution (log-log)
-    fig2, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-    
-    # Standard degree distribution
+
+    # Degree distribution with production-quality styling
+    fig1, ax1 = create_default_figure(figsize=(10, 8), dpi=300)
+    ax1 = draw_degree_distr(net_weighted, ax=ax1)
     ax1.set_title("Degree Distribution")
-    draw_degree_distr(net_weighted, ax=ax1)
-    
-    # Spectral analysis
+    plt.savefig('network_degree_distribution.png', dpi=300, bbox_inches='tight')
+
+    # Laplacian spectrum with production-quality styling
+    fig2, ax2 = create_default_figure(figsize=(10, 8), dpi=300)
+    ax2 = draw_spectrum(net_weighted, mode='lap', ax=ax2)
     ax2.set_title("Laplacian Spectrum")
-    draw_spectrum(net_weighted, mode='lap', ax=ax2)
-    
-    plt.tight_layout()
-    plt.savefig('network_properties.png', dpi=150, bbox_inches='tight')
+    plt.savefig('network_spectrum.png', dpi=300, bbox_inches='tight')
     plt.show()
-    
+
     print("\nAnalysis complete! Check the generated plots.")
-    
-    return exp, net_weighted, communities
+    if args.save and not args.load:
+        print(f"Network saved to {args.save}.npz for future use.")
+        print(f"  Re-run with: python {__file__} --load {args.save}")
+
+    return net_weighted, communities
 
 
 if __name__ == "__main__":
-    exp, net, communities = main()
+    net, communities = main()

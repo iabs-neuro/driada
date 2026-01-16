@@ -20,6 +20,7 @@ from driada import (
     generate_mixed_population_exp,
 )
 from driada.dim_reduction import MVData
+from driada.dim_reduction.manifold_metrics import procrustes_analysis
 from driada.utils import filter_signals, adaptive_filter_signals
 from driada.utils import (
     compute_spatial_decoding_accuracy,
@@ -44,7 +45,6 @@ def compute_spatial_correspondence_metrics(embedding, true_positions):
         Dictionary containing spatial correspondence metrics
     """
     from scipy.spatial.distance import pdist
-    from scipy.spatial import procrustes
 
     metrics = {}
 
@@ -59,22 +59,13 @@ def compute_spatial_correspondence_metrics(embedding, true_positions):
         min_samples_leaf=50,
         random_state=42,
     )
-
-    # Map to expected metric names
-    metrics["spatial_decoding_r2_x"] = decoding_metrics["r2_x"]
-    metrics["spatial_decoding_r2_y"] = decoding_metrics["r2_y"]
-    metrics["spatial_decoding_r2_avg"] = decoding_metrics["r2_avg"]
-    metrics["spatial_decoding_mse"] = decoding_metrics["mse"]
+    metrics.update(decoding_metrics)
 
     # 2. SPATIAL INFORMATION CONTENT - Use library function
     mi_metrics = compute_spatial_information(
         embedding.T, true_positions  # Transpose to (n_dims, n_samples)
     )
-
-    # Map to expected metric names
-    metrics["spatial_mi_x"] = mi_metrics["mi_x"]
-    metrics["spatial_mi_y"] = mi_metrics["mi_y"]
-    metrics["spatial_mi_total"] = mi_metrics["mi_total"]
+    metrics.update(mi_metrics)
 
     # 3. DISTANCE CORRELATION
     # Pearson correlation between pairwise distances
@@ -87,18 +78,15 @@ def compute_spatial_correspondence_metrics(embedding, true_positions):
     except:
         metrics["distance_correlation"] = 0.0
 
-    # 4. IMPROVED PROCRUSTES ANALYSIS
-    # Proper implementation without arbitrary padding
+    # 4. PROCRUSTES ANALYSIS - Use DRIADA implementation
     try:
         # Only use first 2 dimensions of embedding for fair comparison
         embedding_2d = embedding[:, :2] if embedding.shape[1] >= 2 else embedding
 
-        # Center and normalize
-        true_centered = true_positions - true_positions.mean(axis=0)
-        embed_centered = embedding_2d - embedding_2d.mean(axis=0)
-
-        # Procrustes analysis
-        _, _, disparity = procrustes(true_centered, embed_centered)
+        # Procrustes analysis using DRIADA function
+        _, disparity, _ = procrustes_analysis(
+            true_positions, embedding_2d, scaling=True, reflection=True
+        )
         metrics["procrustes_disparity"] = disparity
     except:
         metrics["procrustes_disparity"] = 1.0
@@ -150,13 +138,13 @@ def main(
     if quick_test:
         n_neurons = 50  # Minimal for fast testing
         duration = 300  # 5 minutes
-        n_shuffles_1 = 10
-        n_shuffles_2 = 50
+        n_shuffles_1 = 100  # FFT makes shuffle count cheap
+        n_shuffles_2 = 5000  # Better statistics with minimal overhead
     else:
         n_neurons = 300  # More neurons for clearer effects
         duration = 1000  # ~17 minutes for better statistics
         n_shuffles_1 = 100
-        n_shuffles_2 = 1000
+        n_shuffles_2 = 10000  # Increased for better significance testing
 
     # Always use downsampling for efficiency
     ds = 5
@@ -178,8 +166,8 @@ def main(
     print("\n2. Running INTENSE analysis on 2D position (MultiTimeSeries)...")
     stats, significance, info, results = compute_cell_feat_significance(
         exp,
-        feat_bunch=["position_2d", "x_position", "y_position"],  # Using MultiTimeSeries
-        find_optimal_delays=False,  # Required for MultiTimeSeries
+        feat_bunch=["position_2d"],  # Using MultiTimeSeries only
+        find_optimal_delays=False,
         mode="two_stage",
         n_shuffles_stage1=n_shuffles_1,
         n_shuffles_stage2=n_shuffles_2,
@@ -193,18 +181,14 @@ def main(
     # 3. Categorize neurons by selectivity
     print("\n3. Categorizing neurons by selectivity...")
 
-    # Get neurons selective to each spatial feature
+    # Get neurons selective to spatial position (position_2d)
     sig_neurons_2d = list(exp.get_significant_neurons(fbunch="position_2d").keys())
-    sig_neurons_x = list(exp.get_significant_neurons(fbunch="x_position").keys())
-    sig_neurons_y = list(exp.get_significant_neurons(fbunch="y_position").keys())
 
-    # Combine all spatial neurons (remove duplicates)
-    spatial_neurons = list(set(sig_neurons_2d + sig_neurons_x + sig_neurons_y))
+    # Use position_2d neurons as our spatial neurons
+    spatial_neurons = sig_neurons_2d
 
     print(f"  Spatial neurons (position_2d): {len(sig_neurons_2d)}")
-    print(f"  Spatial neurons (x_position): {len(sig_neurons_x)}")
-    print(f"  Spatial neurons (y_position): {len(sig_neurons_y)}")
-    print(f"  Spatial neurons (total unique): {len(spatial_neurons)}")
+    print(f"  Spatial neurons (total): {len(spatial_neurons)}")
     print(f"  Non-spatial neurons: {exp.n_cells - len(spatial_neurons)}")
 
     # Check if we have enough spatial neurons
@@ -214,9 +198,11 @@ def main(
         print("Try running with more neurons or adjusting detection parameters.")
         return None, None
 
-    # Extract true positions first (needed for verification)
-    x_pos = exp.dynamic_features["x_position"].data
-    y_pos = exp.dynamic_features["y_position"].data
+    # Extract true positions from position_2d MultiTimeSeries
+    # position_2d has shape (2, n_frames) where row 0 is x, row 1 is y
+    position_2d = exp.dynamic_features["position_2d"].data
+    x_pos = position_2d[0, :]  # First row is x
+    y_pos = position_2d[1, :]  # Second row is y
     true_positions = np.column_stack([x_pos, y_pos])
 
     # Downsample positions to match calcium data if using downsampling
@@ -538,9 +524,9 @@ def main(
 
                 # Print key metrics
                 print(
-                    f"      Spatial decoding R^2: {metrics['spatial_decoding_r2_avg']:.3f}, "
+                    f"      Spatial decoding R^2: {metrics['r2_avg']:.3f}, "
                     f"Distance corr: {metrics['distance_correlation']:.3f}, "
-                    f"MI: {metrics['spatial_mi_total']:.3f}"
+                    f"MI: {metrics['mi_total']:.3f}"
                 )
 
             except Exception as e:
@@ -557,10 +543,10 @@ def main(
                 and results[method_name]["Spatial neurons"]
             ):
                 r2_all = results[method_name]["All neurons"]["metrics"][
-                    "spatial_decoding_r2_avg"
+                    "r2_avg"
                 ]
                 r2_spatial = results[method_name]["Spatial neurons"]["metrics"][
-                    "spatial_decoding_r2_avg"
+                    "r2_avg"
                 ]
                 improvement = (r2_spatial / max(r2_all, 0.001) - 1) * 100
                 print(f"    Spatial vs All improvement: {improvement:+.1f}%")
@@ -574,10 +560,10 @@ def main(
                 and results[method_name]["Random half"]
             ):
                 r2_all = results[method_name]["All neurons"]["metrics"][
-                    "spatial_decoding_r2_avg"
+                    "r2_avg"
                 ]
                 r2_random = results[method_name]["Random half"]["metrics"][
-                    "spatial_decoding_r2_avg"
+                    "r2_avg"
                 ]
                 ratio = r2_random / max(r2_all, 0.001)
                 print(f"    Random half performance: {ratio:.2f}x of all neurons")
@@ -605,7 +591,7 @@ def main(
                     ]["embedding"]
                     grid_metrics[method_name][scenario] = {
                         "R^2": results[method_name][scenario]["metrics"][
-                            "spatial_decoding_r2_avg"
+                            "r2_avg"
                         ]
                     }
 
@@ -677,9 +663,9 @@ def main(
 
         # Define metrics to plot
         metrics_to_show = [
-            ("spatial_decoding_r2_avg", "Spatial Decoding R^2"),
+            ("r2_avg", "Spatial Decoding R^2"),
             ("distance_correlation", "Distance Correlation"),
-            ("spatial_mi_total", "Spatial Information (MI)"),
+            ("mi_total", "Spatial Information (MI)"),
             ("procrustes_disparity", "Procrustes Disparity"),
         ]
 
@@ -772,7 +758,7 @@ def main(
             and results[method_name]["Spatial neurons"]
         ):
             score = results[method_name]["Spatial neurons"]["metrics"][
-                "spatial_decoding_r2_avg"
+                "r2_avg"
             ]
             if score > best_score:
                 best_score = score
@@ -796,7 +782,7 @@ def main(
         for scenario in scenarios_order:
             if scenario in results[method_name] and results[method_name][scenario]:
                 r2 = results[method_name][scenario]["metrics"][
-                    "spatial_decoding_r2_avg"
+                    "r2_avg"
                 ]
                 print(f"    {scenario:20s}: {r2:.3f}")
 
@@ -806,7 +792,7 @@ def main(
             and results[method_name]["All neurons"]
         ):
             r2_all = results[method_name]["All neurons"]["metrics"][
-                "spatial_decoding_r2_avg"
+                "r2_avg"
             ]
 
             if (
@@ -814,7 +800,7 @@ def main(
                 and results[method_name]["Spatial neurons"]
             ):
                 r2_spatial = results[method_name]["Spatial neurons"]["metrics"][
-                    "spatial_decoding_r2_avg"
+                    "r2_avg"
                 ]
                 imp = (r2_spatial / max(r2_all, 0.001) - 1) * 100
                 print(f"    -> Spatial vs All improvement: {imp:+.1f}%")
@@ -824,7 +810,7 @@ def main(
                 and results[method_name]["Random half"]
             ):
                 r2_random = results[method_name]["Random half"]["metrics"][
-                    "spatial_decoding_r2_avg"
+                    "r2_avg"
                 ]
                 ratio = r2_random / max(r2_all, 0.001)
                 print(f"    -> Random half / All ratio: {ratio:.2f}")
@@ -841,11 +827,11 @@ def main(
                     and results[method_name]["Spatial neurons (noisy)"]
                 ):
                     r2_all = results[method_name]["All neurons (noisy)"]["metrics"][
-                        "spatial_decoding_r2_avg"
+                        "r2_avg"
                     ]
                     r2_spatial = results[method_name]["Spatial neurons (noisy)"][
                         "metrics"
-                    ]["spatial_decoding_r2_avg"]
+                    ]["r2_avg"]
                     imp = (r2_spatial / max(r2_all, 0.001) - 1) * 100
                     print(
                         f"  {method_name}: All {r2_all:.3f} -> Spatial {r2_spatial:.3f} ({imp:+.1f}%)"

@@ -168,13 +168,13 @@ def run_intense_analysis(exp, quick_mode: bool = False):
 
     # Parameters for INTENSE
     if quick_mode:
-        n_shuffles_stage1 = 50
-        n_shuffles_stage2 = 500
-        print("Quick mode: 50/500 shuffles")
+        n_shuffles_stage1 = 100
+        n_shuffles_stage2 = 5000
+        print("Quick mode: 100/5000 shuffles")
     else:
         n_shuffles_stage1 = 100
-        n_shuffles_stage2 = 2000
-        print("Full mode: 100/2000 shuffles")
+        n_shuffles_stage2 = 10000
+        print("Full mode: 100/10000 shuffles (FFT optimized)")
 
     # Analyze all behavioral features
     features_to_analyze = ["head_direction", "c_feat_0", "c_feat_1", "d_feat_0"]
@@ -195,7 +195,7 @@ def run_intense_analysis(exp, quick_mode: bool = False):
         mode="two_stage",
         n_shuffles_stage1=n_shuffles_stage1,
         n_shuffles_stage2=n_shuffles_stage2,
-        metric_distr_type="norm",
+        # Uses default gamma_zi distribution
         pval_thr=0.01,
         multicomp_correction=None,
         verbose=True,
@@ -338,9 +338,9 @@ def create_embeddings_and_analyze(exp, methods: List[str], quick_mode: bool = Fa
         exp,
         embedding_methods=successful_methods,
         mode="two_stage",
-        n_shuffles_stage1=50,
+        n_shuffles_stage1=100,
         n_shuffles_stage2=n_shuffles,
-        metric_distr_type="norm",
+        # Uses default gamma_zi distribution
         pval_thr=0.01,  # More lenient for components
         multicomp_correction=None,  # No correction for exploratory analysis
         find_optimal_delays=False,  # Components are instantaneous

@@ -44,10 +44,14 @@ Quick Links
    * :func:`~driada.utils.signals.filter_signals` - Apply filters
 
 **Spatial Analysis**
-   * :doc:`utils/spatial` - Place field and spatial coding
+   * :doc:`utils/spatial` - Spatial visualization and evaluation metrics
    * :func:`~driada.utils.spatial.compute_rate_map` - Firing rate maps
-   * :func:`~driada.utils.spatial.extract_place_fields` - Find place fields
-   * :func:`~driada.utils.spatial.compute_spatial_information` - Spatial info
+   * :func:`~driada.utils.spatial.compute_occupancy_map` - Occupancy maps
+   * :func:`~driada.utils.spatial.compute_spatial_information` - Spatial MI
+   * :func:`~driada.utils.spatial.compute_spatial_decoding_accuracy` - Position decoding
+
+   .. note::
+      For place cell detection, use :mod:`driada.intense` (MI-based with shuffle testing)
 
 **Matrix Operations**
    * :doc:`utils/matrix` - Matrix utilities

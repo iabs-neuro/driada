@@ -15,25 +15,21 @@ high-dimensional neural space.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-from sklearn.manifold import Isomap, TSNE
-import umap
 
 # Import DRIADA modules
 from driada.experiment import generate_circular_manifold_exp
 from driada.dimensionality import (
     eff_dim,
-    nn_dimension,
     correlation_dimension,
+    geodesic_dimension,
     pca_dimension,
-    effective_rank,
 )
 from driada.dim_reduction.manifold_metrics import compute_embedding_alignment_metrics
 from driada.dim_reduction import MVData
 import os
 
 
-def estimate_dimensionality(neural_data, methods=None):
+def estimate_dimensionality(neural_data, methods=None, ds=1):
     """
     Estimate intrinsic dimensionality using multiple methods from DRIADA.
 
@@ -47,10 +43,12 @@ def estimate_dimensionality(neural_data, methods=None):
         Available methods:
         - 'pca_90': PCA dimension for 90% variance explained
         - 'pca_95': PCA dimension for 95% variance explained
-        - 'effective_rank': Effective rank based on eigenvalue entropy
         - 'participation_ratio': Participation ratio (quadratic Renyi entropy)
-        - 'nn_dimension': k-NN based intrinsic dimension estimator
         - 'correlation_dim': Correlation dimension (Grassberger-Procaccia)
+        - 'geodesic_dim': Geodesic distance based estimator
+
+    ds : int, default=1
+        Downsampling factor. Use ds=5 for faster computation on long recordings.
 
     Returns
     -------
@@ -62,16 +60,22 @@ def estimate_dimensionality(neural_data, methods=None):
         methods = [
             "pca_90",
             "pca_95",
-            "effective_rank",
             "participation_ratio",
-            "nn_dimension",
             "correlation_dim",
+            "geodesic_dim",
         ]
 
     dim_estimates = {}
 
+    # Downsample data if requested
+    if ds > 1:
+        neural_data_ds = neural_data[:, ::ds]
+        print(f"  Downsampled: {neural_data.shape} -> {neural_data_ds.shape}")
+    else:
+        neural_data_ds = neural_data
+
     # Transpose data for methods that expect (n_samples, n_features)
-    data_transposed = neural_data.T
+    data_transposed = neural_data_ds.T
 
     # Linear methods
     if "pca_90" in methods:
@@ -80,28 +84,29 @@ def estimate_dimensionality(neural_data, methods=None):
     if "pca_95" in methods:
         dim_estimates["pca_95"] = pca_dimension(data_transposed, threshold=0.95)
 
-    if "effective_rank" in methods:
-        dim_estimates["effective_rank"] = effective_rank(data_transposed)
-
-    # Nonlinear methods
-    if "nn_dimension" in methods:
-        try:
-            dim_estimates["nn_dimension"] = nn_dimension(data_transposed, k=2)
-        except Exception as e:
-            print(f"  Warning: nn_dimension failed: {e}")
-            dim_estimates["nn_dimension"] = np.nan
-
+    # Nonlinear intrinsic methods
     if "correlation_dim" in methods:
         try:
+            print("  Computing correlation dimension...")
             dim_estimates["correlation_dim"] = correlation_dimension(data_transposed)
         except Exception as e:
             print(f"  Warning: correlation_dimension failed: {e}")
             dim_estimates["correlation_dim"] = np.nan
 
+    if "geodesic_dim" in methods:
+        try:
+            print("  Computing geodesic dimension (this may take time)...")
+            dim_estimates["geodesic_dim"] = geodesic_dimension(
+                data_transposed, k=20, mode="fast", factor=4
+            )
+        except Exception as e:
+            print(f"  Warning: geodesic_dimension failed: {e}")
+            dim_estimates["geodesic_dim"] = np.nan
+
     # Effective dimensionality (participation ratio)
     if "participation_ratio" in methods:
         dim_estimates["participation_ratio"] = eff_dim(
-            neural_data.T, enable_correction=False, q=2
+            neural_data_ds.T, enable_correction=False, q=2
         )
 
     return dim_estimates
@@ -142,40 +147,6 @@ def plot_eigenspectrum(neural_data):
     return fig
 
 
-def extract_manifold_pca(neural_data, n_components=2):
-    """Extract manifold using Principal Component Analysis."""
-    pca = PCA(n_components=n_components)
-    embedding = pca.fit_transform(neural_data.T)
-    explained_var = pca.explained_variance_ratio_
-    return embedding, explained_var
-
-
-def extract_manifold_isomap(neural_data, n_components=2, n_neighbors=10):
-    """Extract manifold using Isomap (geodesic distances)."""
-    isomap = Isomap(n_components=n_components, n_neighbors=n_neighbors)
-    embedding = isomap.fit_transform(neural_data.T)
-    return embedding
-
-
-def extract_manifold_umap(neural_data, n_components=2, n_neighbors=15, min_dist=0.3):
-    """Extract manifold using UMAP (Uniform Manifold Approximation)."""
-    reducer = umap.UMAP(
-        n_components=n_components,
-        n_neighbors=n_neighbors,
-        min_dist=min_dist,
-        random_state=42,
-    )
-    embedding = reducer.fit_transform(neural_data.T)
-    return embedding
-
-
-def extract_manifold_tsne(neural_data, n_components=2, perplexity=30):
-    """Extract manifold using t-SNE."""
-    tsne = TSNE(n_components=n_components, perplexity=perplexity, random_state=42)
-    embedding = tsne.fit_transform(neural_data.T)
-    return embedding
-
-
 def compute_circular_coordinates(embedding):
     """Convert 2D embedding to circular coordinates (angles)."""
     # Center the embedding
@@ -183,7 +154,7 @@ def compute_circular_coordinates(embedding):
 
     # Compute angles
     angles = np.arctan2(centered[:, 1], centered[:, 0])
-    angles = np.mod(angles, 2 * np.pi)  # Ensure [0, 2π]
+    angles = np.mod(angles, 2 * np.pi)  # Ensure [0, 2pi]
 
     return angles
 
@@ -231,7 +202,7 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
         # Plot true vs reconstructed angles with proper wrapping
         ax = axes[1, i]
 
-        # Wrap angles to [0, 2π] for visualization
+        # Wrap angles to [0, 2pi] for visualization
         true_wrapped = np.mod(true_angles, 2 * np.pi)
         recon_wrapped = np.mod(recon_angles, 2 * np.pi)
 
@@ -239,7 +210,7 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
         # This creates continuous visualization across the circular boundary
         threshold = 0.5  # radians from boundary
 
-        # Find points near 0/2π boundary
+        # Find points near 0/2pi boundary
         near_zero_true = true_wrapped < threshold
         near_2pi_true = true_wrapped > (2 * np.pi - threshold)
         near_zero_recon = recon_wrapped < threshold
@@ -249,7 +220,7 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
         ax.scatter(true_wrapped, recon_wrapped, alpha=0.5, s=10, color="blue")
 
         # Plot wrapped copies for continuity
-        # Points with true angle near 0 and recon near 2π
+        # Points with true angle near 0 and recon near 2pi
         mask1 = near_zero_true & near_2pi_recon
         if np.any(mask1):
             ax.scatter(
@@ -260,7 +231,7 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
                 color="blue",
             )
 
-        # Points with true angle near 2π and recon near 0
+        # Points with true angle near 2pi and recon near 0
         mask2 = near_2pi_true & near_zero_recon
         if np.any(mask2):
             ax.scatter(
@@ -271,7 +242,7 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
                 color="blue",
             )
 
-        # Points with true angle near 0, show at 2π too
+        # Points with true angle near 0, show at 2pi too
         mask3 = near_zero_true & near_zero_recon
         if np.any(mask3):
             ax.scatter(
@@ -282,7 +253,7 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
                 color="blue",
             )
 
-        # Points with true angle near 2π, show at 0 too
+        # Points with true angle near 2pi, show at 0 too
         mask4 = near_2pi_true & near_2pi_recon
         if np.any(mask4):
             ax.scatter(
@@ -296,7 +267,7 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
         # Reference lines
         ax.plot([0, 2 * np.pi], [0, 2 * np.pi], "r--", alpha=0.5, label="y=x")
         # Continuation lines for wraparound
-        # When x goes from 2π to 0, y should also go from 2π to 0
+        # When x goes from 2pi to 0, y should also go from 2pi to 0
         ax.plot([2 * np.pi, 2 * np.pi], [2 * np.pi, 2 * np.pi + 0.5], "r--", alpha=0.5)
         ax.plot([0, 0], [-0.5, 0], "r--", alpha=0.5)
         # And vice versa
@@ -309,7 +280,7 @@ def visualize_manifold_extraction(embeddings, true_angles, method_names):
         ax.set_xlim([-0.5, 2 * np.pi + 0.5])
         ax.set_ylim([-0.5, 2 * np.pi + 0.5])
 
-        # Add grid lines at 0 and 2π
+        # Add grid lines at 0 and 2pi
         ax.axvline(0, color="gray", alpha=0.3, linestyle=":")
         ax.axvline(2 * np.pi, color="gray", alpha=0.3, linestyle=":")
         ax.axhline(0, color="gray", alpha=0.3, linestyle=":")
@@ -333,7 +304,7 @@ def main():
     # Generate synthetic head direction cells
     exp, info = generate_circular_manifold_exp(
         n_neurons=100,
-        duration=300,  # 5 minutes
+        duration=600,  # 10 minutes
         kappa=4.0,  # Tuning width
         seed=42,
         verbose=True,
@@ -353,15 +324,51 @@ def main():
     print("\n2. Estimating intrinsic dimensionality of neural population...")
     print("-" * 50)
 
-    dim_methods = ["pca_90", "pca_95", "effective_rank", "participation_ratio"]
-    dim_estimates = estimate_dimensionality(neural_data, methods=dim_methods)
+    # Use all available dimensionality estimation methods
+    dim_methods = [
+        "pca_90",
+        "pca_95",
+        "participation_ratio",
+        "correlation_dim",
+        "geodesic_dim",
+    ]
+
+    # Use ds=5 downsampling for faster computation
+    dim_estimates = estimate_dimensionality(neural_data, methods=dim_methods, ds=5)
 
     print("Dimensionality estimates:")
     for method, estimate in dim_estimates.items():
         print(f"  {method:20s}: {estimate:.2f}")
 
-    print("\nNote: Head direction cells should have intrinsic dimensionality ≈ 1")
+    print("\nNote: Head direction cells should have intrinsic dimensionality ~ 1")
     print("      (circular manifold), but finite sampling may increase estimates")
+
+    # Compare with temporally shuffled data to demonstrate manifold structure
+    print("\n2b. Comparing with temporally shuffled data (destroys manifold)...")
+    print("-" * 50)
+
+    # Get shuffled calcium data from experiment
+    shuffled_calcium = exp.get_multicell_shuffled_calcium()
+
+    # Estimate dimensionality on shuffled data (same ds=5 downsampling)
+    dim_estimates_shuffled = estimate_dimensionality(shuffled_calcium, methods=dim_methods, ds=5)
+
+    print("\nDimensionality estimates (SHUFFLED data):")
+    for method, estimate in dim_estimates_shuffled.items():
+        print(f"  {method:20s}: {estimate:.2f}")
+
+    print("\nComparison (Real vs Shuffled):")
+    print(f"{'Method':<20s} {'Real':>8s} {'Shuffled':>8s} {'Increase':>10s}")
+    print("-" * 50)
+    for method in dim_methods:
+        real = dim_estimates[method]
+        shuffled = dim_estimates_shuffled[method]
+        increase = ((shuffled - real) / real) * 100
+        print(f"{method:<20s} {real:8.2f} {shuffled:8.2f} {increase:+9.1f}%")
+
+    print("\nInterpretation: Temporal shuffling destroys the circular manifold structure,")
+    print("                dramatically increasing dimensionality. This confirms that the")
+    print("                low dimensionality in real data reflects true manifold structure.")
 
     # Plot eigenspectrum
     print("\n3. Plotting eigenvalue spectrum...")
@@ -409,31 +416,16 @@ def main():
 
     # Visualize results
     print("\n5. Visualizing extracted manifolds...")
-    from driada.utils.visual import plot_embedding_comparison, DEFAULT_DPI
+    from driada.utils.visual import DEFAULT_DPI
 
-    # Prepare features for visualization
-    features = {"angle": true_angles_ds}
-    feature_names = {"angle": "True head direction (rad)"}
-
-    # Create embedding comparison using visual utility
-    fig1 = plot_embedding_comparison(
-        embeddings=embeddings_dict,
-        features=features,
-        feature_names=feature_names,
-        with_trajectory=False,
-        compute_metrics=True,
-        figsize=(15, 5),
-        save_path="circular_manifold_results/embedding_comparison.png",
-        dpi=DEFAULT_DPI,
-    )
-
-    # Keep the custom reconstruction analysis
+    # Create embedding comparison visualization
+    # Shows embeddings colored by head direction (top row) and angle reconstruction (bottom row)
     embeddings_list = [embeddings_dict[method] for method in ["PCA", "Isomap", "UMAP"]]
-    fig2 = visualize_manifold_extraction(
+    fig_embedding = visualize_manifold_extraction(
         embeddings_list, true_angles_ds, ["PCA", "Isomap", "UMAP"]
     )
     plt.savefig(
-        "circular_manifold_results/reconstruction_analysis.png",
+        "circular_manifold_results/embedding_comparison.png",
         dpi=DEFAULT_DPI,
         bbox_inches="tight",
     )
@@ -485,6 +477,7 @@ def main():
     print("\n" + "=" * 70)
     print("CONCLUSIONS:")
     print("- Head direction cells have low intrinsic dimensionality (~1-2)")
+    print("- Temporal shuffling destroys manifold structure (dimensionality increases)")
     print("- Nonlinear methods (Isomap, UMAP) better preserve circular topology")
     print("- PCA captures variance but may distort circular structure")
     print("- Higher n_neighbors helps preserve global structure")
@@ -493,7 +486,6 @@ def main():
     print("\nResults saved to circular_manifold_results/:")
     print("- eigenspectrum.png")
     print("- embedding_comparison.png")
-    print("- reconstruction_analysis.png")
     print("- trajectories.png")
 
     plt.show()

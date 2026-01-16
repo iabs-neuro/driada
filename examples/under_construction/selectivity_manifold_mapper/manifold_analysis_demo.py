@@ -152,11 +152,11 @@ def run_intense_analysis(exp, quick_mode: bool = False):
 
     # Parameters
     if quick_mode:
-        n_shuffles_stage1 = 10
-        n_shuffles_stage2 = 100
+        n_shuffles_stage1 = 100
+        n_shuffles_stage2 = 5000
     else:
         n_shuffles_stage1 = 100
-        n_shuffles_stage2 = 1000
+        n_shuffles_stage2 = 10000
 
     print(f"Stage 1: {n_shuffles_stage1} shuffles")
     print(f"Stage 2: {n_shuffles_stage2} shuffles")
@@ -287,9 +287,9 @@ def analyze_embedding_selectivity(exp, methods: List[str], quick_mode: bool = Fa
 
     # Parameters
     if quick_mode:
-        n_shuffles = 10
+        n_shuffles = 5000
     else:
-        n_shuffles = 100
+        n_shuffles = 10000
 
     # Run embedding selectivity analysis
     start_time = time.time()

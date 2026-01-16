@@ -143,7 +143,8 @@ def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed
             # Generate shifts respecting shuffle masks
             combined_mask = ts1.shuffle_mask & ts2.shuffle_mask
             combined_mask = np.roll(combined_mask, int(optimal_delays[i, j]))
-            indices = np.arange(len(ts1.data))[combined_mask]
+            n_frames = ts1.data.shape[-1]
+            indices = np.arange(n_frames)[combined_mask]
             random_shifts[i, j, :] = pair_rng.choice(indices, size=nsh) // ds
 
     return random_shifts
@@ -2571,8 +2572,8 @@ def compute_me_stats(
                     f"Valid range: [0, {len(ts_bunch2)-1}] for {len(ts_bunch2)} features."
                 )
 
-        ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if _ not in skip_delays]
-        ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if _ not in skip_delays])
+        ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if not skip_delays or _ not in skip_delays]
+        ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if not skip_delays or _ not in skip_delays])
 
         # Build FFT cache once at the start for reuse across delays + stages
         fft_cache = _build_fft_cache(

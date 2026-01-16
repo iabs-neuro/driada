@@ -2,81 +2,103 @@
 Example of Representational Similarity Analysis (RSA) with DRIADA.
 
 This example demonstrates:
-1. Computing RDMs from neural data with different item definitions
-2. Comparing representations between brain regions/conditions
-3. Visualizing RDM structure
-4. NEW: Unified API with automatic data type detection
-5. NEW: Caching support for repeated computations
-6. NEW: Direct MVData integration
+1. Computing RDMs from stimulus-selective neural populations
+2. Comparing representations between brain regions
+3. Statistical testing with bootstrap methods
+4. Spatial selectivity analysis with place cells
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 import driada
 from driada import rsa
 from driada.dim_reduction.data import MVData
+from driada.experiment.synthetic import generate_tuned_selectivity_exp
 
 
-def example_1_behavioral_conditions():
-    """Example 1: RSA with behavioral conditions - showcasing unified API."""
-    print("\n=== Example 1: RSA with Behavioral Conditions (Unified API) ===")
+def create_stimulus_labels_from_events(exp, event_names):
+    """
+    Convert multiple binary event features to categorical stimulus labels.
 
-    # Generate synthetic experiment with different stimulus types
-    n_neurons = 50
-    duration = 300  # 5 minutes
-    n_timepoints = int(duration * 20)  # 20 Hz sampling
+    Parameters
+    ----------
+    exp : Experiment
+        DRIADA experiment with discrete event features
+    event_names : list of str
+        Event feature names (e.g., ["event_0", "event_1", "event_2", "event_3"])
 
-    # Create stimulus conditions that repeat (use numeric labels)
-    stim_duration = 100  # 5 seconds per stimulus
-    stimulus_sequence = []
-    for _ in range(n_timepoints // (stim_duration * 4)):
-        stimulus_sequence.extend([0] * stim_duration)  # Stimulus A
-        stimulus_sequence.extend([1] * stim_duration)  # Stimulus B
-        stimulus_sequence.extend([2] * stim_duration)  # Stimulus C
-        stimulus_sequence.extend([3] * stim_duration)  # Stimulus D
-    stimulus_labels = np.array(stimulus_sequence[:n_timepoints])
+    Returns
+    -------
+    labels : np.ndarray
+        Categorical labels (0, 1, 2, ...) for each timepoint.
+        Timepoints with no event are labeled -1.
 
-    # Generate neural data with stimulus selectivity
-    print("Generating synthetic neural population...")
-    exp = driada.generate_synthetic_exp(
-        n_dfeats=0,
-        n_cfeats=4,  # 4 features for different selectivity patterns
-        nneurons=n_neurons,
-        duration=duration,
+    Notes
+    -----
+    If events overlap, the last event in the list takes precedence.
+    """
+    n_timepoints = exp.calcium.scdata.shape[1]
+    labels = np.full(n_timepoints, -1, dtype=int)
+
+    # Assign labels based on which event is active
+    for idx, event_name in enumerate(event_names):
+        event_data = exp.dynamic_features[event_name].data
+        labels[event_data > 0] = idx
+
+    return labels
+
+
+def example_1_stimulus_conditions():
+    """Example 1: RDM from stimulus-selective neurons."""
+    print("\n=== Example 1: RSA with Stimulus Conditions ===")
+
+    # Define population: neurons selective to 4 different stimuli
+    population = [
+        {
+            "name": "stimulus_selective",
+            "count": 45,
+            "features": ["event_0", "event_1", "event_2", "event_3"],
+            "combination": "or",  # Respond to any of the 4 stimuli
+        },
+        {
+            "name": "nonselective",
+            "count": 5,
+            "features": [],  # Background activity only
+        },
+    ]
+
+    # Generate synthetic data with event features as stimuli
+    print("Generating stimulus-selective neurons...")
+    exp = generate_tuned_selectivity_exp(
+        population=population,
+        n_discrete_features=4,  # Creates event_0, event_1, event_2, event_3
+        duration=300,
+        event_active_fraction=0.15,
+        event_avg_duration=1.0,
+        baseline_rate=0.05,
+        peak_rate=2.0,
         seed=42,
+        verbose=False,
     )
 
-    # Override with our stimulus labels
-    exp.dynamic_features["stimulus_type"] = driada.TimeSeries(stimulus_labels)
+    # Convert binary event features to categorical stimulus labels
+    print("Computing RDM...")
+    stimulus_labels = create_stimulus_labels_from_events(
+        exp, ["event_0", "event_1", "event_2", "event_3"]
+    )
 
-    # NEW: Use unified API that automatically detects Experiment object
-    print("Computing RDM using unified API...")
+    # Compute RDM across stimulus conditions
+    # Filter to only include timepoints where events are active
+    valid_mask = stimulus_labels >= 0
     rdm, labels = rsa.compute_rdm_unified(
-        exp, items="stimulus_type", metric="correlation"
+        exp.calcium.scdata[:, valid_mask].T, items=stimulus_labels[valid_mask]
     )
 
     print(f"RDM shape: {rdm.shape}")
-    print(f"Unique conditions: {labels}")
+    print(f"Stimulus conditions: {labels}")
 
-    # NEW: Demonstrate caching
-    print("\nDemonstrating caching support...")
-    start = time.time()
-    rdm_cached, _ = exp.compute_rdm("stimulus_type", use_cache=True)
-    time_first = time.time() - start
-
-    start = time.time()
-    rdm_cached2, _ = exp.compute_rdm("stimulus_type", use_cache=True)
-    time_cached = time.time() - start
-
-    print(f"First computation: {time_first:.4f}s")
-    print(f"Cached computation: {time_cached:.4f}s")
-    print(f"Speedup: {time_first/time_cached:.1f}x")
-
-    # Create string labels for visualization
+    # Visualize RDM
     label_names = ["Stim A", "Stim B", "Stim C", "Stim D"]
-
-    # Visualize RDM with standardized plotting
     fig = rsa.plot_rdm(
         rdm,
         labels=label_names[: len(labels)],
@@ -89,34 +111,34 @@ def example_1_behavioral_conditions():
     return exp, rdm, labels
 
 
-def example_2_simplified_api():
-    """Example 2: Simplified RSA API with rsa_compare."""
-    print("\n=== Example 2: Simplified API with rsa_compare ===")
+def example_2_compare_regions():
+    """Example 2: Comparing representations between brain regions."""
+    print("\n=== Example 2: Comparing Representations ===")
 
-    # Generate two related neural populations
+    # Generate two related neural populations (e.g., V1 and V2)
     np.random.seed(42)
     n_items = 20
     n_neurons_v1 = 100
     n_neurons_v2 = 150
 
-    # Create base patterns
+    # Create base patterns that both regions respond to
     base_patterns = np.random.randn(n_items, 50)
 
-    # V1: Direct representation
+    # V1: Direct representation with noise
     v1_data = base_patterns @ np.random.randn(50, n_neurons_v1)
-    v1_data += 0.2 * np.random.randn(n_items, n_neurons_v1)  # Add noise
+    v1_data += 0.2 * np.random.randn(n_items, n_neurons_v1)
 
-    # V2: Transformed representation
+    # V2: Transformed representation with noise
     transform = np.random.randn(50, 50)
     v2_data = (base_patterns @ transform) @ np.random.randn(50, n_neurons_v2)
-    v2_data += 0.2 * np.random.randn(n_items, n_neurons_v2)  # Add noise
+    v2_data += 0.2 * np.random.randn(n_items, n_neurons_v2)
 
-    # NEW: Use simplified rsa_compare function
+    # Compare representations directly
     print("Comparing V1 and V2 representations...")
     similarity = rsa.rsa_compare(v1_data, v2_data)
     print(f"V1-V2 similarity (Spearman): {similarity:.3f}")
 
-    # Try different metrics
+    # Try different distance metrics
     print("\nTrying different distance metrics:")
     for metric in ["correlation", "euclidean", "cosine"]:
         sim = rsa.rsa_compare(v1_data, v2_data, metric=metric)
@@ -128,14 +150,7 @@ def example_2_simplified_api():
         sim = rsa.rsa_compare(v1_data, v2_data, comparison=comparison)
         print(f"  {comparison}: {sim:.3f}")
 
-    # Also works with MVData
-    print("\nUsing MVData objects:")
-    mv1 = MVData(v1_data.T)  # MVData expects (n_features, n_items)
-    mv2 = MVData(v2_data.T)
-    similarity_mv = rsa.rsa_compare(mv1, mv2)
-    print(f"MVData similarity: {similarity_mv:.3f}")
-
-    # Visualize the RDMs
+    # Visualize both RDMs
     rdm1 = rsa.compute_rdm(v1_data)
     rdm2 = rsa.compute_rdm(v2_data)
 
@@ -148,188 +163,214 @@ def example_2_simplified_api():
     return similarity
 
 
-def example_3_experiment_comparison():
-    """Example 3: Compare two experiments using simplified API."""
-    print("\n=== Example 3: Comparing Experiments with rsa_compare ===")
+def example_3_compare_experiments():
+    """Example 3: Comparing experiments from different sessions."""
+    print("\n=== Example 3: Comparing Experiments ===")
 
-    # Generate two experiments
-    exp1 = driada.generate_synthetic_exp(
-        n_dfeats=1, n_cfeats=3, nneurons=30, duration=60, seed=42
-    )
-
-    exp2 = driada.generate_synthetic_exp(
-        n_dfeats=1, n_cfeats=3, nneurons=30, duration=60, seed=43
-    )
-
-    # Add stimulus labels
-    n_timepoints = exp1.calcium.scdata.shape[1]
-    stim_duration = 200
-    n_stimuli = 4
-    stimulus_labels = np.repeat(range(n_stimuli), stim_duration)
-    stimulus_labels = np.tile(
-        stimulus_labels, n_timepoints // (stim_duration * n_stimuli) + 1
-    )[:n_timepoints]
-
-    exp1.dynamic_features["stimulus"] = driada.TimeSeries(stimulus_labels)
-    exp2.dynamic_features["stimulus"] = driada.TimeSeries(stimulus_labels)
-
-    # NEW: Compare experiments directly with rsa_compare
-    print("Comparing two experiments...")
-    similarity = rsa.rsa_compare(exp1, exp2, items="stimulus")
-    print(f"Experiment similarity: {similarity:.3f}")
-
-    # Try with trial structure
-    trial_info = {
-        "trial_starts": list(range(0, n_timepoints, stim_duration * n_stimuli)),
-        "trial_labels": ["Block_A", "Block_B"]
-        * (len(range(0, n_timepoints, stim_duration * n_stimuli)) // 2 + 1),
-    }
-    trial_info["trial_labels"] = trial_info["trial_labels"][
-        : len(trial_info["trial_starts"])
+    # Define population with stimulus-selective neurons
+    # Use shared selectivity with OR combination so neurons respond to multiple stimuli
+    population = [
+        {
+            "name": "stimulus_selective",
+            "count": 35,
+            "features": ["event_0", "event_1", "event_2"],
+            "combination": "or",
+        },
+        {"name": "nonselective", "count": 5, "features": []},
     ]
 
-    print("\nComparing with trial structure...")
-    similarity_trials = rsa.rsa_compare(exp1, exp2, items=trial_info)
-    print(f"Trial-based similarity: {similarity_trials:.3f}")
-
-    # Compare using spike data
-    print("\nComparing spike data...")
-    similarity_spikes = rsa.rsa_compare(
-        exp1, exp2, items="stimulus", data_type="spikes"
-    )
-    print(f"Spike similarity: {similarity_spikes:.3f}")
-
-    return similarity, similarity_trials, similarity_spikes
-
-
-def example_4_trial_structure():
-    """Example 4: RSA with trial structure - showcasing MVData integration."""
-    print("\n=== Example 4: RSA with Trial Structure (MVData Integration) ===")
-
-    # Generate experiment
-    exp = driada.generate_2d_manifold_exp(
-        n_neurons=64, duration=600, environments=["env1"]
+    # Session 1
+    print("Generating session 1...")
+    exp1 = generate_tuned_selectivity_exp(
+        population=population,
+        n_discrete_features=3,
+        duration=240,
+        event_active_fraction=0.20,
+        event_avg_duration=1.5,
+        baseline_rate=0.1,
+        peak_rate=2.0,
+        seed=42,
+        verbose=False,
     )
 
-    # Define trial structure
-    trial_info = {
-        "trial_starts": [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000],
-        "trial_labels": [
-            "explore",
-            "rest",
-            "explore",
-            "rest",
-            "explore",
-            "reward",
-            "explore",
-            "reward",
-            "explore",
-            "rest",
-        ],
-        "trial_duration": 1000,  # 50 seconds per trial at 20 Hz
-    }
-
-    # NEW: Convert to MVData first to show integration
-    print("Converting neural data to MVData object...")
-    mvdata = MVData(
-        exp.calcium.scdata
-    )  # Use scaled data for equal neuron contributions
-
-    # NEW: Use unified API with MVData - it handles trial structure
-    print("Computing RDM from MVData with trial structure...")
-    # For MVData, we need to pass labels separately since trial_info dict isn't supported
-    # So we'll compute labels first
-    trial_labels_expanded = []
-    for i, (start, label) in enumerate(
-        zip(trial_info["trial_starts"], trial_info["trial_labels"])
-    ):
-        if i < len(trial_info["trial_starts"]) - 1:
-            duration = trial_info["trial_starts"][i + 1] - start
-        else:
-            duration = trial_info["trial_duration"]
-        trial_labels_expanded.extend([label] * duration)
-
-    # Convert string labels to numeric for compatibility
-    unique_labels = list(set(trial_labels_expanded))
-    label_map = {label: i for i, label in enumerate(unique_labels)}
-    numeric_labels = np.array(
-        [label_map[label] for label in trial_labels_expanded[: mvdata.data.shape[1]]]
+    # Session 2 (different seed = different noise, but same structure)
+    print("Generating session 2...")
+    exp2 = generate_tuned_selectivity_exp(
+        population=population,
+        n_discrete_features=3,
+        duration=240,
+        event_active_fraction=0.20,
+        event_avg_duration=1.5,
+        baseline_rate=0.1,
+        peak_rate=2.0,
+        seed=123,
+        verbose=False,
     )
 
-    rdm, label_indices = rsa.compute_rdm_unified(
-        mvdata, items=numeric_labels, metric="euclidean"
+    # Compare experiments using categorical stimulus labels
+    print("Comparing two experiments...")
+    stim_labels_1 = create_stimulus_labels_from_events(
+        exp1, ["event_0", "event_1", "event_2"]
+    )
+    stim_labels_2 = create_stimulus_labels_from_events(
+        exp2, ["event_0", "event_1", "event_2"]
     )
 
-    # Map back to string labels
-    labels = [unique_labels[i] for i in label_indices]
-    print(f"Unique trial types: {labels}")
+    # Filter to valid timepoints
+    valid_1 = stim_labels_1 >= 0
+    valid_2 = stim_labels_2 >= 0
 
-    # Visualize with dendrogram
+    # Compute RDMs using euclidean distance
+    rdm1, _ = rsa.compute_rdm_unified(
+        exp1.calcium.scdata[:, valid_1].T, items=stim_labels_1[valid_1], metric="euclidean"
+    )
+    rdm2, _ = rsa.compute_rdm_unified(
+        exp2.calcium.scdata[:, valid_2].T, items=stim_labels_2[valid_2], metric="euclidean"
+    )
+
+    similarity = rsa.compare_rdms(rdm1, rdm2, method="spearman")
+    print(f"Experiment similarity: {similarity:.3f}")
+
+    # Visualize the RDMs
+    fig = rsa.plot_rdm_comparison(
+        [rdm1, rdm2],
+        labels=["Stim A", "Stim B", "Stim C"],
+        titles=["Session 1", "Session 2"],
+    )
+    plt.savefig("rsa_example_3.png")
+    plt.close()
+
+    return similarity
+
+
+def example_4_spatial_selectivity():
+    """Example 4: RDM from spatial selectivity."""
+    print("\n=== Example 4: RSA with Spatial Tuning ===")
+
+    # Define population with spatial selectivity
+    population = [
+        {"name": "place_cells", "count": 50, "features": ["position_2d"]},
+        {"name": "head_direction_cells", "count": 10, "features": ["head_direction"]},
+        {"name": "nonselective", "count": 4, "features": []},
+    ]
+
+    # Generate neurons with spatial tuning
+    print("Generating spatially-selective neurons...")
+    exp = generate_tuned_selectivity_exp(
+        population=population,
+        duration=600,
+        baseline_rate=0.1,
+        peak_rate=2.0,
+        seed=42,
+        verbose=False,
+    )
+
+    # Bin spatial positions into discrete regions
+    print("Binning spatial positions...")
+    position_data = exp.dynamic_features["position_2d"].data
+    x, y = position_data[0], position_data[1]
+
+    # Create 3x3 spatial grid (fewer bins to avoid sparse regions)
+    x_bins = np.digitize(x, np.linspace(x.min(), x.max(), 4))
+    y_bins = np.digitize(y, np.linspace(y.min(), y.max(), 4))
+    spatial_bins = x_bins * 3 + y_bins
+
+    # Compute RDM using euclidean distance (more robust than correlation)
+    print("Computing spatial RDM...")
+    rdm, labels = rsa.compute_rdm_unified(
+        exp.calcium.scdata.T, items=spatial_bins, metric="euclidean"
+    )
+
+    print(f"RDM shape: {rdm.shape}")
+    print(f"Unique spatial bins: {len(labels)}")
+
+    # Visualize spatial RDM (no dendrogram to avoid NaN issues)
     fig = rsa.plot_rdm(
         rdm,
-        labels=labels,
-        title="Neural RDM - Trial Types (via MVData)",
-        dendrogram_ratio=0.15,
+        labels=[f"Bin {i}" for i in labels],
+        title="Neural RDM - Spatial Locations",
+        dendrogram_ratio=0,
     )
-    plt.savefig("rsa_example_2.png")
+    plt.savefig("rsa_example_4.png")
     plt.close()
 
     return exp, rdm, labels
 
 
-def example_5_compare_representations():
-    """Example 5: Compare representations - showcasing unified API flexibility."""
-    print("\n=== Example 5: Comparing Representations (Unified API) ===")
+def example_5_bootstrap_testing():
+    """Example 5: Statistical testing with bootstrap methods."""
+    print("\n=== Example 5: Bootstrap Statistical Testing ===")
 
-    # Generate two populations with potentially different representations
+    # Define population with stimulus selectivity
+    population = [
+        {
+            "name": "stimulus_selective",
+            "count": 45,
+            "features": ["event_0", "event_1", "event_2", "event_3"],
+            "combination": "or",
+        },
+        {"name": "background", "count": 5, "features": []},
+    ]
+
+    # Generate two populations with different noise levels
     print("Generating two neural populations...")
-
-    # Population 1: Strong stimulus selectivity
-    exp1 = driada.generate_synthetic_exp(
-        n_dfeats=4, n_cfeats=0, nneurons=50, duration=300, seed=42
-    )
-
-    # Population 2: Weaker/different selectivity
-    exp2 = driada.generate_synthetic_exp(
-        n_dfeats=4,
-        n_cfeats=0,
-        nneurons=50,
+    exp1 = generate_tuned_selectivity_exp(
+        population=population,
+        n_discrete_features=4,
         duration=300,
-        seed=123,  # Different seed for different selectivity
-        noise_std=0.3,  # More noise
+        seed=42,
+        verbose=False,
     )
 
-    # Use the discrete features as stimulus conditions
-    stimulus_labels = exp1.dynamic_features["d_feat_0"].data
+    exp2 = generate_tuned_selectivity_exp(
+        population=population,
+        n_discrete_features=4,
+        duration=300,
+        seed=123,
+        calcium_noise=0.05,  # More noise in population 2
+        verbose=False,
+    )
 
-    # NEW: Use unified API for both - it detects numpy arrays automatically
-    print("Computing RDMs using unified API...")
+    # Create stimulus labels from events
+    print("Creating stimulus labels...")
+    stim_labels_1 = create_stimulus_labels_from_events(
+        exp1, ["event_0", "event_1", "event_2", "event_3"]
+    )
+    stim_labels_2 = create_stimulus_labels_from_events(
+        exp2, ["event_0", "event_1", "event_2", "event_3"]
+    )
+
+    # Compute RDMs (filter to only timepoints with events)
+    valid_mask_1 = stim_labels_1 >= 0
+    valid_mask_2 = stim_labels_2 >= 0
+
     rdm1, labels1 = rsa.compute_rdm_unified(
-        exp1.calcium.scdata,  # Use scaled data
-        items=stimulus_labels,
-        metric="correlation",
+        exp1.calcium.scdata[:, valid_mask_1].T,
+        items=stim_labels_1[valid_mask_1],
+        metric="euclidean",
     )
 
     rdm2, labels2 = rsa.compute_rdm_unified(
-        exp2.calcium.scdata,  # Use scaled data
-        items=stimulus_labels,
-        metric="correlation",
+        exp2.calcium.scdata[:, valid_mask_2].T,
+        items=stim_labels_2[valid_mask_2],
+        metric="euclidean",
     )
 
-    # Compare RDMs using different methods
+    # Compare RDMs
     print("\nComparing RDMs with multiple methods:")
     for method in ["spearman", "pearson", "kendall"]:
         similarity = rsa.compare_rdms(rdm1, rdm2, method=method)
         print(f"  {method}: {similarity:.3f}")
 
-    # Bootstrap test
+    # Bootstrap significance test (pass data without transpose)
     print("\nRunning bootstrap significance test...")
     bootstrap_results = rsa.bootstrap_rdm_comparison(
-        exp1.calcium.scdata,  # Use scaled data
-        exp2.calcium.scdata,  # Use scaled data
-        stimulus_labels,
-        stimulus_labels,
-        n_bootstrap=100,  # Use more for real analysis
+        exp1.calcium.scdata[:, valid_mask_1],
+        exp2.calcium.scdata[:, valid_mask_2],
+        stim_labels_1[valid_mask_1],
+        stim_labels_2[valid_mask_2],
+        metric="euclidean",
+        n_bootstrap=100,
         random_state=42,
     )
 
@@ -348,35 +389,9 @@ def example_5_compare_representations():
     return rdm1, rdm2, bootstrap_results["observed"]
 
 
-def example_6_performance_comparison():
-    """Example 6: Performance comparison of different metrics."""
-    print("\n=== Example 6: Performance Comparison ===")
-
-    # Generate data of different sizes
-    sizes = [(50, 100), (100, 500)]
-
-    for n_items, n_features in sizes:
-        print(f"\nTesting with {n_items} items, {n_features} features:")
-        patterns = np.random.randn(n_items, n_features)
-
-        # Time different metrics
-        metrics = ["correlation", "euclidean", "manhattan"]
-        for metric in metrics:
-            start = time.time()
-            rdm = rsa.compute_rdm_unified(patterns, metric=metric)
-            elapsed = time.time() - start
-            print(f"  {metric}: {elapsed:.4f}s")
-
-        # NEW: Show that euclidean and manhattan can use JIT
-        if driada.utils.jit.is_jit_enabled():
-            print("  (JIT compilation enabled for euclidean/manhattan)")
-
-    return rdm
-
-
-def example_7_mvdata_direct():
-    """Example 7: Direct MVData support in unified API."""
-    print("\n=== Example 7: Direct MVData Support ===")
+def example_6_mvdata_integration():
+    """Example 6: Working with MVData objects."""
+    print("\n=== Example 6: MVData Integration ===")
 
     # Create MVData object with known structure
     n_features = 100
@@ -387,7 +402,7 @@ def example_7_mvdata_direct():
     condition_duration = n_timepoints // n_conditions
     conditions = np.repeat(np.arange(n_conditions), condition_duration)
 
-    # Create data with clear condition structure
+    # Create data with distinct patterns per condition
     patterns = np.random.randn(n_conditions, n_features)
     data = np.zeros((n_features, n_timepoints))
     for i, cond in enumerate(conditions):
@@ -397,17 +412,10 @@ def example_7_mvdata_direct():
     mvdata = MVData(data)
 
     print("Computing RDM from MVData object...")
-    # NEW: Unified API automatically detects MVData
     rdm, labels = rsa.compute_rdm_unified(mvdata, items=conditions)
 
     print(f"RDM shape: {rdm.shape}")
     print(f"Unique conditions: {labels}")
-
-    # NEW: Show that MVData's correlation is now fixed
-    print("\nVerifying MVData correlation computation...")
-    # Compute correlation matrix of patterns
-    pattern_corr = mvdata.corr_mat(axis=1)  # Correlation between timepoints
-    print(f"Pattern correlation matrix shape: {pattern_corr.shape}")
 
     # Visualize RDM
     fig = rsa.plot_rdm(
@@ -416,64 +424,44 @@ def example_7_mvdata_direct():
         title="RDM from MVData",
         show_values=True,
     )
-    plt.savefig("rsa_example_7.png")
+    plt.savefig("rsa_example_6.png")
     plt.close()
 
     return mvdata, rdm
 
 
 if __name__ == "__main__":
-    # Run all examples
-    print("DRIADA RSA Examples - Showcasing Recent Improvements")
-    print("====================================================")
-    print("\nKey improvements demonstrated:")
-    print("1. NEW: Simplified rsa_compare() API for common use case")
-    print("2. Unified API (compute_rdm_unified) - automatic data type detection")
-    print("3. Support for Experiment comparisons in rsa_compare")
-    print("4. Caching support in Experiment objects")
-    print("5. Direct MVData integration")
-    print("6. Standardized visualization with plot utilities")
+    print("DRIADA RSA Examples")
+    print("=" * 60)
 
     try:
-        # Example 1: Behavioral conditions with unified API
-        exp1, rdm1, labels1 = example_1_behavioral_conditions()
+        exp1, rdm1, labels1 = example_1_stimulus_conditions()
     except Exception as e:
         print(f"\nExample 1 skipped due to: {e}")
 
     try:
-        # Example 2: NEW - Simplified API demonstration
-        similarity = example_2_simplified_api()
+        similarity = example_2_compare_regions()
     except Exception as e:
         print(f"\nExample 2 skipped due to: {e}")
 
     try:
-        # Example 3: NEW - Compare experiments with simplified API
-        sim_stim, sim_trial, sim_spike = example_3_experiment_comparison()
+        similarity3 = example_3_compare_experiments()
     except Exception as e:
         print(f"\nExample 3 skipped due to: {e}")
 
     try:
-        # Example 4: Trial structure with MVData
-        exp4, rdm4, labels4 = example_4_trial_structure()
+        exp4, rdm4, labels4 = example_4_spatial_selectivity()
     except Exception as e:
         print(f"\nExample 4 skipped due to: {e}")
 
     try:
-        # Example 5: Compare representations with unified API
-        rdm5a, rdm5b, sim5 = example_5_compare_representations()
+        rdm5a, rdm5b, sim5 = example_5_bootstrap_testing()
     except Exception as e:
         print(f"\nExample 5 skipped due to: {e}")
 
-    # Example 6: Performance comparison
-    example_6_performance_comparison()
+    try:
+        mvdata6, rdm6 = example_6_mvdata_integration()
+    except Exception as e:
+        print(f"\nExample 6 skipped due to: {e}")
 
-    # Example 7: Direct MVData support
-    mvdata7, rdm7 = example_7_mvdata_direct()
-
-    print("\n=== Summary of Improvements ===")
-    print("✓ NEW: rsa_compare() provides simplified API for common use case")
-    print("✓ Supports arrays, MVData, and Experiment objects seamlessly")
-    print("✓ Unified API reduces code complexity")
-    print("✓ Caching speeds up repeated computations")
-    print("✓ MVData integration enables seamless workflow")
     print("\nAll examples completed!")

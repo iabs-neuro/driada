@@ -20,36 +20,37 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import driada
+from driada.experiment.synthetic import generate_tuned_selectivity_exp
 import matplotlib.pyplot as plt
 import numpy as np
 
 
 def generate_mixed_selectivity_data():
-    """Generate synthetic data with known mixed selectivity patterns and MultiTimeSeries."""
+    """Generate synthetic data with known mixed selectivity patterns."""
     print("\n=== GENERATING MIXED SELECTIVITY DATA ===")
 
-    # For demonstration, create a smaller experiment with stronger selectivity
-    exp = driada.experiment.generate_synthetic_exp_with_mixed_selectivity(
-        n_discrete_feats=2,  # Fewer features for clearer demonstration
-        n_continuous_feats=2,  # Fewer continuous features
-        n_neurons=30,  # Smaller population for faster analysis
-        n_multifeatures=1,  # One multifeature
-        selectivity_prob=1.0,  # All neurons are selective
-        multi_select_prob=0.8,  # Most have mixed selectivity
-        weights_mode="dominant",  # One feature dominates (clearer for disentanglement)
-        duration=600,  # 10 minutes
-        seed=42,
+    # Define population with real features for mixed selectivity demonstration
+    population = [
+        {"name": "hd_cells", "count": 5, "features": ["head_direction"]},
+        {"name": "speed_cells", "count": 5, "features": ["speed"]},
+        {"name": "event_cells", "count": 5, "features": ["event_0"]},
+        {"name": "mixed_hd_speed", "count": 5, "features": ["head_direction", "speed"], "combination": "weighted_sum"},
+        {"name": "mixed_hd_event", "count": 5, "features": ["head_direction", "event_0"], "combination": "weighted_sum"},
+        {"name": "mixed_speed_event", "count": 5, "features": ["speed", "event_0"], "combination": "weighted_sum"},
+    ]
+
+    exp = generate_tuned_selectivity_exp(
+        population=population,
+        duration=900,
         fps=20,
+        seed=42,
+        n_discrete_features=1,
+        baseline_rate=0.1,
+        peak_rate=2.0,
+        decay_time=2.0,
+        calcium_noise=0.05,
         verbose=False,
-        create_discrete_pairs=True,  # Create discrete versions of continuous signals for disentanglement demo
-        rate_0=0.1,
-        rate_1=3.0,
-        skip_prob=0.0,
-        ampl_range=(1.5, 3.5),
-        decay_time=2,
-        noise_std=0.05,
     )
-    # Ground truth is now in exp.ground_truth
 
     print(
         f"Generated experiment: {exp.n_cells} neurons, {len(exp.dynamic_features)} features, {exp.n_frames/exp.fps:.1f}s recording"
@@ -76,8 +77,8 @@ def run_intense_analysis(exp):
     results = driada.compute_cell_feat_significance(
         exp,
         mode="two_stage",
-        n_shuffles_stage1=50,  # Increased for better statistics
-        n_shuffles_stage2=500,  # Increased for more reliable p-values
+        n_shuffles_stage1=100,  # Stage 1 screening
+        n_shuffles_stage2=10000,  # FFT optimization makes high counts fast
         allow_mixed_dimensions=True,  # Enable MultiTimeSeries analysis
         skip_delays=(
             skip_delays if skip_delays else None
@@ -85,7 +86,7 @@ def run_intense_analysis(exp):
         verbose=False,
         with_disentanglement=True,  # Enable disentanglement analysis
         multifeature_map=driada.intense.DEFAULT_MULTIFEATURE_MAP,
-        metric_distr_type="norm",  # Use normal (Gaussian) distribution for shuffled MI
+        # Uses default gamma_zi distribution (better for MI null distribution)
         pval_thr=0.05,  # Slightly less conservative threshold
     )
 

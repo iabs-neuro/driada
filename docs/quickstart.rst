@@ -517,8 +517,7 @@ Explore comprehensive examples demonstrating real-world workflows:
 
 - ``examples/circular_manifold/extract_circular_manifold.py`` - Extract ring attractor structure from head direction cells
 - ``examples/circular_manifold/test_metrics.py`` - Validate circular manifold reconstruction quality
-- ``examples/spatial_map/extract_spatial_map.py`` - Analyze place cells and spatial representations
-- ``examples/spatial_analysis/visualize_spatial_maps.py`` - Visualize spatial coding properties
+- ``examples/spatial_analysis/spatial_visualization.py`` - Visualize spatial data (trajectory, rate maps, calcium traces)
 - ``examples/task_variables/extract_task_variables.py`` - Decode task variables from mixed selectivity populations
 - ``examples/network_analysis/cell_cell_network_example.py`` - Build and analyze functional networks
 
@@ -526,7 +525,7 @@ Explore comprehensive examples demonstrating real-world workflows:
 
 - ``examples/compare_dr_methods/compare_dr_methods.py`` - Systematic comparison of DR algorithms
 - ``examples/dr_sequence/dr_sequence_neural_example.py`` - Sequential DR pipeline for optimal results
-- ``examples/recursive_embedding/recursive_embedding_example.py`` - Multi-scale manifold analysis
+- ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple API demonstration including sequential DR
 
 **Complete Pipelines:**
 

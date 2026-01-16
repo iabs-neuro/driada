@@ -39,7 +39,7 @@ from driada.information.info_base import MultiTimeSeries
 # Population configuration - defines neuron groups and their selectivity
 POPULATION = [
     {"name": "hd_cells", "count": 4, "features": ["head_direction"]},
-    {"name": "place_cells", "count": 4, "features": ["x", "y"], "combination": "and"},
+    {"name": "place_cells", "count": 4, "features": ["position_2d"]},
     {"name": "speed_cells", "count": 4, "features": ["speed"]},
     {"name": "event_cells", "count": 4, "features": ["event_0"]},
     {"name": "mixed_cells", "count": 4, "features": ["head_direction", "event_0"]},
@@ -54,7 +54,6 @@ CONFIG = {
     "seed": 42,
     # Tuning parameters
     "kappa": 4.0,           # von Mises concentration (HD cells)
-    "place_sigma": 0.15,    # place field width
     # Calcium dynamics
     "baseline_rate": 0.02,  # baseline firing rate
     "peak_rate": 2.5,       # peak response
@@ -66,8 +65,8 @@ CONFIG = {
     "event_avg_duration": 0.8,      # seconds
     # INTENSE analysis parameters
     "n_shuffles_stage1": 100,   # stage 1 screening shuffles
-    "n_shuffles_stage2": 5000,  # stage 2 confirmation shuffles
-    "pval_thr": 0.01,           # p-value threshold after correction
+    "n_shuffles_stage2": 10000,  # stage 2 confirmation (FFT makes this fast)
+    "pval_thr": 0.05,           # p-value threshold after correction
     "multicomp_correction": "holm",  # multiple comparison correction
 }
 
@@ -137,7 +136,7 @@ def run_intense_analysis(exp, config, verbose=True):
         pval_thr=config["pval_thr"],
         multicomp_correction=config["multicomp_correction"],
         use_precomputed_stats=False,  # Force fresh computation
-        with_disentanglement=True,  # Identify redundant detections
+        with_disentanglement=True,
         verbose=True,
     )
 
@@ -469,8 +468,6 @@ def main():
     # Custom tuning defaults based on config
     tuning_defaults = {
         "head_direction": {"kappa": CONFIG["kappa"]},
-        "x": {"sigma": CONFIG["place_sigma"]},
-        "y": {"sigma": CONFIG["place_sigma"]},
     }
 
     exp = generate_tuned_selectivity_exp(

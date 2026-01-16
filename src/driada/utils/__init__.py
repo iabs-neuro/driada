@@ -67,8 +67,6 @@ from .spatial import (
     compute_spatial_information_rate,
     compute_spatial_decoding_accuracy,
     compute_spatial_information,
-    filter_by_speed,
-    analyze_spatial_coding,
     compute_spatial_metrics,
 )
 
@@ -126,8 +124,6 @@ __all__ = [
     "compute_spatial_information_rate",
     "compute_spatial_decoding_accuracy",
     "compute_spatial_information",
-    "filter_by_speed",
-    "analyze_spatial_coding",
     "compute_spatial_metrics",
     # Signal generation and analysis
     "brownian",

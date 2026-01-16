@@ -576,3 +576,233 @@ class PanelLayout:
                 style.apply_to_axes(ax, panel_size, self.units)
 
         return fig, axes
+
+    def _calculate_panel_positions(self) -> Tuple[
+        float, float,  # fig_width_inches, fig_height_inches
+        list, list,    # col_positions_inches, row_positions_inches
+        list, list     # col_widths_inches, row_heights_inches
+    ]:
+        """Calculate all panel positions and figure dimensions.
+
+        Returns
+        -------
+        fig_width_inches : float
+            Total figure width in inches
+        fig_height_inches : float
+            Total figure height in inches
+        col_positions_inches : list of float
+            Left edge of each column in inches
+        row_positions_inches : list of float
+            Top edge of each row in inches (top-down coordinates)
+        col_widths_inches : list of float
+            Width of each column in inches
+        row_heights_inches : list of float
+            Height of each row in inches
+        """
+        # Validate layout
+        self._validate_layout()
+
+        # Calculate figure size
+        fig_width_inches, fig_height_inches = self._calculate_figure_size()
+
+        # Determine grid shape
+        rows, cols = self.grid_shape if self.grid_shape is not None else (1, len(self.panels))
+
+        # Calculate column widths and row heights in user units
+        col_widths = [0.0] * cols
+        row_heights = [0.0] * rows
+
+        for panel in self.panels.values():
+            if panel.position is not None:
+                row, col = panel.position
+                if panel.col_span == 1:
+                    col_widths[col] = max(col_widths[col], panel.size[0])
+                if panel.row_span == 1:
+                    row_heights[row] = max(row_heights[row], panel.size[1])
+
+        # Fill any zero widths/heights
+        avg_width = (
+            np.mean([w for w in col_widths if w > 0]) if any(w > 0 for w in col_widths) else 8
+        )
+        avg_height = (
+            np.mean([h for h in row_heights if h > 0]) if any(h > 0 for h in row_heights) else 6
+        )
+        col_widths = [w if w > 0 else avg_width for w in col_widths]
+        row_heights = [h if h > 0 else avg_height for h in row_heights]
+
+        # Get spacing in user units
+        wspace = self.spacing.get("wspace", 0)
+        hspace = self.spacing.get("hspace", 0)
+
+        # Calculate cumulative positions
+        col_positions = [0.0]
+        for i in range(cols):
+            col_positions.append(
+                col_positions[-1] + col_widths[i] + (wspace if i < cols - 1 else 0)
+            )
+
+        row_positions = [0.0]
+        for i in range(rows):
+            row_positions.append(
+                row_positions[-1] + row_heights[i] + (hspace if i < rows - 1 else 0)
+            )
+
+        # Convert to inches
+        col_positions_inches = [to_inches(p, self.units) for p in col_positions]
+        row_positions_inches = [to_inches(p, self.units) for p in row_positions]
+        col_widths_inches = [to_inches(w, self.units) for w in col_widths]
+        row_heights_inches = [to_inches(h, self.units) for h in row_heights]
+
+        return (
+            fig_width_inches, fig_height_inches,
+            col_positions_inches, row_positions_inches,
+            col_widths_inches, row_heights_inches
+        )
+
+    def _get_panel_rect_fractions(
+        self,
+        name: str,
+        fig_width_inches: float,
+        fig_height_inches: float,
+        col_positions_inches: list,
+        row_positions_inches: list,
+        col_widths_inches: list,
+        row_heights_inches: list
+    ) -> Tuple[float, float, float, float]:
+        """Get panel rectangle as figure fractions (left, bottom, width, height).
+
+        Parameters
+        ----------
+        name : str
+            Panel name
+        fig_width_inches, fig_height_inches : float
+            Figure dimensions
+        col_positions_inches, row_positions_inches : list
+            Column and row positions
+        col_widths_inches, row_heights_inches : list
+            Column widths and row heights
+
+        Returns
+        -------
+        tuple of float
+            (left, bottom, width, height) as figure fractions [0, 1]
+        """
+        panel = self.panels[name]
+
+        if panel.position is None:
+            raise ValueError(f"Panel '{name}' has no position specified")
+
+        row, col = panel.position
+
+        # Position in user coordinates (top-down)
+        left_inches = col_positions_inches[col]
+        top_inches = row_positions_inches[row]
+
+        # Handle spanning for width
+        if panel.col_span > 1:
+            width_inches = (
+                col_positions_inches[col + panel.col_span] - col_positions_inches[col]
+            )
+        else:
+            width_inches = col_widths_inches[col]
+
+        # Handle spanning for height
+        if panel.row_span > 1:
+            height_inches = (
+                row_positions_inches[row + panel.row_span] - row_positions_inches[row]
+            )
+        else:
+            height_inches = row_heights_inches[row]
+
+        # Convert to matplotlib coordinates (bottom-up)
+        bottom_inches = fig_height_inches - top_inches - height_inches
+
+        # Convert to figure fractions
+        left = left_inches / fig_width_inches
+        bottom = bottom_inches / fig_height_inches
+        width = width_inches / fig_width_inches
+        height = height_inches / fig_height_inches
+
+        return left, bottom, width, height
+
+    def create_figure_with_subfigures(self) -> Tuple[plt.Figure, Dict[str, "plt.SubFigure"]]:
+        """Create a matplotlib figure with SubFigure for each panel.
+
+        Use this method when panels need internal subplot structure (e.g., stacked
+        traces, side-by-side plots). Each SubFigure maintains the exact physical
+        dimensions specified and can contain its own subplot layout.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The created figure
+        subfigures : dict of matplotlib.figure.SubFigure
+            Dictionary mapping panel names to their SubFigure objects
+
+        Examples
+        --------
+        >>> layout = PanelLayout(units='cm', dpi=300)
+        >>> layout.add_panel('A', size=(11.11, 6.67), position=(0, 0))
+        >>> layout.add_panel('B', size=(11.11, 7.22), position=(1, 0))
+        >>> layout.set_grid(rows=2, cols=1)
+        >>>
+        >>> fig, subfigs = layout.create_figure_with_subfigures()
+        >>>
+        >>> # Create 3 stacked subplots within panel A
+        >>> axs_a = subfigs['A'].subplots(3, 1, sharex=True)
+        >>> for ax in axs_a:
+        ...     ax.plot(data)
+        """
+        # Calculate all positions
+        (
+            fig_width_inches, fig_height_inches,
+            col_positions_inches, row_positions_inches,
+            col_widths_inches, row_heights_inches
+        ) = self._calculate_panel_positions()
+
+        # Create figure
+        fig = plt.figure(figsize=(fig_width_inches, fig_height_inches), dpi=self.dpi)
+
+        # Get grid shape
+        rows, cols = self.grid_shape if self.grid_shape is not None else (1, len(self.panels))
+
+        # Create a high-resolution GridSpec for precise positioning
+        # Use 100 subdivisions per row/col for fine-grained control
+        resolution = 100
+        gs = fig.add_gridspec(rows * resolution, cols * resolution)
+
+        # Create subfigures for each panel
+        subfigures = {}
+        for name, panel in self.panels.items():
+            if panel.position is None:
+                raise ValueError(f"Panel '{name}' has no position specified")
+
+            row, col = panel.position
+
+            # Calculate grid indices based on position fractions
+            left, bottom, width, height = self._get_panel_rect_fractions(
+                name,
+                fig_width_inches, fig_height_inches,
+                col_positions_inches, row_positions_inches,
+                col_widths_inches, row_heights_inches
+            )
+
+            # Convert fractions to grid indices
+            # Note: GridSpec uses top-down indexing, fig fractions use bottom-up
+            row_start = int((1 - bottom - height) * rows * resolution)
+            row_end = int((1 - bottom) * rows * resolution)
+            col_start = int(left * cols * resolution)
+            col_end = int((left + width) * cols * resolution)
+
+            # Clamp to valid range
+            row_start = max(0, min(row_start, rows * resolution - 1))
+            row_end = max(row_start + 1, min(row_end, rows * resolution))
+            col_start = max(0, min(col_start, cols * resolution - 1))
+            col_end = max(col_start + 1, min(col_end, cols * resolution))
+
+            # Create SubplotSpec and subfigure
+            subplotspec = gs[row_start:row_end, col_start:col_end]
+            subfig = fig.add_subfigure(subplotspec)
+            subfigures[name] = subfig
+
+        return fig, subfigures

@@ -13,8 +13,6 @@ from driada.utils.spatial import (
     compute_spatial_information_rate,
     compute_spatial_decoding_accuracy,
     compute_spatial_information,
-    filter_by_speed,
-    analyze_spatial_coding,
     compute_spatial_metrics,
 )
 from driada.information import TimeSeries, MultiTimeSeries
@@ -354,179 +352,6 @@ class TestSpatialMI:
             compute_spatial_information(neural_activity, positions)
 
 
-class TestSpeedFiltering:
-    """Test speed-based data filtering."""
-
-    def test_filter_by_speed_basic(self):
-        """Test basic speed filtering."""
-        # Create trajectory with varying speed
-        t = np.linspace(0, 10, 100)
-        positions = np.column_stack([t, np.sin(t)])
-
-        data = {
-            "positions": positions,
-            "neural_activity": np.random.rand(100),
-            "other_data": np.arange(100),
-        }
-
-        # Filter for moderate speeds
-        filtered = filter_by_speed(data, speed_range=(0.5, 1.5))
-
-        # Check filtering
-        assert len(filtered["positions"]) < len(positions)
-        assert "speed" in filtered
-        assert np.all(filtered["speed"] >= 0.5)
-        assert np.all(filtered["speed"] <= 1.5)
-
-        # Check all arrays filtered consistently
-        assert len(filtered["neural_activity"]) == len(filtered["positions"])
-        assert len(filtered["other_data"]) == len(filtered["positions"])
-
-    def test_filter_by_speed_no_movement(self):
-        """Test filtering stationary periods."""
-        # Stationary positions
-        positions = np.ones((100, 2))
-
-        data = {"positions": positions}
-
-        # Filter out low speeds
-        filtered = filter_by_speed(data, speed_range=(0.1, float("inf")))
-
-        # Should filter out most/all samples
-        assert len(filtered["positions"]) <= 1  # Maybe keep first sample
-
-    def test_filter_by_speed_smoothing(self):
-        """Test speed smoothing effect."""
-        # Create noisy trajectory
-        positions = np.cumsum(np.random.randn(100, 2) * 0.1, axis=0)
-
-        data = {"positions": positions}
-
-        # Filter with smoothing
-        filtered_smooth = filter_by_speed(data, speed_range=(0, float("inf")), smooth_window=5)
-
-        # Filter without smoothing
-        filtered_no_smooth = filter_by_speed(data, speed_range=(0, float("inf")), smooth_window=1)
-
-        # Smoothed speed should have less variance
-        assert np.var(filtered_smooth["speed"]) < np.var(filtered_no_smooth["speed"])
-
-
-class TestSpatialAnalysisPipeline:
-    """Test comprehensive spatial analysis."""
-
-    def test_analyze_spatial_coding_basic(self):
-        """Test basic spatial coding analysis."""
-        # Use synthetic data generation utilities
-        from driada.experiment.synthetic import (
-            generate_2d_random_walk,
-            generate_2d_manifold_neurons,
-            generate_pseudo_calcium_signal,
-        )
-
-        # Generate trajectory
-        n_samples = 1000
-        positions = generate_2d_random_walk(
-            length=n_samples, bounds=(0, 1), step_size=0.02, momentum=0.8, seed=42
-        ).T  # Transpose to (n_samples, 2)
-
-        # Generate place cell with center at (0.5, 0.5)
-        firing_rates, centers = generate_2d_manifold_neurons(
-            n_neurons=1,
-            positions=positions.T,  # Expects (2, n_samples)
-            field_sigma=0.15,  # Wider field for better detection
-            baseline_rate=0.5,  # Hz
-            peak_rate=10.0,  # Hz
-            firing_noise=0.1,
-            grid_arrangement=False,
-            seed=42,
-        )
-
-        # Manually set center to ensure it's at (0.5, 0.5)
-        centers[0] = [0.5, 0.5]
-
-        # Regenerate with fixed center
-        from driada.experiment.synthetic import gaussian_place_field
-
-        place_response = gaussian_place_field(positions.T, centers[0], sigma=0.15)
-        firing_rate = 0.5 + (10.0 - 0.5) * place_response
-
-        # Convert to calcium signal
-        calcium_signal = generate_pseudo_calcium_signal(
-            firing_rate, sampling_rate=20.0, decay_time=2.0, noise_std=0.5
-        )
-
-        # Reshape for analysis (needs n_neurons x n_samples)
-        neural_activity = calcium_signal.reshape(1, -1)
-
-        results = analyze_spatial_coding(
-            neural_activity,
-            positions,
-            arena_bounds=((0, 1), (0, 1)),
-            bin_size=0.1,
-            min_peak_rate=2.0,  # Reasonable for calcium
-            speed_range=None,  # No speed filtering for this test
-            peak_to_mean_ratio=1.3,  # Lower ratio for calcium signals
-            min_field_size=4,  # At least 4 bins
-        )
-
-        # Check all expected outputs
-        assert "rate_maps" in results
-        assert "place_fields" in results
-        assert "spatial_info" in results
-        assert "decoding_accuracy" in results
-        assert "spatial_mi" in results
-        assert "summary" in results
-
-        # Check dimensions
-        assert len(results["rate_maps"]) == 1
-        assert len(results["spatial_info"]) == 1
-
-        # Debug info if test fails
-        if results["summary"]["n_place_cells"] == 0:
-            rate_map = results["rate_maps"][0]
-            print(f"Rate map shape: {rate_map.shape}")
-            print(f"Rate map max: {np.nanmax(rate_map)}")
-            print(f"Rate map mean: {np.nanmean(rate_map)}")
-            print(f"Place fields found: {results['place_fields'][0]}")
-            print(f"Spatial info: {results['spatial_info'][0]}")
-
-        # Should detect place cell
-        assert results["summary"]["n_place_cells"] >= 1
-        assert results["summary"]["mean_spatial_info"] > 0
-
-    def test_analyze_spatial_coding_with_speed_filter(self):
-        """Test spatial analysis with speed filtering."""
-        # Create trajectory with variable speed
-        t = np.linspace(0, 20, 1000)
-        positions = np.column_stack([t % 1, (t // 1) * 0.1])  # Sawtooth X  # Stepped Y
-
-        neural_activity = np.random.rand(2, 1000)
-
-        results = analyze_spatial_coding(
-            neural_activity, positions, speed_range=(0.05, 0.5)  # Filter speeds
-        )
-
-        # Should complete without error
-        assert "summary" in results
-        assert results["summary"]["n_place_cells"] >= 0
-
-    def test_analyze_spatial_coding_with_logger(self):
-        """Test spatial analysis with logging."""
-        import logging
-
-        logger = logging.getLogger("test")
-
-        positions = np.random.rand(100, 2)
-        neural_activity = np.random.rand(3, 100)
-
-        with patch.object(logger, "info") as mock_info:
-            results = analyze_spatial_coding(neural_activity, positions, logger=logger)
-
-            # Should log progress
-            assert mock_info.called
-
-
 class TestComputeSpatialMetrics:
     """Test selective metric computation."""
 
@@ -537,10 +362,10 @@ class TestComputeSpatialMetrics:
 
         results = compute_spatial_metrics(neural_activity, positions, metrics=None)  # Compute all
 
-        # Should have all metric types
+        # Should have all metric types (decoding and information only)
         assert "decoding" in results
         assert "information" in results
-        assert "place_fields" in results
+        assert "place_fields" not in results
 
     def test_compute_spatial_metrics_subset(self):
         """Test computing subset of metrics."""
@@ -572,3 +397,11 @@ class TestComputeSpatialMetrics:
         # Should complete without error
         assert "decoding" in results
         assert "r2_avg" in results["decoding"]
+
+    def test_compute_spatial_metrics_place_fields_error(self):
+        """Verify requesting 'place_fields' metric raises ValueError."""
+        positions = np.random.rand(200, 2)
+        neural_activity = np.random.rand(5, 200)
+
+        with pytest.raises(ValueError, match="Place field detection removed"):
+            compute_spatial_metrics(neural_activity, positions, metrics=["place_fields"])

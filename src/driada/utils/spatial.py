@@ -216,7 +216,16 @@ def extract_place_fields(
     peak_to_mean_ratio: float = 1.5,
 ) -> List[Dict[str, Union[float, Tuple[int, int]]]]:
     """
-    Extract place fields from a rate map.
+    Extract place fields from a rate map using threshold-based detection.
+
+    .. warning::
+        This function is EXPERIMENTAL and uses arbitrary thresholds.
+        For scientific analysis, use INTENSE (MI-based detection with
+        shuffle-based significance testing).
+
+        This function is provided for quick visualization purposes only
+        (e.g., "roughly where are the place fields for plotting?").
+        It should NOT be used for quantitative analysis.
 
     Parameters
     ----------
@@ -246,6 +255,9 @@ def extract_place_fields(
     Notes
     -----
     Uses 8-connectivity for contiguous region detection.
+
+    Experimental function - thresholds are not data-driven.
+    Use compute_cell_feat_significance() from INTENSE for principled detection.
 
     Examples
     --------
@@ -553,248 +565,6 @@ def compute_spatial_information(
     return metrics
 
 
-def filter_by_speed(
-    data: Dict[str, np.ndarray],
-    speed_range: Tuple[float, float] = (0.05, float("inf")),
-    position_key: str = "positions",
-    smooth_window: int = 5,
-) -> Dict[str, np.ndarray]:
-    """
-    Filter data to include only periods of specific movement speeds.
-
-    Parameters
-    ----------
-    data : dict
-        Dictionary with at least 'positions' key containing (n_samples, 2) array
-    speed_range : tuple
-        (min_speed, max_speed) to include. Default excludes near-stationary periods.
-    position_key : str
-        Key for position data in dictionary
-    smooth_window : int
-        Window size for speed smoothing
-
-    Returns
-    -------
-    filtered_data : dict
-        Data dictionary with speed-filtered arrays. Adds 'speed' key with
-        computed speeds.
-
-    Raises
-    ------
-    ValueError
-        If speed_range values are invalid
-    KeyError
-        If position_key not found in data
-
-    Notes
-    -----
-    First sample assigned zero speed.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> positions = np.random.rand(1000, 2)
-    >>> activity = np.random.rand(1000, 10)  # 10 neurons
-    >>> data = {\'positions\': positions, \'neural_activity\': activity}
-    >>> # Keep only when animal is moving
-    >>> filtered = filter_by_speed(data, speed_range=(0.05, np.inf))"""
-    # Validate inputs
-    if position_key not in data:
-        raise KeyError(f"position_key '{position_key}' not found in data")
-    positions = data[position_key]
-    if speed_range[0] < 0:
-        raise ValueError(f"min_speed must be non-negative, got {speed_range[0]}")
-    if speed_range[0] > speed_range[1]:
-        raise ValueError(f"min_speed ({speed_range[0]}) > max_speed ({speed_range[1]})")
-
-    # Compute speed
-    velocity = np.diff(positions, axis=0)
-    speed = np.sqrt(np.sum(velocity**2, axis=1))
-
-    # Smooth speed
-    if smooth_window > 1:
-        speed = ndimage.uniform_filter1d(speed, size=smooth_window)
-
-    # Add zero speed for first sample
-    speed = np.concatenate([[0], speed])
-
-    # Create mask
-    mask = (speed >= speed_range[0]) & (speed <= speed_range[1])
-
-    # Filter all arrays in data
-    filtered_data = {}
-    for key, value in data.items():
-        if isinstance(value, np.ndarray) and len(value) == len(mask):
-            filtered_data[key] = value[mask]
-        else:
-            filtered_data[key] = value
-
-    filtered_data["speed"] = speed[mask]
-
-    return filtered_data
-
-
-def analyze_spatial_coding(
-    neural_activity: np.ndarray,
-    positions: np.ndarray,
-    fps: float = 1.0,
-    arena_bounds: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None,
-    bin_size: float = 0.025,
-    min_peak_rate: float = 1.0,
-    speed_range: Optional[Tuple[float, float]] = (0.05, float("inf")),
-    peak_to_mean_ratio: float = 1.5,
-    min_field_size: int = 9,
-    logger: Optional[logging.Logger] = None,
-) -> Dict[str, Union[np.ndarray, List, Dict, float]]:
-    """
-    Comprehensive spatial coding analysis pipeline.
-
-    Parameters
-    ----------
-    neural_activity : np.ndarray, shape (n_neurons, n_samples)
-        Neural activity matrix
-    positions : np.ndarray, shape (n_samples, 2)
-        Position data
-    fps : float
-        Frames per second (sampling frequency)
-    arena_bounds : tuple, optional
-        Arena boundaries
-    bin_size : float
-        Spatial bin size
-    min_peak_rate : float
-        Minimum peak rate for place fields
-    speed_range : tuple, optional
-        Speed filter range. None to skip filtering.
-    peak_to_mean_ratio : float
-        Minimum ratio of peak to mean rate in field
-    min_field_size : int
-        Minimum number of contiguous bins for valid field
-    logger : logging.Logger, optional
-        Logger for progress
-
-    Returns
-    -------
-    results : dict
-        Comprehensive spatial analysis results:
-        - rate_maps: List of rate maps per neuron
-        - place_fields: List of place fields per neuron
-        - spatial_info: Spatial information per neuron
-        - decoding_accuracy: Position decoding metrics
-        - spatial_mi: Mutual information metrics
-        - summary: Dict with n_place_cells, mean_spatial_info
-
-    Raises
-    ------
-    ValueError
-        If shape mismatch or invalid parameters
-
-    Notes
-    -----
-    - Applies speed filtering before analysis if speed_range provided
-    - All analyses use the same spatial binning
-    - Rate maps are smoothed with sigma=1.5
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> # Create sample data with spatial structure for more realistic example
-    >>> # 20 neurons, 3000 frames at 30fps = 100 seconds
-    >>> np.random.seed(42)  # For reproducible example
-    >>> t = np.linspace(0, 100, 3000)
-    >>> # Create circular trajectory
-    >>> positions = np.column_stack([
-    ...     0.5 + 0.3 * np.cos(0.1 * t) + 0.05 * np.random.randn(3000),
-    ...     0.5 + 0.3 * np.sin(0.1 * t) + 0.05 * np.random.randn(3000)
-    ... ])
-    >>> # Create neural activity with spatial tuning
-    >>> neural_data = np.zeros((20, 3000))
-    >>> for i in range(20):
-    ...     # Each neuron has a preferred location
-    ...     pref_x, pref_y = np.random.rand(2)
-    ...     distance = np.sqrt((positions[:, 0] - pref_x)**2 + (positions[:, 1] - pref_y)**2)
-    ...     neural_data[i] = np.exp(-distance**2 / 0.1) + 0.1 * np.random.randn(3000)
-    >>> results = analyze_spatial_coding(neural_data, positions, fps=30.0)
-    >>> print(f"Found {results['summary']['n_place_cells']} place cells")  # doctest: +ELLIPSIS
-    Found ... place cells
-    """
-    # Validate inputs
-    if neural_activity.shape[1] != positions.shape[0]:
-        raise ValueError(
-            f"Shape mismatch: neural_activity has {neural_activity.shape[1]} "
-            f"samples but positions has {positions.shape[0]}"
-        )
-    if positions.shape[1] != 2:
-        raise ValueError(f"Positions must be 2D, got shape {positions.shape}")
-    check_positive(
-        fps=fps,
-        bin_size=bin_size,
-        min_peak_rate=min_peak_rate,
-        peak_to_mean_ratio=peak_to_mean_ratio,
-        min_field_size=min_field_size,
-    )
-
-    if logger:
-        logger.info(f"Analyzing spatial coding for {neural_activity.shape[0]} neurons")
-
-    # Speed filtering if requested
-    if speed_range is not None:
-        data = {
-            "positions": positions,
-            "neural_activity": neural_activity.T,  # Transpose for filtering
-        }
-        filtered = filter_by_speed(data, speed_range)
-        positions = filtered["positions"]
-        neural_activity = filtered["neural_activity"].T
-
-    # Compute occupancy map
-    occupancy_map, x_edges, y_edges = compute_occupancy_map(positions, fps, arena_bounds, bin_size)
-
-    results = {
-        "rate_maps": [],
-        "place_fields": [],
-        "spatial_info": [],
-    }
-
-    # Analyze each neuron
-    for i in range(neural_activity.shape[0]):
-        # Compute rate map
-        rate_map = compute_rate_map(
-            neural_activity[i], positions, occupancy_map, x_edges, y_edges, fps
-        )
-        results["rate_maps"].append(rate_map)
-
-        # Extract place fields
-        fields = extract_place_fields(
-            rate_map,
-            min_peak_rate=min_peak_rate,
-            min_field_size=min_field_size,
-            peak_to_mean_ratio=peak_to_mean_ratio,
-        )
-        results["place_fields"].append(fields)
-
-        # Spatial information
-        si = compute_spatial_information_rate(rate_map, occupancy_map)
-        results["spatial_info"].append(si)
-
-    # Population-level analyses
-    results["decoding_accuracy"] = compute_spatial_decoding_accuracy(
-        neural_activity, positions, logger=logger
-    )
-
-    results["spatial_mi"] = compute_spatial_information(neural_activity, positions, logger=logger)
-
-    # Summary statistics
-    results["summary"] = {
-        "n_place_cells": sum(len(pf) > 0 for pf in results["place_fields"]),
-        "mean_spatial_info": np.mean(results["spatial_info"]),
-    }
-
-    if logger:
-        logger.info(f"Found {results['summary']['n_place_cells']} place cells")
-
-    return results
-
-
 def compute_spatial_metrics(
     neural_activity: np.ndarray,
     positions: np.ndarray,
@@ -802,7 +572,12 @@ def compute_spatial_metrics(
     **kwargs,
 ) -> Dict[str, Union[float, Dict]]:
     """
-    Compute selected spatial metrics.
+    Compute selected spatial metrics (decoding and information only).
+
+    .. note::
+        Place field detection (extract_place_fields) is experimental
+        and not included in this function. Use INTENSE for principled
+        place cell detection.
 
     Parameters
     ----------
@@ -812,10 +587,11 @@ def compute_spatial_metrics(
         Position data
     metrics : list of str, optional
         Metrics to compute. If None, computes all.
-        Options: 'decoding', 'information', 'place_fields'
+        Options: 'decoding', 'information'
+        (Removed: 'place_fields' - use INTENSE instead)
     **kwargs
         Additional arguments passed to analysis functions
-        (e.g., fps, logger, test_size, bin_size)
+        (e.g., fps, logger, test_size)
 
     Returns
     -------
@@ -825,7 +601,7 @@ def compute_spatial_metrics(
     Raises
     ------
     ValueError
-        If invalid metric name provided
+        If invalid metric name provided or 'place_fields' requested
 
     Examples
     --------
@@ -841,12 +617,18 @@ def compute_spatial_metrics(
     >>> positions = np.random.rand(2000, 2)
     >>> results = compute_spatial_metrics(neural_data, positions)"""
     if metrics is None:
-        metrics = ["decoding", "information", "place_fields"]
+        metrics = ["decoding", "information"]
 
     # Validate metrics
-    valid_metrics = {"decoding", "information", "place_fields"}
+    valid_metrics = {"decoding", "information"}
     invalid = set(metrics) - valid_metrics
     if invalid:
+        # Special error for place_fields
+        if "place_fields" in invalid:
+            raise ValueError(
+                "Place field detection removed from compute_spatial_metrics. "
+                "Use INTENSE for MI-based place cell detection."
+            )
         raise ValueError(f"Invalid metrics: {invalid}. Valid options: {valid_metrics}")
 
     results = {}
@@ -858,10 +640,5 @@ def compute_spatial_metrics(
 
     if "information" in metrics:
         results["information"] = compute_spatial_information(neural_activity, positions, **kwargs)
-
-    if "place_fields" in metrics:
-        analysis = analyze_spatial_coding(neural_activity, positions, **kwargs)
-        results["place_fields"] = analysis["place_fields"]
-        results["n_place_cells"] = analysis["summary"]["n_place_cells"]
 
     return results

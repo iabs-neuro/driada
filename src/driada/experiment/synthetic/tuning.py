@@ -29,10 +29,10 @@ from ...utils.data import check_positive, check_nonnegative
 # =============================================================================
 
 TUNING_DEFAULTS = {
-    "head_direction": {"kappa": 2.0},  # von Mises concentration
+    "head_direction": {"kappa": 4.0},  # von Mises concentration
     "x": {"sigma": 0.25},  # Gaussian width (1D marginal)
     "y": {"sigma": 0.25},  # Gaussian width (1D marginal)
-    "position_2d": {"sigma": 0.15},  # True 2D Gaussian place field width
+    "position_2d": {"sigma": 0.10},  # True 2D Gaussian place field width
     "speed": {"slope": 12.0},  # Sigmoid slope
     "fbm": {"slope": 8.0, "hurst": 0.7},  # FBM sigmoid slope and Hurst exponent
 }

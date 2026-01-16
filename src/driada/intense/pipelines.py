@@ -386,7 +386,7 @@ def compute_cell_feat_significance(
         multicomp_correction=multicomp_correction,
         pval_thr=pval_thr,
         find_optimal_delays=find_optimal_delays,
-        skip_delays=[feat_ids.index(f) for f in skip_delays if f in feat_ids],
+        skip_delays=[feat_ids.index(f) for f in skip_delays if f in feat_ids] if skip_delays else None,
         shift_window=int(shift_window * exp.fps),
         verbose=verbose,
         enable_parallelization=enable_parallelization,

@@ -10,11 +10,12 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize as color_normalize
 
 
-def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
+def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0, ax=None, **kwargs):
     """Draw the degree distribution of a network.
 
     Visualizes the degree distribution as a histogram or line plot,
     with options for cumulative distributions and log-log scaling.
+    Production-quality styling is applied automatically via make_beautiful().
 
     Parameters
     ----------
@@ -30,11 +31,23 @@ def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
         Default is 1.
     log_log : int, optional
         If 1, use log-log scale. Default is 0.
+    ax : matplotlib.axes.Axes, optional
+        Axes to plot on. If None, creates new figure.
+    **kwargs
+        Additional styling parameters passed to make_beautiful().
+        Common options:
+        - spine_width : float (default 3)
+        - tick_width : float (default 3)
+        - tick_labelsize : int (default 20)
+        - label_size : int (default 24)
+        - title_size : int (default 24)
+        - legend_fontsize : int (default 16)
+        - legend_loc : str (default "upper right")
 
     Returns
     -------
-    None
-        Displays the plot.
+    ax : matplotlib.axes.Axes
+        The styled axes object.
 
     Notes
     -----
@@ -59,11 +72,16 @@ def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
     >>> graph_undir = nx.Graph(edges)
     >>> net_undir = Network(graph=graph_undir)
     >>> draw_degree_distr(net_undir, log_log=1)  # doctest: +SKIP"""
+    from driada.utils.plot import make_beautiful
+
     if not net.directed:
         mode = "all"
 
-    fig, ax = create_default_figure(figsize=(10, 8))
-    ax.set_title("Degree distribution", color="white")
+    # Create figure only if ax not provided
+    if ax is None:
+        fig, ax = create_default_figure(figsize=(10, 8))
+
+    ax.set_title("Degree distribution")
 
     if mode is not None:
         distr = net.get_degree_distr(mode=mode)
@@ -102,12 +120,33 @@ def draw_degree_distr(net, mode=None, cumulative=0, survival=1, log_log=0):
 
         ax.legend(handles=[degree, outdegree, indegree], fontsize=16)
 
+    # Default styling parameters
+    style_defaults = {
+        'spine_width': 3,
+        'tick_width': 3,
+        'tick_labelsize': 20,
+        'label_size': 24,
+        'title_size': 24,
+        'legend_fontsize': 16,
+        'legend_loc': "upper right",
+        'legend_frameon': True,
+    }
 
-def draw_spectrum(net, mode="adj", ax=None, colors=None, cmap="plasma", nbins=None):
+    # Merge user kwargs with defaults (user kwargs override defaults)
+    style_params = {**style_defaults, **kwargs}
+
+    # Always apply production-quality styling
+    ax = make_beautiful(ax, **style_params)
+
+    return ax
+
+
+def draw_spectrum(net, mode="adj", ax=None, colors=None, cmap="plasma", nbins=None, **kwargs):
     """Visualize the eigenvalue spectrum of a network matrix.
 
     For directed graphs, plots eigenvalues in the complex plane.
     For undirected graphs, shows a histogram of real eigenvalues.
+    Production-quality styling is applied automatically via make_beautiful().
 
     Parameters
     ----------
@@ -125,12 +164,15 @@ def draw_spectrum(net, mode="adj", ax=None, colors=None, cmap="plasma", nbins=No
         Colormap name. Default is 'plasma'.
     nbins : int, optional
         Number of histogram bins (undirected graphs only).
-        Default is len(spectrum)/10.
+        If None, uses Sturges' rule: ceil(log2(n)) + 1.
+    **kwargs
+        Additional styling parameters passed to make_beautiful().
+        See draw_degree_distr() docstring for common options.
 
     Returns
     -------
-    None
-        Modifies the provided axes or displays a new plot.
+    ax : matplotlib.axes.Axes
+        The styled axes object.
 
     Notes
     -----
@@ -152,18 +194,43 @@ def draw_spectrum(net, mode="adj", ax=None, colors=None, cmap="plasma", nbins=No
     >>> draw_spectrum(net, mode='adj')  # doctest: +SKIP
     >>> # Draw Laplacian spectrum - eigenvalues should be non-negative
     >>> draw_spectrum(net, mode='lap')  # doctest: +SKIP"""
+    from driada.utils.plot import make_beautiful
+
     spectrum = net.get_spectrum(mode)
     data = np.array(sorted(list(set(spectrum)), key=np.abs))
 
     if ax is None:
-        fig, ax = create_default_figure(12, 10)
+        fig, ax = create_default_figure(figsize=(12, 10))
 
     if net.directed:
         ax.scatter(data.real, data.imag, cmap=cmap, c=colors)
+        ax.set_xlabel("Real part")
+        ax.set_ylabel("Imaginary part")
     else:
         if nbins is None:
-            nbins = max(1, len(spectrum) // 10)
-        ax.hist(data.real, bins=nbins)
+            # Use Sturges' rule: nbins = ceil(log2(n)) + 1
+            nbins = int(np.ceil(np.log2(len(spectrum)))) + 1
+        ax.hist(data.real, bins=nbins, edgecolor='black', linewidth=0.5, alpha=0.8)
+        ax.set_xlabel("Eigenvalue")
+        ax.set_ylabel("Count")
+
+    # Default styling parameters
+    style_defaults = {
+        'spine_width': 3,
+        'tick_width': 3,
+        'tick_labelsize': 20,
+        'label_size': 24,
+        'title_size': 24,
+        'legend_fontsize': 16,
+    }
+
+    # Merge user kwargs with defaults
+    style_params = {**style_defaults, **kwargs}
+
+    # Always apply production-quality styling
+    ax = make_beautiful(ax, **style_params)
+
+    return ax
 
 
 def get_vector_coloring(vec, cmap="plasma"):

@@ -3,7 +3,7 @@
 Basic INTENSE Usage Example
 
 This example demonstrates the minimal workflow for using DRIADA's INTENSE module:
-1. Generate synthetic neural data
+1. Generate synthetic neural data with realistic tuning properties
 2. Analyze neuronal selectivity
 3. Extract significant results
 4. Visualize findings
@@ -18,6 +18,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import driada
+from driada.experiment.synthetic import generate_tuned_selectivity_exp
 import matplotlib.pyplot as plt
 
 
@@ -27,18 +28,29 @@ def main():
     print("DRIADA INTENSE - Basic Usage Example")
     print("=" * 60)
 
-    # Step 1: Generate synthetic experiment
+    # Step 1: Generate synthetic experiment with meaningful features
     print("\n1. Generating synthetic experiment...")
-    print("   - 10 neurons")
-    print("   - 2 discrete + 2 continuous features")
-    print("   - 2 minutes recording")
+    print("   - 10 neurons with realistic tuning")
+    print("   - Head direction cells (circular tuning)")
+    print("   - Speed cells (linear tuning)")
+    print("   - Event cells (discrete responses)")
+    print("   - 10 minutes recording")
 
-    exp = driada.generate_synthetic_exp(
-        n_dfeats=2,  # discrete features (e.g., trial type)
-        n_cfeats=2,  # continuous features (e.g., x, y position)
-        nneurons=10,  # number of neurons
-        duration=120,  # 2 minutes recording
-        seed=42,  # reproducible results
+    # Define simple population with meaningful selectivity
+    population = [
+        {"name": "hd_cells", "count": 2, "features": ["head_direction"]},
+        {"name": "speed_cells", "count": 2, "features": ["speed"]},
+        {"name": "event_cells", "count": 2, "features": ["event_0"]},
+        {"name": "nonselective", "count": 4, "features": []},
+    ]
+
+    exp = generate_tuned_selectivity_exp(
+        population=population,
+        duration=600,
+        fps=20,
+        seed=47,
+        n_discrete_features=1,
+        verbose=False,
     )
 
     print(
@@ -55,9 +67,12 @@ def main():
     stats, significance, info, results = driada.compute_cell_feat_significance(
         exp,
         mode="two_stage",
-        n_shuffles_stage1=50,  # preliminary screening
-        n_shuffles_stage2=1000,  # validation (use 10000+ for publication)
-        verbose=False,  # suppress detailed output for cleaner demo
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=10000,
+        pval_thr=0.001,
+        multicomp_correction=None,
+        ds=5,
+        verbose=False,
     )
 
     print("   [OK] Analysis complete")
@@ -94,7 +109,7 @@ def main():
             print(f"   ... and {remaining} more significant neurons")
     else:
         print("   No significant relationships found with current parameters.")
-        print("   Try increasing n_shuffles_stage2 or using different synthetic data.")
+        print("   Try using different synthetic data or adjusting p-value threshold.")
 
     # Step 5: Create visualization
     print("\n5. Creating visualization...")

@@ -612,10 +612,10 @@ def main(quick: bool = False):
 
     # Set parameters based on mode
     if quick:
-        print("\n🚀 Running in QUICK mode (reduced dataset sizes)")
+        print("\n[QUICK MODE] Running in QUICK mode (reduced dataset sizes)")
         n_samples = 200
     else:
-        print("\n🔬 Running in FULL mode")
+        print("\n[FULL MODE] Running in FULL mode")
         n_samples = 1000
 
     # Generate test datasets
@@ -649,17 +649,17 @@ def main(quick: bool = False):
     print("-" * 40)
     recommendations, method_summary = generate_recommendations(results_df)
 
-    print("\n📊 METHOD SUMMARY:")
+    print("\n[SUMMARY] METHOD SUMMARY:")
     print(method_summary)
 
-    print("\n🏆 BEST METHODS:")
+    print("\n[BEST] BEST METHODS:")
     for key, value in recommendations.items():
         if key != "use_cases":
-            print(f"  • {key.replace('_', ' ').title()}: {value}")
+            print(f"  - {key.replace('_', ' ').title()}: {value}")
 
-    print("\n💡 USE CASE RECOMMENDATIONS:")
+    print("\n[RECOMMENDATIONS] USE CASE RECOMMENDATIONS:")
     for use_case, recommendation in recommendations["use_cases"].items():
-        print(f"  • {use_case}: {recommendation}")
+        print(f"  - {use_case}: {recommendation}")
 
     print("\n" + "=" * 70)
     print("Comparison complete! Check generated plots for detailed results.")

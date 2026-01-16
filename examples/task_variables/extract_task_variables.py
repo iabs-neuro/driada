@@ -160,9 +160,9 @@ def analyze_single_cell_selectivity(exp, ds=5):
         exp,
         feat_bunch=available_features,
         mode="two_stage",
-        n_shuffles_stage1=50,
-        n_shuffles_stage2=500,
-        metric_distr_type="norm",
+        n_shuffles_stage1=100,
+        n_shuffles_stage2=10000,  # FFT optimization makes this fast
+        # Uses default gamma_zi distribution
         pval_thr=0.01,
         multicomp_correction=None,
         verbose=True,
