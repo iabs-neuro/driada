@@ -2179,6 +2179,258 @@ def _compute_joint_entropy_4x4_mts(
     return 0.5 * np.log(det)
 
 
+def _compute_joint_entropy_mts_mts_block(
+    cov_x1x1: np.ndarray,
+    cov_x2x2: np.ndarray,
+    cov_x1x2: np.ndarray,
+) -> np.ndarray:
+    """Vectorized block determinant for MTS-MTS joint entropy.
+
+    Uses Schur complement: det([[A,B],[C,D]]) = det(A) × det(D - C A⁻¹ B)
+
+    Parameters
+    ----------
+    cov_x1x1 : ndarray of shape (d1, d1)
+        Within-covariance of X1 (shift-invariant).
+    cov_x2x2 : ndarray of shape (d2, d2)
+        Within-covariance of X2 (shift-invariant).
+    cov_x1x2 : ndarray of shape (d1, d2, nsh)
+        Cross-covariances for all shifts.
+
+    Returns
+    -------
+    H_X1X2 : ndarray of shape (nsh,)
+        Joint entropy H(X1,X2) for each shift, in nats.
+    """
+    from .gcmi import regularized_cholesky
+
+    d1, d2, nsh = cov_x1x2.shape
+
+    # Compute invariant determinants and inverse
+    det_x1 = np.linalg.det(cov_x1x1)
+
+    # Validate conditioning
+    if det_x1 < 1e-15:
+        raise ValueError("Singular covariance matrix for X1")
+
+    inv_x1x1 = np.linalg.inv(cov_x1x1)
+
+    # Vectorized Schur complement computation
+    # S[k] = cov_x2x2 - cov_x1x2[:,:,k].T @ inv_x1x1 @ cov_x1x2[:,:,k]
+
+    # Compute inv_x1x1 @ cov_x1x2 for all shifts: (d1, d2, nsh)
+    inv_cov = np.einsum('ij,jkl->ikl', inv_x1x1, cov_x1x2)
+
+    # Compute cov_x1x2.T @ inv_cov for all shifts: (d2, d2, nsh)
+    # cov_x1x2 is (d1, d2, nsh), we need transpose along first two dims
+    quad_form = np.einsum('jil,jkl->ikl', cov_x1x2, inv_cov)
+
+    # Schur complement: broadcast cov_x2x2 and subtract
+    schur = cov_x2x2[:, :, np.newaxis] - quad_form  # (d2, d2, nsh)
+
+    # Compute determinants via Cholesky (stable and efficient)
+    det_schur = np.zeros(nsh)
+    for k in range(nsh):
+        try:
+            chol = regularized_cholesky(schur[:, :, k])
+            det_schur[k] = np.prod(np.diag(chol)) ** 2
+        except np.linalg.LinAlgError:
+            # Nearly singular - use stronger regularization
+            schur_reg = schur[:, :, k] + np.eye(d2) * 1e-10
+            chol = regularized_cholesky(schur_reg)
+            det_schur[k] = np.prod(np.diag(chol)) ** 2
+
+    # Full determinant via block formula
+    det_joint = det_x1 * det_schur
+    det_joint = np.maximum(det_joint, 1e-20)
+
+    return 0.5 * np.log(det_joint)
+
+
+def compute_mi_mts_mts_fft(
+    copnorm_x1: np.ndarray,
+    copnorm_x2: np.ndarray,
+    shifts: np.ndarray,
+    biascorrect: bool = True,
+) -> np.ndarray:
+    """Compute MI(X1; X2) at multiple shifts using FFT for MTS-MTS pairs.
+
+    FFT-accelerated MI computation between two multivariate time series.
+    Uses circular correlation to compute cross-covariances for all shifts
+    in O(d1 × d2 × n log n) time, then evaluates MI via block determinant
+    formula (Schur complement).
+
+    Parameters
+    ----------
+    copnorm_x1 : ndarray of shape (d1, n)
+        First copula-normalized multivariate variable.
+    copnorm_x2 : ndarray of shape (d2, n)
+        Second copula-normalized multivariate variable.
+    shifts : ndarray of shape (nsh,)
+        Shift indices for circular shifts of copnorm_x2.
+    biascorrect : bool, default=True
+        Apply Panzeri-Treves bias correction.
+
+    Returns
+    -------
+    mi_values : ndarray of shape (nsh,)
+        Mutual information at each shift, in bits.
+
+    Raises
+    ------
+    NotImplementedError
+        If d1 + d2 > 6 (dimension limit for FFT acceleration).
+    ValueError
+        If inputs have incompatible shapes or singular covariances.
+
+    Notes
+    -----
+    Uses block matrix determinant formula for all cases:
+    det([[A,B],[C,D]]) = det(A) × det(D - C A⁻¹ B)
+
+    The FFT computes cross-covariances Cov(X1_i, X2_j) for all n possible
+    shifts in O(n log n) time per (i,j) pair. The invariant statistics
+    (within-covariances) are computed once.
+
+    Complexity: O(d1 × d2 × n log n + nsh × d³) where d = max(d1, d2).
+
+    See Also
+    --------
+    compute_mi_mts_fft : FFT version for MTS + 1D TimeSeries
+    compute_mi_batch_fft : FFT version for 1D-1D MI
+    mi_gg : Reference implementation for multivariate Gaussian MI
+    """
+    from .gcmi import regularized_cholesky
+
+    # Step 1: Input validation
+    if copnorm_x1.ndim == 1:
+        copnorm_x1 = copnorm_x1.reshape(1, -1)
+    if copnorm_x2.ndim == 1:
+        copnorm_x2 = copnorm_x2.reshape(1, -1)
+
+    if copnorm_x1.ndim != 2 or copnorm_x2.ndim != 2:
+        raise ValueError(
+            f"copnorm_x1 and copnorm_x2 must be 1D or 2D arrays. "
+            f"Got shapes: {copnorm_x1.shape}, {copnorm_x2.shape}"
+        )
+
+    d1, n1 = copnorm_x1.shape
+    d2, n2 = copnorm_x2.shape
+
+    # Check for transposed inputs
+    if d1 > n1:
+        raise ValueError(
+            f"copnorm_x1 shape looks transposed: {copnorm_x1.shape}. "
+            f"Expected shape (d1, n) with d1 <= n."
+        )
+    if d2 > n2:
+        raise ValueError(
+            f"copnorm_x2 shape looks transposed: {copnorm_x2.shape}. "
+            f"Expected shape (d2, n) with d2 <= n."
+        )
+
+    if n1 != n2:
+        raise ValueError(
+            f"copnorm_x1 and copnorm_x2 must have same number of samples. "
+            f"Got n1={n1}, n2={n2}"
+        )
+
+    n = n1
+    nsh = len(shifts)
+    ln2 = np.log(2)
+
+    # Validate minimum sample size
+    if n < 2:
+        raise ValueError(
+            f"MTS-MTS FFT requires at least 2 samples for bias correction. Got n={n}."
+        )
+
+    # Check dimension limit
+    if d1 + d2 > 6:
+        raise NotImplementedError(
+            f"FFT-accelerated MI for MTS-MTS with d1+d2 > 6 is not implemented. "
+            f"Got d1={d1}, d2={d2}, d1+d2={d1+d2}. Use engine='loop' for higher dimensions."
+        )
+
+    # Step 2: Handle special cases - delegate to existing MTS-1D function
+    if d1 == 1:
+        # X1 is effectively 1D, use existing MTS-1D function
+        return compute_mi_mts_fft(copnorm_x1[0], copnorm_x2, shifts, biascorrect)
+    if d2 == 1:
+        # X2 is effectively 1D, use existing MTS-1D function
+        # Note: MI is symmetric, but shifts need to be applied to X2
+        return compute_mi_mts_fft(copnorm_x2[0], copnorm_x1, shifts, biascorrect)
+    if d1 == 0 or d2 == 0:
+        return np.zeros(nsh)
+
+    # Step 3: Demean variables
+    x1 = copnorm_x1 - copnorm_x1.mean(axis=1, keepdims=True)
+    x2 = copnorm_x2 - copnorm_x2.mean(axis=1, keepdims=True)
+
+    # Step 4: Compute shift-invariant statistics (once)
+    cov_x1x1 = np.cov(x1)  # (d1, d1)
+    cov_x2x2 = np.cov(x2)  # (d2, d2)
+
+    # Ensure 2D for scalar case
+    if d1 == 1:
+        cov_x1x1 = cov_x1x1.reshape(1, 1)
+    if d2 == 1:
+        cov_x2x2 = cov_x2x2.reshape(1, 1)
+
+    # Validate conditioning
+    det_x1 = np.linalg.det(cov_x1x1)
+    det_x2 = np.linalg.det(cov_x2x2)
+    if det_x1 < 1e-15 or det_x2 < 1e-15:
+        raise ValueError(
+            f"Singular covariance matrix detected. "
+            f"det(cov_x1x1)={det_x1:.2e}, det(cov_x2x2)={det_x2:.2e}"
+        )
+
+    # Compute entropies H(X1), H(X2) via Cholesky
+    chol_x1 = regularized_cholesky(cov_x1x1)
+    chol_x2 = regularized_cholesky(cov_x2x2)
+    H_X1 = np.sum(np.log(np.diag(chol_x1)))
+    H_X2 = np.sum(np.log(np.diag(chol_x2)))
+
+    # Step 5: Compute cross-covariances via FFT (shift-dependent)
+    cov_x1x2_all = np.zeros((d1, d2, n))  # All possible shifts
+    for i in range(d1):
+        fft_x1i = np.fft.rfft(x1[i])
+        for j in range(d2):
+            fft_x2j = np.fft.rfft(x2[j])
+            # FFT cross-correlation: use fft_x1i * conj(fft_x2j) to match np.roll(x2, shift)
+            # This computes sum_t x1[i,t] * x2[j,(t-shift) mod n] which matches np.roll(x2, shift)
+            cross_corr = np.fft.irfft(fft_x1i * np.conj(fft_x2j), n=n)
+            cov_x1x2_all[i, j, :] = cross_corr / (n - 1)
+
+    # Extract specific shifts
+    shifts_int = shifts.astype(int) % n
+    cov_x1x2 = cov_x1x2_all[:, :, shifts_int]  # (d1, d2, nsh)
+
+    # Step 6: Compute H(X1, X2) using block determinant
+    H_X1X2 = _compute_joint_entropy_mts_mts_block(
+        cov_x1x1, cov_x2x2, cov_x1x2
+    )
+
+    # Step 7: Bias correction (following mi_gg pattern)
+    if biascorrect and n > 2:
+        dterm = (ln2 - np.log(n - 1.0)) / 2.0
+        Nvarx = d1
+        Nvary = d2
+        Nvarxy = d1 + d2
+
+        psiterms = py_fast_digamma_arr((n - np.arange(1, Nvarxy + 1)) / 2.0) / 2.0
+
+        H_X1 = H_X1 - Nvarx * dterm - psiterms[:Nvarx].sum()
+        H_X2 = H_X2 - Nvary * dterm - psiterms[:Nvary].sum()
+        H_X1X2 = H_X1X2 - Nvarxy * dterm - psiterms[:Nvarxy].sum()
+
+    # Step 8: Compute MI and convert to bits
+    MI = (H_X1 + H_X2 - H_X1X2) / ln2
+
+    return np.maximum(0, MI)
+
+
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=True):
     """Computes mutual information between two 1d variables efficiently
 

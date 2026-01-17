@@ -1417,3 +1417,130 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
     assert (
         len(sig_neurons) <= 2
     )  # At most 2 false positives expected with multiple testing correction
+
+
+def test_fft_mts_mts_uses_fft_type():
+    """Test that INTENSE uses FFT_MTS_MTS for eligible MTS-MTS pairs."""
+    from driada.intense.intense_base import get_fft_type, FFT_MTS_MTS
+
+    length = 200
+    np.random.seed(42)
+
+    # Create two multivariate signals with d1=2, d2=2
+    signal1a = np.random.randn(length)
+    signal1b = np.random.randn(length)
+    signal2a = np.random.randn(length)
+    signal2b = np.random.randn(length)
+
+    mts1 = MultiTimeSeries(
+        [TimeSeries(signal1a, discrete=False), TimeSeries(signal1b, discrete=False)]
+    )
+    mts2 = MultiTimeSeries(
+        [TimeSeries(signal2a, discrete=False), TimeSeries(signal2b, discrete=False)]
+    )
+
+    # get_fft_type should return FFT_MTS_MTS for MTS-MTS pairs
+    fft_type = get_fft_type(
+        mts1, mts2, metric="mi", mi_estimator="gcmi", count=50, engine="auto"
+    )
+    assert fft_type == FFT_MTS_MTS
+
+    # engine='fft' should also work for MTS-MTS
+    fft_type_forced = get_fft_type(
+        mts1, mts2, metric="mi", mi_estimator="gcmi", count=50, engine="fft"
+    )
+    assert fft_type_forced == FFT_MTS_MTS
+
+
+def test_fft_mts_mts_falls_back_when_d_too_large():
+    """Test that INTENSE uses loop fallback when d1+d2 > 6."""
+    from driada.intense.intense_base import get_fft_type
+
+    length = 200
+    np.random.seed(43)
+
+    # Create MTS with d1=4, d2=3 (d1+d2=7 > 6)
+    signals1 = [np.random.randn(length) for _ in range(4)]
+    signals2 = [np.random.randn(length) for _ in range(3)]
+
+    mts1 = MultiTimeSeries([TimeSeries(s, discrete=False) for s in signals1])
+    mts2 = MultiTimeSeries([TimeSeries(s, discrete=False) for s in signals2])
+
+    # get_fft_type should return None (fallback to loop)
+    fft_type = get_fft_type(
+        mts1, mts2, metric="mi", mi_estimator="gcmi", count=50, engine="auto"
+    )
+    assert fft_type is None
+
+    # engine='fft' should raise error
+    with pytest.raises(ValueError, match="no FFT optimization is applicable"):
+        get_fft_type(
+            mts1, mts2, metric="mi", mi_estimator="gcmi", count=50, engine="fft"
+        )
+
+
+def test_intense_e2e_mts_mts_fft():
+    """End-to-end test showing MTS-MTS FFT acceleration in INTENSE."""
+    np.random.seed(44)
+    length = 300
+    nsh = 100
+
+    # Create two 2D MTS with some correlation
+    base = np.random.randn(length + 20)
+    s1a = base[:length] + 0.3 * np.random.randn(length)
+    s1b = np.random.randn(length)
+    s2a = base[10 : length + 10] + 0.3 * np.random.randn(length)  # Correlated with delay
+    s2b = np.random.randn(length)
+
+    mts1 = MultiTimeSeries(
+        [TimeSeries(s1a, discrete=False), TimeSeries(s1b, discrete=False)]
+    )
+    mts2 = MultiTimeSeries(
+        [TimeSeries(s2a, discrete=False), TimeSeries(s2b, discrete=False)]
+    )
+
+    # Assign names for FFT cache
+    mts1.name = "mts1"
+    mts2.name = "mts2"
+
+    # Compute with FFT engine
+    stats_fft = compute_me_stats(
+        [mts1],
+        [mts2],
+        metric="mi",
+        n_shuffles_stage2=nsh,
+        mode="stage2",
+        engine="fft",
+        mi_estimator="gcmi",
+        enable_parallelization=False,
+        allow_mixed_dimensions=True,
+    )
+
+    # Compute with loop engine (reference)
+    stats_loop = compute_me_stats(
+        [mts1],
+        [mts2],
+        metric="mi",
+        n_shuffles_stage2=nsh,
+        mode="stage2",
+        engine="loop",
+        mi_estimator="gcmi",
+        enable_parallelization=False,
+        allow_mixed_dimensions=True,
+    )
+
+    # compute_me_stats returns (stats, significance, info) tuple
+    # where stats is a dict: stats[i][j]['me'] contains MI in bits
+    stats_fft_dict, significance_fft, info_fft = stats_fft
+    stats_loop_dict, significance_loop, info_loop = stats_loop
+
+    # Extract MI values from dict structure
+    mi_fft = stats_fft_dict[0][0]["me"]
+    mi_loop = stats_loop_dict[0][0]["me"]
+
+    # Should match closely
+    np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-7, atol=1e-10)
+
+    # FFT should produce valid MI values
+    assert mi_fft > 0  # Correlated data should have MI > 0
+    assert mi_fft < 2  # Reasonable MI value for this correlation

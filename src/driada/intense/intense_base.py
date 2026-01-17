@@ -24,6 +24,7 @@ from ..information.info_base import (
     compute_mi_batch_fft,
     compute_mi_gd_fft,
     compute_mi_mts_fft,
+    compute_mi_mts_mts_fft,
 )
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables, add_names_to_nested_dict
 
@@ -43,11 +44,13 @@ MIN_SHIFTS_FOR_FFT_DELAYS = 1
 
 # Maximum dimensions for FFT acceleration of MultiTimeSeries
 MAX_FFT_MTS_DIMENSIONS = 3
+MAX_MTS_MTS_FFT_DIMENSIONS = 6  # Total d1+d2 limit for MTS-MTS pairs
 
 # FFT type constants
 FFT_CONTINUOUS = "cc"       # Continuous-continuous (univariate 1D-1D)
 FFT_DISCRETE = "gd"         # Gaussian-discrete (one discrete, one continuous)
 FFT_MULTIVARIATE = "mts"    # MultiTimeSeries + univariate TimeSeries
+FFT_MTS_MTS = "mts_mts"     # MultiTimeSeries + MultiTimeSeries
 
 
 def _get_ts_key(ts):
@@ -287,6 +290,19 @@ def get_fft_type(
                 f"MultiTimeSeries FFT requires continuous variables with d <= {MAX_FFT_MTS_DIMENSIONS}. "
                 f"Got: MTS discrete={mts.discrete}, TS discrete={ts.discrete}, MTS shape={mts.data.shape}"
             )
+    # Check for MultiTimeSeries + MultiTimeSeries pair
+    elif isinstance(ts1, MultiTimeSeries) and isinstance(ts2, MultiTimeSeries):
+        d1 = ts1.data.shape[0]
+        d2 = ts2.data.shape[0]
+        if (not ts1.discrete and not ts2.discrete and
+            d1 + d2 <= MAX_MTS_MTS_FFT_DIMENSIONS):
+            fft_type = FFT_MTS_MTS
+        else:
+            error_msg = (
+                f"MTS-MTS FFT requires continuous variables with "
+                f"d1+d2 <= {MAX_MTS_MTS_FFT_DIMENSIONS}. "
+                f"Got: d1={d1}, d2={d2}, discrete=({ts1.discrete},{ts2.discrete})"
+            )
     # Check for univariate TimeSeries pairs
     elif (isinstance(ts1, TimeSeries) and not isinstance(ts1, MultiTimeSeries) and
           isinstance(ts2, TimeSeries) and not isinstance(ts2, MultiTimeSeries)):
@@ -349,6 +365,8 @@ def _extract_fft_data(ts1, ts2, fft_type, ds: int):
             return ts2.copula_normal_data[::ds], ts1.copula_normal_data[:, ::ds]
         else:
             return ts1.copula_normal_data[::ds], ts2.copula_normal_data[:, ::ds]
+    elif fft_type == FFT_MTS_MTS:
+        return ts1.copula_normal_data[:, ::ds], ts2.copula_normal_data[:, ::ds]
     else:
         raise ValueError(f"Unknown FFT type: {fft_type}")
 
@@ -358,6 +376,7 @@ _FFT_COMPUTE = {
     FFT_CONTINUOUS: compute_mi_batch_fft,
     FFT_DISCRETE: compute_mi_gd_fft,
     FFT_MULTIVARIATE: compute_mi_mts_fft,
+    FFT_MTS_MTS: compute_mi_mts_mts_fft,
 }
 
 
