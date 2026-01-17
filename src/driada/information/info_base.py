@@ -2431,6 +2431,233 @@ def compute_mi_mts_mts_fft(
     return np.maximum(0, MI)
 
 
+def compute_mi_mts_discrete_fft(
+    copnorm_mts: np.ndarray,
+    discrete_labels: np.ndarray,
+    shifts: np.ndarray,
+    biascorrect: bool = True,
+) -> np.ndarray:
+    """Compute MI(MultiTimeSeries; discrete) at multiple shifts using FFT.
+
+    Implements FFT-accelerated mutual information computation for multivariate
+    continuous timeseries (MTS) vs discrete features. Uses class-conditional
+    FFT approach from mi_cd_fft() extended to multivariate case.
+
+    The key insight is that class-conditional statistics are circular correlations:
+        sum(X[discrete == c]) = IFFT(FFT(X) * conj(FFT(I_c)))
+    where I_c is the indicator function for class c. FFT allows computing
+    statistics for ALL shifts in O(d² × Ym × n log n) time instead of
+    O(nsh × [n×d² + d³]) for the loop-based approach.
+
+    Expected speedup: 5-50x for typical INTENSE workloads with d=2-3, Ym=2-5,
+    nsh=100-1000.
+
+    Parameters
+    ----------
+    copnorm_mts : array, shape (d, n)
+        Copula-normalized MultiTimeSeries data. Each row is one dimension.
+    discrete_labels : array, shape (n,)
+        Discrete variable (integer labels 0 to Ym-1).
+    shifts : array, shape (nsh,)
+        Specific shift indices to compute MI for.
+    biascorrect : bool, default=True
+        Apply Panzeri-Treves bias correction for finite sample effects using
+        scipy.special.psi (digamma function). Matches mi_cd_fft() in entropy.py.
+
+    Returns
+    -------
+    mi_values : array, shape (nsh,)
+        MI values at each requested shift (in bits).
+
+    Raises
+    ------
+    ValueError
+        If input shapes are invalid or transposed.
+    NotImplementedError
+        If d > 3 (use engine='loop' for higher dimensions).
+
+    Notes
+    -----
+    Uses Gaussian entropy via Cholesky decomposition (regularized_cholesky from
+    gcmi.py) for numerical stability. Matches implementation patterns from
+    compute_mi_mts_mts_fft() and mi_cd_fft().
+
+    Complexity: O(d² × Ym × n log n + d³ × n × Ym)
+    - FFT of d MTS dimensions: O(d × n log n)
+    - FFT of d² products: O(d² × n log n)
+    - Per-class processing: Ym classes × O(d² × n)
+    - Determinants: O(d³ × n × Ym) using closed-form vectorized formulas
+
+    FFT wins over loop when: nsh > Ym × log(n)
+    - For Ym=3, n=2000: threshold ≈ 33 shifts
+    - Typical INTENSE: nsh=100-1000, so FFT always beneficial
+
+    See Also
+    --------
+    compute_mi_mts_fft : FFT version for MTS + continuous univariate
+    compute_mi_mts_mts_fft : FFT version for MTS + MTS
+    mi_cd_fft : FFT version for continuous + discrete (1D case)
+    mi_model_gd : Reference loop implementation
+    """
+    from scipy.special import psi  # digamma function
+
+    # Input validation and reshaping
+    if copnorm_mts.ndim == 1:
+        copnorm_mts = copnorm_mts.reshape(1, -1)
+    elif copnorm_mts.ndim == 2:
+        # Validate shape is (d, n) not (n, d)
+        if copnorm_mts.shape[0] > copnorm_mts.shape[1]:
+            raise ValueError(
+                f"MultiTimeSeries data shape looks transposed: {copnorm_mts.shape}. "
+                f"Expected shape (d, n) with d <= 3 and n > d."
+            )
+    else:
+        raise ValueError(f"copnorm_mts must be 1D or 2D, got {copnorm_mts.ndim}D")
+
+    d, n = copnorm_mts.shape
+    nsh = len(shifts)
+    ln2 = np.log(2)
+
+    # Validate discrete_labels
+    if discrete_labels.ndim != 1:
+        raise ValueError(f"discrete_labels must be 1D, got {discrete_labels.ndim}D")
+    if len(discrete_labels) != n:
+        raise ValueError(
+            f"discrete_labels length {len(discrete_labels)} doesn't match n={n}"
+        )
+
+    # Validate minimum sample size
+    if n < 2:
+        raise ValueError(
+            f"MTS-discrete FFT requires at least 2 samples. Got n={n}."
+        )
+
+    # Dimension limit check
+    if d > 3:
+        raise NotImplementedError(
+            f"FFT-accelerated MI for MultiTimeSeries with d > 3 is not implemented. "
+            f"Got d={d}. Use engine='loop' for higher dimensions."
+        )
+
+    # Demean all variables
+    x = copnorm_mts - copnorm_mts.mean(axis=1, keepdims=True)
+    y = discrete_labels.astype(int)
+    Ym = int(np.max(y)) + 1
+    MIN_SAMPLES = max(d + 1, 2)
+
+    # --- Step 1: Compute H(X) once (shift-invariant) using regularized_cholesky ---
+
+    from .gcmi import regularized_cholesky
+
+    # Covariance matrix of x (d x d)
+    if d == 1:
+        cov_xx = np.array([[np.var(x[0], ddof=1)]])
+    else:
+        cov_xx = np.cov(x)  # uses ddof=1 by default
+
+    # H(X) via Cholesky in nats
+    chol_xx = regularized_cholesky(cov_xx)
+    H_X = np.sum(np.log(np.diag(chol_xx)))
+
+    # Bias correction for H(X)
+    if biascorrect and n > 2:
+        dterm = (ln2 - np.log(n - 1.0)) / 2.0
+        psiterms = np.zeros(d)
+        for i in range(d):
+            psiterms[i] = psi((n - i - 1.0) / 2.0) / 2.0
+        H_X = H_X - (d * dterm + psiterms.sum())
+
+    # --- Step 2: Precompute FFTs for all dimensions and products ---
+
+    FFT_x = [np.fft.fft(x[i]) for i in range(d)]
+    FFT_products = {}
+    for i in range(d):
+        for j in range(i, d):
+            FFT_products[(i, j)] = np.fft.fft(x[i] * x[j])
+
+    # --- Step 3: For each class, compute conditional entropy across all shifts ---
+
+    H_cond = np.zeros(n)
+
+    for c in range(Ym):
+        I_c = (y == c).astype(float)
+        n_c = int(np.sum(I_c))
+
+        if n_c < MIN_SAMPLES:
+            import warnings
+
+            warnings.warn(
+                f"Class {c} has {n_c} samples (< {MIN_SAMPLES}), skipping",
+                RuntimeWarning,
+            )
+            continue
+
+        FFT_Ic = np.fft.fft(I_c)
+
+        # Class-conditional means for all shifts (d × n)
+        mean_c = np.zeros((d, n))
+        for i in range(d):
+            mean_c[i] = np.fft.ifft(FFT_x[i] * np.conj(FFT_Ic)).real / n_c
+
+        # Class-conditional second moments (d × d × n)
+        E_xixj_c = np.zeros((d, d, n))
+        for i in range(d):
+            for j in range(i, d):
+                E_xixj_c[i, j] = np.fft.ifft(
+                    FFT_products[(i, j)] * np.conj(FFT_Ic)
+                ).real / n_c
+                if i != j:
+                    E_xixj_c[j, i] = E_xixj_c[i, j]
+
+        # Class-conditional covariances with Bessel correction (d × d × n)
+        cov_c = np.zeros((d, d, n))
+        for i in range(d):
+            for j in range(d):
+                cov_pop = E_xixj_c[i, j] - mean_c[i] * mean_c[j]
+                cov_c[i, j] = cov_pop * n_c / (n_c - 1)  # Bessel correction
+
+        # Compute entropies (dimension-specific for performance)
+        if d == 1:
+            var_c = np.maximum(cov_c[0, 0], 1e-10)
+            H_c = 0.5 * np.log(var_c)  # in nats
+        elif d == 2:
+            det_c = cov_c[0, 0] * cov_c[1, 1] - cov_c[0, 1] ** 2
+            det_c = np.maximum(det_c, 1e-15)
+            H_c = 0.5 * np.log(det_c)  # in nats
+        elif d == 3:
+            # Sarrus rule (vectorized 3×3 determinant)
+            c00, c11, c22 = cov_c[0, 0], cov_c[1, 1], cov_c[2, 2]
+            c01, c02, c12 = cov_c[0, 1], cov_c[0, 2], cov_c[1, 2]
+            det_c = (
+                c00 * c11 * c22
+                + 2 * c01 * c02 * c12
+                - c00 * c12**2
+                - c11 * c02**2
+                - c22 * c01**2
+            )
+            det_c = np.maximum(det_c, 1e-15)
+            H_c = 0.5 * np.log(det_c)  # in nats
+
+        # Bias correction per class (constant across shifts)
+        if biascorrect and n_c > 2:
+            dterm_c = (ln2 - np.log(n_c - 1.0)) / 2.0
+            psiterms_c = np.zeros(d)
+            for i in range(d):
+                psiterms_c[i] = psi((n_c - i - 1.0) / 2.0) / 2.0
+            H_c = H_c - (d * dterm_c + psiterms_c.sum())
+
+        # Weight by class probability and accumulate
+        p_c = n_c / n
+        H_cond += p_c * H_c
+
+    # --- Step 4: Compute MI and extract requested shifts ---
+
+    MI_all = (H_X - H_cond) / ln2  # Convert to bits
+    MI_all = np.maximum(0, MI_all)  # Ensure non-negative
+
+    return MI_all[shifts.astype(int) % n]
+
+
 def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=True):
     """Computes mutual information between two 1d variables efficiently
 

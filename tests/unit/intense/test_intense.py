@@ -1544,3 +1544,124 @@ def test_intense_e2e_mts_mts_fft():
     # FFT should produce valid MI values
     assert mi_fft > 0  # Correlated data should have MI > 0
     assert mi_fft < 2  # Reasonable MI value for this correlation
+
+
+def test_fft_mts_discrete_uses_fft_type():
+    """Test that INTENSE uses FFT_MTS_DISCRETE for eligible MTS-discrete pairs."""
+    from driada.intense.intense_base import get_fft_type, FFT_MTS_DISCRETE
+
+    length = 200
+    np.random.seed(200)
+
+    # Create 2D MTS (continuous)
+    signal_a = np.random.randn(length)
+    signal_b = np.random.randn(length)
+    mts = MultiTimeSeries(
+        [TimeSeries(signal_a, discrete=False), TimeSeries(signal_b, discrete=False)]
+    )
+
+    # Create discrete TimeSeries (3 classes)
+    discrete_data = np.random.randint(0, 3, length).astype(float)
+    discrete_ts = TimeSeries(discrete_data, discrete=True)
+
+    # get_fft_type should return FFT_MTS_DISCRETE for MTS-discrete pairs
+    fft_type = get_fft_type(
+        mts, discrete_ts, metric="mi", mi_estimator="gcmi", count=50, engine="auto"
+    )
+    assert fft_type == FFT_MTS_DISCRETE
+
+    # Should also work in reverse orientation
+    fft_type_reversed = get_fft_type(
+        discrete_ts, mts, metric="mi", mi_estimator="gcmi", count=50, engine="auto"
+    )
+    assert fft_type_reversed == FFT_MTS_DISCRETE
+
+    # engine='fft' should also work
+    fft_type_forced = get_fft_type(
+        mts, discrete_ts, metric="mi", mi_estimator="gcmi", count=50, engine="fft"
+    )
+    assert fft_type_forced == FFT_MTS_DISCRETE
+
+
+def test_fft_mts_discrete_falls_back_when_d_too_large():
+    """Test that INTENSE uses loop fallback when d > 3 for MTS-discrete."""
+    from driada.intense.intense_base import get_fft_type
+
+    length = 200
+    np.random.seed(201)
+
+    # Create MTS with d=4 (exceeds MAX_FFT_MTS_DIMENSIONS=3)
+    signals = [np.random.randn(length) for _ in range(4)]
+    mts = MultiTimeSeries([TimeSeries(s, discrete=False) for s in signals])
+
+    # Create discrete TimeSeries
+    discrete_data = np.random.randint(0, 3, length).astype(float)
+    discrete_ts = TimeSeries(discrete_data, discrete=True)
+
+    # get_fft_type should return None (fallback to loop)
+    fft_type = get_fft_type(
+        mts, discrete_ts, metric="mi", mi_estimator="gcmi", count=50, engine="auto"
+    )
+    assert fft_type is None
+
+    # engine='fft' should raise error
+    with pytest.raises(ValueError, match="no FFT optimization is applicable"):
+        get_fft_type(
+            mts, discrete_ts, metric="mi", mi_estimator="gcmi", count=50, engine="fft"
+        )
+
+
+def test_intense_e2e_mts_discrete_fft():
+    """End-to-end test showing MTS-discrete FFT acceleration in INTENSE."""
+    np.random.seed(202)
+    length = 200
+    nsh = 100
+    d, Ym = 2, 3
+
+    # Create 2D MTS (position)
+    mts_data = np.random.randn(d, length)
+    mts = MultiTimeSeries([
+        TimeSeries(mts_data[0], discrete=False),
+        TimeSeries(mts_data[1], discrete=False)
+    ])
+    mts.name = "position"
+
+    # Create discrete feature (3-class behavior) with some correlation to MTS
+    discrete_data = np.random.randint(0, Ym, length)
+    # Add correlation: class 0 prefers positive values in first dimension
+    discrete_data[mts_data[0] > 0.5] = 0
+    discrete_ts = TimeSeries(discrete_data.astype(float), discrete=True)
+    discrete_ts.name = "behavior"
+
+    # Compute with FFT engine
+    stats_fft, sig_fft, info_fft = compute_me_stats(
+        [mts], [discrete_ts],
+        metric="mi",
+        n_shuffles_stage2=nsh,
+        mode="stage2",
+        engine="fft",
+        mi_estimator="gcmi",
+        allow_mixed_dimensions=True,
+    )
+
+    # Compute with loop engine
+    stats_loop, sig_loop, info_loop = compute_me_stats(
+        [mts], [discrete_ts],
+        metric="mi",
+        n_shuffles_stage2=nsh,
+        mode="stage2",
+        engine="loop",
+        mi_estimator="gcmi",
+        allow_mixed_dimensions=True,
+    )
+
+    # Extract MI values
+    mi_fft = stats_fft[0][0]["me"]
+    mi_loop = stats_loop[0][0]["me"]
+
+    # Should match closely
+    np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-7, atol=1e-10)
+
+    # Should produce valid MI (correlation between position and behavior)
+    assert mi_fft > 0
+    assert mi_fft < 5  # Reasonable upper bound

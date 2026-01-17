@@ -76,6 +76,7 @@ logs/
 wandb/
 tensorboard/
 gpu/
+benchmarks/
 
 # Temporary files
 *.tmp

@@ -28,6 +28,7 @@ from ..information.info_base import (
     compute_mi_gd_fft,
     compute_mi_mts_fft,
     compute_mi_mts_mts_fft,
+    compute_mi_mts_discrete_fft,
 )
 from ..utils.data import write_dict_to_hdf5, nested_dict_to_seq_of_tables, add_names_to_nested_dict
 
@@ -54,6 +55,7 @@ FFT_CONTINUOUS = "cc"       # Continuous-continuous (univariate 1D-1D)
 FFT_DISCRETE = "gd"         # Gaussian-discrete (one discrete, one continuous)
 FFT_MULTIVARIATE = "mts"    # MultiTimeSeries + univariate TimeSeries
 FFT_MTS_MTS = "mts_mts"     # MultiTimeSeries + MultiTimeSeries
+FFT_MTS_DISCRETE = "mts_discrete"  # MultiTimeSeries + discrete
 
 
 @contextmanager
@@ -288,20 +290,30 @@ def get_fft_type(
     # Check for MultiTimeSeries + univariate TimeSeries pair
     if isinstance(ts1, MultiTimeSeries) and isinstance(ts2, TimeSeries) and not isinstance(ts2, MultiTimeSeries):
         mts, ts = ts1, ts2
-        if not mts.discrete and not ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
+        # Check for MTS + discrete pair first
+        if not mts.discrete and ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
+            fft_type = FFT_MTS_DISCRETE
+        # Then check for MTS + continuous pair
+        elif not mts.discrete and not ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
             fft_type = FFT_MULTIVARIATE
         else:
             error_msg = (
-                f"MultiTimeSeries FFT requires continuous variables with d <= {MAX_FFT_MTS_DIMENSIONS}. "
+                f"MultiTimeSeries FFT requires continuous MTS with d <= {MAX_FFT_MTS_DIMENSIONS} "
+                f"paired with either continuous or discrete TimeSeries. "
                 f"Got: MTS discrete={mts.discrete}, TS discrete={ts.discrete}, MTS shape={mts.data.shape}"
             )
     elif isinstance(ts2, MultiTimeSeries) and isinstance(ts1, TimeSeries) and not isinstance(ts1, MultiTimeSeries):
         mts, ts = ts2, ts1
-        if not mts.discrete and not ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
+        # Check for MTS + discrete pair first
+        if not mts.discrete and ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
+            fft_type = FFT_MTS_DISCRETE
+        # Then check for MTS + continuous pair
+        elif not mts.discrete and not ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
             fft_type = FFT_MULTIVARIATE
         else:
             error_msg = (
-                f"MultiTimeSeries FFT requires continuous variables with d <= {MAX_FFT_MTS_DIMENSIONS}. "
+                f"MultiTimeSeries FFT requires continuous MTS with d <= {MAX_FFT_MTS_DIMENSIONS} "
+                f"paired with either continuous or discrete TimeSeries. "
                 f"Got: MTS discrete={mts.discrete}, TS discrete={ts.discrete}, MTS shape={mts.data.shape}"
             )
     # Check for MultiTimeSeries + MultiTimeSeries pair
@@ -379,6 +391,12 @@ def _extract_fft_data(ts1, ts2, fft_type, ds: int):
             return ts2.copula_normal_data[::ds], ts1.copula_normal_data[:, ::ds]
         else:
             return ts1.copula_normal_data[::ds], ts2.copula_normal_data[:, ::ds]
+    elif fft_type == FFT_MTS_DISCRETE:
+        # Handle both orientations (MTS, discrete) or (discrete, MTS)
+        if isinstance(ts1, MultiTimeSeries):
+            return ts1.copula_normal_data[:, ::ds], ts2.int_data[::ds]
+        else:
+            return ts2.copula_normal_data[:, ::ds], ts1.int_data[::ds]
     elif fft_type == FFT_MTS_MTS:
         return ts1.copula_normal_data[:, ::ds], ts2.copula_normal_data[:, ::ds]
     else:
@@ -391,6 +409,7 @@ _FFT_COMPUTE = {
     FFT_DISCRETE: compute_mi_gd_fft,
     FFT_MULTIVARIATE: compute_mi_mts_fft,
     FFT_MTS_MTS: compute_mi_mts_mts_fft,
+    FFT_MTS_DISCRETE: compute_mi_mts_discrete_fft,
 }
 
 
