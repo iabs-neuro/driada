@@ -26,6 +26,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configurable random seed parameter for graph construction (`g_params['seed']`) ensuring reproducible manifold learning experiments across runs
 
 ### Changed
+- **FFT Code Quality, Optimization, and Refactoring**
+  - **New Modules**: Created dedicated FFT acceleration modules for better organization:
+    - `info_fft.py` (1,130 lines): All FFT-accelerated MI estimators
+    - `info_fft_utils.py` (256 lines): Shared utilities and helpers
+  - **Performance Improvements**:
+    - Replaced `fft`/`ifft` with `rfft`/`irfft` for real inputs → **50% speedup** in `mi_cd_fft` and `compute_mi_mts_discrete_fft`
+    - Fixed memory waste in `compute_mi_mts_fft` and `compute_mi_mts_mts_fft` → **100-1000x memory reduction** when nsh << n
+  - **Code Quality**:
+    - Unified bias correction using `scipy.special.psi` across all functions
+    - Standardized regularization thresholds (dimension-specific: 1e-10, 1e-15, 1e-20)
+    - Eliminated code duplication via shared helpers (~40% reduction in FFT-related code)
+    - Reduced `info_base.py` from 3,246 to 2,311 lines (~30% reduction)
+    - Reduced `entropy.py` from 500 to 378 lines
+  - **Backward Compatibility**: All public APIs unchanged via re-exports in `info_base.py` and `entropy.py`
+
 - **Major Code Refactoring**
   - Extracted monolithic `neuron.py` (3,807 lines) into focused, maintainable modules:
     - `calcium_kinetics.py` (237 lines) - Double-exponential kernel modeling and spike-to-calcium reconstruction
