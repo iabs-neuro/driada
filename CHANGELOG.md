@@ -43,6 +43,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.1] - 2026-01-17
+
+**🚀 Enhanced performance and data loading capabilities**
+
+### Performance
+- **MTS-MTS FFT Acceleration** - 3-200x speedup for mutual information computation between MultiTimeSeries pairs (d1+d2 ≤ 6). Uses FFT-based cross-covariance computation with block determinant formula via Schur complement. Enables efficient analysis of multivariate neural dynamics (e.g., 2D position vs 2D neural trajectory). Complexity: O(d₁ × d₂ × n log n + nsh × d³).
+
+- **Memory Optimization for INTENSE** - New `store_random_shifts` parameter (default: False) reduces memory usage by ~400MB for typical datasets (N=500 neurons, M=20 features, nsh=10,000). Random shift indices are not persisted unless explicitly requested, while preserving all MI values for analysis. Added `memory_usage()` method to `IntenseResults` for diagnostics.
+
+### Features
+- **Experiment Building Enhancements**
+  - `aggregate_features` parameter in `load_exp_from_aligned_data()` enables combining multiple 1D features into MultiTimeSeries before building Experiment objects (e.g., `{('x', 'y'): 'position'}`)
+  - Reserved key filtering prevents neural data keys (`calcium`, `spikes`, `sp`, `asp`, `reconstructions`) and metadata (`_metadata`, `_sync_info`) from being treated as behavioral features
+  - Improves workflow for analyzing relationships between position/velocity and neural activity
+
+### Fixed
+- **Critical FFT Conjugation Bug** - Fixed incorrect FFT cross-correlation direction in `compute_mi_mts_mts_fft` that caused wrong MI values at non-zero shifts. Discovered during comprehensive verification testing. Changed from `conj(fft_x1) * fft_x2` to `fft_x1 * conj(fft_x2)` to correctly match `np.roll` semantics.
+- **Documentation** - Removed invalid cross-references for missing functions and user guide sections
+- **Test Stability** - Fixed flaky CI tests by adding proper imports, fixed random seeds, and increased connectivity parameters in manifold tests
+
+### Added
+- Comprehensive test suite for MTS-MTS FFT (27 unit tests + 3 integration tests) verifying correctness at all shifts with rtol=1e-7
+- Benchmark script (`tools/benchmark_mts_mts_fft.py`) demonstrating speedup characteristics across different parameter regimes (n=1,000 to n=60,000, nsh=100 to nsh=10,000)
+
+---
+
 ## [0.7.0] - 2026-01-13
 
 **🚀 Major performance and stability release**
