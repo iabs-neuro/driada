@@ -358,34 +358,44 @@ def generate_pseudo_calcium_signal(
     rise_time_samples = rise_time * sampling_rate
     decay_time_samples = decay_time * sampling_rate
 
-    # Initialize the signal with zeros
-    signal = np.zeros(num_samples)
+    # Convert event times to sample indices
+    if events is None:
+        event_indices = (event_times * sampling_rate).astype(int)
+    else:
+        event_indices = event_times.astype(int)
 
-    # Add calcium events to the signal
-    for t, a in zip(event_times, event_amplitudes):
-        if events is None:
-            event_index = int(t * sampling_rate)
+    # Filter out-of-bounds events
+    valid_mask = event_indices < num_samples
+    event_indices = event_indices[valid_mask]
+    event_amplitudes = event_amplitudes[valid_mask]
+
+    # Generate signal using vectorized convolution
+    if len(event_indices) > 0:
+        # Determine kernel length (until decay to <1% of peak)
+        if kernel == "step":
+            kernel_length = int(2 * decay_time_samples) + 1
         else:
-            event_index = int(t)
+            kernel_length = int(5 * decay_time_samples) + 1
 
-        # Ensure event_index is within bounds
-        if event_index >= num_samples:
-            continue
-
-        # Time array for this event
-        t_array = np.arange(num_samples - event_index)
-
-        # Generate kernel based on type
+        # Create unit kernel
+        t_kernel = np.arange(kernel_length)
         if kernel == "double_exponential":
-            transient = _double_exponential_kernel(
-                t_array, a, rise_time_samples, decay_time_samples
+            unit_kernel = _double_exponential_kernel(
+                t_kernel, 1.0, rise_time_samples, decay_time_samples
             )
         elif kernel == "exponential":
-            transient = _exponential_kernel(t_array, a, decay_time_samples)
+            unit_kernel = _exponential_kernel(t_kernel, 1.0, decay_time_samples)
         elif kernel == "step":
-            transient = _step_kernel(t_array, a, decay_time_samples)
+            unit_kernel = _step_kernel(t_kernel, 1.0, decay_time_samples)
 
-        signal[event_index:] += transient
+        # Create sparse event signal with amplitudes
+        event_signal = np.zeros(num_samples)
+        np.add.at(event_signal, event_indices, event_amplitudes)
+
+        # Convolve and truncate
+        signal = np.convolve(event_signal, unit_kernel, mode="full")[:num_samples]
+    else:
+        signal = np.zeros(num_samples)
 
     # Add Gaussian noise
     noise = rng.normal(0, noise_std, num_samples)

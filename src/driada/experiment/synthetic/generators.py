@@ -768,6 +768,7 @@ def generate_tuned_selectivity_exp(
         },
         ground_truth=ground_truth,
         verbose=False,
+        optimize_kinetics=False,
     )
 
     if verbose:
@@ -1415,6 +1416,7 @@ def generate_circular_manifold_exp(
             "duration": duration,
         },
         verbose=verbose,
+        optimize_kinetics=False,
     )
 
     # Create info dictionary if requested
@@ -1815,6 +1817,7 @@ def generate_2d_manifold_exp(
             "n_neurons": n_neurons,
             "duration": duration,
         },
+        optimize_kinetics=False,
     )
 
     # Create info dictionary if requested
