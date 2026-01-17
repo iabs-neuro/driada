@@ -7,15 +7,23 @@ INTENSE analysis with disentanglement to identify neural selectivity.
 
 Usage
 -----
+    # Process a single file
     python tools/run_intense_analysis.py "DRIADA data/LNOF_J01_4D_aligned.npz"
 
+    # Process all .npz files in a directory
+    python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE
+
+    # Process multiple specific files
+    python tools/run_intense_analysis.py "file1.npz" "file2.npz" "file3.npz"
+
     # With custom parameters
-    python tools/run_intense_analysis.py "DRIADA data/LNOF_J05_1D_aligned.npz" \
+    python tools/run_intense_analysis.py --dir "DRIADA data" \
         --n-shuffles-stage2 5000 \
         --pval 0.0001 \
-        --ds 10
+        --ds 10 \
+        --output-dir results
 
-    # Save results to file
+    # Save single file results to specific output
     python tools/run_intense_analysis.py "DRIADA data/LNOF_J01_4D_aligned.npz" \
         --output results.json
 """
@@ -577,8 +585,10 @@ Examples:
   python tools/run_intense_analysis.py "DRIADA data/LNOF_J01_1D_aligned.npz" --output results.json
         """
     )
-    parser.add_argument('npz_paths', nargs='*', type=str, help='Path(s) to .npz file(s)')
-    parser.add_argument('--dir', type=str, help='Process all .npz files in this directory')
+    parser.add_argument('npz_paths', nargs='*', type=str,
+                        help='Path(s) to .npz file(s), supports glob patterns')
+    parser.add_argument('--dir', type=str,
+                        help='Process all .npz files in this directory (batch mode)')
     parser.add_argument('--n-shuffles-stage1', type=int, default=DEFAULT_CONFIG['n_shuffles_stage1'],
                         help=f"Stage 1 shuffles (default: {DEFAULT_CONFIG['n_shuffles_stage1']})")
     parser.add_argument('--n-shuffles-stage2', type=int, default=DEFAULT_CONFIG['n_shuffles_stage2'],
