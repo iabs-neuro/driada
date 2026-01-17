@@ -564,6 +564,9 @@ Examples:
   # Single file
   python tools/run_intense_analysis.py "DRIADA data/NOF_H01_1D syn data.npz" --output-dir INTENSE
 
+  # Process all NPZ files in a directory
+  python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE
+
   # Multiple files (batch mode)
   python tools/run_intense_analysis.py "DRIADA data/NOF_H01_1D syn data.npz" "DRIADA data/NOF_H01_2D syn data.npz" --output-dir INTENSE
 
@@ -574,7 +577,8 @@ Examples:
   python tools/run_intense_analysis.py "DRIADA data/LNOF_J01_1D_aligned.npz" --output results.json
         """
     )
-    parser.add_argument('npz_paths', nargs='+', type=str, help='Path(s) to .npz file(s)')
+    parser.add_argument('npz_paths', nargs='*', type=str, help='Path(s) to .npz file(s)')
+    parser.add_argument('--dir', type=str, help='Process all .npz files in this directory')
     parser.add_argument('--n-shuffles-stage1', type=int, default=DEFAULT_CONFIG['n_shuffles_stage1'],
                         help=f"Stage 1 shuffles (default: {DEFAULT_CONFIG['n_shuffles_stage1']})")
     parser.add_argument('--n-shuffles-stage2', type=int, default=DEFAULT_CONFIG['n_shuffles_stage2'],
@@ -596,18 +600,38 @@ Examples:
         'ds': args.ds,
     }
 
-    # Expand glob patterns
+    # Expand paths from --dir option or from positional arguments
     all_paths = []
-    for pattern in args.npz_paths:
-        expanded = glob.glob(pattern)
-        if expanded:
-            all_paths.extend(expanded)
-        else:
-            # Not a glob, use as-is
-            all_paths.append(pattern)
 
-    # Filter to only .npz files
-    npz_paths = [p for p in all_paths if p.endswith('.npz')]
+    if args.dir:
+        # Process all .npz files in directory
+        dir_path = Path(args.dir)
+        if not dir_path.exists():
+            print(f"Error: Directory not found: {args.dir}")
+            sys.exit(1)
+        if not dir_path.is_dir():
+            print(f"Error: Not a directory: {args.dir}")
+            sys.exit(1)
+        all_paths = list(dir_path.glob('*.npz'))
+        if not all_paths:
+            print(f"Error: No .npz files found in {args.dir}")
+            sys.exit(1)
+    else:
+        # Expand glob patterns from positional arguments
+        if not args.npz_paths:
+            print("Error: Either provide npz_paths or use --dir option")
+            parser.print_help()
+            sys.exit(1)
+        for pattern in args.npz_paths:
+            expanded = glob.glob(pattern)
+            if expanded:
+                all_paths.extend(expanded)
+            else:
+                # Not a glob, use as-is
+                all_paths.append(pattern)
+
+    # Filter to only .npz files and convert to strings
+    npz_paths = [str(p) for p in all_paths if str(p).endswith('.npz')]
 
     if not npz_paths:
         print("Error: No .npz files found")
