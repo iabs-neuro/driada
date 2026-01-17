@@ -19,6 +19,9 @@ from .intense_base import (
     IntenseResults,
 )
 
+# I/O functions
+from .io import save_results, load_results
+
 # Pipeline functions
 from .pipelines import (
     compute_cell_feat_significance,
@@ -75,6 +78,9 @@ __all__ = [
     "compute_me_stats",
     "get_multicomp_correction_thr",
     "IntenseResults",
+    # I/O
+    "save_results",
+    "load_results",
     # Pipeline
     "compute_cell_feat_significance",
     "compute_feat_feat_significance",

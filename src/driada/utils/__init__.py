@@ -18,8 +18,6 @@ from .data import (
     cross_correlation_matrix,
     norm_cross_corr,
     to_numpy_array,
-    write_dict_to_hdf5,
-    read_hdf5_to_dict,
 )
 
 # Matrix operations
@@ -92,8 +90,6 @@ __all__ = [
     "cross_correlation_matrix",
     "norm_cross_corr",
     "to_numpy_array",
-    "write_dict_to_hdf5",
-    "read_hdf5_to_dict",
     # Matrix operations
     "nearestPD",
     "is_positive_definite",

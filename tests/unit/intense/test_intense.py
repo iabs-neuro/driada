@@ -692,7 +692,7 @@ def test_scan_pairs_router():
 
 def test_intenseresults_save_load(tmp_path):
     """Test IntenseResults save and load functionality."""
-    from driada.utils.data import read_hdf5_to_dict
+    from driada.intense.io import save_results, load_results
 
     results = IntenseResults()
 
@@ -702,23 +702,20 @@ def test_intenseresults_save_load(tmp_path):
         "cell2": {"feat1": {"pval": 0.05, "rval": 0.95}},
     }
     test_sig = {"cell1": {"feat1": True}, "cell2": {"feat1": False}}
-    test_info = {"method": "mi", "nshuffles": 1000}
 
     results.update("stats", test_stats)
     results.update("significance", test_sig)
-    results.update("info", test_info)
 
-    # Save to file using the correct method
-    save_path = tmp_path / "test_results.h5"
-    results.save_to_hdf5(str(save_path))
+    # Save to file using the NPZ save function
+    save_path = tmp_path / "test_results.npz"
+    save_results(results, str(save_path))
 
-    # Load from file using utils function
-    loaded_data = read_hdf5_to_dict(str(save_path))
+    # Load from file using NPZ load function
+    loaded = load_results(str(save_path))
 
     # Verify loaded data matches original
-    assert loaded_data["stats"] == test_stats
-    assert loaded_data["significance"] == test_sig
-    assert loaded_data["info"] == test_info
+    assert loaded.stats == test_stats
+    assert loaded.significance == test_sig
 
 
 def test_validate_common_parameters_edge_cases():
