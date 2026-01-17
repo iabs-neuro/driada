@@ -1,6 +1,7 @@
 import copy
 import os
 import os.path
+import warnings
 import numpy as np
 import pickle
 
@@ -10,6 +11,11 @@ from ..utils.naming import construct_session_name
 from ..utils.output import show_output
 from .neuron import DEFAULT_FPS, DEFAULT_T_OFF, DEFAULT_T_RISE
 from ..gdrive.download import download_gdrive_data, initialize_iabs_router
+
+# Reserved keys that should not become behavioral features (all lowercase)
+# These are neural data or metadata, not behavioral variables
+RESERVED_NEURAL_KEYS = {"calcium", "spikes", "sp", "asp", "reconstructions"}
+RESERVED_METADATA_KEYS = {"_metadata", "_sync_info"}
 
 
 def load_exp_from_aligned_data(
@@ -21,6 +27,7 @@ def load_exp_from_aligned_data(
     static_features=None,
     verbose=True,
     reconstruct_spikes=None,
+    aggregate_features=None,
 ):
     """Create an Experiment object from aligned neural and behavioral data.
 
@@ -74,6 +81,23 @@ def load_exp_from_aligned_data(
         New workflow (recommended):
         >>> exp = load_exp_from_aligned_data(data_source, exp_params, data)
         >>> exp.reconstruct_all_neurons(method='wavelet', n_iter=3)
+
+    aggregate_features : dict, optional
+        Dictionary mapping tuples of feature keys to combined names.
+        Allows pre-specifying which features should be combined into
+        MultiTimeSeries before Experiment building. This is useful for
+        deterministic data hash generation.
+
+        Format: {(key1, key2, ...): "combined_name", ...}
+
+        Example:
+        >>> aggregate_features = {
+        ...     ("x", "y"): "position",  # Combine x, y into 2D MultiTimeSeries
+        ...     ("speed", "direction"): "velocity",
+        ... }
+
+        The component features remain available as individual features
+        in addition to the combined MultiTimeSeries.
 
     Returns
     -------
@@ -176,6 +200,35 @@ def load_exp_from_aligned_data(
     if "spikes" in key_mapping:
         spikes = adata.pop(key_mapping["spikes"])
 
+    # TODO: Extract asp, reconstructions when new format is ready
+    # TODO: Extract _metadata, _sync_info and pass to Experiment
+
+    # Process dynamic features, handling multidimensional arrays
+    filt_dyn_features = {}
+
+    # Process feature aggregations first (before individual feature processing)
+    # Note: component features are NOT consumed - they remain available as individual features
+    if aggregate_features:
+        for component_keys, combined_name in aggregate_features.items():
+            # Validate all component keys exist
+            missing = [k for k in component_keys if k not in adata]
+            if missing:
+                if verbose:
+                    warnings.warn(f"Skipping aggregation '{combined_name}': missing keys {missing}")
+                continue
+
+            # Read component arrays (don't pop - keep them for individual processing)
+            ts_list = []
+            for i, key in enumerate(component_keys):
+                arr = np.asarray(adata[key])
+                if arr.ndim != 1:
+                    raise ValueError(f"Aggregation component '{key}' must be 1D, got {arr.ndim}D")
+                ts = TimeSeries(arr, discrete=False, name=f"{combined_name}_{i}")
+                ts_list.append(ts)
+
+            # Create MultiTimeSeries from components
+            filt_dyn_features[combined_name] = MultiTimeSeries(ts_list, name=combined_name)
+
     dyn_features = adata.copy()
 
     def is_garbage(vals):
@@ -205,13 +258,16 @@ def load_exp_from_aligned_data(
         nan_mask = np.isnan(arr)
         return np.all(nan_mask) or (len(np.unique(arr[~nan_mask])) <= 1)
 
-    # Process dynamic features, handling multidimensional arrays
-    filt_dyn_features = {}
+    # Process remaining dynamic features
     feat_is_continuous = (
         {f: f in force_continuous for f in dyn_features.keys()} if force_continuous else {}
     )
 
     for f, vals in dyn_features.items():
+        # Skip reserved keys (case-insensitive for neural keys)
+        if f.lower() in RESERVED_NEURAL_KEYS or f in RESERVED_METADATA_KEYS:
+            continue
+
         # Convert to numpy array to check dimensions
         vals_array = np.asarray(vals)
 
