@@ -1,3 +1,6 @@
+import time
+from contextlib import contextmanager
+
 import numpy as np
 import tqdm
 from dataclasses import dataclass
@@ -51,6 +54,17 @@ FFT_CONTINUOUS = "cc"       # Continuous-continuous (univariate 1D-1D)
 FFT_DISCRETE = "gd"         # Gaussian-discrete (one discrete, one continuous)
 FFT_MULTIVARIATE = "mts"    # MultiTimeSeries + univariate TimeSeries
 FFT_MTS_MTS = "mts_mts"     # MultiTimeSeries + MultiTimeSeries
+
+
+@contextmanager
+def _timed_section(timings, name):
+    """Context manager for timing code sections. No-op if timings is None."""
+    if timings is None:
+        yield
+    else:
+        start = time.perf_counter()
+        yield
+        timings[name] = time.perf_counter() - start
 
 
 def _get_ts_key(ts):
@@ -2377,6 +2391,7 @@ def compute_me_stats(
     duplicate_behavior="ignore",
     engine="auto",
     store_random_shifts=False,
+    profile=False,
 ):
     """
     Calculates similarity metric statistics for TimeSeries or MultiTimeSeries pairs
@@ -2515,6 +2530,14 @@ def compute_me_stats(
         in accumulated_info, saving significant memory (e.g., ~400MB for typical datasets).
         Set to True if you need the shift indices for debugging or reproducibility analysis.
 
+    profile : bool, default=False
+        Whether to collect internal timing information. When True, accumulated_info
+        will include a 'timings' dict with execution times (in seconds) for:
+        - 'stage1_delay_optimization': delay optimization (if find_optimal_delays=True)
+        - 'stage1_pair_scanning': stage 1 pair scanning
+        - 'stage2_pair_scanning': stage 2 pair scanning (if applicable)
+        - 'total': sum of all timing sections
+
     Returns
     -------
     stats : dict of dict of dicts
@@ -2578,6 +2601,7 @@ def compute_me_stats(
     validate_common_parameters(nsh=n_shuffles_stage2)
 
     accumulated_info = dict()
+    timings = {} if profile else None
 
     # Temporary naming: Save original names and assign temporary names if missing
     # This ensures all TimeSeries have names for FFT cache keys
@@ -2678,36 +2702,37 @@ def compute_me_stats(
             ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr
         )
 
-        if find_optimal_delays:
-            # Use unified fft_cache - no need for separate delay cache
-            # Since cache uses stable keys, ts_with_delays objects are already cached
-            if enable_parallelization:
-                optimal_delays_res = calculate_optimal_delays_parallel(
-                    ts_bunch1,
-                    ts_with_delays,
-                    metric,
-                    shift_window,
-                    ds,
-                    verbose=verbose,
-                    n_jobs=n_jobs,
-                    mi_estimator=mi_estimator,
-                    engine=engine,
-                    fft_cache=fft_cache,
-                )
-            else:
-                optimal_delays_res = calculate_optimal_delays(
-                    ts_bunch1,
-                    ts_with_delays,
-                    metric,
-                    shift_window,
-                    ds,
-                    verbose=verbose,
-                    mi_estimator=mi_estimator,
-                    engine=engine,
-                    fft_cache=fft_cache,
-                )
+        with _timed_section(timings, 'stage1_delay_optimization'):
+            if find_optimal_delays:
+                # Use unified fft_cache - no need for separate delay cache
+                # Since cache uses stable keys, ts_with_delays objects are already cached
+                if enable_parallelization:
+                    optimal_delays_res = calculate_optimal_delays_parallel(
+                        ts_bunch1,
+                        ts_with_delays,
+                        metric,
+                        shift_window,
+                        ds,
+                        verbose=verbose,
+                        n_jobs=n_jobs,
+                        mi_estimator=mi_estimator,
+                        engine=engine,
+                        fft_cache=fft_cache,
+                    )
+                else:
+                    optimal_delays_res = calculate_optimal_delays(
+                        ts_bunch1,
+                        ts_with_delays,
+                        metric,
+                        shift_window,
+                        ds,
+                        verbose=verbose,
+                        mi_estimator=mi_estimator,
+                        engine=engine,
+                        fft_cache=fft_cache,
+                    )
 
-            optimal_delays[:, ts_with_delays_inds] = optimal_delays_res
+                optimal_delays[:, ts_with_delays_inds] = optimal_delays_res
 
         accumulated_info["optimal_delays"] = optimal_delays
 
@@ -2730,38 +2755,39 @@ def compute_me_stats(
             if verbose:
                 print(f"Starting stage 1 scanning for {npairs_to_check1}/{nhyp} possible pairs")
 
-            # STAGE 1 - primary scanning using scan_stage abstraction
-            config_stage1 = StageConfig(
-                stage_num=1,
-                n_shuffles=n_shuffles_stage1,
-                mask=precomputed_mask_stage1,
-                topk=topk1,
-            )
+            with _timed_section(timings, 'stage1_pair_scanning'):
+                # STAGE 1 - primary scanning using scan_stage abstraction
+                config_stage1 = StageConfig(
+                    stage_num=1,
+                    n_shuffles=n_shuffles_stage1,
+                    mask=precomputed_mask_stage1,
+                    topk=topk1,
+                )
 
-            stage_1_stats, stage_1_significance, stage_1_info = scan_stage(
-                ts_bunch1,
-                ts_bunch2,
-                config_stage1,
-                optimal_delays,
-                metric=metric,
-                mi_estimator=mi_estimator,
-                metric_distr_type=metric_distr_type,
-                noise_const=noise_const,
-                ds=ds,
-                seed=seed,
-                joint_distr=joint_distr,
-                allow_mixed_dimensions=allow_mixed_dimensions,
-                enable_parallelization=enable_parallelization,
-                n_jobs=n_jobs,
-                engine=engine,
-                fft_cache=fft_cache,
-                verbose=False,  # We handle verbose output here
-            )
+                stage_1_stats, stage_1_significance, stage_1_info = scan_stage(
+                    ts_bunch1,
+                    ts_bunch2,
+                    config_stage1,
+                    optimal_delays,
+                    metric=metric,
+                    mi_estimator=mi_estimator,
+                    metric_distr_type=metric_distr_type,
+                    noise_const=noise_const,
+                    ds=ds,
+                    seed=seed,
+                    joint_distr=joint_distr,
+                    allow_mixed_dimensions=allow_mixed_dimensions,
+                    enable_parallelization=enable_parallelization,
+                    n_jobs=n_jobs,
+                    engine=engine,
+                    fft_cache=fft_cache,
+                    verbose=False,  # We handle verbose output here
+                )
 
-            # Extract results from scan_stage
-            random_shifts1 = stage_1_info["random_shifts"]
-            me_total1 = stage_1_info["me_total"]
-            mask_from_stage1 = stage_1_info["pass_mask"]
+                # Extract results from scan_stage
+                random_shifts1 = stage_1_info["random_shifts"]
+                me_total1 = stage_1_info["me_total"]
+                mask_from_stage1 = stage_1_info["pass_mask"]
 
             # Convert to per-quantity tables for accumulated_info
             stage_1_stats_per_quantity = nested_dict_to_seq_of_tables(
@@ -2791,6 +2817,10 @@ def compute_me_stats(
             final_stats = add_names_to_nested_dict(stage_1_stats, names1, names2)
             final_significance = add_names_to_nested_dict(stage_1_significance, names1, names2)
 
+            if profile:
+                timings['total'] = sum(v for v in timings.values() if isinstance(v, (int, float)))
+                accumulated_info['timings'] = timings
+
             return final_stats, final_significance, accumulated_info
 
         elif mode == "stage2":
@@ -2818,41 +2848,42 @@ def compute_me_stats(
             if verbose:
                 print(f"Starting stage 2 scanning for {npairs_to_check2}/{nhyp} possible pairs")
 
-            # STAGE 2 using scan_stage abstraction
-            config_stage2 = StageConfig(
-                stage_num=2,
-                n_shuffles=n_shuffles_stage2,
-                mask=combined_mask_for_stage_2,
-                topk=topk2,
-                pval_thr=pval_thr,
-                multicomp_correction=multicomp_correction,
-            )
+            with _timed_section(timings, 'stage2_pair_scanning'):
+                # STAGE 2 using scan_stage abstraction
+                config_stage2 = StageConfig(
+                    stage_num=2,
+                    n_shuffles=n_shuffles_stage2,
+                    mask=combined_mask_for_stage_2,
+                    topk=topk2,
+                    pval_thr=pval_thr,
+                    multicomp_correction=multicomp_correction,
+                )
 
-            stage_2_stats, stage_2_significance, stage_2_info = scan_stage(
-                ts_bunch1,
-                ts_bunch2,
-                config_stage2,
-                optimal_delays,
-                metric=metric,
-                mi_estimator=mi_estimator,
-                metric_distr_type=metric_distr_type,
-                noise_const=noise_const,
-                ds=ds,
-                seed=seed,
-                joint_distr=joint_distr,
-                allow_mixed_dimensions=allow_mixed_dimensions,
-                enable_parallelization=enable_parallelization,
-                n_jobs=n_jobs,
-                engine=engine,
-                fft_cache=fft_cache,
-                verbose=False,  # We handle verbose output here
-            )
+                stage_2_stats, stage_2_significance, stage_2_info = scan_stage(
+                    ts_bunch1,
+                    ts_bunch2,
+                    config_stage2,
+                    optimal_delays,
+                    metric=metric,
+                    mi_estimator=mi_estimator,
+                    metric_distr_type=metric_distr_type,
+                    noise_const=noise_const,
+                    ds=ds,
+                    seed=seed,
+                    joint_distr=joint_distr,
+                    allow_mixed_dimensions=allow_mixed_dimensions,
+                    enable_parallelization=enable_parallelization,
+                    n_jobs=n_jobs,
+                    engine=engine,
+                    fft_cache=fft_cache,
+                    verbose=False,  # We handle verbose output here
+                )
 
-            # Extract results from scan_stage
-            random_shifts2 = stage_2_info["random_shifts"]
-            me_total2 = stage_2_info["me_total"]
-            mask_from_stage2 = stage_2_info["pass_mask"]
-            multicorr_thr = stage_2_info["multicorr_thr"]
+                # Extract results from scan_stage
+                random_shifts2 = stage_2_info["random_shifts"]
+                me_total2 = stage_2_info["me_total"]
+                mask_from_stage2 = stage_2_info["pass_mask"]
+                multicorr_thr = stage_2_info["multicorr_thr"]
 
             # Convert to per-quantity tables for accumulated_info
             stage_2_stats_per_quantity = nested_dict_to_seq_of_tables(
@@ -2885,6 +2916,11 @@ def compute_me_stats(
             merged_significance = merge_stage_significance(stage_1_significance, stage_2_significance)
             final_stats = add_names_to_nested_dict(merged_stats, names1, names2)
             final_significance = add_names_to_nested_dict(merged_significance, names1, names2)
+
+            if profile:
+                timings['total'] = sum(v for v in timings.values() if isinstance(v, (int, float)))
+                accumulated_info['timings'] = timings
+
             return final_stats, final_significance, accumulated_info
     finally:
         # Free FFT cache memory explicitly to prevent accumulation

@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 from .stats import stats_not_empty, DEFAULT_METRIC_DISTR_TYPE
@@ -41,6 +43,7 @@ def compute_cell_feat_significance(
     duplicate_behavior="ignore",
     engine="auto",
     store_random_shifts=False,
+    profile=False,
 ) -> tuple:
     """
     Calculates significant neuron-feature pairs
@@ -188,6 +191,15 @@ def compute_cell_feat_significance(
         When False (default), random_shifts1 and random_shifts2 arrays are not stored,
         saving significant memory (~400MB for typical datasets with N=500, M=20).
         Set to True if you need the shift indices for debugging or reproducibility analysis.
+        Default is False
+    profile : bool, optional
+        Whether to collect internal timing information. When True, info['timings']
+        will contain execution times (in seconds) for:
+        - 'stage1_delay_optimization': delay optimization (if find_optimal_delays=True)
+        - 'stage1_pair_scanning': stage 1 pair scanning
+        - 'stage2_pair_scanning': stage 2 pair scanning (if applicable)
+        - 'disentanglement': disentanglement analysis (if with_disentanglement=True)
+        - 'total': sum of all timing sections
         Default is False
 
     Returns
@@ -402,6 +414,7 @@ def compute_cell_feat_significance(
         duplicate_behavior=duplicate_behavior,
         engine=engine,
         store_random_shifts=store_random_shifts,
+        profile=profile,
         )
 
         exp.optimal_nf_delays = info["optimal_delays"]
@@ -478,6 +491,9 @@ def compute_cell_feat_significance(
             if verbose:
                 print("\nPerforming mixed selectivity disentanglement analysis...")
 
+            if profile:
+                disentangle_start = time.perf_counter()
+
             # Step 1: Compute feature-feature significance
             _, feat_feat_significance, _, feat_names, _ = compute_feat_feat_significance(
                 exp,
@@ -550,6 +566,10 @@ def compute_cell_feat_significance(
                         )
                 else:
                     print("No mixed selectivity pairs found in the selected neurons.")
+
+            if profile:
+                info['timings']['disentanglement'] = time.perf_counter() - disentangle_start
+                info['timings']['total'] += info['timings']['disentanglement']
 
             # Return with disentanglement results
             return (
