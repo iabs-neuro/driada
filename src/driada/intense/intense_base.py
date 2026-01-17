@@ -171,26 +171,21 @@ def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed
 
 @dataclass
 class FFTCacheEntry:
-    """Cache entry for pre-computed FFT data.
+    """Cache entry for pre-computed MI values.
 
-    Stores extracted and downsampled data ready for FFT computation,
-    avoiding redundant data extraction across delay optimization and stages.
+    Stores MI values for ALL possible shifts, enabling O(1) lookup
+    without redundant FFT computation. The FFT is computed once when
+    building the cache, then MI for any shift is just array indexing.
 
     Attributes
     ----------
     fft_type : str
         FFT type constant (FFT_CONTINUOUS, FFT_DISCRETE, FFT_MULTIVARIATE).
-    data1 : np.ndarray
-        First array, already extracted and downsampled.
-    data2 : np.ndarray
-        Second array, already extracted and downsampled.
-    compute_fn : Callable
-        Direct reference to the compute function (_FFT_COMPUTE[fft_type]).
+    mi_all : np.ndarray
+        MI values for ALL n shifts (shape: (n,)).
     """
     fft_type: str
-    data1: np.ndarray
-    data2: np.ndarray
-    compute_fn: Callable
+    mi_all: np.ndarray
 
 
 @dataclass
@@ -500,11 +495,16 @@ def _build_fft_cache(
 
                 if fft_type is not None:
                     data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
+                    compute_fn = _FFT_COMPUTE[fft_type]
+
+                    # Precompute MI for ALL shifts (FFT done once here)
+                    n = len(data1) if data1.ndim == 1 else data1.shape[1]
+                    all_shifts = np.arange(n)
+                    mi_all = compute_fn(data1, data2, all_shifts)
+
                     cache[(key1, key2)] = FFTCacheEntry(
                         fft_type=fft_type,
-                        data1=data1,
-                        data2=data2,
-                        compute_fn=_FFT_COMPUTE[fft_type],
+                        mi_all=mi_all,
                     )
                 else:
                     cache[(key1, key2)] = None
@@ -829,18 +829,15 @@ def calculate_optimal_delays(
             ) if fft_cache else None
 
             if cache_entry is not None:
-                # Use cached FFT data
-                data1, data2 = cache_entry.data1, cache_entry.data2
-                compute_fn = cache_entry.compute_fn
+                # Use cached MI values - just index!
+                mi_all = cache_entry.mi_all
+                n = len(mi_all)
 
-                # Get data length for shift conversion
-                n = len(data1) if data1.ndim == 1 else data1.shape[-1]
-
-                # Convert shifts to non-negative indices for FFT
+                # Convert shifts to non-negative indices
                 fft_shifts = np.where(shifts >= 0, shifts, n + shifts).astype(int)
 
-                # Compute MI at all shifts in one FFT call
-                mi_values = compute_fn(data1, data2, fft_shifts)
+                # Look up MI at requested shifts
+                mi_values = mi_all[fft_shifts]
 
                 best_idx = np.argmax(mi_values)
                 optimal_delays[i, j] = int(shifts[best_idx] * ds)
@@ -1381,16 +1378,12 @@ def scan_pairs(
                     cache_entry = fft_cache.get((key1, key2)) if fft_cache else None
 
                     if cache_entry is not None:
-                        # Use cached FFT data
-                        data1, data2 = cache_entry.data1, cache_entry.data2
-                        compute_fn = cache_entry.compute_fn
+                        # Use cached MI values - just index!
+                        mi_all = cache_entry.mi_all
 
-                        # Compute true MI at optimal delay
                         opt_shift = optimal_delays[i, j] // ds
-                        me0 = compute_fn(data1, data2, np.array([opt_shift]))[0]
-
-                        # Compute all shuffle MIs at once
-                        shuffle_mis = compute_fn(data1, data2, random_shifts[i, j, :])
+                        me0 = mi_all[opt_shift]
+                        shuffle_mis = mi_all[random_shifts[i, j, :]]
 
                         # Add noise for numerical stability
                         me_table[i, j] = me0 + pair_rng.random() * noise_const
