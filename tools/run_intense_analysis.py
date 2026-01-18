@@ -727,6 +727,183 @@ def save_results(output_path, exp, stats, significance, info, results, disent_re
     print(f"\nResults saved to: {output_path}")
 
 
+# ==============================================================================
+# Disentangled Stats/Significance Functions
+# ==============================================================================
+
+def build_disentangled_stats(stats, significance, disent_results, exp):
+    """Build stats/significance dicts with disentanglement applied.
+
+    Uses `final_sels` from disentanglement results to determine which features
+    to keep per neuron. Redundant features are removed, merged features get
+    combined stats from their component features.
+
+    Parameters
+    ----------
+    stats : dict
+        Original stats dict: stats[cell_id][feat_name] -> {me, pval, ...}
+    significance : dict
+        Original significance dict: significance[cell_id][feat_name] -> {...}
+    disent_results : dict
+        Disentanglement results containing 'per_neuron_disent'
+    exp : Experiment
+        Experiment object for getting significant neurons
+
+    Returns
+    -------
+    tuple
+        (disent_stats, disent_significance) with redundant features removed
+        and merged features combined
+    """
+    per_neuron_disent = disent_results.get('per_neuron_disent', {})
+    significant_neurons = exp.get_significant_neurons()
+
+    disent_stats = {}
+    disent_significance = {}
+
+    for nid in stats.keys():
+        disent_stats[nid] = {}
+        disent_significance[nid] = {}
+
+        # Get final selectivities for this neuron
+        if nid in per_neuron_disent:
+            final_sels = per_neuron_disent[nid]['final_sels']
+            renames = per_neuron_disent[nid].get('renames', {})
+        else:
+            # Neuron not in disent results (single-feature or not processed)
+            # Use original significant features
+            final_sels = list(significant_neurons.get(nid, []))
+            renames = {}
+
+        for feat in final_sels:
+            if feat in renames:
+                # Merged feature - combine component stats
+                old1, old2 = renames[feat]
+                combined_stats = _combine_feature_stats(
+                    stats[nid].get(old1, {}),
+                    stats[nid].get(old2, {})
+                )
+                combined_sig = _combine_feature_significance(
+                    significance[nid].get(old1, {}),
+                    significance[nid].get(old2, {})
+                )
+                disent_stats[nid][feat] = combined_stats
+                disent_significance[nid][feat] = combined_sig
+            else:
+                # Regular feature - copy from original if exists
+                if feat in stats[nid]:
+                    disent_stats[nid][feat] = stats[nid][feat].copy()
+                if feat in significance[nid]:
+                    disent_significance[nid][feat] = significance[nid][feat]
+
+    return disent_stats, disent_significance
+
+
+def _combine_feature_stats(stats1, stats2):
+    """Combine stats from two features into one merged entry.
+
+    Uses max for MI values, min for p-values.
+    """
+    combined = {}
+
+    # MI: use max
+    if 'me' in stats1 or 'me' in stats2:
+        combined['me'] = max(stats1.get('me', 0), stats2.get('me', 0))
+
+    # p-value: use min (most significant)
+    if 'pval' in stats1 or 'pval' in stats2:
+        combined['pval'] = min(stats1.get('pval', 1), stats2.get('pval', 1))
+
+    # Relative MI: use max
+    for key in ['rel_me_beh', 'rel_me_ca']:
+        if key in stats1 or key in stats2:
+            combined[key] = max(stats1.get(key, 0), stats2.get(key, 0))
+
+    # Delay: use from feature with higher MI
+    if stats1.get('me', 0) >= stats2.get('me', 0):
+        if 'delay' in stats1:
+            combined['delay'] = stats1['delay']
+    else:
+        if 'delay' in stats2:
+            combined['delay'] = stats2['delay']
+
+    # Copy other keys from the dominant feature
+    dominant = stats1 if stats1.get('me', 0) >= stats2.get('me', 0) else stats2
+    for key in dominant:
+        if key not in combined:
+            combined[key] = dominant[key]
+
+    # Mark as merged
+    combined['merged_from'] = [
+        stats1.get('feature_name', 'feat1'),
+        stats2.get('feature_name', 'feat2')
+    ]
+
+    return combined
+
+
+def _combine_feature_significance(sig1, sig2):
+    """Combine significance from two features.
+
+    Both features being significant means the merged feature is significant.
+    """
+    # If either is a simple bool, convert to dict
+    if isinstance(sig1, bool):
+        sig1 = {'significant': sig1}
+    if isinstance(sig2, bool):
+        sig2 = {'significant': sig2}
+
+    combined = {}
+
+    # Stage significance: both must be significant
+    for stage in ['stage1', 'stage2']:
+        if stage in sig1 or stage in sig2:
+            combined[stage] = sig1.get(stage, False) and sig2.get(stage, False)
+
+    # Overall significant if stage2 (or stage1 if no stage2)
+    if 'stage2' in combined:
+        combined['significant'] = combined['stage2']
+    elif 'stage1' in combined:
+        combined['significant'] = combined['stage1']
+
+    return combined
+
+
+def save_disentangled_tables(disent_stats, disent_significance, feat_names, exp_name, output_dir):
+    """Save disentangled stats and significance to CSV files.
+
+    Parameters
+    ----------
+    disent_stats : dict
+        Disentangled stats dict
+    disent_significance : dict
+        Disentangled significance dict
+    feat_names : list
+        List of feature names (original + any merged names)
+    exp_name : str
+        Experiment name for file naming
+    output_dir : Path
+        Output directory (will create tables_disentangled/ subdirectory)
+    """
+    output_dir = Path(output_dir)
+    tables_dir = output_dir / 'tables_disentangled'
+    tables_dir.mkdir(parents=True, exist_ok=True)
+
+    # Collect all feature names (including merged ones)
+    all_feats = set(feat_names)
+    for nid_stats in disent_stats.values():
+        all_feats.update(nid_stats.keys())
+    all_feat_names = sorted(all_feats)
+
+    # Save stats CSV
+    save_stats_csv(disent_stats, all_feat_names, tables_dir / f'{exp_name} INTENSE stats.csv')
+
+    # Save significance CSV
+    save_significance_csv(disent_significance, all_feat_names, tables_dir / f'{exp_name} INTENSE significance.csv')
+
+    print(f"  Disentangled tables saved to: {tables_dir}")
+
+
 def get_exp_name(npz_path):
     """Extract experiment name from NPZ filename.
 
@@ -912,6 +1089,14 @@ def save_all_results(exp_name, exp, stats, significance, info, results, disent_r
     # Save disentanglement outputs
     if disent_results:
         save_disentanglement(disent_results, exp_name, disent_dir)
+
+        # Save disentangled stats/significance tables
+        disent_stats, disent_significance = build_disentangled_stats(
+            stats, significance, disent_results, exp
+        )
+        save_disentangled_tables(
+            disent_stats, disent_significance, feat_names, exp_name, output_dir
+        )
 
     print(f"\nAll results saved to: {output_dir}")
 
