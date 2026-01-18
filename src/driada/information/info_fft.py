@@ -1226,41 +1226,42 @@ def mi_dd_fft(
             contingency[:, i, j] = cross_corr[target_shifts]
 
     # Round to integers (FFT may introduce small floating point errors)
-    contingency = np.round(contingency).astype(float)
+    # Use 0.5 threshold for rounding to handle floating point noise
+    contingency = np.round(contingency)
 
-    # Step 3: Compute MI from contingency tables for each shift
-    mi_values = np.zeros(nsh)
+    # Step 3: Compute MI from contingency tables for each shift (VECTORIZED)
+    # Joint probability P(i,j) for all shifts at once
+    P_joint = contingency / n  # (nsh, Ym, Yn)
 
-    for s in range(nsh):
-        # Joint probability P(i,j)
-        P_joint = contingency[s] / n
+    # Marginal probabilities are constant across shifts for circular correlation:
+    # - P(X=i) = count(x==i) / n  (x is fixed)
+    # - P(Y=j) = count(y==j) / n  (circular shift preserves counts)
+    P_x = n_x / n  # (Ym,)
+    P_y = n_y / n  # (Yn,)
 
-        # Skip if all zeros (shouldn't happen)
-        if np.sum(P_joint) == 0:
-            continue
+    # Broadcast marginals for vectorized computation
+    # P_x_bc: (1, Ym, 1) and P_y_bc: (1, 1, Yn) -> product is (1, Ym, Yn)
+    P_x_bc = P_x[np.newaxis, :, np.newaxis]
+    P_y_bc = P_y[np.newaxis, np.newaxis, :]
+    P_xy_independent = P_x_bc * P_y_bc  # (1, Ym, Yn), broadcast to (nsh, Ym, Yn)
 
-        # Marginal probabilities (from joint, not from original - they match for y
-        # but for shifted y we need to recompute from joint)
-        P_x = P_joint.sum(axis=1)  # Sum over j
-        P_y = P_joint.sum(axis=0)  # Sum over i
+    # MI = Σᵢⱼ P(i,j) * log2(P(i,j) / (P(i) * P(j)))
+    # Handle zeros: 0 * log(0) = 0 by convention, and log(0/x) should be masked
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = P_joint / P_xy_independent
+        log_ratio = np.log2(ratio)
 
-        # MI = Σᵢⱼ P(i,j) * log2(P(i,j) / (P(i) * P(j)))
-        mi = 0.0
-        for i in range(Ym):
-            if P_x[i] == 0:
-                continue
-            for j in range(Yn):
-                if P_y[j] == 0 or P_joint[i, j] == 0:
-                    continue
-                mi += P_joint[i, j] * np.log2(P_joint[i, j] / (P_x[i] * P_y[j]))
-
-        mi_values[s] = mi
+    # Mask invalid entries (where P_joint == 0 or P_xy_independent == 0)
+    valid_mask = (P_joint > 0) & (P_xy_independent > 0)
+    mi_terms = np.where(valid_mask, P_joint * log_ratio, 0.0)
+    mi_values = mi_terms.sum(axis=(1, 2))
 
     # Apply bias correction if requested (Miller-Madow correction)
     # Bias ≈ (k - 1) / (2 * n * ln(2)) where k is number of non-zero cells
     if biascorrect and n > 1:
-        # Use average number of non-zero cells across shifts
-        avg_nonzero = np.mean([np.sum(contingency[s] > 0) for s in range(nsh)])
+        # Vectorized: count non-zero cells for each shift
+        nonzero_cells = np.sum(contingency > 0.5, axis=(1, 2))
+        avg_nonzero = np.mean(nonzero_cells)
         bias = (avg_nonzero - 1) / (2 * n * ln2)
         mi_values = mi_values - bias
 
