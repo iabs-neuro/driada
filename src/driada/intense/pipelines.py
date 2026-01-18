@@ -518,6 +518,10 @@ def compute_cell_feat_significance(
                 profile=profile,
             )
 
+            if profile:
+                info['timings']['disentanglement_feat_feat'] = time.perf_counter() - disentangle_start
+                disent_analysis_start = time.perf_counter()
+
             # Step 2: Use default multifeature map if not provided
             if multifeature_map is None:
                 multifeature_map = DEFAULT_MULTIFEATURE_MAP
@@ -535,7 +539,11 @@ def compute_cell_feat_significance(
                 cell_bunch=cell_ids,
                 cell_feat_stats=computed_stats,
                 feat_feat_similarity=feat_feat_similarity,
+                n_jobs=n_jobs,
             )
+
+            if profile:
+                info['timings']['disentanglement_analysis'] = time.perf_counter() - disent_analysis_start
 
             # Step 4: Get summary statistics
             from .disentanglement import get_disentanglement_summary

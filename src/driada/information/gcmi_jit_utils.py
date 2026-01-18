@@ -486,7 +486,9 @@ def mi_gg_jit(x, y, biascorrect=True, demeaned=False):
     Nvarxy = Nvarx + Nvary
 
     if not demeaned:
-        # Demean data - manual implementation for numba
+        # Demean data - make copies to avoid modifying read-only arrays
+        x = x.copy()
+        y = y.copy()
         for i in range(x.shape[0]):
             x[i] = x[i] - np.mean(x[i])
         for i in range(y.shape[0]):
@@ -632,7 +634,10 @@ def cmi_ggg_jit(x, y, z, biascorrect=True, demeaned=False):
     Nvarxyz = Nvarx + Nvary + Nvarz
 
     if not demeaned:
-        # Demean data - manual implementation for numba
+        # Demean data - make copies to avoid modifying read-only arrays
+        x = x.copy()
+        y = y.copy()
+        z = z.copy()
         for i in range(x.shape[0]):
             x[i] = x[i] - np.mean(x[i])
         for i in range(y.shape[0]):

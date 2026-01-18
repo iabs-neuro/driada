@@ -8,6 +8,7 @@ behavioral variables.
 
 import numpy as np
 from itertools import combinations
+from joblib import Parallel, delayed
 from ..information.info_base import get_mi, conditional_mi, MultiTimeSeries
 
 
@@ -218,6 +219,136 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
     )
 
 
+def _process_neuron_disentanglement(
+    neuron_id,
+    sels,
+    neur_ts,
+    feat_names,
+    multifeature_map,
+    multifeature_ts,
+    feature_ts_dict,
+    ds,
+    feat_feat_significance,
+    cell_feat_stats,
+    feat_feat_similarity,
+):
+    """Process disentanglement for a single neuron.
+
+    Worker function for parallel disentanglement processing. Analyzes all
+    feature pairs for a single neuron and returns partial result matrices.
+
+    Parameters
+    ----------
+    neuron_id : any
+        Neuron identifier.
+    sels : list
+        List of feature selectivities for this neuron.
+    neur_ts : TimeSeries
+        Neural activity time series.
+    feat_names : list
+        List of all feature names.
+    multifeature_map : dict
+        Mapping from multifeature tuples to aggregated names.
+    multifeature_ts : dict
+        Pre-built MultiTimeSeries objects for multifeatures.
+    feature_ts_dict : dict
+        Pre-extracted feature TimeSeries, keyed by feature name.
+    ds : int
+        Downsampling factor.
+    feat_feat_significance : ndarray or None
+        Binary significance matrix for feature pairs.
+    cell_feat_stats : dict or None
+        Pre-computed neuron-feature MI values.
+    feat_feat_similarity : ndarray or None
+        Pre-computed feature-feature MI values.
+
+    Returns
+    -------
+    partial_disent : ndarray
+        Partial disentanglement matrix for this neuron.
+    partial_count : ndarray
+        Partial count matrix for this neuron.
+    """
+    n_features = len(feat_names)
+    partial_disent = np.zeros((n_features, n_features))
+    partial_count = np.zeros((n_features, n_features))
+
+    # Test all pairs of features this neuron responds to
+    for sel_comb in combinations(sels, 2):
+        try:
+            sel_comb = list(sel_comb)
+            feat_ts = []
+            finds = []
+
+            # Get time series for each feature
+            for fname in sel_comb:
+                # Check if this is a multifeature tuple
+                if isinstance(fname, tuple) and fname in multifeature_map:
+                    agg_name = multifeature_map[fname]
+                    if agg_name in feat_names:
+                        feat_ts.append(multifeature_ts[agg_name])
+                        finds.append(feat_names.index(agg_name))
+                    else:
+                        raise ValueError(f"Aggregated name '{agg_name}' not in feat_names")
+                else:
+                    # Regular single feature - use pre-extracted dict
+                    if fname in feature_ts_dict:
+                        feat_ts.append(feature_ts_dict[fname])
+                        finds.append(feat_names.index(fname))
+                    else:
+                        raise ValueError(f"Feature '{fname}' not found in experiment")
+
+            # Get feature indices
+            ind1 = finds[0]
+            ind2 = finds[1]
+
+            # Check if this feature pair has significant behavioral correlation
+            if feat_feat_significance is not None:
+                if feat_feat_significance[ind1, ind2] == 0:
+                    # Features are not significantly correlated
+                    # Skip disentanglement - this is true mixed selectivity
+                    partial_count[ind1, ind2] += 1
+                    partial_count[ind2, ind1] += 1
+                    # Add 0.5 to each to indicate undistinguishable contributions
+                    partial_disent[ind1, ind2] += 0.5
+                    partial_disent[ind2, ind1] += 0.5
+                    continue
+
+            # Look up pre-computed MI values (if available)
+            mi12 = _lookup_cell_feat_mi(cell_feat_stats, neuron_id, sel_comb[0])
+            mi13 = _lookup_cell_feat_mi(cell_feat_stats, neuron_id, sel_comb[1])
+            mi23 = _lookup_feat_feat_mi(
+                feat_feat_similarity, feat_names,
+                feat_names[ind1], feat_names[ind2]
+            )
+
+            # Perform disentanglement analysis only for significant pairs
+            disres = _disentangle_pair_with_precomputed(
+                neur_ts, feat_ts[0], feat_ts[1],
+                mi12=mi12, mi13=mi13, mi23=mi23,
+                ds=ds, verbose=False
+            )
+
+            # Update matrices
+            partial_count[ind1, ind2] += 1
+            partial_count[ind2, ind1] += 1
+
+            if disres == 0:
+                partial_disent[ind1, ind2] += 1  # Feature 1 is primary
+            elif disres == 1:
+                partial_disent[ind2, ind1] += 1  # Feature 2 is primary
+            elif disres == 0.5:
+                partial_disent[ind1, ind2] += 0.5  # Both contribute
+                partial_disent[ind2, ind1] += 0.5
+
+        except (ValueError, AttributeError, KeyError) as e:
+            # Log specific errors but continue processing other pairs
+            print(f"WARNING: Skipping neuron {neuron_id}, features {sel_comb}: {str(e)}")
+            continue
+
+    return partial_disent, partial_count
+
+
 def disentangle_all_selectivities(
     exp,
     feat_names,
@@ -227,6 +358,7 @@ def disentangle_all_selectivities(
     cell_bunch=None,
     cell_feat_stats=None,
     feat_feat_similarity=None,
+    n_jobs=-1,
 ):
     """Analyze mixed selectivity across all significant neuron-feature pairs.
 
@@ -271,6 +403,9 @@ def disentangle_all_selectivities(
         compute_feat_feat_significance. Matrix where [i, j] = MI(feat_i, feat_j).
         If provided, MI(feature1, feature2) values will be looked up.
         Default: None.
+    n_jobs : int, optional
+        Number of parallel jobs for processing neurons. -1 means use all
+        available processors. Default: -1.
 
     Returns
     -------
@@ -291,6 +426,10 @@ def disentangle_all_selectivities(
     When cell_feat_stats and feat_feat_similarity are provided, 3 out of 5
     pairwise MI computations per disentangle_pair call are skipped by using
     lookups, providing ~60% reduction in MI computation overhead.
+
+    The neuron loop is parallelized using joblib, providing significant speedup
+    when analyzing many neurons. Each neuron is processed independently and
+    results are merged at the end.
 
     Raises
     ------
@@ -328,83 +467,39 @@ def disentangle_all_selectivities(
     # Get neurons with significant selectivity to multiple features
     sneur = exp.get_significant_neurons(min_nspec=2, cbunch=cell_bunch)
 
-    for neuron, sels in sneur.items():
-        neur_ts = exp.neurons[neuron].ca
+    # Pre-extract feature TimeSeries to avoid serializing entire exp object
+    # This is critical for parallel performance with joblib
+    feature_ts_dict = {}
+    for fname in feat_names:
+        if hasattr(exp, fname):
+            feature_ts_dict[fname] = getattr(exp, fname)
 
-        # Test all pairs of features this neuron responds to
-        for sel_comb in combinations(sels, 2):
-            try:
-                sel_comb = list(sel_comb)
-                feat_ts = []
-                finds = []
+    # Pre-extract neuron TimeSeries
+    neuron_ts_dict = {neuron: exp.neurons[neuron].ca for neuron in sneur.keys()}
 
-                # Get time series for each feature
-                for fname in sel_comb:
-                    # Check if this is a multifeature tuple
-                    if isinstance(fname, tuple) and fname in multifeature_map:
-                        agg_name = multifeature_map[fname]
-                        if agg_name in feat_names:
-                            feat_ts.append(multifeature_ts[agg_name])
-                            finds.append(feat_names.index(agg_name))
-                        else:
-                            raise ValueError(f"Aggregated name '{agg_name}' not in feat_names")
-                    else:
-                        # Regular single feature
-                        if hasattr(exp, fname):
-                            feat_ts.append(getattr(exp, fname))
-                            finds.append(feat_names.index(fname))
-                        else:
-                            raise ValueError(f"Feature '{fname}' not found in experiment")
+    # Process neurons in parallel
+    if len(sneur) > 0:
+        results = Parallel(n_jobs=n_jobs, backend="loky")(
+            delayed(_process_neuron_disentanglement)(
+                neuron_id=neuron,
+                sels=sels,
+                neur_ts=neuron_ts_dict[neuron],
+                feat_names=feat_names,
+                multifeature_map=multifeature_map,
+                multifeature_ts=multifeature_ts,
+                feature_ts_dict=feature_ts_dict,
+                ds=ds,
+                feat_feat_significance=feat_feat_significance,
+                cell_feat_stats=cell_feat_stats,
+                feat_feat_similarity=feat_feat_similarity,
+            )
+            for neuron, sels in sneur.items()
+        )
 
-                # Get feature indices
-                ind1 = finds[0]
-                ind2 = finds[1]
-
-                # Check if this feature pair has significant behavioral correlation
-                if feat_feat_significance is not None:
-                    if feat_feat_significance[ind1, ind2] == 0:
-                        # Features are not significantly correlated
-                        # Skip disentanglement - this is true mixed selectivity
-                        count_matrix[ind1, ind2] += 1
-                        count_matrix[ind2, ind1] += 1
-                        # Add 0.5 to each to indicate undistinguishable contributions
-                        disent_matrix[ind1, ind2] += 0.5
-                        disent_matrix[ind2, ind1] += 0.5
-                        continue
-
-                # Look up pre-computed MI values (if available)
-                # sel_comb contains the original feature names as stored in significance
-                mi12 = _lookup_cell_feat_mi(cell_feat_stats, neuron, sel_comb[0])
-                mi13 = _lookup_cell_feat_mi(cell_feat_stats, neuron, sel_comb[1])
-                mi23 = _lookup_feat_feat_mi(
-                    feat_feat_similarity, feat_names,
-                    feat_names[ind1], feat_names[ind2]
-                )
-
-                # Perform disentanglement analysis only for significant pairs
-                # Uses pre-computed MI values when available
-                disres = _disentangle_pair_with_precomputed(
-                    neur_ts, feat_ts[0], feat_ts[1],
-                    mi12=mi12, mi13=mi13, mi23=mi23,
-                    ds=ds, verbose=False
-                )
-
-                # Update matrices
-                count_matrix[ind1, ind2] += 1
-                count_matrix[ind2, ind1] += 1
-
-                if disres == 0:
-                    disent_matrix[ind1, ind2] += 1  # Feature 1 is primary
-                elif disres == 1:
-                    disent_matrix[ind2, ind1] += 1  # Feature 2 is primary
-                elif disres == 0.5:
-                    disent_matrix[ind1, ind2] += 0.5  # Both contribute
-                    disent_matrix[ind2, ind1] += 0.5
-
-            except (ValueError, AttributeError, KeyError) as e:
-                # Log specific errors but continue processing other pairs
-                print(f"WARNING: Skipping neuron {neuron}, features {sel_comb}: {str(e)}")
-                continue
+        # Merge partial results from all workers
+        for partial_disent, partial_count in results:
+            disent_matrix += partial_disent
+            count_matrix += partial_count
 
     return disent_matrix, count_matrix
 
