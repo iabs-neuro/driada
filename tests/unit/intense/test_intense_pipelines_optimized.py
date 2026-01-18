@@ -757,3 +757,95 @@ def test_intense_ksg_with_different_feature_types(mixed_features_experiment):
                 me_val = stats_m[cell_id][feat_id].get("me")
                 if me_val is not None:
                     assert np.isfinite(me_val), f"ME not finite for mixed features"
+
+
+# ==============================================================================
+# Profiling Tests
+# ==============================================================================
+
+def test_feat_feat_profile_timing():
+    """Test feat_feat collects timing info when profile=True."""
+    exp = generate_synthetic_exp(
+        n_dfeats=2, n_cfeats=2, nneurons=3,
+        duration=60, fps=10, seed=42, verbose=False
+    )
+
+    _, _, _, _, info = compute_feat_feat_significance(
+        exp, mode='stage1', n_shuffles_stage1=10, profile=True, verbose=False
+    )
+
+    # Check that timing info is present
+    assert 'timings' in info
+    assert 'stage1_pair_scanning' in info['timings']
+    assert 'matrix_construction' in info['timings']
+    assert 'fft_type_counts' in info['timings']
+    assert 'total' in info['timings']
+
+    # Check that values are positive
+    assert info['timings']['matrix_construction'] > 0
+    assert info['timings']['total'] > 0
+
+
+def test_cell_cell_profile_timing():
+    """Test cell_cell collects timing info when profile=True."""
+    exp = generate_synthetic_exp(
+        n_dfeats=2, n_cfeats=2, nneurons=3,
+        duration=60, fps=10, seed=42, verbose=False
+    )
+
+    _, _, _, _, info = compute_cell_cell_significance(
+        exp, cell_bunch=[0, 1, 2], mode='stage1', n_shuffles_stage1=10,
+        profile=True, verbose=False
+    )
+
+    # Check that timing info is present
+    assert 'timings' in info
+    assert 'stage1_pair_scanning' in info['timings']
+    assert 'matrix_construction' in info['timings']
+    assert 'fft_type_counts' in info['timings']
+    assert 'total' in info['timings']
+
+    # Check that values are positive
+    assert info['timings']['matrix_construction'] > 0
+    assert info['timings']['total'] > 0
+
+
+def test_timing_structure_consistency():
+    """Test all three pipelines have consistent timing structure."""
+    exp = generate_synthetic_exp(
+        n_dfeats=2, n_cfeats=2, nneurons=3,
+        duration=60, fps=10, seed=42, verbose=False
+    )
+
+    # Run all three pipelines with profiling
+    _, _, info_cf, _ = compute_cell_feat_significance(
+        exp, cell_bunch=[0, 1], mode='stage1',
+        n_shuffles_stage1=10, profile=True, verbose=False
+    )
+
+    _, _, _, _, info_ff = compute_feat_feat_significance(
+        exp, mode='stage1', n_shuffles_stage1=10, profile=True, verbose=False
+    )
+
+    _, _, _, _, info_cc = compute_cell_cell_significance(
+        exp, cell_bunch=[0, 1, 2], mode='stage1', n_shuffles_stage1=10,
+        profile=True, verbose=False
+    )
+
+    # Check common keys are present in all three
+    common_keys = ['stage1_pair_scanning', 'fft_type_counts', 'total']
+
+    for key in common_keys:
+        assert key in info_cf['timings'], f"cell_feat missing {key}"
+        assert key in info_ff['timings'], f"feat_feat missing {key}"
+        assert key in info_cc['timings'], f"cell_cell missing {key}"
+
+    # Check matrix_construction is present in feat_feat and cell_cell
+    assert 'matrix_construction' in info_ff['timings']
+    assert 'matrix_construction' in info_cc['timings']
+
+    # Check all timing values are positive
+    for info in [info_cf, info_ff, info_cc]:
+        for key, value in info['timings'].items():
+            if key != 'fft_type_counts':  # Skip dict
+                assert value > 0, f"Timing for {key} should be positive"

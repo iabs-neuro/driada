@@ -198,6 +198,7 @@ def compute_cell_feat_significance(
         - 'stage1_delay_optimization': delay optimization (if find_optimal_delays=True)
         - 'stage1_pair_scanning': stage 1 pair scanning
         - 'stage2_pair_scanning': stage 2 pair scanning (if applicable)
+        - 'fft_type_counts': Dictionary of FFT type usage counts
         - 'disentanglement': disentanglement analysis (if with_disentanglement=True)
         - 'total': sum of all timing sections
         Default is False
@@ -494,7 +495,7 @@ def compute_cell_feat_significance(
                 disentangle_start = time.perf_counter()
 
             # Step 1: Compute feature-feature significance
-            _, feat_feat_significance, _, feat_names, _ = compute_feat_feat_significance(
+            _, feat_feat_significance, _, feat_names, disent_info = compute_feat_feat_significance(
                 exp,
                 feat_bunch=feat_bunch if feat_bunch is not None else "all",
                 metric=metric,
@@ -512,6 +513,7 @@ def compute_cell_feat_significance(
                 enable_parallelization=enable_parallelization,
                 n_jobs=n_jobs,
                 seed=seed,
+                profile=profile,
             )
 
             # Step 2: Use default multifeature map if not provided
@@ -569,6 +571,10 @@ def compute_cell_feat_significance(
             if profile:
                 info['timings']['disentanglement'] = time.perf_counter() - disentangle_start
                 info['timings']['total'] += info['timings']['disentanglement']
+                # Aggregate disentanglement FFT type counts
+                if 'timings' in disent_info and 'fft_type_counts' in disent_info['timings']:
+                    disent_counts = disent_info['timings']['fft_type_counts']
+                    info['timings']['fft_type_counts_disentanglement'] = disent_counts
 
             # Return with disentanglement results
             return (
@@ -669,6 +675,12 @@ def compute_feat_feat_significance(
         Default: 'ignore'.
     profile : bool, optional
         If True, collect timing and FFT type information. Default: False.
+        When enabled, info['timings'] will contain:
+        - 'stage1_pair_scanning': Stage 1 scanning time (seconds)
+        - 'stage2_pair_scanning': Stage 2 scanning time if applicable (seconds)
+        - 'fft_type_counts': Dictionary of FFT type usage counts
+        - 'matrix_construction': Symmetric matrix construction time (seconds)
+        - 'total': Total execution time (seconds)
 
     Returns
     -------
@@ -830,6 +842,9 @@ def compute_feat_feat_significance(
         )
 
         # Extract matrices from results
+        if profile:
+            matrix_start = time.perf_counter()
+
         similarity_matrix = np.zeros((n_features, n_features))
         significance_matrix = np.zeros((n_features, n_features))
         p_value_matrix = np.ones((n_features, n_features))
@@ -870,6 +885,10 @@ def compute_feat_feat_significance(
         np.fill_diagonal(similarity_matrix, 0)
         np.fill_diagonal(significance_matrix, 0)
         np.fill_diagonal(p_value_matrix, 1)
+
+        if profile:
+            info['timings']['matrix_construction'] = time.perf_counter() - matrix_start
+            info['timings']['total'] += info['timings']['matrix_construction']
 
         if verbose:
             print("\nBehavioral similarity matrix computation complete!")
@@ -968,6 +987,12 @@ def compute_cell_cell_significance(
         Default: 'ignore'.
     profile : bool, optional
         If True, collect timing and FFT type information. Default: False.
+        When enabled, info['timings'] will contain:
+        - 'stage1_pair_scanning': Stage 1 scanning time (seconds)
+        - 'stage2_pair_scanning': Stage 2 scanning time if applicable (seconds)
+        - 'fft_type_counts': Dictionary of FFT type usage counts
+        - 'matrix_construction': Symmetric matrix construction time (seconds)
+        - 'total': Total execution time (seconds)
 
     Returns
     -------
@@ -1124,6 +1149,9 @@ def compute_cell_cell_significance(
         )
 
         # Extract matrices from results
+        if profile:
+            matrix_start = time.perf_counter()
+
         similarity_matrix = np.zeros((n_cells, n_cells))
         significance_matrix = np.zeros((n_cells, n_cells))
         p_value_matrix = np.ones((n_cells, n_cells))
@@ -1160,6 +1188,10 @@ def compute_cell_cell_significance(
         np.fill_diagonal(similarity_matrix, 0)
         np.fill_diagonal(significance_matrix, 0)
         np.fill_diagonal(p_value_matrix, 1)
+
+        if profile:
+            info['timings']['matrix_construction'] = time.perf_counter() - matrix_start
+            info['timings']['total'] += info['timings']['matrix_construction']
 
         if verbose:
             print("\nNeuronal similarity matrix computation complete!")

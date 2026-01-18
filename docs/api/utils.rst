@@ -28,8 +28,6 @@ Quick Links
    * :doc:`utils/data` - Data structures and I/O utilities
    * :func:`~driada.utils.data.rescale` - Rescale data to range
    * :func:`~driada.utils.data.get_hash` - Generate data hashes
-   * :func:`~driada.utils.data.write_dict_to_hdf5` - Save to HDF5
-   * :func:`~driada.utils.data.read_hdf5_to_dict` - Load from HDF5
 
 **Visualization**
    * :doc:`utils/visualization` - Advanced plotting functions
