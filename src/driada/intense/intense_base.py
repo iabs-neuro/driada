@@ -29,12 +29,13 @@ from ..information.info_base import (
     compute_mi_mts_fft,
     compute_mi_mts_mts_fft,
     compute_mi_mts_discrete_fft,
+    compute_mi_dd_fft,
 )
 from ..utils.data import nested_dict_to_seq_of_tables, add_names_to_nested_dict
 from .io import IntenseResults
 
-# Lazy joblib backend selection to avoid unconditional torch import
-_JOBLIB_BACKEND = None
+# Joblib backend for parallel processing
+_JOBLIB_BACKEND = "loky"
 
 # Default noise amplitude added to MI values for numerical stability
 DEFAULT_NOISE_AMPLITUDE = 1e-3
@@ -54,6 +55,7 @@ MAX_MTS_MTS_FFT_DIMENSIONS = 6  # Total d1+d2 limit for MTS-MTS pairs
 # FFT type constants
 FFT_CONTINUOUS = "cc"       # Continuous-continuous (univariate 1D-1D)
 FFT_DISCRETE = "gd"         # Gaussian-discrete (one discrete, one continuous)
+FFT_DISCRETE_DISCRETE = "dd"  # Discrete-discrete (both variables discrete)
 FFT_MULTIVARIATE = "mts"    # MultiTimeSeries + univariate TimeSeries
 FFT_MTS_MTS = "mts_mts"     # MultiTimeSeries + MultiTimeSeries
 FFT_MTS_DISCRETE = "mts_discrete"  # MultiTimeSeries + discrete
@@ -335,8 +337,8 @@ def get_fft_type(
         elif not ts1.discrete and not ts2.discrete:
             fft_type = FFT_CONTINUOUS
         else:
-            # Both discrete - no FFT available
-            error_msg = "FFT not available for discrete-discrete pairs"
+            # Both discrete - use discrete-discrete FFT
+            fft_type = FFT_DISCRETE_DISCRETE
     else:
         error_msg = (
             f"FFT requires univariate TimeSeries or MultiTimeSeries+TimeSeries pair. "
@@ -395,6 +397,8 @@ def _extract_fft_data(ts1, ts2, fft_type, ds: int):
             return ts2.copula_normal_data[:, ::ds], ts1.int_data[::ds]
     elif fft_type == FFT_MTS_MTS:
         return ts1.copula_normal_data[:, ::ds], ts2.copula_normal_data[:, ::ds]
+    elif fft_type == FFT_DISCRETE_DISCRETE:
+        return ts1.int_data[::ds], ts2.int_data[::ds]
     else:
         raise ValueError(f"Unknown FFT type: {fft_type}")
 
@@ -403,6 +407,7 @@ def _extract_fft_data(ts1, ts2, fft_type, ds: int):
 _FFT_COMPUTE = {
     FFT_CONTINUOUS: compute_mi_batch_fft,
     FFT_DISCRETE: compute_mi_gd_fft,
+    FFT_DISCRETE_DISCRETE: compute_mi_dd_fft,
     FFT_MULTIVARIATE: compute_mi_mts_fft,
     FFT_MTS_MTS: compute_mi_mts_mts_fft,
     FFT_MTS_DISCRETE: compute_mi_mts_discrete_fft,
@@ -447,10 +452,13 @@ def _build_fft_cache(
 
     Returns
     -------
-    dict
-        Dictionary mapping (key1, key2) tuple to FFTCacheEntry or None.
-        Keys are stable identifiers from _get_ts_key() (names or hashes).
-        None indicates loop fallback should be used for that pair.
+    tuple
+        A tuple of (cache, fft_type_counts):
+        - cache: Dictionary mapping (key1, key2) tuple to FFTCacheEntry or None.
+          Keys are stable identifiers from _get_ts_key() (names or hashes).
+          None indicates loop fallback should be used for that pair.
+        - fft_type_counts: Dictionary mapping FFT type strings to counts.
+          Includes 'loop' for pairs that require loop fallback.
     """
     # Efficient duplicate name check: only validates when duplicate names exist
     all_ts = list(ts_bunch1) + list(ts_bunch2)
@@ -477,6 +485,7 @@ def _build_fft_cache(
                     )
 
     cache = {}
+    fft_type_counts = {}  # Track counts for profiling
 
     for ts1 in ts_bunch1:
         if joint_distr:
@@ -485,6 +494,7 @@ def _build_fft_cache(
             key1 = _get_ts_key(ts1)
             key2 = _get_ts_key(ts_bunch2[0]) if ts_bunch2 else 0
             cache[(key1, key2)] = None
+            fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
         else:
             for ts2 in ts_bunch2:
                 # Use count=1 since we just need type, not threshold check
@@ -507,29 +517,12 @@ def _build_fft_cache(
                         fft_type=fft_type,
                         mi_all=mi_all,
                     )
+                    fft_type_counts[fft_type] = fft_type_counts.get(fft_type, 0) + 1
                 else:
                     cache[(key1, key2)] = None
+                    fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
 
-    return cache
-
-
-def _get_joblib_backend() -> str:
-    """Get joblib backend, checking torch availability only on first call.
-
-    Uses threading backend if PyTorch is available to avoid forking issues
-    (prevents "function '_has_torch_function' already has a docstring" errors).
-    Falls back to loky if PyTorch is not available.
-    """
-    global _JOBLIB_BACKEND
-    if _JOBLIB_BACKEND is None:
-        try:
-            import torch
-
-            _JOBLIB_BACKEND = "threading"
-        except (ImportError, OSError):
-            # OSError catches DLL loading issues on Windows
-            _JOBLIB_BACKEND = "loky"
-    return _JOBLIB_BACKEND
+    return cache, fft_type_counts
 
 
 def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False) -> None:
@@ -976,7 +969,7 @@ def calculate_optimal_delays_parallel(
     split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs_effective)
     split_ts_bunch1 = [np.array(ts_bunch1)[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_delays = Parallel(n_jobs=n_jobs_effective, backend=_get_joblib_backend(), verbose=True)(
+    parallel_delays = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND, verbose=True)(
         delayed(calculate_optimal_delays)(
             small_ts_bunch,
             ts_bunch2,
@@ -1624,7 +1617,7 @@ def scan_pairs_parallel(
     split_random_shifts = [random_shifts[idxs] for idxs in split_ts_bunch1_inds]
     split_mask = [mask[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_result = Parallel(n_jobs=n_jobs_effective, backend=_get_joblib_backend(), verbose=True)(
+    parallel_result = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND, verbose=True)(
         delayed(scan_pairs)(
             small_ts_bunch,
             ts_bunch2,
@@ -2298,9 +2291,21 @@ def compute_me_stats(
         ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if not skip_delays or _ not in skip_delays])
 
         # Build FFT cache once at the start for reuse across delays + stages
-        fft_cache = _build_fft_cache(
+        fft_cache, fft_type_counts = _build_fft_cache(
             ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr
         )
+
+        # Store FFT type counts for profiling
+        if profile and fft_type_counts:
+            timings['fft_type_counts'] = fft_type_counts
+            # Log FFT type distribution if verbose
+            if verbose:
+                total_pairs = sum(fft_type_counts.values())
+                fft_pairs = total_pairs - fft_type_counts.get('loop', 0)
+                loop_pairs = fft_type_counts.get('loop', 0)
+                print(f"FFT cache built: {fft_pairs}/{total_pairs} pairs use FFT, {loop_pairs} use loop")
+                for fft_type, count in sorted(fft_type_counts.items()):
+                    print(f"  {fft_type}: {count}")
 
         with _timed_section(timings, 'stage1_delay_optimization'):
             if find_optimal_delays:
