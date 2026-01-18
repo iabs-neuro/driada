@@ -49,6 +49,14 @@ from driada.intense.io import save_results as save_intense_results
 # Import utility for parsing IABS filenames
 from load_synchronized_experiments import parse_iabs_filename, get_npz_metadata
 
+# Import filter utilities
+from disentanglement_filters import (
+    build_priority_filter,
+    compose_filters,
+    build_mi_ratio_filter,
+    build_exclusion_filter,
+)
+
 
 # ==============================================================================
 # Features to skip from INTENSE analysis (will be aggregated instead)
@@ -69,6 +77,111 @@ DEFAULT_CONFIG = {
     'multicomp_correction': None,  # No correction
     'ds': 5,                       # Downsampling for speed
 }
+
+
+# ==============================================================================
+# Disentanglement Pre-Filters
+# ==============================================================================
+# These filters run BEFORE parallel disentanglement processing. They allow
+# experiment-specific rules to pre-decide feature pair outcomes without
+# running the full disentanglement algorithm.
+#
+# Filter Protocol:
+#   def my_filter(neuron_selectivities, pair_decisions, renames, **kwargs):
+#       - neuron_selectivities: {nid: [feat1, feat2, ...]} - can modify
+#       - pair_decisions: {nid: {(f1, f2): 0/0.5/1}} - 0=f1 wins, 1=f2 wins, 0.5=keep both
+#       - renames: {nid: {new_name: (old1, old2)}} - for merged features
+#
+# See tools/disentanglement_filters.py for utility functions.
+# ==============================================================================
+
+# General priority rules: first feature wins over second when both present
+GENERAL_PRIORITY_RULES = [
+    ('headdirection', 'bodydirection'),  # head direction > body direction
+    ('freezing', 'rest'),                # freezing > rest
+    ('locomotion', 'speed'),             # locomotion > speed
+    ('rest', 'speed'),                   # rest > speed
+    ('freezing', 'speed'),               # freezing > speed
+    ('walk', 'speed'),                   # walk > speed
+]
+
+# NOF experiment: specific objects > general 'objects' > 'center'
+def nof_filter(neuron_selectivities, pair_decisions, renames, **kwargs):
+    """NOF experiment filter: specific objects beat general categories."""
+    specific_objs = {'object1', 'object2', 'object3', 'object4'}
+
+    for nid, sels in neuron_selectivities.items():
+        has_specific = bool(specific_objs.intersection(sels))
+
+        # Specific object > 'objects'
+        if has_specific and 'objects' in sels:
+            for obj in specific_objs:
+                if obj in sels:
+                    pair_decisions[nid][(obj, 'objects')] = 0
+
+        # Any object feature > 'center'
+        if (has_specific or 'objects' in sels) and 'center' in sels:
+            if 'objects' in sels:
+                pair_decisions[nid][('objects', 'center')] = 0
+            for obj in specific_objs:
+                if obj in sels:
+                    pair_decisions[nid][(obj, 'center')] = 0
+
+
+# 3DM experiment: 3d-place vs place based on MI ratio
+def tdm_filter(neuron_selectivities, pair_decisions, renames,
+               cell_feat_stats=None, mi_ratio_threshold=1.5, **kwargs):
+    """3DM experiment filter: 3d-place vs place based on MI ratio."""
+    if cell_feat_stats is None:
+        return
+
+    for nid, sels in neuron_selectivities.items():
+        if 'place' in sels and '3d-place' in sels:
+            mi_2d = cell_feat_stats.get(nid, {}).get('place', {}).get('me', 0)
+            mi_3d = cell_feat_stats.get(nid, {}).get('3d-place', {}).get('me', 0)
+
+            if mi_3d >= mi_ratio_threshold * mi_2d:
+                pair_decisions[nid][('3d-place', 'place')] = 0
+            else:
+                pair_decisions[nid][('place', '3d-place')] = 0
+
+        # 3d-place > z (z is a component)
+        if 'z' in sels and '3d-place' in sels:
+            pair_decisions[nid][('3d-place', 'z')] = 0
+
+        # start_box > 3d-place (discrete trumps continuous place)
+        if '3d-place' in sels and 'start_box' in sels:
+            pair_decisions[nid][('start_box', '3d-place')] = 0
+
+        # speed > speed_z
+        if 'speed' in sels and 'speed_z' in sels:
+            pair_decisions[nid][('speed', 'speed_z')] = 0
+
+
+def get_filter_for_experiment(exp_type):
+    """Get the composed filter for a specific experiment type.
+
+    Parameters
+    ----------
+    exp_type : str
+        Experiment type identifier: 'NOF', 'LNOF', '3DM', 'BOF', or None
+
+    Returns
+    -------
+    callable or None
+        Composed filter function, or None for no filtering
+    """
+    # Always start with general priority rules
+    general_filter = build_priority_filter(GENERAL_PRIORITY_RULES)
+    filters = [general_filter]
+
+    if exp_type in ('NOF', 'LNOF'):
+        filters.append(nof_filter)
+    elif exp_type == '3DM':
+        filters.append(tdm_filter)
+    # BOF and other experiments: just use general rules
+
+    return compose_filters(*filters) if filters else None
 
 
 def build_feature_list(exp, skip_features):
@@ -440,7 +553,7 @@ def print_batch_summary(summaries, t_batch_total, output_dir):
         print(f"\n  Results saved to: {output_dir}")
 
 
-def run_intense_analysis(exp, config, skip_features):
+def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, filter_kwargs=None):
     """Run INTENSE analysis with disentanglement.
 
     Parameters
@@ -451,6 +564,11 @@ def run_intense_analysis(exp, config, skip_features):
         Configuration parameters for INTENSE
     skip_features : list
         Feature names to exclude from analysis
+    pre_filter_func : callable, optional
+        Pre-filter function for disentanglement. Runs BEFORE parallel processing.
+        See tools/disentanglement_filters.py for utilities.
+    filter_kwargs : dict, optional
+        Keyword arguments to pass to pre_filter_func.
 
     Returns
     -------
@@ -463,6 +581,8 @@ def run_intense_analysis(exp, config, skip_features):
     print(f"\nFeatures to analyze: {feat_bunch}")
     print(f"Features skipped: {skip_features}")
     print(f"Skip delays for: {skip_delays}")
+    if pre_filter_func:
+        print(f"Pre-filter: {pre_filter_func.__name__ if hasattr(pre_filter_func, '__name__') else 'composed'}")
 
     stats, significance, info, results, disent_results = driada.compute_cell_feat_significance(
         exp,
@@ -481,6 +601,8 @@ def run_intense_analysis(exp, config, skip_features):
         verbose=True,
         engine=config['engine'],
         profile=True,
+        pre_filter_func=pre_filter_func,
+        filter_kwargs=filter_kwargs,
     )
 
     # Extract timing info from results if available
@@ -849,7 +971,7 @@ def load_experiment_from_npz(npz_path, agg_features=None, verbose=True):
     return exp
 
 
-def process_single_experiment(npz_path, config, output_dir=None, plot=False):
+def process_single_experiment(npz_path, config, output_dir=None, plot=False, use_filters=True):
     """Process a single experiment file.
 
     Parameters
@@ -862,6 +984,8 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False):
         Output directory for saving results
     plot : bool
         Whether to plot disentanglement heatmap
+    use_filters : bool
+        Whether to use experiment-specific disentanglement filters (default: True)
 
     Returns
     -------
@@ -884,11 +1008,25 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False):
     print(f"  Loaded: {exp.signature}")
     print(f"  Neurons: {exp.n_cells}, Frames: {exp.n_frames}, FPS: {exp.fps}")
 
+    # Get experiment type and filter
+    pre_filter_func = None
+    filter_kwargs = None
+    if use_filters:
+        # Extract experiment type from name (e.g., 'NOF_H01_1D' -> 'NOF')
+        exp_type = exp_name.split('_')[0] if '_' in exp_name else None
+        pre_filter_func = get_filter_for_experiment(exp_type)
+        if pre_filter_func:
+            print(f"  Using filter for experiment type: {exp_type}")
+            # filter_kwargs can include thresholds, pre-extracted data, etc.
+            filter_kwargs = {'mi_ratio_threshold': 1.5}
+
     # Run INTENSE analysis
     print(f"\nRunning INTENSE analysis...")
     t_start = time.time()
     stats, significance, info, results, disent_results, timings = run_intense_analysis(
-        exp, config, skip_for_intense
+        exp, config, skip_for_intense,
+        pre_filter_func=pre_filter_func,
+        filter_kwargs=filter_kwargs,
     )
     t_intense = time.time() - t_start
 
@@ -957,6 +1095,8 @@ Examples:
     parser.add_argument('--plot', action='store_true', help='Plot disentanglement heatmap')
     parser.add_argument('--engine', type=str, default='auto', choices=['auto', 'fft', 'loop'],
                         help='Computation engine: auto (default), fft, or loop')
+    parser.add_argument('--no-filters', action='store_true',
+                        help='Disable experiment-specific disentanglement filters')
     args = parser.parse_args()
 
     config = {
@@ -1021,6 +1161,7 @@ Examples:
     print(f"  Engine: {config['engine']}")
     print(f"  Skip features: {skip_for_intense}")
     print(f"  Aggregate features: {aggregate_features}")
+    print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
     if args.output_dir:
         print(f"  Output directory: {args.output_dir}")
 
@@ -1035,17 +1176,23 @@ Examples:
     summaries = []
     t_batch_start = time.time()
 
+    use_filters = not args.no_filters
     for i, npz_path in enumerate(npz_paths):
         print(f"\n[{i+1}/{len(npz_paths)}] Processing {Path(npz_path).name}")
-        summary = process_single_experiment(npz_path, config, output_dir, args.plot)
+        summary = process_single_experiment(npz_path, config, output_dir, args.plot, use_filters)
         summaries.append(summary)
 
         # Legacy JSON output for single file mode
         if args.output and len(npz_paths) == 1:
             # Re-run to get full results for JSON save (not ideal but maintains compatibility)
             exp = load_experiment_from_npz(Path(npz_path), agg_features=aggregate_features, verbose=False)
+            exp_name = get_exp_name(Path(npz_path))
+            exp_type = exp_name.split('_')[0] if '_' in exp_name else None
+            pre_filter = get_filter_for_experiment(exp_type) if use_filters else None
             stats, significance, info, results, disent_results, _ = run_intense_analysis(
-                exp, config, skip_for_intense
+                exp, config, skip_for_intense,
+                pre_filter_func=pre_filter,
+                filter_kwargs={'mi_ratio_threshold': 1.5} if pre_filter else None,
             )
             save_results(args.output, exp, stats, significance, info, results, disent_results)
 
