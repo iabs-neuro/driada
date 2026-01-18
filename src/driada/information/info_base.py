@@ -24,6 +24,7 @@ from .entropy import entropy_d, joint_entropy_dd, joint_entropy_cd, joint_entrop
 from .info_fft import (
     compute_mi_batch_fft,
     compute_mi_gd_fft,
+    compute_mi_dd_fft,
     compute_mi_mts_fft,
     compute_mi_mts_mts_fft,
     compute_mi_mts_discrete_fft,

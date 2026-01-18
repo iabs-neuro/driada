@@ -24,11 +24,12 @@ class TestDuplicateNameDetection:
         ts_bunch2 = [ts]
 
         # This should work - same object reused
-        cache = _build_fft_cache(
+        cache, fft_type_counts = _build_fft_cache(
             ts_bunch1, ts_bunch2, "mi", "gcmi", ds=1, engine="auto"
         )
 
         assert isinstance(cache, dict)
+        assert isinstance(fft_type_counts, dict)
 
     def test_duplicate_name_different_data_raises(self):
         """Different TimeSeries with same name should raise ValueError."""
@@ -56,11 +57,12 @@ class TestDuplicateNameDetection:
         ts_bunch2 = [ts2]
 
         # Should NOT raise - same data, so cache can be shared
-        cache = _build_fft_cache(
+        cache, fft_type_counts = _build_fft_cache(
             ts_bunch1, ts_bunch2, "mi", "gcmi", ds=1, engine="auto"
         )
 
         assert isinstance(cache, dict)
+        assert isinstance(fft_type_counts, dict)
 
     def test_duplicate_detection_after_pickling(self):
         """Duplicate detection should work after pickling (loky backend compatibility)."""
@@ -77,11 +79,12 @@ class TestDuplicateNameDetection:
         assert np.array_equal(ts_original.data, ts_unpickled.data)
 
         # Should NOT raise - data equality check instead of id() check
-        cache = _build_fft_cache(
+        cache, fft_type_counts = _build_fft_cache(
             [ts_original], [ts_unpickled], "mi", "gcmi", ds=1, engine="auto"
         )
 
         assert isinstance(cache, dict)
+        assert isinstance(fft_type_counts, dict)
 
     def test_unique_names_fast_path(self):
         """All unique names should take fast path (no data comparison)."""
@@ -96,11 +99,12 @@ class TestDuplicateNameDetection:
         ]
 
         # Should work efficiently (fast path)
-        cache = _build_fft_cache(
+        cache, fft_type_counts = _build_fft_cache(
             ts_bunch1, ts_bunch2, "mi", "gcmi", ds=1, engine="auto"
         )
 
         assert isinstance(cache, dict)
+        assert isinstance(fft_type_counts, dict)
         # Cache should have entries for compatible pairs
         assert len(cache) > 0
 
@@ -114,40 +118,46 @@ class TestFFTCacheBuilding:
         ts1 = TimeSeries(np.random.randn(100), discrete=False, name="ts1")
         ts2 = TimeSeries(np.random.randn(100), discrete=False, name="ts2")
 
-        cache = _build_fft_cache(
+        cache, fft_type_counts = _build_fft_cache(
             [ts1], [ts2], "mi", "gcmi", ds=1, engine="auto"
         )
 
         assert isinstance(cache, dict)
+        assert isinstance(fft_type_counts, dict)
         # Should have cached the pair
         assert len(cache) > 0
 
-    def test_fft_cache_discrete_pairs_none(self):
-        """Discrete-discrete pairs should have None entries (no FFT)."""
+    def test_fft_cache_discrete_pairs_use_dd_fft(self):
+        """Discrete-discrete pairs should use FFT type 'dd'."""
         # Create discrete TimeSeries
         ts1 = TimeSeries(np.random.randint(0, 5, 100), discrete=True, name="disc1")
         ts2 = TimeSeries(np.random.randint(0, 5, 100), discrete=True, name="disc2")
 
-        cache = _build_fft_cache(
+        cache, fft_type_counts = _build_fft_cache(
             [ts1], [ts2], "mi", "gcmi", ds=1, engine="auto"
         )
 
-        # Cache should have entry but with None (no FFT for discrete-discrete)
+        # Cache should have entry with dd FFT type (discrete-discrete FFT)
         assert len(cache) > 0
-        assert cache[(_get_ts_key(ts1), _get_ts_key(ts2))] is None
+        entry = cache[(_get_ts_key(ts1), _get_ts_key(ts2))]
+        assert entry is not None
+        assert entry.fft_type == "dd"
+        # Should have 'dd' count for discrete-discrete pair
+        assert fft_type_counts.get('dd', 0) == 1
 
     def test_fft_cache_keys_stable(self):
         """FFT cache keys should be based on stable TimeSeries names."""
         ts1 = TimeSeries(np.random.randn(100), discrete=False, name="stable_key1")
         ts2 = TimeSeries(np.random.randn(100), discrete=False, name="stable_key2")
 
-        cache = _build_fft_cache(
+        cache, fft_type_counts = _build_fft_cache(
             [ts1], [ts2], "mi", "gcmi", ds=1, engine="auto"
         )
 
         # Check that cache keys use TimeSeries names
         expected_key = (_get_ts_key(ts1), _get_ts_key(ts2))
         assert expected_key in cache
+        assert isinstance(fft_type_counts, dict)
 
     def test_unnamed_timeseries_raises(self):
         """Unnamed TimeSeries should raise ValueError."""

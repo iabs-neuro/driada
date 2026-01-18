@@ -233,7 +233,6 @@ def compute_cell_feat_significance(
     - shift_window is converted from seconds to frames using exp.fps
     - Updates exp.optimal_nf_delays as a side effect
     - Relative MI values are computed using appropriate neural data entropy
-    - When with_disentanglement=True, feat-feat uses 1/10 the shuffles of neuron-feat
 
     Examples
     --------
@@ -610,6 +609,7 @@ def compute_feat_feat_significance(
     n_jobs=-1,
     seed=42,
     duplicate_behavior="ignore",
+    profile=False,
     # FUTURE: Add save_computed_stats=True, use_precomputed_stats=True parameters
     # to enable caching of feat-feat results in experiment object similar to cell-feat
 ) -> tuple:
@@ -667,6 +667,8 @@ def compute_feat_feat_significance(
         - 'raise': Raise an error if duplicates are found
         - 'warn': Print a warning but continue processing
         Default: 'ignore'.
+    profile : bool, optional
+        If True, collect timing and FFT type information. Default: False.
 
     Returns
     -------
@@ -824,6 +826,7 @@ def compute_feat_feat_significance(
         seed=seed,
         duplicate_behavior="ignore",  # Default behavior for feature-feature comparison
         engine="auto",  # FFT optimization when applicable
+        profile=profile,
         )
 
         # Extract matrices from results
@@ -905,6 +908,7 @@ def compute_cell_cell_significance(
     n_jobs=-1,
     seed=42,
     duplicate_behavior="ignore",
+    profile=False,
     # FUTURE: Add save_computed_stats=True, use_precomputed_stats=True parameters
     # to enable caching of cell-cell results in experiment object similar to cell-feat
 ) -> tuple:
@@ -962,6 +966,8 @@ def compute_cell_cell_significance(
         - 'raise': Raise an error if duplicates are found
         - 'warn': Print a warning but continue processing
         Default: 'ignore'.
+    profile : bool, optional
+        If True, collect timing and FFT type information. Default: False.
 
     Returns
     -------
@@ -1114,6 +1120,7 @@ def compute_cell_cell_significance(
         seed=seed,
         duplicate_behavior="ignore",  # Default behavior for cell-cell comparison
         engine="auto",  # FFT optimization when applicable
+        profile=profile,
         )
 
         # Extract matrices from results

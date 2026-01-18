@@ -16,6 +16,8 @@ Univariate:
     compute_mi_batch_fft : MI between two 1D continuous variables at multiple shifts
     mi_cd_fft : MI between 1D continuous and discrete variables at multiple shifts
     compute_mi_gd_fft : Wrapper for mi_cd_fft (continuous-discrete MI)
+    mi_dd_fft : MI between two discrete variables at multiple shifts
+    compute_mi_dd_fft : Wrapper for mi_dd_fft (discrete-discrete MI)
 
 Multivariate:
     compute_mi_mts_fft : MI between 1D and multi-dimensional (d≤3) continuous variables
@@ -1127,4 +1129,172 @@ def mi_cd_fft(
         return MI_all
     else:
         return MI_all[np.asarray(shifts).astype(int) % n]
+
+
+def mi_dd_fft(
+    discrete_x: np.ndarray,
+    discrete_y: np.ndarray,
+    shifts: np.ndarray = None,
+    biascorrect: bool = True,
+) -> np.ndarray:
+    """Compute MI(discrete; discrete) at multiple shifts using FFT.
+
+    Uses FFT-based circular correlation to compute contingency tables
+    for all shifts in O(Ym * Yn * n log n) time, providing significant
+    speedup over per-shift computation when nsh >> Ym * Yn * log(n).
+
+    The key insight is that co-occurrence counts are circular correlations:
+        count(x==i AND y_shifted==j) = (I_i ⊛ J_j)[shift]
+    where I_i is the indicator for x==i, J_j for y==j, and ⊛ denotes
+    circular correlation. FFT allows computing ALL shifts at once.
+
+    Parameters
+    ----------
+    discrete_x : array, shape (n,)
+        First discrete variable (integer labels 0 to Ym-1).
+    discrete_y : array, shape (n,)
+        Second discrete variable (integer labels 0 to Yn-1).
+    shifts : array, shape (nsh,), optional
+        Specific shift indices to return. If None, returns all n shifts.
+    biascorrect : bool, default=True
+        Apply Miller-Madow bias correction for finite sample effects.
+
+    Returns
+    -------
+    mi_values : array
+        MI values at each shift (in bits). Shape is (nsh,) if shifts provided,
+        otherwise (n,).
+
+    Notes
+    -----
+    Uses plugin estimator: MI = Σᵢⱼ P(i,j) * log2(P(i,j) / (P(i) * P(j)))
+    where P(i,j) is the joint probability and P(i), P(j) are marginals.
+
+    Complexity: O(Ym * Yn * n log n) for FFT computation plus O(nsh * Ym * Yn)
+    for MI computation from contingency tables.
+
+    This is faster than loop-based O(nsh * n) when:
+        Ym * Yn * log(n) < nsh
+
+    For typical discrete variables (Ym, Yn ≤ 5) and INTENSE shuffles (nsh ≥ 100),
+    FFT is typically 10-100x faster.
+    """
+    n = len(discrete_x)
+    x = np.asarray(discrete_x).astype(int)
+    y = np.asarray(discrete_y).astype(int)
+    Ym = int(np.max(x) + 1)  # Number of classes in x
+    Yn = int(np.max(y) + 1)  # Number of classes in y
+    ln2 = np.log(2)
+
+    # If shifts not specified, compute all
+    if shifts is None:
+        target_shifts = np.arange(n)
+    else:
+        target_shifts = np.asarray(shifts).astype(int) % n
+
+    nsh = len(target_shifts)
+
+    # Step 1: Precompute FFTs of indicator functions
+    # I_x[i] = FFT of (x == i)
+    # I_y[j] = FFT of (y == j)
+    I_x_fft = []
+    I_y_fft = []
+
+    for i in range(Ym):
+        I_x_fft.append(np.fft.rfft((x == i).astype(float)))
+
+    for j in range(Yn):
+        I_y_fft.append(np.fft.rfft((y == j).astype(float)))
+
+    # Marginal counts (constant across shifts)
+    n_x = np.array([np.sum(x == i) for i in range(Ym)])
+    n_y = np.array([np.sum(y == j) for j in range(Yn)])
+
+    # Step 2: Compute contingency tables for target shifts via FFT
+    # contingency[s, i, j] = count of (x==i AND y_shifted==j) at shift s
+    contingency = np.zeros((nsh, Ym, Yn))
+
+    for i in range(Ym):
+        if n_x[i] == 0:
+            continue
+        for j in range(Yn):
+            if n_y[j] == 0:
+                continue
+            # Circular correlation gives counts at ALL shifts
+            cross_corr = np.fft.irfft(I_x_fft[i] * np.conj(I_y_fft[j]), n=n)
+            # Extract only the shifts we need
+            contingency[:, i, j] = cross_corr[target_shifts]
+
+    # Round to integers (FFT may introduce small floating point errors)
+    contingency = np.round(contingency).astype(float)
+
+    # Step 3: Compute MI from contingency tables for each shift
+    mi_values = np.zeros(nsh)
+
+    for s in range(nsh):
+        # Joint probability P(i,j)
+        P_joint = contingency[s] / n
+
+        # Skip if all zeros (shouldn't happen)
+        if np.sum(P_joint) == 0:
+            continue
+
+        # Marginal probabilities (from joint, not from original - they match for y
+        # but for shifted y we need to recompute from joint)
+        P_x = P_joint.sum(axis=1)  # Sum over j
+        P_y = P_joint.sum(axis=0)  # Sum over i
+
+        # MI = Σᵢⱼ P(i,j) * log2(P(i,j) / (P(i) * P(j)))
+        mi = 0.0
+        for i in range(Ym):
+            if P_x[i] == 0:
+                continue
+            for j in range(Yn):
+                if P_y[j] == 0 or P_joint[i, j] == 0:
+                    continue
+                mi += P_joint[i, j] * np.log2(P_joint[i, j] / (P_x[i] * P_y[j]))
+
+        mi_values[s] = mi
+
+    # Apply bias correction if requested (Miller-Madow correction)
+    # Bias ≈ (k - 1) / (2 * n * ln(2)) where k is number of non-zero cells
+    if biascorrect and n > 1:
+        # Use average number of non-zero cells across shifts
+        avg_nonzero = np.mean([np.sum(contingency[s] > 0) for s in range(nsh)])
+        bias = (avg_nonzero - 1) / (2 * n * ln2)
+        mi_values = mi_values - bias
+
+    # Ensure non-negative
+    mi_values = np.maximum(0, mi_values)
+
+    return mi_values
+
+
+def compute_mi_dd_fft(
+    discrete_x: np.ndarray,
+    discrete_y: np.ndarray,
+    shifts: np.ndarray,
+    biascorrect: bool = False,
+) -> np.ndarray:
+    """Wrapper for mi_dd_fft for consistency with other compute_* functions.
+
+    Parameters
+    ----------
+    discrete_x : array, shape (n,)
+        First discrete variable (integer labels).
+    discrete_y : array, shape (n,)
+        Second discrete variable (integer labels).
+    shifts : array, shape (nsh,)
+        Shift indices to compute MI for.
+    biascorrect : bool, default=False
+        Whether to apply Miller-Madow bias correction. Default is False to match
+        the loop-based implementation which uses sklearn's mutual_info_score
+        (plugin estimator without bias correction).
+
+    Returns
+    -------
+    mi_values : array, shape (nsh,)
+        MI values at each shift (in bits).
+    """
+    return mi_dd_fft(discrete_x, discrete_y, shifts, biascorrect=biascorrect)
 

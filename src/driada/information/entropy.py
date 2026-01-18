@@ -95,11 +95,11 @@ def probs_to_entropy(p):
 
     Examples
     --------
-    >>> round(probs_to_entropy([0.5, 0.5]), 4)  # uniform binary
+    >>> float(round(probs_to_entropy([0.5, 0.5]), 4))  # uniform binary
     1.0
-    >>> abs(round(probs_to_entropy([1.0, 0.0]), 4))  # deterministic
+    >>> float(abs(round(probs_to_entropy([1.0, 0.0]), 4)))  # deterministic
     0.0
-    >>> round(probs_to_entropy([0.25, 0.25, 0.25, 0.25]), 4)  # uniform 4-way
+    >>> float(round(probs_to_entropy([0.25, 0.25, 0.25, 0.25]), 4))  # uniform 4-way
     2.0
 
     Notes
