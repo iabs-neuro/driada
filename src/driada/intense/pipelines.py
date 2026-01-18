@@ -44,6 +44,8 @@ def compute_cell_feat_significance(
     engine="auto",
     store_random_shifts=False,
     profile=False,
+    pre_filter_func=None,
+    filter_kwargs=None,
 ) -> tuple:
     """
     Calculates significant neuron-feature pairs
@@ -202,6 +204,30 @@ def compute_cell_feat_significance(
         - 'disentanglement': disentanglement analysis (if with_disentanglement=True)
         - 'total': sum of all timing sections
         Default is False
+    pre_filter_func : callable or None, optional
+        Population-level filter function (or composed filter) to run BEFORE
+        disentanglement parallel processing. Only used when with_disentanglement=True.
+        The filter mutates neuron selectivities and pre-computes pair decisions.
+
+        Signature::
+
+            def pre_filter_func(
+                neuron_selectivities,    # dict: {neuron_id: [feat1, feat2, ...]} - MUTATE
+                pair_decisions,          # dict: {neuron_id: {(f1, f2): 0/0.5/1}} - MUTATE
+                renames,                 # dict: {neuron_id: {new_name: (old1, old2)}} - MUTATE
+                cell_feat_stats,         # Pre-computed MI values (READ ONLY)
+                feat_feat_significance,  # Binary matrix (READ ONLY)
+                feat_names,              # List of feature names (READ ONLY)
+                **kwargs,                # User-provided extra arguments from filter_kwargs
+            ):
+                ...
+
+        Default: None (no filtering).
+    filter_kwargs : dict or None, optional
+        Dictionary of keyword arguments to pass to pre_filter_func.
+        Can include pre-extracted data like calcium_data, feature_data,
+        thresholds, etc. Only used when with_disentanglement=True.
+        Default: None.
 
     Returns
     -------
@@ -219,6 +245,11 @@ def compute_cell_feat_significance(
         - 'feat_feat_significance': Feature-feature significance matrix
         - 'disent_matrix': Disentanglement results matrix
         - 'count_matrix': Count matrix from disentanglement
+        - 'per_neuron_disent': Per-neuron detailed results dict mapping neuron_id to:
+          - 'pairs': {(feat_i, feat_j): {'result': 0/0.5/1, 'source': str}}
+          - 'renames': {new_name: (old1, old2)} from filter chain
+          - 'final_sels': list of final selectivities after filtering
+        - 'feature_names': List of feature names
         - 'summary': Summary statistics from disentanglement
 
     Raises
@@ -530,7 +561,7 @@ def compute_cell_feat_significance(
             # Pass pre-computed MI values to avoid redundant computation:
             # - cell_feat_stats: MI(neuron, feature) from INTENSE analysis
             # - feat_feat_similarity: MI(feature1, feature2) from feat-feat analysis
-            disent_matrix, count_matrix = disentangle_all_selectivities(
+            disent_results = disentangle_all_selectivities(
                 exp,
                 feat_names,
                 ds=ds,
@@ -540,7 +571,12 @@ def compute_cell_feat_significance(
                 cell_feat_stats=computed_stats,
                 feat_feat_similarity=feat_feat_similarity,
                 n_jobs=n_jobs,
+                pre_filter_func=pre_filter_func,
+                filter_kwargs=filter_kwargs,
             )
+            disent_matrix = disent_results['disent_matrix']
+            count_matrix = disent_results['count_matrix']
+            per_neuron_disent = disent_results['per_neuron_disent']
 
             if profile:
                 info['timings']['disentanglement_analysis'] = time.perf_counter() - disent_analysis_start
@@ -557,6 +593,7 @@ def compute_cell_feat_significance(
                 "feat_feat_significance": feat_feat_significance,
                 "disent_matrix": disent_matrix,
                 "count_matrix": count_matrix,
+                "per_neuron_disent": per_neuron_disent,
                 "feature_names": feat_names,
                 "summary": summary,
             }

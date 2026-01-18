@@ -10,6 +10,7 @@ import numpy as np
 from itertools import combinations
 from joblib import Parallel, delayed
 from ..information.info_base import get_mi, conditional_mi, MultiTimeSeries
+from ..information.gcmi import cmi_ggg
 
 
 # Default multifeature mapping for common behavioral variable combinations
@@ -78,13 +79,17 @@ def _disentangle_pair_with_precomputed(
     mi12=None,
     mi13=None,
     mi23=None,
+    ts1_copnorm=None,
+    ts2_copnorm=None,
+    ts3_copnorm=None,
     verbose=False,
     ds=1,
 ):
-    """Disentangle with optional pre-computed MI values.
+    """Disentangle with optional pre-computed MI values and copula data.
 
     Internal function that performs disentanglement analysis, optionally
-    using pre-computed pairwise MI values to avoid redundant computation.
+    using pre-computed pairwise MI values and copula-normalized data to
+    avoid redundant computation.
 
     Parameters
     ----------
@@ -100,6 +105,12 @@ def _disentangle_pair_with_precomputed(
         Pre-computed MI(ts1, ts3). Computed if None.
     mi23 : float or None, optional
         Pre-computed MI(ts2, ts3). Computed if None.
+    ts1_copnorm : ndarray or None, optional
+        Pre-computed copula-normalized data for ts1 (downsampled).
+    ts2_copnorm : ndarray or None, optional
+        Pre-computed copula-normalized data for ts2 (downsampled).
+    ts3_copnorm : ndarray or None, optional
+        Pre-computed copula-normalized data for ts3 (downsampled).
     verbose : bool, optional
         If True, print detailed analysis results. Default: False.
     ds : int, optional
@@ -118,9 +129,15 @@ def _disentangle_pair_with_precomputed(
     if mi23 is None:
         mi23 = get_mi(ts2, ts3, ds=ds)
 
-    # Conditional MI must always be computed (not cached)
-    cmi123 = conditional_mi(ts1, ts2, ts3, ds=ds)  # MI(neuron, behavior1 | behavior2)
-    cmi132 = conditional_mi(ts1, ts3, ts2, ds=ds)  # MI(neuron, behavior2 | behavior1)
+    # Compute conditional MI - use pre-computed copula data if all available (CCC case)
+    if ts1_copnorm is not None and ts2_copnorm is not None and ts3_copnorm is not None:
+        # Direct cmi_ggg call with pre-cached copula data (faster)
+        cmi123 = cmi_ggg(ts1_copnorm, ts2_copnorm, ts3_copnorm, biascorrect=True, demeaned=True)
+        cmi132 = cmi_ggg(ts1_copnorm, ts3_copnorm, ts2_copnorm, biascorrect=True, demeaned=True)
+    else:
+        # Fallback for mixed discrete/continuous cases
+        cmi123 = conditional_mi(ts1, ts2, ts3, ds=ds)  # MI(neuron, behavior1 | behavior2)
+        cmi132 = conditional_mi(ts1, ts3, ts2, ds=ds)  # MI(neuron, behavior2 | behavior1)
 
     # Compute interaction information (average of two equivalent formulas)
     I_av = np.mean([cmi123 - mi12, cmi132 - mi13])
@@ -231,6 +248,8 @@ def _process_neuron_disentanglement(
     feat_feat_significance,
     cell_feat_stats,
     feat_feat_similarity,
+    pre_decisions=None,
+    pre_renames=None,
 ):
     """Process disentanglement for a single neuron.
 
@@ -242,7 +261,7 @@ def _process_neuron_disentanglement(
     neuron_id : any
         Neuron identifier.
     sels : list
-        List of feature selectivities for this neuron.
+        List of feature selectivities for this neuron (already filtered by pre-filter).
     neur_ts : TimeSeries
         Neural activity time series.
     feat_names : list
@@ -261,22 +280,60 @@ def _process_neuron_disentanglement(
         Pre-computed neuron-feature MI values.
     feat_feat_similarity : ndarray or None
         Pre-computed feature-feature MI values.
+    pre_decisions : dict or None, optional
+        Pre-computed pair decisions from filter chain: {(feat_i, feat_j): 0/0.5/1}.
+        0 = feat_i is primary, 1 = feat_j is primary, 0.5 = keep both.
+        Default: None.
+    pre_renames : dict or None, optional
+        Pre-computed feature renames from filter chain: {new_name: (old1, old2)}.
+        Default: None.
 
     Returns
     -------
+    neuron_id : any
+        The neuron identifier (passed through for result aggregation).
     partial_disent : ndarray
         Partial disentanglement matrix for this neuron.
     partial_count : ndarray
         Partial count matrix for this neuron.
+    neuron_info : dict
+        Per-neuron details containing:
+        - 'pairs': {(feat_i, feat_j): {'result': 0/0.5/1, 'source': str}}
+        - 'renames': {new_name: (old1, old2)} from pre_renames
+        - 'final_sels': list of final selectivities after filtering
     """
+    pre_decisions = pre_decisions or {}
+    pre_renames = pre_renames or {}
+
     n_features = len(feat_names)
     partial_disent = np.zeros((n_features, n_features))
     partial_count = np.zeros((n_features, n_features))
+
+    # Track per-neuron pair results
+    neuron_pairs_dict = {}
+
+    # Build set of renamed feature names for skip logic
+    renamed_features = set(pre_renames.keys())
+
+    # Pre-cache downsampled copula-normalized data for faster CMI computation
+    # Only for continuous time series (discrete use different code paths)
+    neur_copnorm = neur_ts.copula_normal_data[::ds] if not neur_ts.discrete else None
+
+    feat_copnorm_cache = {}
+    for fname in sels:
+        ts = feature_ts_dict.get(fname) or multifeature_ts.get(fname)
+        if ts is not None and not getattr(ts, 'discrete', True):
+            feat_copnorm_cache[fname] = ts.copula_normal_data[::ds]
 
     # Test all pairs of features this neuron responds to
     for sel_comb in combinations(sels, 2):
         try:
             sel_comb = list(sel_comb)
+
+            # Skip pairs involving renamed combined features
+            if sel_comb[0] in renamed_features or sel_comb[1] in renamed_features:
+                continue
+
             feat_ts = []
             finds = []
 
@@ -302,32 +359,57 @@ def _process_neuron_disentanglement(
             ind1 = finds[0]
             ind2 = finds[1]
 
-            # Check if this feature pair has significant behavioral correlation
-            if feat_feat_significance is not None:
-                if feat_feat_significance[ind1, ind2] == 0:
-                    # Features are not significantly correlated
-                    # Skip disentanglement - this is true mixed selectivity
-                    partial_count[ind1, ind2] += 1
-                    partial_count[ind2, ind1] += 1
-                    # Add 0.5 to each to indicate undistinguishable contributions
-                    partial_disent[ind1, ind2] += 0.5
-                    partial_disent[ind2, ind1] += 0.5
-                    continue
+            # Check if this pair has a pre-computed decision from filter chain
+            pair_key = (sel_comb[0], sel_comb[1])
+            reverse_key = (sel_comb[1], sel_comb[0])
 
-            # Look up pre-computed MI values (if available)
-            mi12 = _lookup_cell_feat_mi(cell_feat_stats, neuron_id, sel_comb[0])
-            mi13 = _lookup_cell_feat_mi(cell_feat_stats, neuron_id, sel_comb[1])
-            mi23 = _lookup_feat_feat_mi(
-                feat_feat_similarity, feat_names,
-                feat_names[ind1], feat_names[ind2]
-            )
+            if pair_key in pre_decisions:
+                disres = pre_decisions[pair_key]
+                source = 'pre_filter'
+            elif reverse_key in pre_decisions:
+                # Flip the result for reversed pair
+                disres = 1 - pre_decisions[reverse_key] if pre_decisions[reverse_key] != 0.5 else 0.5
+                source = 'pre_filter'
+            else:
+                # Check if this feature pair has significant behavioral correlation
+                if feat_feat_significance is not None:
+                    if feat_feat_significance[ind1, ind2] == 0:
+                        # Features are not significantly correlated
+                        # Skip disentanglement - this is true mixed selectivity
+                        disres = 0.5
+                        source = 'not_significant'
 
-            # Perform disentanglement analysis only for significant pairs
-            disres = _disentangle_pair_with_precomputed(
-                neur_ts, feat_ts[0], feat_ts[1],
-                mi12=mi12, mi13=mi13, mi23=mi23,
-                ds=ds, verbose=False
-            )
+                        partial_count[ind1, ind2] += 1
+                        partial_count[ind2, ind1] += 1
+                        partial_disent[ind1, ind2] += 0.5
+                        partial_disent[ind2, ind1] += 0.5
+
+                        # Record the pair result
+                        neuron_pairs_dict[(feat_names[ind1], feat_names[ind2])] = {
+                            'result': disres,
+                            'source': source,
+                        }
+                        continue
+
+                # Look up pre-computed MI values (if available)
+                mi12 = _lookup_cell_feat_mi(cell_feat_stats, neuron_id, sel_comb[0])
+                mi13 = _lookup_cell_feat_mi(cell_feat_stats, neuron_id, sel_comb[1])
+                mi23 = _lookup_feat_feat_mi(
+                    feat_feat_similarity, feat_names,
+                    feat_names[ind1], feat_names[ind2]
+                )
+
+                # Perform disentanglement analysis only for significant pairs
+                # Pass pre-computed copula data for faster CMI computation
+                disres = _disentangle_pair_with_precomputed(
+                    neur_ts, feat_ts[0], feat_ts[1],
+                    mi12=mi12, mi13=mi13, mi23=mi23,
+                    ts1_copnorm=neur_copnorm,
+                    ts2_copnorm=feat_copnorm_cache.get(sel_comb[0]),
+                    ts3_copnorm=feat_copnorm_cache.get(sel_comb[1]),
+                    ds=ds, verbose=False
+                )
+                source = 'standard'
 
             # Update matrices
             partial_count[ind1, ind2] += 1
@@ -341,12 +423,25 @@ def _process_neuron_disentanglement(
                 partial_disent[ind1, ind2] += 0.5  # Both contribute
                 partial_disent[ind2, ind1] += 0.5
 
+            # Record the pair result
+            neuron_pairs_dict[(feat_names[ind1], feat_names[ind2])] = {
+                'result': disres,
+                'source': source,
+            }
+
         except (ValueError, AttributeError, KeyError) as e:
             # Log specific errors but continue processing other pairs
             print(f"WARNING: Skipping neuron {neuron_id}, features {sel_comb}: {str(e)}")
             continue
 
-    return partial_disent, partial_count
+    # Build neuron info
+    neuron_info = {
+        'pairs': neuron_pairs_dict,
+        'renames': pre_renames,
+        'final_sels': list(sels),
+    }
+
+    return neuron_id, partial_disent, partial_count, neuron_info
 
 
 def disentangle_all_selectivities(
@@ -359,6 +454,8 @@ def disentangle_all_selectivities(
     cell_feat_stats=None,
     feat_feat_similarity=None,
     n_jobs=-1,
+    pre_filter_func=None,
+    filter_kwargs=None,
 ):
     """Analyze mixed selectivity across all significant neuron-feature pairs.
 
@@ -406,15 +503,42 @@ def disentangle_all_selectivities(
     n_jobs : int, optional
         Number of parallel jobs for processing neurons. -1 means use all
         available processors. Default: -1.
+    pre_filter_func : callable or None, optional
+        Population-level filter function (or composed filter) to run BEFORE
+        the parallel processing loop. The filter mutates neuron selectivities
+        and pre-computes pair decisions for all neurons at once.
+
+        Signature::
+
+            def pre_filter_func(
+                neuron_selectivities,    # dict: {neuron_id: [feat1, feat2, ...]} - MUTATE
+                pair_decisions,          # dict: {neuron_id: {(f1, f2): 0/0.5/1}} - MUTATE
+                renames,                 # dict: {neuron_id: {new_name: (old1, old2)}} - MUTATE
+                cell_feat_stats,         # Pre-computed MI values (READ ONLY)
+                feat_feat_significance,  # Binary matrix (READ ONLY)
+                feat_names,              # List of feature names (READ ONLY)
+                **kwargs,                # User-provided extra arguments
+            ):
+                ...
+
+        Default: None (no filtering).
+    filter_kwargs : dict or None, optional
+        Dictionary of keyword arguments to pass to pre_filter_func.
+        Can include pre-extracted data like calcium_data, feature_data,
+        thresholds, etc. Default: None.
 
     Returns
     -------
-    disent_matrix : ndarray
-        Matrix where element [i,j] indicates how many times feature i
-        was primary when paired with feature j across all neurons.
-    count_matrix : ndarray
-        Matrix where element [i,j] indicates how many neuron-feature
-        pairs were tested for features i and j.
+    dict
+        Dictionary containing:
+        - 'disent_matrix': ndarray where element [i,j] indicates how many times
+          feature i was primary when paired with feature j across all neurons.
+        - 'count_matrix': ndarray where element [i,j] indicates how many
+          neuron-feature pairs were tested for features i and j.
+        - 'per_neuron_disent': dict mapping neuron_id to detailed results:
+          - 'pairs': {(feat_i, feat_j): {'result': 0/0.5/1, 'source': str}}
+          - 'renames': {new_name: (old1, old2)} from filter chain
+          - 'final_sels': list of final selectivities after filtering
 
     Notes
     -----
@@ -430,6 +554,13 @@ def disentangle_all_selectivities(
     The neuron loop is parallelized using joblib, providing significant speedup
     when analyzing many neurons. Each neuron is processed independently and
     results are merged at the end.
+
+    **Filter chain execution:**
+
+    1. Filters run at population level BEFORE the parallel loop
+    2. Filters mutate neuron_selectivities, pair_decisions, and renames in place
+    3. Workers receive pre-computed decisions (lightweight serialization)
+    4. Each filter in the chain can override decisions from earlier filters
 
     Raises
     ------
@@ -477,12 +608,37 @@ def disentangle_all_selectivities(
     # Pre-extract neuron TimeSeries
     neuron_ts_dict = {neuron: exp.neurons[neuron].ca for neuron in sneur.keys()}
 
+    # ============================================================
+    # PHASE 1: Build filter state and run filter chain (BEFORE parallel loop)
+    # ============================================================
+    # Build mutable state for filter chain
+    neuron_selectivities = {nid: list(sels) for nid, sels in sneur.items()}
+    pair_decisions = {nid: {} for nid in sneur}
+    renames = {nid: {} for nid in sneur}
+
+    # Run filter chain (population-level, BEFORE parallel loop)
+    if pre_filter_func is not None:
+        pre_filter_func(
+            neuron_selectivities=neuron_selectivities,
+            pair_decisions=pair_decisions,
+            renames=renames,
+            cell_feat_stats=cell_feat_stats,
+            feat_feat_significance=feat_feat_significance,
+            feat_names=feat_names,
+            **(filter_kwargs or {}),
+        )
+
+    # ============================================================
+    # PHASE 2: Parallel processing (WORKERS)
+    # ============================================================
+    per_neuron_disent = {}
+
     # Process neurons in parallel
-    if len(sneur) > 0:
+    if len(neuron_selectivities) > 0:
         results = Parallel(n_jobs=n_jobs, backend="loky")(
             delayed(_process_neuron_disentanglement)(
                 neuron_id=neuron,
-                sels=sels,
+                sels=neuron_selectivities[neuron],  # Already filtered
                 neur_ts=neuron_ts_dict[neuron],
                 feat_names=feat_names,
                 multifeature_map=multifeature_map,
@@ -492,16 +648,25 @@ def disentangle_all_selectivities(
                 feat_feat_significance=feat_feat_significance,
                 cell_feat_stats=cell_feat_stats,
                 feat_feat_similarity=feat_feat_similarity,
+                pre_decisions=pair_decisions[neuron],  # Pre-computed
+                pre_renames=renames[neuron],           # Pre-computed
             )
-            for neuron, sels in sneur.items()
+            for neuron in neuron_selectivities.keys()
         )
 
         # Merge partial results from all workers
-        for partial_disent, partial_count in results:
+        for neuron_id, partial_disent, partial_count, neuron_info in results:
             disent_matrix += partial_disent
             count_matrix += partial_count
+            # Store per-neuron info if it has any content
+            if neuron_info['pairs'] or neuron_info['renames']:
+                per_neuron_disent[neuron_id] = neuron_info
 
-    return disent_matrix, count_matrix
+    return {
+        'disent_matrix': disent_matrix,
+        'count_matrix': count_matrix,
+        'per_neuron_disent': per_neuron_disent,
+    }
 
 
 def create_multifeature_map(exp, mapping_dict):

@@ -173,7 +173,9 @@ def test_disentangle_all_selectivities_basic(mixed_features_experiment):
     feat_names = list(exp.dynamic_features.keys())
 
     # Run analysis
-    disent_matrix, count_matrix = disentangle_all_selectivities(exp, feat_names, ds=2)
+    results = disentangle_all_selectivities(exp, feat_names, ds=2)
+    disent_matrix = results['disent_matrix']
+    count_matrix = results['count_matrix']
 
     # Check dimensions
     n_features = len(feat_names)
@@ -183,6 +185,9 @@ def test_disentangle_all_selectivities_basic(mixed_features_experiment):
     # Check values are non-negative
     assert np.all(disent_matrix >= 0)
     assert np.all(count_matrix >= 0)
+
+    # Check per_neuron_disent is present
+    assert 'per_neuron_disent' in results
 
 
 @pytest.mark.parametrize("medium_experiment", ["medium"], indirect=True)
@@ -198,9 +203,11 @@ def test_disentangle_all_selectivities_cell_bunch(medium_experiment):
     feat_names = list(exp.dynamic_features.keys())[:3]
 
     # Test with subset of cells
-    disent_matrix, count_matrix = disentangle_all_selectivities(
+    results = disentangle_all_selectivities(
         exp, feat_names, ds=2, cell_bunch=[0, 1, 2]
     )
+    disent_matrix = results['disent_matrix']
+    count_matrix = results['count_matrix']
 
     assert disent_matrix.shape == (3, 3)
     assert count_matrix.shape == (3, 3)
@@ -228,9 +235,11 @@ def test_disentangle_all_selectivities_with_significance(mixed_features_experime
         feat_feat_significance[2, 3] = 1
         feat_feat_significance[3, 2] = 1
 
-    disent_matrix, count_matrix = disentangle_all_selectivities(
+    results = disentangle_all_selectivities(
         exp, feat_names, ds=2, feat_feat_significance=feat_feat_significance
     )
+    disent_matrix = results['disent_matrix']
+    count_matrix = results['count_matrix']
 
     assert disent_matrix.shape == (n_features, n_features)
     assert count_matrix.shape == (n_features, n_features)
@@ -259,9 +268,11 @@ def test_disentangle_all_selectivities_multifeature(multifeature_experiment):
 
     # This might raise error if no neurons have selectivity
     try:
-        disent_matrix, count_matrix = disentangle_all_selectivities(
+        results = disentangle_all_selectivities(
             exp, feat_names, ds=2, multifeature_map=multifeature_map
         )
+        disent_matrix = results['disent_matrix']
+        count_matrix = results['count_matrix']
         assert disent_matrix.shape == (expected_shape, expected_shape)
         assert count_matrix.shape == (expected_shape, expected_shape)
     except ValueError as e:
@@ -280,7 +291,9 @@ def test_disentangle_all_selectivities_empty_neurons(mixed_features_experiment):
 
     # Use actual feature names
     feat_names = list(exp.dynamic_features.keys())[:2]
-    disent_matrix, count_matrix = disentangle_all_selectivities(exp, feat_names, ds=1)
+    results = disentangle_all_selectivities(exp, feat_names, ds=1)
+    disent_matrix = results['disent_matrix']
+    count_matrix = results['count_matrix']
 
     # Should return zero matrices
     assert np.all(disent_matrix == 0)
@@ -301,7 +314,9 @@ def test_disentangle_all_selectivities_error_handling(mixed_features_experiment)
     feat_names = real_features + ["nonexistent"]
 
     # Should handle gracefully
-    disent_matrix, count_matrix = disentangle_all_selectivities(exp, feat_names, ds=2)
+    results = disentangle_all_selectivities(exp, feat_names, ds=2)
+    disent_matrix = results['disent_matrix']
+    count_matrix = results['count_matrix']
 
     assert disent_matrix.shape == (3, 3)
     assert count_matrix.shape == (3, 3)
