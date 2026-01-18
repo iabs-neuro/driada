@@ -2291,9 +2291,10 @@ def compute_me_stats(
         ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if not skip_delays or _ not in skip_delays])
 
         # Build FFT cache once at the start for reuse across delays + stages
-        fft_cache, fft_type_counts = _build_fft_cache(
-            ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr
-        )
+        with _timed_section(timings, 'fft_cache_building'):
+            fft_cache, fft_type_counts = _build_fft_cache(
+                ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr
+            )
 
         # Store FFT type counts for profiling
         if profile and fft_type_counts:
