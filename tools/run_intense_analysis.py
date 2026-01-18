@@ -479,6 +479,7 @@ def run_intense_analysis(exp, config, skip_features):
         with_disentanglement=True,
         enable_parallelization=True,
         verbose=True,
+        engine=config['engine'],
         profile=True,
     )
 
@@ -954,6 +955,8 @@ Examples:
     parser.add_argument('--output-dir', type=str, help='Output directory for batch results')
     parser.add_argument('--output', type=str, help='Output file for results (JSON, legacy mode)')
     parser.add_argument('--plot', action='store_true', help='Plot disentanglement heatmap')
+    parser.add_argument('--engine', type=str, default='auto', choices=['auto', 'fft', 'loop'],
+                        help='Computation engine: auto (default), fft, or loop')
     args = parser.parse_args()
 
     config = {
@@ -962,6 +965,7 @@ Examples:
         'pval_thr': args.pval,
         'multicomp_correction': None,  # No correction
         'ds': args.ds,
+        'engine': args.engine,
     }
 
     # Expand paths from --dir option or from positional arguments
@@ -1014,6 +1018,7 @@ Examples:
     print(f"  P-value threshold: {config['pval_thr']}")
     print(f"  Multiple comparison correction: {config['multicomp_correction']}")
     print(f"  Downsampling factor: {config['ds']}")
+    print(f"  Engine: {config['engine']}")
     print(f"  Skip features: {skip_for_intense}")
     print(f"  Aggregate features: {aggregate_features}")
     if args.output_dir:

@@ -18,6 +18,164 @@ DEFAULT_MULTIFEATURE_MAP = {
 }
 
 
+def _lookup_cell_feat_mi(cell_feat_stats, neuron_id, feat_name):
+    """Look up MI(neuron, feature) from pre-computed stats dict.
+
+    Parameters
+    ----------
+    cell_feat_stats : dict or None
+        Nested dictionary: stats[cell_id][feat_name]["me"] = MI value.
+    neuron_id : any
+        Neuron identifier (cell ID).
+    feat_name : str or tuple
+        Feature name/identifier.
+
+    Returns
+    -------
+    float or None
+        The pre-computed MI value, or None if not found.
+    """
+    if cell_feat_stats is None:
+        return None
+    try:
+        return cell_feat_stats[neuron_id][feat_name].get("me")
+    except (KeyError, TypeError):
+        return None
+
+
+def _lookup_feat_feat_mi(feat_feat_similarity, feat_names, feat1_name, feat2_name):
+    """Look up MI(feature1, feature2) from pre-computed similarity matrix.
+
+    Parameters
+    ----------
+    feat_feat_similarity : ndarray or None
+        Symmetric matrix where [i, j] = MI(feat_i, feat_j).
+    feat_names : list
+        List of feature names corresponding to matrix indices.
+    feat1_name : str or tuple
+        First feature name.
+    feat2_name : str or tuple
+        Second feature name.
+
+    Returns
+    -------
+    float or None
+        The pre-computed MI value, or None if not found.
+    """
+    if feat_feat_similarity is None or feat_names is None:
+        return None
+    try:
+        ind1 = feat_names.index(feat1_name)
+        ind2 = feat_names.index(feat2_name)
+        return feat_feat_similarity[ind1, ind2]
+    except (ValueError, IndexError):
+        return None
+
+
+def _disentangle_pair_with_precomputed(
+    ts1, ts2, ts3,
+    mi12=None,
+    mi13=None,
+    mi23=None,
+    verbose=False,
+    ds=1,
+):
+    """Disentangle with optional pre-computed MI values.
+
+    Internal function that performs disentanglement analysis, optionally
+    using pre-computed pairwise MI values to avoid redundant computation.
+
+    Parameters
+    ----------
+    ts1 : TimeSeries
+        Neural activity time series.
+    ts2 : TimeSeries
+        First behavioral variable.
+    ts3 : TimeSeries
+        Second behavioral variable.
+    mi12 : float or None, optional
+        Pre-computed MI(ts1, ts2). Computed if None.
+    mi13 : float or None, optional
+        Pre-computed MI(ts1, ts3). Computed if None.
+    mi23 : float or None, optional
+        Pre-computed MI(ts2, ts3). Computed if None.
+    verbose : bool, optional
+        If True, print detailed analysis results. Default: False.
+    ds : int, optional
+        Downsampling factor. Default: 1.
+
+    Returns
+    -------
+    float
+        Disentanglement result (0, 0.5, or 1).
+    """
+    # Compute only missing pairwise MI values
+    if mi12 is None:
+        mi12 = get_mi(ts1, ts2, ds=ds)
+    if mi13 is None:
+        mi13 = get_mi(ts1, ts3, ds=ds)
+    if mi23 is None:
+        mi23 = get_mi(ts2, ts3, ds=ds)
+
+    # Conditional MI must always be computed (not cached)
+    cmi123 = conditional_mi(ts1, ts2, ts3, ds=ds)  # MI(neuron, behavior1 | behavior2)
+    cmi132 = conditional_mi(ts1, ts3, ts2, ds=ds)  # MI(neuron, behavior2 | behavior1)
+
+    # Compute interaction information (average of two equivalent formulas)
+    I_av = np.mean([cmi123 - mi12, cmi132 - mi13])
+
+    if verbose:
+        print()
+        print("MI(A,X):", mi12)
+        print("MI(A,Y):", mi13)
+        print("MI(X,Y):", mi23)
+
+        print()
+        print("MI(A,X|Y):", cmi123)
+        print("MI(A,Y|X):", cmi132)
+
+        print()
+        print("MI(A,X|Y) / MI(A,X):", np.round(cmi123 / mi12, 3) if mi12 > 0 else "N/A")
+        print("MI(A,Y|X) / MI(A,Y):", np.round(cmi132 / mi13, 3) if mi13 > 0 else "N/A")
+
+        print()
+        print("I(A,X,Y) 1:", cmi123 - mi12)
+        print("I(A,X,Y) 2:", cmi132 - mi13)
+        print("I(A,X,Y) av:", I_av)
+
+        print()
+        print("Analysis (X=behavior1, Y=behavior2):")
+        print(f"  Redundancy detected: {I_av < 0}")
+        print(f"  MI(A,X) < |II|: {mi12 < np.abs(I_av)}")
+        print(f"  MI(A,Y) < |II|: {mi13 < np.abs(I_av)}")
+
+    if I_av < 0:  # Negative interaction information (redundancy)
+        criterion1 = mi12 < np.abs(I_av) and not cmi132 < np.abs(I_av)
+        criterion2 = mi13 < np.abs(I_av) and not cmi123 < np.abs(I_av)
+
+        if criterion1 and not criterion2:
+            return 1  # ts2 is redundant, ts3 is primary
+        elif criterion2 and not criterion1:
+            return 0  # ts3 is redundant, ts2 is primary
+        else:
+            return 0.5  # Both contribute - undistinguishable
+
+    else:  # Positive interaction information (synergy)
+        if mi13 == 0 and cmi123 > cmi132:
+            return 0  # ts2 is primary
+
+        if mi12 == 0 and cmi132 > cmi123:
+            return 1  # ts3 is primary
+
+        if mi13 > 0 and mi12 / mi13 > 2.0 and cmi123 > cmi132:
+            return 0  # ts2 is strongly dominant
+
+        if mi12 > 0 and mi13 / mi12 > 2.0 and cmi132 > cmi123:
+            return 1  # ts3 is strongly dominant
+
+        return 0.5  # Both contribute - undistinguishable
+
+
 def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
     """Disentangle mixed selectivity between two behavioral variables for a neuron.
 
@@ -54,71 +212,10 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
     - If II > 0 (synergy), uses different criteria for special cases
 
     See README_INTENSE.md for theoretical background."""
-    # Compute pairwise mutual information
-    mi12 = get_mi(ts1, ts2, ds=ds)  # MI(neuron, behavior1)
-    mi13 = get_mi(ts1, ts3, ds=ds)  # MI(neuron, behavior2)
-    mi23 = get_mi(ts2, ts3, ds=ds)  # MI(behavior1, behavior2)
-
-    # Compute conditional mutual information
-    cmi123 = conditional_mi(ts1, ts2, ts3, ds=ds)  # MI(neuron, behavior1 | behavior2)
-    cmi132 = conditional_mi(ts1, ts3, ts2, ds=ds)  # MI(neuron, behavior2 | behavior1)
-
-    # Compute interaction information (average of two equivalent formulas)
-    # Using Williams & Beer convention: II = I(X;Y|Z) - I(X;Y)
-    I_av = np.mean([cmi123 - mi12, cmi132 - mi13])
-
-    if verbose:
-        print()
-        print("MI(A,X):", mi12)
-        print("MI(A,Y):", mi13)
-        print("MI(X,Y):", mi23)
-
-        print()
-        print("MI(A,X|Y):", cmi123)
-        print("MI(A,Y|X):", cmi132)
-
-        print()
-        print("MI(A,X|Y) / MI(A,X):", np.round(cmi123 / mi12, 3) if mi12 > 0 else "N/A")
-        print("MI(A,Y|X) / MI(A,Y):", np.round(cmi132 / mi13, 3) if mi13 > 0 else "N/A")
-
-        print()
-        print("I(A,X,Y) 1:", cmi123 - mi12)
-        print("I(A,X,Y) 2:", cmi132 - mi13)
-        print("I(A,X,Y) av:", I_av)
-
-        print()
-        print("Analysis (X=behavior1, Y=behavior2):")
-        print(f"  Redundancy detected: {I_av < 0}")
-        print(f"  MI(A,X) < |II|: {mi12 < np.abs(I_av)}")
-        print(f"  MI(A,Y) < |II|: {mi13 < np.abs(I_av)}")
-
-    if I_av < 0:  # Negative interaction information (redundancy)
-        # Check if either variable is a "weak link"
-        criterion1 = mi12 < np.abs(I_av) and not cmi132 < np.abs(I_av)
-        criterion2 = mi13 < np.abs(I_av) and not cmi123 < np.abs(I_av)
-
-        if criterion1 and not criterion2:
-            return 1  # ts2 is redundant, ts3 is primary
-        elif criterion2 and not criterion1:
-            return 0  # ts3 is redundant, ts2 is primary
-        else:
-            return 0.5  # Both contribute - undistinguishable
-
-    else:  # Positive interaction information (synergy)
-        # Special cases for synergistic relationships
-        if mi13 == 0 and cmi123 > cmi132:
-            return 0  # ts2 is primary
-
-        if mi12 == 0 and cmi132 > cmi123:
-            return 1  # ts3 is primary
-
-        if mi13 > 0 and mi12 / mi13 > 2.0 and cmi123 > cmi132:
-            return 0  # ts2 is strongly dominant
-
-        if mi12 > 0 and mi13 / mi12 > 2.0 and cmi132 > cmi123:
-            return 1  # ts3 is strongly dominant
-
-        return 0.5  # Both contribute - undistinguishable
+    # Delegate to internal function (no pre-computed values)
+    return _disentangle_pair_with_precomputed(
+        ts1, ts2, ts3, mi12=None, mi13=None, mi23=None, verbose=verbose, ds=ds
+    )
 
 
 def disentangle_all_selectivities(
@@ -128,6 +225,8 @@ def disentangle_all_selectivities(
     multifeature_map=None,
     feat_feat_significance=None,
     cell_bunch=None,
+    cell_feat_stats=None,
+    feat_feat_similarity=None,
 ):
     """Analyze mixed selectivity across all significant neuron-feature pairs.
 
@@ -161,6 +260,17 @@ def disentangle_all_selectivities(
     cell_bunch : list or None, optional
         List of cell IDs to analyze. If None, analyzes all cells.
         Default: None.
+    cell_feat_stats : dict or None, optional
+        Pre-computed neuron-feature statistics from INTENSE analysis.
+        Structure: stats[cell_id][feat_name]["me"] = MI value.
+        If provided, MI(neuron, feature) values will be looked up instead
+        of recomputed, significantly speeding up disentanglement.
+        Default: None.
+    feat_feat_similarity : ndarray or None, optional
+        Pre-computed feature-feature similarity matrix from
+        compute_feat_feat_significance. Matrix where [i, j] = MI(feat_i, feat_j).
+        If provided, MI(feature1, feature2) values will be looked up.
+        Default: None.
 
     Returns
     -------
@@ -177,6 +287,10 @@ def disentangle_all_selectivities(
     to at least 2 features. If feat_feat_significance is provided, only
     behaviorally correlated feature pairs are analyzed for redundancy.
     Non-significant pairs indicate true mixed selectivity.
+
+    When cell_feat_stats and feat_feat_similarity are provided, 3 out of 5
+    pairwise MI computations per disentangle_pair call are skipped by using
+    lookups, providing ~60% reduction in MI computation overhead.
 
     Raises
     ------
@@ -258,8 +372,22 @@ def disentangle_all_selectivities(
                         disent_matrix[ind2, ind1] += 0.5
                         continue
 
+                # Look up pre-computed MI values (if available)
+                # sel_comb contains the original feature names as stored in significance
+                mi12 = _lookup_cell_feat_mi(cell_feat_stats, neuron, sel_comb[0])
+                mi13 = _lookup_cell_feat_mi(cell_feat_stats, neuron, sel_comb[1])
+                mi23 = _lookup_feat_feat_mi(
+                    feat_feat_similarity, feat_names,
+                    feat_names[ind1], feat_names[ind2]
+                )
+
                 # Perform disentanglement analysis only for significant pairs
-                disres = disentangle_pair(neur_ts, feat_ts[0], feat_ts[1], ds=ds, verbose=False)
+                # Uses pre-computed MI values when available
+                disres = _disentangle_pair_with_precomputed(
+                    neur_ts, feat_ts[0], feat_ts[1],
+                    mi12=mi12, mi13=mi13, mi23=mi23,
+                    ds=ds, verbose=False
+                )
 
                 # Update matrices
                 count_matrix[ind1, ind2] += 1

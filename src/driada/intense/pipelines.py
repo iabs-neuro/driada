@@ -495,7 +495,8 @@ def compute_cell_feat_significance(
                 disentangle_start = time.perf_counter()
 
             # Step 1: Compute feature-feature significance
-            _, feat_feat_significance, _, feat_names, disent_info = compute_feat_feat_significance(
+            # Capture similarity_matrix (MI values) for disentanglement optimization
+            feat_feat_similarity, feat_feat_significance, _, feat_names, disent_info = compute_feat_feat_significance(
                 exp,
                 feat_bunch=feat_bunch if feat_bunch is not None else "all",
                 metric=metric,
@@ -513,6 +514,7 @@ def compute_cell_feat_significance(
                 enable_parallelization=enable_parallelization,
                 n_jobs=n_jobs,
                 seed=seed,
+                engine=engine,
                 profile=profile,
             )
 
@@ -521,6 +523,9 @@ def compute_cell_feat_significance(
                 multifeature_map = DEFAULT_MULTIFEATURE_MAP
 
             # Step 3: Run disentanglement analysis
+            # Pass pre-computed MI values to avoid redundant computation:
+            # - cell_feat_stats: MI(neuron, feature) from INTENSE analysis
+            # - feat_feat_similarity: MI(feature1, feature2) from feat-feat analysis
             disent_matrix, count_matrix = disentangle_all_selectivities(
                 exp,
                 feat_names,
@@ -528,6 +533,8 @@ def compute_cell_feat_significance(
                 multifeature_map=multifeature_map,
                 feat_feat_significance=feat_feat_significance,
                 cell_bunch=cell_ids,
+                cell_feat_stats=computed_stats,
+                feat_feat_similarity=feat_feat_similarity,
             )
 
             # Step 4: Get summary statistics
@@ -615,6 +622,7 @@ def compute_feat_feat_significance(
     n_jobs=-1,
     seed=42,
     duplicate_behavior="ignore",
+    engine="auto",
     profile=False,
     # FUTURE: Add save_computed_stats=True, use_precomputed_stats=True parameters
     # to enable caching of feat-feat results in experiment object similar to cell-feat
@@ -673,6 +681,12 @@ def compute_feat_feat_significance(
         - 'raise': Raise an error if duplicates are found
         - 'warn': Print a warning but continue processing
         Default: 'ignore'.
+    engine : str, optional
+        Computation engine for MI calculation:
+        - 'auto': Automatically select FFT when beneficial (default)
+        - 'fft': Force FFT-based computation
+        - 'loop': Force loop-based computation (useful for comparison/debugging)
+        Default: 'auto'.
     profile : bool, optional
         If True, collect timing and FFT type information. Default: False.
         When enabled, info['timings'] will contain:
@@ -837,7 +851,7 @@ def compute_feat_feat_significance(
         n_jobs=n_jobs,
         seed=seed,
         duplicate_behavior="ignore",  # Default behavior for feature-feature comparison
-        engine="auto",  # FFT optimization when applicable
+        engine=engine,
         profile=profile,
         )
 

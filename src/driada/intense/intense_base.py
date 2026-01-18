@@ -422,11 +422,15 @@ def _build_fft_cache(
     ds: int,
     engine: str,
     joint_distr: bool = False,
+    n_jobs: int = 1,
 ) -> dict:
     """Build FFT cache for all pairs using stable keys.
 
     Pre-computes FFT data for all neuron-feature pairs that support FFT,
     enabling reuse across delay optimization, Stage 1, and Stage 2.
+
+    When n_jobs != 1 and joint_distr=False, uses parallel processing to
+    split ts_bunch1 across workers for faster cache building.
 
     Uses stable keys (TimeSeries names or data hashes) instead of positional
     indices, allowing cache to work correctly with both threading and loky
@@ -449,6 +453,10 @@ def _build_fft_cache(
         Computation engine: 'auto', 'fft', or 'loop'.
     joint_distr : bool
         If True, ts_bunch2 is treated as a single multifeature.
+    n_jobs : int, optional
+        Number of parallel jobs. Default: 1 (serial).
+        Use -1 for all CPU cores. Parallelization is disabled
+        when joint_distr=True or ts_bunch1 has only one element.
 
     Returns
     -------
@@ -484,6 +492,13 @@ def _build_fft_cache(
                         f"Same names must have identical data to share FFT cache."
                     )
 
+    # Delegate to parallel version if enabled and appropriate
+    if n_jobs != 1 and not joint_distr and len(ts_bunch1) > 1:
+        return _build_fft_cache_parallel(
+            ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, n_jobs
+        )
+
+    # Serial implementation
     cache = {}
     fft_type_counts = {}  # Track counts for profiling
 
@@ -523,6 +538,125 @@ def _build_fft_cache(
                     fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
 
     return cache, fft_type_counts
+
+
+def _build_fft_cache_worker(
+    ts_bunch1_subset: list,
+    ts_bunch2: list,
+    metric: str,
+    mi_estimator: str,
+    ds: int,
+    engine: str,
+) -> tuple:
+    """Build FFT cache for a subset of ts_bunch1 (worker function).
+
+    This is a worker function used by _build_fft_cache_parallel to process
+    a subset of the first time series bunch in parallel.
+
+    Parameters
+    ----------
+    ts_bunch1_subset : list
+        Subset of first time series to process.
+    ts_bunch2 : list
+        Full set of second time series (features).
+    metric : str
+        Similarity metric being used.
+    mi_estimator : str
+        MI estimator ('gcmi' or 'ksg').
+    ds : int
+        Downsampling factor.
+    engine : str
+        Computation engine: 'auto', 'fft', or 'loop'.
+
+    Returns
+    -------
+    tuple
+        (partial_cache, partial_fft_type_counts) for this subset.
+    """
+    cache = {}
+    fft_type_counts = {}
+
+    for ts1 in ts_bunch1_subset:
+        for ts2 in ts_bunch2:
+            fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
+            key1 = _get_ts_key(ts1)
+            key2 = _get_ts_key(ts2)
+
+            if fft_type is not None:
+                data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
+                compute_fn = _FFT_COMPUTE[fft_type]
+                n = len(data1) if data1.ndim == 1 else data1.shape[1]
+                mi_all = compute_fn(data1, data2, np.arange(n))
+                cache[(key1, key2)] = FFTCacheEntry(fft_type=fft_type, mi_all=mi_all)
+                fft_type_counts[fft_type] = fft_type_counts.get(fft_type, 0) + 1
+            else:
+                cache[(key1, key2)] = None
+                fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
+
+    return cache, fft_type_counts
+
+
+def _build_fft_cache_parallel(
+    ts_bunch1: list,
+    ts_bunch2: list,
+    metric: str,
+    mi_estimator: str,
+    ds: int,
+    engine: str,
+    n_jobs: int = -1,
+) -> tuple:
+    """Parallel version of _build_fft_cache.
+
+    Splits ts_bunch1 across workers, each builds a partial cache,
+    then merges all results into a single cache dictionary.
+
+    Parameters
+    ----------
+    ts_bunch1 : list
+        First set of time series (e.g., neurons).
+    ts_bunch2 : list
+        Second set of time series (e.g., features).
+    metric : str
+        Similarity metric being used.
+    mi_estimator : str
+        MI estimator ('gcmi' or 'ksg').
+    ds : int
+        Downsampling factor.
+    engine : str
+        Computation engine: 'auto', 'fft', or 'loop'.
+    n_jobs : int, optional
+        Number of parallel jobs. Default: -1 (all CPU cores).
+
+    Returns
+    -------
+    tuple
+        (merged_cache, merged_fft_type_counts) from all workers.
+    """
+    if n_jobs == -1:
+        n_jobs = min(multiprocessing.cpu_count(), len(ts_bunch1))
+    n_jobs_effective = min(n_jobs, len(ts_bunch1))
+
+    # Split ts_bunch1 across workers
+    split_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs_effective)
+    split_ts_bunch1 = [[ts_bunch1[i] for i in idxs] for idxs in split_inds if len(idxs) > 0]
+
+    # Parallel execution
+    results = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND)(
+        delayed(_build_fft_cache_worker)(
+            subset, ts_bunch2, metric, mi_estimator, ds, engine
+        )
+        for subset in split_ts_bunch1
+    )
+
+    # Merge results
+    merged_cache = {}
+    merged_counts = {}
+    for partial_cache, partial_counts in results:
+        merged_cache.update(partial_cache)
+        for k, v in partial_counts.items():
+            merged_counts[k] = merged_counts.get(k, 0) + v
+
+    return merged_cache, merged_counts
 
 
 def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False) -> None:
@@ -2293,7 +2427,8 @@ def compute_me_stats(
         # Build FFT cache once at the start for reuse across delays + stages
         with _timed_section(timings, 'fft_cache_building'):
             fft_cache, fft_type_counts = _build_fft_cache(
-                ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr
+                ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr,
+                n_jobs=n_jobs if enable_parallelization else 1,
             )
 
         # Store FFT type counts for profiling
