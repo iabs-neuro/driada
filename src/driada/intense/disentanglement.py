@@ -299,6 +299,7 @@ def _process_neuron_disentanglement(
     feat_feat_similarity,
     pre_decisions=None,
     pre_renames=None,
+    feat_copnorm_cache=None,
 ):
     """Process disentanglement for a single neuron.
 
@@ -336,6 +337,11 @@ def _process_neuron_disentanglement(
     pre_renames : dict or None, optional
         Pre-computed feature renames from filter chain: {new_name: (old1, old2)}.
         Default: None.
+    feat_copnorm_cache : dict or None, optional
+        Pre-computed downsampled copula-normalized data for features.
+        Maps feature name to downsampled copula data. Pre-computed once
+        and shared across all neurons to avoid redundant computation.
+        Default: None.
 
     Returns
     -------
@@ -370,11 +376,8 @@ def _process_neuron_disentanglement(
     # Only for continuous time series (discrete use different code paths)
     neur_copnorm = _downsample_copnorm(neur_ts.copula_normal_data, ds) if not neur_ts.discrete else None
 
-    feat_copnorm_cache = {}
-    for fname in sels:
-        ts = feature_ts_dict.get(fname) or multifeature_ts.get(fname)
-        if ts is not None and not getattr(ts, 'discrete', True):
-            feat_copnorm_cache[fname] = _downsample_copnorm(ts.copula_normal_data, ds)
+    # Use pre-computed feature copula cache (passed from caller)
+    feat_copnorm_cache = feat_copnorm_cache or {}
 
     # Test all pairs of features this neuron responds to
     for sel_comb in combinations(sels, 2):
@@ -704,6 +707,14 @@ def disentangle_all_selectivities(
     # ============================================================
     per_neuron_disent = {}
 
+    # Pre-compute feature copula cache ONCE (shared across all neurons)
+    # This avoids redundant copula normalization in each worker
+    feat_copnorm_cache = {}
+    for fname in feat_names:
+        ts = feature_ts_dict.get(fname) or multifeature_ts.get(fname)
+        if ts is not None and not getattr(ts, 'discrete', True):
+            feat_copnorm_cache[fname] = _downsample_copnorm(ts.copula_normal_data, ds)
+
     # Process neurons in parallel
     if len(neuron_selectivities) > 0:
         results = Parallel(n_jobs=n_jobs, backend="loky")(
@@ -721,6 +732,7 @@ def disentangle_all_selectivities(
                 feat_feat_similarity=feat_feat_similarity,
                 pre_decisions=pair_decisions[neuron],  # Pre-computed
                 pre_renames=renames[neuron],           # Pre-computed
+                feat_copnorm_cache=feat_copnorm_cache, # Pre-computed
             )
             for neuron in neuron_selectivities.keys()
         )
