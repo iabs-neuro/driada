@@ -996,6 +996,41 @@ def calculate_optimal_delays(
     return optimal_delays
 
 
+def _extract_cache_subset(cache, ts_subset, ts_bunch2):
+    """Extract cache entries for a specific subset of ts_bunch1.
+
+    Instead of passing the entire cache to each worker, extract only
+    the entries that worker needs. This avoids massive serialization
+    overhead when using parallel processing with large caches.
+
+    Parameters
+    ----------
+    cache : dict or None
+        Full FFT cache mapping (key1, key2) -> FFTCacheEntry.
+    ts_subset : list of TimeSeries
+        Subset of ts_bunch1 that this worker will process.
+    ts_bunch2 : list of TimeSeries
+        Full set of ts_bunch2 (features).
+
+    Returns
+    -------
+    dict or None
+        Subset of cache containing only entries relevant to ts_subset,
+        or None if input cache is None.
+    """
+    if cache is None:
+        return None
+    subset_cache = {}
+    for ts1 in ts_subset:
+        key1 = _get_ts_key(ts1)
+        for ts2 in ts_bunch2:
+            key2 = _get_ts_key(ts2)
+            cache_key = (key1, key2)
+            if cache_key in cache:
+                subset_cache[cache_key] = cache[cache_key]
+    return subset_cache
+
+
 def calculate_optimal_delays_parallel(
     ts_bunch1,
     ts_bunch2,
@@ -1103,7 +1138,14 @@ def calculate_optimal_delays_parallel(
     split_ts_bunch1_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs_effective)
     split_ts_bunch1 = [np.array(ts_bunch1)[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_delays = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND, verbose=True)(
+    # Split cache per worker - each worker only gets entries it needs
+    # This avoids serializing the entire cache (potentially GBs) to each worker
+    split_caches = [
+        _extract_cache_subset(fft_cache, subset, ts_bunch2)
+        for subset in split_ts_bunch1
+    ]
+
+    parallel_delays = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND)(
         delayed(calculate_optimal_delays)(
             small_ts_bunch,
             ts_bunch2,
@@ -1114,9 +1156,9 @@ def calculate_optimal_delays_parallel(
             enable_progressbar=False,
             mi_estimator=mi_estimator,
             engine=engine,
-            fft_cache=fft_cache,
+            fft_cache=split_cache,
         )
-        for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
+        for small_ts_bunch, split_cache in zip(split_ts_bunch1, split_caches)
     )
 
     for i, pd in enumerate(parallel_delays):
@@ -1751,7 +1793,14 @@ def scan_pairs_parallel(
     split_random_shifts = [random_shifts[idxs] for idxs in split_ts_bunch1_inds]
     split_mask = [mask[idxs] for idxs in split_ts_bunch1_inds]
 
-    parallel_result = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND, verbose=True)(
+    # Split cache per worker - each worker only gets entries it needs
+    # This avoids serializing the entire cache (potentially GBs) to each worker
+    split_caches = [
+        _extract_cache_subset(fft_cache, subset, ts_bunch2)
+        for subset in split_ts_bunch1
+    ]
+
+    parallel_result = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND)(
         delayed(scan_pairs)(
             small_ts_bunch,
             ts_bunch2,
@@ -1768,7 +1817,7 @@ def scan_pairs_parallel(
             seed=seed,
             enable_progressbar=False,
             engine=engine,
-            fft_cache=fft_cache,
+            fft_cache=split_caches[worker_idx],
         )
         for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
     )
