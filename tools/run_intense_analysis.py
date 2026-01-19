@@ -221,7 +221,15 @@ Examples:
                         help='Disable experiment-specific disentanglement filters')
     parser.add_argument('--skip-computed', action='store_true',
                         help='Skip files that already have results in output directory')
+    parser.add_argument('--parallel-backend', type=str, default='loky',
+                        choices=['loky', 'threading', 'multiprocessing'],
+                        help='Joblib parallel backend: loky (default, true parallelism), '
+                             'threading (stable, good for NumPy), multiprocessing (legacy)')
     args = parser.parse_args()
+
+    # Set parallel backend before any heavy computation
+    import driada
+    driada.set_parallel_backend(args.parallel_backend)
 
     config = {
         'n_shuffles_stage1': args.n_shuffles_stage1,
@@ -286,6 +294,7 @@ Examples:
     print(f"  Skip/aggregate features: experiment-specific (from EXPERIMENT_CONFIGS)")
     print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
     print(f"  Skip computed: {args.skip_computed}")
+    print(f"  Parallel backend: {args.parallel_backend}")
     if args.output_dir:
         print(f"  Output directory: {args.output_dir}")
 

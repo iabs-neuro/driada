@@ -5,11 +5,43 @@ A library for single neuron and population-level analysis of inner workings
 of intelligent systems, from brain neural recordings in vivo to RNNs.
 """
 
+import os
+
 # Suppress Google API Python version warning (Python 3.10 EOL is Oct 2026)
 import warnings
 warnings.filterwarnings("ignore", message=".*Python version.*google.api_core.*")
 
 __version__ = "0.7.1"
+
+# =============================================================================
+# Global configuration
+# =============================================================================
+
+# Joblib parallel backend for all driada parallel computations
+# Can be set via DRIADA_PARALLEL_BACKEND environment variable
+# Options: "loky" (default, true parallelism), "threading" (stable), "multiprocessing"
+PARALLEL_BACKEND = os.environ.get("DRIADA_PARALLEL_BACKEND", "loky")
+
+
+def set_parallel_backend(backend: str):
+    """Set the joblib parallel backend for all driada computations.
+
+    Parameters
+    ----------
+    backend : str
+        One of "loky", "threading", or "multiprocessing".
+        - "loky": Default, true parallelism via separate processes
+        - "threading": Stable, good for NumPy-heavy code (releases GIL)
+        - "multiprocessing": Legacy process-based parallelism
+
+    Notes
+    -----
+    If experiencing hangs on Windows or remote machines, try "threading".
+    """
+    global PARALLEL_BACKEND
+    if backend not in ("loky", "threading", "multiprocessing"):
+        raise ValueError(f"Invalid backend: {backend}. Choose from: loky, threading, multiprocessing")
+    PARALLEL_BACKEND = backend
 
 # Core modules
 from . import intense
@@ -66,6 +98,9 @@ from .dimensionality import eff_dim, nn_dimension, pca_dimension
 __all__ = [
     # Version
     "__version__",
+    # Configuration
+    "PARALLEL_BACKEND",
+    "set_parallel_backend",
     # Modules
     "intense",
     "information",

@@ -1247,13 +1247,14 @@ def mi_dd_fft(
 
     # MI = Σᵢⱼ P(i,j) * log2(P(i,j) / (P(i) * P(j)))
     # Handle zeros: 0 * log(0) = 0 by convention, and log(0/x) should be masked
+    # Note: np.where evaluates both branches before selecting, so we need errstate
+    # to cover the multiply as well (log_ratio may contain NaN/Inf from 0/0 or log(0))
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio = P_joint / P_xy_independent
         log_ratio = np.log2(ratio)
-
-    # Mask invalid entries (where P_joint == 0 or P_xy_independent == 0)
-    valid_mask = (P_joint > 0) & (P_xy_independent > 0)
-    mi_terms = np.where(valid_mask, P_joint * log_ratio, 0.0)
+        # Mask invalid entries (where P_joint == 0 or P_xy_independent == 0)
+        valid_mask = (P_joint > 0) & (P_xy_independent > 0)
+        mi_terms = np.where(valid_mask, P_joint * log_ratio, 0.0)
     mi_values = mi_terms.sum(axis=(1, 2))
 
     # Apply bias correction if requested (Miller-Madow correction)

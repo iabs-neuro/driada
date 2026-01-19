@@ -527,6 +527,8 @@ def compute_cell_feat_significance(
 
             # Step 1: Compute feature-feature significance
             # Capture similarity_matrix (MI values) for disentanglement optimization
+            if verbose:
+                print("  Step 1: Computing feature-feature significance...")
             feat_feat_similarity, feat_feat_significance, _, feat_names, disent_info = compute_feat_feat_significance(
                 exp,
                 feat_bunch=feat_bunch if feat_bunch is not None else "all",
@@ -561,6 +563,8 @@ def compute_cell_feat_significance(
             # Pass pre-computed MI values to avoid redundant computation:
             # - cell_feat_stats: MI(neuron, feature) from INTENSE analysis
             # - feat_feat_similarity: MI(feature1, feature2) from feat-feat analysis
+            if verbose:
+                print("  Step 2: Computing neuron-pair disentanglement...")
             disent_results = disentangle_all_selectivities(
                 exp,
                 feat_names,

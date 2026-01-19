@@ -11,6 +11,7 @@ from itertools import combinations
 from joblib import Parallel, delayed
 from ..information.info_base import get_mi, conditional_mi, MultiTimeSeries
 from ..information.gcmi import cmi_ggg
+import driada  # For PARALLEL_BACKEND
 
 
 # Default multifeature mapping for common behavioral variable combinations
@@ -717,7 +718,7 @@ def disentangle_all_selectivities(
 
     # Process neurons in parallel
     if len(neuron_selectivities) > 0:
-        results = Parallel(n_jobs=n_jobs, backend="loky")(
+        results = Parallel(n_jobs=n_jobs, backend=driada.PARALLEL_BACKEND)(
             delayed(_process_neuron_disentanglement)(
                 neuron_id=neuron,
                 sels=neuron_selectivities[neuron],  # Already filtered

@@ -34,8 +34,11 @@ from ..information.info_base import (
 from ..utils.data import nested_dict_to_seq_of_tables, add_names_to_nested_dict
 from .io import IntenseResults
 
-# Joblib backend for parallel processing
-_JOBLIB_BACKEND = "loky"
+# Joblib backend - use global driada.PARALLEL_BACKEND setting
+# Access via function to get current value (allows runtime changes)
+def _get_parallel_backend():
+    import driada
+    return driada.PARALLEL_BACKEND
 
 # Default noise amplitude added to MI values for numerical stability
 DEFAULT_NOISE_AMPLITUDE = 1e-3
@@ -641,7 +644,7 @@ def _build_fft_cache_parallel(
     split_ts_bunch1 = [[ts_bunch1[i] for i in idxs] for idxs in split_inds if len(idxs) > 0]
 
     # Parallel execution
-    results = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND)(
+    results = Parallel(n_jobs=n_jobs_effective, backend=_get_parallel_backend())(
         delayed(_build_fft_cache_worker)(
             subset, ts_bunch2, metric, mi_estimator, ds, engine
         )
@@ -1145,7 +1148,7 @@ def calculate_optimal_delays_parallel(
         for subset in split_ts_bunch1
     ]
 
-    parallel_delays = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND)(
+    parallel_delays = Parallel(n_jobs=n_jobs_effective, backend=_get_parallel_backend())(
         delayed(calculate_optimal_delays)(
             small_ts_bunch,
             ts_bunch2,
@@ -1800,7 +1803,7 @@ def scan_pairs_parallel(
         for subset in split_ts_bunch1
     ]
 
-    parallel_result = Parallel(n_jobs=n_jobs_effective, backend=_JOBLIB_BACKEND)(
+    parallel_result = Parallel(n_jobs=n_jobs_effective, backend=_get_parallel_backend())(
         delayed(scan_pairs)(
             small_ts_bunch,
             ts_bunch2,
@@ -2474,6 +2477,8 @@ def compute_me_stats(
         ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if not skip_delays or _ not in skip_delays])
 
         # Build FFT cache once at the start for reuse across delays + stages
+        if verbose:
+            print(f"Building FFT cache for {len(ts_bunch1)}x{len(ts_bunch2)} pairs (engine={engine})...")
         with _timed_section(timings, 'fft_cache_building'):
             fft_cache, fft_type_counts = _build_fft_cache(
                 ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr,
@@ -2483,14 +2488,6 @@ def compute_me_stats(
         # Store FFT type counts for profiling
         if profile and fft_type_counts:
             timings['fft_type_counts'] = fft_type_counts
-            # Log FFT type distribution if verbose
-            if verbose:
-                total_pairs = sum(fft_type_counts.values())
-                fft_pairs = total_pairs - fft_type_counts.get('loop', 0)
-                loop_pairs = fft_type_counts.get('loop', 0)
-                print(f"FFT cache built: {fft_pairs}/{total_pairs} pairs use FFT, {loop_pairs} use loop")
-                for fft_type, count in sorted(fft_type_counts.items()):
-                    print(f"  {fft_type}: {count}")
 
         with _timed_section(timings, 'stage1_delay_optimization'):
             if find_optimal_delays:
