@@ -23,6 +23,9 @@ Usage
         --ds 10 \
         --output-dir results
 
+    # Resume batch processing, skipping already-computed files
+    python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE --skip-computed
+
     # Save single file results to specific output
     python tools/run_intense_analysis.py "DRIADA data/LNOF_J01_4D_aligned.npz" \
         --output results.json
@@ -156,6 +159,25 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
     return summary_dict
 
 
+def is_already_processed(exp_name, output_dir):
+    """Check if experiment already has results in output directory.
+
+    Parameters
+    ----------
+    exp_name : str
+        Experiment name (e.g., 'NOF_H01_1D')
+    output_dir : Path
+        Output directory path
+
+    Returns
+    -------
+    bool
+        True if results NPZ file exists
+    """
+    results_path = Path(output_dir) / 'results' / f'{exp_name}_results.npz'
+    return results_path.exists()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Run INTENSE analysis on NPZ data',
@@ -197,6 +219,8 @@ Examples:
                         help='Computation engine: auto (default), fft, or loop')
     parser.add_argument('--no-filters', action='store_true',
                         help='Disable experiment-specific disentanglement filters')
+    parser.add_argument('--skip-computed', action='store_true',
+                        help='Skip files that already have results in output directory')
     args = parser.parse_args()
 
     config = {
@@ -261,6 +285,7 @@ Examples:
     print(f"  Engine: {config['engine']}")
     print(f"  Skip/aggregate features: experiment-specific (from EXPERIMENT_CONFIGS)")
     print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
+    print(f"  Skip computed: {args.skip_computed}")
     if args.output_dir:
         print(f"  Output directory: {args.output_dir}")
 
@@ -276,10 +301,23 @@ Examples:
     t_batch_start = time.time()
 
     use_filters = not args.no_filters
+    skipped_count = 0
+    processed_count = 0
+
     for i, npz_path in enumerate(npz_paths):
-        print(f"\n[{i+1}/{len(npz_paths)}] Processing {Path(npz_path).name}")
+        npz_name = Path(npz_path).name
+        exp_name = get_exp_name(Path(npz_path))
+
+        # Skip if already processed (when --skip-computed is set)
+        if args.skip_computed and output_dir and is_already_processed(exp_name, output_dir):
+            print(f"[{i+1}/{len(npz_paths)}] SKIPPED (exists): {npz_name}")
+            skipped_count += 1
+            continue
+
+        print(f"\n[{i+1}/{len(npz_paths)}] Processing {npz_name}")
         summary = process_single_experiment(npz_path, config, output_dir, args.plot, use_filters)
         summaries.append(summary)
+        processed_count += 1
 
         # Legacy JSON output for single file mode
         if args.output and len(npz_paths) == 1:
@@ -312,6 +350,10 @@ Examples:
 
     # Print enhanced batch summary
     print_batch_summary(summaries, t_batch_total, output_dir)
+
+    # Print skip summary if --skip-computed was used
+    if args.skip_computed:
+        print(f"\nSkip summary: {processed_count} processed, {skipped_count} skipped")
 
     print(f"\n{'='*60}")
     print("BATCH ANALYSIS COMPLETE")
