@@ -457,7 +457,7 @@ def save_results(results, fname, compressed=False):
     disent_json = {}
     if hasattr(results, 'disentanglement') and results.disentanglement:
         disent = results.disentanglement
-        for key in ['feat_feat_significance', 'disent_matrix', 'count_matrix']:
+        for key in ['feat_feat_similarity', 'feat_feat_significance', 'disent_matrix', 'count_matrix']:
             if key in disent and disent[key] is not None:
                 arrays[f'disent_{key}'] = disent[key]
         disent_json = {
@@ -567,7 +567,7 @@ def load_results(fname):
     # 3. Reconstruct disentanglement
     if '_disentanglement_json' in data:
         disent = json.loads(str(data['_disentanglement_json'][0]))
-        for key in ['feat_feat_significance', 'disent_matrix', 'count_matrix']:
+        for key in ['feat_feat_similarity', 'feat_feat_significance', 'disent_matrix', 'count_matrix']:
             npz_key = f'disent_{key}'
             if npz_key in data:
                 disent[key] = data[npz_key]

@@ -590,6 +590,7 @@ def compute_cell_feat_significance(
 
             # Package disentanglement results
             disentanglement_results = {
+                "feat_feat_similarity": feat_feat_similarity,
                 "feat_feat_significance": feat_feat_significance,
                 "disent_matrix": disent_matrix,
                 "count_matrix": count_matrix,

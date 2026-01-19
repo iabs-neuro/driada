@@ -128,9 +128,10 @@ docs_internal/
 # Tool-generated reports
 *_report.txt
 
-# Tools directory (untracked except for Python scripts)
+# Tools directory (untracked except for Python scripts and selectivity_dynamics package)
 tools/*
 !tools/*.py
+!tools/selectivity_dynamics/
 
 # Papers folder
 papers/
