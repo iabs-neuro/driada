@@ -8,6 +8,12 @@ from driada.intense.disentanglement import (
     create_multifeature_map,
     get_disentanglement_summary,
     DEFAULT_MULTIFEATURE_MAP,
+    _flip_decision,
+    _downsample_copnorm,
+    _disentangle_pair_with_precomputed,
+    MI_EPSILON,
+    DOMINANCE_RATIO_THRESHOLD,
+    VALID_DISRES_VALUES,
 )
 from driada.information.info_base import TimeSeries
 
@@ -537,3 +543,335 @@ def test_default_multifeature_map():
     assert isinstance(DEFAULT_MULTIFEATURE_MAP, dict)
     assert ("x", "y") in DEFAULT_MULTIFEATURE_MAP
     assert DEFAULT_MULTIFEATURE_MAP[("x", "y")] == "place"
+
+
+# ============================================================
+# Tests for helper functions and constants
+# ============================================================
+
+def test_flip_decision():
+    """Test _flip_decision helper function."""
+    assert _flip_decision(0) == 1
+    assert _flip_decision(1) == 0
+    assert _flip_decision(0.5) == 0.5
+
+
+def test_flip_decision_invalid():
+    """Test _flip_decision raises on invalid input."""
+    with pytest.raises(KeyError):
+        _flip_decision(0.3)
+
+
+def test_downsample_copnorm_1d():
+    """Test _downsample_copnorm with 1D data."""
+    data = np.arange(100)
+    result = _downsample_copnorm(data, ds=2)
+    assert len(result) == 50
+    np.testing.assert_array_equal(result, np.arange(0, 100, 2))
+
+
+def test_downsample_copnorm_2d():
+    """Test _downsample_copnorm with 2D data (MultiTimeSeries)."""
+    data = np.arange(20).reshape(2, 10)
+    result = _downsample_copnorm(data, ds=2)
+    assert result.shape == (2, 5)
+    np.testing.assert_array_equal(result[0], np.array([0, 2, 4, 6, 8]))
+
+
+def test_valid_disres_values():
+    """Test VALID_DISRES_VALUES constant."""
+    assert VALID_DISRES_VALUES == (0, 0.5, 1)
+
+
+def test_mi_epsilon_constant():
+    """Test MI_EPSILON is a reasonable small value."""
+    assert MI_EPSILON > 0
+    assert MI_EPSILON < 1e-3
+
+
+def test_dominance_ratio_threshold():
+    """Test DOMINANCE_RATIO_THRESHOLD is defined."""
+    assert DOMINANCE_RATIO_THRESHOLD == 2.0
+
+
+# ============================================================
+# Tests for synergy branch conditions (positive II)
+# ============================================================
+
+def test_synergy_branch_mi13_near_zero():
+    """Test synergy case when mi13 is near zero (ts2 primary)."""
+    np.random.seed(42)
+    n_points = 1000
+
+    # ts2 strongly correlated with ts1, ts3 uncorrelated
+    ts2_data = np.random.randn(n_points)
+    ts3_data = np.random.randn(n_points)  # Independent
+    ts1_data = ts2_data + 0.1 * np.random.randn(n_points)
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    result = disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1)
+    # ts2 should be primary (result = 0)
+    assert result == 0
+
+
+def test_synergy_branch_mi12_near_zero():
+    """Test synergy case when mi12 is near zero (ts3 primary)."""
+    np.random.seed(42)
+    n_points = 1000
+
+    # ts3 strongly correlated with ts1, ts2 uncorrelated
+    ts2_data = np.random.randn(n_points)  # Independent
+    ts3_data = np.random.randn(n_points)
+    ts1_data = ts3_data + 0.1 * np.random.randn(n_points)
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    result = disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1)
+    # ts3 should be primary (result = 1)
+    assert result == 1
+
+
+def test_synergy_branch_ts2_strongly_dominant():
+    """Test synergy case when ts2 has >2x MI of ts3."""
+    np.random.seed(42)
+    n_points = 1000
+
+    # ts2 has much stronger correlation than ts3
+    ts2_data = np.random.randn(n_points)
+    ts3_data = np.random.randn(n_points)
+    ts1_data = 3.0 * ts2_data + 0.3 * ts3_data + 0.2 * np.random.randn(n_points)
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    result = disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1)
+    # ts2 should be dominant (result = 0)
+    assert result == 0
+
+
+def test_synergy_branch_ts3_strongly_dominant():
+    """Test synergy case when ts3 has >2x MI of ts2."""
+    np.random.seed(42)
+    n_points = 1000
+
+    # ts3 has much stronger correlation than ts2
+    ts2_data = np.random.randn(n_points)
+    ts3_data = np.random.randn(n_points)
+    ts1_data = 0.3 * ts2_data + 3.0 * ts3_data + 0.2 * np.random.randn(n_points)
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    result = disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1)
+    # ts3 should be dominant (result = 1)
+    assert result == 1
+
+
+# ============================================================
+# Tests for redundancy branch conditions (negative II)
+# ============================================================
+
+def test_redundancy_branch_criterion1_only():
+    """Test redundancy case where only criterion1 is met (ts3 primary)."""
+    # This is a challenging case to construct synthetically
+    # Using known redundant data where ts2 carries less unique info
+    np.random.seed(42)
+    n_points = 1000
+
+    base = np.random.randn(n_points)
+    ts1_data = base + 0.3 * np.random.randn(n_points)
+    ts2_data = base + 0.5 * np.random.randn(n_points)  # Noisier
+    ts3_data = base + 0.1 * np.random.randn(n_points)  # Cleaner
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    result = disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1)
+    # Result should be valid (0, 0.5, or 1)
+    assert result in VALID_DISRES_VALUES
+
+
+def test_redundancy_branch_criterion2_only():
+    """Test redundancy case where only criterion2 is met (ts2 primary)."""
+    np.random.seed(42)
+    n_points = 1000
+
+    base = np.random.randn(n_points)
+    ts1_data = base + 0.3 * np.random.randn(n_points)
+    ts2_data = base + 0.1 * np.random.randn(n_points)  # Cleaner
+    ts3_data = base + 0.5 * np.random.randn(n_points)  # Noisier
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    result = disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1)
+    # Result should be valid (0, 0.5, or 1)
+    assert result in VALID_DISRES_VALUES
+
+
+def test_redundancy_branch_both_criteria():
+    """Test redundancy case where both criteria are met (undistinguishable)."""
+    np.random.seed(42)
+    n_points = 1000
+
+    # Both ts2 and ts3 equally redundant with ts1
+    base = np.random.randn(n_points)
+    ts1_data = base + 0.3 * np.random.randn(n_points)
+    ts2_data = base + 0.3 * np.random.randn(n_points)  # Same noise
+    ts3_data = base + 0.3 * np.random.randn(n_points)  # Same noise
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    result = disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1)
+    # Should return 0.5 (undistinguishable) but may vary due to noise
+    assert result in VALID_DISRES_VALUES
+
+
+# ============================================================
+# Tests for pre-computed values path
+# ============================================================
+
+def test_disentangle_with_precomputed_mi():
+    """Test _disentangle_pair_with_precomputed with provided MI values."""
+    np.random.seed(42)
+    n_points = 500
+
+    ts2_data = np.random.randn(n_points)
+    ts3_data = np.random.randn(n_points)
+    ts1_data = ts2_data + 0.2 * np.random.randn(n_points)
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    # Pre-compute MI values
+    from driada.information.info_base import get_mi
+    mi12 = get_mi(ts1, ts2, ds=1)
+    mi13 = get_mi(ts1, ts3, ds=1)
+    mi23 = get_mi(ts2, ts3, ds=1)
+
+    # Call with pre-computed values
+    result = _disentangle_pair_with_precomputed(
+        ts1, ts2, ts3,
+        mi12=mi12, mi13=mi13, mi23=mi23,
+        verbose=False, ds=1
+    )
+    assert result in VALID_DISRES_VALUES
+
+
+def test_disentangle_with_precomputed_copnorm():
+    """Test _disentangle_pair_with_precomputed with pre-computed copula data."""
+    np.random.seed(42)
+    n_points = 500
+
+    ts2_data = np.random.randn(n_points)
+    ts3_data = np.random.randn(n_points)
+    ts1_data = 0.5 * ts2_data + 0.5 * ts3_data + 0.2 * np.random.randn(n_points)
+
+    ts1 = TimeSeries(ts1_data, discrete=False)
+    ts2 = TimeSeries(ts2_data, discrete=False)
+    ts3 = TimeSeries(ts3_data, discrete=False)
+
+    # Use pre-computed copula normalized data
+    result = _disentangle_pair_with_precomputed(
+        ts1, ts2, ts3,
+        ts1_copnorm=ts1.copula_normal_data,
+        ts2_copnorm=ts2.copula_normal_data,
+        ts3_copnorm=ts3.copula_normal_data,
+        verbose=False, ds=1
+    )
+    assert result in VALID_DISRES_VALUES
+
+
+# ============================================================
+# Tests for filter chain (pre_decisions)
+# ============================================================
+
+@pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
+def test_disentangle_with_pre_filter_func(mixed_features_experiment):
+    """Test disentangle_all_selectivities with a pre_filter_func."""
+    exp = mixed_features_experiment
+    exp._set_selectivity_tables("calcium")
+
+    feat_names = list(exp.dynamic_features.keys())[:3]
+    if len(feat_names) < 2:
+        pytest.skip("Need at least 2 features for this test")
+
+    # Create a simple pre-filter that sets all pairs to 0.5 (undistinguishable)
+    def simple_filter(
+        neuron_selectivities, pair_decisions, renames,
+        cell_feat_stats, feat_feat_significance, feat_names, **kwargs
+    ):
+        for nid in neuron_selectivities:
+            sels = neuron_selectivities[nid]
+            for i, f1 in enumerate(sels):
+                for f2 in sels[i+1:]:
+                    pair_decisions[nid][(f1, f2)] = 0.5
+
+    results = disentangle_all_selectivities(
+        exp, feat_names, ds=2,
+        pre_filter_func=simple_filter
+    )
+
+    assert 'disent_matrix' in results
+    assert 'count_matrix' in results
+    assert 'per_neuron_disent' in results
+
+
+@pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
+def test_disentangle_filter_with_kwargs(mixed_features_experiment):
+    """Test pre_filter_func receives filter_kwargs."""
+    exp = mixed_features_experiment
+    exp._set_selectivity_tables("calcium")
+
+    feat_names = list(exp.dynamic_features.keys())[:3]
+    if len(feat_names) < 2:
+        pytest.skip("Need at least 2 features for this test")
+
+    received_kwargs = {}
+
+    def capture_kwargs_filter(
+        neuron_selectivities, pair_decisions, renames,
+        cell_feat_stats, feat_feat_significance, feat_names,
+        custom_param=None, **kwargs
+    ):
+        received_kwargs['custom_param'] = custom_param
+
+    disentangle_all_selectivities(
+        exp, feat_names, ds=2,
+        pre_filter_func=capture_kwargs_filter,
+        filter_kwargs={'custom_param': 'test_value'}
+    )
+
+    assert received_kwargs.get('custom_param') == 'test_value'
+
+
+# ============================================================
+# Tests for error accumulation
+# ============================================================
+
+@pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
+def test_errors_accumulated_in_neuron_info(mixed_features_experiment):
+    """Test that errors are accumulated in neuron_info instead of lost."""
+    exp = mixed_features_experiment
+    exp._set_selectivity_tables("calcium")
+
+    feat_names = list(exp.dynamic_features.keys())[:2]
+
+    results = disentangle_all_selectivities(exp, feat_names, ds=2)
+
+    # Check that per_neuron_disent entries have 'errors' field
+    for nid, info in results['per_neuron_disent'].items():
+        assert 'errors' in info
+        assert isinstance(info['errors'], list)

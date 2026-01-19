@@ -52,6 +52,34 @@ REG_DET_3D_THRESHOLD = 1e-20    # Determinant (3D+): strictest, product of 3+ te
 
 DEFAULT_NN = 5
 
+
+def _downsample_time_axis(data, ds):
+    """Downsample array along the time axis.
+
+    For 1D arrays, downsamples directly: data[::ds]
+    For 2D arrays (features x time), downsamples along axis 1: data[:, ::ds]
+
+    Parameters
+    ----------
+    data : ndarray
+        1D or 2D array to downsample
+    ds : int
+        Downsampling factor
+
+    Returns
+    -------
+    ndarray
+        Downsampled array with same number of dimensions
+    """
+    if ds == 1:
+        return data
+    if data.ndim == 1:
+        return data[::ds]
+    else:
+        # 2D array: features x time, downsample along time axis
+        return data[:, ::ds]
+
+
 # FUTURE: add @property decorators to properly set getter-setter functionality
 
 
@@ -2130,17 +2158,17 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
     # print(ts1.discrete, ts2.discrete, ts3.discrete)
     if not ts2.discrete and not ts3.discrete:
         # CCC: All continuous
-        g1 = ts1.copula_normal_data[::ds]
-        g2 = ts2.copula_normal_data[::ds]
-        g3 = ts3.copula_normal_data[::ds]
+        g1 = _downsample_time_axis(ts1.copula_normal_data, ds)
+        g2 = _downsample_time_axis(ts2.copula_normal_data, ds)
+        g3 = _downsample_time_axis(ts3.copula_normal_data, ds)
         cmi = cmi_ggg(g1, g2, g3, biascorrect=True, demeaned=True)
 
     elif not ts2.discrete and ts3.discrete:
         # CCD: X,Y continuous, Z discrete
         cmi = gccmi_ccd(
-            ts1.data[::ds],
-            ts2.data[::ds],
-            ts3.int_data[::ds],
+            _downsample_time_axis(ts1.data, ds),
+            _downsample_time_axis(ts2.data, ds),
+            _downsample_time_axis(ts3.int_data, ds),
         )
 
     elif ts2.discrete and not ts3.discrete:
@@ -2149,8 +2177,14 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
         # This avoids mixing different MI estimators that cause bias inconsistency
 
         # H(X|Z) for continuous X,Z using GCMI
-        x_data = ts1.data[::ds].reshape(1, -1)
-        z_data = ts3.data[::ds].reshape(1, -1)
+        # Downsample first, then reshape for entropy calculation
+        x_ds = _downsample_time_axis(ts1.data, ds)
+        z_ds = _downsample_time_axis(ts3.data, ds)
+        y_int_ds = _downsample_time_axis(ts2.int_data, ds)
+
+        # Ensure 2D shape for entropy functions
+        x_data = x_ds.reshape(1, -1) if x_ds.ndim == 1 else x_ds
+        z_data = z_ds.reshape(1, -1) if z_ds.ndim == 1 else z_ds
 
         # Joint data for H(X,Z) and marginal H(Z)
         xz_joint = np.vstack([x_data, z_data])
@@ -2159,12 +2193,12 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
         H_x_given_z = H_xz - H_z
 
         # H(X|Y,Z) - conditional entropy of X given both Y (discrete) and Z (continuous)
-        unique_y_vals = np.unique(ts2.int_data[::ds])
+        unique_y_vals = np.unique(y_int_ds)
         H_x_given_yz = 0.0
 
         for y_val in unique_y_vals:
             # Find indices where Y = y_val
-            y_mask = ts2.int_data[::ds] == y_val
+            y_mask = y_int_ds == y_val
             n_y = np.sum(y_mask)
 
             if n_y > 2:  # Need sufficient samples for entropy estimation
@@ -2183,7 +2217,7 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
                 H_x_given_z_y = H_xz_given_y - H_z_given_y
 
                 # Weight by probability P(Y=y_val)
-                p_y = n_y / len(ts2.int_data[::ds])
+                p_y = n_y / len(y_int_ds)
                 H_x_given_yz += p_y * H_x_given_z_y
 
         # Final CMI calculation
@@ -2217,10 +2251,13 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
         # Therefore, joint entropy estimation relies on ksg estimator instead
         # Note: Original code used copula_normal_data, but our entropy functions expect raw data
         # Using data instead of copula_normal_data for consistency with entropy functions
-        H_xz = joint_entropy_cd(ts3.int_data[::ds], ts1.data[::ds], k=k)
-        H_yz = joint_entropy_dd(ts2.int_data[::ds], ts3.int_data[::ds])
-        H_xyz = joint_entropy_cdd(ts2.int_data[::ds], ts3.int_data[::ds], ts1.data[::ds], k=k)
-        H_z = entropy_d(ts3.int_data[::ds])
+        x_ds = _downsample_time_axis(ts1.data, ds)
+        y_int_ds = _downsample_time_axis(ts2.int_data, ds)
+        z_int_ds = _downsample_time_axis(ts3.int_data, ds)
+        H_xz = joint_entropy_cd(z_int_ds, x_ds, k=k)
+        H_yz = joint_entropy_dd(y_int_ds, z_int_ds)
+        H_xyz = joint_entropy_cdd(y_int_ds, z_int_ds, x_ds, k=k)
+        H_z = entropy_d(z_int_ds)
         # print('entropies:', H_xz, H_yz, H_xyz, H_z)
         cmi = H_xz + H_yz - H_xyz - H_z
 

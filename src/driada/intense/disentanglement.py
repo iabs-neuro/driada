@@ -19,6 +19,54 @@ DEFAULT_MULTIFEATURE_MAP = {
     ("x", "y"): "place",  # spatial location multifeature
 }
 
+# Epsilon tolerance for floating-point comparisons
+# MI values are computed via numerical estimation and rarely equal exactly 0.0
+MI_EPSILON = 1e-6
+
+# Ratio threshold for "dominant" feature detection in synergy cases
+# 2.0 means one feature has >2x the MI of the other, indicating strong dominance
+DOMINANCE_RATIO_THRESHOLD = 2.0
+
+# Valid disentanglement result values
+VALID_DISRES_VALUES = (0, 0.5, 1)
+
+
+def _flip_decision(decision):
+    """Flip disentanglement decision: 0↔1, keep 0.5 unchanged.
+
+    Parameters
+    ----------
+    decision : float
+        Original decision (0, 0.5, or 1).
+
+    Returns
+    -------
+    float
+        Flipped decision.
+    """
+    return {0: 1, 1: 0, 0.5: 0.5}[decision]
+
+
+def _downsample_copnorm(data, ds):
+    """Downsample copula-normalized data along time axis.
+
+    Parameters
+    ----------
+    data : ndarray
+        Copula-normalized data (1D for TimeSeries, 2D for MultiTimeSeries).
+    ds : int
+        Downsampling factor.
+
+    Returns
+    -------
+    ndarray
+        Downsampled data.
+    """
+    if data.ndim == 1:
+        return data[::ds]
+    else:
+        return data[:, ::ds]
+
 
 def _lookup_cell_feat_mi(cell_feat_stats, neuron_id, feat_name):
     """Look up MI(neuron, feature) from pre-computed stats dict.
@@ -179,16 +227,17 @@ def _disentangle_pair_with_precomputed(
             return 0.5  # Both contribute - undistinguishable
 
     else:  # Positive interaction information (synergy)
-        if mi13 == 0 and cmi123 > cmi132:
-            return 0  # ts2 is primary
+        # Use epsilon tolerance for near-zero MI comparisons
+        if mi13 < MI_EPSILON and cmi123 > cmi132:
+            return 0  # ts2 is primary (ts3 has negligible MI)
 
-        if mi12 == 0 and cmi132 > cmi123:
-            return 1  # ts3 is primary
+        if mi12 < MI_EPSILON and cmi132 > cmi123:
+            return 1  # ts3 is primary (ts2 has negligible MI)
 
-        if mi13 > 0 and mi12 / mi13 > 2.0 and cmi123 > cmi132:
+        if mi13 >= MI_EPSILON and mi12 / mi13 > DOMINANCE_RATIO_THRESHOLD and cmi123 > cmi132:
             return 0  # ts2 is strongly dominant
 
-        if mi12 > 0 and mi13 / mi12 > 2.0 and cmi132 > cmi123:
+        if mi12 >= MI_EPSILON and mi13 / mi12 > DOMINANCE_RATIO_THRESHOLD and cmi132 > cmi123:
             return 1  # ts3 is strongly dominant
 
         return 0.5  # Both contribute - undistinguishable
@@ -301,6 +350,7 @@ def _process_neuron_disentanglement(
         - 'pairs': {(feat_i, feat_j): {'result': 0/0.5/1, 'source': str}}
         - 'renames': {new_name: (old1, old2)} from pre_renames
         - 'final_sels': list of final selectivities after filtering
+        - 'errors': list of (neuron_id, sel_comb, error_msg) tuples for failed pairs
     """
     pre_decisions = pre_decisions or {}
     pre_renames = pre_renames or {}
@@ -309,21 +359,22 @@ def _process_neuron_disentanglement(
     partial_disent = np.zeros((n_features, n_features))
     partial_count = np.zeros((n_features, n_features))
 
-    # Track per-neuron pair results
+    # Track per-neuron pair results and errors
     neuron_pairs_dict = {}
+    errors = []
 
     # Build set of renamed feature names for skip logic
     renamed_features = set(pre_renames.keys())
 
     # Pre-cache downsampled copula-normalized data for faster CMI computation
     # Only for continuous time series (discrete use different code paths)
-    neur_copnorm = neur_ts.copula_normal_data[::ds] if not neur_ts.discrete else None
+    neur_copnorm = _downsample_copnorm(neur_ts.copula_normal_data, ds) if not neur_ts.discrete else None
 
     feat_copnorm_cache = {}
     for fname in sels:
         ts = feature_ts_dict.get(fname) or multifeature_ts.get(fname)
         if ts is not None and not getattr(ts, 'discrete', True):
-            feat_copnorm_cache[fname] = ts.copula_normal_data[::ds]
+            feat_copnorm_cache[fname] = _downsample_copnorm(ts.copula_normal_data, ds)
 
     # Test all pairs of features this neuron responds to
     for sel_comb in combinations(sels, 2):
@@ -367,8 +418,8 @@ def _process_neuron_disentanglement(
                 disres = pre_decisions[pair_key]
                 source = 'pre_filter'
             elif reverse_key in pre_decisions:
-                # Flip the result for reversed pair
-                disres = 1 - pre_decisions[reverse_key] if pre_decisions[reverse_key] != 0.5 else 0.5
+                # Flip the result for reversed pair (0↔1, 0.5 unchanged)
+                disres = _flip_decision(pre_decisions[reverse_key])
                 source = 'pre_filter'
             else:
                 # Check if this feature pair has significant behavioral correlation
@@ -411,6 +462,10 @@ def _process_neuron_disentanglement(
                 )
                 source = 'standard'
 
+            # Validate disres value
+            if disres not in VALID_DISRES_VALUES:
+                raise ValueError(f"Unexpected disres value: {disres} (expected 0, 0.5, or 1)")
+
             # Update matrices
             partial_count[ind1, ind2] += 1
             partial_count[ind2, ind1] += 1
@@ -419,7 +474,7 @@ def _process_neuron_disentanglement(
                 partial_disent[ind1, ind2] += 1  # Feature 1 is primary
             elif disres == 1:
                 partial_disent[ind2, ind1] += 1  # Feature 2 is primary
-            elif disres == 0.5:
+            else:  # disres == 0.5 (validated above)
                 partial_disent[ind1, ind2] += 0.5  # Both contribute
                 partial_disent[ind2, ind1] += 0.5
 
@@ -430,15 +485,30 @@ def _process_neuron_disentanglement(
             }
 
         except (ValueError, AttributeError, KeyError) as e:
-            # Log specific errors but continue processing other pairs
-            print(f"WARNING: Skipping neuron {neuron_id}, features {sel_comb}: {str(e)}")
+            # Accumulate errors for reporting (don't just print and lose them)
+            errors.append((neuron_id, sel_comb, str(e)))
             continue
+
+    # Compute final_sels by applying pair decisions
+    # result=0: feat_i is primary (remove feat_j)
+    # result=1: feat_j is primary (remove feat_i)
+    # result=0.5: keep both
+    features_to_remove = set()
+    for (feat_i, feat_j), info in neuron_pairs_dict.items():
+        result = info.get('result', 0.5)
+        if result == 0:
+            features_to_remove.add(feat_j)
+        elif result == 1:
+            features_to_remove.add(feat_i)
+
+    final_sels = [f for f in sels if f not in features_to_remove]
 
     # Build neuron info
     neuron_info = {
         'pairs': neuron_pairs_dict,
         'renames': pre_renames,
-        'final_sels': list(sels),
+        'final_sels': final_sels,
+        'errors': errors,  # List of (neuron_id, sel_comb, error_msg) tuples
     }
 
     return neuron_id, partial_disent, partial_count, neuron_info
@@ -539,6 +609,7 @@ def disentangle_all_selectivities(
           - 'pairs': {(feat_i, feat_j): {'result': 0/0.5/1, 'source': str}}
           - 'renames': {new_name: (old1, old2)} from filter chain
           - 'final_sels': list of final selectivities after filtering
+          - 'errors': list of (neuron_id, sel_comb, error_msg) tuples for failed pairs
 
     Notes
     -----
@@ -658,8 +729,8 @@ def disentangle_all_selectivities(
         for neuron_id, partial_disent, partial_count, neuron_info in results:
             disent_matrix += partial_disent
             count_matrix += partial_count
-            # Store per-neuron info if it has any content
-            if neuron_info['pairs'] or neuron_info['renames']:
+            # Store per-neuron info if it has any content (including errors)
+            if neuron_info['pairs'] or neuron_info['renames'] or neuron_info['errors']:
                 per_neuron_disent[neuron_id] = neuron_info
 
     return {

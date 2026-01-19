@@ -5,6 +5,12 @@ This module provides utilities for uploading and downloading data to/from Google
 particularly useful for sharing experimental data and results.
 """
 
+import warnings
+
+# Suppress Python version deprecation warning from google-auth library
+warnings.filterwarnings("ignore", message=".*Python 3.10.*", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*Python 3.10.*", category=PendingDeprecationWarning)
+
 from .auth import desktop_auth, google_colab_auth
 from .download import (
     download_gdrive_data,

@@ -158,6 +158,189 @@ def tdm_filter(neuron_selectivities, pair_decisions, renames,
             pair_decisions[nid][('speed', 'speed_z')] = 0
 
 
+# Spatial filter: data-driven place-discrete correspondence check
+def spatial_filter(neuron_selectivities, pair_decisions, renames,
+                   calcium_data=None,
+                   feature_data=None,
+                   discrete_place_features=None,
+                   place_feat_name='xy',
+                   top_activity_percent=2,
+                   correspondence_threshold=0.4,
+                   feature_renaming=None,
+                   **kwargs):
+    """Spatial filter: merge place with discrete zones based on activity correspondence.
+
+    For NOF/LNOF experiments. When a neuron has both place (xy) and a discrete
+    spatial feature (corners, walls, center), checks if high neural activity
+    corresponds to the discrete feature. If correspondence > threshold, merges
+    them into a combined feature (e.g., 'xy-corners').
+
+    Parameters (via filter_kwargs)
+    ------------------------------
+    calcium_data : dict
+        Pre-extracted calcium data: {neuron_id: np.array}
+    feature_data : dict
+        Pre-extracted feature data: {feature_name: np.array}
+    discrete_place_features : list
+        Discrete features to check against place. Default: ['corners', 'walls', 'center']
+    place_feat_name : str
+        Name of continuous place feature. Default: 'xy'
+    top_activity_percent : float
+        Percentile for high activity detection. Default: 2
+    correspondence_threshold : float
+        Minimum correspondence to merge features. Default: 0.4
+    feature_renaming : dict, optional
+        Rename discrete features in merged name: {'corners': 'corner'}
+        Results in 'xy-corner' instead of 'xy-corners'
+    """
+    import numpy as np
+
+    if discrete_place_features is None:
+        discrete_place_features = ['corners', 'walls', 'center']
+
+    if feature_renaming is None:
+        feature_renaming = {}
+
+    def get_high_activity_indices(data, percent):
+        threshold = np.percentile(data, 100 - percent)
+        return np.where(data >= threshold)[0]
+
+    for nid, sels in neuron_selectivities.items():
+        # Check if neuron has place and any discrete place feature
+        has_place = place_feat_name in sels
+        discrete_in_sels = set(discrete_place_features).intersection(sels)
+
+        if not has_place or not discrete_in_sels:
+            continue
+
+        # Need calcium and feature data for correspondence check
+        if calcium_data is None or feature_data is None:
+            # Fallback: just mark as undistinguishable (0.5)
+            for discr_feat in discrete_in_sels:
+                pair_decisions[nid][(place_feat_name, discr_feat)] = 0.5
+            continue
+
+        if nid not in calcium_data:
+            continue
+
+        # Get high activity indices for this neuron
+        neur_data = calcium_data[nid]
+        high_indices = get_high_activity_indices(neur_data, top_activity_percent)
+
+        for discr_feat in discrete_in_sels:
+            if discr_feat not in feature_data:
+                continue
+
+            # Calculate correspondence: fraction of high-activity timepoints
+            # where the discrete feature is active
+            feat_data = feature_data[discr_feat]
+            correspondence = np.mean(feat_data[high_indices])
+
+            if correspondence > correspondence_threshold:
+                # High correspondence: merge place + discrete into combined feature
+                renamed = feature_renaming.get(discr_feat, discr_feat)
+                combined_name = f'{place_feat_name}-{renamed}'
+
+                # Remove both original features, add combined
+                sels.remove(place_feat_name)
+                sels.remove(discr_feat)
+                sels.append(combined_name)
+                renames[nid][combined_name] = (place_feat_name, discr_feat)
+                break  # Only one merge per neuron
+            else:
+                # Low correspondence: place is primary (exclude discrete)
+                pair_decisions[nid][(place_feat_name, discr_feat)] = 0
+
+
+def extract_filter_data(exp, discrete_place_features=None):
+    """Extract calcium and feature data for spatial_filter.
+
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object with neurons and features
+    discrete_place_features : list, optional
+        Features to extract. Default: ['corners', 'walls', 'center']
+
+    Returns
+    -------
+    dict
+        filter_kwargs dict ready to pass to disentanglement
+    """
+    import numpy as np
+
+    if discrete_place_features is None:
+        discrete_place_features = ['corners', 'walls', 'center']
+
+    # Extract calcium data for all neurons
+    calcium_data = {}
+    for nid, neuron in enumerate(exp.neurons):
+        calcium_data[nid] = neuron.ca.data
+
+    # Extract feature data
+    feature_data = {}
+    for feat_name in discrete_place_features:
+        if hasattr(exp, feat_name):
+            feat = getattr(exp, feat_name)
+            feature_data[feat_name] = feat.data
+
+    return {
+        'calcium_data': calcium_data,
+        'feature_data': feature_data,
+        'discrete_place_features': discrete_place_features,
+    }
+
+
+# ==============================================================================
+# Example: Combining multiple filters for NOF/LNOF
+# ==============================================================================
+#
+# Full example with data extraction:
+#
+#     from run_intense_analysis import (
+#         GENERAL_PRIORITY_RULES, nof_filter, spatial_filter,
+#         extract_filter_data, load_experiment_from_npz
+#     )
+#     from disentanglement_filters import compose_filters, build_priority_filter
+#     import driada
+#
+#     # 1. Load experiment
+#     exp = load_experiment_from_npz('NOF_H01_1D syn data.npz')
+#
+#     # 2. Build composed filter
+#     general_filter = build_priority_filter(GENERAL_PRIORITY_RULES)
+#     combined_filter = compose_filters(
+#         general_filter,   # General behavioral priorities
+#         nof_filter,       # NOF object hierarchy
+#         spatial_filter,   # Place-discrete correspondence
+#     )
+#
+#     # 3. Extract data for spatial_filter
+#     discrete_feats = ['walls', 'corners', 'center',
+#                       'object1', 'object2', 'object3', 'object4', 'objects']
+#     filter_kwargs = extract_filter_data(exp, discrete_place_features=discrete_feats)
+#     filter_kwargs['place_feat_name'] = 'xy'
+#     filter_kwargs['correspondence_threshold'] = 0.4
+#     filter_kwargs['feature_renaming'] = {
+#         'object1': 'object',
+#         'object2': 'object',
+#         'object3': 'object',
+#         'object4': 'object',
+#     }
+#
+#     # 4. Run analysis
+#     stats, significance, info, results, disent_results = driada.compute_cell_feat_significance(
+#         exp,
+#         feat_bunch=['xy', 'speed', 'locomotion', 'corners', 'walls', 'center',
+#                     'object1', 'object2', 'object3', 'object4', 'objects'],
+#         with_disentanglement=True,
+#         pre_filter_func=combined_filter,
+#         filter_kwargs=filter_kwargs,
+#     )
+#
+# ==============================================================================
+
+
 def get_filter_for_experiment(exp_type):
     """Get the composed filter for a specific experiment type.
 
@@ -170,6 +353,11 @@ def get_filter_for_experiment(exp_type):
     -------
     callable or None
         Composed filter function, or None for no filtering
+
+    Filter composition order:
+        1. general_filter - behavioral priorities (headdirection > bodydirection, etc.)
+        2. experiment-specific filter (nof_filter, tdm_filter)
+        3. spatial_filter - place/xy vs discrete zones (for NOF/LNOF)
     """
     # Always start with general priority rules
     general_filter = build_priority_filter(GENERAL_PRIORITY_RULES)
@@ -177,6 +365,7 @@ def get_filter_for_experiment(exp_type):
 
     if exp_type in ('NOF', 'LNOF'):
         filters.append(nof_filter)
+        filters.append(spatial_filter)  # NOF has spatial zones
     elif exp_type == '3DM':
         filters.append(tdm_filter)
     # BOF and other experiments: just use general rules
@@ -734,9 +923,9 @@ def save_results(output_path, exp, stats, significance, info, results, disent_re
 def build_disentangled_stats(stats, significance, disent_results, exp):
     """Build stats/significance dicts with disentanglement applied.
 
-    Uses `final_sels` from disentanglement results to determine which features
-    to keep per neuron. Redundant features are removed, merged features get
-    combined stats from their component features.
+    Uses `final_sels` and `pairs` from disentanglement results to determine
+    which features to keep per neuron. Redundant features are removed based
+    on pair decisions, merged features get combined stats.
 
     Parameters
     ----------
@@ -1202,8 +1391,23 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
         pre_filter_func = get_filter_for_experiment(exp_type)
         if pre_filter_func:
             print(f"  Using filter for experiment type: {exp_type}")
-            # filter_kwargs can include thresholds, pre-extracted data, etc.
             filter_kwargs = {'mi_ratio_threshold': 1.5}
+
+            # For NOF/LNOF: extract data for spatial_filter
+            if exp_type in ('NOF', 'LNOF'):
+                discrete_feats = ['walls', 'corners', 'center',
+                                  'object1', 'object2', 'object3', 'object4', 'objects']
+                spatial_data = extract_filter_data(exp, discrete_place_features=discrete_feats)
+                filter_kwargs.update(spatial_data)
+                filter_kwargs['place_feat_name'] = 'xy'
+                filter_kwargs['correspondence_threshold'] = 0.4
+                filter_kwargs['feature_renaming'] = {
+                    'object1': 'object',
+                    'object2': 'object',
+                    'object3': 'object',
+                    'object4': 'object',
+                }
+                print(f"  Extracted spatial filter data for {len(spatial_data['calcium_data'])} neurons")
 
     # Run INTENSE analysis
     print(f"\nRunning INTENSE analysis...")
