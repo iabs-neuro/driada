@@ -5,6 +5,10 @@ A library for single neuron and population-level analysis of inner workings
 of intelligent systems, from brain neural recordings in vivo to RNNs.
 """
 
+# Suppress Google API Python version warning (Python 3.10 EOL is Oct 2026)
+import warnings
+warnings.filterwarnings("ignore", message=".*Python version.*google.api_core.*")
+
 __version__ = "0.7.1"
 
 # Core modules

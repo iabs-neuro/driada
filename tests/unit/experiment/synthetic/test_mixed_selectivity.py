@@ -177,7 +177,7 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             n_discrete_feats=4,
             n_continuous_feats=0,
             n_neurons=20,
-            duration=600,  # Longer duration for better statistics
+            duration=1800,  # Long duration for reliable detection (flaky with shorter)
             fps=20,
             selectivity_prob=1.0,  # All neurons selective
             multi_select_prob=0.8,  # Most have mixed selectivity
