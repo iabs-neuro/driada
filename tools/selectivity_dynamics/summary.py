@@ -5,10 +5,39 @@ Contains:
 - compute_summary_metrics: Aggregate all metrics into one dict
 - print_* functions: Display summaries to console
 - save_batch_summary_csv: Save batch results to CSV
+- load_batch_summary_csv: Load existing batch results from CSV
 """
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
+
+
+def load_batch_summary_csv(csv_path):
+    """Load existing batch summary from CSV.
+
+    Parameters
+    ----------
+    csv_path : Path or str
+        Path to batch_summary.csv
+
+    Returns
+    -------
+    list[dict]
+        List of summary dicts (excluding aggregate row)
+    """
+    csv_path = Path(csv_path)
+    if not csv_path.exists():
+        return []
+
+    df = pd.read_csv(csv_path)
+
+    # Filter out aggregate row (has exp_name == 'AGGREGATE' or NaN exp_name)
+    if 'exp_name' in df.columns:
+        df = df[df['exp_name'].notna() & (df['exp_name'] != 'AGGREGATE')]
+
+    # Convert to list of dicts
+    return df.to_dict('records')
 
 
 def extract_metadata(exp):

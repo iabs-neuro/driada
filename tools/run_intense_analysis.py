@@ -50,6 +50,7 @@ from selectivity_dynamics import (
     print_per_file_summary,
     print_batch_summary,
     save_batch_summary_csv,
+    load_batch_summary_csv,
     save_all_results,
     save_results,
     get_exp_name,
@@ -313,6 +314,15 @@ Examples:
     skipped_count = 0
     processed_count = 0
 
+    # Load existing batch summary if --skip-computed and output_dir exists
+    existing_summaries = {}
+    if args.skip_computed and output_dir:
+        batch_csv = output_dir / 'batch_summary.csv'
+        if batch_csv.exists():
+            existing_list = load_batch_summary_csv(batch_csv)
+            existing_summaries = {s['exp_name']: s for s in existing_list if 'exp_name' in s}
+            print(f"  Loaded {len(existing_summaries)} existing summaries from {batch_csv}")
+
     for i, npz_path in enumerate(npz_paths):
         npz_name = Path(npz_path).name
         exp_name = get_exp_name(Path(npz_path))
@@ -321,6 +331,9 @@ Examples:
         if args.skip_computed and output_dir and is_already_processed(exp_name, output_dir):
             print(f"[{i+1}/{len(npz_paths)}] SKIPPED (exists): {npz_name}")
             skipped_count += 1
+            # Add existing summary if available
+            if exp_name in existing_summaries:
+                summaries.append(existing_summaries[exp_name])
             continue
 
         print(f"\n[{i+1}/{len(npz_paths)}] Processing {npz_name}")
@@ -362,7 +375,8 @@ Examples:
 
     # Print skip summary if --skip-computed was used
     if args.skip_computed:
-        print(f"\nSkip summary: {processed_count} processed, {skipped_count} skipped")
+        loaded_count = len(existing_summaries)
+        print(f"\nSkip summary: {processed_count} processed, {skipped_count} skipped ({loaded_count} loaded from cache)")
 
     print(f"\n{'='*60}")
     print("BATCH ANALYSIS COMPLETE")

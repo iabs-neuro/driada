@@ -93,6 +93,7 @@ from .summary import (
     print_per_file_summary,
     print_batch_summary,
     save_batch_summary_csv,
+    load_batch_summary_csv,
     format_metric,
 )
 
@@ -139,6 +140,7 @@ __all__ = [
     'print_per_file_summary',
     'print_batch_summary',
     'save_batch_summary_csv',
+    'load_batch_summary_csv',
     'format_metric',
     # Export
     'save_all_results',
