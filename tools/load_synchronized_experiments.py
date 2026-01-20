@@ -52,9 +52,9 @@ Usage
     python tools/load_synchronized_experiments.py
 
 Or as a module:
+    from driada.utils.naming import parse_iabs_filename
     from tools.load_synchronized_experiments import (
         load_all_experiments,
-        parse_iabs_filename,
         get_available_metadata
     )
 
@@ -63,108 +63,15 @@ Or as a module:
         print(exp.signature, exp.animal_id, exp.session)
 """
 
-import re
 import numpy as np
 from pathlib import Path
 from typing import Optional
-from dataclasses import dataclass
+import sys
 
+# Add src to path for local development
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
-@dataclass
-class ParsedFilename:
-    """Parsed components from an IABS-style filename."""
-    track: str
-    animal_id: str
-    session: str
-    suffix: Optional[str] = None
-
-    @property
-    def exp_params(self) -> dict:
-        """Return exp_params dict for use with load_exp_from_aligned_data."""
-        return {
-            'track': self.track,
-            'animal_id': self.animal_id,
-            'session': self.session,
-        }
-
-
-def parse_iabs_filename(filename: str) -> Optional[ParsedFilename]:
-    """
-    Parse an IABS-style filename to extract experiment metadata.
-
-    Parameters
-    ----------
-    filename : str
-        Filename (with or without path) to parse.
-
-    Returns
-    -------
-    ParsedFilename or None
-        Parsed components if successful, None if parsing failed.
-
-    Examples
-    --------
-    >>> parse_iabs_filename('NOF_H01_1D syn data.npz')
-    ParsedFilename(track='NOF', animal_id='H01', session='1D', suffix='syn data')
-
-    >>> parse_iabs_filename('LNOF_J01_4D_aligned.npz')
-    ParsedFilename(track='LNOF', animal_id='J01', session='4D', suffix='aligned')
-    """
-    # Get just the filename without path
-    name = Path(filename).stem
-
-    # Pattern: {track}_{animal_id}_{session}[_suffix or suffix]
-    # track: letters (NOF, LNOF, STFP, HT, etc.)
-    # animal_id: letter(s) + digits (H01, J05, M123, A5)
-    # session: digits + optional letter (1D, 2D, 1, 2, etc.)
-
-    # Try standard pattern: TRACK_ANIMAL_SESSION[_SUFFIX]
-    pattern = r'^([A-Z]+)_([A-Z]\d+)_(\d+[A-Z]?)(?:[ _](.+))?$'
-    match = re.match(pattern, name, re.IGNORECASE)
-
-    if match:
-        return ParsedFilename(
-            track=match.group(1).upper(),
-            animal_id=match.group(2).upper(),
-            session=match.group(3).upper(),
-            suffix=match.group(4) if match.group(4) else None
-        )
-
-    # Try alternative patterns for old naming conventions
-    # Pattern for HT tracks: {animal_id}_HT{session}
-    pattern_ht = r'^([A-Z]\d+)_HT(\d+)$'
-    match = re.match(pattern_ht, name, re.IGNORECASE)
-    if match:
-        return ParsedFilename(
-            track='HT',
-            animal_id=match.group(1).upper(),
-            session=match.group(2),
-            suffix=None
-        )
-
-    # Pattern for RT tracks: RT_{animal_id}_{session}D
-    pattern_rt = r'^RT_([A-Z]\d+)_(\d+)D$'
-    match = re.match(pattern_rt, name, re.IGNORECASE)
-    if match:
-        return ParsedFilename(
-            track='RT',
-            animal_id=match.group(1).upper(),
-            session=f'{match.group(2)}D',
-            suffix=None
-        )
-
-    # Pattern for FS tracks: FS{animal_id}_{session}D
-    pattern_fs = r'^FS([A-Z]\d+)_(\d+)D$'
-    match = re.match(pattern_fs, name, re.IGNORECASE)
-    if match:
-        return ParsedFilename(
-            track='FS',
-            animal_id=match.group(1).upper(),
-            session=f'{match.group(2)}D',
-            suffix=None
-        )
-
-    return None
+from driada.utils.naming import parse_iabs_filename
 
 
 def get_npz_metadata(npz_path: Path) -> dict:
@@ -241,7 +148,7 @@ def get_npz_metadata(npz_path: Path) -> dict:
 
 def load_experiment_from_npz(
     npz_path: Path,
-    parsed: Optional[ParsedFilename] = None,
+    parsed: Optional[dict] = None,
     verbose: bool = True,
     reconstruct_spikes: bool = False,
 ) -> 'Experiment':
@@ -252,8 +159,8 @@ def load_experiment_from_npz(
     ----------
     npz_path : Path
         Path to the .npz file.
-    parsed : ParsedFilename, optional
-        Pre-parsed filename metadata. If None, will parse from filename.
+    parsed : dict, optional
+        Pre-parsed filename metadata from parse_iabs_filename(). If None, will parse from filename.
     verbose : bool
         Whether to print loading information.
     reconstruct_spikes : bool
@@ -284,7 +191,7 @@ def load_experiment_from_npz(
         static_features['fps'] = float(metadata['fps'])
 
     # Store original metadata in exp_params for later access
-    exp_params = parsed.exp_params.copy()
+    exp_params = {k: parsed[k] for k in ('track', 'animal_id', 'session')}
     if metadata['metadata'] is not None:
         exp_params['_original_metadata'] = metadata['metadata']
     if metadata['sync_info'] is not None:
@@ -379,7 +286,7 @@ def load_all_experiments(
 
             if verbose:
                 print(f"\nLoading {npz_path.name}...")
-                print(f"  Track: {parsed.track}, Animal: {parsed.animal_id}, Session: {parsed.session}")
+                print(f"  Track: {parsed['track']}, Animal: {parsed['animal_id']}, Session: {parsed['session']}")
 
             exp = load_experiment_from_npz(
                 npz_path,
@@ -444,9 +351,9 @@ def get_available_metadata(npz_files: Optional[list[Path]] = None) -> dict:
         result['files'].append(file_info)
 
         if parsed:
-            result['unique_tracks'].add(parsed.track)
-            result['unique_animals'].add(parsed.animal_id)
-            result['unique_sessions'].add(parsed.session)
+            result['unique_tracks'].add(parsed['track'])
+            result['unique_animals'].add(parsed['animal_id'])
+            result['unique_sessions'].add(parsed['session'])
 
         if metadata['has_new_format']:
             result['new_format_count'] += 1
@@ -498,7 +405,7 @@ def print_metadata_report(summary: Optional[dict] = None):
 
         print(f"\n{file_info['filename']}")
         if parsed:
-            print(f"  Track: {parsed.track}, Animal: {parsed.animal_id}, Session: {parsed.session}")
+            print(f"  Track: {parsed['track']}, Animal: {parsed['animal_id']}, Session: {parsed['session']}")
         else:
             print("  WARNING: Could not parse filename")
 

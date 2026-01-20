@@ -5,11 +5,12 @@ A library for single neuron and population-level analysis of inner workings
 of intelligent systems, from brain neural recordings in vivo to RNNs.
 """
 
-import os
+import os as _os
 
 # Suppress Google API Python version warning (Python 3.10 EOL is Oct 2026)
-import warnings
-warnings.filterwarnings("ignore", message=".*Python version.*google.api_core.*")
+import warnings as _warnings
+_warnings.filterwarnings("ignore", message=".*Python version.*google.api_core.*")
+del _warnings
 
 __version__ = "0.7.1"
 
@@ -20,7 +21,8 @@ __version__ = "0.7.1"
 # Joblib parallel backend for all driada parallel computations
 # Can be set via DRIADA_PARALLEL_BACKEND environment variable
 # Options: "loky" (default, true parallelism), "threading" (stable), "multiprocessing"
-PARALLEL_BACKEND = os.environ.get("DRIADA_PARALLEL_BACKEND", "loky")
+PARALLEL_BACKEND = _os.environ.get("DRIADA_PARALLEL_BACKEND", "loky")
+del _os
 
 
 def set_parallel_backend(backend: str):

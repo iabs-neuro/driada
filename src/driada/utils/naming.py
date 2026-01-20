@@ -1,3 +1,65 @@
+def parse_iabs_filename(filename):
+    """Parse an IABS-style filename to extract experiment metadata.
+
+    Uses simple 3-part underscore convention: {track}_{animal_id}_{session}[_suffix...]
+
+    Parameters
+    ----------
+    filename : str
+        Filename (with or without path) to parse.
+
+    Returns
+    -------
+    dict or None
+        Dictionary with keys 'track', 'animal_id', 'session', 'suffix' if successful,
+        None if parsing failed (less than 3 underscore-separated parts).
+
+    Examples
+    --------
+    >>> parse_iabs_filename('NOF_H01_1D syn data.npz')
+    {'track': 'NOF', 'animal_id': 'H01', 'session': '1D', 'suffix': 'syn data'}
+
+    >>> parse_iabs_filename('LNOF_J01_4D_aligned.npz')
+    {'track': 'LNOF', 'animal_id': 'J01', 'session': '4D', 'suffix': 'aligned'}
+
+    >>> parse_iabs_filename('invalid.npz')
+    None
+    """
+    from pathlib import Path
+
+    # Get just the filename without path and extension
+    name = Path(filename).stem
+
+    # Split by underscore, require at least 3 parts: track_animal_session
+    parts = name.split('_')
+
+    if len(parts) < 3:
+        return None
+
+    track = parts[0].upper()
+    animal_id = parts[1].upper()
+
+    # Session may contain space-separated suffix (e.g., "1D syn data")
+    session_and_suffix = parts[2]
+    if ' ' in session_and_suffix:
+        session, space_suffix = session_and_suffix.split(' ', 1)
+        # Combine with any underscore-separated suffix parts
+        if len(parts) > 3:
+            suffix = space_suffix + '_' + '_'.join(parts[3:])
+        else:
+            suffix = space_suffix
+    else:
+        session = session_and_suffix
+        suffix = '_'.join(parts[3:]) if len(parts) > 3 else None
+
+    return {
+        'track': track,
+        'animal_id': animal_id,
+        'session': session.upper(),
+        'suffix': suffix if suffix else None,
+    }
+
+
 def construct_session_name(data_source, exp_params, allow_unknown=True):
     """Construct standardized session name from experimental parameters.
 

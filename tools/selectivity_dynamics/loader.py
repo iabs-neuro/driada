@@ -16,10 +16,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
 from driada.experiment.exp_build import load_exp_from_aligned_data
 from driada.information.info_base import MultiTimeSeries
+from driada.utils.naming import parse_iabs_filename
 
-# Import utility for parsing IABS filenames
+# Import get_npz_metadata from tools
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from load_synchronized_experiments import parse_iabs_filename, get_npz_metadata
+from load_synchronized_experiments import get_npz_metadata
 
 
 def build_feature_list(exp, skip_features):
@@ -75,8 +76,8 @@ def load_experiment_from_npz(npz_path, agg_features=None, verbose=True):
     if metadata['fps'] is not None:
         static_features['fps'] = float(metadata['fps'])
 
-    # Build exp_params
-    exp_params = parsed.exp_params.copy()
+    # Build exp_params from parsed dict
+    exp_params = {k: parsed[k] for k in ('track', 'animal_id', 'session')}
 
     # Remove metadata keys from data dict
     data.pop('_metadata', None)
