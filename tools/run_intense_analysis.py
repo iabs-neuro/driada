@@ -32,10 +32,18 @@ Usage
 """
 
 import argparse
+import gc
 import glob
+import os
 import sys
 import time
 from pathlib import Path
+
+# Limit BLAS threads to prevent conflicts with joblib parallelism
+# Must be set before importing numpy/scipy
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 # Import from selectivity_dynamics package
 from selectivity_dynamics import (
@@ -340,6 +348,9 @@ Examples:
         summary = process_single_experiment(npz_path, config, output_dir, args.plot, use_filters)
         summaries.append(summary)
         processed_count += 1
+
+        # Force garbage collection to prevent memory accumulation with threading backend
+        gc.collect()
 
         # Legacy JSON output for single file mode
         if args.output and len(npz_paths) == 1:

@@ -14,10 +14,17 @@ Usage
     python tools/run_intense_with_timeout.py --timeout 3600 --dir "DRIADA data" --output-dir INTENSE --parallel-backend threading
 """
 
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+# Limit BLAS threads to prevent conflicts with joblib parallelism
+# Inherited by subprocesses
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 
 def run_with_timeout(args, timeout):
