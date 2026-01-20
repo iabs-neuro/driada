@@ -12,6 +12,7 @@ from joblib import Parallel, delayed
 from ..information.info_base import get_mi, conditional_mi, MultiTimeSeries
 from ..information.gcmi import cmi_ggg
 import driada  # For PARALLEL_BACKEND
+from .intense_base import _parallel_executor
 
 
 # Default multifeature mapping for common behavioral variable combinations
@@ -716,27 +717,28 @@ def disentangle_all_selectivities(
         if ts is not None and not getattr(ts, 'discrete', True):
             feat_copnorm_cache[fname] = _downsample_copnorm(ts.copula_normal_data, ds)
 
-    # Process neurons in parallel
+    # Process neurons in parallel with backend-specific config
     if len(neuron_selectivities) > 0:
-        results = Parallel(n_jobs=n_jobs, backend=driada.PARALLEL_BACKEND)(
-            delayed(_process_neuron_disentanglement)(
-                neuron_id=neuron,
-                sels=neuron_selectivities[neuron],  # Already filtered
-                neur_ts=neuron_ts_dict[neuron],
-                feat_names=feat_names,
-                multifeature_map=multifeature_map,
-                multifeature_ts=multifeature_ts,
-                feature_ts_dict=feature_ts_dict,
-                ds=ds,
-                feat_feat_significance=feat_feat_significance,
-                cell_feat_stats=cell_feat_stats,
-                feat_feat_similarity=feat_feat_similarity,
-                pre_decisions=pair_decisions[neuron],  # Pre-computed
-                pre_renames=renames[neuron],           # Pre-computed
-                feat_copnorm_cache=feat_copnorm_cache, # Pre-computed
+        with _parallel_executor(n_jobs) as parallel:
+            results = parallel(
+                delayed(_process_neuron_disentanglement)(
+                    neuron_id=neuron,
+                    sels=neuron_selectivities[neuron],  # Already filtered
+                    neur_ts=neuron_ts_dict[neuron],
+                    feat_names=feat_names,
+                    multifeature_map=multifeature_map,
+                    multifeature_ts=multifeature_ts,
+                    feature_ts_dict=feature_ts_dict,
+                    ds=ds,
+                    feat_feat_significance=feat_feat_significance,
+                    cell_feat_stats=cell_feat_stats,
+                    feat_feat_similarity=feat_feat_similarity,
+                    pre_decisions=pair_decisions[neuron],  # Pre-computed
+                    pre_renames=renames[neuron],           # Pre-computed
+                    feat_copnorm_cache=feat_copnorm_cache, # Pre-computed
+                )
+                for neuron in neuron_selectivities.keys()
             )
-            for neuron in neuron_selectivities.keys()
-        )
 
         # Merge partial results from all workers
         for neuron_id, partial_disent, partial_count, neuron_info in results:

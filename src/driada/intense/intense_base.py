@@ -5,7 +5,7 @@ import numpy as np
 import tqdm
 from dataclasses import dataclass
 from typing import Callable, Optional
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, parallel_config
 import multiprocessing
 
 from .stats import (
@@ -39,6 +39,56 @@ from .io import IntenseResults
 def _get_parallel_backend():
     import driada
     return driada.PARALLEL_BACKEND
+
+
+@contextmanager
+def _parallel_executor(n_jobs, verbose=False):
+    """Context manager for parallel execution with backend-specific config.
+
+    Provides:
+    - Appropriate pre_dispatch for threading backend to limit memory
+    - Centralized configuration for all parallel calls
+
+    Parameters
+    ----------
+    n_jobs : int
+        Number of parallel jobs
+    verbose : bool
+        Whether to print configuration details
+
+    Yields
+    ------
+    Parallel
+        Configured Parallel executor
+
+    Notes
+    -----
+    Threading backend uses conservative pre_dispatch='n_jobs' to limit memory
+    buildup during long batch runs (complements cache splitting from commit fed4b1f).
+
+    Loky/multiprocessing use default pre_dispatch='2*n_jobs' for better parallelism.
+    """
+    import driada
+    backend = driada.PARALLEL_BACKEND
+
+    # Backend-specific parallel_config settings
+    config = {'backend': backend}
+    parallel_kwargs = {'n_jobs': n_jobs, 'backend': backend}
+
+    if backend == 'threading':
+        # Threading backend: conservative pre_dispatch to limit memory pressure
+        # With pre_dispatch='n_jobs', only n_jobs tasks are queued at once,
+        # reducing memory from queued cache data
+        parallel_kwargs['pre_dispatch'] = 'n_jobs'
+    else:
+        # Loky/multiprocessing: default pre_dispatch for better task scheduling
+        parallel_kwargs['pre_dispatch'] = '2*n_jobs'
+
+    if verbose:
+        print(f"Parallel config: backend={backend}, pre_dispatch={parallel_kwargs['pre_dispatch']}")
+
+    with parallel_config(**config):
+        yield Parallel(**parallel_kwargs)
 
 # Default noise amplitude added to MI values for numerical stability
 DEFAULT_NOISE_AMPLITUDE = 1e-3
@@ -643,13 +693,14 @@ def _build_fft_cache_parallel(
     split_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs_effective)
     split_ts_bunch1 = [[ts_bunch1[i] for i in idxs] for idxs in split_inds if len(idxs) > 0]
 
-    # Parallel execution
-    results = Parallel(n_jobs=n_jobs_effective, backend=_get_parallel_backend())(
-        delayed(_build_fft_cache_worker)(
-            subset, ts_bunch2, metric, mi_estimator, ds, engine
+    # Parallel execution with backend-specific config
+    with _parallel_executor(n_jobs_effective) as parallel:
+        results = parallel(
+            delayed(_build_fft_cache_worker)(
+                subset, ts_bunch2, metric, mi_estimator, ds, engine
+            )
+            for subset in split_ts_bunch1
         )
-        for subset in split_ts_bunch1
-    )
 
     # Merge results
     merged_cache = {}
@@ -1148,21 +1199,23 @@ def calculate_optimal_delays_parallel(
         for subset in split_ts_bunch1
     ]
 
-    parallel_delays = Parallel(n_jobs=n_jobs_effective, backend=_get_parallel_backend())(
-        delayed(calculate_optimal_delays)(
-            small_ts_bunch,
-            ts_bunch2,
-            metric,
-            shift_window,
-            ds,
-            verbose=False,
-            enable_progressbar=False,
-            mi_estimator=mi_estimator,
-            engine=engine,
-            fft_cache=split_cache,
+    # Parallel execution with backend-specific config
+    with _parallel_executor(n_jobs_effective) as parallel:
+        parallel_delays = parallel(
+            delayed(calculate_optimal_delays)(
+                small_ts_bunch,
+                ts_bunch2,
+                metric,
+                shift_window,
+                ds,
+                verbose=False,
+                enable_progressbar=False,
+                mi_estimator=mi_estimator,
+                engine=engine,
+                fft_cache=split_cache,
+            )
+            for small_ts_bunch, split_cache in zip(split_ts_bunch1, split_caches)
         )
-        for small_ts_bunch, split_cache in zip(split_ts_bunch1, split_caches)
-    )
 
     for i, pd in enumerate(parallel_delays):
         inds_of_interest = split_ts_bunch1_inds[i]
@@ -1803,27 +1856,29 @@ def scan_pairs_parallel(
         for subset in split_ts_bunch1
     ]
 
-    parallel_result = Parallel(n_jobs=n_jobs_effective, backend=_get_parallel_backend())(
-        delayed(scan_pairs)(
-            small_ts_bunch,
-            ts_bunch2,
-            metric,
-            nsh,
-            split_optimal_delays[worker_idx],
-            split_random_shifts[worker_idx],  # Pre-generated, pre-split shifts
-            mi_estimator,
-            joint_distr=joint_distr,
-            allow_mixed_dimensions=allow_mixed_dimensions,
-            ds=ds,
-            mask=split_mask[worker_idx],
-            noise_const=noise_const,
-            seed=seed,
-            enable_progressbar=False,
-            engine=engine,
-            fft_cache=split_caches[worker_idx],
+    # Parallel execution with backend-specific config
+    with _parallel_executor(n_jobs_effective) as parallel:
+        parallel_result = parallel(
+            delayed(scan_pairs)(
+                small_ts_bunch,
+                ts_bunch2,
+                metric,
+                nsh,
+                split_optimal_delays[worker_idx],
+                split_random_shifts[worker_idx],  # Pre-generated, pre-split shifts
+                mi_estimator,
+                joint_distr=joint_distr,
+                allow_mixed_dimensions=allow_mixed_dimensions,
+                ds=ds,
+                mask=split_mask[worker_idx],
+                noise_const=noise_const,
+                seed=seed,
+                enable_progressbar=False,
+                engine=engine,
+                fft_cache=split_caches[worker_idx],
+            )
+            for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
         )
-        for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
-    )
 
     for i in range(n_jobs):
         inds_of_interest = split_ts_bunch1_inds[i]
