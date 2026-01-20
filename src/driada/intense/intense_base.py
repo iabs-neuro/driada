@@ -46,6 +46,7 @@ def _parallel_executor(n_jobs, verbose=False):
     """Context manager for parallel execution with backend-specific config.
 
     Provides:
+    - Aggressive idle_worker_timeout for loky backend (requires joblib>=1.5.0)
     - Appropriate pre_dispatch for threading backend to limit memory
     - Centralized configuration for all parallel calls
 
@@ -66,7 +67,10 @@ def _parallel_executor(n_jobs, verbose=False):
     Threading backend uses conservative pre_dispatch='n_jobs' to limit memory
     buildup during long batch runs (complements cache splitting from commit fed4b1f).
 
-    Loky/multiprocessing use default pre_dispatch='2*n_jobs' for better parallelism.
+    Loky backend uses aggressive idle_worker_timeout=60s (vs default 300s) to
+    prevent worker accumulation over long batch runs.
+
+    Multiprocessing uses default settings.
     """
     import driada
     backend = driada.PARALLEL_BACKEND
@@ -80,12 +84,18 @@ def _parallel_executor(n_jobs, verbose=False):
         # With pre_dispatch='n_jobs', only n_jobs tasks are queued at once,
         # reducing memory from queued cache data
         parallel_kwargs['pre_dispatch'] = 'n_jobs'
+    elif backend == 'loky':
+        # Loky backend: aggressive idle_worker_timeout and default pre_dispatch
+        # Clean up idle workers after 60s (vs default 300s) to prevent accumulation
+        config['idle_worker_timeout'] = 60
+        parallel_kwargs['pre_dispatch'] = '2*n_jobs'
     else:
-        # Loky/multiprocessing: default pre_dispatch for better task scheduling
+        # multiprocessing backend: use defaults
         parallel_kwargs['pre_dispatch'] = '2*n_jobs'
 
     if verbose:
-        print(f"Parallel config: backend={backend}, pre_dispatch={parallel_kwargs['pre_dispatch']}")
+        timeout_info = f", idle_timeout={config.get('idle_worker_timeout', 'N/A')}s" if 'idle_worker_timeout' in config else ""
+        print(f"Parallel config: backend={backend}{timeout_info}, pre_dispatch={parallel_kwargs['pre_dispatch']}")
 
     with parallel_config(**config):
         yield Parallel(**parallel_kwargs)
