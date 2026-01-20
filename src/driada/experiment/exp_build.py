@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 
 from .exp_base import Experiment
-from ..information.info_base import TimeSeries, MultiTimeSeries
+from ..information.info_base import TimeSeries, MultiTimeSeries, aggregate_multiple_ts
 from ..utils.naming import construct_session_name
 from ..utils.output import show_output
 from .neuron import DEFAULT_FPS, DEFAULT_T_OFF, DEFAULT_T_RISE
@@ -226,8 +226,8 @@ def load_exp_from_aligned_data(
                 ts = TimeSeries(arr, discrete=False, name=f"{combined_name}_{i}")
                 ts_list.append(ts)
 
-            # Create MultiTimeSeries from components
-            filt_dyn_features[combined_name] = MultiTimeSeries(ts_list, name=combined_name)
+            # Create MultiTimeSeries from components (adds noise to break degeneracy)
+            filt_dyn_features[combined_name] = aggregate_multiple_ts(*ts_list, name=combined_name)
 
     dyn_features = adata.copy()
 

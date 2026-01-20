@@ -2061,7 +2061,7 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator="gcmi"):
     return mi
 
 
-def aggregate_multiple_ts(*ts_args, noise=1e-5):
+def aggregate_multiple_ts(*ts_args, noise=1e-7, name=None):
     """Aggregate multiple continuous TimeSeries into a single MultiTimeSeries.
 
     Adds small noise to break degeneracy and creates a MultiTimeSeries from
@@ -2071,8 +2071,10 @@ def aggregate_multiple_ts(*ts_args, noise=1e-5):
     ----------
     *ts_args : TimeSeries
         Variable number of TimeSeries objects to aggregate.
-    noise : float, default=1e-5
+    noise : float, default=1e-7
         Amount of noise to add to break degeneracy.
+    name : str, optional
+        Name for the resulting MultiTimeSeries.
 
     Returns
     -------
@@ -2088,16 +2090,17 @@ def aggregate_multiple_ts(*ts_args, noise=1e-5):
     --------
     >>> ts1 = TimeSeries(np.random.randn(100), discrete=False)
     >>> ts2 = TimeSeries(np.random.randn(100), discrete=False)
-    >>> mts = aggregate_multiple_ts(ts1, ts2)"""
+    >>> mts = aggregate_multiple_ts(ts1, ts2, name='position')"""
     # add small noise to break degeneracy
     mod_tslist = []
-    for ts in ts_args:
+    for i, ts in enumerate(ts_args):
         if ts.discrete:
             raise ValueError("this is not applicable to discrete TimeSeries")
-        mod_ts = TimeSeries(ts.data + np.random.random(size=len(ts.data)) * noise, discrete=False)
+        ts_name = f"{name}_{i}" if name else None
+        mod_ts = TimeSeries(ts.data + np.random.random(size=len(ts.data)) * noise, discrete=False, name=ts_name)
         mod_tslist.append(mod_ts)
 
-    mts = MultiTimeSeries(mod_tslist)  # add last two TS into a single 2-d MTS
+    mts = MultiTimeSeries(mod_tslist, name=name)
     return mts
 
 

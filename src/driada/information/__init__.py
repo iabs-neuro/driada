@@ -9,6 +9,7 @@ mutual information, entropy, and conditional information measures.
 from .info_base import (
     TimeSeries,
     MultiTimeSeries,
+    aggregate_multiple_ts,
     get_mi,
     get_1d_mi,
     get_multi_mi,
@@ -53,6 +54,7 @@ __all__ = [
     # Core classes and functions
     "TimeSeries",
     "MultiTimeSeries",
+    "aggregate_multiple_ts",
     "get_mi",
     "get_1d_mi",
     "get_multi_mi",
