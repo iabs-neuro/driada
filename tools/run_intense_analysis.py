@@ -349,6 +349,10 @@ Examples:
         summaries.append(summary)
         processed_count += 1
 
+        # Save batch summary after each file to preserve progress
+        if output_dir:
+            save_batch_summary_csv(summaries, output_dir / 'batch_summary.csv')
+
         # Force garbage collection to prevent memory accumulation with threading backend
         gc.collect()
 
