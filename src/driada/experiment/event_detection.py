@@ -280,18 +280,23 @@ def deconvolve_given_event_times(
     if n_events == 0:
         return np.array([])
 
-    # Build design matrix
+    # Build design matrix with vectorized kernel generation
     K = np.zeros((n_frames, n_events))
+
+    # Pre-compute normalized kernel template (maximum length we'll need)
+    # This avoids recomputing exponentials for each event
+    t_template = np.arange(n_frames)
+    kernel_template = (1 - np.exp(-t_template / t_rise_frames)) * np.exp(-t_template / t_off_frames)
+    kernel_max = np.max(kernel_template)
+    if kernel_max > 0:
+        kernel_template = kernel_template / kernel_max
+
+    # Filter valid events and apply kernel template
     for i, event_time_idx in enumerate(event_times):
         if event_time_idx < 0 or event_time_idx >= n_frames:
             continue
         remaining_frames = n_frames - event_time_idx
-        t_array = np.arange(remaining_frames)
-        kernel = (1 - np.exp(-t_array / t_rise_frames)) * np.exp(-t_array / t_off_frames)
-        kernel_max = np.max(kernel)
-        if kernel_max > 0:
-            kernel = kernel / kernel_max
-        K[event_time_idx:, i] = kernel
+        K[event_time_idx:, i] = kernel_template[:remaining_frames]
 
     # Apply event mask if provided
     if event_mask is not None:

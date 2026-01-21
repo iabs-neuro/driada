@@ -1,12 +1,12 @@
 import time
+import multiprocessing
 from contextlib import contextmanager
 
 import numpy as np
 import tqdm
 from dataclasses import dataclass
 from typing import Callable, Optional
-from joblib import Parallel, delayed, parallel_config
-import multiprocessing
+from joblib import Parallel, delayed
 
 from .stats import (
     populate_nested_dict,
@@ -34,71 +34,9 @@ from ..information.info_base import (
 from ..utils.data import nested_dict_to_seq_of_tables, add_names_to_nested_dict
 from .io import IntenseResults
 
-# Joblib backend - use global driada.PARALLEL_BACKEND setting
-# Access via function to get current value (allows runtime changes)
-def _get_parallel_backend():
-    import driada
-    return driada.PARALLEL_BACKEND
-
-
-@contextmanager
-def _parallel_executor(n_jobs, verbose=False):
-    """Context manager for parallel execution with backend-specific config.
-
-    Provides:
-    - Aggressive idle_worker_timeout for loky backend (requires joblib>=1.5.0)
-    - Appropriate pre_dispatch for threading backend to limit memory
-    - Centralized configuration for all parallel calls
-
-    Parameters
-    ----------
-    n_jobs : int
-        Number of parallel jobs
-    verbose : bool
-        Whether to print configuration details
-
-    Yields
-    ------
-    Parallel
-        Configured Parallel executor
-
-    Notes
-    -----
-    Threading backend uses conservative pre_dispatch='n_jobs' to limit memory
-    buildup during long batch runs (complements cache splitting from commit fed4b1f).
-
-    Loky backend uses aggressive idle_worker_timeout=60s (vs default 300s) to
-    prevent worker accumulation over long batch runs.
-
-    Multiprocessing uses default settings.
-    """
-    import driada
-    backend = driada.PARALLEL_BACKEND
-
-    # Backend-specific parallel_config settings
-    config = {'backend': backend}
-    parallel_kwargs = {'n_jobs': n_jobs, 'backend': backend}
-
-    if backend == 'threading':
-        # Threading backend: conservative pre_dispatch to limit memory pressure
-        # With pre_dispatch='n_jobs', only n_jobs tasks are queued at once,
-        # reducing memory from queued cache data
-        parallel_kwargs['pre_dispatch'] = 'n_jobs'
-    elif backend == 'loky':
-        # Loky backend: aggressive idle_worker_timeout and default pre_dispatch
-        # Clean up idle workers after 60s (vs default 300s) to prevent accumulation
-        config['idle_worker_timeout'] = 60
-        parallel_kwargs['pre_dispatch'] = '2*n_jobs'
-    else:
-        # multiprocessing backend: use defaults
-        parallel_kwargs['pre_dispatch'] = '2*n_jobs'
-
-    if verbose:
-        timeout_info = f", idle_timeout={config.get('idle_worker_timeout', 'N/A')}s" if 'idle_worker_timeout' in config else ""
-        print(f"Parallel config: backend={backend}{timeout_info}, pre_dispatch={parallel_kwargs['pre_dispatch']}")
-
-    with parallel_config(**config):
-        yield Parallel(**parallel_kwargs)
+# Import shared parallel utilities
+# Note: _parallel_executor is now in utils.parallel for shared use across modules
+from ..utils.parallel import parallel_executor as _parallel_executor, get_parallel_backend as _get_parallel_backend
 
 # Default noise amplitude added to MI values for numerical stability
 DEFAULT_NOISE_AMPLITUDE = 1e-3

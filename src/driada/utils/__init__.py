@@ -77,6 +77,12 @@ from .signals import (
     adaptive_filter_signals,
 )
 
+# Parallel execution utilities
+from .parallel import (
+    parallel_executor,
+    get_parallel_backend,
+)
+
 __all__ = [
     # Data manipulation
     "populate_nested_dict",
@@ -127,4 +133,7 @@ __all__ = [
     "filter_1d_timeseries",
     "filter_signals",
     "adaptive_filter_signals",
+    # Parallel execution
+    "parallel_executor",
+    "get_parallel_backend",
 ]

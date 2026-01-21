@@ -28,6 +28,8 @@ def load_exp_from_aligned_data(
     verbose=True,
     reconstruct_spikes=None,
     aggregate_features=None,
+    n_jobs=-1,
+    enable_parallelization=True,
 ):
     """Create an Experiment object from aligned neural and behavioral data.
 
@@ -98,6 +100,12 @@ def load_exp_from_aligned_data(
 
         The component features remain available as individual features
         in addition to the combined MultiTimeSeries.
+    n_jobs : int, default=-1
+        Number of parallel jobs for neuron construction and other parallel
+        operations. Use -1 for all available cores, 1 to disable parallelization.
+    enable_parallelization : bool, default=True
+        Enable parallel processing for neuron construction and hash computation.
+        Set to False to use sequential processing (useful for debugging).
 
     Returns
     -------
@@ -385,6 +393,8 @@ def load_exp_from_aligned_data(
         # bad_frames_mask: True = bad frame to remove, False = good frame to keep
         bad_frames_mask=np.array([i in bad_frames for i in range(calcium.shape[1])]),
         verbose=verbose,
+        n_jobs=n_jobs,
+        enable_parallelization=enable_parallelization,
     )
 
     return exp

@@ -373,6 +373,10 @@ class Experiment:
         spike_kwargs = kwargs.get("spike_kwargs", None)
         self.verbose = kwargs.get("verbose", True)
 
+        # Parallelization settings
+        self._n_jobs = kwargs.get("n_jobs", -1)
+        self._enable_parallelization = kwargs.get("enable_parallelization", True)
+
         check_dynamic_features(dynamic_features)
         self.exp_identificators = exp_identificators
         self.signature = signature
@@ -445,20 +449,58 @@ class Experiment:
 
         if self.verbose:
             print("Building neurons...")
-        for i in tqdm.tqdm(
-            np.arange(self.n_cells), position=0, leave=True, disable=not self.verbose
-        ):
-            cell = Neuron(
+
+        # Helper function for building a single neuron (used in parallel mode)
+        def _build_neuron(i, calcium_row, spikes_row, t_rise, t_off, fps, opt_kin):
+            return Neuron(
                 str(i),
-                calcium[i, :],
-                spikes[i, :] if spikes is not None else None,
-                default_t_rise=static_features.get("t_rise_sec"),
-                default_t_off=static_features.get("t_off_sec"),
-                fps=static_features.get("fps"),
-                optimize_kinetics=optimize_kinetics,
+                calcium_row,
+                spikes_row,
+                default_t_rise=t_rise,
+                default_t_off=t_off,
+                fps=fps,
+                optimize_kinetics=opt_kin,
             )
 
-            self.neurons.append(cell)
+        # Extract static feature parameters
+        t_rise = static_features.get("t_rise_sec")
+        t_off = static_features.get("t_off_sec")
+        fps = static_features.get("fps")
+
+        # Use parallel construction if enabled and we have multiple cells
+        if self._enable_parallelization and self.n_cells > 1:
+            from ..utils.parallel import parallel_executor, delayed
+
+            with parallel_executor(n_jobs=self._n_jobs) as parallel:
+                self.neurons = parallel(
+                    delayed(_build_neuron)(
+                        i,
+                        calcium[i, :],
+                        spikes[i, :] if spikes is not None else None,
+                        t_rise,
+                        t_off,
+                        fps,
+                        optimize_kinetics,
+                    )
+                    for i in tqdm.tqdm(
+                        np.arange(self.n_cells), position=0, leave=True, disable=not self.verbose
+                    )
+                )
+        else:
+            # Sequential construction using same helper function
+            for i in tqdm.tqdm(
+                np.arange(self.n_cells), position=0, leave=True, disable=not self.verbose
+            ):
+                cell = _build_neuron(
+                    i,
+                    calcium[i, :],
+                    spikes[i, :] if spikes is not None else None,
+                    t_rise,
+                    t_off,
+                    fps,
+                    optimize_kinetics,
+                )
+                self.neurons.append(cell)
 
         # Now create MultiTimeSeries from neurons to preserve their shuffle masks
         calcium_ts_list = [neuron.ca for neuron in self.neurons]
@@ -749,8 +791,28 @@ class Experiment:
         self._data_hashes[mode] = mode_hashes
 
         # Populate hashes for this mode
-        for feat_id in self.dynamic_features:
-            for cell_id in range(self.n_cells):
+        # Build list of all (feat_id, cell_id) pairs
+        pairs = [
+            (feat_id, cell_id)
+            for feat_id in self.dynamic_features
+            for cell_id in range(self.n_cells)
+        ]
+
+        # Use parallel computation if enabled and we have enough pairs
+        if self._enable_parallelization and len(pairs) > 10:
+            from ..utils.parallel import parallel_executor, delayed
+
+            with parallel_executor(n_jobs=self._n_jobs) as parallel:
+                hashes = parallel(
+                    delayed(self._build_pair_hash)(cell_id, feat_id, mode=mode)
+                    for feat_id, cell_id in pairs
+                )
+
+            for (feat_id, cell_id), hash_val in zip(pairs, hashes):
+                self._data_hashes[mode][feat_id][cell_id] = hash_val
+        else:
+            # Sequential computation (original code path)
+            for feat_id, cell_id in pairs:
                 self._data_hashes[mode][feat_id][cell_id] = self._build_pair_hash(
                     cell_id, feat_id, mode=mode
                 )
@@ -1893,6 +1955,8 @@ class Experiment:
         rel_wvt_times=None,
         show_progress=True,
         use_gpu=False,
+        n_jobs=None,
+        enable_parallelization=None,
         **kwargs,
     ):
         """Batch reconstruct spikes for all neurons with wavelet optimization.
@@ -1918,6 +1982,11 @@ class Experiment:
         use_gpu : bool
             Use GPU acceleration for wavelet transform. Default False.
             Requires PyTorch and CuPy. Ridge extraction remains CPU-only.
+        n_jobs : int, optional
+            Number of parallel jobs. Default uses experiment's n_jobs setting.
+            Use -1 for all available cores.
+        enable_parallelization : bool, optional
+            Enable parallel processing. Default uses experiment's setting.
         **kwargs
             Additional parameters passed to neuron.reconstruct_spikes()
 
@@ -1926,13 +1995,21 @@ class Experiment:
         None
             Updates neuron objects in-place and syncs to exp.spikes
         """
-        from ssqueezepy.wavelets import Wavelet, time_resolution
-        from .wavelet_event_detection import get_adaptive_wavelet_scales
         import tqdm
 
         fps = self.fps if self.fps is not None else 20.0
 
+        # Use experiment settings if not explicitly provided
+        if n_jobs is None:
+            n_jobs = self._n_jobs
+        if enable_parallelization is None:
+            enable_parallelization = self._enable_parallelization
+
         # Pre-compute wavelet ONCE if needed
+        if method == "wavelet":
+            from ssqueezepy.wavelets import Wavelet, time_resolution
+            from .wavelet_event_detection import get_adaptive_wavelet_scales
+
         if method == "wavelet" and wavelet is None:
             wavelet = Wavelet(("gmw", {"gamma": 3, "beta": 2, "centered_scale": True}), N=8196)
             manual_scales = get_adaptive_wavelet_scales(fps)
@@ -1941,13 +2018,12 @@ class Experiment:
                 for sc in manual_scales
             ]
 
-        # Hybrid kinetics: optimize BEFORE reconstruction
-        if hybrid_kinetics and optimize_kinetics:
-            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Kinetics"):
-                neuron.optimize_kinetics(method="direct", fps=fps)
+        # Helper functions for parallel execution
+        def _optimize_kinetics(neuron, fps):
+            neuron.optimize_kinetics(method="direct", fps=fps)
+            return neuron
 
-        # Reconstruct all neurons with shared wavelet
-        for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Reconstruction"):
+        def _reconstruct_spikes(neuron, method, n_iter, fps, wavelet, rel_wvt_times, use_gpu, kwargs):
             neuron.reconstruct_spikes(
                 method=method,
                 iterative=True,
@@ -1958,11 +2034,54 @@ class Experiment:
                 use_gpu=use_gpu,
                 **kwargs,
             )
+            return neuron
+
+        # Hybrid kinetics: optimize BEFORE reconstruction
+        # Note: Uses global driada.PARALLEL_BACKEND. Set to 'threading' on Windows
+        # to avoid DLL loading issues with PyTorch/ssqueezepy.
+        if hybrid_kinetics and optimize_kinetics:
+            if enable_parallelization and len(self.neurons) > 1:
+                from ..utils.parallel import parallel_executor, delayed
+
+                with parallel_executor(n_jobs=n_jobs) as parallel:
+                    self.neurons = parallel(
+                        delayed(_optimize_kinetics)(neuron, fps)
+                        for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Kinetics")
+                    )
+            else:
+                for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Kinetics"):
+                    _optimize_kinetics(neuron, fps)
+
+        # Reconstruct all neurons with shared wavelet
+        if enable_parallelization and len(self.neurons) > 1:
+            from ..utils.parallel import parallel_executor, delayed
+
+            with parallel_executor(n_jobs=n_jobs) as parallel:
+                self.neurons = parallel(
+                    delayed(_reconstruct_spikes)(
+                        neuron, method, n_iter, fps, wavelet, rel_wvt_times, use_gpu, kwargs
+                    )
+                    for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Reconstruction")
+                )
+        else:
+            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Reconstruction"):
+                _reconstruct_spikes(
+                    neuron, method, n_iter, fps, wavelet, rel_wvt_times, use_gpu, kwargs
+                )
 
         # Post-reconstruction kinetics if not hybrid
         if not hybrid_kinetics and optimize_kinetics:
-            for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Kinetics"):
-                neuron.optimize_kinetics(method="direct", fps=fps)
+            if enable_parallelization and len(self.neurons) > 1:
+                from ..utils.parallel import parallel_executor, delayed
+
+                with parallel_executor(n_jobs=n_jobs) as parallel:
+                    self.neurons = parallel(
+                        delayed(_optimize_kinetics)(neuron, fps)
+                        for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Kinetics")
+                    )
+            else:
+                for neuron in tqdm.tqdm(self.neurons, disable=not show_progress, desc="Kinetics"):
+                    _optimize_kinetics(neuron, fps)
 
         # Sync neuron.sp → exp.spikes
         self._update_spike_data_from_neurons()
