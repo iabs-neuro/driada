@@ -164,6 +164,15 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
     t_total = t_load + t_intense
     print(f"\n  Timing: Load {t_load:.1f}s, INTENSE {t_intense:.1f}s, Total {t_total:.1f}s")
 
+    # Clear TimeSeries caches to prevent memory accumulation
+    for neuron in exp.neurons.values():
+        if hasattr(neuron.calcium, 'clear_caches'):
+            neuron.calcium.clear_caches()
+    for feature in exp.behavioral_data.values():
+        if hasattr(feature, 'clear_caches'):
+            feature.clear_caches()
+    del exp
+
     # Return full comprehensive summary
     return summary_dict
 
@@ -353,8 +362,9 @@ Examples:
         if output_dir:
             save_batch_summary_csv(summaries, output_dir / 'batch_summary.csv')
 
-        # Force garbage collection to prevent memory accumulation with threading backend
+        # Force garbage collection and worker pool cleanup
         gc.collect()
+        time.sleep(2)  # Allow workers to shut down (idle_worker_timeout=60s)
 
         # Legacy JSON output for single file mode
         if args.output and len(npz_paths) == 1:

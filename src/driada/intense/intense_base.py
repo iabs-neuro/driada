@@ -1890,7 +1890,7 @@ def scan_pairs_parallel(
             for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
         )
 
-    for i in range(n_jobs):
+    for i in range(n_jobs_effective):
         inds_of_interest = split_ts_bunch1_inds[i]
         random_shifts[inds_of_interest, :, :] = parallel_result[i][0][:, :, :]
         me_total[inds_of_interest, :, :] = parallel_result[i][1][:, :, :]

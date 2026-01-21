@@ -510,6 +510,13 @@ class TimeSeries:
         else:
             self.shuffle_mask = shuffle_mask.astype(bool)
 
+    def clear_caches(self):
+        """Clear cached data to free memory in batch processing."""
+        self.copula_normal_data = None
+        self.entropy.clear()
+        self.kdtree = None
+        self.kdtree_query.clear()
+
     def get_kdtree(self):
         """Get or build KDTree for efficient nearest neighbor queries.
 
@@ -1043,6 +1050,11 @@ class MultiTimeSeries(MVData):
                 )
 
         self.entropy = dict()  # supports various downsampling constants
+
+    def clear_caches(self):
+        """Clear cached data to free memory in batch processing."""
+        self.copula_normal_data = None
+        self.entropy.clear()
 
     @property
     def shape(self):
