@@ -165,10 +165,10 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
     print(f"\n  Timing: Load {t_load:.1f}s, INTENSE {t_intense:.1f}s, Total {t_total:.1f}s")
 
     # Clear TimeSeries caches to prevent memory accumulation
-    for neuron in exp.neurons.values():
-        if hasattr(neuron.calcium, 'clear_caches'):
-            neuron.calcium.clear_caches()
-    for feature in exp.behavioral_data.values():
+    for neuron in exp.neurons:
+        if hasattr(neuron.ca, 'clear_caches'):
+            neuron.ca.clear_caches()
+    for feature in exp.dynamic_features.values():
         if hasattr(feature, 'clear_caches'):
             feature.clear_caches()
     del exp
