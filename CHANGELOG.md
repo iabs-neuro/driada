@@ -58,6 +58,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.2] - 2026-01-21
+
+**🔧 Batch processing CLI and disentanglement analysis enhancements**
+
+### Performance
+- **Discrete-Discrete FFT Vectorization** - 50-100x speedup for `mi_dd_fft` computation via vectorized operations
+- **FFT Memory Optimization** - Up to 200x memory reduction in FFT modules through improved buffer management
+- **MI Value Caching** - Pre-computed MI values cached in FFT cache for 4-5x speedup in repeated lookups
+- **Disentanglement Parallelization** - MI lookup tables and parallel FFT cache; parallelized per-neuron processing
+- **IPC Overhead Reduction** - Split `fft_cache` per worker to reduce inter-process communication in parallel jobs
+- **Feature Copula Pre-computation** - Pre-compute copula cache before parallel loop to avoid redundant computation
+- **Calcium Signal Vectorization** - Vectorized convolution for spike-to-calcium signal reconstruction
+
+### Features
+- **Batch Processing CLI**
+  - `--dir` option for processing multiple experiment files in a directory
+  - `--skip-computed` flag to resume interrupted batch runs, loading existing stats from CSV
+  - `--parallel-backend` option with global `PARALLEL_BACKEND` config (loky, threading, multiprocessing)
+  - Backend-specific parallel config with `pre_dispatch` tuning for memory control
+  - Timeout wrapper for autonomous batch processing using `subprocess.Popen` polling
+  - Incremental batch summary saving after each file (fault tolerance)
+  - Automatic cache clearing for memory management in long-running jobs
+  - Upgraded to joblib 1.5.0 with `idle_worker_timeout` for worker cleanup
+
+- **Disentanglement Analysis**
+  - Composable pre-filters for disentanglement analysis (spatial, temporal, threshold-based)
+  - Filter examples added to `run_intense_analysis` script
+  - Disentangled stats and significance output tables for publication-ready results
+
+- **I/O & Data Loading**
+  - New INTENSE I/O module using NPZ format (removes HDF5 dependency)
+  - Tool for loading synchronized experiment `.npz` files
+  - Experiment configs for `selectivity_dynamics` package
+
+- **Profiling**
+  - Internal timing profiling for INTENSE pipelines
+  - Timing instrumentation for FFT cache building
+
+### Fixed
+- **Windows Process Handling** - Changed joblib backend to `loky` to prevent CMD hanging; use `Popen` polling to prevent timeout wrapper freeze
+- **Memory Leaks** - Added `gc.collect()` after each experiment to prevent memory accumulation in batch processing
+- **Zero Column Errors** - Use `aggregate_multiple_ts` in exp_build to add noise and avoid degenerate feature matrices
+- **Disentanglement Robustness** - Improved numerical stability with spatial filter fallbacks
+- **Google API Warning** - Suppressed spurious authentication warning
+- **Test Stability** - Relaxed flaky test tolerances for CI reliability
+
+### Changed
+- Consolidated IABS filename parsing into `driada.utils.naming` module
+- Removed HDF5 dependency from INTENSE results (replaced with NPZ format)
+
+---
+
 ## [0.7.1] - 2026-01-17
 
 **🚀 Enhanced performance and data loading capabilities**
