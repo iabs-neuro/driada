@@ -1,5 +1,6 @@
 import time
 import multiprocessing
+import warnings
 from contextlib import contextmanager
 
 import numpy as np
@@ -2467,6 +2468,22 @@ def compute_me_stats(
 
         optimal_delays = np.zeros((n1, n2), dtype=int)
 
+        # Auto-detect MTS features that need to be skipped from delay optimization
+        if find_optimal_delays and allow_mixed_dimensions:
+            mts_indices = [i for i, ts in enumerate(ts_bunch2)
+                          if isinstance(ts, MultiTimeSeries)]
+            if mts_indices:
+                # Merge with user-provided skip_delays
+                skip_delays = list(set((skip_delays or []) + mts_indices))
+                mts_names = [ts_bunch2[i].name or f"index_{i}" for i in mts_indices]
+                warnings.warn(
+                    f"MultiTimeSeries features {mts_names} automatically excluded from "
+                    f"delay optimization (not supported for multivariate data). "
+                    f"Use skip_delays explicitly to silence this warning.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
         # Validate skip_delays indices before use
         if skip_delays:
             invalid_indices = [i for i in skip_delays if i < 0 or i >= len(ts_bunch2)]
@@ -2493,7 +2510,7 @@ def compute_me_stats(
             timings['fft_type_counts'] = fft_type_counts
 
         with _timed_section(timings, 'stage1_delay_optimization'):
-            if find_optimal_delays:
+            if find_optimal_delays and len(ts_with_delays) > 0:
                 # Use unified fft_cache - no need for separate delay cache
                 # Since cache uses stable keys, ts_with_delays objects are already cached
                 if enable_parallelization:
