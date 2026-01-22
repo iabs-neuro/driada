@@ -9,6 +9,8 @@ import numpy as np
 import pytest
 from driada.experiment import generate_mixed_population_exp, Experiment
 
+# Warmup: trigger lazy initialization (NumPy JIT, module setup) before timing tests
+_ = generate_mixed_population_exp(n_neurons=2, duration=10, fps=10, verbose=False)
 
 # Fast test parameters
 FAST_PARAMS = {

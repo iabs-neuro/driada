@@ -13,6 +13,11 @@ from driada.experiment.synthetic import (
 )
 from driada.intense.pipelines import compute_cell_feat_significance
 
+# Warmup: trigger lazy initialization before timing tests
+_ = generate_synthetic_exp_with_mixed_selectivity(
+    n_discrete_feats=1, n_continuous_feats=1, n_neurons=2, duration=10, fps=10, verbose=False
+)
+
 
 class TestMultiselectivityPatterns:
     """Test the selectivity pattern generation."""

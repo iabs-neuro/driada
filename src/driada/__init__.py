@@ -6,6 +6,7 @@ of intelligent systems, from brain neural recordings in vivo to RNNs.
 """
 
 import os as _os
+import sys as _sys
 
 # Suppress Google API Python version warning (Python 3.10 EOL is Oct 2026)
 import warnings as _warnings
@@ -20,9 +21,11 @@ __version__ = "0.7.2"
 
 # Joblib parallel backend for all driada parallel computations
 # Can be set via DRIADA_PARALLEL_BACKEND environment variable
-# Options: "loky" (default, true parallelism), "threading" (stable), "multiprocessing"
-PARALLEL_BACKEND = _os.environ.get("DRIADA_PARALLEL_BACKEND", "loky")
-del _os
+# Options: "loky" (true parallelism), "threading" (stable), "multiprocessing"
+# Default: "threading" on Windows (loky has ~100x overhead), "loky" elsewhere
+_default_backend = "threading" if _sys.platform == "win32" else "loky"
+PARALLEL_BACKEND = _os.environ.get("DRIADA_PARALLEL_BACKEND", _default_backend)
+del _os, _sys, _default_backend
 
 
 def set_parallel_backend(backend: str):

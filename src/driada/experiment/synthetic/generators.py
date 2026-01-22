@@ -316,6 +316,7 @@ def generate_tuned_selectivity_exp(
     hurst: float = 0.3,
     seed: Optional[int] = None,
     verbose: bool = True,
+    reconstruct_spikes: Optional[str] = None,
 ) -> "Experiment":
     """
     Generate synthetic experiment with principled tuning-based selectivity.
@@ -769,6 +770,7 @@ def generate_tuned_selectivity_exp(
         ground_truth=ground_truth,
         verbose=False,
         optimize_kinetics=False,
+        reconstruct_spikes=reconstruct_spikes,
     )
 
     if verbose:
@@ -1417,6 +1419,7 @@ def generate_circular_manifold_exp(
         },
         verbose=verbose,
         optimize_kinetics=False,
+        reconstruct_spikes=None,  # Don't reconstruct spikes for synthetic data
     )
 
     # Create info dictionary if requested
@@ -1818,6 +1821,7 @@ def generate_2d_manifold_exp(
             "duration": duration,
         },
         optimize_kinetics=False,
+        reconstruct_spikes=None,  # Don't reconstruct spikes for synthetic data
     )
 
     # Create info dictionary if requested
@@ -2204,6 +2208,11 @@ def generate_synthetic_exp(
     for key in ["verbose", "baseline_rate", "peak_rate", "decay_time", "calcium_noise", "hurst"]:
         if key in kwargs:
             tuned_kwargs[key] = kwargs[key]
+
+    # Handle with_spikes parameter - reconstruct spikes from calcium if requested
+    with_spikes = kwargs.get("with_spikes", False)
+    if with_spikes:
+        tuned_kwargs["reconstruct_spikes"] = "wavelet"
 
     # Generate experiment using canonical generator
     exp = generate_tuned_selectivity_exp(
