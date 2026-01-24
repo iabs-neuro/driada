@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 import platform
+import tempfile
 from pathlib import Path
 
 # Limit BLAS threads to prevent conflicts with joblib parallelism
@@ -93,14 +94,29 @@ def run_with_timeout(args, timeout):
     """
     cmd = [sys.executable, str(Path(__file__).parent / "run_intense_analysis.py")] + args
 
+    # Create temp log file to prevent pipe deadlock
+    log_file = tempfile.NamedTemporaryFile(
+        mode='w+',
+        delete=False,
+        suffix='.log',
+        prefix='intense_timeout_'
+    )
+    log_path = log_file.name
+
     print(f"\n{'='*60}")
     print(f"Starting analysis (timeout: {timeout}s)")
     print(f"Command: {' '.join(cmd)}")
+    print(f"Log file: {log_path}")
     print('='*60)
 
     try:
         # Use Popen for manual timeout control
-        proc = subprocess.Popen(cmd)
+        # Redirect output to file to prevent pipe deadlock
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log_file,
+            stderr=subprocess.STDOUT
+        )
         start_time = time.time()
         poll_interval = 1.0  # Check every second
         heartbeat_interval = 60  # Print heartbeat every minute
@@ -142,6 +158,11 @@ def run_with_timeout(args, timeout):
             kill_process_tree(proc.pid)
         return 'interrupted'
 
+    finally:
+        # Close log file
+        if 'log_file' in locals():
+            log_file.close()
+
 
 def main():
     import argparse
@@ -159,15 +180,22 @@ def main():
     # Parse only known args, pass rest to run_intense_analysis.py
     args, remaining = parser.parse_known_args()
 
-    # Ensure --skip-computed is in the args for restarts
-    if '--skip-computed' not in remaining:
-        remaining.append('--skip-computed')
+    # Force threading backend on Windows for stability
+    if IS_WINDOWS and '--parallel-backend' not in ' '.join(remaining):
+        remaining.extend(['--parallel-backend', 'threading'])
+        print("Note: Auto-enabled threading backend for Windows stability")
 
     attempt = 0
     start_time = time.time()
 
     while attempt < args.max_retries:
         attempt += 1
+
+        # Auto-enable --skip-computed on retries to resume from last checkpoint
+        if attempt > 1 and '--skip-computed' not in ' '.join(remaining):
+            remaining.append('--skip-computed')
+            print("Note: Auto-enabled --skip-computed for retry attempt")
+
         print(f"\n{'#'*60}")
         print(f"ATTEMPT {attempt}/{args.max_retries}")
         print('#'*60)
