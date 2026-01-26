@@ -883,16 +883,27 @@ def get_disentanglement_summary(
                 n_i_primary = disent_matrix[i, j]
                 n_j_primary = disent_matrix[j, i]
 
-                # Calculate undistinguishable cases from fractional parts
-                # Each undistinguishable case contributes 0.5 to both matrices
-                # So fractional part * 2 gives the number of such cases
-                frac_i = n_i_primary - int(n_i_primary)
-                frac_j = n_j_primary - int(n_j_primary)
-
-                # Fractional parts should match (both get 0.5 from each undistinguishable)
-                # Use minimum to handle floating point precision
-                n_undistinguishable = round(min(frac_i, frac_j) * 2)
-                n_redundant = n_total - n_undistinguishable
+                # Calculate undistinguishable cases
+                # When feat_feat_significance indicates features are not correlated (sig=0),
+                # disentanglement is skipped and all neurons get 0.5 (undistinguishable)
+                if feat_feat_significance is not None and feat_feat_significance[i, j] == 0:
+                    # Non-significant feature pair: all neurons are undistinguishable
+                    # (true mixed selectivity - features are independent)
+                    n_undistinguishable = int(n_total)
+                else:
+                    # Significant feature pair: calculate from matrix values
+                    # Each undistinguishable case contributes 0.5 to both matrices
+                    # Use: n_undist = n_total - (i_wins + j_wins)
+                    # where i_wins = int(n_i_primary), j_wins = int(n_j_primary)
+                    # when n_undist is even (no fractional part)
+                    frac_i = n_i_primary - int(n_i_primary)
+                    if frac_i > 0.25:  # Has fractional part (odd n_undist)
+                        n_undistinguishable = round(frac_i * 2)
+                    else:  # No fractional part (even n_undist, including 0)
+                        # i_wins + j_wins + n_undist = n_total
+                        # i_wins = n_i_primary (when frac=0), j_wins = n_j_primary
+                        n_undistinguishable = int(n_total - int(n_i_primary) - int(n_j_primary))
+                n_redundant = int(n_total) - n_undistinguishable
 
                 pair_key = f"{feat_names[i]}_vs_{feat_names[j]}"
                 summary["feature_pairs"][pair_key] = {
