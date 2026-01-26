@@ -95,6 +95,10 @@ from .summary import (
     save_batch_summary_csv,
     load_batch_summary_csv,
     format_metric,
+    load_low_selectivity_warnings,
+    save_low_selectivity_warnings,
+    check_low_selectivity,
+    LOW_SELECTIVITY_THRESHOLD,
 )
 
 # Export
@@ -142,6 +146,10 @@ __all__ = [
     'save_batch_summary_csv',
     'load_batch_summary_csv',
     'format_metric',
+    'load_low_selectivity_warnings',
+    'save_low_selectivity_warnings',
+    'check_low_selectivity',
+    'LOW_SELECTIVITY_THRESHOLD',
     # Export
     'save_all_results',
     'save_results',

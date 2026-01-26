@@ -6,11 +6,17 @@ Contains:
 - print_* functions: Display summaries to console
 - save_batch_summary_csv: Save batch results to CSV
 - load_batch_summary_csv: Load existing batch results from CSV
+- check_low_selectivity: Check and warn for low selectivity sessions
+- load_low_selectivity_warnings: Load warnings from CSV
+- save_low_selectivity_warnings: Save warnings to CSV
 """
 
 import numpy as np
 import pandas as pd
 from pathlib import Path
+
+# Threshold for low selectivity warning (percentage)
+LOW_SELECTIVITY_THRESHOLD = 10.0
 
 
 def load_batch_summary_csv(csv_path):
@@ -417,3 +423,71 @@ def print_batch_summary(summaries, t_batch_total, output_dir):
 
     if output_dir:
         print(f"\n  Results saved to: {output_dir}")
+
+
+def load_low_selectivity_warnings(csv_path):
+    """Load existing low selectivity warnings from CSV.
+
+    Parameters
+    ----------
+    csv_path : Path or str
+        Path to low_selectivity_warnings.csv
+
+    Returns
+    -------
+    list[dict]
+        List of warning dicts with keys: exp_name, pct_selective, n_significant_cells, n_cells, timestamp
+    """
+    csv_path = Path(csv_path)
+    if not csv_path.exists():
+        return []
+
+    df = pd.read_csv(csv_path)
+    return df.to_dict('records')
+
+
+def save_low_selectivity_warnings(warnings, csv_path):
+    """Save low selectivity warnings to CSV.
+
+    Parameters
+    ----------
+    warnings : list[dict]
+        List of warning dicts
+    csv_path : Path or str
+        Output path for CSV file
+    """
+    if not warnings:
+        return
+
+    df = pd.DataFrame(warnings)
+    df.to_csv(csv_path, index=False)
+    print(f"\n  Low selectivity warnings saved to: {csv_path}")
+
+
+def check_low_selectivity(summary, threshold=LOW_SELECTIVITY_THRESHOLD):
+    """Check if experiment has low selectivity and create warning if so.
+
+    Parameters
+    ----------
+    summary : dict
+        Summary metrics from compute_summary_metrics
+    threshold : float
+        Percentage threshold (default: 10.0)
+
+    Returns
+    -------
+    dict or None
+        Warning dict if selectivity is below threshold, None otherwise
+    """
+    pct_selective = summary.get('pct_selective', 0)
+    if pct_selective < threshold:
+        from datetime import datetime
+        return {
+            'exp_name': summary.get('exp_name', 'unknown'),
+            'pct_selective': pct_selective,
+            'n_significant_cells': summary.get('n_significant_cells', 0),
+            'n_cells': summary.get('n_cells', 0),
+            'threshold': threshold,
+            'timestamp': datetime.now().isoformat(),
+        }
+    return None

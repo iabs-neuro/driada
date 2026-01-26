@@ -63,6 +63,9 @@ from selectivity_dynamics import (
     save_results,
     get_exp_name,
     plot_disentanglement,
+    load_low_selectivity_warnings,
+    save_low_selectivity_warnings,
+    check_low_selectivity,
 )
 
 
@@ -330,6 +333,7 @@ Examples:
     # Process each file
     output_dir = Path(args.output_dir) if args.output_dir else None
     summaries = []
+    low_selectivity_warnings = []
     t_batch_start = time.time()
 
     use_filters = not args.no_filters
@@ -344,6 +348,12 @@ Examples:
             existing_list = load_batch_summary_csv(batch_csv)
             existing_summaries = {s['exp_name']: s for s in existing_list if 'exp_name' in s}
             print(f"  Loaded {len(existing_summaries)} existing summaries from {batch_csv}")
+
+        # Load existing low selectivity warnings
+        warnings_csv = output_dir / 'low_selectivity_warnings.csv'
+        if warnings_csv.exists():
+            low_selectivity_warnings = load_low_selectivity_warnings(warnings_csv)
+            print(f"  Loaded {len(low_selectivity_warnings)} existing warnings from {warnings_csv}")
 
     for i, npz_path in enumerate(npz_paths):
         npz_name = Path(npz_path).name
@@ -362,6 +372,15 @@ Examples:
         summary = process_single_experiment(npz_path, config, output_dir, args.plot, use_filters)
         summaries.append(summary)
         processed_count += 1
+
+        # Check for low selectivity warning
+        warning = check_low_selectivity(summary)
+        if warning:
+            # Check if warning already exists for this experiment
+            existing_names = {w['exp_name'] for w in low_selectivity_warnings}
+            if warning['exp_name'] not in existing_names:
+                low_selectivity_warnings.append(warning)
+                print(f"  WARNING: Low selectivity detected ({warning['pct_selective']:.1f}% < 10%)")
 
         # Save batch summary after each file to preserve progress
         if output_dir:
@@ -402,6 +421,10 @@ Examples:
     if output_dir:
         save_batch_summary_csv(summaries, output_dir / 'batch_summary.csv')
 
+        # Save low selectivity warnings
+        if low_selectivity_warnings:
+            save_low_selectivity_warnings(low_selectivity_warnings, output_dir / 'low_selectivity_warnings.csv')
+
     # Print enhanced batch summary
     print_batch_summary(summaries, t_batch_total, output_dir)
 
@@ -409,6 +432,12 @@ Examples:
     if args.skip_computed:
         loaded_count = len(existing_summaries)
         print(f"\nSkip summary: {processed_count} processed, {skipped_count} skipped ({loaded_count} loaded from cache)")
+
+    # Print warning summary
+    if low_selectivity_warnings:
+        print(f"\nLOW SELECTIVITY WARNINGS: {len(low_selectivity_warnings)} sessions")
+        for w in low_selectivity_warnings:
+            print(f"    {w['exp_name']}: {w['pct_selective']:.1f}% ({w['n_significant_cells']}/{w['n_cells']})")
 
     print(f"\n{'='*60}")
     print("BATCH ANALYSIS COMPLETE")
