@@ -22,6 +22,9 @@ import platform
 import tempfile
 from pathlib import Path
 
+# Force unbuffered output so subprocess output reaches log file immediately
+os.environ["PYTHONUNBUFFERED"] = "1"
+
 # Limit BLAS threads to prevent conflicts with joblib parallelism
 # Inherited by subprocesses
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -72,39 +75,88 @@ def kill_process_tree(pid):
             print(f"kill failed: {e}")
 
 
-def run_with_timeout(args, timeout):
+def stream_log_file(log_file, last_position):
+    """Read and print new content from log file.
+
+    Returns
+    -------
+    tuple
+        (new_position, had_output) - new file position and whether new content was found
+    """
+    try:
+        log_file.flush()
+        os.fsync(log_file.fileno())
+    except (OSError, ValueError):
+        pass  # File may be closed or invalid
+
+    log_file.seek(last_position)
+    new_content = log_file.read()
+
+    if new_content:
+        print(new_content, end='', flush=True)
+        return log_file.tell(), True
+
+    return last_position, False
+
+
+def get_output_dir_from_args(args):
+    """Extract --output-dir value from argument list.
+
+    Returns
+    -------
+    Path or None
+        Output directory path if found, None otherwise.
+    """
+    for i, arg in enumerate(args):
+        if arg == '--output-dir' and i + 1 < len(args):
+            return Path(args[i + 1])
+        if arg.startswith('--output-dir='):
+            return Path(arg.split('=', 1)[1])
+    return None
+
+
+def run_with_timeout(args, timeout, stall_timeout=120):
     """Run analysis script with timeout using Popen and polling.
 
     Uses explicit polling loop instead of subprocess.run(timeout=...) to avoid
-    freezing when the child process hangs. Kills entire process tree on timeout.
+    freezing when the child process hangs. Kills entire process tree on timeout
+    or stall (no output for too long).
 
     Parameters
     ----------
     args : list
         Arguments to pass to run_intense_analysis.py
     timeout : int
-        Timeout in seconds
+        Wall-clock timeout in seconds
+    stall_timeout : int, optional
+        Kill process if no output for this many seconds (default: 120)
 
     Returns
     -------
     str
         'success' - completed normally
-        'timeout' - killed due to timeout
+        'timeout' - killed due to wall-clock timeout
+        'stall' - killed due to no output (process frozen)
         'error' - failed with error
     """
     cmd = [sys.executable, str(Path(__file__).parent / "run_intense_analysis.py")] + args
 
-    # Create temp log file to prevent pipe deadlock
-    log_file = tempfile.NamedTemporaryFile(
-        mode='w+',
-        delete=False,
-        suffix='.log',
-        prefix='intense_timeout_'
-    )
-    log_path = log_file.name
+    # Determine log directory: use output_dir/logs/ if available, else system temp
+    output_dir = get_output_dir_from_args(args)
+    if output_dir:
+        log_dir = output_dir / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        log_dir = Path(tempfile.gettempdir())
+
+    # Create log file with timestamp
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_path = log_dir / f'intense_timeout_{timestamp}.log'
+    log_file = open(log_path, 'w+', encoding='utf-8')
 
     print(f"\n{'='*60}")
-    print(f"Starting analysis (timeout: {timeout}s)")
+    print(f"Starting analysis (timeout: {timeout}s, stall_timeout: {stall_timeout}s)")
     print(f"Command: {' '.join(cmd)}")
     print(f"Log file: {log_path}")
     print('='*60)
@@ -119,40 +171,56 @@ def run_with_timeout(args, timeout):
         )
         start_time = time.time()
         poll_interval = 1.0  # Check every second
-        heartbeat_interval = 60  # Print heartbeat every minute
-        last_heartbeat = start_time
+
+        log_position = 0
+        last_output_time = start_time  # Track when we last saw output
 
         while True:
+            # Stream any new log content to console
+            new_position, had_output = stream_log_file(log_file, log_position)
+            if had_output:
+                log_position = new_position
+                last_output_time = time.time()  # Reset stall timer
+
             # Check if process completed
             retcode = proc.poll()
             if retcode is not None:
+                # Final flush of remaining output
+                stream_log_file(log_file, log_position)
                 if retcode == 0:
                     return 'success'
                 else:
                     return 'error'
 
-            # Check timeout
             now = time.time()
             elapsed = now - start_time
+
+            # Check wall-clock timeout
             if elapsed > timeout:
+                stream_log_file(log_file, log_position)
                 print(f"\n{'!'*60}")
                 print(f"TIMEOUT after {elapsed:.0f}s - killing process tree")
                 print('!'*60)
                 kill_process_tree(proc.pid)
-                # Wait a moment for cleanup
                 time.sleep(2)
                 return 'timeout'
 
-            # Periodic heartbeat to show wrapper is alive
-            if now - last_heartbeat >= heartbeat_interval:
-                remaining = timeout - elapsed
-                print(f"[watchdog] {elapsed:.0f}s elapsed, {remaining:.0f}s until timeout")
-                last_heartbeat = now
+            # Check stall timeout (no output for too long)
+            stall_duration = now - last_output_time
+            if stall_duration > stall_timeout:
+                stream_log_file(log_file, log_position)
+                print(f"\n{'!'*60}")
+                print(f"STALL DETECTED: No output for {stall_duration:.0f}s - killing process tree")
+                print('!'*60)
+                kill_process_tree(proc.pid)
+                time.sleep(2)
+                return 'stall'
 
-            # Brief sleep before next poll
             time.sleep(poll_interval)
 
     except KeyboardInterrupt:
+        if 'log_position' in locals():
+            stream_log_file(log_file, log_position)
         print("\nInterrupted by user - killing process...")
         if proc.poll() is None:
             kill_process_tree(proc.pid)
@@ -174,6 +242,8 @@ def main():
     )
     parser.add_argument('--timeout', type=int, default=1800,
                         help='Timeout in seconds per attempt (default: 1800 = 30 min)')
+    parser.add_argument('--stall-timeout', type=int, default=120,
+                        help='Kill process if no output for this many seconds (default: 120 = 2 min)')
     parser.add_argument('--max-retries', type=int, default=100,
                         help='Maximum number of restart attempts (default: 100)')
 
@@ -200,7 +270,7 @@ def main():
         print(f"ATTEMPT {attempt}/{args.max_retries}")
         print('#'*60)
 
-        result = run_with_timeout(remaining, args.timeout)
+        result = run_with_timeout(remaining, args.timeout, args.stall_timeout)
 
         if result == 'success':
             elapsed = time.time() - start_time
@@ -220,6 +290,10 @@ def main():
 
         elif result == 'timeout':
             print(f"\nTimeout on attempt {attempt}, restarting...")
+            # Continue to retry
+
+        elif result == 'stall':
+            print(f"\nProcess stalled on attempt {attempt}, restarting...")
             # Continue to retry
 
         # Small delay before retry
