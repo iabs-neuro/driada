@@ -112,10 +112,14 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
 
     # Get filter and build filter_kwargs from config
     pre_filter_func = None
+    post_filter_func = None
     filter_kwargs = None
     if use_filters:
         pre_filter_func = get_filter_for_experiment(exp_type)
+        post_filter_func = exp_config.get('post_filter')
         print(f"  Using filter for experiment type: {exp_type}")
+        if post_filter_func:
+            print(f"  Post-filter: {post_filter_func.__name__}")
 
         # Build filter_kwargs from config
         filter_kwargs = {
@@ -138,6 +142,7 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
     stats, significance, info, results, disent_results, timings = run_intense_analysis(
         exp, config, exp_config['skip_for_intense'],
         pre_filter_func=pre_filter_func,
+        post_filter_func=post_filter_func,
         filter_kwargs=filter_kwargs,
     )
     t_intense = time.time() - t_start
@@ -374,6 +379,7 @@ Examples:
             exp_config = get_experiment_config(exp_type)
             exp = load_experiment_from_npz(Path(npz_path), agg_features=exp_config['aggregate_features'], verbose=False)
             pre_filter = get_filter_for_experiment(exp_type) if use_filters else None
+            post_filter = exp_config.get('post_filter') if use_filters else None
             filter_kwargs = None
             if pre_filter:
                 filter_kwargs = {
@@ -385,6 +391,7 @@ Examples:
             stats, significance, info, results, disent_results, _ = run_intense_analysis(
                 exp, config, exp_config['skip_for_intense'],
                 pre_filter_func=pre_filter,
+                post_filter_func=post_filter,
                 filter_kwargs=filter_kwargs,
             )
             save_results(args.output, exp, stats, significance, info, results, disent_results)

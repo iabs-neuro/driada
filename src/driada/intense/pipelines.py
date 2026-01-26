@@ -45,6 +45,7 @@ def compute_cell_feat_significance(
     store_random_shifts=False,
     profile=False,
     pre_filter_func=None,
+    post_filter_func=None,
     filter_kwargs=None,
 ) -> tuple:
     """
@@ -223,8 +224,24 @@ def compute_cell_feat_significance(
                 ...
 
         Default: None (no filtering).
+    post_filter_func : callable or None, optional
+        Population-level filter function to run AFTER disentanglement parallel
+        processing. Can modify pair results (e.g., tie-breaking). Only used
+        when with_disentanglement=True.
+
+        Signature::
+
+            def post_filter_func(
+                per_neuron_disent,       # dict: {nid: {'pairs': {...}, ...}} - MUTATE
+                cell_feat_stats,         # Pre-computed MI values (READ ONLY)
+                feat_names,              # List of feature names (READ ONLY)
+                **kwargs,                # User-provided extra arguments
+            ):
+                ...
+
+        Default: None (no post-filtering).
     filter_kwargs : dict or None, optional
-        Dictionary of keyword arguments to pass to pre_filter_func.
+        Dictionary of keyword arguments to pass to pre_filter_func and post_filter_func.
         Can include pre-extracted data like calcium_data, feature_data,
         thresholds, etc. Only used when with_disentanglement=True.
         Default: None.
@@ -576,6 +593,7 @@ def compute_cell_feat_significance(
                 feat_feat_similarity=feat_feat_similarity,
                 n_jobs=n_jobs,
                 pre_filter_func=pre_filter_func,
+                post_filter_func=post_filter_func,
                 filter_kwargs=filter_kwargs,
             )
             disent_matrix = disent_results['disent_matrix']

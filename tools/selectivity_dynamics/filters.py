@@ -284,21 +284,9 @@ def nof_filter(neuron_selectivities, pair_decisions, renames, **kwargs):
 
 
 def tdm_filter(neuron_selectivities, pair_decisions, renames,
-               cell_feat_stats=None, mi_ratio_threshold=1.5, **kwargs):
-    """3DM experiment filter: 3d-place vs place based on MI ratio."""
-    if cell_feat_stats is None:
-        return
-
+               cell_feat_stats=None, **kwargs):
+    """3DM experiment filter: priority rules for 3D maze features."""
     for nid, sels in neuron_selectivities.items():
-        if 'place' in sels and '3d-place' in sels:
-            mi_2d = cell_feat_stats.get(nid, {}).get('place', {}).get('me', 0)
-            mi_3d = cell_feat_stats.get(nid, {}).get('3d-place', {}).get('me', 0)
-
-            if mi_3d >= mi_ratio_threshold * mi_2d:
-                pair_decisions[nid][('3d-place', 'place')] = 0
-            else:
-                pair_decisions[nid][('place', '3d-place')] = 0
-
         # 3d-place > z (z is a component)
         if 'z' in sels and '3d-place' in sels:
             pair_decisions[nid][('3d-place', 'z')] = 0
@@ -310,6 +298,37 @@ def tdm_filter(neuron_selectivities, pair_decisions, renames,
         # speed > speed_z
         if 'speed' in sels and 'speed_z' in sels:
             pair_decisions[nid][('speed', 'speed_z')] = 0
+
+        # 3d-place > all z_arm features
+        for i in range(1, 14):
+            z_arm = f'z_arm_{i}'
+            if '3d-place' in sels and z_arm in sels:
+                pair_decisions[nid][('3d-place', z_arm)] = 0
+
+
+def tdm_post_filter(per_neuron_disent, cell_feat_stats=None, feat_names=None, **kwargs):
+    """3DM post-filter: place > 3d-place when disentanglement is undistinguishable.
+
+    When standard disentanglement returns 0.5 for (place, 3d-place), this
+    post-filter changes the result to 0 (place wins). This is a principled
+    tie-breaker: prefer the simpler 2D model when information theory can't
+    distinguish between them.
+    """
+    for nid, neuron_info in per_neuron_disent.items():
+        pairs = neuron_info.get('pairs', {})
+
+        # Check both orderings of the pair
+        for pair_key in [('place', '3d-place'), ('3d-place', 'place')]:
+            if pair_key in pairs:
+                info = pairs[pair_key]
+                if info.get('result') == 0.5:
+                    # Tie-break: place wins over 3d-place
+                    if pair_key == ('place', '3d-place'):
+                        info['result'] = 0  # place (first) wins
+                    else:
+                        info['result'] = 1  # place (second) wins
+                    info['source'] = 'post_filter_tiebreak'
+                break
 
 
 def _feature_is_loser(feat, sels, pair_decisions):
@@ -552,11 +571,12 @@ EXPERIMENT_CONFIGS = {
     },
     '3DM': {
         'place_feat_name': '3d-place',
-        'discrete_place_features': [f'z_arm_{i}' for i in range(1, 14)] + ['start_box'],
+        'discrete_place_features': [],  # Disabled - no spatial pre-filter merging
         'feature_renaming': {},
         'aggregate_features': {('x', 'y'): 'place', ('x', 'y', 'z'): '3d-place'},
-        'skip_for_intense': ['x', 'y', 'z'],
+        'skip_for_intense': ['x', 'y'],  # Keep z for 3d-place > z rule
         'specific_filter': tdm_filter,
+        'post_filter': tdm_post_filter,
     },
 }
 

@@ -19,7 +19,7 @@ import driada
 from .loader import build_feature_list, get_skip_delays
 
 
-def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, filter_kwargs=None):
+def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_filter_func=None, filter_kwargs=None):
     """Run INTENSE analysis with disentanglement.
 
     Parameters
@@ -33,8 +33,11 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, filte
     pre_filter_func : callable, optional
         Pre-filter function for disentanglement. Runs BEFORE parallel processing.
         See tools/selectivity_dynamics/filters.py for utilities.
+    post_filter_func : callable, optional
+        Post-filter function for disentanglement. Runs AFTER parallel processing
+        to modify results (e.g., tie-breaking). See filters.py for utilities.
     filter_kwargs : dict, optional
-        Keyword arguments to pass to pre_filter_func.
+        Keyword arguments to pass to pre_filter_func and post_filter_func.
 
     Returns
     -------
@@ -49,6 +52,8 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, filte
     print(f"Skip delays for: {skip_delays}")
     if pre_filter_func:
         print(f"Pre-filter: {pre_filter_func.__name__ if hasattr(pre_filter_func, '__name__') else 'composed'}")
+    if post_filter_func:
+        print(f"Post-filter: {post_filter_func.__name__ if hasattr(post_filter_func, '__name__') else 'composed'}")
 
     stats, significance, info, results, disent_results = driada.compute_cell_feat_significance(
         exp,
@@ -68,6 +73,7 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, filte
         engine=config['engine'],
         profile=True,
         pre_filter_func=pre_filter_func,
+        post_filter_func=post_filter_func,
         filter_kwargs=filter_kwargs,
     )
 

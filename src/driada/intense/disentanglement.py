@@ -18,7 +18,8 @@ from .intense_base import _parallel_executor
 # Default multifeature mapping for common behavioral variable combinations
 # Maps component tuples to their semantic names
 DEFAULT_MULTIFEATURE_MAP = {
-    ("x", "y"): "place",  # spatial location multifeature
+    ("x", "y"): "place",  # 2D spatial location multifeature
+    ("x", "y", "z"): "3d-place",  # 3D spatial location multifeature
 }
 
 # Epsilon tolerance for floating-point comparisons
@@ -530,6 +531,7 @@ def disentangle_all_selectivities(
     feat_feat_similarity=None,
     n_jobs=-1,
     pre_filter_func=None,
+    post_filter_func=None,
     filter_kwargs=None,
 ):
     """Analyze mixed selectivity across all significant neuron-feature pairs.
@@ -597,8 +599,24 @@ def disentangle_all_selectivities(
                 ...
 
         Default: None (no filtering).
+    post_filter_func : callable or None, optional
+        Population-level filter function to run AFTER parallel disentanglement.
+        Can modify pair results (e.g., tie-breaking). Mutates per_neuron_disent
+        and recalculates final_sels.
+
+        Signature::
+
+            def post_filter_func(
+                per_neuron_disent,       # dict: {nid: {'pairs': {...}, ...}} - MUTATE
+                cell_feat_stats,         # Pre-computed MI values (READ ONLY)
+                feat_names,              # List of feature names (READ ONLY)
+                **kwargs,                # User-provided extra arguments
+            ):
+                ...
+
+        Default: None (no post-filtering).
     filter_kwargs : dict or None, optional
-        Dictionary of keyword arguments to pass to pre_filter_func.
+        Dictionary of keyword arguments to pass to pre_filter_func and post_filter_func.
         Can include pre-extracted data like calcium_data, feature_data,
         thresholds, etc. Default: None.
 
@@ -747,6 +765,30 @@ def disentangle_all_selectivities(
             # Store per-neuron info if it has any content (including errors)
             if neuron_info['pairs'] or neuron_info['renames'] or neuron_info['errors']:
                 per_neuron_disent[neuron_id] = neuron_info
+
+    # ============================================================
+    # PHASE 3: Post-filter (AFTER parallel loop)
+    # ============================================================
+    if post_filter_func is not None:
+        post_filter_func(
+            per_neuron_disent=per_neuron_disent,
+            cell_feat_stats=cell_feat_stats,
+            feat_names=feat_names,
+            **(filter_kwargs or {}),
+        )
+
+        # Recalculate final_sels for neurons modified by post-filter
+        for nid, neuron_info in per_neuron_disent.items():
+            features_to_remove = set()
+            for (feat_i, feat_j), info in neuron_info['pairs'].items():
+                result = info.get('result', 0.5)
+                if result == 0:
+                    features_to_remove.add(feat_j)
+                elif result == 1:
+                    features_to_remove.add(feat_i)
+
+            original_sels = neuron_selectivities[nid]
+            neuron_info['final_sels'] = [f for f in original_sels if f not in features_to_remove]
 
     return {
         'disent_matrix': disent_matrix,
