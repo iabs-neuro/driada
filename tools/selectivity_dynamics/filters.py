@@ -547,7 +547,7 @@ EXPERIMENT_CONFIGS = {
     },
     'BOWL': {
         'place_feat_name': 'place',
-        'discrete_place_features': ['bowlinside', 'objectinside', 'walls', 'corners', 'centermiddle', 'centertrue', 'center'],
+        'discrete_place_features': ['bowl_inside', 'walls', 'corners', 'center'],
         'feature_renaming': {},
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y', 'bowl_interaction_any', 'object1_interaction_any', 'object2_interaction_any'],
