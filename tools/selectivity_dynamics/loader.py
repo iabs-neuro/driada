@@ -3,7 +3,6 @@
 Contains:
 - load_experiment_from_npz: Load experiment from NPZ file
 - build_feature_list: Build feature list excluding specified features
-- get_skip_delays: Get list of features to skip delay optimization
 """
 
 import sys
@@ -15,7 +14,6 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
 from driada.experiment.exp_build import load_exp_from_aligned_data
-from driada.information.info_base import MultiTimeSeries
 from driada.utils.naming import parse_iabs_filename
 
 # Import get_npz_metadata from tools
@@ -30,14 +28,6 @@ def build_feature_list(exp, skip_features):
         if feat_name not in skip_features
     ]
     return feat_bunch
-
-
-def get_skip_delays(exp):
-    """Get list of features to skip delay optimization (MultiTimeSeries)."""
-    return [
-        feat_name for feat_name, feat_data in exp.dynamic_features.items()
-        if isinstance(feat_data, MultiTimeSeries)
-    ]
 
 
 def load_experiment_from_npz(npz_path, agg_features=None, verbose=True):

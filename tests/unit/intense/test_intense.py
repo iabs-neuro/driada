@@ -767,12 +767,15 @@ def test_validate_time_series_bunches_mixed_dimensions():
     ts1 = TimeSeries(np.random.randn(100))
     mts1 = MultiTimeSeries([ts1, ts1])
 
-    # Should fail without allow_mixed_dimensions
+    # Should pass by default (allow_mixed_dimensions=True is the new default)
+    validate_time_series_bunches([ts1], [mts1])
+
+    # Explicit True should also pass
+    validate_time_series_bunches([ts1], [mts1], allow_mixed_dimensions=True)
+
+    # Explicit False should fail (deprecated but still functional)
     with pytest.raises(ValueError, match="MultiTimeSeries found"):
         validate_time_series_bunches([ts1], [mts1], allow_mixed_dimensions=False)
-
-    # Should pass with allow_mixed_dimensions
-    validate_time_series_bunches([ts1], [mts1], allow_mixed_dimensions=True)
 
 
 def test_get_multicomp_correction_fdr():
@@ -1668,43 +1671,48 @@ def test_intense_e2e_mts_discrete_fft():
     assert mi_fft < 5  # Reasonable upper bound
 
 
-def test_mts_auto_skipped_from_delay_optimization():
-    """MTS features should be auto-skipped from delay optimization with warning."""
+def test_mts_delay_optimization_works():
+    """MTS features should be included in delay optimization."""
     np.random.seed(42)
-    length = 200
+    length = 500
+    known_delay = 15
 
-    # Create univariate TimeSeries
-    ts1 = TimeSeries(np.random.randn(length), discrete=False)
-    ts2 = TimeSeries(np.random.randn(length), discrete=False)
+    # Create univariate TimeSeries (calcium)
+    base_signal = np.random.randn(length + 50)
+    calcium = base_signal[:length] + 0.3 * np.random.randn(length)
+    ts1 = TimeSeries(calcium, discrete=False)
 
-    # Create MultiTimeSeries
+    # Create MultiTimeSeries with correlation to calcium at known delay
+    signal_a = base_signal[known_delay:length + known_delay] + 0.3 * np.random.randn(length)
+    signal_b = np.random.randn(length)  # Uncorrelated component
     mts = MultiTimeSeries(
-        [TimeSeries(np.random.randn(length), discrete=False),
-         TimeSeries(np.random.randn(length), discrete=False)],
+        [TimeSeries(signal_a, discrete=False),
+         TimeSeries(signal_b, discrete=False)],
         name="position_2d"
     )
 
-    # Should warn about auto-skipping MTS from delay optimization
-    with pytest.warns(UserWarning, match="automatically excluded from delay"):
-        stats, _, info = compute_me_stats(
-            [ts1], [ts2, mts],
-            metric="mi",
-            allow_mixed_dimensions=True,
-            find_optimal_delays=True,
-            shift_window=10,
-            ds=1,
-            mode="stage2",
-            n_shuffles_stage2=10,
-        )
+    # Run with delay optimization enabled - MTS should get non-zero delay
+    stats, _, info = compute_me_stats(
+        [ts1], [mts],
+        metric="mi",
+        allow_mixed_dimensions=True,
+        find_optimal_delays=True,
+        shift_window=30,
+        ds=1,
+        mode="stage2",
+        n_shuffles_stage2=10,
+    )
 
-    # MTS (index 1) should have delay=0 (not optimized)
-    # TimeSeries (index 0) may have non-zero delay
+    # MTS should have non-zero delay close to known_delay
     optimal_delays = info["optimal_delays"]
-    assert optimal_delays[0, 1] == 0  # MTS feature has zero delay
+    detected_delay = optimal_delays[0, 0]
+    assert np.abs(detected_delay - known_delay) <= 5, (
+        f"Detected delay {detected_delay} should be close to known delay {known_delay}"
+    )
 
 
-def test_mts_auto_skip_all_features_skipped():
-    """When all features are MTS, delay optimization is skipped entirely."""
+def test_mts_with_delays_disabled():
+    """Test MTS works when find_optimal_delays=False."""
     np.random.seed(42)
     length = 200
 
@@ -1715,47 +1723,15 @@ def test_mts_auto_skip_all_features_skipped():
         name="position_2d"
     )
 
-    # All features are MTS - delay optimization should be skipped
-    with pytest.warns(UserWarning, match="automatically excluded"):
-        stats, _, info = compute_me_stats(
-            [ts1], [mts],
-            metric="mi",
-            allow_mixed_dimensions=True,
-            find_optimal_delays=True,
-            shift_window=10,
-            ds=1,
-            mode="stage2",
-            n_shuffles_stage2=10,
-        )
-
-    # MTS should have delay=0 (not optimized)
-    assert info["optimal_delays"][0, 0] == 0
-
-
-def test_mts_no_warning_when_delays_disabled():
-    """No warning when find_optimal_delays=False."""
-    np.random.seed(42)
-    length = 200
-
-    ts1 = TimeSeries(np.random.randn(length), discrete=False)
-    mts = MultiTimeSeries(
-        [TimeSeries(np.random.randn(length), discrete=False),
-         TimeSeries(np.random.randn(length), discrete=False)],
-        name="position_2d"
+    stats, _, info = compute_me_stats(
+        [ts1], [mts],
+        metric="mi",
+        allow_mixed_dimensions=True,
+        find_optimal_delays=False,
+        mode="stage2",
+        n_shuffles_stage2=10,
     )
 
-    # No warning when delays are disabled
-    import warnings
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")  # Turn warnings into errors
-        stats, _, info = compute_me_stats(
-            [ts1], [mts],
-            metric="mi",
-            allow_mixed_dimensions=True,
-            find_optimal_delays=False,  # Delays disabled
-            mode="stage2",
-            n_shuffles_stage2=10,
-        )
-
-    # Should complete without warning
+    # Should complete successfully
     assert stats is not None
+    assert 0 in stats and 0 in stats[0]

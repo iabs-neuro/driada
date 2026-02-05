@@ -662,7 +662,7 @@ def _build_fft_cache_parallel(
     return merged_cache, merged_counts
 
 
-def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False) -> None:
+def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=True) -> None:
     """
     Validate time series bunches for INTENSE computations.
 
@@ -672,9 +672,13 @@ def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=Fa
         First set of time series objects (e.g., neural activity).
     ts_bunch2 : list of TimeSeries or MultiTimeSeries
         Second set of time series objects (e.g., behavioral features).
-    allow_mixed_dimensions : bool, default=False
+    allow_mixed_dimensions : bool, default=True
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
         If False, all objects must be TimeSeries.
+
+        .. deprecated:: 1.1
+            This parameter is deprecated and will be removed in a future version.
+            Mixed dimensions are now always allowed.
 
     Raises
     ------
@@ -929,7 +933,7 @@ def calculate_optimal_delays(
     >>> -5 <= delays[0, 0] <= 5
     True"""
     # Validate inputs
-    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=True)
     validate_metric(metric)
     validate_common_parameters(shift_window=shift_window, ds=ds)
 
@@ -1116,7 +1120,7 @@ def calculate_optimal_delays_parallel(
     >>> np.all(np.abs(delays) <= 3)
     True"""
     # Validate inputs
-    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=False)
+    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=True)
     validate_metric(metric)
     validate_common_parameters(shift_window=shift_window, ds=ds)
 
@@ -1350,7 +1354,7 @@ def scan_pairs(
     mask=None,
     noise_const=DEFAULT_NOISE_AMPLITUDE,
     seed=None,
-    allow_mixed_dimensions=False,
+    allow_mixed_dimensions=True,
     enable_progressbar=True,
     engine="auto",
     fft_cache: dict = None,
@@ -1392,8 +1396,12 @@ def scan_pairs(
         Small noise amplitude added to improve numerical stability.
     seed : int, optional
         Random seed for reproducibility.
-    allow_mixed_dimensions : bool, default=False
+    allow_mixed_dimensions : bool, default=True
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
+
+        .. deprecated:: 1.1
+            This parameter is deprecated and will be removed in a future version.
+            Mixed dimensions are now always allowed.
     enable_progressbar : bool, default=True
         Whether to show progress bar during computation.
     engine : {'auto', 'fft', 'loop'}, default='auto'
@@ -1651,7 +1659,7 @@ def scan_pairs_parallel(
     optimal_delays,
     mi_estimator="gcmi",
     joint_distr=False,
-    allow_mixed_dimensions=False,
+    allow_mixed_dimensions=True,
     ds=1,
     mask=None,
     noise_const=DEFAULT_NOISE_AMPLITUDE,
@@ -1683,8 +1691,12 @@ def scan_pairs_parallel(
         Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
     joint_distr : bool, default=False
         If True, treats all ts_bunch2 as components of a single multifeature.
-    allow_mixed_dimensions : bool, default=False
+    allow_mixed_dimensions : bool, default=True
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
+
+        .. deprecated:: 1.1
+            This parameter is deprecated and will be removed in a future version.
+            Mixed dimensions are now always allowed.
     ds : int, default=1
         Downsampling factor.
     mask : np.ndarray, optional
@@ -1845,7 +1857,7 @@ def scan_pairs_router(
     optimal_delays,
     mi_estimator="gcmi",
     joint_distr=False,
-    allow_mixed_dimensions=False,
+    allow_mixed_dimensions=True,
     ds=1,
     mask=None,
     noise_const=DEFAULT_NOISE_AMPLITUDE,
@@ -1878,8 +1890,12 @@ def scan_pairs_router(
         Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
     joint_distr : bool, default=False
         If True, treats all ts_bunch2 as components of a single multifeature.
-    allow_mixed_dimensions : bool, default=False
+    allow_mixed_dimensions : bool, default=True
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
+
+        .. deprecated:: 1.1
+            This parameter is deprecated and will be removed in a future version.
+            Mixed dimensions are now always allowed.
     ds : int, default=1
         Downsampling factor.
     mask : np.ndarray, optional
@@ -2156,7 +2172,7 @@ def compute_me_stats(
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
     joint_distr=False,
-    allow_mixed_dimensions=False,
+    allow_mixed_dimensions=True,
     metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=DEFAULT_NOISE_AMPLITUDE,
     ds=1,
@@ -2232,9 +2248,13 @@ def compute_me_stats(
         if joint_distr=True, ALL features in feat_bunch will be treated as components of a single multifeature
         For example, 'x' and 'y' features will be put together into ('x','y') multifeature.
 
-    allow_mixed_dimensions : bool, default=False
+    allow_mixed_dimensions : bool, default=True
         if True, both TimeSeries and MultiTimeSeries can be provided as signals.
         This parameter overrides "joint_distr"
+
+        .. deprecated:: 1.1
+            This parameter is deprecated and will be removed in a future version.
+            Mixed dimensions are now always allowed.
 
     metric_distr_type : str, default="gamma_zi"
         Distribution type for shuffled metric null distribution. Options:
@@ -2467,22 +2487,6 @@ def compute_me_stats(
                         print(f"Warning: {msg}")
 
         optimal_delays = np.zeros((n1, n2), dtype=int)
-
-        # Auto-detect MTS features that need to be skipped from delay optimization
-        if find_optimal_delays and allow_mixed_dimensions:
-            mts_indices = [i for i, ts in enumerate(ts_bunch2)
-                          if isinstance(ts, MultiTimeSeries)]
-            if mts_indices:
-                # Merge with user-provided skip_delays
-                skip_delays = list(set((skip_delays or []) + mts_indices))
-                mts_names = [ts_bunch2[i].name or f"index_{i}" for i in mts_indices]
-                warnings.warn(
-                    f"MultiTimeSeries features {mts_names} automatically excluded from "
-                    f"delay optimization (not supported for multivariate data). "
-                    f"Use skip_delays explicitly to silence this warning.",
-                    UserWarning,
-                    stacklevel=2,
-                )
 
         # Validate skip_delays indices before use
         if skip_delays:

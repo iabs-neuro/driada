@@ -20,7 +20,7 @@ def compute_cell_feat_significance(
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
     joint_distr=False,
-    allow_mixed_dimensions=False,
+    allow_mixed_dimensions=True,
     metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=1e-3,
     ds=1,
@@ -90,7 +90,11 @@ def compute_cell_feat_significance(
         Default is False
     allow_mixed_dimensions : bool, optional
         If True, both TimeSeries and MultiTimeSeries can be provided as signals.
-        This parameter overrides "joint_distr". Default is False
+        This parameter overrides "joint_distr". Default is True
+
+        .. deprecated:: 1.1
+            This parameter is deprecated and will be removed in a future version.
+            Mixed dimensions are now always allowed.
 
     metric_distr_type : str, optional
         Distribution type for shuffled metric null distribution. Options:
@@ -1211,7 +1215,6 @@ def compute_cell_cell_significance(
         n_shuffles_stage1=n_shuffles_stage1,
         n_shuffles_stage2=n_shuffles_stage2,
         joint_distr=False,
-        allow_mixed_dimensions=False,  # Neurons are single time series
         metric_distr_type=metric_distr_type,
         noise_ampl=noise_ampl,
         ds=ds,

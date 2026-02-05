@@ -63,26 +63,12 @@ def run_intense_analysis(exp):
     """Run INTENSE analysis to identify significant relationships."""
     print("\n=== RUNNING INTENSE ANALYSIS ===")
 
-    # Run comprehensive analysis including multifeatures
-    # Get features that should skip delay optimization
-    # Check both tuple names (multifeatures) and MultiTimeSeries instances
-    skip_delays = []
-    for feat_name, feat_data in exp.dynamic_features.items():
-        if isinstance(feat_name, tuple):  # Tuple name indicates multifeature
-            skip_delays.append(feat_name)
-        elif isinstance(feat_data, driada.MultiTimeSeries):
-            skip_delays.append(feat_name)
-
     # Run comprehensive analysis with disentanglement
     results = driada.compute_cell_feat_significance(
         exp,
         mode="two_stage",
         n_shuffles_stage1=100,  # Stage 1 screening
         n_shuffles_stage2=10000,  # FFT optimization makes high counts fast
-        allow_mixed_dimensions=True,  # Enable MultiTimeSeries analysis
-        skip_delays=(
-            skip_delays if skip_delays else None
-        ),  # Skip delay optimization for MultiTimeSeries
         verbose=False,
         with_disentanglement=True,  # Enable disentanglement analysis
         multifeature_map=driada.intense.DEFAULT_MULTIFEATURE_MAP,

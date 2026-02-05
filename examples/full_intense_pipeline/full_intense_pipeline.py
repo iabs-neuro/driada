@@ -30,7 +30,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 import driada
 from driada.experiment.synthetic import generate_tuned_selectivity_exp
-from driada.information.info_base import MultiTimeSeries
 
 
 # =============================================================================
@@ -109,17 +108,9 @@ def run_intense_analysis(exp, config, verbose=True):
     if verbose:
         print(f"  Features to test: {feat_bunch}")
 
-    # Identify MultiTimeSeries features - skip delay optimization for these
-    # (delay optimization requires 1D time series, MultiTimeSeries are 2D)
-    skip_delays = [
-        feat_name for feat_name, feat_data in exp.dynamic_features.items()
-        if isinstance(feat_data, MultiTimeSeries)
-    ]
-
     # Run INTENSE with disentanglement to handle correlated features
     # - find_optimal_delays=True: Search for best temporal alignment between
     #   neural activity and features (compensates for calcium dynamics)
-    # - skip_delays: List of features to skip delay optimization (MultiTimeSeries)
     # - with_disentanglement=True: Identify redundant detections caused by
     #   feature correlations (e.g., HD cells detecting position due to
     #   trajectory patterns where animal faces certain directions at certain locations)
@@ -129,9 +120,7 @@ def run_intense_analysis(exp, config, verbose=True):
         mode="two_stage",
         n_shuffles_stage1=config["n_shuffles_stage1"],
         n_shuffles_stage2=config["n_shuffles_stage2"],
-        allow_mixed_dimensions=True,
         find_optimal_delays=True,  # Find best temporal alignment
-        skip_delays=skip_delays,  # Skip delay opt for MultiTimeSeries (position_2d)
         ds=5,  # Downsampling factor for speed
         pval_thr=config["pval_thr"],
         multicomp_correction=config["multicomp_correction"],

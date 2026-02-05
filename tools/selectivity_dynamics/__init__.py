@@ -77,7 +77,6 @@ from .filters import (
 from .loader import (
     load_experiment_from_npz,
     build_feature_list,
-    get_skip_delays,
 )
 
 # Analysis
@@ -134,7 +133,6 @@ __all__ = [
     # Loader
     'load_experiment_from_npz',
     'build_feature_list',
-    'get_skip_delays',
     # Analysis
     'run_intense_analysis',
     'print_results',

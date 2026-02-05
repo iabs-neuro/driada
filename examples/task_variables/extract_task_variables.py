@@ -146,15 +146,6 @@ def analyze_single_cell_selectivity(exp, ds=5):
         f"Analyzing {exp.n_cells} neurons × {len(available_features)} features = {exp.n_cells * len(available_features)} pairs"
     )
 
-    skip_delays = {}
-    for feat_name in available_features:
-        if (
-            hasattr(exp.dynamic_features[feat_name], "data")
-            and hasattr(exp.dynamic_features[feat_name].data, "ndim")
-            and exp.dynamic_features[feat_name].data.ndim > 1
-        ):
-            skip_delays[feat_name] = True
-
     start = time.time()
     results = compute_cell_feat_significance(
         exp,
@@ -167,8 +158,6 @@ def analyze_single_cell_selectivity(exp, ds=5):
         multicomp_correction=None,
         verbose=True,
         find_optimal_delays=False,
-        allow_mixed_dimensions=True,
-        skip_delays=skip_delays,
         with_disentanglement=False,
         ds=ds,
     )

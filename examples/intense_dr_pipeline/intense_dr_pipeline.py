@@ -174,7 +174,6 @@ def main(
         ds=ds,  # Downsample for efficiency
         pval_thr=0.01,
         multicomp_correction=None,  # No multiple comparison correction
-        allow_mixed_dimensions=True,  # Required for MultiTimeSeries
         verbose=True,
     )
 

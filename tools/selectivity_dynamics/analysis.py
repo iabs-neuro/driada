@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
 import driada
 
-from .loader import build_feature_list, get_skip_delays
+from .loader import build_feature_list
 
 
 def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_filter_func=None, filter_kwargs=None):
@@ -45,11 +45,9 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         (stats, significance, info, results, disent_results, timings)
     """
     feat_bunch = build_feature_list(exp, skip_features)
-    skip_delays = get_skip_delays(exp)
 
     print(f"\nFeatures to analyze: {feat_bunch}")
     print(f"Features skipped: {skip_features}")
-    print(f"Skip delays for: {skip_delays}")
     if pre_filter_func:
         print(f"Pre-filter: {pre_filter_func.__name__ if hasattr(pre_filter_func, '__name__') else 'composed'}")
     if post_filter_func:
@@ -61,9 +59,7 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         mode='two_stage',
         n_shuffles_stage1=config['n_shuffles_stage1'],
         n_shuffles_stage2=config['n_shuffles_stage2'],
-        allow_mixed_dimensions=True,
         find_optimal_delays=True,
-        skip_delays=skip_delays,
         ds=config['ds'],
         pval_thr=config['pval_thr'],
         multicomp_correction=config['multicomp_correction'],
