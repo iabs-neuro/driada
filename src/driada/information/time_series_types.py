@@ -237,12 +237,15 @@ def analyze_time_series_type(
     metadata["discrete_score"] = primary_result.get("discrete_score", None)
     metadata["continuous_score"] = primary_result.get("continuous_score", None)
 
+    # is_circular only makes sense for continuous data
+    is_circular = circular_result["is_circular"] and primary_result["type"] == "continuous"
+
     return TimeSeriesType(
         primary_type=primary_result["type"],
         subtype=(subtype_result.get("subtype") if primary_result["type"] != "ambiguous" else None),
         confidence=min(primary_result["confidence"], subtype_result.get("confidence", 1.0)),
-        is_circular=circular_result["is_circular"],
-        circular_period=circular_result.get("period"),
+        is_circular=is_circular,
+        circular_period=circular_result.get("period") if is_circular else None,
         periodicity=periodicity_result.get("period"),
         metadata=metadata,
     )

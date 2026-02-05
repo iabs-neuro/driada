@@ -9,6 +9,65 @@ from .disentanglement import disentangle_all_selectivities, DEFAULT_MULTIFEATURE
 from ..experiment.exp_base import DEFAULT_STATS
 
 
+def substitute_circular_with_2d(feat_ids, exp, verbose=False):
+    """Substitute circular features with their _2d (cos, sin) counterparts.
+
+    For features detected as circular that have a corresponding `{name}_2d`
+    MultiTimeSeries in the experiment, replaces the feature ID with the _2d version.
+
+    Parameters
+    ----------
+    feat_ids : list
+        List of feature IDs (strings or tuples for multi-features).
+    exp : Experiment
+        Experiment object containing dynamic_features.
+    verbose : bool, default=False
+        If True, print substitution information.
+
+    Returns
+    -------
+    tuple
+        (new_feat_ids, substitutions) where substitutions is a list of
+        (original, substituted) tuples.
+
+    Examples
+    --------
+    >>> # Assuming exp has circular feature 'headdirection' with _2d version
+    >>> feat_ids = ['headdirection', 'speed']  # doctest: +SKIP
+    >>> new_ids, subs = substitute_circular_with_2d(feat_ids, exp)  # doctest: +SKIP
+    >>> new_ids  # doctest: +SKIP
+    ['headdirection_2d', 'speed']
+    """
+    substituted = []
+    new_feat_ids = []
+
+    for feat_id in feat_ids:
+        if isinstance(feat_id, str) and not feat_id.endswith("_2d"):
+            name_2d = f"{feat_id}_2d"
+
+            # Check if _2d version exists
+            if name_2d in exp.dynamic_features:
+                # Verify original is circular
+                orig_ts = exp.dynamic_features.get(feat_id)
+                if (
+                    isinstance(orig_ts, TimeSeries)
+                    and orig_ts.type_info
+                    and orig_ts.type_info.is_circular
+                ):
+                    new_feat_ids.append(name_2d)
+                    substituted.append((feat_id, name_2d))
+                    continue
+
+        new_feat_ids.append(feat_id)
+
+    if verbose and substituted:
+        print("Circular features substituted with _2d versions:")
+        for orig, sub in substituted:
+            print(f"  '{orig}' -> '{sub}'")
+
+    return new_feat_ids, substituted
+
+
 def compute_cell_feat_significance(
     exp,
     cell_bunch=None,
@@ -47,6 +106,7 @@ def compute_cell_feat_significance(
     pre_filter_func=None,
     post_filter_func=None,
     filter_kwargs=None,
+    use_circular_2d=True,
 ) -> tuple:
     """
     Calculates significant neuron-feature pairs
@@ -249,6 +309,11 @@ def compute_cell_feat_significance(
         Can include pre-extracted data like calcium_data, feature_data,
         thresholds, etc. Only used when with_disentanglement=True.
         Default: None.
+    use_circular_2d : bool, default=True
+        If True, automatically substitute circular features with their `_2d`
+        counterparts (cos, sin representation) for MI computation. This improves
+        MI estimation accuracy for circular variables like head direction.
+        Requires that `create_circular_2d=True` was used during experiment loading.
 
     Returns
     -------
@@ -331,6 +396,11 @@ def compute_cell_feat_significance(
 
     cell_ids = exp._process_cbunch(cell_bunch)
     feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=True, mode=data_type)
+
+    # Substitute circular features with _2d counterparts for better MI estimation
+    if use_circular_2d:
+        feat_ids, _ = substitute_circular_with_2d(feat_ids, exp, verbose=verbose)
+
     cells = [exp.neurons[cell_id] for cell_id in cell_ids]
 
     if data_type == "calcium":

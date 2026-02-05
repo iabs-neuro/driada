@@ -35,6 +35,7 @@ import tqdm
 
 from driada.experiment.exp_base import Experiment
 from driada.information.info_base import MultiTimeSeries, TimeSeries
+from driada.information.circular_transform import circular_to_cos_sin
 from driada.utils.data import check_positive, check_nonnegative, check_unit
 
 from .core import DEFAULT_T_RISE, DEFAULT_SYNTHETIC_PARAMS, validate_peak_rate, generate_pseudo_calcium_signal
@@ -1391,14 +1392,8 @@ def generate_circular_manifold_exp(
     if add_mixed_features:
         # Create circular_angle as MultiTimeSeries with cos and sin components
         # This is the proper representation for circular variables
-        cos_component = np.cos(head_direction)
-        sin_component = np.sin(head_direction)
-        circular_angle_mts = MultiTimeSeries(
-            [
-                TimeSeries(data=cos_component, discrete=False, name="circular_angle_0"),
-                TimeSeries(data=sin_component, discrete=False, name="circular_angle_1"),
-            ],
-            name="circular_angle"
+        circular_angle_mts = circular_to_cos_sin(
+            head_direction, period=2 * np.pi, name="circular_angle"
         )
         dynamic_features["circular_angle"] = circular_angle_mts
 

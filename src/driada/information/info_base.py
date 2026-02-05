@@ -455,18 +455,36 @@ class TimeSeries:
             else:
                 self.discrete = ts_type.is_discrete
         elif discrete is not None:
-            # Legacy discrete parameter - create minimal type info
+            # Legacy discrete parameter - still run type analysis to detect subtypes
             self.discrete = discrete
+            # Run auto-detection to get subtype info (circular, linear, etc.)
+            auto_type = analyze_time_series_type(self.data, name=self.name)
             n_unique = len(np.unique(self.data))
-            self.type_info = TimeSeriesType(
-                primary_type="discrete" if discrete else "continuous",
-                subtype="binary" if discrete and n_unique == 2 else None,
-                confidence=1.0,  # User specified
-                is_circular=False,
-                circular_period=None,
-                periodicity=None,
-                metadata={"n_unique": n_unique, "n_samples": len(self.data)},
-            )
+
+            # Override primary type based on user's discrete parameter, keep subtype detection
+            if discrete:
+                # User says discrete - use detected subtype if discrete, else default
+                subtype = auto_type.subtype if auto_type.is_discrete else ("binary" if n_unique == 2 else None)
+                self.type_info = TimeSeriesType(
+                    primary_type="discrete",
+                    subtype=subtype,
+                    confidence=1.0,  # User specified primary type
+                    is_circular=False,
+                    circular_period=None,
+                    periodicity=auto_type.periodicity,
+                    metadata={"n_unique": n_unique, "n_samples": len(self.data), "user_specified_discrete": True},
+                )
+            else:
+                # User says continuous - preserve subtype detection (especially circular)
+                self.type_info = TimeSeriesType(
+                    primary_type="continuous",
+                    subtype=auto_type.subtype if not auto_type.is_discrete else "linear",
+                    confidence=1.0,  # User specified primary type
+                    is_circular=auto_type.is_circular,
+                    circular_period=auto_type.circular_period,
+                    periodicity=auto_type.periodicity,
+                    metadata={"n_unique": n_unique, "n_samples": len(self.data), "user_specified_discrete": True},
+                )
         else:
             # Auto-detect using new comprehensive system
             self.type_info = analyze_time_series_type(self.data, name=self.name)

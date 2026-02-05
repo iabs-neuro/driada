@@ -18,6 +18,37 @@ RESERVED_NEURAL_KEYS = {"calcium", "spikes", "sp", "asp", "reconstructions"}
 RESERVED_METADATA_KEYS = {"_metadata", "_sync_info"}
 
 
+def _format_feature_subtype(type_info):
+    """Format subtype information for verbose logging.
+
+    Parameters
+    ----------
+    type_info : TimeSeriesType or None
+        Type information from a TimeSeries object.
+
+    Returns
+    -------
+    str
+        Formatted subtype string, e.g., "linear", "circular (360°)", "binary".
+        Returns empty string if subtype is None.
+    """
+    if type_info is None or type_info.subtype is None:
+        return ""
+
+    subtype_str = type_info.subtype
+
+    if type_info.is_circular and type_info.circular_period is not None:
+        period = type_info.circular_period
+        if abs(period - 360) < 1:
+            subtype_str = "circular (360)"
+        elif abs(period - 2 * 3.14159265) < 0.1:
+            subtype_str = "circular (2pi)"
+        else:
+            subtype_str = f"circular ({period:.1f})"
+
+    return subtype_str
+
+
 def load_exp_from_aligned_data(
     data_source,
     exp_params,
@@ -30,6 +61,7 @@ def load_exp_from_aligned_data(
     aggregate_features=None,
     n_jobs=-1,
     enable_parallelization=True,
+    create_circular_2d=True,
 ):
     """Create an Experiment object from aligned neural and behavioral data.
 
@@ -106,6 +138,12 @@ def load_exp_from_aligned_data(
     enable_parallelization : bool, default=True
         Enable parallel processing for neuron construction and hash computation.
         Set to False to use sequential processing (useful for debugging).
+    create_circular_2d : bool, default=True
+        If True, automatically create `_2d` versions of circular features
+        (detected via type_info.is_circular) as (cos, sin) MultiTimeSeries.
+        Original features are preserved. E.g., 'headdirection' -> also creates
+        'headdirection_2d'. This improves MI estimation accuracy for circular
+        variables like head direction.
 
     Returns
     -------
@@ -208,8 +246,30 @@ def load_exp_from_aligned_data(
     if "spikes" in key_mapping:
         spikes = adata.pop(key_mapping["spikes"])
 
-    # TODO: Extract asp, reconstructions when new format is ready
-    # TODO: Extract _metadata, _sync_info and pass to Experiment
+    # Extract asp (optional)
+    asp = None
+    if "asp" in key_mapping:
+        asp = adata.pop(key_mapping["asp"])
+
+    # Extract reconstructions (optional)
+    reconstructions = None
+    if "reconstructions" in key_mapping:
+        reconstructions = adata.pop(key_mapping["reconstructions"])
+
+    # Extract metadata (merge _sync_info into it if present)
+    metadata = None
+    if "_metadata" in adata:
+        metadata = adata.pop("_metadata")
+        if hasattr(metadata, 'item'):
+            metadata = metadata.item()
+
+    if "_sync_info" in adata:
+        sync_info = adata.pop("_sync_info")
+        if hasattr(sync_info, 'item'):
+            sync_info = sync_info.item()
+        if metadata is None:
+            metadata = {}
+        metadata['sync_info'] = sync_info
 
     # Process dynamic features, handling multidimensional arrays
     filt_dyn_features = {}
@@ -327,11 +387,22 @@ def load_exp_from_aligned_data(
         print("behaviour variables:")
         print()
         for f, ts in filt_dyn_features.items():
+            dtype = "discrete" if ts.discrete else "continuous"
+
             if isinstance(ts, MultiTimeSeries):
-                dtype = "discrete" if ts.discrete else "continuous"
-                print(f"'{f}' {dtype} multi-dimensional ({ts.n_dim}D)")
+                type_info = ts.ts_list[0].type_info if ts.ts_list else None
+                subtype_str = _format_feature_subtype(type_info)
+                dim_str = f"multi-dimensional ({ts.n_dim}D)"
+                if subtype_str:
+                    print(f"'{f}' {dtype} {dim_str} {subtype_str}")
+                else:
+                    print(f"'{f}' {dtype} {dim_str}")
             else:
-                print(f"'{f}'", "discrete" if ts.discrete else "continuous")
+                subtype_str = _format_feature_subtype(ts.type_info)
+                if subtype_str:
+                    print(f"'{f}' {dtype} {subtype_str}")
+                else:
+                    print(f"'{f}' {dtype}")
 
     # check for constant features
     constfeats = set(dyn_features.keys()) - set(filt_dyn_features.keys())
@@ -382,6 +453,11 @@ def load_exp_from_aligned_data(
         if sf not in static_features:
             static_features.update({sf: default_static_features[sf]})
 
+    # Auto-set fps from metadata if not already specified
+    if metadata is not None and 'fps' in metadata:
+        if 'fps' not in static_features or static_features['fps'] == DEFAULT_FPS:
+            static_features['fps'] = metadata['fps']
+
     exp = Experiment(
         signature,
         calcium,
@@ -395,6 +471,10 @@ def load_exp_from_aligned_data(
         verbose=verbose,
         n_jobs=n_jobs,
         enable_parallelization=enable_parallelization,
+        asp=asp,
+        reconstructions=reconstructions,
+        metadata=metadata,
+        create_circular_2d=create_circular_2d,
     )
 
     return exp

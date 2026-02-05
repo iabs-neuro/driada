@@ -50,6 +50,16 @@ from .entropy import (
     conditional_entropy_cdd,
 )
 
+# Circular feature transformation utilities
+from .circular_transform import (
+    circular_to_cos_sin,
+    cos_sin_to_circular,
+    detect_circular_period,
+    normalize_to_radians,
+    get_circular_2d_name,
+    is_circular_2d_feature,
+)
+
 __all__ = [
     # Core classes and functions
     "TimeSeries",
@@ -84,4 +94,11 @@ __all__ = [
     "joint_entropy_cdd",
     "conditional_entropy_cd",
     "conditional_entropy_cdd",
+    # Circular transform
+    "circular_to_cos_sin",
+    "cos_sin_to_circular",
+    "detect_circular_period",
+    "normalize_to_radians",
+    "get_circular_2d_name",
+    "is_circular_2d_feature",
 ]

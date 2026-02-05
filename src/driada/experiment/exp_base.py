@@ -303,6 +303,10 @@ class Experiment:
             - bad_frames_mask (array-like): Boolean mask of frames to exclude.
             - spike_kwargs (dict): Parameters for spike reconstruction method.
             - verbose (bool): Print progress messages. Default True.
+            - create_circular_2d (bool): If True, automatically create `_2d` versions
+              of circular features (detected via type_info.is_circular) as (cos, sin)
+              MultiTimeSeries. Original features are preserved. E.g., 'headdirection'
+              -> also creates 'headdirection_2d'. Default True.
 
         Raises
         ------
@@ -375,10 +379,37 @@ class Experiment:
         bad_frames_mask = kwargs.get("bad_frames_mask", None)
         spike_kwargs = kwargs.get("spike_kwargs", None)
         self.verbose = kwargs.get("verbose", True)
+        create_circular_2d = kwargs.get("create_circular_2d", True)
 
         # Parallelization settings
         self._n_jobs = kwargs.get("n_jobs", -1)
         self._enable_parallelization = kwargs.get("enable_parallelization", False)
+
+        # Extract new data fields
+        asp = kwargs.get("asp", None)
+        reconstructions = kwargs.get("reconstructions", None)
+        metadata = kwargs.get("metadata", None)
+
+        # Extract per-neuron metrics from metadata
+        neuron_metrics_df = None
+        if metadata is not None and 'metrics_df' in metadata:
+            metrics_df = metadata['metrics_df']
+
+            # Handle edge case: metrics_df might have more entries than neurons
+            # (e.g., BOWL: 495 metrics vs 370 neurons due to preprocessing filtering)
+            # For now, we only support direct indexing (metrics_df length == n_neurons)
+            n_neurons = calcium.shape[0]
+            first_key = list(metrics_df.keys())[0]
+            metrics_len = len(metrics_df[first_key])
+
+            if metrics_len == n_neurons:
+                neuron_metrics_df = metrics_df
+            elif self.verbose:
+                warnings.warn(
+                    f"metrics_df length ({metrics_len}) doesn't match neuron count ({n_neurons}). "
+                    f"Per-neuron metrics will not be loaded. This can happen when the NPZ contains "
+                    f"all preprocessing components but only a subset was kept."
+                )
 
         check_dynamic_features(dynamic_features)
         self.exp_identificators = exp_identificators
@@ -416,7 +447,8 @@ class Experiment:
             )
 
         self.filtered_flag = False
-        if bad_frames_mask is not None:
+        # Only call _trim_data if there are actual bad frames to filter
+        if bad_frames_mask is not None and np.any(bad_frames_mask):
             calcium, spikes, dynamic_features = self._trim_data(
                 calcium, spikes, dynamic_features, bad_frames_mask
             )
@@ -461,14 +493,26 @@ class Experiment:
         for i in tqdm.tqdm(
             np.arange(self.n_cells), position=0, leave=True, disable=not self.verbose
         ):
+            # Build neuron kwargs for new optional data
+            neuron_kwargs = {
+                'default_t_rise': t_rise,
+                'default_t_off': t_off,
+                'fps': fps,
+                'optimize_kinetics': optimize_kinetics,
+            }
+
+            if asp is not None:
+                neuron_kwargs['asp'] = asp[i, :]
+            if reconstructions is not None:
+                neuron_kwargs['reconstructed'] = reconstructions[i, :]
+            if neuron_metrics_df is not None:
+                neuron_kwargs['metrics'] = {k: v[i] for k, v in neuron_metrics_df.items()}
+
             cell = Neuron(
                 str(i),
                 calcium[i, :],
                 spikes[i, :] if spikes is not None else None,
-                default_t_rise=t_rise,
-                default_t_off=t_off,
-                fps=fps,
-                optimize_kinetics=optimize_kinetics,
+                **neuron_kwargs
             )
             self.neurons.append(cell)
 
@@ -490,6 +534,13 @@ class Experiment:
         self.spikes = MultiTimeSeries(spikes_ts_list, allow_zero_columns=True, name="spikes")
 
         self.dynamic_features = dynamic_features
+
+        # Create _2d versions of circular features for MI computation
+        if create_circular_2d:
+            self._create_circular_2d_features(verbose=self.verbose)
+
+        # Store experiment-level metadata
+        self.metadata = metadata
 
         # Protected attributes that should not be overwritten
         protected_attrs = {
@@ -767,6 +818,104 @@ class Experiment:
                     cell_id, feat_id, mode=mode
                 )
 
+    def _create_circular_2d_features(self, verbose=True):
+        """Create _2d (cos, sin) versions of circular features during __init__.
+
+        Called automatically during construction if create_circular_2d=True.
+        This is safe because no caching has occurred yet.
+
+        Parameters
+        ----------
+        verbose : bool, optional
+            Print information about created features. Default is True.
+
+        Returns
+        -------
+        list of tuple
+            List of (original_name, name_2d, period) for each created feature.
+        """
+        from ..information.circular_transform import circular_to_cos_sin
+
+        circular_2d_created = []
+        for f, ts in list(self.dynamic_features.items()):
+            # Skip if already MultiTimeSeries or already a _2d feature
+            if isinstance(ts, MultiTimeSeries) or f.endswith("_2d"):
+                continue
+
+            # Check if continuous AND circular (discrete features should not be transformed)
+            if (isinstance(ts, TimeSeries) and not ts.discrete and
+                hasattr(ts, "type_info") and ts.type_info and ts.type_info.is_circular):
+                # Create _2d version (cos, sin) MultiTimeSeries
+                name_2d = f"{f}_2d"
+                period = ts.type_info.circular_period
+                transformed = circular_to_cos_sin(ts.data, period=period, name=name_2d)
+                self.dynamic_features[name_2d] = transformed
+
+                circular_2d_created.append((f, name_2d, period))
+
+        if verbose and circular_2d_created:
+            print("Circular features -> _2d versions created:")
+            for orig, name_2d, period in circular_2d_created:
+                period_str = "2pi" if period and abs(period - 2 * np.pi) < 0.1 else f"{period}"
+                print(f"  '{orig}' (period={period_str}) -> '{name_2d}' [cos, sin]")
+
+        return circular_2d_created
+
+    def get_circular_2d_feature(self, name):
+        """Get the _2d (cos, sin) version of a circular feature.
+
+        Parameters
+        ----------
+        name : str
+            Original circular feature name (without _2d suffix).
+
+        Returns
+        -------
+        MultiTimeSeries or None
+            The _2d version, or None if not available.
+
+        Examples
+        --------
+        >>> # Assuming exp has circular feature 'headdirection'
+        >>> mts = exp.get_circular_2d_feature('headdirection')  # doctest: +SKIP
+        >>> mts.n_dim  # doctest: +SKIP
+        2
+        """
+        name_2d = f"{name}_2d"
+        return self.dynamic_features.get(name_2d)
+
+    def has_circular_2d(self, name):
+        """Check if a feature has a _2d (cos, sin) counterpart.
+
+        Parameters
+        ----------
+        name : str
+            Feature name to check.
+
+        Returns
+        -------
+        bool
+            True if the _2d version exists.
+        """
+        return f"{name}_2d" in self.dynamic_features
+
+    def get_circular_features(self):
+        """Get all circular features (excluding _2d versions).
+
+        Returns
+        -------
+        dict
+            Dictionary mapping feature names to TimeSeries objects
+            for all circular features.
+        """
+        circular = {}
+        for name, ts in self.dynamic_features.items():
+            if name.endswith("_2d"):
+                continue
+            if isinstance(ts, TimeSeries) and ts.type_info and ts.type_info.is_circular:
+                circular[name] = ts
+        return circular
+
     def _trim_data(self, calcium, spikes, dynamic_features, bad_frames_mask, force_filter=False):
         """Filter out bad frames from all data arrays.
 
@@ -820,9 +969,12 @@ class Experiment:
         for feat_id in dynamic_features:
             current_ts = dynamic_features[feat_id]
             if isinstance(current_ts, TimeSeries):
+                # Preserve ts_type to maintain circular/linear type info
+                ts_type = current_ts.type_info if hasattr(current_ts, 'type_info') else None
                 f_ts = TimeSeries(
                     current_ts.data[~bad_frames_mask],
                     discrete=current_ts.discrete,
+                    ts_type=ts_type,
                     name=current_ts.name if hasattr(current_ts, 'name') else feat_id
                 )
             elif isinstance(current_ts, MultiTimeSeries):
@@ -830,15 +982,17 @@ class Experiment:
                 filtered_components = []
                 for i in range(current_ts.n_dim):
                     component_data = current_ts.data[i, ~bad_frames_mask]
-                    # Preserve component name if it exists
+                    # Preserve component name and type_info
                     component_name = None
+                    component_type = None
                     if hasattr(current_ts, 'ts_list') and i < len(current_ts.ts_list):
                         orig_component = current_ts.ts_list[i]
                         component_name = orig_component.name if hasattr(orig_component, 'name') else f"{feat_id}_{i}"
+                        component_type = orig_component.type_info if hasattr(orig_component, 'type_info') else None
                     else:
                         component_name = f"{feat_id}_{i}"
                     filtered_components.append(
-                        TimeSeries(component_data, discrete=current_ts.discrete, name=component_name)
+                        TimeSeries(component_data, discrete=current_ts.discrete, ts_type=component_type, name=component_name)
                     )
                 # Preserve parent name if it exists
                 parent_name = current_ts.name if hasattr(current_ts, 'name') else feat_id
