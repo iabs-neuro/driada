@@ -175,6 +175,54 @@ class IntenseResults:
         for dname, data in datadict.items():
             setattr(self, dname, data)
 
+    def populate_stage1_pvals(self):
+        """Reconstruct and populate pre_pval in stats from saved Stage 1 shuffle data.
+
+        Fills in stats[neuron][feature]["pre_pval"] (currently None) with actual
+        p-values computed from the saved me_total1 distributions. Modifies self.stats
+        in-place.
+
+        Returns
+        -------
+        pre_pvals : np.ndarray, shape (n_neurons, n_features)
+            The reconstructed p-value array.
+        mi_values : np.ndarray, shape (n_neurons, n_features)
+            The MI values array.
+
+        Raises
+        ------
+        AttributeError
+            If required attributes (info, stats, intense_params) are missing.
+        KeyError
+            If me_total1 is not present in info.
+        """
+        from .stats import reconstruct_stage1_pvals
+
+        me_total1 = self.info["me_total1"]
+        metric_distr_type = self.intense_params.get("metric_distr_type", "gamma")
+
+        pre_pvals, mi_values = reconstruct_stage1_pvals(
+            me_total1, metric_distr_type=metric_distr_type
+        )
+
+        # Map indices to names and populate stats in-place
+        neurons_map = self.intense_params["neurons"]
+        features_map = self.intense_params["feat_bunch"]
+        n1, n2 = me_total1.shape[0], me_total1.shape[1]
+
+        for i in range(n1):
+            neuron_name = neurons_map[i]
+            if neuron_name not in self.stats:
+                continue
+            for j in range(n2):
+                feature_name = features_map[j]
+                if feature_name not in self.stats[neuron_name]:
+                    continue
+                if not np.isnan(pre_pvals[i, j]):
+                    self.stats[neuron_name][feature_name]["pre_pval"] = float(pre_pvals[i, j])
+
+        return pre_pvals, mi_values
+
     def validate_against_ground_truth(self, ground_truth, verbose=True):
         """
         Compare INTENSE detections against known ground truth.

@@ -260,6 +260,45 @@ def get_mi_distr_pvalue(data, val, distr_type="gamma"):
         return 1.0
 
 
+def reconstruct_stage1_pvals(me_total1, metric_distr_type="gamma"):
+    """Reconstruct Stage 1 p-values from saved shuffle distributions.
+
+    Stage 1 skips p-value computation for performance (pre_pval=None).
+    This function reconstructs them post-hoc from the saved me_total1 array
+    using the same distribution fitting as Stage 2.
+
+    Parameters
+    ----------
+    me_total1 : np.ndarray, shape (n1, n2, nsh1+1)
+        Stage 1 MI array. [:,:,0] = true MI, [:,:,1:] = shuffles.
+    metric_distr_type : str, optional
+        Distribution type for p-value fitting. Default: 'gamma'.
+
+    Returns
+    -------
+    pre_pvals : np.ndarray, shape (n1, n2)
+        Reconstructed p-values. NaN where MI data is missing/zero.
+    mi_values : np.ndarray, shape (n1, n2)
+        True MI values (me_total1[:,:,0]).
+    """
+    n1, n2 = me_total1.shape[0], me_total1.shape[1]
+    pre_pvals = np.full((n1, n2), np.nan)
+    mi_values = me_total1[:, :, 0].copy()
+
+    for i in range(n1):
+        for j in range(n2):
+            row = me_total1[i, j, :]
+            if np.all(row == 0):
+                continue
+            me = row[0]
+            random_mi_samples = row[1:]
+            pre_pvals[i, j] = get_mi_distr_pvalue(
+                random_mi_samples, me, distr_type=metric_distr_type
+            )
+
+    return pre_pvals, mi_values
+
+
 def get_mask(ptable, rtable, pval_thr, rank_thr):
     """
     Create binary mask based on p-value and rank thresholds.
