@@ -618,7 +618,6 @@ class TestWaveletBatchOptimization:
 
         # Create synthetic calcium trace with clear transient
         fps = 20
-        t = np.linspace(0, 10, 200)
         trace = np.zeros(200)
         # Add calcium transient (exponential rise and decay)
         transient_start = 50

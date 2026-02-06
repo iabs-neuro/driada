@@ -190,7 +190,7 @@ class TestKSGEdgeCases:
         # This might raise an error in tree building
         points = np.array([]).reshape(0, 2)
         with pytest.raises((ValueError, IndexError)):
-            tree = build_tree(points)
+            _tree = build_tree(points)
 
     def test_single_point(self):
         """Test with single point."""
@@ -199,7 +199,7 @@ class TestKSGEdgeCases:
 
         # Query neighbors might behave differently
         with pytest.raises((ValueError, IndexError)):
-            distances = query_neighbors(tree, points, k=2)
+            _distances = query_neighbors(tree, points, k=2)
 
     def test_duplicate_points(self):
         """Test with duplicate points."""

@@ -266,6 +266,8 @@ class TestGenerateTunedSelectivityExp:
 
         assert exp.n_cells == 4
         assert exp.n_frames == 30 * 20  # 30s at 20 fps
+        assert "expected_pairs" in ground_truth
+        assert "neuron_types" in ground_truth
 
     def test_ground_truth_structure(self):
         """Test that ground truth has correct structure."""

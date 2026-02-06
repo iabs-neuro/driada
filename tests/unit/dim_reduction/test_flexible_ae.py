@@ -184,7 +184,7 @@ class TestFlexibleVAE:
         assert z.shape == (32, 5)
 
         # With zero mean and log_var, should be close to standard normal
-        assert torch.abs(z.mean()) < 0.3  # Relaxed threshold for randomness
+        assert torch.abs(z.mean()) < 0.3  # Stochastic sampling has high variance at batch_size=32
         assert torch.abs(z.std() - 1.0) < 0.3
 
     def test_forward_pass(self):

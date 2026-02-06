@@ -27,7 +27,7 @@ class TestGenerateMixedPopulationExpFast:
     def test_basic_generation_fast(self):
         """Fast test for basic mixed population generation."""
         exp, info = generate_mixed_population_exp(
-            n_neurons=10,  # Reduced from 20
+            n_neurons=10,
             manifold_fraction=0.6,
             manifold_type="2d_spatial",
             return_info=True,
@@ -263,7 +263,7 @@ class TestPerformanceBenchmarks:
 
         start = time.time()
         for _ in range(5):
-            exp = generate_mixed_population_exp(n_neurons=8, manifold_fraction=0.5, **FAST_PARAMS)
+            _exp = generate_mixed_population_exp(n_neurons=8, manifold_fraction=0.5, **FAST_PARAMS)
         duration = time.time() - start
 
         assert duration < 5.0, f"5 generations took {duration:.2f}s, should be <5s"

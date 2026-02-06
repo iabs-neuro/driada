@@ -78,7 +78,7 @@ class TestMatrixUtilsBranching:
 
         # Check eigenvalues are in [0, 2] for connected graphs
         eigenvals = np.linalg.eigvalsh(L_dense)
-        assert np.all(eigenvals >= -1e-10)  # Allow small numerical errors
+        assert np.all(eigenvals >= -1e-10)  # Floating-point tolerance
         assert np.all(eigenvals <= 2 + 1e-10)
 
         # Sparse version
@@ -178,8 +178,8 @@ class TestMatrixUtilsBranching:
         # Test all functions don't crash with isolated nodes
         for matrix_type in [adj, sp.csr_matrix(adj)]:
             D_inv_sqrt = get_inv_sqrt_diag_matrix(matrix_type)
-            D_inv = get_inv_diag_matrix(matrix_type)
-            T = get_trans_matrix(matrix_type)
+            _D_inv = get_inv_diag_matrix(matrix_type)
+            _T = get_trans_matrix(matrix_type)
 
             # Check isolated nodes have 0 in inverse matrices
             if sp.issparse(D_inv_sqrt):

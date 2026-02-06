@@ -59,7 +59,7 @@ class TestLNCAlphaSelection:
         # k=4 is equidistant from k=3 and k=5, min() will pick k=3
         alpha_k4 = get_lnc_alpha(4, 10)
         alpha_k3 = get_lnc_alpha(3, 10)
-        alpha_k5 = get_lnc_alpha(5, 10)
+        _alpha_k5 = get_lnc_alpha(5, 10)
 
         # k=4 should use k=3 (due to min() behavior with equal distances)
         assert alpha_k4 == alpha_k3

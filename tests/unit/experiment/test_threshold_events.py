@@ -332,7 +332,7 @@ class TestIterativeDetectionMergesDuplicates:
         sp_count_3iter = neuron_3iter.sp_count
 
         # Spike count should be similar - duplicates should merge via amplitude summing
-        # Allow small variation due to noise, but not proportional to n_iter
+        # Extra iterations should merge duplicates, not find new events
         assert sp_count_3iter <= sp_count_1iter + 2, (
             f"3 iterations ({sp_count_3iter} spikes) should not add many more spikes "
             f"than 1 iteration ({sp_count_1iter} spikes) for well-separated events"

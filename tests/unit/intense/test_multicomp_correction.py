@@ -26,7 +26,7 @@ class TestHolmCorrection:
 
     def test_holm_vs_statsmodels(self):
         """Compare Holm correction to statsmodels implementation."""
-        statsmodels = pytest.importorskip("statsmodels")
+        _statsmodels = pytest.importorskip("statsmodels")
         from statsmodels.stats.multitest import multipletests
 
         pvals = np.array([0.001, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 0.2])

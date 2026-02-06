@@ -62,7 +62,7 @@ class TestEntropyJIT:
 
     def test_joint_entropy_dd_jit_independent(self):
         """Test JIT joint entropy with independent variables."""
-        n = 100
+        _n = 100
         x = np.array([0, 1] * 50, dtype=np.float64)
         y = np.array([0, 0, 1, 1] * 25, dtype=np.float64)
 

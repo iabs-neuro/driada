@@ -234,7 +234,7 @@ class TestCreateGifFromImageSeries:
         """Test GIF creation when no images match."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create GIF with no matching images
-            gif_path = create_gif_from_image_series(
+            _gif_path = create_gif_from_image_series(
                 tmpdir, signature="nonexistent", gifname="empty"
             )
 

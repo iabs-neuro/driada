@@ -59,7 +59,7 @@ class TestTimeSeriesTypeDetection:
 
         # Binary with very small noise (should still be detected as discrete if noise is negligible)
         data_small_noise = data + np.random.normal(0, 0.001, len(data))
-        result_small_noise = analyze_time_series_type(data_small_noise)
+        _result_small_noise = analyze_time_series_type(data_small_noise)
         # With tiny noise, might still detect as discrete
 
         # Binary with significant noise (should be continuous)

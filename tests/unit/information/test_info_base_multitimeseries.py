@@ -158,7 +158,7 @@ class TestMultiTimeSeriesProperties:
         """Test binary data properties."""
         # Create binary data
         data = np.random.randint(0, 2, size=(4, 100))
-        mts = MultiTimeSeries(data, discrete=True, allow_zero_columns=True)
+        _mts = MultiTimeSeries(data, discrete=True, allow_zero_columns=True)
 
         # Check if components are binary
         ts_list = [TimeSeries(data[i, :], discrete=True) for i in range(4)]
@@ -198,7 +198,7 @@ class TestMultiTimeSeriesProperties:
             row_min = mts.data[i].min()
             row_max = mts.data[i].max()
             # Check that each row is scaled to approximately [0, 1]
-            assert row_min >= -1e-10  # Allow small numerical errors
+            assert row_min >= -1e-10  # Floating-point tolerance
             assert row_max <= 1.0 + 1e-10
             # Check that the range is close to 1 (unless all values were the same)
             if np.std(data[i]) > 1e-10:
@@ -239,7 +239,7 @@ class TestMultiTimeSeriesEntropy:
         mts3 = MultiTimeSeries(data3, discrete=True, allow_zero_columns=True)
 
         with pytest.raises(NotImplementedError, match="Joint entropy for 3 discrete variables"):
-            h3 = mts3.get_entropy()
+            _h3 = mts3.get_entropy()
 
 
 class TestMultiTimeSeriesFilter:

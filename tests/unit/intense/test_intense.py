@@ -76,7 +76,7 @@ def binarize_ts(ts, thr="av"):
 def test_stage1(correlated_ts_medium, fast_test_params):
     """Test stage1 mode of compute_me_stats."""
     tslist1, tslist2, n = correlated_ts_medium
-    k = n // 2
+    _k = n // 2
 
     computed_stats, computed_significance, info = compute_me_stats(
         tslist1,
@@ -113,7 +113,7 @@ def test_two_stage(correlated_ts_medium, strict_test_params):
         noise_ampl=strict_test_params["noise_ampl"],
         ds=strict_test_params["ds"],
         topk1=1,
-        topk2=3,  # Reduced from 5 to be more selective
+        topk2=3,
         multicomp_correction=strict_test_params["multicomp_correction"],
         pval_thr=strict_test_params["pval_thr"],
         verbose=strict_test_params["verbose"],
@@ -293,7 +293,6 @@ def test_two_stage_avsignal(correlated_ts_binarized, balanced_test_params):
     tslist1, tslist2, n = correlated_ts_binarized
     k = n // 2  # num of ts in one block
 
-    # Use more relaxed parameters for binarized data with av metric
     # The av metric measures difference in means, which is less sensitive
     # for binarized data than correlation-based metrics
     computed_stats, computed_significance, info = compute_me_stats(
@@ -403,7 +402,7 @@ def test_calculate_optimal_delays():
     assert delays.shape == (1, 1)
     assert np.abs(delays[0, 0]) <= 50  # Within shift window
     # The detected delay should be close to the true delay
-    assert np.abs(delays[0, 0] - delay_frames) <= 2  # Allow small error
+    assert np.abs(delays[0, 0] - delay_frames) <= 2
 
 
 def test_validate_time_series_bunches_empty():
@@ -956,7 +955,7 @@ def test_optimal_delays_parallel(correlated_ts_small, fast_test_params):
     tslist1, tslist2, n = correlated_ts_small
 
     # Parameters
-    shift_window = 20  # Reduced for faster testing
+    shift_window = 20
     ds = fast_test_params["ds"]
 
     # Run parallel version
@@ -1374,7 +1373,7 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
 
     # Generate random calcium signals and random features
     np.random.seed(42)
-    n_neurons = 10  # Reduced from 20
+    n_neurons = 10
     duration = (
         600  # Increased for better statistics (longer = more reliable null hypothesis testing)
     )

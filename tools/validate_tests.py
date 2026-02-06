@@ -369,13 +369,16 @@ class ASTTestExtractor(ast.NodeVisitor):
                                               or "patch" in call_name):
                                 mock_names.add(target.id)
 
-            # Detect return statements
-            if isinstance(node, ast.Return) and node.value is not None:
-                info.has_return = True
+            # Detect return statements (only at test function level, not in nested defs)
+            # Handled separately below via _has_direct_return
 
             # Track name references (for dead code detection)
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
                 info.referenced_names.add(node.id)
+
+        # Detect return statements only at the test function's own scope
+        # (not inside nested defs/lambdas)
+        info.has_return = self._has_direct_return(func_node)
 
         # Detect patch decorators
         for dec in func_node.decorator_list:
@@ -388,6 +391,39 @@ class ASTTestExtractor(ast.NodeVisitor):
             info.mock_only_assertions = self._are_mock_only_assertions(
                 func_node, mock_names, info
             )
+
+    @staticmethod
+    def _has_direct_return(func_node: ast.FunctionDef) -> bool:
+        """Check if the function has a return-with-value at its own scope (not nested)."""
+        for node in ast.walk(func_node):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node is not func_node:
+                continue  # ast.walk still enters children; we skip below
+            if isinstance(node, ast.Return) and node.value is not None:
+                # Check that this Return is NOT inside a nested function
+                # by walking parents. Since ast doesn't store parents,
+                # use a targeted approach: walk only direct body statements.
+                pass
+        # Simpler approach: iterate direct body recursively, skipping nested defs
+        def _check(stmts):
+            for stmt in stmts:
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue  # skip nested functions entirely
+                if isinstance(stmt, ast.Return) and stmt.value is not None:
+                    return True
+                # Recurse into compound statements (if/for/with/try)
+                for child_stmts in _iter_child_stmts(stmt):
+                    if _check(child_stmts):
+                        return True
+            return False
+
+        def _iter_child_stmts(node):
+            """Yield statement lists from compound statement children."""
+            for field_name in ("body", "orelse", "finalbody", "handlers"):
+                child = getattr(node, field_name, None)
+                if isinstance(child, list):
+                    yield child
+
+        return _check(func_node.body)
 
     def _count_body_lines(self, func_node: ast.FunctionDef) -> int:
         """Count meaningful body lines (excluding docstring)."""
@@ -861,10 +897,31 @@ class R06_DeadCodeInTests(Rule):
             ))
 
         # Commented-out code detection
+        # A comment is "code-like" if the text after '# ' is valid Python.
+        # This avoids false positives from explanatory comments that happen
+        # to contain '=' or '(' (e.g., "# avg_on = mean([10, 8, 9, 10]) = 9.25").
+        def _is_commented_out_code(text: str) -> bool:
+            """Return True if text looks like commented-out Python code."""
+            text = text.lstrip("# ").strip()
+            if not text:
+                return False
+            try:
+                ast.parse(text)
+                # Parsed successfully -- but single words/numbers also parse
+                # (as expression statements). Reject trivial expressions that
+                # are more likely prose than code.
+                tree = ast.parse(text)
+                if len(tree.body) == 1 and isinstance(tree.body[0], ast.Expr):
+                    val = tree.body[0].value
+                    if isinstance(val, (ast.Constant, ast.Name)):
+                        return False
+                return True
+            except SyntaxError:
+                return False
+
         consecutive_code_comments = 0
         for _line_no, comment_text in info.comments:
-            text = comment_text.lstrip("# ").strip()
-            if any(indicator in text for indicator in ("=", "(", "import ", "def ", "class ")):
+            if _is_commented_out_code(comment_text):
                 consecutive_code_comments += 1
             else:
                 consecutive_code_comments = 0

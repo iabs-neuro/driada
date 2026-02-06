@@ -237,7 +237,7 @@ class TestGCMIEntropy:
         expected_joint = h_single + theoretical_noise_entropy
 
         # Check that GCMI result matches theoretical expectation
-        tolerance = 0.1  # Allow small numerical differences
+        tolerance = 0.1
         assert (
             abs(h_joint - expected_joint) < tolerance
         ), f"Joint entropy {h_joint:.3f} should be close to {expected_joint:.3f}"
@@ -534,7 +534,7 @@ class TestGCMIConditionalMI:
         z = np.array([0, 1] * (n // 2))
 
         with pytest.warns(UserWarning, match="more than 10% repeated values"):
-            cmi = gccmi_ccd(x, y, z, 2)
+            _cmi = gccmi_ccd(x, y, z, 2)
 
     def test_gccmi_ccd_input_validation(self):
         """Test input validation."""
@@ -674,7 +674,7 @@ class TestGCMIStability:
 
         # Should give near-zero MI (no information in constant y)
         mi = mi_model_gd(x_single, y_single, 1)
-        mi_tolerance = 0.05  # Allow small numerical errors
+        mi_tolerance = 0.05
         assert np.abs(mi) < mi_tolerance
 
         # Test gccmi_ccd with single z value
@@ -797,7 +797,7 @@ class TestGCMIJIT:
             time_jit = time.time() - start
 
             # JIT version should not be significantly slower
-            # (relaxed constraint since performance varies)
+            # JIT should not be significantly slower than pure Python
             assert time_jit < time_regular * 2.0, f"JIT too slow for size {size}"
 
     def test_integration_with_gcmi(self):

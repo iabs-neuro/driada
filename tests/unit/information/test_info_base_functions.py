@@ -971,7 +971,7 @@ class TestTheoreticalGaussianMI:
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            mi_k3 = get_multi_mi(ts_list, ts_y, estimator="ksg", k=3)
+            _mi_k3 = get_multi_mi(ts_list, ts_y, estimator="ksg", k=3)
 
             # Should have warning about k <= d
             assert len(w) > 0

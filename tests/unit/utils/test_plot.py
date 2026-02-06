@@ -203,7 +203,7 @@ class TestMakeBeautiful:
     def test_make_beautiful_dpi(self):
         """Test DPI setting."""
         fig, ax = plt.subplots()
-        original_dpi = fig.get_dpi()
+        _original_dpi = fig.get_dpi()
 
         make_beautiful(ax, dpi=150)
         assert fig.get_dpi() == 150

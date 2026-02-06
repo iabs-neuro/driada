@@ -27,7 +27,7 @@ class TestMTSMTSFFTCorrectness:
         mi_fft = compute_mi_mts_mts_fft(x1, x2, np.array([0]), biascorrect=True)
 
         # Compute with mi_gg reference
-        joint = np.vstack([x1, x2])
+        _joint = np.vstack([x1, x2])
         mi_ref = mi_gg(x1, x2, biascorrect=True, demeaned=False)
 
         # Should match closely (rtol=1e-8 to account for floating point differences in FFT)

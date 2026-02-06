@@ -20,7 +20,6 @@ class TestDigammaFunctions:
         for x in test_values:
             fast_result = py_fast_digamma(x)
             scipy_result = digamma(x)
-            # Allow small numerical differences
             assert abs(fast_result - scipy_result) < 1e-6, f"Failed for x={x}"
 
     def test_py_fast_digamma_small_values(self):

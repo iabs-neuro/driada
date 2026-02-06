@@ -631,8 +631,9 @@ def test_intense_with_ksg_estimator(small_experiment):
     cell_ids = list(stats_ksg.keys())
     assert len(cell_ids) == 3  # We requested 3 cells
 
-    # Check that both have same structure
+    # Both estimators should produce significance results with same keys
     assert set(stats_ksg.keys()) == set(stats_gcmi.keys())
+    assert set(sig_ksg.keys()) == set(sig_gcmi.keys())
 
     # Check all values are finite
     for cell_id in cell_ids:

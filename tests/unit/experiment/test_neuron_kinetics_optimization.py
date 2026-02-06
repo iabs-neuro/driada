@@ -179,10 +179,10 @@ class TestMeasureTOffFromPeak:
 
         result = neuron._measure_t_off_from_peak(signal, peak_idx=100, fps=fps, max_frames=1000)
 
-        # Should still return None for tau = 50s (above 30s limit)
-        # Note: may return a value if max_frames truncates the measurement
-        # The key is that values clearly > 30s should be rejected
-        pass  # This test documents expected behavior
+        # tau=50s is above the 30s limit, so it should be rejected (None)
+        # or if truncated by max_frames, the returned value should be <= 30
+        if result is not None:
+            assert result <= 30, f"Expected rejection or value <= 30s, got {result}"
 
     def test_rejects_tau_below_0_1_seconds(self, neuron):
         """Test that tau values below 0.1 seconds are rejected."""

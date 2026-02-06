@@ -79,8 +79,6 @@ def test_hlle():
 
     D = MVData(data)
 
-    metric_params = {"metric_name": "l2", "sigma": 1, "p": 2}
-
     # HLLE needs more neighbors
     # Use new simplified API
     emb = D.get_embedding(method="hlle", dim=2, nn=30, metric="l2")
@@ -262,6 +260,9 @@ def test_dmaps_multiscale_structure():
     # Small t should preserve local (circular) structure
     emb_small_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=1, nn=10, metric="l2")
 
+    assert emb_small_t.coords.shape[0] == 2
+    assert np.all(np.isfinite(emb_small_t.coords))
+
     # Large t should emphasize global (cluster) structure
     emb_large_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=10, nn=10, metric="l2")
 
@@ -416,15 +417,6 @@ def test_nonlinear_methods_performance(method_name):
     data, _ = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=42)
     D = MVData(data.T)
 
-    metric_params = {"metric_name": "l2", "sigma": 1, "p": 2}
-    graph_params = {
-        "g_method_name": "knn",
-        "weighted": 0,
-        "nn": 15,
-        "max_deleted_nodes": 0.2,
-        "dist_to_aff": "hk",
-    }
-
     # Use new simplified API
     start_time = time.time()
     if method_name == "tsne":
@@ -475,15 +467,6 @@ def test_swiss_roll_unfolding():
     # Generate swiss roll
     data, color = make_swiss_roll(n_samples=500, noise=0.05, random_state=42)
     D = MVData(data.T)
-
-    metric_params = {"metric_name": "l2", "sigma": 1, "p": 2}
-    graph_params = {
-        "g_method_name": "knn",
-        "weighted": 0,
-        "nn": 7,  # Fewer neighbors to avoid shortcuts across the roll
-        "max_deleted_nodes": 0.2,
-        "dist_to_aff": "hk",
-    }
 
     # Apply Isomap - should unfold the roll using new simplified API
     emb = D.get_embedding(method="isomap", dim=2, nn=10, metric="l2")
@@ -718,6 +701,5 @@ def test_dmaps_on_swiss_roll():
     corr = max(
         abs(spearmanr(color, emb_points[:, 0])[0]), abs(spearmanr(color, emb_points[:, 1])[0])
     )
-    # Relaxed threshold - diffusion maps may not always achieve strong correlation
-    # due to the noisy high-dimensional data and the nature of the algorithm
+    # Diffusion maps on noisy high-dimensional data may not achieve strong correlation
     assert corr > 0.25, f"Embedding should correlate with intrinsic parameter, got {corr:.3f}"

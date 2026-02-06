@@ -48,7 +48,7 @@ class TestNNDimension:
     def test_basic_functionality(self):
         """Test nn_dimension returns valid output."""
         # Generate simple 3D data
-        data = np.random.randn(50, 3)  # Reduced from 100
+        data = np.random.randn(50, 3)
         dim = nn_dimension(data, k=2)
 
         # Check output type and range
@@ -58,7 +58,7 @@ class TestNNDimension:
     def test_linear_subspace(self):
         """Test on data lying in a linear subspace."""
         # Create 2D subspace in 5D ambient space
-        n_samples = 100  # Reduced from 500
+        n_samples = 100
         basis = np.random.randn(5, 2)
         basis = np.linalg.qr(basis)[0]  # Orthonormalize
         coeffs = np.random.randn(n_samples, 2)
@@ -87,7 +87,7 @@ class TestNNDimension:
 
     def test_sphere_manifold(self):
         """Test on 2D sphere embedded in 3D."""
-        n_samples = 200  # Reduced from 1000
+        n_samples = 200
         # Generate uniform points on unit sphere
         theta = np.random.uniform(0, 2 * np.pi, n_samples)
         phi = np.arccos(1 - 2 * np.random.uniform(0, 1, n_samples))
@@ -119,7 +119,7 @@ class TestNNDimension:
     def test_different_k_values(self):
         """Test sensitivity to k parameter."""
         # Generate 2D subspace data
-        n_samples = 100  # Reduced from 500
+        n_samples = 100
         data = np.random.randn(n_samples, 2) @ np.random.randn(2, 5)
         data += 0.01 * np.random.randn(*data.shape)
 
@@ -139,7 +139,7 @@ class TestNNDimension:
         This has been fixed to use actual 2D data embedded in 3D.
         """
         # Create 2D data (not a 1D curve) - random points in a plane
-        n_samples = 200  # Reduced from 1000
+        n_samples = 200
         # Generate points in a 2D subspace
         data_2d = np.random.randn(n_samples, 2)
         # Embed in 3D
@@ -164,7 +164,7 @@ class TestNNDimension:
     def test_sample_size_scaling(self):
         """Test behavior with different sample sizes."""
         # Generate 2D Swiss roll with varying sample sizes
-        sample_sizes = [100, 300, 500]  # Reduced for faster tests
+        sample_sizes = [100, 300, 500]
         dims = []
 
         for n in sample_sizes:
@@ -349,7 +349,7 @@ class TestCorrelationDimension:
     def test_linear_subspace(self):
         """Test on data lying in a linear subspace."""
         # Create 2D subspace in 5D ambient space
-        n_samples = 100  # Reduced from 500
+        n_samples = 100
         basis = np.random.randn(5, 2)
         basis = np.linalg.qr(basis)[0]  # Orthonormalize
         coeffs = np.random.randn(n_samples, 2)
@@ -363,7 +363,7 @@ class TestCorrelationDimension:
 
     def test_circle_manifold(self):
         """Test on 1D circle embedded in 2D."""
-        n_samples = 150  # Reduced from 800
+        n_samples = 150
         t = np.linspace(0, 2 * np.pi, n_samples)
         data = np.column_stack([np.cos(t), np.sin(t)])
 
@@ -413,7 +413,7 @@ class TestCorrelationDimension:
     def test_noise_robustness(self):
         """Test robustness to different noise levels."""
         # Create clean 2D data
-        n_samples = 150  # Reduced from 800
+        n_samples = 150
         t = np.linspace(0, 4 * np.pi, n_samples)
         clean_data = np.column_stack([t * np.cos(t), t * np.sin(t)]) / 10  # Scale down
 
@@ -431,7 +431,7 @@ class TestCorrelationDimension:
     def test_sample_size_effect(self):
         """Test behavior with different sample sizes."""
         # Need sufficient samples for correlation dimension
-        sample_sizes = [200, 400]  # Reduced for faster tests
+        sample_sizes = [200, 400]
         dims = []
 
         for n in sample_sizes:

@@ -490,7 +490,7 @@ def test_integration_with_intense():
     exp, info = generate_circular_manifold_exp(
         n_neurons=20,  # More neurons for better detection
         duration=120,  # Increased duration
-        fps=10,  # Reduced for faster tests
+        fps=10,
         kappa=10.0,  # Even stronger tuning
         baseline_rate=0.05,
         peak_rate=2.5,  # Higher dynamic range

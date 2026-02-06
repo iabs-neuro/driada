@@ -44,12 +44,12 @@ def test_proximity_graph(small_swiss_roll_mvdata):
     graph_params = {
         "g_method_name": "knn",
         "weighted": 0,
-        "nn": 5,  # Reduced for faster tests
+        "nn": 5,
         "max_deleted_nodes": 0.2,
         "dist_to_aff": "hk",
     }
 
-    G = small_swiss_roll_mvdata.get_proximity_graph(metric_params, graph_params)
+    _G = small_swiss_roll_mvdata.get_proximity_graph(metric_params, graph_params)
 
 
 def test_pca(small_swiss_roll_mvdata):

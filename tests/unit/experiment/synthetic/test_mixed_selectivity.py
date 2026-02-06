@@ -470,7 +470,7 @@ class TestIntegrationWithAnalysisPipeline:
         if success_count > 0:
             return  # Test passed
 
-        # If all attempts failed, run one more with relaxed parameters
+        # If all attempts failed, run one more with stronger signal parameters
         print("\n=== Running final attempt with relaxed parameters ===")
         exp = generate_synthetic_exp_with_mixed_selectivity(
             n_discrete_feats=3,

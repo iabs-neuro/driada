@@ -396,7 +396,7 @@ class TestNetworkInitialization:
         """Test Network initialization without preprocessing."""
         A = sp.csr_matrix([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
         with patch("builtins.print") as mock_print:
-            net = Network(adj=A, preprocessing=None, verbose=True, create_nx_graph=False)
+            _net = Network(adj=A, preprocessing=None, verbose=True, create_nx_graph=False)
             mock_print.assert_called_with(
                 "No preprocessing specified, this may lead to unexpected errors in graph connectivity!"
             )
@@ -867,7 +867,7 @@ class TestNetworkWithRealGraphs:
         G.add_nodes_from([3, 4])  # Isolated nodes
 
         with patch("builtins.print") as mock_print:
-            net = Network(graph=G, preprocessing="remove_isolates", verbose=True)
+            _net = Network(graph=G, preprocessing="remove_isolates", verbose=True)
 
             # Check that verbose message about removed nodes/edges was printed
             calls = [str(call) for call in mock_print.call_args_list]

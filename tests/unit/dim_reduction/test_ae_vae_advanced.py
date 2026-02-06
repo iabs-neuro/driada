@@ -55,21 +55,6 @@ def test_ae_correlation_loss():
     data = np.vstack([base_features, base_features + 0.5 * np.random.randn(5, n_samples)])
     D = MVData(data)
 
-    # Test with correlation loss
-    nn_params = {
-        "continue_learning": 0,
-        "epochs": 100,
-        "lr": 5e-3,
-        "seed": 42,
-        "batch_size": 64,
-        "feature_dropout": 0.2,
-        "add_corr_loss": True,
-        "corr_hyperweight": 1.0,
-        "verbose": False,
-        "enc_kwargs": {"dropout": 0.2},
-        "dec_kwargs": {"dropout": 0.2},
-    }
-
     ae_emb = D.get_embedding(
         method="ae",
         dim=2,
@@ -96,18 +81,6 @@ def test_ae_vs_vae_reconstruction_quality():
     n_samples = 500
     data, _ = make_swiss_roll(n_samples=n_samples, noise=0.1, random_state=42)
     D = MVData(data.T)
-
-    nn_params_base = {
-        "continue_learning": 0,
-        "epochs": 100,
-        "lr": 1e-3,
-        "seed": 42,
-        "batch_size": 64,
-        "feature_dropout": 0.1,
-        "verbose": False,
-        "enc_kwargs": {"dropout": 0.1},
-        "dec_kwargs": {"dropout": 0.1},
-    }
 
     # Train AE
     ae_emb = D.get_embedding(

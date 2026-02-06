@@ -125,6 +125,9 @@ class TestINTENSEToDRIntegration:
         mvdata = exp.calcium
         embedding = mvdata.get_embedding({"e_method_name": "pca", "dim": 10})
 
+        assert embedding.coords is not None
+        assert np.all(np.isfinite(embedding.coords))
+
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
         memory_increase = final_memory - initial_memory
 

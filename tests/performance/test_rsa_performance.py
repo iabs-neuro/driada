@@ -142,8 +142,8 @@ def test_caching_performance():
     exp = generate_synthetic_exp(
         n_dfeats=3,
         n_cfeats=0,
-        nneurons=20,  # Reduced from 50 to avoid shuffle mask issues
-        duration=30,  # Increased from 10 to provide more data points
+        nneurons=20,
+        duration=30,
         seed=42,
     )
 

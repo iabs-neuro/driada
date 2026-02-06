@@ -39,7 +39,7 @@ class TestCorrectCovSpectrum:
         cmat = np.corrcoef(data)
 
         # Check that original matrix might have negative eigenvalues
-        orig_eigs = eigh(cmat, eigvals_only=True)
+        _orig_eigs = eigh(cmat, eigvals_only=True)
         # This is expected in near-singular cases
 
         # Function should handle this without errors

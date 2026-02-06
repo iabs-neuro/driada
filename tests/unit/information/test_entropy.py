@@ -241,14 +241,14 @@ def test_edge_cases_and_errors():
     # Test mismatched lengths
     x = np.array([1, 2, 3])
     y = np.array([1, 2])
-    z = np.array([1.0, 2.0, 3.0])
+    _z = np.array([1.0, 2.0, 3.0])
 
     with pytest.raises((ValueError, IndexError)):
         joint_entropy_dd(x, y)
 
     # Test single element arrays
     x_single = np.array([1])
-    z_single = np.array([1.5])
+    _z_single = np.array([1.5])
 
     H_x = entropy_d(x_single)
     assert abs(H_x) < 1e-9
@@ -256,7 +256,7 @@ def test_edge_cases_and_errors():
     # Test all same values
     x_same = np.ones(100, dtype=int)
     y_same = np.zeros(100, dtype=int)
-    z_same = np.ones(100) * 3.14
+    _z_same = np.ones(100) * 3.14
 
     H_x = entropy_d(x_same)
     assert abs(H_x) < 1e-9
@@ -302,7 +302,7 @@ def test_consistency_relationships():
     # Test 5: For independent variables
     x_ind = np.random.randint(0, 2, n)
     y_ind = np.random.randint(0, 2, n)
-    z_ind = np.random.randn(n)
+    _z_ind = np.random.randn(n)
 
     H_x_ind = entropy_d(x_ind)
     H_y_ind = entropy_d(y_ind)

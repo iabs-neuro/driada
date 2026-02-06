@@ -180,7 +180,7 @@ class TestNeuronMethods:
 
         # TimeSeries now validates against NaN values during creation
         with pytest.raises(ValueError, match="Time series contains NaN values"):
-            neuron = Neuron("cell_10", ca_data, sp_data)
+            _neuron = Neuron("cell_10", ca_data, sp_data)
 
     def test_fit_t_off(self):
         """Test t_off fitting."""
@@ -1212,10 +1212,12 @@ class TestOptimizeKinetics:
         result = neuron.optimize_kinetics(method="direct", fps=fps, update_reconstruction=False)
 
         if result.get("optimized", False):
-            # If optimization succeeded, values should be updated
-            # (they might be same if already optimal, but the mechanism works)
             assert neuron.t_rise is not None
             assert neuron.t_off is not None
+            assert neuron.t_rise > 0
+            assert neuron.t_off > 0
+            # Optimization should produce different values from defaults
+            assert (neuron.t_rise != original_t_rise) or (neuron.t_off != original_t_off)
 
     def test_optimize_kinetics_invalid_method(self):
         """Test that invalid method raises ValueError."""

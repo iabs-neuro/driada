@@ -602,7 +602,7 @@ def test_get_gamma_zi_p_parameter_estimation():
 
             # P-value should be <= (1-pi) since zero mass doesn't contribute
             # This ensures ZIG is more conservative than pure gamma
-            assert p_val <= (1 - true_pi) * 1.05  # Allow small numerical error
+            assert p_val <= (1 - true_pi) * 1.05
 
 
 def test_get_mi_distr_pvalue_gamma_zi():

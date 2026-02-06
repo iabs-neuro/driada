@@ -270,7 +270,7 @@ class TestDenseGraphRandomization:
         logger = logging.getLogger("test")
 
         with caplog.at_level(logging.DEBUG):
-            result = random_rewiring_dense_graph(dense_graph, logger=logger, gap_fill_weight=0.001)
+            _result = random_rewiring_dense_graph(dense_graph, logger=logger, gap_fill_weight=0.001)
 
         assert "using gap filling" in caplog.text
 
