@@ -61,6 +61,13 @@ from .spike_reconstruction import (
     threshold_reconstruction,
 )
 
+# Experiment partitioning
+from .partitioning import (
+    split_experiment_session,
+    split_by_duration_minutes,
+    get_duration_in_minutes,
+)
+
 __all__ = [
     # Core class
     "Experiment",
@@ -104,4 +111,8 @@ __all__ = [
     "reconstruct_spikes",
     "wavelet_reconstruction",
     "threshold_reconstruction",
+    # Experiment partitioning
+    "split_experiment_session",
+    "split_by_duration_minutes",
+    "get_duration_in_minutes",
 ]

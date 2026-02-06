@@ -163,6 +163,8 @@ class Neuron:
         asp=None,
         wvt_ridges=None,
         seed=None,
+        reconstructed=None,
+        metrics=None,
     ):
         """Initialize Neuron object with calcium and spike data.
 
@@ -251,6 +253,8 @@ class Neuron:
         else:
             self.asp = None
         self.wvt_ridges = wvt_ridges
+
+        self.metrics = metrics
         self._t_rise = None
         self._t_off = None
         self.noise_ampl = None
@@ -262,9 +266,53 @@ class Neuron:
         self.snr_reconstruction = None
         self.mae = None
         self.event_count = None
+        self.event_r2 = None
+        self.event_snr = None
         self._reconstructed = None
         self._reconstructed_scaled = None
-        self._has_reconstructed = False  # Track if reconstruction was done before
+        self._has_reconstructed = False
+
+        # Pre-populate cached attributes from metrics if available
+        if metrics is not None:
+            # Kinetics: convert seconds to frames
+            if 't_rise' in metrics and metrics['t_rise'] is not None:
+                t_rise_sec = metrics['t_rise']
+                if t_rise_sec > 0:
+                    self._t_rise = t_rise_sec * fps
+
+            if 't_off' in metrics and metrics['t_off'] is not None:
+                t_off_sec = metrics['t_off']
+                t_rise_sec = metrics.get('t_rise', 0)
+                if t_off_sec > t_rise_sec and t_off_sec > 0:
+                    self._t_off = t_off_sec * fps
+
+            # Quality metrics: populate cached attributes that have computation methods
+            if 'r2_score' in metrics and metrics['r2_score'] is not None:
+                self.reconstruction_r2 = float(metrics['r2_score'])
+
+            if 'snr_recon' in metrics and metrics['snr_recon'] is not None:
+                self.snr_reconstruction = float(metrics['snr_recon'])
+
+            if 'event_r2_score' in metrics and metrics['event_r2_score'] is not None:
+                self.event_r2 = float(metrics['event_r2_score'])
+
+            if 'event_snr' in metrics and metrics['event_snr'] is not None:
+                self.event_snr = float(metrics['event_snr'])
+
+            if 'noise_level' in metrics and metrics['noise_level'] is not None:
+                self.noise_ampl = float(metrics['noise_level'])
+
+        # Handle pre-computed reconstruction if provided
+        if reconstructed is not None:
+            reconstructed = np.asarray(reconstructed)
+            if len(reconstructed) != len(ca):
+                raise ValueError(
+                    f"reconstructed length {len(reconstructed)} must match calcium length {len(ca)}"
+                )
+            self._reconstructed = TimeSeries(
+                reconstructed, discrete=False, name=f"neuron_{self.cell_id}_reconstructed"
+            )
+            self._has_reconstructed = True
         if fps is None:
             fps = DEFAULT_FPS
         if default_t_rise is None:
