@@ -543,6 +543,8 @@ def test_default_multifeature_map():
     assert isinstance(DEFAULT_MULTIFEATURE_MAP, dict)
     assert ("x", "y") in DEFAULT_MULTIFEATURE_MAP
     assert DEFAULT_MULTIFEATURE_MAP[("x", "y")] == "place"
+    assert ("x", "y", "z") in DEFAULT_MULTIFEATURE_MAP
+    assert DEFAULT_MULTIFEATURE_MAP[("x", "y", "z")] == "3d-place"
 
 
 # ============================================================

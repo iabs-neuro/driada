@@ -6,8 +6,8 @@ Contains:
 - DEFAULT_CONFIG: Default INTENSE parameters
 """
 
-# Features to skip from INTENSE analysis (will be aggregated instead)
-skip_for_intense = ['x', 'y', 'Reconstructions']
+# Features to skip from INTENSE analysis
+skip_for_intense = ['x', 'y']
 
 # Aggregation mapping: {(tuple_of_features): 'new_aggregated_name'}
 # These features are combined into MultiTimeSeries during experiment construction
