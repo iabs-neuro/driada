@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-Test Validation Protocol for DRIADA 1.0 Release.
-
-Autonomous, read-only AST-based analyzer that classifies every test function
-as GREEN / YELLOW / ORANGE / RED per severity.
+Test Validation Tool — autonomous, read-only AST-based analyzer that classifies
+every test function as GREEN / YELLOW / ORANGE / RED per severity.
 
 Usage:
     python tools/validate_tests.py [--path tests/] [--report FILE] [--json FILE]
@@ -584,18 +582,9 @@ class Rule:
         )
 
 
-# Known data-only fixtures that don't perform assertions
+# Fixtures known to only provide data (no assertions).
+# Add project-specific fixture names here.
 DATA_ONLY_FIXTURES = {
-    "small_experiment", "medium_experiment", "large_experiment",
-    "continuous_only_experiment", "discrete_only_experiment",
-    "mixed_features_experiment", "multifeature_experiment",
-    "experiment_factory", "spike_reconstruction_experiment",
-    "swiss_roll_data", "s_curve_data", "circular_manifold_data",
-    "spatial_2d_data", "correlation_pattern", "correlated_gaussian_data",
-    "simple_timeseries", "multi_timeseries",
-    "base_correlated_signals_small", "base_correlated_signals_medium",
-    "correlated_ts_small", "correlated_ts_medium", "correlated_ts_binarized",
-    "mock_experiment", "small_visual_experiment", "visual_experiment",
     "tmp_path", "tmpdir",
 }
 
@@ -1265,7 +1254,7 @@ class ReportWriter:
 
         print()
         print("=" * 60)
-        print("  DRIADA Test Validation Report")
+        print("  Test Validation Report")
         print("=" * 60)
         print(f"  Date:      {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"  Files:     {summary['files']}")
@@ -1308,7 +1297,7 @@ class ReportWriter:
 
     def write_markdown(self, output_path: str):
         lines = []
-        lines.append("# DRIADA Test Validation Concerns Report")
+        lines.append("# Test Validation Concerns Report")
         lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("")
 
@@ -1438,7 +1427,7 @@ class ReportWriter:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="DRIADA Test Validation Protocol — autonomous test quality analyzer"
+        description="Test validation tool — autonomous test quality analyzer"
     )
     parser.add_argument(
         "--path", default="tests/",
