@@ -139,7 +139,7 @@ class TestCorrectCovSpectrum:
 
         corrected_eigs = correct_cov_spectrum(n, t, cmat, correction_iters=2)
         # Should stay close to all ones
-        assert np.allclose(corrected_eigs[-1], np.ones(n), atol=0.1)
+        assert np.allclose(corrected_eigs[-1], np.ones(n), atol=1e-8)
 
         # Case 2: Rank-deficient matrix
         n = 30

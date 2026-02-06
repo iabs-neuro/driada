@@ -34,8 +34,8 @@ class TestGetAdaptiveWaveletScales:
         time_max_30 = scales_30hz[-1] / 30
 
         # Both should cover approximately the same time range
-        assert time_min_20 == pytest.approx(time_min_30, rel=0.01)
-        assert time_max_20 == pytest.approx(time_max_30, rel=0.01)
+        assert time_min_20 == pytest.approx(time_min_30, rel=1e-10)
+        assert time_max_20 == pytest.approx(time_max_30, rel=1e-10)
 
     def test_scale_proportional_to_fps(self):
         """Scales should scale proportionally with FPS."""
@@ -43,8 +43,8 @@ class TestGetAdaptiveWaveletScales:
         scales_40hz = get_adaptive_wavelet_scales(fps=40)
 
         # At 2x FPS, scales should be 2x larger
-        assert scales_40hz[0] == pytest.approx(scales_20hz[0] * 2, rel=0.01)
-        assert scales_40hz[-1] == pytest.approx(scales_20hz[-1] * 2, rel=0.01)
+        assert scales_40hz[0] == pytest.approx(scales_20hz[0] * 2, rel=1e-10)
+        assert scales_40hz[-1] == pytest.approx(scales_20hz[-1] * 2, rel=1e-10)
 
     def test_n_scales_correct(self):
         """Should return requested number of scales."""
@@ -75,11 +75,11 @@ class TestGetAdaptiveWaveletScales:
 
         # First scale should correspond to custom_min
         expected_min_scale = custom_min * fps
-        assert scales[0] == pytest.approx(expected_min_scale, rel=0.01)
+        assert scales[0] == pytest.approx(expected_min_scale, rel=1e-10)
 
         # Last scale should correspond to custom_max
         expected_max_scale = custom_max * fps
-        assert scales[-1] == pytest.approx(expected_max_scale, rel=0.01)
+        assert scales[-1] == pytest.approx(expected_max_scale, rel=1e-10)
 
 
 class TestEventsToTsArray:

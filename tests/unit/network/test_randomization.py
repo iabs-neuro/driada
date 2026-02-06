@@ -131,14 +131,16 @@ class TestIOMPreserving:
 
     def test_iom_progress_bar(self, simple_directed_graph):
         """Test progress bar functionality."""
-        # Just ensure it runs without error
-        adj_random_rewiring_iom_preserving(
+        result_bar = adj_random_rewiring_iom_preserving(
             simple_directed_graph, is_weighted=False, r=1, enable_progressbar=True
         )
 
-        adj_random_rewiring_iom_preserving(
+        result_no_bar = adj_random_rewiring_iom_preserving(
             simple_directed_graph, is_weighted=False, r=1, enable_progressbar=False
         )
+
+        assert result_bar.shape == simple_directed_graph.shape
+        assert result_no_bar.shape == simple_directed_graph.shape
 
     def test_iom_reproducibility(self, simple_directed_graph):
         """Test that random_state ensures reproducibility."""

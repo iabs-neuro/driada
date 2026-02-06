@@ -64,7 +64,7 @@ class TestSigmoidTuningCurve:
         x = np.linspace(0, 1, 100)
         response_1 = sigmoid_tuning_curve(x, threshold=0.5, slope=10.0, max_response=1.0)
         response_2 = sigmoid_tuning_curve(x, threshold=0.5, slope=10.0, max_response=2.0)
-        assert np.allclose(response_2, response_1 * 2.0, rtol=0.01)
+        assert np.allclose(response_2, response_1 * 2.0, rtol=1e-10)
 
 
 class TestComputeSpeedFromPositions:

@@ -464,7 +464,7 @@ class TestDiscreteFeatureMI:
         print(f"Continuous-Discrete MI: loop={mi_loop:.10f}, FFT={mi_fft:.10f}, diff={mi_loop - mi_fft:.10f}")
 
         # Should match closely
-        np.testing.assert_allclose(mi_loop, mi_fft, rtol=1e-2, atol=1e-3,
+        np.testing.assert_allclose(mi_loop, mi_fft, rtol=1e-8, atol=1e-10,
             err_msg="Continuous-Discrete MI should match")
 
     def test_continuous_discrete_mi_at_shifts(self):

@@ -1033,7 +1033,7 @@ class TestDeconvolveGivenEventTimes:
         amplitudes = Neuron.deconvolve_given_event_times(ca_signal, event_times, t_rise, t_off)
 
         assert len(amplitudes) == 1
-        assert amplitudes[0] == pytest.approx(true_amplitude, abs=0.1)
+        assert amplitudes[0] == pytest.approx(true_amplitude, abs=1e-6)
 
     def test_overlapping_events_amplitude_recovery(self):
         """Test that overlapping events have amplitudes recovered correctly."""
@@ -1058,8 +1058,8 @@ class TestDeconvolveGivenEventTimes:
 
         assert len(recovered) == 2
         # Should recover both amplitudes reasonably well
-        assert recovered[0] == pytest.approx(true_amplitudes[0], abs=0.15)
-        assert recovered[1] == pytest.approx(true_amplitudes[1], abs=0.15)
+        assert recovered[0] == pytest.approx(true_amplitudes[0], abs=1e-6)
+        assert recovered[1] == pytest.approx(true_amplitudes[1], abs=1e-6)
 
     def test_empty_event_list(self):
         """Test handling of empty event list."""

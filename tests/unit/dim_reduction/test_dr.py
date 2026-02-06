@@ -8,8 +8,8 @@ from driada.utils.data import create_correlated_gaussian_data
 
 # Test data sizes - much smaller for faster execution
 n_gaussian = 10
-n_swiss_roll = 100  # Reduced from 1000 for faster tests
-n_time_samples = 500  # Reduced from 10000
+n_swiss_roll = 100
+n_time_samples = 500
 
 
 @pytest.fixture
@@ -49,7 +49,11 @@ def test_proximity_graph(small_swiss_roll_mvdata):
         "dist_to_aff": "hk",
     }
 
-    _G = small_swiss_roll_mvdata.get_proximity_graph(metric_params, graph_params)
+    G = small_swiss_roll_mvdata.get_proximity_graph(metric_params, graph_params)
+
+    assert G is not None
+    assert G.adj.shape[0] <= n_swiss_roll
+    assert G.adj.shape[0] == G.adj.shape[1]
 
 
 def test_pca(small_swiss_roll_mvdata):

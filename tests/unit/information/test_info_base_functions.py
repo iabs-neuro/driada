@@ -509,9 +509,9 @@ class TestAggregateMultipleTS:
         assert isinstance(result, MultiTimeSeries)
         assert result.data.shape == (3, 5)
         # Check that data is included (with small noise added)
-        assert np.allclose(result.data[0], ts1.data, atol=0.1)
-        assert np.allclose(result.data[1], ts2.data, atol=0.1)
-        assert np.allclose(result.data[2], ts3.data, atol=0.1)
+        assert np.allclose(result.data[0], ts1.data, atol=1e-5)
+        assert np.allclose(result.data[1], ts2.data, atol=1e-5)
+        assert np.allclose(result.data[2], ts3.data, atol=1e-5)
 
     def test_with_noise(self):
         """Test aggregation with noise."""

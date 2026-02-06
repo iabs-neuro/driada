@@ -341,8 +341,8 @@ class TestIntegration:
         fig_in, _ = layout_in.create_figure()
 
         # Figure sizes should be approximately equal (both in inches internally)
-        assert fig_cm.get_figwidth() == pytest.approx(fig_in.get_figwidth(), rel=0.01)
-        assert fig_cm.get_figheight() == pytest.approx(fig_in.get_figheight(), rel=0.01)
+        assert fig_cm.get_figwidth() == pytest.approx(fig_in.get_figwidth(), rel=1e-10)
+        assert fig_cm.get_figheight() == pytest.approx(fig_in.get_figheight(), rel=1e-10)
 
         plt.close(fig_cm)
         plt.close(fig_in)
