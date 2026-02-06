@@ -1250,8 +1250,8 @@ def test_optimal_delays_fft_fallback_for_discrete():
     )
 
     assert delays_fft.shape == (1, 1)
-    # Results should be similar (may differ slightly due to implementation)
-    assert np.allclose(delays, delays_fft, atol=5)  # Allow small difference in delay frames
+    # Results should match exactly since both use the same underlying computation
+    assert np.array_equal(delays, delays_fft)
 
 
 def test_optimal_delays_fft_supports_multitimeseries():

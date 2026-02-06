@@ -320,8 +320,8 @@ def test_circular_manifold_extraction():
     """Test DR on circular manifold data"""
     # Generate head direction cells
     exp, info = generate_circular_manifold_exp(
-        n_neurons=50,  # Reduced from 100
-        duration=150,  # Reduced from 300
+        n_neurons=50,
+        duration=150,
         kappa=4.0,  # Von Mises concentration parameter
         firing_noise=0.1,
         seed=42,
@@ -355,8 +355,8 @@ def test_2d_manifold_extraction():
     """Test DR on 2D spatial manifold data"""
     # Generate place cells
     exp, info = generate_2d_manifold_exp(
-        n_neurons=50,  # Reduced from 100
-        duration=150,  # Reduced from 300
+        n_neurons=50,
+        duration=150,
         field_sigma=0.2,  # Place field size
         peak_rate=2.0,
         seed=42,

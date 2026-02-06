@@ -123,25 +123,25 @@ class TestTimeSeriesTypeDetection:
         result = analyze_time_series_type(data_2pi, name="angle")
         assert result.is_circular
         assert result.subtype == "circular"
-        assert np.isclose(result.circular_period, 2 * np.pi, rtol=0.1)
+        assert np.isclose(result.circular_period, 2 * np.pi, rtol=1e-6)
 
         # Test [-π, π] range
         data_pi = np.random.uniform(-np.pi, np.pi, size=200)
         result = analyze_time_series_type(data_pi)
         assert result.is_circular
-        assert np.isclose(result.circular_period, 2 * np.pi, rtol=0.1)
+        assert np.isclose(result.circular_period, 2 * np.pi, rtol=1e-6)
 
         # Test [0, 360] range
         data_360 = np.random.uniform(0, 360, size=200)
         result = analyze_time_series_type(data_360, name="heading_degrees")
         assert result.is_circular
-        assert np.isclose(result.circular_period, 360, rtol=0.1)
+        assert np.isclose(result.circular_period, 360, rtol=1e-6)
 
         # Test [-180, 180] range
         data_180 = np.random.uniform(-180, 180, size=200)
         result = analyze_time_series_type(data_180)
         assert result.is_circular
-        assert np.isclose(result.circular_period, 360, rtol=0.1)
+        assert np.isclose(result.circular_period, 360, rtol=1e-6)
 
     def test_circular_detection_with_wraparound(self):
         """Test detection of circular data with wraparound."""

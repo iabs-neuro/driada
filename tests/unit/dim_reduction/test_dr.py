@@ -120,10 +120,10 @@ def test_ae_simple(small_swiss_roll_mvdata):
     emb = small_swiss_roll_mvdata.get_embedding(
         method="ae",
         dim=2,
-        epochs=50,  # Reduced from 200
+        epochs=50,
         lr=5 * 1e-3,
         seed=42,
-        batch_size=32,  # Reduced from 512
+        batch_size=32,
         feature_dropout=0.5,
         enc_kwargs={"dropout": 0.2},
         dec_kwargs={"dropout": 0.2},
@@ -137,10 +137,10 @@ def test_ae_corr(small_swiss_roll_mvdata):
     emb = small_swiss_roll_mvdata.get_embedding(
         method="ae",
         dim=2,
-        epochs=50,  # Reduced from 200
+        epochs=50,
         lr=5 * 1e-3,
         seed=42,
-        batch_size=32,  # Reduced from 512
+        batch_size=32,
         feature_dropout=0.5,
         add_corr_loss=True,
         corr_hyperweight=1,

@@ -55,10 +55,12 @@ class TestKSGUtilities:
         points = np.random.randn(100, 5)
         tree = build_tree(points)
         assert isinstance(tree, KDTree)
+        assert tree.data.shape == (100, 5)
 
         points_2d = np.random.randn(100, 2)
         tree_2d = build_tree(points_2d)
         assert isinstance(tree_2d, KDTree)
+        assert tree_2d.data.shape == (100, 2)
 
     def test_build_tree_high_dim(self):
         """Test tree building for high-dimensional data."""
@@ -66,17 +68,19 @@ class TestKSGUtilities:
         points = np.random.randn(100, 20)
         tree = build_tree(points)
         assert isinstance(tree, BallTree)
+        assert tree.data.shape == (100, 20)
 
         points_30d = np.random.randn(100, 30)
         tree_30d = build_tree(points_30d)
         assert isinstance(tree_30d, BallTree)
+        assert tree_30d.data.shape == (100, 30)
 
     def test_build_tree_leaf_size(self):
         """Test tree building with custom leaf size."""
         points = np.random.randn(100, 3)
         tree = build_tree(points, lf=10)
         assert isinstance(tree, KDTree)
-        # Leaf size is set in tree construction
+        assert tree.data.shape == (100, 3)
 
     def test_query_neighbors(self):
         """Test k-nearest neighbor queries."""

@@ -73,11 +73,13 @@ class TestCorrectCovSpectrum:
             warnings.simplefilter("always")
             corrected_eigs = correct_cov_spectrum(n, t, cmat, correction_iters=2)
 
-            # Check if any warning about negative eigenvalues was issued
-            neg_eig_warnings = [
-                warning for warning in w if "negative eigenvalues" in str(warning.message)
-            ]
-            # This may or may not warn depending on the random seed
+        # corrected_eigs is a list: [initial, iter1, iter2] for correction_iters=2
+        assert corrected_eigs is not None
+        assert len(corrected_eigs) == 3  # initial + 2 iterations
+        # Each iteration should produce n eigenvalues, all non-negative
+        for eigs in corrected_eigs:
+            assert len(eigs) == n
+            assert np.all(eigs >= -1e-10), f"Found negative eigenvalues: {eigs[eigs < -1e-10]}"
 
     def test_min_eigenvalue_parameter(self):
         """Test the min_eigenvalue parameter."""

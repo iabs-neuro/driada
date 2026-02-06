@@ -496,6 +496,8 @@ class TestTimeSeriesInputValidation:
         data = [1, 2, 3, 4, 5]
         ts = TimeSeries(data)
         assert isinstance(ts.data, np.ndarray)
+        assert len(ts.data) == 5
+        assert np.array_equal(ts.data, np.array([1, 2, 3, 4, 5], dtype=ts.data.dtype))
 
     def test_multidimensional_data(self):
         """Test that multidimensional data raises error."""

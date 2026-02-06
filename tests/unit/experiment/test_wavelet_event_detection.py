@@ -424,6 +424,9 @@ class TestGetCwtRidges:
             assert hasattr(ridge, "indices")
             assert hasattr(ridge, "ampls")  # Not 'amplitudes'
             assert hasattr(ridge, "scales")
+            assert len(ridge.indices) > 0
+            assert len(ridge.ampls) == len(ridge.indices)
+            assert len(ridge.scales) == len(ridge.indices)
 
 
 class TestEventsFromTrace:

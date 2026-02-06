@@ -127,6 +127,8 @@ class TestGetSim:
         # Both should return float values
         assert isinstance(sim1, (float, np.floating))
         assert isinstance(sim10, (float, np.floating))
+        assert np.isfinite(sim1)
+        assert np.isfinite(sim10)
 
     def test_numpy_array_input(self):
         """Test with numpy array inputs."""
@@ -135,6 +137,8 @@ class TestGetSim:
 
         sim = get_sim(x, y, metric="spearmanr")
         assert isinstance(sim, (float, np.floating))
+        assert np.isfinite(sim)
+        assert -1.0 <= sim <= 1.0
 
 
 class TestGetMI:
@@ -178,6 +182,9 @@ class TestGetMI:
         # Both should be reasonable values
         assert isinstance(mi0, float)
         assert isinstance(mi10, float)
+        assert np.isfinite(mi0)
+        assert np.isfinite(mi10)
+        assert mi0 > 0  # autocorrelated time series should have positive MI
 
     def test_gcmi_estimator(self):
         """Test MI with GCMI estimator."""
@@ -295,6 +302,9 @@ class TestGetMI:
         assert isinstance(mi_no_shift, float)
         assert isinstance(mi_shift5, float)
         assert isinstance(mi_shift_neg5, float)
+        assert np.isfinite(mi_no_shift)
+        assert np.isfinite(mi_shift5)
+        assert np.isfinite(mi_shift_neg5)
 
     def test_mi_multi_multi_with_shift(self):
         """Test MI between two MultiTimeSeries with shift."""
@@ -323,6 +333,7 @@ class TestGetMI:
         # Test with shift
         mi_shift = get_mi(mts, ts, shift=5)
         assert isinstance(mi_shift, float)
+        assert np.isfinite(mi_shift)
 
 
 class TestGet1DMI:
@@ -607,6 +618,7 @@ class TestInteractionInformation:
         ii = interaction_information(ts_x, ts_y, ts_z)
         # For synergy, this could be positive
         assert isinstance(ii, float)
+        assert np.isfinite(ii)
 
 
 class TestGetSimAdditional:
@@ -725,6 +737,8 @@ class TestGetMultiMI:
 
         assert isinstance(mi_shift, float)
         assert isinstance(mi_no_shift, float)
+        assert np.isfinite(mi_shift)
+        assert np.isfinite(mi_no_shift)
 
 
 class TestConditionalMIAdditional:

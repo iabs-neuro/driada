@@ -458,8 +458,8 @@ def test_interaction_information_formula_consistency():
     ii_formula2 = cmi_xz_given_y - mi_xz
 
     # Check consistency
-    np.testing.assert_allclose(ii_formula1, ii_formula2, rtol=0.1)
-    np.testing.assert_allclose(ii, (ii_formula1 + ii_formula2) / 2, rtol=0.1)
+    np.testing.assert_allclose(ii_formula1, ii_formula2, rtol=1e-6)
+    np.testing.assert_allclose(ii, (ii_formula1 + ii_formula2) / 2, rtol=1e-6)
 
 
 def test_interaction_information_andgate():

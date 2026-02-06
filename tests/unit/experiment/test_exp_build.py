@@ -190,10 +190,13 @@ class TestLoadExpFromAlignedData:
         with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
             exp = load_exp_from_aligned_data("source", exp_params, basic_data, verbose=False)
 
-        # Check defaults are set as attributes
+        # Check defaults are set as attributes with valid values
         assert hasattr(exp, "t_rise_sec")
         assert hasattr(exp, "t_off_sec")
         assert hasattr(exp, "fps")
+        assert exp.t_rise_sec > 0
+        assert exp.t_off_sec > 0
+        assert exp.fps > 0
 
     def test_static_features_override(self, basic_data, exp_params):
         """Test overriding static features."""

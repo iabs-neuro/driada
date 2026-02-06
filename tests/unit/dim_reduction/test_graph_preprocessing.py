@@ -113,6 +113,9 @@ class TestGraphPreprocessing:
                 graph, "adj"
             ), f"Graph should have adjacency matrix with {prep} preprocessing"
             assert hasattr(graph, "n"), f"Graph should have node count with {prep} preprocessing"
+            assert graph.adj is not None
+            assert graph.n > 0
+            assert graph.adj.shape[0] == graph.n
 
     def test_handles_disconnected_property(self):
         """Test that handles_disconnected_graphs property is set correctly."""

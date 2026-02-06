@@ -296,6 +296,11 @@ class TestSpatialDecoding:
             # Should log progress
             assert mock_info.call_count >= 2
 
+        # Verify the function still produces valid decoding results
+        assert "r2_avg" in metrics
+        assert "mse" in metrics
+        assert np.isfinite(metrics["mse"])
+
 
 class TestSpatialMI:
     """Test spatial mutual information computation."""

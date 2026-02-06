@@ -117,6 +117,10 @@ def test_diagonalize():
     net = Network(adj=adj, create_nx_graph=False)
     for mode in ["adj", "trans", "lap", "nlap", "rwlap"]:
         net.diagonalize(mode=mode)
+        spectrum = getattr(net, f"{mode}_spectrum")
+        assert spectrum is not None
+        assert len(spectrum) == net.n
+        assert np.all(np.isfinite(spectrum))
 
 
 def test_assign_random_weights():
@@ -652,6 +656,8 @@ class TestNetworkMethods:
 
         assert isinstance(mean_inv_r_sq, float)
         assert isinstance(mean_cos_phi, float)
+        assert mean_inv_r_sq > 0
+        assert -1.0 <= mean_cos_phi <= 1.0
 
     def test_construct_lem_embedding(self, simple_network):
         """Test construct_lem_embedding method."""

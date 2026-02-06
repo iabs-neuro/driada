@@ -216,6 +216,9 @@ class TestExperimentInitialization:
         assert isinstance(exp.dynamic_features["2d_array"], MultiTimeSeries)
         assert isinstance(exp.dynamic_features["timeseries"], TimeSeries)
         assert isinstance(exp.dynamic_features["multitimeseries"], MultiTimeSeries)
+        # Verify data shapes are preserved
+        assert len(exp.dynamic_features["1d_array"].data) == 500
+        assert exp.dynamic_features["2d_array"].data.shape == (2, 500)
 
     def test_init_exp_identificators(self):
         """Test that exp_identificators are set as attributes."""
@@ -439,11 +442,14 @@ class TestExperimentMethods:
         # Single feature
         entropy = basic_experiment.get_feature_entropy("feat1")
         assert isinstance(entropy, float)
-        # Continuous entropy can be negative
+        assert np.isfinite(entropy)
 
         # Multifeature - test with 2 features
         multi_entropy = basic_experiment.get_feature_entropy(("feat1", "feat2"))
         assert isinstance(multi_entropy, float)
+        assert np.isfinite(multi_entropy)
+        # Joint entropy should be >= single entropy for continuous variables
+        assert multi_entropy >= entropy - 0.1  # small tolerance for estimation
 
     def test_stats_table_initialization(self, basic_experiment):
         """Test stats tables are properly initialized."""
@@ -650,6 +656,7 @@ class TestExperimentMethods:
         # Test entropy calculation
         entropy = basic_experiment.get_feature_entropy("multi_feat")
         assert isinstance(entropy, float)
+        assert np.isfinite(entropy)
 
     def test_get_feature_entropy_errors(self, basic_experiment):
         """Test error cases for get_feature_entropy."""

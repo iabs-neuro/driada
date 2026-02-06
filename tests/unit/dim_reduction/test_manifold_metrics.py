@@ -831,9 +831,9 @@ def test_compute_embedding_quality_circular():
 
     # Should have low reconstruction errors
     assert results["train_error"] < 0.1  # Good reconstruction
-    assert results["test_error"] < 0.15  # Slightly relaxed due to test/train split variability
+    assert results["test_error"] < 0.15
     # Gap should be small for direct reconstruction
-    assert abs(results["generalization_gap"]) < 0.08  # Slightly relaxed for robustness
+    assert abs(results["generalization_gap"]) < 0.08
 
 
 def test_compute_embedding_alignment_metrics():

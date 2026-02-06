@@ -750,6 +750,8 @@ class TestGraphMethods:
         # Test with logger
         dim = graph.get_int_dim(method="geodesic", logger=logger)
         assert isinstance(dim, float)
+        assert np.isfinite(dim)
+        assert dim > 0
 
     def test_lost_nodes_handling_with_knn_arrays(self):
         """Test that k-NN arrays are properly filtered when nodes are lost"""

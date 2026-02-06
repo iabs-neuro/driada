@@ -29,6 +29,7 @@ class TestDuplicateNameDetection:
         )
 
         assert isinstance(cache, dict)
+        assert len(cache) > 0  # cache should contain entries for the TimeSeries
         assert isinstance(fft_type_counts, dict)
 
     def test_duplicate_name_different_data_raises(self):
@@ -62,6 +63,7 @@ class TestDuplicateNameDetection:
         )
 
         assert isinstance(cache, dict)
+        assert len(cache) > 0  # cache should contain entries for the TimeSeries
         assert isinstance(fft_type_counts, dict)
 
     def test_duplicate_detection_after_pickling(self):
