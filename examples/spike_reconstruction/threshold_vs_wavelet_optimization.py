@@ -20,11 +20,14 @@ Key Takeaways:
 - Kinetics optimization improves reconstruction quality
 """
 
+import os
+import time
+import warnings
+
 import numpy as np
 import matplotlib.pyplot as plt
 from driada.experiment.neuron import Neuron
 from driada.experiment.synthetic import generate_pseudo_calcium_signal
-import time
 
 
 def create_synthetic_neuron(duration=60.0, fps=30.0, event_rate=0.3, seed=42):
@@ -44,7 +47,7 @@ def create_synthetic_neuron(duration=60.0, fps=30.0, event_rate=0.3, seed=42):
         duration=duration,
         sampling_rate=fps,
         event_rate=event_rate,
-        amplitude_range=(0.3, 1.2),   # Lower peaks (realistic)
+        amplitude_range=(0.3, 1.2),
         decay_time=t_off_true,
         rise_time=t_rise_true,
         noise_std=0.04,               # Moderate noise
@@ -60,8 +63,6 @@ def reconstruct_with_mode(neuron, fps, method, mode_name, iterative=False, n_ite
 
     Returns dict with reconstruction results.
     """
-    import warnings
-
     start = time.time()
 
     # Suppress the default kinetics warning
@@ -88,8 +89,9 @@ def reconstruct_with_mode(neuron, fps, method, mode_name, iterative=False, n_ite
             )
 
     # Optionally optimize kinetics
+    optimized = False
     if optimize:
-        neuron.optimize_kinetics(
+        result = neuron.optimize_kinetics(
             method='direct',
             fps=fps,
             update_reconstruction=True,
@@ -100,19 +102,14 @@ def reconstruct_with_mode(neuron, fps, method, mode_name, iterative=False, n_ite
             n_iter=n_iter,
             adaptive_thresholds=adaptive_thresholds
         )
+        optimized = result.get('optimized', False)
 
     time_total = time.time() - start
 
-    # Get kinetics
+    # Get kinetics (optimization may fall back to defaults if events
+    # are poorly characterized from single-pass with wrong kinetics)
     t_rise = neuron.t_rise if neuron.t_rise else neuron.default_t_rise
     t_off = neuron.t_off if neuron.t_off else neuron.default_t_off
-
-    # Get reconstruction
-    recon = Neuron.get_restored_calcium(
-        neuron.asp.data if neuron.asp else neuron.sp.data,
-        t_rise,
-        t_off
-    )
 
     # Count events
     if method == 'threshold':
@@ -120,13 +117,20 @@ def reconstruct_with_mode(neuron, fps, method, mode_name, iterative=False, n_ite
     else:
         n_events = len(neuron.wvt_ridges) if neuron.wvt_ridges else 0
 
+    # Quality metrics from Neuron API
+    r2 = neuron.get_reconstruction_r2()
+    corr = np.corrcoef(neuron.ca.data, neuron._reconstructed.data)[0, 1]
+
     return {
         'mode': mode_name,
-        'reconstruction': recon[:neuron.n_frames],
+        'reconstruction': neuron._reconstructed.data,
         't_rise': t_rise / fps,
         't_off': t_off / fps,
         'n_events': n_events,
-        'time': time_total
+        'optimized': optimized,
+        'r2': r2,
+        'correlation': corr,
+        'time': time_total,
     }
 
 
@@ -180,43 +184,6 @@ def reconstruct_all_modes(signal, fps, method):
     return results
 
 
-def calculate_metrics(true_signal, reconstruction):
-    """Calculate multiple quality metrics."""
-    residuals = true_signal - reconstruction
-
-    # R² (coefficient of determination)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((true_signal - np.mean(true_signal)) ** 2)
-    r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
-
-    # RMSE (Root Mean Squared Error)
-    rmse = np.sqrt(np.mean(residuals ** 2))
-
-    # Normalized RMSE
-    signal_range = np.max(true_signal) - np.min(true_signal)
-    nrmse = rmse / signal_range if signal_range > 0 else 0
-
-    # MAE (Mean Absolute Error)
-    mae = np.mean(np.abs(residuals))
-
-    # Correlation coefficient
-    correlation = np.corrcoef(true_signal, reconstruction)[0, 1]
-
-    # Explained variance
-    var_true = np.var(true_signal)
-    var_residual = np.var(residuals)
-    explained_var = 1 - (var_residual / var_true) if var_true > 0 else 0
-
-    return {
-        'r2': r2,
-        'rmse': rmse,
-        'nrmse': nrmse,
-        'mae': mae,
-        'correlation': correlation,
-        'explained_variance': explained_var
-    }
-
-
 def main():
     print("=" * 80)
     print("THRESHOLD VS WAVELET RECONSTRUCTION WITH ITERATIVE OPTIMIZATION")
@@ -238,36 +205,30 @@ def main():
     print("\n3. Wavelet-based reconstruction (SENSITIVE)...")
     wavelet_results = reconstruct_all_modes(signal, fps, method='wavelet')
 
-    # Compute quality metrics
-    print("\n4. Computing reconstruction quality metrics...")
-    time_axis = np.arange(len(signal)) / fps
-
-    for results, method in [(threshold_results, 'Threshold'), (wavelet_results, 'Wavelet')]:
-        for res in results:
-            metrics = calculate_metrics(signal, res['reconstruction'])
-            res.update(metrics)
-
     # Print summary table
+    time_axis = np.arange(len(signal)) / fps
     print("\n" + "=" * 120)
     print("RECONSTRUCTION QUALITY SUMMARY")
     print("=" * 120)
     print(f"{'Method':<12} {'Mode':<22} {'Events':<8} {'t_rise(s)':<11} {'t_off(s)':<11} "
-          f"{'R^2':<8} {'NRMSE':<8} {'Corr':<8} {'Time(s)':<10}")
+          f"{'R^2':<8} {'Corr':<8} {'Opt':<6} {'Time(s)':<10}")
     print("-" * 120)
 
     for res in threshold_results:
+        opt = "yes" if res['optimized'] else "-"
         print(f"{'Threshold':<12} {res['mode']:<22} {res['n_events']:<8} "
               f"{res['t_rise']:<11.3f} {res['t_off']:<11.3f} "
-              f"{res['r2']:<8.4f} {res['nrmse']:<8.4f} {res['correlation']:<8.4f} "
-              f"{res['time']:<10.4f}")
+              f"{res['r2']:<8.4f} {res['correlation']:<8.4f} "
+              f"{opt:<6} {res['time']:<10.4f}")
 
     print("-" * 120)
 
     for res in wavelet_results:
+        opt = "yes" if res['optimized'] else "-"
         print(f"{'Wavelet':<12} {res['mode']:<22} {res['n_events']:<8} "
               f"{res['t_rise']:<11.3f} {res['t_off']:<11.3f} "
-              f"{res['r2']:<8.4f} {res['nrmse']:<8.4f} {res['correlation']:<8.4f} "
-              f"{res['time']:<10.4f}")
+              f"{res['r2']:<8.4f} {res['correlation']:<8.4f} "
+              f"{opt:<6} {res['time']:<10.4f}")
 
     # Calculate speedup
     threshold_total_time = sum(r['time'] for r in threshold_results)
@@ -339,26 +300,21 @@ def main():
         fontsize=14, fontweight='bold', y=0.995
     )
 
-    import os
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_file = os.path.join(script_dir, 'threshold_vs_wavelet_optimization.png')
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     print(f"   Figure saved: {output_file}")
 
-    # Create summary plot with more metrics
-    fig2, axes = plt.subplots(3, 2, figsize=(14, 12))
+    # Create summary plot
+    fig2, axes = plt.subplots(2, 2, figsize=(14, 9))
 
-    # Prepare mode labels
     modes = range(len(threshold_results))
     mode_labels = ['Default', 'Optimized', 'Iter n=2', 'Iter n=3']
 
     # R^2 comparison
     ax = axes[0, 0]
-    threshold_r2 = [r['r2'] for r in threshold_results]
-    wavelet_r2 = [r['r2'] for r in wavelet_results]
-    ax.plot(modes, threshold_r2, 'bo-', label='Threshold', linewidth=2, markersize=8)
-    ax.plot(modes, wavelet_r2, 'ro-', label='Wavelet', linewidth=2, markersize=8)
-    ax.set_xlabel('Mode')
+    ax.plot(modes, [r['r2'] for r in threshold_results], 'bo-', label='Threshold', linewidth=2, markersize=8)
+    ax.plot(modes, [r['r2'] for r in wavelet_results], 'ro-', label='Wavelet', linewidth=2, markersize=8)
     ax.set_ylabel('R^2')
     ax.set_title('Reconstruction Quality (R^2)', fontweight='bold')
     ax.set_xticks(list(modes))
@@ -368,11 +324,8 @@ def main():
 
     # Correlation comparison
     ax = axes[0, 1]
-    threshold_corr = [r['correlation'] for r in threshold_results]
-    wavelet_corr = [r['correlation'] for r in wavelet_results]
-    ax.plot(modes, threshold_corr, 'bo-', label='Threshold', linewidth=2, markersize=8)
-    ax.plot(modes, wavelet_corr, 'ro-', label='Wavelet', linewidth=2, markersize=8)
-    ax.set_xlabel('Mode')
+    ax.plot(modes, [r['correlation'] for r in threshold_results], 'bo-', label='Threshold', linewidth=2, markersize=8)
+    ax.plot(modes, [r['correlation'] for r in wavelet_results], 'ro-', label='Wavelet', linewidth=2, markersize=8)
     ax.set_ylabel('Correlation')
     ax.set_title('Correlation Coefficient', fontweight='bold')
     ax.set_xticks(list(modes))
@@ -380,27 +333,10 @@ def main():
     ax.grid(True, alpha=0.3)
     ax.legend()
 
-    # NRMSE comparison
-    ax = axes[1, 0]
-    threshold_nrmse = [r['nrmse'] for r in threshold_results]
-    wavelet_nrmse = [r['nrmse'] for r in wavelet_results]
-    ax.plot(modes, threshold_nrmse, 'bo-', label='Threshold', linewidth=2, markersize=8)
-    ax.plot(modes, wavelet_nrmse, 'ro-', label='Wavelet', linewidth=2, markersize=8)
-    ax.set_xlabel('Mode')
-    ax.set_ylabel('NRMSE')
-    ax.set_title('Normalized RMSE (lower is better)', fontweight='bold')
-    ax.set_xticks(list(modes))
-    ax.set_xticklabels(mode_labels, rotation=15)
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-
     # Event count comparison
-    ax = axes[1, 1]
-    threshold_events = [r['n_events'] for r in threshold_results]
-    wavelet_events = [r['n_events'] for r in wavelet_results]
-    ax.plot(modes, threshold_events, 'bo-', label='Threshold', linewidth=2, markersize=8)
-    ax.plot(modes, wavelet_events, 'ro-', label='Wavelet', linewidth=2, markersize=8)
-    ax.set_xlabel('Mode')
+    ax = axes[1, 0]
+    ax.plot(modes, [r['n_events'] for r in threshold_results], 'bo-', label='Threshold', linewidth=2, markersize=8)
+    ax.plot(modes, [r['n_events'] for r in wavelet_results], 'ro-', label='Wavelet', linewidth=2, markersize=8)
     ax.set_ylabel('Events detected')
     ax.set_title('Number of Events Detected', fontweight='bold')
     ax.set_xticks(list(modes))
@@ -408,35 +344,20 @@ def main():
     ax.grid(True, alpha=0.3)
     ax.legend()
 
-    # t_rise comparison
-    ax = axes[2, 0]
-    threshold_trise = [r['t_rise'] for r in threshold_results]
-    wavelet_trise = [r['t_rise'] for r in wavelet_results]
-    ax.plot(modes, threshold_trise, 'bo-', label='Threshold', linewidth=2, markersize=8)
-    ax.plot(modes, wavelet_trise, 'ro-', label='Wavelet', linewidth=2, markersize=8)
-    ax.axhline(ground_truth['t_rise_true'], color='g', linestyle='--', linewidth=2, label='Ground truth')
-    ax.set_xlabel('Mode')
-    ax.set_ylabel('t_rise (s)')
-    ax.set_title('Rise Time', fontweight='bold')
+    # Kinetics comparison (t_rise and t_off with ground truth)
+    ax = axes[1, 1]
+    ax.plot(modes, [r['t_rise'] for r in threshold_results], 'b^-', label='Thr t_rise', linewidth=2, markersize=8)
+    ax.plot(modes, [r['t_rise'] for r in wavelet_results], 'r^-', label='Wvt t_rise', linewidth=2, markersize=8)
+    ax.plot(modes, [r['t_off'] for r in threshold_results], 'bs-', label='Thr t_off', linewidth=2, markersize=8)
+    ax.plot(modes, [r['t_off'] for r in wavelet_results], 'rs-', label='Wvt t_off', linewidth=2, markersize=8)
+    ax.axhline(ground_truth['t_rise_true'], color='g', linestyle='--', linewidth=1.5, alpha=0.7)
+    ax.axhline(ground_truth['t_off_true'], color='g', linestyle='--', linewidth=1.5, alpha=0.7, label='Ground truth')
+    ax.set_ylabel('Time (s)')
+    ax.set_title('Kinetics Estimation', fontweight='bold')
     ax.set_xticks(list(modes))
     ax.set_xticklabels(mode_labels, rotation=15)
     ax.grid(True, alpha=0.3)
-    ax.legend()
-
-    # t_off comparison
-    ax = axes[2, 1]
-    threshold_toff = [r['t_off'] for r in threshold_results]
-    wavelet_toff = [r['t_off'] for r in wavelet_results]
-    ax.plot(modes, threshold_toff, 'bo-', label='Threshold', linewidth=2, markersize=8)
-    ax.plot(modes, wavelet_toff, 'ro-', label='Wavelet', linewidth=2, markersize=8)
-    ax.axhline(ground_truth['t_off_true'], color='g', linestyle='--', linewidth=2, label='Ground truth')
-    ax.set_xlabel('Mode')
-    ax.set_ylabel('t_off (s)')
-    ax.set_title('Decay Time', fontweight='bold')
-    ax.set_xticks(list(modes))
-    ax.set_xticklabels(mode_labels, rotation=15)
-    ax.grid(True, alpha=0.3)
-    ax.legend()
+    ax.legend(fontsize=8)
 
     plt.suptitle(f'Reconstruction Metrics by Mode | Speedup: {speedup:.1f}x',
                  fontsize=14, fontweight='bold', y=0.995)
@@ -460,8 +381,6 @@ def main():
     print(f"     - Threshold: {threshold_results[0]['n_events']} (default) -> {threshold_results[-1]['n_events']} (iter n=3)")
     print(f"     - Wavelet:   {wavelet_results[0]['n_events']} (default) -> {wavelet_results[-1]['n_events']} (iter n=3)")
     print(f"  5. Use threshold for fast processing, wavelet for best sensitivity")
-
-    # plt.show()  # Commented out for non-interactive use
 
 
 if __name__ == "__main__":
