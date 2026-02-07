@@ -26,6 +26,7 @@ from driada.dimensionality import (
 )
 from driada.dim_reduction.manifold_metrics import compute_embedding_alignment_metrics
 from driada.dim_reduction import MVData
+from driada.utils.visual import visualize_circular_manifold, DEFAULT_DPI
 import os
 
 
@@ -142,149 +143,6 @@ def plot_eigenspectrum(neural_data):
     ax2.set_title("Cumulative Variance Explained")
     ax2.legend()
     ax2.grid(True, alpha=0.3)
-
-    plt.tight_layout()
-    return fig
-
-
-def compute_circular_coordinates(embedding):
-    """Convert 2D embedding to circular coordinates (angles)."""
-    # Center the embedding
-    centered = embedding - np.mean(embedding, axis=0)
-
-    # Compute angles
-    angles = np.arctan2(centered[:, 1], centered[:, 0])
-    angles = np.mod(angles, 2 * np.pi)  # Ensure [0, 2pi]
-
-    return angles
-
-
-def visualize_manifold_extraction(embeddings, true_angles, method_names):
-    """Visualize extracted manifolds from different methods."""
-    n_methods = len(embeddings)
-    fig, axes = plt.subplots(2, n_methods, figsize=(5 * n_methods, 10))
-
-    if n_methods == 1:
-        axes = axes.reshape(2, 1)
-
-    for i, (embedding, method) in enumerate(zip(embeddings, method_names)):
-        # Plot 2D embedding colored by true angle
-        ax = axes[0, i]
-        scatter = ax.scatter(
-            embedding[:, 0], embedding[:, 1], c=true_angles, cmap="hsv", s=20, alpha=0.7
-        )
-        ax.set_title(f"{method} Embedding")
-        ax.set_xlabel("Component 1")
-        ax.set_ylabel("Component 2")
-
-        # Add colorbar
-        if i == n_methods - 1:
-            cbar = plt.colorbar(scatter, ax=ax)
-            cbar.set_label("True head direction (rad)")
-
-        # Evaluate using manifold metrics API to get optimal alignment
-        alignment_metrics = compute_embedding_alignment_metrics(
-            embedding, true_angles, "circular"
-        )
-        error = alignment_metrics["error"]
-        correlation = alignment_metrics["correlation"]
-        rotation_offset = alignment_metrics["rotation_offset"]
-        is_reflected = alignment_metrics["is_reflected"]
-
-        # Extract angles and apply optimal transformation
-        recon_angles = compute_circular_coordinates(embedding)
-
-        # Apply the optimal transformation found by the metrics
-        if is_reflected:
-            recon_angles = -recon_angles
-        recon_angles = recon_angles + rotation_offset
-
-        # Plot true vs reconstructed angles with proper wrapping
-        ax = axes[1, i]
-
-        # Wrap angles to [0, 2pi] for visualization
-        true_wrapped = np.mod(true_angles, 2 * np.pi)
-        recon_wrapped = np.mod(recon_angles, 2 * np.pi)
-
-        # Handle wraparound by plotting points near boundaries twice
-        # This creates continuous visualization across the circular boundary
-        threshold = 0.5  # radians from boundary
-
-        # Find points near 0/2pi boundary
-        near_zero_true = true_wrapped < threshold
-        near_2pi_true = true_wrapped > (2 * np.pi - threshold)
-        near_zero_recon = recon_wrapped < threshold
-        near_2pi_recon = recon_wrapped > (2 * np.pi - threshold)
-
-        # Main scatter plot
-        ax.scatter(true_wrapped, recon_wrapped, alpha=0.5, s=10, color="blue")
-
-        # Plot wrapped copies for continuity
-        # Points with true angle near 0 and recon near 2pi
-        mask1 = near_zero_true & near_2pi_recon
-        if np.any(mask1):
-            ax.scatter(
-                true_wrapped[mask1],
-                recon_wrapped[mask1] - 2 * np.pi,
-                alpha=0.5,
-                s=10,
-                color="blue",
-            )
-
-        # Points with true angle near 2pi and recon near 0
-        mask2 = near_2pi_true & near_zero_recon
-        if np.any(mask2):
-            ax.scatter(
-                true_wrapped[mask2],
-                recon_wrapped[mask2] + 2 * np.pi,
-                alpha=0.5,
-                s=10,
-                color="blue",
-            )
-
-        # Points with true angle near 0, show at 2pi too
-        mask3 = near_zero_true & near_zero_recon
-        if np.any(mask3):
-            ax.scatter(
-                true_wrapped[mask3] + 2 * np.pi,
-                recon_wrapped[mask3] + 2 * np.pi,
-                alpha=0.5,
-                s=10,
-                color="blue",
-            )
-
-        # Points with true angle near 2pi, show at 0 too
-        mask4 = near_2pi_true & near_2pi_recon
-        if np.any(mask4):
-            ax.scatter(
-                true_wrapped[mask4] - 2 * np.pi,
-                recon_wrapped[mask4] - 2 * np.pi,
-                alpha=0.5,
-                s=10,
-                color="blue",
-            )
-
-        # Reference lines
-        ax.plot([0, 2 * np.pi], [0, 2 * np.pi], "r--", alpha=0.5, label="y=x")
-        # Continuation lines for wraparound
-        # When x goes from 2pi to 0, y should also go from 2pi to 0
-        ax.plot([2 * np.pi, 2 * np.pi], [2 * np.pi, 2 * np.pi + 0.5], "r--", alpha=0.5)
-        ax.plot([0, 0], [-0.5, 0], "r--", alpha=0.5)
-        # And vice versa
-        ax.plot([2 * np.pi, 2 * np.pi + 0.5], [2 * np.pi, 2 * np.pi], "r--", alpha=0.5)
-        ax.plot([-0.5, 0], [0, 0], "r--", alpha=0.5)
-
-        ax.set_xlabel("True angle (rad)")
-        ax.set_ylabel("Reconstructed angle (rad)")
-        ax.set_title(f"r = {correlation:.3f}, error = {error:.3f} rad")
-        ax.set_xlim([-0.5, 2 * np.pi + 0.5])
-        ax.set_ylim([-0.5, 2 * np.pi + 0.5])
-
-        # Add grid lines at 0 and 2pi
-        ax.axvline(0, color="gray", alpha=0.3, linestyle=":")
-        ax.axvline(2 * np.pi, color="gray", alpha=0.3, linestyle=":")
-        ax.axhline(0, color="gray", alpha=0.3, linestyle=":")
-        ax.axhline(2 * np.pi, color="gray", alpha=0.3, linestyle=":")
 
     plt.tight_layout()
     return fig
@@ -416,18 +274,13 @@ def main():
 
     # Visualize results
     print("\n5. Visualizing extracted manifolds...")
-    from driada.utils.visual import DEFAULT_DPI
 
     # Create embedding comparison visualization
     # Shows embeddings colored by head direction (top row) and angle reconstruction (bottom row)
     embeddings_list = [embeddings_dict[method] for method in ["PCA", "Isomap", "UMAP"]]
-    fig_embedding = visualize_manifold_extraction(
-        embeddings_list, true_angles_ds, ["PCA", "Isomap", "UMAP"]
-    )
-    plt.savefig(
-        "circular_manifold_results/embedding_comparison.png",
-        dpi=DEFAULT_DPI,
-        bbox_inches="tight",
+    fig_embedding = visualize_circular_manifold(
+        embeddings_list, true_angles_ds, ["PCA", "Isomap", "UMAP"],
+        save_path="circular_manifold_results/embedding_comparison.png"
     )
 
     # Additional analysis: temporal continuity
