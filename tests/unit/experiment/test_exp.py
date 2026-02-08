@@ -5,9 +5,9 @@ from driada.intense.pipelines import compute_cell_feat_significance
 
 def test_creation(medium_experiment):
     exp = medium_experiment
-    assert exp.n == 20  # nneurons
+    assert exp.n_cells == 20  # nneurons
     assert exp.n_frames == 200 * 20  # duration * fps
-    assert len(exp.dynamic_features) == 3  # n_dfeats
+    assert len(exp.dynamic_features) == 6  # n_dfeats + n_cfeats
 
 
 def test_intense_exp(medium_experiment):

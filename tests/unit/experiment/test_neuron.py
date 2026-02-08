@@ -515,7 +515,7 @@ class TestWaveletSNR:
 
         neuron.events = TimeSeries(
             data=np.zeros(1000, dtype=bool),
-            discrete=False,
+            ts_type="binary",
         )
 
         with pytest.raises(ValueError, match="No events in event mask"):
@@ -680,7 +680,7 @@ class TestWaveletSNR:
         events_mask[10:15] = False  # Only 5 baseline frames
         neuron.events = TimeSeries(
             data=events_mask,
-            discrete=False,
+            ts_type="binary",
         )
 
         # Should raise error for insufficient baseline
@@ -702,7 +702,7 @@ class TestWaveletSNR:
         events_mask[700:750] = True  # Event 2
         neuron.events = TimeSeries(
             data=events_mask,
-            discrete=False,
+            ts_type="binary",
         )
 
         with pytest.raises(ValueError, match="Too few events detected.*Need at least 3"):
@@ -735,7 +735,7 @@ class TestWaveletSNR:
             events_mask[t : t + 60] = True
         neuron.events = TimeSeries(
             data=events_mask,
-            discrete=False,
+            ts_type="binary",
         )
 
         with pytest.raises(ValueError, match="Baseline noise is zero"):
