@@ -346,9 +346,10 @@ def test_generate_circular_manifold_exp_extra_features():
         return_info=True,
     )
 
-    # Should have head direction plus circular_angle multifeature
-    assert len(exp.dynamic_features) == 2  # head_direction + circular_angle
+    # Should have head direction, its _2d decomposition, and circular_angle
+    assert len(exp.dynamic_features) == 3  # head_direction + head_direction_2d + circular_angle
     assert "head_direction" in exp.dynamic_features
+    assert "head_direction_2d" in exp.dynamic_features
     assert "circular_angle" in exp.dynamic_features
 
     # Check that circular_angle is a MultiTimeSeries with 2 components (cos, sin)
@@ -562,9 +563,10 @@ def test_linear_vs_circular_detection():
     )
 
     # Count significant neurons for linear approach
+    # use_circular_2d=True (default) substitutes head_direction -> head_direction_2d
     significant_neurons = exp.get_significant_neurons()
     head_dir_selective = sum(
-        1 for features in significant_neurons.values() if "head_direction" in features
+        1 for features in significant_neurons.values() if "head_direction_2d" in features
     )
 
     # Clear previous results for second test
