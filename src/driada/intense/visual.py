@@ -336,7 +336,10 @@ def plot_neuron_feature_density(
     return ax
 
 
-def plot_shadowed_groups(ax, xvals, binary_series, color="gray", alpha=0.3, label="shadowed"):
+def plot_shadowed_groups(
+    ax, xvals, binary_series, color="gray", alpha=0.3, label="shadowed",
+    ymin=0.0, ymax=1.0,
+):
     """
     Shade regions where binary series equals 1.
 
@@ -354,6 +357,10 @@ def plot_shadowed_groups(ax, xvals, binary_series, color="gray", alpha=0.3, labe
         Transparency of shaded regions. Default: 0.3.
     label : str, optional
         Label for legend. Default: 'shadowed'.
+    ymin : float, optional
+        Lower y extent in axes coordinates (0–1). Default: 0.0.
+    ymax : float, optional
+        Upper y extent in axes coordinates (0–1). Default: 1.0.
 
     Returns
     -------
@@ -374,7 +381,8 @@ def plot_shadowed_groups(ax, xvals, binary_series, color="gray", alpha=0.3, labe
             x_max = xvals[i - 1] if i > 0 else xvals[0]  # End of group
             # Shadow the region
             ax.axvspan(
-                x_min, x_max + 1, alpha=alpha, color=color, label=label if not labelled else ""
+                x_min, x_max + 1, ymin=ymin, ymax=ymax,
+                alpha=alpha, color=color, label=label if not labelled else "",
             )
             labelled = True
         else:
