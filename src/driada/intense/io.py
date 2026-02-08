@@ -206,16 +206,19 @@ class IntenseResults:
         )
 
         # Map indices to names and populate stats in-place
+        # After JSON round-trip, dict keys become strings — resolve via values list
         neurons_map = self.intense_params["neurons"]
         features_map = self.intense_params["feat_bunch"]
+        neuron_names = list(neurons_map.values()) if isinstance(neurons_map, dict) else neurons_map
+        feature_names = list(features_map.values()) if isinstance(features_map, dict) else features_map
         n1, n2 = me_total1.shape[0], me_total1.shape[1]
 
         for i in range(n1):
-            neuron_name = neurons_map[i]
+            neuron_name = str(neuron_names[i])
             if neuron_name not in self.stats:
                 continue
             for j in range(n2):
-                feature_name = features_map[j]
+                feature_name = str(feature_names[j])
                 if feature_name not in self.stats[neuron_name]:
                     continue
                 if not np.isnan(pre_pvals[i, j]):
