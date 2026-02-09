@@ -9,14 +9,82 @@ Contains:
 """
 
 import sys
+import warnings
 from pathlib import Path
 
 # Add src to path for local development
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 
+import numpy as np
 import driada
 
 from .loader import build_feature_list
+
+
+def _fix_normalized_circular_features(exp):
+    """Detect and rescale circular features erroneously stored in [0, 1].
+
+    Some data pipelines normalize circular angles to [0, 1] instead of
+    keeping them in radians. On this range cos/sin are monotonically
+    related, making the _2d encoding degenerate. This function detects
+    such features and rescales them to [0, 2*pi].
+
+    Parameters
+    ----------
+    exp : Experiment
+        Experiment object (modified in-place).
+
+    Returns
+    -------
+    list of str
+        Names of features that were rescaled.
+    """
+    from driada.information import TimeSeries, MultiTimeSeries
+    from driada.information.circular_transform import circular_to_cos_sin
+
+    rescaled = []
+
+    for name, ts in list(exp.dynamic_features.items()):
+        if name.endswith("_2d"):
+            continue
+        if not isinstance(ts, TimeSeries):
+            continue
+        if ts.discrete:
+            continue
+        if not (hasattr(ts, "type_info") and ts.type_info and ts.type_info.is_circular):
+            continue
+
+        data_min = np.nanmin(ts.data)
+        data_max = np.nanmax(ts.data)
+        data_range = data_max - data_min
+
+        # Detect [0, 1] normalized circular data:
+        # range ≈ 1, min ≈ 0, max ≈ 1 (with some tolerance)
+        if data_range < 1.5 and data_min >= -0.1 and data_max <= 1.1:
+            # Rescale to [0, 2*pi]
+            ts.data = ts.data * (2 * np.pi)
+            ts.type_info.circular_period = 2 * np.pi
+
+            # Rebuild copula normal cache
+            from driada.information.gcmi import copnorm
+            ts.copula_normal_data = copnorm(ts.data).ravel()
+
+            # Rebuild _2d version if it exists
+            name_2d = f"{name}_2d"
+            if name_2d in exp.dynamic_features:
+                new_2d = circular_to_cos_sin(ts.data, period=2 * np.pi, name=name_2d)
+                exp.dynamic_features[name_2d] = new_2d
+
+            rescaled.append(name)
+
+    if rescaled:
+        warnings.warn(
+            f"Circular features rescaled from [0,1] to [0,2π]: {rescaled}. "
+            f"The source data likely has a normalization error.",
+            UserWarning,
+        )
+
+    return rescaled
 
 
 def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_filter_func=None, filter_kwargs=None):
@@ -44,6 +112,9 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
     tuple
         (stats, significance, info, results, disent_results, timings)
     """
+    # Fix circular features erroneously normalized to [0, 1]
+    _fix_normalized_circular_features(exp)
+
     feat_bunch = build_feature_list(exp, skip_features)
 
     print(f"\nFeatures to analyze: {feat_bunch}")
