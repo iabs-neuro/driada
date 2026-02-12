@@ -643,6 +643,11 @@ def generate_tuned_selectivity_exp(
                     feat_data = available_features[feat_name]
                     response = feat_data.astype(float)
                     neuron_tuning = {"binary": True}
+                    if skip_prob > 0:
+                        skip_seed = seed + current_idx * 100 + 42 if seed is not None else None
+                        response = delete_one_islands(
+                            response.astype(int), skip_prob, seed=skip_seed
+                        ).astype(float)
 
                 elif feat_name.startswith("fbm_"):
                     # FBM feature - sigmoid response to continuous FBM signal
@@ -654,6 +659,13 @@ def generate_tuned_selectivity_exp(
                         slope = TUNING_DEFAULTS.get("fbm", {}).get("slope", 8.0)
                     response = sigmoid_tuning_curve(feat_data, threshold, slope)
                     neuron_tuning = {"threshold": threshold, "slope": slope}
+                    if skip_prob > 0:
+                        skip_seed = seed + current_idx * 100 + 42 if seed is not None else None
+                        active_mask = (response > 0.5).astype(int)
+                        suppressed_mask = delete_one_islands(
+                            active_mask, skip_prob, seed=skip_seed
+                        )
+                        response = response * suppressed_mask
 
                 else:
                     raise ValueError(f"Unsupported feature type: {feat_name}")
