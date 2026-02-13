@@ -132,6 +132,7 @@ docs_internal/
 tools/*
 !tools/*.py
 !tools/selectivity_dynamics/
+!tools/neuron_database/
 
 # Papers folder
 papers/
