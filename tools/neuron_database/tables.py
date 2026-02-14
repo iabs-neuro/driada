@@ -6,11 +6,10 @@ with optional filtering to neurons matched across all sessions.
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
+from .configs import MI_THRESHOLD, PVAL_THRESHOLD
 from .metadata import annotate_mice_table, annotate_neuron_table
-
-MI_THRESHOLD = 0.04
-PVAL_THRESHOLD = 0.001
 
 
 def _resolve_filter_delay(filter_delay, db):
@@ -270,7 +269,7 @@ def significance_fraction_table(db, feature, matched_ids_per_mouse=None,
                                       mi_threshold, pval_threshold,
                                       filter_delay, min_selectivities)
     totals = _neuron_count_table(db, matched_ids_per_mouse)
-    return counts / totals.replace(0, float('nan'))
+    return ((counts / totals.replace(0, float('nan'))) * 100).round(2)
 
 
 def significance_fraction_of_sel_table(db, feature, sel_totals,
@@ -299,7 +298,7 @@ def significance_fraction_of_sel_table(db, feature, sel_totals,
     counts = significance_count_table(db, feature, matched_ids_per_mouse,
                                       mi_threshold, pval_threshold,
                                       filter_delay, min_selectivities)
-    return counts / sel_totals.replace(0, float('nan'))
+    return ((counts / sel_totals.replace(0, float('nan'))) * 100).round(2)
 
 
 def export_count_tables_excel(db, output_path, matched_ids_per_mouse=None,
@@ -380,7 +379,7 @@ def export_fraction_tables_excel(db, output_path, matched_ids_per_mouse=None,
         totals = _neuron_count_table(db, matched_ids_per_mouse)
         for n_sel, name in [(0, 'all'), (1, 'sel1'), (2, 'sel2'), (3, 'sel3')]:
             counts = _sel_count_to_table(sel, db, n_sel)
-            frac = counts / totals.replace(0, float('nan'))
+            frac = ((counts / totals.replace(0, float('nan'))) * 100).round(2)
             annotate_mice_table(frac, db)
             frac.to_excel(writer, sheet_name=name)
 
@@ -426,7 +425,7 @@ def export_fraction_of_sel_tables_excel(db, output_path,
         # Composite sheets: sel1/sel2/sel3 as fraction of all selective
         for n_sel, name in [(1, 'sel1'), (2, 'sel2'), (3, 'sel3')]:
             counts = _sel_count_to_table(sel, db, n_sel)
-            frac = counts / sel_totals.replace(0, float('nan'))
+            frac = ((counts / sel_totals.replace(0, float('nan'))) * 100).round(2)
             annotate_mice_table(frac, db)
             frac.to_excel(writer, sheet_name=name)
 
@@ -729,6 +728,236 @@ def retention_count_table(db, feature, matched_ids_per_mouse=None,
     return table.astype(int)
 
 
+def _build_retention_shuffle_data(db, feature, matched_ids_per_mouse=None,
+                                  mi_threshold=MI_THRESHOLD,
+                                  pval_threshold=PVAL_THRESHOLD,
+                                  filter_delay=None,
+                                  min_selectivities=None):
+    """Pre-compute per-mouse arrays for retention shuffling.
+
+    Returns
+    -------
+    dict[str, tuple[np.ndarray, np.ndarray]]
+        {mouse: (presence, n_sel)} where:
+        - presence: bool array (n_neurons, n_sessions) — which neurons
+          are present in which session
+        - n_sel: int array (n_sessions,) — how many are selective per session
+    """
+    filter_delay = _resolve_filter_delay(filter_delay, db)
+    sessions = db.sessions
+    n_sessions = len(sessions)
+
+    # Get significant neurons (same pipeline as retention_count_table)
+    df_sig = db.query(feature=feature)
+    df_sig = apply_significance_filters(df_sig, mi_threshold, pval_threshold,
+                                        filter_delay)
+    qualifying = _qualifying_neuron_sessions(db, mi_threshold, pval_threshold,
+                                            filter_delay, min_selectivities)
+    df_sig = _apply_nsel_filter(df_sig, qualifying)
+    if matched_ids_per_mouse is not None:
+        df_sig = _filter_by_matched_ids(df_sig, matched_ids_per_mouse)
+
+    # Pre-index significant (mouse, session) -> set of matched_ids
+    sig_lookup = {}
+    for _, row in df_sig.iterrows():
+        sig_lookup.setdefault((row['mouse'], row['session']), set()).add(
+            int(row['matched_id']))
+
+    mouse_data = {}
+    for mouse in db.mice:
+        match_df = db.matching[mouse]
+        if matched_ids_per_mouse is not None:
+            allowed = matched_ids_per_mouse.get(mouse, set())
+            mids = sorted(set(match_df.index) & allowed)
+        else:
+            mids = sorted(match_df.index)
+
+        if not mids:
+            continue
+
+        n_neurons = len(mids)
+        mid_to_idx = {mid: i for i, mid in enumerate(mids)}
+
+        presence = np.zeros((n_neurons, n_sessions), dtype=bool)
+        n_sel = np.zeros(n_sessions, dtype=int)
+
+        for si, session in enumerate(sessions):
+            if session not in match_df.columns:
+                continue
+            for mid in match_df.index[match_df[session].notna()]:
+                if mid in mid_to_idx:
+                    presence[mid_to_idx[mid], si] = True
+            n_sel[si] = len(sig_lookup.get((mouse, session), set()))
+
+        mouse_data[mouse] = (presence, n_sel)
+
+    return mouse_data
+
+
+def retention_enrichment(db, feature, n_shuffles=100,
+                         matched_ids_per_mouse=None,
+                         mi_threshold=MI_THRESHOLD,
+                         pval_threshold=PVAL_THRESHOLD,
+                         filter_delay=None,
+                         min_selectivities=None,
+                         seed=None):
+    """Compute retention enrichment vs permutation null.
+
+    For each shuffle iteration, within each (mouse, session), randomly
+    reassigns which matched neurons are selective — preserving the count
+    per session per mouse. Compares observed retention to the null
+    distribution at each "at least k sessions" level.
+
+    Parameters
+    ----------
+    db : NeuronDatabase
+    feature : str
+    n_shuffles : int
+        Number of permutation iterations.
+    matched_ids_per_mouse : dict[str, set[int]], optional
+    mi_threshold, pval_threshold, filter_delay, min_selectivities
+        Passed to significance filters.
+    seed : int, optional
+        Random seed for reproducibility.
+
+    Returns
+    -------
+    pd.DataFrame
+        Index = k (1..n_sessions), columns: observed, null_mean, null_std,
+        enrichment, pvalue.
+    """
+    n_sessions = len(db.sessions)
+    columns = list(range(1, n_sessions + 1))
+
+    # Observed retention (total row)
+    observed_table = retention_count_table(
+        db, feature, matched_ids_per_mouse,
+        mi_threshold, pval_threshold, filter_delay, min_selectivities)
+    obs_total = observed_table.loc['total'].values.astype(float)
+
+    # Pre-compute shuffle data
+    mouse_data = _build_retention_shuffle_data(
+        db, feature, matched_ids_per_mouse,
+        mi_threshold, pval_threshold, filter_delay, min_selectivities)
+
+    # Run shuffles
+    rng = np.random.default_rng(seed)
+    null_totals = np.zeros((n_shuffles, n_sessions))
+
+    for i in range(n_shuffles):
+        total_at_k = np.zeros(n_sessions)
+
+        for mouse, (presence, n_sel) in mouse_data.items():
+            sel_matrix = np.zeros_like(presence)
+
+            for si in range(n_sessions):
+                pool_idx = np.where(presence[:, si])[0]
+                n = min(int(n_sel[si]), len(pool_idx))
+                if n > 0:
+                    chosen = rng.choice(pool_idx, size=n, replace=False)
+                    sel_matrix[chosen, si] = True
+
+            session_counts = sel_matrix.sum(axis=1)
+            for ki, k in enumerate(columns):
+                total_at_k[ki] += (session_counts >= k).sum()
+
+        null_totals[i] = total_at_k
+
+    # Compute enrichment and z-based p-values
+    null_mean = null_totals.mean(axis=0)
+    null_std = null_totals.std(axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        enrichment = np.where(null_mean > 0, obs_total / null_mean, np.nan)
+
+    # One-sided p-values from normal approximation.
+    # k=1: test for depletion (observed < null, fewer distinct neurons)
+    # k>=2: test for enrichment (observed > null, more retention)
+    zscores = np.full(n_sessions, np.nan)
+    pvalues = np.full(n_sessions, np.nan)
+    for k in range(n_sessions):
+        if obs_total[k] == 0 and null_mean[k] == 0:
+            continue  # no data at this k
+        if null_std[k] > 0:
+            z = (obs_total[k] - null_mean[k]) / null_std[k]
+            zscores[k] = z
+            if k == 0:  # k=1 column: depletion test
+                pvalues[k] = norm.cdf(z)  # P(null <= observed), small when depleted
+            else:
+                pvalues[k] = norm.sf(z)  # P(null >= observed), small when enriched
+        else:
+            # No variance in null: deterministic
+            zscores[k] = 0.0 if obs_total[k] == null_mean[k] else np.inf
+            pvalues[k] = 0.0 if obs_total[k] != null_mean[k] else 1.0
+
+    with np.errstate(divide='ignore'):
+        neg_log10_pval = np.where(
+            np.isnan(pvalues), np.nan,
+            np.where(pvalues > 0, -np.log10(pvalues), np.inf))
+
+    result = pd.DataFrame({
+        'observed': obs_total.astype(int),
+        'null_mean': np.round(null_mean, 1),
+        'null_std': np.round(null_std, 1),
+        'enrichment': np.round(enrichment, 2),
+        'zscore': np.round(zscores, 2),
+        '-log10p': np.round(neg_log10_pval, 1),
+    }, index=pd.Index(columns, name='k'))
+
+    return result
+
+
+def export_retention_enrichment_excel(db, output_path,
+                                       matched_ids_per_mouse=None,
+                                       features=None,
+                                       n_shuffles=100,
+                                       mi_threshold=MI_THRESHOLD,
+                                       pval_threshold=PVAL_THRESHOLD,
+                                       filter_delay=None,
+                                       min_selectivities=None,
+                                       seed=None):
+    """Export retention enrichment tables to Excel.
+
+    One sheet per feature with per-k enrichment stats, plus a 'summary'
+    sheet with one row per feature showing enrichment at k=max.
+    """
+    filter_delay = _resolve_filter_delay(filter_delay, db)
+    fkw = dict(mi_threshold=mi_threshold, pval_threshold=pval_threshold,
+               filter_delay=filter_delay, min_selectivities=min_selectivities)
+    if features is None:
+        features = db.features
+
+    n_sessions = len(db.sessions)
+    summary_rows = []
+
+    with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+        for feature in features:
+            table = retention_enrichment(
+                db, feature, n_shuffles=n_shuffles,
+                matched_ids_per_mouse=matched_ids_per_mouse,
+                seed=seed, **fkw)
+            table.to_excel(writer, sheet_name=feature[:31])
+
+            # Summary: enrichment at k=max and k=2
+            summary_rows.append({
+                'feature': feature,
+                'obs_k1': table.loc[1, 'observed'],
+                f'obs_k{n_sessions}': table.loc[n_sessions, 'observed'],
+                f'enrich_k{n_sessions}': table.loc[n_sessions, 'enrichment'],
+                f'z_k{n_sessions}': table.loc[n_sessions, 'zscore'],
+                f'-log10p_k{n_sessions}': table.loc[n_sessions, '-log10p'],
+            })
+            if n_sessions >= 2:
+                summary_rows[-1]['enrich_k2'] = table.loc[2, 'enrichment']
+                summary_rows[-1]['z_k2'] = table.loc[2, 'zscore']
+                summary_rows[-1]['-log10p_k2'] = table.loc[2, '-log10p']
+
+        summary = pd.DataFrame(summary_rows)
+        summary.to_excel(writer, sheet_name='summary', index=False)
+
+    print(f"Exported retention enrichment ({n_shuffles} shuffles): "
+          f"{len(features)} features -> {output_path}")
+
+
 def export_retention_tables_excel(db, output_path,
                                    matched_ids_per_mouse=None,
                                    features=None,
@@ -874,3 +1103,81 @@ def export_cross_stats_csv(db, output_path, min_sessions=1,
     table.to_csv(output_path)
     print(f"Exported cross-stats: {len(table)} neurons -> {output_path}")
     return table
+
+
+# ---------------------------------------------------------------------------
+# Full export orchestration
+# ---------------------------------------------------------------------------
+
+def _matching_folder_name(spec, db):
+    """Folder name for a matching specification."""
+    if isinstance(spec, int):
+        if spec <= 1:
+            return "not matched"
+        if spec >= len(db.sessions):
+            return "all matched"
+        return f"{spec} matched"
+    return f"sessions_{'_'.join(spec)}"
+
+
+def export_all(db, output_dir, features=None,
+               mi_threshold=MI_THRESHOLD, pval_threshold=PVAL_THRESHOLD,
+               filter_delay=None, min_selectivities=None):
+    """Export all tables for each matching spec, organized into folders.
+
+    Creates one subfolder per ``db.sessions_to_match`` entry with count,
+    fraction, fraction-of-selective, MI, and cross-stats tables.
+    Retention tables go directly into *output_dir*.
+
+    Parameters
+    ----------
+    db : NeuronDatabase
+    output_dir : str or Path
+    features : list[str], optional
+    mi_threshold, pval_threshold, filter_delay, min_selectivities
+        Passed to all export functions.
+    """
+    from pathlib import Path
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    filter_delay = _resolve_filter_delay(filter_delay, db)
+    fkw = dict(mi_threshold=mi_threshold, pval_threshold=pval_threshold,
+               filter_delay=filter_delay, min_selectivities=min_selectivities)
+
+    for spec in db.sessions_to_match:
+        matched = db.get_matched_ids(spec)
+        folder = output_dir / _matching_folder_name(spec, db)
+        folder.mkdir(exist_ok=True)
+
+        min_sess = spec if isinstance(spec, int) else len(spec)
+
+        export_count_tables_excel(
+            db, folder / 'counts.xlsx',
+            matched_ids_per_mouse=matched, features=features, **fkw)
+        export_fraction_tables_excel(
+            db, folder / 'fractions.xlsx',
+            matched_ids_per_mouse=matched, features=features, **fkw)
+        export_fraction_of_sel_tables_excel(
+            db, folder / 'fractions_of_sel.xlsx',
+            matched_ids_per_mouse=matched, features=features, **fkw)
+        export_mi_tables_excel(
+            db, folder / 'MI.xlsx',
+            matched_ids_per_mouse=matched, features=features, **fkw)
+        export_cross_stats_csv(
+            db, folder / 'cross-stats.csv',
+            min_sessions=min_sess, **fkw)
+
+        print(f"  -> {folder}")
+
+    # Retention stays at root
+    export_retention_tables_excel(
+        db, output_dir / 'retention.xlsx', features=features, **fkw)
+    print(f"  -> {output_dir / 'retention.xlsx'}")
+
+    export_retention_enrichment_excel(
+        db, output_dir / 'retention_enrichment.xlsx',
+        features=features, **fkw)
+    print(f"  -> {output_dir / 'retention_enrichment.xlsx'}")
+
+    print(f"\nAll tables exported to: {output_dir}")

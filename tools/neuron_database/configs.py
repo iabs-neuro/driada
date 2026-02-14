@@ -24,6 +24,10 @@ class ExperimentConfig:
 
 
 DELAY_STRATEGY = 'all'
+MI_THRESHOLD = 0.04
+PVAL_THRESHOLD = 0.001
+
+DISCARDED_FEATURES = {'speed_2d'}
 
 _NOF_AGGREGATE = {'any object': ['object1', 'object2', 'object3', 'object4', 'objects']}
 

@@ -412,7 +412,7 @@ def load_experiment(experiment_id, data_dir, config=None):
         Configured database with exclusions applied and aggregate
         features injected.
     """
-    from .configs import EXPERIMENT_CONFIGS
+    from .configs import EXPERIMENT_CONFIGS, DISCARDED_FEATURES
     from .database import NeuronDatabase
 
     if config is None:
@@ -427,6 +427,12 @@ def load_experiment(experiment_id, data_dir, config=None):
         experiment_prefix=config.experiment_id,
         nontrivial_matching=config.nontrivial_matching,
     )
+
+    if DISCARDED_FEATURES:
+        found = set(data['feature'].unique()) & DISCARDED_FEATURES
+        if found:
+            data = data[~data['feature'].isin(DISCARDED_FEATURES)]
+            print(f"Discarded features: {sorted(found)}")
 
     mice_info_dict = {}
     if config.mice_metadata:
