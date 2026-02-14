@@ -29,7 +29,13 @@ PVAL_THRESHOLD = 0.001
 
 DISCARDED_FEATURES = {'speed_2d'}
 
-_NOF_AGGREGATE = {'any object': ['object1', 'object2', 'object3', 'object4', 'objects']}
+_PLACE_CONSTITUENTS = ['place', 'place-center', 'place-corners',
+                       'place-object', 'place-objects', 'place-walls']
+
+_NOF_AGGREGATE = {
+    'any object': ['object1', 'object2', 'object3', 'object4', 'objects'],
+    'any place': _PLACE_CONSTITUENTS,
+}
 
 EXPERIMENT_CONFIGS = {
     'NOF': ExperimentConfig(

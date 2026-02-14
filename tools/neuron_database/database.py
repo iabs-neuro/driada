@@ -28,7 +28,9 @@ class NeuronDatabase:
                  delay_strategy='nonnegative',
                  sessions_to_match=None,
                  mice_metadata_columns=None,
-                 mice_info=None):
+                 mice_info=None,
+                 experiment_id=None):
+        self.experiment_id = experiment_id
         self.session_names = list(session_names)
         self.matching = matching
         self._data = data

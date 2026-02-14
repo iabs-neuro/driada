@@ -444,7 +444,8 @@ def load_experiment(experiment_id, data_dir, config=None):
                         delay_strategy=config.delay_strategy,
                         sessions_to_match=config.sessions_to_match,
                         mice_metadata_columns=config.mice_metadata,
-                        mice_info=mice_info_dict)
+                        mice_info=mice_info_dict,
+                        experiment_id=config.experiment_id)
 
     if config.excluded_mice:
         db.exclude_mice(

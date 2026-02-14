@@ -27,7 +27,7 @@ from .tables import (apply_significance_filters,
                      retention_enrichment,
                      export_retention_tables_excel,
                      export_retention_enrichment_excel,
-                     cross_stats_table, export_cross_stats_csv,
+                     cross_stats_table, export_cross_stats_excel,
                      export_all)
 
 __all__ = ['NeuronDatabase', 'ExperimentConfig', 'EXPERIMENT_CONFIGS',

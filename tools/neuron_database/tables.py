@@ -1077,12 +1077,12 @@ def cross_stats_table(db, min_sessions=1,
     return result
 
 
-def export_cross_stats_csv(db, output_path, min_sessions=1,
-                           mi_threshold=MI_THRESHOLD,
-                           pval_threshold=PVAL_THRESHOLD,
-                           filter_delay=None,
-                           min_selectivities=None):
-    """Export cross-session stats table to CSV.
+def export_cross_stats_excel(db, output_path, min_sessions=1,
+                              mi_threshold=MI_THRESHOLD,
+                              pval_threshold=PVAL_THRESHOLD,
+                              filter_delay=None,
+                              min_selectivities=None):
+    """Export cross-session stats table to Excel.
 
     Parameters
     ----------
@@ -1100,7 +1100,7 @@ def export_cross_stats_csv(db, output_path, min_sessions=1,
     table = cross_stats_table(db, min_sessions, mi_threshold, pval_threshold,
                               filter_delay, min_selectivities)
     annotate_neuron_table(table, db)
-    table.to_csv(output_path)
+    table.to_excel(output_path, index=False, engine='openpyxl')
     print(f"Exported cross-stats: {len(table)} neurons -> {output_path}")
     return table
 
@@ -1118,6 +1118,8 @@ def _matching_folder_name(spec, db):
             return "all matched"
         return f"{spec} matched"
     return f"sessions_{'_'.join(spec)}"
+
+
 
 
 def export_all(db, output_dir, features=None,
@@ -1141,43 +1143,68 @@ def export_all(db, output_dir, features=None,
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    exp_id = db.experiment_id or ''
     filter_delay = _resolve_filter_delay(filter_delay, db)
     fkw = dict(mi_threshold=mi_threshold, pval_threshold=pval_threshold,
                filter_delay=filter_delay, min_selectivities=min_selectivities)
 
+    def _fname(name, matching_tag=None):
+        parts = [exp_id] if exp_id else []
+        if matching_tag:
+            parts.append(matching_tag)
+        parts.append(name)
+        return '_'.join(parts)
+
     for spec in db.sessions_to_match:
         matched = db.get_matched_ids(spec)
-        folder = output_dir / _matching_folder_name(spec, db)
+        folder_name = _matching_folder_name(spec, db)
+        folder = output_dir / folder_name
         folder.mkdir(exist_ok=True)
 
+        tag = folder_name.replace(' ', '_')
         min_sess = spec if isinstance(spec, int) else len(spec)
 
         export_count_tables_excel(
-            db, folder / 'counts.xlsx',
+            db, folder / f'{_fname("counts", tag)}.xlsx',
             matched_ids_per_mouse=matched, features=features, **fkw)
         export_fraction_tables_excel(
-            db, folder / 'fractions.xlsx',
+            db, folder / f'{_fname("fractions", tag)}.xlsx',
             matched_ids_per_mouse=matched, features=features, **fkw)
         export_fraction_of_sel_tables_excel(
-            db, folder / 'fractions_of_sel.xlsx',
+            db, folder / f'{_fname("fractions_of_sel", tag)}.xlsx',
             matched_ids_per_mouse=matched, features=features, **fkw)
         export_mi_tables_excel(
-            db, folder / 'MI.xlsx',
+            db, folder / f'{_fname("MI", tag)}.xlsx',
             matched_ids_per_mouse=matched, features=features, **fkw)
-        export_cross_stats_csv(
-            db, folder / 'cross-stats.csv',
+        export_cross_stats_excel(
+            db, folder / f'{_fname("cross-stats", tag)}.xlsx',
             min_sessions=min_sess, **fkw)
 
         print(f"  -> {folder}")
 
     # Retention stays at root
     export_retention_tables_excel(
-        db, output_dir / 'retention.xlsx', features=features, **fkw)
-    print(f"  -> {output_dir / 'retention.xlsx'}")
-
-    export_retention_enrichment_excel(
-        db, output_dir / 'retention_enrichment.xlsx',
+        db, output_dir / f'{_fname("retention")}.xlsx',
         features=features, **fkw)
-    print(f"  -> {output_dir / 'retention_enrichment.xlsx'}")
+    export_retention_enrichment_excel(
+        db, output_dir / f'{_fname("retention_enrichment")}.xlsx',
+        features=features, **fkw)
+
+    # Core data table (human-readable)
+    db.data.drop(columns='significant').to_excel(
+        output_dir / f'{_fname("data")}.xlsx',
+        index=False, engine='openpyxl')
+
+    # Full database snapshot (HDF5)
+    h5_path = output_dir / f'{_fname("database")}.h5'
+    with pd.HDFStore(h5_path, mode='w') as store:
+        store['data'] = db.data.drop(columns='significant')
+        for mouse, match_df in db.matching.items():
+            store[f'matching/{mouse}'] = match_df
+        store['config'] = pd.Series({
+            'experiment_id': exp_id,
+            'sessions': ','.join(db.sessions),
+            'delay_strategy': db.delay_strategy,
+        })
 
     print(f"\nAll tables exported to: {output_dir}")
