@@ -7,6 +7,8 @@ with optional filtering to neurons matched across all sessions.
 import numpy as np
 import pandas as pd
 
+from .metadata import annotate_mice_table, annotate_neuron_table
+
 MI_THRESHOLD = 0.04
 PVAL_THRESHOLD = 0.001
 
@@ -330,16 +332,16 @@ def export_count_tables_excel(db, output_path, matched_ids_per_mouse=None,
             table = significance_count_table(
                 db, feature, matched_ids_per_mouse=matched_ids_per_mouse,
                 min_selectivities=min_selectivities, **fkw)
-            # Excel sheet names max 31 chars
+            annotate_mice_table(table, db)
             table.to_excel(writer, sheet_name=feature[:31])
 
         # Composite sheets
         sel = _selectivity_counts(db, matched_ids_per_mouse,
                                   min_selectivities=min_selectivities, **fkw)
-        _sel_count_to_table(sel, db, 0).to_excel(writer, sheet_name='all')
-        _sel_count_to_table(sel, db, 1).to_excel(writer, sheet_name='sel1')
-        _sel_count_to_table(sel, db, 2).to_excel(writer, sheet_name='sel2')
-        _sel_count_to_table(sel, db, 3).to_excel(writer, sheet_name='sel3')
+        for n_sel, name in [(0, 'all'), (1, 'sel1'), (2, 'sel2'), (3, 'sel3')]:
+            table = _sel_count_to_table(sel, db, n_sel)
+            annotate_mice_table(table, db)
+            table.to_excel(writer, sheet_name=name)
 
 
 def export_fraction_tables_excel(db, output_path, matched_ids_per_mouse=None,
@@ -369,6 +371,7 @@ def export_fraction_tables_excel(db, output_path, matched_ids_per_mouse=None,
             table = significance_fraction_table(
                 db, feature, matched_ids_per_mouse=matched_ids_per_mouse,
                 min_selectivities=min_selectivities, **fkw)
+            annotate_mice_table(table, db)
             table.to_excel(writer, sheet_name=feature[:31])
 
         # Composite sheets
@@ -378,6 +381,7 @@ def export_fraction_tables_excel(db, output_path, matched_ids_per_mouse=None,
         for n_sel, name in [(0, 'all'), (1, 'sel1'), (2, 'sel2'), (3, 'sel3')]:
             counts = _sel_count_to_table(sel, db, n_sel)
             frac = counts / totals.replace(0, float('nan'))
+            annotate_mice_table(frac, db)
             frac.to_excel(writer, sheet_name=name)
 
 
@@ -416,12 +420,14 @@ def export_fraction_of_sel_tables_excel(db, output_path,
                 db, feature, sel_totals,
                 matched_ids_per_mouse=matched_ids_per_mouse,
                 min_selectivities=min_selectivities, **fkw)
+            annotate_mice_table(table, db)
             table.to_excel(writer, sheet_name=feature[:31])
 
         # Composite sheets: sel1/sel2/sel3 as fraction of all selective
         for n_sel, name in [(1, 'sel1'), (2, 'sel2'), (3, 'sel3')]:
             counts = _sel_count_to_table(sel, db, n_sel)
             frac = counts / sel_totals.replace(0, float('nan'))
+            annotate_mice_table(frac, db)
             frac.to_excel(writer, sheet_name=name)
 
 
@@ -650,6 +656,7 @@ def export_mi_tables_excel(db, output_path, matched_ids_per_mouse=None,
         for feature in features:
             table = mi_table(db, feature, matched_ids_per_mouse,
                              min_selectivities=min_selectivities, **fkw)
+            annotate_neuron_table(table, db)
             table.to_excel(writer, sheet_name=feature[:31], index=False)
 
         # Composite sheets
@@ -657,6 +664,7 @@ def export_mi_tables_excel(db, output_path, matched_ids_per_mouse=None,
             table = mi_table_composite(db, n_sel, matched_ids_per_mouse,
                                        min_selectivities=min_selectivities,
                                        **fkw)
+            annotate_neuron_table(table, db)
             table.to_excel(writer, sheet_name=name, index=False)
 
 
@@ -750,6 +758,7 @@ def export_retention_tables_excel(db, output_path,
             table = retention_count_table(
                 db, feature, matched_ids_per_mouse,
                 min_selectivities=min_selectivities, **fkw)
+            annotate_mice_table(table, db)
             table.to_excel(writer, sheet_name=feature[:31])
 
 
@@ -861,6 +870,7 @@ def export_cross_stats_csv(db, output_path, min_sessions=1,
     """
     table = cross_stats_table(db, min_sessions, mi_threshold, pval_threshold,
                               filter_delay, min_selectivities)
+    annotate_neuron_table(table, db)
     table.to_csv(output_path)
     print(f"Exported cross-stats: {len(table)} neurons -> {output_path}")
     return table

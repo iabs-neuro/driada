@@ -26,13 +26,17 @@ class NeuronDatabase:
 
     def __init__(self, session_names, matching, data,
                  delay_strategy='nonnegative',
-                 sessions_to_match=None):
+                 sessions_to_match=None,
+                 mice_metadata_columns=None,
+                 mice_info=None):
         self.session_names = list(session_names)
         self.matching = matching
         self._data = data
         self.delay_strategy = delay_strategy
         self.sessions_to_match = (sessions_to_match if sessions_to_match is not None
                                   else [1, len(session_names)])
+        self.mice_metadata_columns = mice_metadata_columns or []
+        self._mice_info = mice_info or {}
         self._excluded_mice = set()
         self._excluded_sessions = set()
         self._excluded_pairs = set()  # (mouse, session) tuples

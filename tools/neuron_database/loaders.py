@@ -418,6 +418,8 @@ def load_experiment(experiment_id, data_dir, config=None):
     if config is None:
         config = EXPERIMENT_CONFIGS[experiment_id]
 
+    from .metadata import load_mice_info, build_mice_info_dict
+
     matching, data = load_from_csv_directory(
         data_dir, config.sessions,
         matching_subdir=config.matching_subdir,
@@ -426,9 +428,17 @@ def load_experiment(experiment_id, data_dir, config=None):
         nontrivial_matching=config.nontrivial_matching,
     )
 
+    mice_info_dict = {}
+    if config.mice_metadata:
+        mi_df = load_mice_info(data_dir)
+        mice_info_dict = build_mice_info_dict(
+            mi_df, config.experiment_id, config.mice_metadata)
+
     db = NeuronDatabase(config.sessions, matching, data,
                         delay_strategy=config.delay_strategy,
-                        sessions_to_match=config.sessions_to_match)
+                        sessions_to_match=config.sessions_to_match,
+                        mice_metadata_columns=config.mice_metadata,
+                        mice_info=mice_info_dict)
 
     if config.excluded_mice:
         db.exclude_mice(
