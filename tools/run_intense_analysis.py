@@ -107,7 +107,8 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
     # Load experiment with config-based aggregation
     print(f"\nLoading experiment...")
     t_start = time.time()
-    exp = load_experiment_from_npz(npz_path, agg_features=exp_config['aggregate_features'])
+    exp = load_experiment_from_npz(npz_path, agg_features=exp_config['aggregate_features'],
+                                      feature_types=exp_config.get('feature_types'))
     t_load = time.time() - t_start
 
     print(f"  Loaded: {exp.signature}")
@@ -396,7 +397,8 @@ Examples:
             exp_name = get_exp_name(Path(npz_path))
             exp_type = exp_name.split('_')[0] if '_' in exp_name else None
             exp_config = get_experiment_config(exp_type)
-            exp = load_experiment_from_npz(Path(npz_path), agg_features=exp_config['aggregate_features'], verbose=False)
+            exp = load_experiment_from_npz(Path(npz_path), agg_features=exp_config['aggregate_features'],
+                                            feature_types=exp_config.get('feature_types'), verbose=False)
             pre_filter = get_filter_for_experiment(exp_type) if use_filters else None
             post_filter = exp_config.get('post_filter') if use_filters else None
             filter_kwargs = None

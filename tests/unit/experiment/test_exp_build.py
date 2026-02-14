@@ -173,6 +173,74 @@ class TestLoadExpFromAlignedData:
         assert exp.feature_b.discrete
         assert len(np.unique(exp.feature_b.data)) == 2
 
+    def test_feature_types_basic(self, exp_params):
+        """Test feature_types forces correct subtypes."""
+        data = {
+            "calcium": np.random.rand(3, 500),
+            "feature_a": np.random.rand(500) * 10,  # Would be auto-detected as continuous/linear
+            "feature_b": np.array([0, 1] * 250),  # Would be auto-detected as binary
+        }
+
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
+            exp = load_exp_from_aligned_data(
+                "source", exp_params, data,
+                feature_types={"feature_b": "continuous"},
+                verbose=False,
+            )
+
+        # feature_b forced to continuous
+        assert not exp.feature_b.discrete
+        # feature_a stays auto-detected
+        assert not exp.feature_a.discrete
+
+    def test_feature_types_circular_whitelist(self, exp_params):
+        """Test that auto-detected circular features not in whitelist get overridden."""
+        # Create data that looks circular: range ≈ [0, 360]
+        np.random.seed(42)
+        fake_circular = np.random.uniform(0, 360, 500)
+        real_circular = np.random.uniform(-np.pi, np.pi, 500)
+        data = {
+            "calcium": np.random.rand(3, 500),
+            "speed": fake_circular,
+            "headdirection": real_circular,
+        }
+
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
+            with pytest.warns(UserWarning, match="auto-detected as circular but not in feature_types"):
+                exp = load_exp_from_aligned_data(
+                    "source", exp_params, data,
+                    feature_types={"headdirection": "circular"},
+                    verbose=False,
+                    create_circular_2d=True,
+                )
+
+        # speed should have been overridden to linear
+        assert not exp.speed.type_info.is_circular
+        # headdirection should be circular
+        assert exp.headdirection.type_info.is_circular
+        # Only headdirection_2d should exist, not speed_2d
+        assert "headdirection_2d" in exp.dynamic_features
+        assert "speed_2d" not in exp.dynamic_features
+
+    def test_feature_types_conflict_warning(self, exp_params):
+        """Test that a warning is emitted when forced type disagrees with auto-detection."""
+        data = {
+            "calcium": np.random.rand(3, 500),
+            "feature_a": np.array([0, 1] * 250),  # Auto-detects as binary/discrete
+        }
+
+        with patch("driada.experiment.exp_build.construct_session_name", return_value="test"):
+            with pytest.warns(UserWarning, match="type overridden"):
+                exp = load_exp_from_aligned_data(
+                    "source", exp_params, data,
+                    feature_types={"feature_a": "linear"},
+                    verbose=False,
+                )
+
+        # Should be forced to continuous/linear despite binary data
+        assert not exp.feature_a.discrete
+        assert exp.feature_a.type_info.subtype == "linear"
+
     def test_bad_frames_mask(self, basic_data, exp_params):
         """Test bad frames masking."""
         bad_frames = [10, 20, 30, 40, 50]  # Remove these frames

@@ -7,6 +7,7 @@ import pickle
 
 from .exp_base import Experiment
 from ..information.info_base import TimeSeries, MultiTimeSeries, aggregate_multiple_ts
+from ..information.time_series_types import analyze_time_series_type
 from ..utils.naming import construct_session_name
 from ..utils.output import show_output
 from .neuron import DEFAULT_FPS, DEFAULT_T_OFF, DEFAULT_T_RISE
@@ -54,6 +55,7 @@ def load_exp_from_aligned_data(
     exp_params,
     data,
     force_continuous=[],
+    feature_types=None,
     bad_frames=[],
     static_features=None,
     verbose=True,
@@ -88,10 +90,14 @@ def load_exp_from_aligned_data(
           * 1D arrays (time,): treated as single time series
           * 2D arrays (components, time): treated as MultiTimeSeries
     force_continuous : list, optional
-        List of feature names to force as continuous variables.
-        By default, features are automatically classified based on their values.
-        Use this when discrete-looking data should be treated as continuous
-        (e.g., binned position data).
+        **Deprecated.** Use ``feature_types`` instead. List of feature names
+        to force as continuous. Converted to ``feature_types={f: 'continuous'}``
+        internally if ``feature_types`` is not provided.
+    feature_types : dict[str, str], optional
+        Map of feature names to type strings, overriding auto-detection.
+        See ``TimeSeries._create_type_from_string`` for valid strings.
+        Also acts as a circular whitelist: unlisted auto-circular features
+        are overridden to linear.
     bad_frames : list, optional
         List of frame indices to mark as bad/invalid. These frames will be
         masked in the resulting Experiment object. Useful for removing
@@ -212,8 +218,6 @@ def load_exp_from_aligned_data(
 
     # Deprecation warning for reconstruct_spikes parameter
     if reconstruct_spikes is not None and reconstruct_spikes is not False:
-        import warnings
-
         warnings.warn(
             "The 'reconstruct_spikes' parameter is deprecated. "
             "Load the experiment first, then call exp.reconstruct_all_neurons() separately. "
@@ -327,9 +331,15 @@ def load_exp_from_aligned_data(
         return np.all(nan_mask) or (len(np.unique(arr[~nan_mask])) <= 1)
 
     # Process remaining dynamic features
-    feat_is_continuous = (
-        {f: f in force_continuous for f in dyn_features.keys()} if force_continuous else {}
-    )
+    # Deprecation bridge: convert force_continuous to feature_types
+    if force_continuous and not feature_types:
+        warnings.warn(
+            "force_continuous is deprecated. Use feature_types={'name': 'linear'} instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        feature_types = {f: 'continuous' for f in force_continuous}
+    feature_types = feature_types or {}
 
     for f, vals in dyn_features.items():
         # Skip reserved keys (case-insensitive for neural keys)
@@ -363,9 +373,8 @@ def load_exp_from_aligned_data(
         # Handle based on dimensionality
         if vals_array.ndim == 1:
             # 1D -> TimeSeries
-            if f in force_continuous:
-                # User explicitly wants this to be continuous
-                filt_dyn_features[f] = TimeSeries(vals_array, discrete=False, name=f)
+            if f in feature_types:
+                filt_dyn_features[f] = TimeSeries(vals_array, ts_type=feature_types[f], name=f)
             else:
                 # Let TimeSeries auto-detect the type
                 filt_dyn_features[f] = TimeSeries(vals_array, name=f)
@@ -415,28 +424,37 @@ def load_exp_from_aligned_data(
         print(f"features {auto_continuous} automatically determined as continuous")
         print()
 
-    if len(force_continuous) != 0:
-        # Check if auto-determined continuous features match force_continuous
-        force_continuous_in_data = set(force_continuous) & set(dyn_features.keys())
-        if set(auto_continuous) != force_continuous_in_data:
-            if verbose:
-                print(
-                    "Warning: auto determined continuous features do not coincide with force_continuous list! Automatic labelling will be overridden"
+    # Compare forced types with auto-detection and enforce circular whitelist
+    if feature_types:
+        circular_whitelist = {f for f, t in feature_types.items()
+                              if t in ('circular', 'phase', 'angle')}
+
+        for f, ts in list(filt_dyn_features.items()):
+            if not isinstance(ts, TimeSeries) or ts.discrete:
+                continue
+
+            if f in feature_types:
+                # Warn when forced type disagrees with auto-detection
+                auto_type = analyze_time_series_type(ts.data, name=f)
+                auto_sub = auto_type.subtype or auto_type.primary_type
+                forced_sub = ts.type_info.subtype or ts.type_info.primary_type
+                if auto_sub != forced_sub:
+                    warnings.warn(
+                        f"Feature '{f}' type overridden: auto-detected "
+                        f"'{auto_sub}' (conf={auto_type.confidence:.2f}) "
+                        f"-> forced '{forced_sub}'",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+            elif ts.type_info and ts.type_info.is_circular:
+                # Auto-detected circular but not whitelisted — override to linear
+                warnings.warn(
+                    f"Feature '{f}' auto-detected as circular but not in "
+                    f"feature_types. Overriding to linear.",
+                    UserWarning,
+                    stacklevel=2,
                 )
-            # Re-create time series with corrected discrete/continuous labels
-            for fn in filt_dyn_features.keys():
-                if fn in force_continuous:
-                    # Force this feature to be continuous
-                    if filt_dyn_features[fn].discrete:
-                        filt_dyn_features[fn] = TimeSeries(
-                            filt_dyn_features[fn].data, discrete=False, name=fn
-                        )
-                        if verbose:
-                            print(f"Feature '{fn}' forced to be continuous")
-                else:
-                    # Not in force_continuous - let auto-detection stand
-                    # This preserves multi-valued discrete features
-                    pass
+                filt_dyn_features[f] = TimeSeries(ts.data, ts_type='linear', name=f)
 
     signature = f"Exp {expname}"
 
@@ -491,6 +509,7 @@ def load_experiment(
     exp_path=None,
     data_path=None,
     force_continuous=[],
+    feature_types=None,
     bad_frames=[],
     static_features=None,
     reconstruct_spikes="wavelet",
@@ -535,7 +554,9 @@ def load_experiment(
         For IABS, if None, uses standard naming:
         {root}/{expname}/Aligned data/{expname} syn data.npz
     force_continuous : list, optional
-        Feature names to force as continuous. See load_exp_from_aligned_data.
+        **Deprecated.** See load_exp_from_aligned_data.
+    feature_types : dict[str, str], optional
+        Feature type overrides. See load_exp_from_aligned_data.
     bad_frames : list, optional
         Frame indices to mark as bad. See load_exp_from_aligned_data.
     static_features : dict, optional
@@ -702,6 +723,7 @@ def load_experiment(
                 exp_params,
                 aligned_data,
                 force_continuous=force_continuous,
+                feature_types=feature_types,
                 static_features=static_features,
                 verbose=verbose,
                 bad_frames=bad_frames,
@@ -742,6 +764,7 @@ def load_experiment(
                 exp_params,
                 aligned_data,
                 force_continuous=force_continuous,
+                feature_types=feature_types,
                 static_features=static_features,
                 verbose=verbose,
                 bad_frames=bad_frames,

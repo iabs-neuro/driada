@@ -30,7 +30,8 @@ def build_feature_list(exp, skip_features):
     return feat_bunch
 
 
-def load_experiment_from_npz(npz_path, agg_features=None, verbose=True):
+def load_experiment_from_npz(npz_path, agg_features=None, feature_types=None,
+                             verbose=True):
     """Load experiment from NPZ file.
 
     Parameters
@@ -40,6 +41,8 @@ def load_experiment_from_npz(npz_path, agg_features=None, verbose=True):
     agg_features : dict, optional
         Feature aggregation mapping {(key1, key2): 'combined_name'}
         These features are combined into MultiTimeSeries during construction.
+    feature_types : dict[str, str], optional
+        Feature type overrides. See load_exp_from_aligned_data.
     verbose : bool
         Whether to print loading info
 
@@ -73,12 +76,11 @@ def load_experiment_from_npz(npz_path, agg_features=None, verbose=True):
     data.pop('_metadata', None)
     data.pop('_sync_info', None)
 
-    # Create experiment with aggregate_features parameter
-    # This creates MultiTimeSeries during construction, ensuring proper data hashes
     exp = load_exp_from_aligned_data(
         data_source='IABS',
         exp_params=exp_params,
         data=data,
+        feature_types=feature_types,
         static_features=static_features,
         aggregate_features=agg_features,
         verbose=verbose,
