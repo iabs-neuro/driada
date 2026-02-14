@@ -31,6 +31,7 @@ from ..information.info_base import (
     compute_mi_mts_mts_fft,
     compute_mi_mts_discrete_fft,
     compute_mi_dd_fft,
+    compute_pearson_batch_fft,
 )
 from ..utils.data import nested_dict_to_seq_of_tables, add_names_to_nested_dict
 from .io import IntenseResults
@@ -61,6 +62,8 @@ FFT_DISCRETE_DISCRETE = "dd"  # Discrete-discrete (both variables discrete)
 FFT_MULTIVARIATE = "mts"    # MultiTimeSeries + univariate TimeSeries
 FFT_MTS_MTS = "mts_mts"     # MultiTimeSeries + MultiTimeSeries
 FFT_MTS_DISCRETE = "mts_discrete"  # MultiTimeSeries + discrete
+FFT_PEARSON_CONTINUOUS = "pearson_cc"  # Pearson correlation (continuous-continuous)
+FFT_PEARSON_DISCRETE = "pearson_gd"   # Pearson correlation (continuous-discrete, point-biserial)
 
 
 @contextmanager
@@ -271,11 +274,16 @@ def get_fft_type(
     if engine == "loop":
         return None
 
-    # FFT only works with MI metric and GCMI estimator
-    if metric != "mi" or mi_estimator != "gcmi":
+    # FFT works with MI (GCMI estimator) and fast_pearsonr
+    if metric == "mi" and mi_estimator == "gcmi":
+        pass  # proceed to type classification
+    elif metric == "fast_pearsonr":
+        pass  # proceed — continuous-continuous only
+    else:
         if engine == "fft":
             raise ValueError(
-                f"engine='fft' requires metric='mi' and mi_estimator='gcmi'. "
+                f"engine='fft' requires metric='mi' (with mi_estimator='gcmi') "
+                f"or metric='fast_pearsonr'. "
                 f"Got: metric={metric}, mi_estimator={mi_estimator}"
             )
         return None
@@ -287,60 +295,80 @@ def get_fft_type(
     fft_type = None
     error_msg = None
 
+    # For fast_pearsonr, only univariate continuous-continuous is supported via FFT
+    is_pearson = (metric == "fast_pearsonr")
+
     # Check for MultiTimeSeries + univariate TimeSeries pair
     if isinstance(ts1, MultiTimeSeries) and isinstance(ts2, TimeSeries) and not isinstance(ts2, MultiTimeSeries):
-        mts, ts = ts1, ts2
-        # Check for MTS + discrete pair first
-        if not mts.discrete and ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
-            fft_type = FFT_MTS_DISCRETE
-        # Then check for MTS + continuous pair
-        elif not mts.discrete and not ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
-            fft_type = FFT_MULTIVARIATE
+        if is_pearson:
+            error_msg = "FFT Pearson only supports univariate continuous-continuous pairs"
         else:
-            error_msg = (
-                f"MultiTimeSeries FFT requires continuous MTS with d <= {MAX_FFT_MTS_DIMENSIONS} "
-                f"paired with either continuous or discrete TimeSeries. "
-                f"Got: MTS discrete={mts.discrete}, TS discrete={ts.discrete}, MTS shape={mts.data.shape}"
-            )
+            mts, ts = ts1, ts2
+            # Check for MTS + discrete pair first
+            if not mts.discrete and ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
+                fft_type = FFT_MTS_DISCRETE
+            # Then check for MTS + continuous pair
+            elif not mts.discrete and not ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
+                fft_type = FFT_MULTIVARIATE
+            else:
+                error_msg = (
+                    f"MultiTimeSeries FFT requires continuous MTS with d <= {MAX_FFT_MTS_DIMENSIONS} "
+                    f"paired with either continuous or discrete TimeSeries. "
+                    f"Got: MTS discrete={mts.discrete}, TS discrete={ts.discrete}, MTS shape={mts.data.shape}"
+                )
     elif isinstance(ts2, MultiTimeSeries) and isinstance(ts1, TimeSeries) and not isinstance(ts1, MultiTimeSeries):
-        mts, ts = ts2, ts1
-        # Check for MTS + discrete pair first
-        if not mts.discrete and ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
-            fft_type = FFT_MTS_DISCRETE
-        # Then check for MTS + continuous pair
-        elif not mts.discrete and not ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
-            fft_type = FFT_MULTIVARIATE
+        if is_pearson:
+            error_msg = "FFT Pearson only supports univariate continuous-continuous pairs"
         else:
-            error_msg = (
-                f"MultiTimeSeries FFT requires continuous MTS with d <= {MAX_FFT_MTS_DIMENSIONS} "
-                f"paired with either continuous or discrete TimeSeries. "
-                f"Got: MTS discrete={mts.discrete}, TS discrete={ts.discrete}, MTS shape={mts.data.shape}"
-            )
+            mts, ts = ts2, ts1
+            # Check for MTS + discrete pair first
+            if not mts.discrete and ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
+                fft_type = FFT_MTS_DISCRETE
+            # Then check for MTS + continuous pair
+            elif not mts.discrete and not ts.discrete and mts.data.shape[0] <= MAX_FFT_MTS_DIMENSIONS:
+                fft_type = FFT_MULTIVARIATE
+            else:
+                error_msg = (
+                    f"MultiTimeSeries FFT requires continuous MTS with d <= {MAX_FFT_MTS_DIMENSIONS} "
+                    f"paired with either continuous or discrete TimeSeries. "
+                    f"Got: MTS discrete={mts.discrete}, TS discrete={ts.discrete}, MTS shape={mts.data.shape}"
+                )
     # Check for MultiTimeSeries + MultiTimeSeries pair
     elif isinstance(ts1, MultiTimeSeries) and isinstance(ts2, MultiTimeSeries):
-        d1 = ts1.data.shape[0]
-        d2 = ts2.data.shape[0]
-        if (not ts1.discrete and not ts2.discrete and
-            d1 + d2 <= MAX_MTS_MTS_FFT_DIMENSIONS):
-            fft_type = FFT_MTS_MTS
+        if is_pearson:
+            error_msg = "FFT Pearson only supports univariate continuous-continuous pairs"
         else:
-            error_msg = (
-                f"MTS-MTS FFT requires continuous variables with "
-                f"d1+d2 <= {MAX_MTS_MTS_FFT_DIMENSIONS}. "
-                f"Got: d1={d1}, d2={d2}, discrete=({ts1.discrete},{ts2.discrete})"
-            )
+            d1 = ts1.data.shape[0]
+            d2 = ts2.data.shape[0]
+            if (not ts1.discrete and not ts2.discrete and
+                d1 + d2 <= MAX_MTS_MTS_FFT_DIMENSIONS):
+                fft_type = FFT_MTS_MTS
+            else:
+                error_msg = (
+                    f"MTS-MTS FFT requires continuous variables with "
+                    f"d1+d2 <= {MAX_MTS_MTS_FFT_DIMENSIONS}. "
+                    f"Got: d1={d1}, d2={d2}, discrete=({ts1.discrete},{ts2.discrete})"
+                )
     # Check for univariate TimeSeries pairs
     elif (isinstance(ts1, TimeSeries) and not isinstance(ts1, MultiTimeSeries) and
           isinstance(ts2, TimeSeries) and not isinstance(ts2, MultiTimeSeries)):
-        # Discrete-continuous pair
-        if ts1.discrete != ts2.discrete:
-            fft_type = FFT_DISCRETE
-        # Continuous-continuous pair
-        elif not ts1.discrete and not ts2.discrete:
-            fft_type = FFT_CONTINUOUS
+        if is_pearson:
+            if not ts1.discrete and not ts2.discrete:
+                fft_type = FFT_PEARSON_CONTINUOUS
+            elif ts1.discrete != ts2.discrete:
+                fft_type = FFT_PEARSON_DISCRETE
+            else:
+                error_msg = "FFT Pearson does not support two discrete variables"
         else:
-            # Both discrete - use discrete-discrete FFT
-            fft_type = FFT_DISCRETE_DISCRETE
+            # Discrete-continuous pair
+            if ts1.discrete != ts2.discrete:
+                fft_type = FFT_DISCRETE
+            # Continuous-continuous pair
+            elif not ts1.discrete and not ts2.discrete:
+                fft_type = FFT_CONTINUOUS
+            else:
+                # Both discrete - use discrete-discrete FFT
+                fft_type = FFT_DISCRETE_DISCRETE
     else:
         error_msg = (
             f"FFT requires univariate TimeSeries or MultiTimeSeries+TimeSeries pair. "
@@ -401,6 +429,14 @@ def _extract_fft_data(ts1, ts2, fft_type, ds: int):
         return ts1.copula_normal_data[:, ::ds], ts2.copula_normal_data[:, ::ds]
     elif fft_type == FFT_DISCRETE_DISCRETE:
         return ts1.int_data[::ds], ts2.int_data[::ds]
+    elif fft_type == FFT_PEARSON_CONTINUOUS:
+        return ts1.data[::ds], ts2.data[::ds]
+    elif fft_type == FFT_PEARSON_DISCRETE:
+        # Treat discrete data as float for point-biserial correlation
+        if ts1.discrete:
+            return ts2.data[::ds], ts1.data[::ds].astype(float)
+        else:
+            return ts1.data[::ds], ts2.data[::ds].astype(float)
     else:
         raise ValueError(f"Unknown FFT type: {fft_type}")
 
@@ -413,6 +449,8 @@ _FFT_COMPUTE = {
     FFT_MULTIVARIATE: compute_mi_mts_fft,
     FFT_MTS_MTS: compute_mi_mts_mts_fft,
     FFT_MTS_DISCRETE: compute_mi_mts_discrete_fft,
+    FFT_PEARSON_CONTINUOUS: compute_pearson_batch_fft,
+    FFT_PEARSON_DISCRETE: compute_pearson_batch_fft,
 }
 
 
@@ -861,6 +899,7 @@ def calculate_optimal_delays(
     mi_estimator="gcmi",
     engine="auto",
     fft_cache: dict = None,
+    mi_estimator_kwargs=None,
 ) -> np.ndarray:
     """
     Calculate optimal temporal delays between pairs of time series.
@@ -993,7 +1032,8 @@ def calculate_optimal_delays(
                 shifted_me = []
                 for shift in shifts:
                     lag_me = get_sim(
-                        ts1, ts2, metric, ds=ds, shift=int(shift), estimator=mi_estimator
+                        ts1, ts2, metric, ds=ds, shift=int(shift), estimator=mi_estimator,
+                        mi_estimator_kwargs=mi_estimator_kwargs,
                     )
                     shifted_me.append(lag_me)
 
@@ -1049,6 +1089,7 @@ def calculate_optimal_delays_parallel(
     mi_estimator="gcmi",
     engine="auto",
     fft_cache: dict = None,
+    mi_estimator_kwargs=None,
 ) -> np.ndarray:
     """
     Calculate optimal temporal delays between pairs of time series using parallel processing.
@@ -1166,6 +1207,7 @@ def calculate_optimal_delays_parallel(
                 mi_estimator=mi_estimator,
                 engine=engine,
                 fft_cache=split_cache,
+                mi_estimator_kwargs=mi_estimator_kwargs,
             )
             for small_ts_bunch, split_cache in zip(split_ts_bunch1, split_caches)
         )
@@ -1358,6 +1400,7 @@ def scan_pairs(
     enable_progressbar=True,
     engine="auto",
     fft_cache: dict = None,
+    mi_estimator_kwargs=None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate similarity metric and shuffled distributions for pairs of time series.
@@ -1525,7 +1568,8 @@ def scan_pairs(
             if mask[i, 0] == 1:
                 # default metric without shuffling, minus due to different order
                 me0 = get_multi_mi(
-                    ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0] // ds, estimator=mi_estimator
+                    ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0] // ds, estimator=mi_estimator,
+                    mi_estimator_kwargs=mi_estimator_kwargs,
                 )
                 # Use deterministic RNG for this pair (stable key seeding)
                 key1 = _get_ts_key(ts1)
@@ -1541,7 +1585,8 @@ def scan_pairs(
                     pair_rng.random(size=nsh) * noise_const
                 )  # add small noise for better fitting
                 for k, shift in enumerate(random_shifts[i, 0, :]):
-                    mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift, estimator=mi_estimator)
+                    mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift, estimator=mi_estimator,
+                                      mi_estimator_kwargs=mi_estimator_kwargs)
                     me_table_shuffles[i, 0, k] = mi + random_noise[k]
 
             else:
@@ -1604,6 +1649,7 @@ def scan_pairs(
                                 shift=optimal_delays[i, j] // ds,
                                 estimator=mi_estimator,
                                 check_for_coincidence=True,
+                                mi_estimator_kwargs=mi_estimator_kwargs,
                             )  # default metric without shuffling
 
                             me_table[i, j] = (
@@ -1616,7 +1662,8 @@ def scan_pairs(
 
                             for k, shift in enumerate(random_shifts[i, j, :]):
                                 me = get_sim(
-                                    ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator
+                                    ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator,
+                                    mi_estimator_kwargs=mi_estimator_kwargs,
                                 )
                                 me_table_shuffles[i, j, k] = me + random_noise[k]
 
@@ -1630,6 +1677,7 @@ def scan_pairs(
                             shift=optimal_delays[i, j] // ds,
                             estimator=mi_estimator,
                             check_for_coincidence=True,
+                            mi_estimator_kwargs=mi_estimator_kwargs,
                         )
 
                         me_table[i, j] = me0 + pair_rng.random() * noise_const
@@ -1638,7 +1686,8 @@ def scan_pairs(
 
                         for k, shift in enumerate(random_shifts[i, j, :]):
                             me = get_sim(
-                                ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator
+                                ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator,
+                                mi_estimator_kwargs=mi_estimator_kwargs,
                             )
                             me_table_shuffles[i, j, k] = me + random_noise[k]
 
@@ -1667,6 +1716,7 @@ def scan_pairs_parallel(
     n_jobs=-1,
     engine="auto",
     fft_cache: dict = None,
+    mi_estimator_kwargs=None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate metric values and shuffles for time series pairs using parallel processing.
@@ -1837,6 +1887,7 @@ def scan_pairs_parallel(
                 enable_progressbar=False,
                 engine=engine,
                 fft_cache=split_caches[worker_idx],
+                mi_estimator_kwargs=mi_estimator_kwargs,
             )
             for worker_idx, small_ts_bunch in enumerate(split_ts_bunch1)
         )
@@ -1866,6 +1917,7 @@ def scan_pairs_router(
     n_jobs=-1,
     engine="auto",
     fft_cache: dict = None,
+    mi_estimator_kwargs=None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Route metric computation to parallel or sequential implementation.
@@ -1975,6 +2027,7 @@ def scan_pairs_router(
             n_jobs=n_jobs,
             engine=engine,
             fft_cache=fft_cache,
+            mi_estimator_kwargs=mi_estimator_kwargs,
         )
 
     else:
@@ -1994,6 +2047,7 @@ def scan_pairs_router(
             noise_const=noise_const,
             engine=engine,
             fft_cache=fft_cache,
+            mi_estimator_kwargs=mi_estimator_kwargs,
         )
 
     return random_shifts, me_total
@@ -2017,6 +2071,7 @@ def scan_stage(
     engine: str,
     fft_cache: dict = None,
     verbose: bool = True,
+    mi_estimator_kwargs=None,
 ) -> tuple[dict, dict, dict]:
     """
     Execute a single stage of INTENSE computation.
@@ -2106,6 +2161,7 @@ def scan_stage(
         n_jobs=n_jobs,
         engine=engine,
         fft_cache=fft_cache,
+        mi_estimator_kwargs=mi_estimator_kwargs,
     )
 
     # 2. Compute stats
@@ -2167,6 +2223,7 @@ def compute_me_stats(
     mode="two_stage",
     metric="mi",
     mi_estimator="gcmi",
+    mi_estimator_kwargs=None,
     precomputed_mask_stage1=None,
     precomputed_mask_stage2=None,
     n_shuffles_stage1=100,
@@ -2529,6 +2586,7 @@ def compute_me_stats(
                         mi_estimator=mi_estimator,
                         engine=engine,
                         fft_cache=fft_cache,
+                        mi_estimator_kwargs=mi_estimator_kwargs,
                     )
                 else:
                     optimal_delays_res = calculate_optimal_delays(
@@ -2541,6 +2599,7 @@ def compute_me_stats(
                         mi_estimator=mi_estimator,
                         engine=engine,
                         fft_cache=fft_cache,
+                        mi_estimator_kwargs=mi_estimator_kwargs,
                     )
 
                 optimal_delays[:, ts_with_delays_inds] = optimal_delays_res
@@ -2593,6 +2652,7 @@ def compute_me_stats(
                     engine=engine,
                     fft_cache=fft_cache,
                     verbose=False,  # We handle verbose output here
+                    mi_estimator_kwargs=mi_estimator_kwargs,
                 )
 
                 # Extract results from scan_stage
@@ -2688,6 +2748,7 @@ def compute_me_stats(
                     engine=engine,
                     fft_cache=fft_cache,
                     verbose=False,  # We handle verbose output here
+                    mi_estimator_kwargs=mi_estimator_kwargs,
                 )
 
                 # Extract results from scan_stage

@@ -28,6 +28,7 @@ from .info_fft import (
     compute_mi_mts_fft,
     compute_mi_mts_mts_fft,
     compute_mi_mts_discrete_fft,
+    compute_pearson_batch_fft,
 )
 
 from ..dim_reduction.data import MVData
@@ -1337,7 +1338,7 @@ def calc_signal_ratio(binary_ts, continuous_ts):
     return avg_on / avg_off
 
 
-def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=False):
+def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=False, mi_estimator_kwargs=None):
     """Computes similarity between two (possibly multidimensional) variables efficiently
 
     Parameters
@@ -1426,6 +1427,7 @@ def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator="gcmi", check_for_coinci
             k=k,
             estimator=estimator,
             check_for_coincidence=check_for_coincidence,
+            mi_estimator_kwargs=mi_estimator_kwargs,
         )
 
     else:
@@ -1434,7 +1436,7 @@ def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator="gcmi", check_for_coinci
                 if metric == "fast_pearsonr":
                     x = ts1.data[::ds]
                     y = np.roll(ts2.data[::ds], shift)
-                    me = correlation_matrix(np.vstack([x, y]))[0, 1]
+                    me = abs(correlation_matrix(np.vstack([x, y]))[0, 1])
                 else:
                     metric_func = get_stats_function(metric)
                     me = metric_func(ts1.data[::ds], np.roll(ts2.data[::ds], shift))[0]
@@ -1448,9 +1450,14 @@ def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator="gcmi", check_for_coinci
                             f"First TimeSeries (ts1) must be binary for metric='{metric}', "
                             f"but has {len(np.unique(ts1.int_data))} unique values"
                         )
+                elif metric == "fast_pearsonr":
+                    x = ts1.data[::ds].astype(float)
+                    y = np.roll(ts2.data[::ds], shift)
+                    me = abs(correlation_matrix(np.vstack([x, y]))[0, 1])
                 else:
                     raise ValueError(
-                        f"Only 'av' and 'mi' metrics are supported for discrete-continuous pairs. "
+                        f"Only 'av', 'mi', and 'fast_pearsonr' metrics are supported for "
+                        f"discrete-continuous pairs. "
                         f"Got metric='{metric}' with discrete ts1 and continuous ts2"
                     )
 
@@ -1463,9 +1470,14 @@ def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator="gcmi", check_for_coinci
                             f"Second TimeSeries (ts2) must be binary for metric='{metric}', "
                             f"but has {len(np.unique(ts2.int_data))} unique values"
                         )
+                elif metric == "fast_pearsonr":
+                    x = ts1.data[::ds]
+                    y = np.roll(ts2.data[::ds].astype(float), shift)
+                    me = abs(correlation_matrix(np.vstack([x, y]))[0, 1])
                 else:
                     raise ValueError(
-                        f"Only 'av' and 'mi' metrics are supported for continuous-discrete pairs. "
+                        f"Only 'av', 'mi', and 'fast_pearsonr' metrics are supported for "
+                        f"continuous-discrete pairs. "
                         f"Got metric='{metric}' with continuous ts1 and discrete ts2"
                     )
 
@@ -1478,7 +1490,7 @@ def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator="gcmi", check_for_coinci
     return me
 
 
-def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=False):
+def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=False, mi_estimator_kwargs=None):
     """Compute mutual information between two (possibly multidimensional) variables.
 
     Efficiently calculates mutual information (MI) between continuous, discrete,
@@ -1765,6 +1777,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
             k=k,
             estimator=estimator,
             check_for_coincidence=check_for_coincidence,
+            mi_estimator_kwargs=mi_estimator_kwargs,
         )
 
     if isinstance(ts1, MultiTimeSeries) and isinstance(ts2, TimeSeries):
@@ -1792,7 +1805,7 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
 
 
 
-def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=True):
+def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=True, mi_estimator_kwargs=None):
     """Computes mutual information between two 1d variables efficiently
 
     Parameters
@@ -1885,6 +1898,7 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincide
                 base=2,  # Use base=2 to get MI in bits
                 precomputed_tree_x=None if ds > 1 else ts1.get_kdtree(),
                 precomputed_tree_y=None if ds > 1 else ts2.get_kdtree(),
+                **(mi_estimator_kwargs or {}),
             )
 
         elif ts1.discrete and ts2.discrete:
@@ -2023,7 +2037,7 @@ def get_tdmi(data, min_shift=1, max_shift=100, nn=DEFAULT_NN, estimator="gcmi"):
     return tdmi
 
 
-def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator="gcmi"):
+def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator="gcmi", mi_estimator_kwargs=None):
     """Compute mutual information between multiple time series and a single time series.
 
     Parameters
@@ -2077,7 +2091,7 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator="gcmi"):
                 y_data = np.roll(y_data, shift)
 
             # Use existing KSG function which handles multidimensional inputs
-            mi = nonparam_mi_cc(x_data, y_data.reshape(-1, 1), k=k, base=2)
+            mi = nonparam_mi_cc(x_data, y_data.reshape(-1, 1), k=k, base=2, **(mi_estimator_kwargs or {}))
         else:
             raise ValueError(
                 "KSG estimator for multidimensional MI currently only supports continuous data!"
