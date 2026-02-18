@@ -510,38 +510,35 @@ Explore comprehensive examples demonstrating real-world workflows:
 
 **Getting Started:**
 
-- ``examples/basic_usage/basic_usage.py`` - Basic DRIADA workflow with synthetic data
-- ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple dimensionality reduction API usage
+- ``examples/data_loading/load_data_example.py`` - Load your own data into DRIADA
+- ``examples/neuron_basic_usage.py`` - Single neuron creation and spike reconstruction
+- ``examples/intense_basic_usage/intense_basic_usage.py`` - Detect selective neurons with INTENSE
 
 **Core Analysis Workflows:**
 
-- ``examples/circular_manifold/extract_circular_manifold.py`` - Extract ring attractor structure from head direction cells
-- ``examples/circular_manifold/test_metrics.py`` - Validate circular manifold reconstruction quality
+- ``examples/circular_manifold/extract_circular_manifold.py`` - Extract ring attractor from head direction cells
 - ``examples/spatial_analysis/spatial_visualization.py`` - Visualize spatial data (trajectory, rate maps, calcium traces)
-- ``examples/task_variables/extract_task_variables.py`` - Decode task variables from mixed selectivity populations
 - ``examples/network_analysis/cell_cell_network_example.py`` - Build and analyze functional networks
+- ``examples/rsa/rsa_example.py`` - Representational similarity analysis
 
 **Dimensionality Reduction:**
 
 - ``examples/compare_dr_methods/compare_dr_methods.py`` - Systematic comparison of DR algorithms
-- ``examples/dr_sequence/dr_sequence_neural_example.py`` - Sequential DR pipeline for optimal results
-- ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple API demonstration including sequential DR
+- ``examples/dr_sequence/dr_sequence_neural_example.py`` - Sequential DR pipeline
+- ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple DR API with all supported methods
 
 **Complete Pipelines:**
 
-- ``examples/full_pipeline/full_pipeline.py`` - Complete INTENSE + DR workflow from start to finish
-- ``examples/intense_dr_pipeline/intense_dr_pipeline.py`` - Integration of single-cell and population analysis
+- ``examples/full_intense_pipeline/full_intense_pipeline.py`` - Full INTENSE workflow with disentanglement
+- ``examples/intense_dr_pipeline/intense_dr_pipeline.py`` - INTENSE + dimensionality reduction integration
 - ``examples/mixed_selectivity/mixed_selectivity.py`` - Analyze neurons with mixed feature selectivity
+- ``examples/loo_dr_analysis/loo_dr_analysis.py`` - Leave-one-out neuron importance for manifolds
 
 **Advanced Techniques:**
 
 - ``examples/spike_reconstruction/spike_reconstruction_comparison.py`` - Compare spike deconvolution methods
-- ``examples/rsa/rsa_example.py`` - Representational similarity analysis for comparing neural codes
-- ``examples/visual_utils/visual_utils_demo.py`` - Advanced visualization utilities and techniques
-
-**Experimental (Under Construction):**
-
-- ``examples/under_construction/selectivity_manifold_mapper/`` - Map selectivity to manifold structure
+- ``examples/spike_reconstruction/threshold_vs_wavelet_optimization.py`` - Iterative detection and kinetics optimization
+- ``examples/visual_utils/visual_utils_demo.py`` - Publication-ready visualization utilities
 
 For more information:
 
