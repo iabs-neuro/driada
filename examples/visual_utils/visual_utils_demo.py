@@ -2,12 +2,15 @@
 Demonstration of DRIADA Visual Utilities
 ========================================
 
-This example shows how to use the new visual utilities module for
+This example shows how to use the visual utilities module for
 creating publication-ready figures with consistent styling.
+
+Note: Uses synthetic data to demonstrate plotting functions.
+For real workflow examples, see circular_manifold, intense_dr_pipeline,
+and mixed_selectivity.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 from driada.utils.visual import (
     plot_embedding_comparison,
     plot_trajectories,
@@ -47,7 +50,7 @@ embeddings = {
 
 # Create features for coloring
 features = {
-    "angle": angles % (2 * np.pi) - np.pi,  # Wrap to [-π, π]
+    "angle": angles % (2 * np.pi) - np.pi,  # Wrap to [-pi, pi]
     "speed": np.abs(np.sin(angles * 2)) + 0.2 * np.random.randn(n_samples),
 }
 
@@ -62,7 +65,7 @@ fig1 = plot_embedding_comparison(
     with_trajectory=True,
     compute_metrics=True,
     figsize=(18, 15),
-    save_path="visual_demo_embeddings.png",
+    save_path="examples/visual_utils/visual_demo_embeddings.png",
     dpi=DEFAULT_DPI,
 )
 print("   Saved: visual_demo_embeddings.png")
@@ -73,7 +76,7 @@ fig2 = plot_trajectories(
     embeddings=embeddings,
     trajectory_kwargs={"arrow_spacing": 25, "linewidth": 1.0, "alpha": 0.5},
     figsize=(15, 5),
-    save_path="visual_demo_trajectories.png",
+    save_path="examples/visual_utils/visual_demo_trajectories.png",
 )
 print("   Saved: visual_demo_trajectories.png")
 
@@ -105,7 +108,7 @@ fig3 = plot_component_interpretation(
     metadata=metadata,
     n_components=4,
     figsize=(18, 6),
-    save_path="visual_demo_component_mi.png",
+    save_path="examples/visual_utils/visual_demo_component_mi.png",
 )
 print("   Saved: visual_demo_component_mi.png")
 
@@ -124,14 +127,11 @@ fig4 = plot_neuron_selectivity_summary(
     selectivity_counts=selectivity_counts,
     total_neurons=400,
     figsize=(10, 6),
-    save_path="visual_demo_selectivity.png",
+    save_path="examples/visual_utils/visual_demo_selectivity.png",
 )
 print("   Saved: visual_demo_selectivity.png")
 
-# Show all figures
-plt.show()
-
-print("\n✓ Visual utilities demonstration complete!")
+print("\n[OK] Visual utilities demonstration complete!")
 print(f"  All figures saved at {DEFAULT_DPI} DPI")
 print("\nKey features demonstrated:")
 print("  - Consistent styling across all plots")
