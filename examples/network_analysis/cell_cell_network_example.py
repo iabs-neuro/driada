@@ -7,9 +7,10 @@ This example demonstrates:
 3. Analyzing network properties using spectral methods
 4. Visualizing functional modules and network structure
 
-Performance: ~2 min for 120 neurons (ds=5, 10k shuffles)
-File size: 13 KB sparse network format
+Uses downsampling (ds=5) and FFT-based shuffles for fast computation.
 """
+
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -102,7 +103,7 @@ def analyze_cell_cell_network(exp, data_type='calcium', pval_thr=0.01):
     """Compute and analyze cell-cell functional network."""
     
     print("=" * 60)
-    print("Computing Cell-Cell Functional Connectivity")
+    print("Computing cell-cell functional connectivity")
     print("=" * 60)
     
     # Compute cell-cell significance
@@ -129,7 +130,7 @@ def create_functional_network(sig_mat, sim_mat, cells):
     """Create Network object from significance results."""
     
     print("\n" + "=" * 60)
-    print("Creating Functional Network")
+    print("Creating functional network")
     print("=" * 60)
     
     # Create binary network from significant connections
@@ -159,7 +160,7 @@ def detect_functional_modules(net, cells):
     """Detect functional modules using community detection."""
     
     print("\n" + "=" * 60)
-    print("Detecting Functional Modules")
+    print("Detecting functional modules")
     print("=" * 60)
     
     # Use Louvain community detection
@@ -188,7 +189,7 @@ def analyze_network_properties(net):
     """Analyze various network properties."""
     
     print("\n" + "=" * 60)
-    print("Network Properties Analysis")
+    print("Network properties analysis")
     print("=" * 60)
     
     # Basic properties
@@ -218,7 +219,7 @@ def analyze_network_properties(net):
         print(f"Connected components: {n_cc}")
     
     # Spectral properties
-    print("\nSpectral Analysis:")
+    print("\nSpectral analysis:")
     adj_spectrum = net.get_spectrum('adj')
     print(f"Largest eigenvalue (spectral radius): {np.max(np.abs(adj_spectrum)):.3f}")
     
@@ -230,6 +231,50 @@ def analyze_network_properties(net):
             print(f"Algebraic connectivity: {sorted_lap[1]:.3f}")
     
     return degrees
+
+
+def compare_with_null_model(net, communities, n_replicates=10):
+    """Compare real network properties against degree-preserving random null model."""
+    import networkx.algorithms.community as nx_comm
+
+    print("\n" + "=" * 60)
+    print("Null Model Comparison (degree-preserving randomization)")
+    print("=" * 60)
+
+    # Real network properties
+    real_clustering = nx.average_clustering(net.graph)
+    real_modularity = nx_comm.modularity(net.graph, communities)
+    lap_spectrum = net.get_spectrum("lap")
+    real_connectivity = np.sort(np.real(lap_spectrum))[1]
+
+    # Generate random networks and measure properties
+    null_clustering = []
+    null_modularity = []
+    null_connectivity = []
+
+    for i in range(n_replicates):
+        rand_net = net.randomize(rmode="adj_iom")
+        null_clustering.append(nx.average_clustering(rand_net.graph))
+        rand_comms = nx_comm.louvain_communities(rand_net.graph, seed=i)
+        null_modularity.append(nx_comm.modularity(rand_net.graph, rand_comms))
+        rand_lap = rand_net.get_spectrum("lap")
+        null_connectivity.append(np.sort(np.real(rand_lap))[1])
+
+    # Print comparison table
+    print(f"\n  {'Metric':<25s} {'Real':>8s} {'Null (mean +/- std)':>22s}")
+    print(f"  {'-' * 57}")
+
+    rows = [
+        ("Clustering coefficient", real_clustering, null_clustering),
+        ("Modularity", real_modularity, null_modularity),
+        ("Algebraic connectivity", real_connectivity, null_connectivity),
+    ]
+    for name, real_val, null_vals in rows:
+        null_mean = np.mean(null_vals)
+        null_std = np.std(null_vals)
+        print(f"  {name:<25s} {real_val:>8.3f} {null_mean:>10.3f} +/- {null_std:.3f}")
+
+    print(f"\n  Replicates: {n_replicates}")
 
 
 def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, module_sizes_true=None):
@@ -246,7 +291,7 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, module_si
     # 1. Similarity matrix
     ax1 = plt.subplot(2, 3, 1)
     im1 = ax1.imshow(sim_mat, cmap='hot', aspect='auto')
-    ax1.set_title('Similarity Matrix (MI)', fontsize=12)
+    ax1.set_title('Similarity matrix (MI)', fontsize=12)
     ax1.set_xlabel('Neuron ID')
     ax1.set_ylabel('Neuron ID')
     plt.colorbar(im1, ax=ax1, fraction=0.046)
@@ -261,7 +306,7 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, module_si
     # 2. Significance matrix
     ax2 = plt.subplot(2, 3, 2)
     ax2.imshow(sig_mat, cmap='RdBu_r', aspect='auto', vmin=0, vmax=1)
-    ax2.set_title('Significance Matrix', fontsize=12)
+    ax2.set_title('Significance matrix', fontsize=12)
     ax2.set_xlabel('Neuron ID')
     ax2.set_ylabel('Neuron ID')
 
@@ -294,7 +339,7 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, module_si
     else:
         nx.draw_networkx_edges(net.graph, pos, alpha=0.1, ax=ax3)
 
-    ax3.set_title('Functional Network Modules', fontsize=12)
+    ax3.set_title('Functional network modules', fontsize=12)
     ax3.axis('off')
 
     # 4. Degree distribution
@@ -303,7 +348,7 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, module_si
     ax4.hist(degrees, bins=20, alpha=0.7, color='blue', edgecolor='black')
     ax4.set_xlabel('Degree')
     ax4.set_ylabel('Count')
-    ax4.set_title('Degree Distribution', fontsize=12)
+    ax4.set_title('Degree distribution', fontsize=12)
     ax4.grid(True, alpha=0.3)
 
     # 5. Module size distribution
@@ -318,8 +363,8 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, module_si
 
     ax5.bar(modules, sizes, color=colors)
     ax5.set_xlabel('Module ID')
-    ax5.set_ylabel('Number of Neurons')
-    ax5.set_title('Module Sizes', fontsize=12)
+    ax5.set_ylabel('Number of neurons')
+    ax5.set_title('Module sizes', fontsize=12)
     ax5.grid(True, alpha=0.3, axis='y')
     
     # 6. P-value distribution
@@ -331,7 +376,7 @@ def visualize_results(sim_mat, sig_mat, cells, net, module_assignment, module_si
     ax6.hist(pvals_upper, bins=50, alpha=0.7, color='green', edgecolor='black')
     ax6.set_xlabel('Similarity (MI)')
     ax6.set_ylabel('Count')
-    ax6.set_title('Similarity Distribution', fontsize=12)
+    ax6.set_title('Similarity distribution', fontsize=12)
     ax6.grid(True, alpha=0.3)
     
     plt.tight_layout()
@@ -530,7 +575,10 @@ def main():
     communities, module_assignment = detect_functional_modules(net_weighted, cells)
 
     # Analyze network properties
-    degrees = analyze_network_properties(net_weighted)
+    analyze_network_properties(net_weighted)
+
+    # Compare with null model
+    compare_with_null_model(net_weighted, communities)
 
     # Visualize results
     print("\nCreating visualizations...")
@@ -538,8 +586,9 @@ def main():
         sim_mat, sig_mat, cells, net_weighted,
         module_assignment, module_sizes_true
     )
-    plt.savefig('cell_cell_network_analysis.png', dpi=150, bbox_inches='tight')
-    plt.show()
+    output_dir = os.path.dirname(__file__)
+    plt.savefig(os.path.join(output_dir, 'cell_cell_network_analysis.png'), dpi=150, bbox_inches='tight')
+    plt.close()
 
     # Additional network visualizations
     print("\nCreating network property visualizations...")
@@ -547,15 +596,16 @@ def main():
     # Degree distribution with production-quality styling
     fig1, ax1 = create_default_figure(figsize=(10, 8), dpi=300)
     ax1 = draw_degree_distr(net_weighted, ax=ax1)
-    ax1.set_title("Degree Distribution")
-    plt.savefig('network_degree_distribution.png', dpi=300, bbox_inches='tight')
+    ax1.set_title("Degree distribution")
+    plt.savefig(os.path.join(output_dir, 'network_degree_distribution.png'), dpi=300, bbox_inches='tight')
+    plt.close()
 
     # Laplacian spectrum with production-quality styling
     fig2, ax2 = create_default_figure(figsize=(10, 8), dpi=300)
     ax2 = draw_spectrum(net_weighted, mode='lap', ax=ax2)
-    ax2.set_title("Laplacian Spectrum")
-    plt.savefig('network_spectrum.png', dpi=300, bbox_inches='tight')
-    plt.show()
+    ax2.set_title("Laplacian spectrum")
+    plt.savefig(os.path.join(output_dir, 'network_spectrum.png'), dpi=300, bbox_inches='tight')
+    plt.close()
 
     print("\nAnalysis complete! Check the generated plots.")
     if args.save and not args.load:

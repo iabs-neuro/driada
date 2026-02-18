@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Complete INTENSE Pipeline Example with Principled Continuous Features
+Complete INTENSE pipeline example
 
 This example demonstrates INTENSE analysis across ALL feature types with
 ground truth validation:
@@ -15,7 +15,6 @@ Key outputs:
 - Ground truth selectivity matrix
 - INTENSE detection results
 - Validation metrics (sensitivity, precision, F1)
-- Publication-quality visualizations
 """
 
 import os
@@ -55,7 +54,7 @@ CONFIG = {
     "kappa": 4.0,           # von Mises concentration (HD cells)
     # Calcium dynamics
     "baseline_rate": 0.02,  # baseline firing rate
-    "peak_rate": 2.5,       # peak response
+    "peak_rate": 2.0,       # peak response
     "decay_time": 1.5,      # calcium decay time
     "calcium_noise": 0.01,  # noise level
     # Discrete event parameters
@@ -98,12 +97,11 @@ def run_intense_analysis(exp, config, verbose=True):
 
     start_time = time.time()
 
-    # Build feature list excluding x and y marginals (use position_2d instead)
-    # This avoids spurious detections on place cell marginals while still
-    # testing the joint 2D spatial selectivity
+    # Build feature list: exclude x/y marginals (use position_2d) and raw
+    # circular features (use their _2d cos/sin representation instead)
     feat_bunch = [
         feat_name for feat_name in exp.dynamic_features.keys()
-        if feat_name not in ["x", "y"]
+        if feat_name not in ["x", "y", "head_direction"]
     ]
     if verbose:
         print(f"  Features to test: {feat_bunch}")
@@ -145,118 +143,73 @@ def run_intense_analysis(exp, config, verbose=True):
 # =============================================================================
 # DISENTANGLEMENT REPORTING
 # =============================================================================
-def analyze_disentanglement(disent_results, ground_truth, significant_neurons, metrics):
-    """Analyze disentanglement results and compute corrected metrics.
+def analyze_disentanglement(disent_results, significant_neurons, ground_truth, metrics):
+    """Apply disentanglement corrections and compute updated metrics.
 
-    Disentanglement identifies which detected pairs are REDUNDANT (caused by
-    feature correlations) vs TRUE MIXED SELECTIVITY (genuine multi-feature tuning).
+    Disentanglement determines which multi-feature detections are REDUNDANT
+    (one feature explains the other) vs TRUE MIXED SELECTIVITY. Redundant
+    features are removed via per_neuron_disent[nid]['final_sels'].
 
-    Returns corrected metrics that exclude redundant false positives.
+    Returns updated metrics after removing redundant detections.
     """
     print("\n" + "=" * 60)
     print("DISENTANGLEMENT ANALYSIS")
     print("=" * 60)
 
-    # Track redundant false positives
-    redundant_count = 0
-    unknown_count = 0
-
     if disent_results is None:
         print("  Disentanglement not performed.")
         return metrics
 
-    # Extract results
-    disent_matrix = disent_results.get("disent_matrix")
-    count_matrix = disent_results.get("count_matrix")
     summary = disent_results.get("summary", {})
+    per_neuron_disent = disent_results.get("per_neuron_disent", {})
 
-    if disent_matrix is None or count_matrix is None:
-        print("  No disentanglement data available.")
-        return metrics
-
-    # Print overall statistics
     if "overall_stats" in summary:
         stats = summary["overall_stats"]
-        print(f"\n  Overall Statistics:")
-        print(f"    Total neuron-feature pairs analyzed: {stats.get('total_neuron_pairs', 0)}")
-        print(f"    Redundancy rate: {stats.get('redundancy_rate', 0):.1f}%")
-        print(f"    True mixed selectivity rate: {stats.get('true_mixed_selectivity_rate', 0):.1f}%")
+        print(f"\n  Neuron-feature pairs analyzed: {stats.get('total_neuron_pairs', 0)}")
+        print(f"  Redundancy rate: {stats.get('redundancy_rate', 0):.1f}%")
+        print(f"  True mixed selectivity rate: {stats.get('true_mixed_selectivity_rate', 0):.1f}%")
 
-    # Identify redundant detections based on ground truth
-    print(f"\n  False Positive Analysis:")
-    expected_pairs = set(ground_truth["expected_pairs"])
-    neuron_types = ground_truth["neuron_types"]
-
-    fps_analysis = []
+    # Build corrected significant_neurons using final_sels
+    corrected = {}
+    n_removed = 0
     for neuron_id, features in significant_neurons.items():
-        neuron_type = neuron_types.get(neuron_id, "unknown")
+        if neuron_id in per_neuron_disent:
+            final = per_neuron_disent[neuron_id].get("final_sels", features)
+            n_removed += len(features) - len(final)
+            if final:
+                corrected[neuron_id] = final
+        else:
+            corrected[neuron_id] = features
+
+    # Compute corrected metrics against ground truth
+    expected_pairs = set(ground_truth["expected_pairs"])
+    tp, fp, fn = 0, 0, 0
+    for neuron_id, features in corrected.items():
         for feat_name in features:
-            if (neuron_id, feat_name) not in expected_pairs:
-                # This is a false positive - classify it
-                is_redundant = False
-                primary_feat = None
-
-                if neuron_type == "hd_cells" and feat_name == "position_2d":
-                    is_redundant = True
-                    primary_feat = "head_direction"
-                elif neuron_type == "place_cells" and feat_name == "head_direction":
-                    is_redundant = True
-                    primary_feat = "position_2d"
-                elif neuron_type == "speed_cells" and feat_name in ["head_direction", "position_2d"]:
-                    is_redundant = True
-                    primary_feat = "speed"
-
-                fps_analysis.append((neuron_id, neuron_type, feat_name, is_redundant, primary_feat))
-
-                if is_redundant:
-                    redundant_count += 1
-                else:
-                    unknown_count += 1
-
-    # Print FP analysis
-    if fps_analysis:
-        for neuron_id, neuron_type, feat_name, is_redundant, primary_feat in fps_analysis:
-            if is_redundant:
-                print(f"    Neuron {neuron_id} ({neuron_type}) -> {feat_name}: "
-                      f"REDUNDANT ({primary_feat} is primary)")
+            if (neuron_id, feat_name) in expected_pairs:
+                tp += 1
             else:
-                print(f"    Neuron {neuron_id} ({neuron_type}) -> {feat_name}: "
-                      f"UNEXPLAINED (may be noise or true mixed)")
-    else:
-        print("    No false positives to analyze.")
-
-    # Compute corrected metrics
-    tp = metrics["true_positives"]
-    fp_raw = metrics["false_positives"]
-    fn = metrics["false_negatives"]
-    fp_corrected = fp_raw - redundant_count  # Exclude redundant FPs
+                fp += 1
+    fn = len(expected_pairs) - tp
 
     sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
-    precision_raw = tp / (tp + fp_raw) if (tp + fp_raw) > 0 else 0
-    precision_corrected = tp / (tp + fp_corrected) if (tp + fp_corrected) > 0 else 0
-    f1_raw = 2 * (precision_raw * sensitivity) / (precision_raw + sensitivity) if (precision_raw + sensitivity) > 0 else 0
-    f1_corrected = 2 * (precision_corrected * sensitivity) / (precision_corrected + sensitivity) if (precision_corrected + sensitivity) > 0 else 0
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    f1 = 2 * precision * sensitivity / (precision + sensitivity) if (precision + sensitivity) > 0 else 0
 
-    # Print before/after comparison
-    print(f"\n  Metrics Comparison:")
-    print(f"    {'Metric':<15} {'Before':<12} {'After':<12} {'Change'}")
-    print(f"    {'-'*50}")
-    print(f"    {'Sensitivity':<15} {sensitivity:>10.1%}   {sensitivity:>10.1%}   (unchanged)")
-    print(f"    {'Precision':<15} {precision_raw:>10.1%}   {precision_corrected:>10.1%}   "
-          f"(+{(precision_corrected - precision_raw)*100:.1f}pp)")
-    print(f"    {'F1 Score':<15} {f1_raw:>10.1%}   {f1_corrected:>10.1%}   "
-          f"(+{(f1_corrected - f1_raw)*100:.1f}pp)")
-    print(f"    {'False Pos':<15} {fp_raw:>10}   {fp_corrected:>10}   "
-          f"({redundant_count} redundant)")
+    # Show before/after
+    print(f"\n  Pairs removed by disentanglement: {n_removed}")
+    print(f"\n  {'Metric':<15} {'Before':<12} {'After'}")
+    print(f"  {'-'*40}")
+    print(f"  {'Sensitivity':<15} {metrics['sensitivity']:>10.1%}   {sensitivity:>10.1%}")
+    print(f"  {'Precision':<15} {metrics['precision']:>10.1%}   {precision:>10.1%}")
+    print(f"  {'F1 Score':<15} {metrics['f1']:>10.1%}   {f1:>10.1%}")
+    print(f"  {'False Pos':<15} {metrics['false_positives']:>10}   {fp:>10}")
 
-    # Return corrected metrics
     return {
         **metrics,
-        "fp_redundant": redundant_count,
-        "fp_unexplained": unknown_count,
-        "fp_corrected": fp_corrected,
-        "precision_corrected": precision_corrected,
-        "f1_corrected": f1_corrected,
+        "precision_corrected": precision,
+        "f1_corrected": f1,
+        "fp_corrected": fp,
     }
 
 
@@ -321,7 +274,7 @@ def print_optimal_delays(info, feat_bunch, significant_neurons, ground_truth, fp
 # =============================================================================
 # VISUALIZATION
 # =============================================================================
-def create_visualizations(exp, significant_neurons, ground_truth, metrics, output_dir):
+def create_visualizations(exp, significant_neurons, ground_truth, metrics, feat_bunch, output_dir):
     """Create comprehensive visualization."""
     print("\n" + "=" * 60)
     print("CREATING VISUALIZATIONS")
@@ -333,12 +286,7 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
     # 1. Selectivity heatmap (main plot)
     ax1 = fig.add_subplot(2, 2, (1, 2))
 
-    # Get feature names - use the same features that were analyzed (from feat_bunch)
-    # Include position_2d but exclude x and y (which are marginals)
-    feature_names = [
-        f for f in exp.dynamic_features.keys()
-        if f not in ["x", "y"]  # Exclude marginals, keep position_2d
-    ]
+    feature_names = feat_bunch
     n_neurons = exp.n_cells
     n_features = len(feature_names)
 
@@ -354,7 +302,7 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
     im = ax1.imshow(mi_matrix, aspect="auto", cmap="viridis")
     ax1.set_xlabel("Features")
     ax1.set_ylabel("Neurons")
-    ax1.set_title("INTENSE Selectivity Heatmap (MI values)")
+    ax1.set_title("INTENSE selectivity heatmap (MI values)")
     ax1.set_xticks(range(n_features))
     ax1.set_xticklabels(feature_names, rotation=45, ha="right")
 
@@ -385,7 +333,7 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
     ax2.set_xticks(range(len(types)))
     ax2.set_xticklabels([t.replace("_", "\n") for t in types], fontsize=8)
     ax2.set_ylabel("Detection Rate (%)")
-    ax2.set_title("Detection Rate by Neuron Type")
+    ax2.set_title("Detection rate by neuron type")
     ax2.set_ylim(0, 105)
     ax2.axhline(y=100, color="k", linestyle="--", alpha=0.3)
 
@@ -414,7 +362,7 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
         f"{'Sensitivity':<12} {metrics['sensitivity']:>7.1%}\n"
         f"{'Precision':<12} {prec_raw:>7.1%}  {prec_corr:>9.1%}\n"
         f"{'F1 Score':<12} {f1_raw:>7.1%}  {f1_corr:>9.1%}\n\n"
-        f"Detection Counts:\n"
+        f"Detection counts:\n"
         f"  True Positives:  {metrics['true_positives']}\n"
         f"  False Positives: {metrics['false_positives']}"
     )
@@ -445,7 +393,7 @@ def create_visualizations(exp, significant_neurons, ground_truth, metrics, outpu
 def main():
     """Run complete INTENSE pipeline with principled continuous features."""
     print("=" * 70)
-    print("DRIADA INTENSE - Principled Continuous Features Demo")
+    print("DRIADA INTENSE - Complete pipeline demo")
     print("=" * 70)
 
     output_dir = os.path.dirname(__file__)
@@ -476,6 +424,12 @@ def main():
     )
     ground_truth = exp.ground_truth
 
+    # Remap ground truth: INTENSE tests head_direction_2d (cos/sin), not raw angle
+    ground_truth["expected_pairs"] = [
+        (nid, "head_direction_2d" if f == "head_direction" else f)
+        for nid, f in ground_truth["expected_pairs"]
+    ]
+
     # Step 2: Run INTENSE analysis with disentanglement and delay optimization
     print("\n[2] RUNNING INTENSE ANALYSIS")
     print("-" * 40)
@@ -488,10 +442,10 @@ def main():
     print("-" * 40)
     metrics = results.validate_against_ground_truth(ground_truth, verbose=True)
 
-    # Step 4: Disentanglement analysis (computes corrected metrics)
+    # Step 4: Disentanglement analysis
     print("\n[4] DISENTANGLEMENT ANALYSIS")
     print("-" * 40)
-    metrics = analyze_disentanglement(disent_results, ground_truth, significant_neurons, metrics)
+    metrics = analyze_disentanglement(disent_results, significant_neurons, ground_truth, metrics)
 
     # Step 5: Optimal delays analysis
     print("\n[5] OPTIMAL DELAYS")
@@ -501,13 +455,28 @@ def main():
     # Step 6: Create visualizations
     print("\n[6] CREATING VISUALIZATIONS")
     print("-" * 40)
-    create_visualizations(exp, significant_neurons, ground_truth, metrics, output_dir)
+    create_visualizations(exp, significant_neurons, ground_truth, metrics, feat_bunch, output_dir)
+
+    # Step 7: Save/load round-trip
+    print("\n[7] SAVE / LOAD ROUND-TRIP")
+    print("-" * 40)
+    from driada.intense.io import save_results, load_results
+
+    results_path = os.path.join(output_dir, "intense_results.npz")
+    save_results(results, results_path)
+    file_mb = os.path.getsize(results_path) / 1024 / 1024
+    print(f"  Saved results: {results_path} ({file_mb:.1f} MB)")
+
+    loaded = load_results(results_path)
+    print(f"  Reloaded: {len(loaded.stats)} neurons")
+    print(f"  Stats keys match: {set(str(k) for k in results.stats.keys()) == set(loaded.stats.keys())}")
+    os.remove(results_path)
 
     # Final summary
     print("\n" + "=" * 70)
     print("ANALYSIS COMPLETE")
     print("=" * 70)
-    print(f"\nKey Results:")
+    print(f"\nKey results:")
     n_expected = metrics['true_positives'] + metrics['false_negatives']
     print(f"  - Sensitivity: {metrics['sensitivity']:.1%} "
           f"(detected {metrics['true_positives']}/{n_expected} expected pairs)")
@@ -516,7 +485,7 @@ def main():
     print(f"  - F1 Score:    {metrics['f1']:.1%}")
     print(f"  - Analysis time: {analysis_time:.1f}s")
 
-    print(f"\nFeature Type Coverage:")
+    print(f"\nFeature type coverage:")
     for neuron_type, stats in sorted(metrics["type_stats"].items()):
         status = "OK" if stats["sensitivity"] >= 0.5 else "LOW"
         print(f"  [{status}] {neuron_type}: {stats['detected']}/{stats['expected']} detected")
