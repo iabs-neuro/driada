@@ -1785,9 +1785,10 @@ class Network:
 
         Returns
         -------
-        tuple of (float, float)
-            - mean_cos_phi: Average of cos(arg(z)) over all z-values
-            - mean_inv_r_squared: Average of 1/|z|² over all z-values
+        mean_inv_r_sq : float
+            Average of 1/|z|² over all non-zero z-values.
+        mean_cos_phi : float
+            Average of cos(arg(z)) over all non-zero z-values.
 
         Notes
         -----
@@ -1795,12 +1796,18 @@ class Network:
         Localized states typically show different statistical properties
         in their eigenvalue spacing ratios compared to extended states.
 
+        Z-values that are exactly zero (from degenerate eigenvalues, see
+        calculate_z_values) are excluded to avoid singularities in 1/|z|².
+
         Requires prior calculation of z-values via calculate_z_values()."""
         zvals = self.get_z_values(mode)
 
-        mean_cos_phi = np.mean(np.array([np.cos(np.angle(x)) for x in zvals]))
-        rvals = [1.0 / (np.abs(z)) ** 2 for z in zvals]
-        mean_inv_r_sq = np.mean(np.array(rvals))
+        # Filter out zero z-values (set by nan_to_num in calculate_z_values
+        # for degenerate eigenvalues) to avoid singularities in 1/|z|^2.
+        zv = np.array([z for z in zvals.values() if z != 0])
+
+        mean_cos_phi = np.mean(np.cos(np.angle(zv)))
+        mean_inv_r_sq = np.mean(1.0 / np.abs(zv) ** 2)
 
         if self.verbose:
             self.logger.info(f"mean cos phi complex: {mean_cos_phi}")

@@ -166,7 +166,7 @@ def main():
         print(f"     {name:25s}  shape={str(shape):15s}  type={dtype_str}")
 
     # ------------------------------------------------------------------
-    # 7. Working with TimeSeries and MultiTimeSeries
+    # 7. Working with TimeSeries and MultiTimeSeries (continued from 6)
     # ------------------------------------------------------------------
     #
     # Each dynamic feature is stored as one of two classes:
@@ -212,6 +212,40 @@ def main():
     print(f"   trial_type has copula: {trial_ts.copula_normal_data is not None}")
 
     # ------------------------------------------------------------------
+    # 7. Batch spike reconstruction
+    # ------------------------------------------------------------------
+    #
+    # Reconstruct spikes for all neurons at once. This populates
+    # neuron.sp, neuron.asp, and neuron.events for every neuron.
+    #
+    print("\n6. Batch spike reconstruction...")
+
+    exp.reconstruct_all_neurons(method='threshold', n_iter=3, show_progress=True)
+    print(f"   [OK] Reconstructed spikes for {exp.n_cells} neurons")
+
+    # Collect per-neuron quality metrics
+    snr_list = []
+    r2_list = []
+    event_counts = []
+
+    for n in exp.neurons:
+        snr_list.append(n.get_wavelet_snr())
+        r2_list.append(n.get_reconstruction_r2())
+        event_counts.append(n.get_event_count())
+
+    snr_arr = np.array(snr_list)
+    r2_arr = np.array(r2_list)
+    evt_arr = np.array(event_counts)
+
+    print(f"\n   Population quality summary ({exp.n_cells} neurons):")
+    print(f"     Wavelet SNR:  {np.mean(snr_arr):.2f} +/- {np.std(snr_arr):.2f}"
+          f"  (range {np.min(snr_arr):.2f} - {np.max(snr_arr):.2f})")
+    print(f"     Recon R2:     {np.mean(r2_arr):.4f} +/- {np.std(r2_arr):.4f}"
+          f"  (range {np.min(r2_arr):.4f} - {np.max(r2_arr):.4f})")
+    print(f"     Event count:  {np.mean(evt_arr):.1f} +/- {np.std(evt_arr):.1f}"
+          f"  (range {np.min(evt_arr)} - {np.max(evt_arr)})")
+
+    # ------------------------------------------------------------------
     # 8. Neural data: MultiTimeSeries and Neuron objects
     # ------------------------------------------------------------------
     #
@@ -223,7 +257,7 @@ def main():
     #   exp.neurons  -- list of Neuron objects, one per cell, for
     #                   single-neuron analysis (see neuron_basic_usage.py)
     #
-    print("\n6. Neural data...")
+    print("\n7. Neural data...")
 
     # Population-level: full calcium matrix as MultiTimeSeries
     print(f"   exp.calcium:        {type(exp.calcium).__name__}"
@@ -246,7 +280,7 @@ def main():
     # ------------------------------------------------------------------
     # 9. Save and reload (pickle roundtrip)
     # ------------------------------------------------------------------
-    print("\n7. Save/load roundtrip...")
+    print("\n8. Save/load roundtrip...")
 
     pkl_path = os.path.join(OUTPUT_DIR, "demo_experiment.pkl")
     save_exp_to_pickle(exp, pkl_path, verbose=False)

@@ -122,6 +122,45 @@ print(f"   [OK] Normalized MAE: {nmae:.4f}")
 print(f"       (Lower is better)")
 
 # =============================================================================
+# Step 7: Surrogate Generation Methods
+# =============================================================================
+print("\n7. Surrogate generation methods...")
+print("   Three calcium surrogate types and one spike surrogate type.")
+
+# --- Calcium surrogates ---
+
+# 7a. Roll-based: circular shift preserving all autocorrelations
+shuffled_roll = neuron.get_shuffled_calcium(method='roll_based', seed=42)
+print(f"\n   [Roll-based] Circular shift surrogate:")
+print(f"       Mean: {np.mean(shuffled_roll):.4f}  (original: {np.mean(neuron.ca.data):.4f})")
+print(f"       Std:  {np.std(shuffled_roll):.4f}  (original: {np.std(neuron.ca.data):.4f})")
+print(f"       Preserves: autocorrelation structure, amplitude distribution")
+
+# 7b. Waveform-based: shuffle detected spike times, reconstruct calcium
+shuffled_wf = neuron.get_shuffled_calcium(method='waveform_based', seed=42)
+print(f"\n   [Waveform-based] Spike-shuffle + reconstruct surrogate:")
+print(f"       Mean: {np.mean(shuffled_wf):.4f}  (original: {np.mean(neuron.ca.data):.4f})")
+print(f"       Std:  {np.std(shuffled_wf):.4f}  (original: {np.std(neuron.ca.data):.4f})")
+print(f"       Preserves: individual waveform shapes, event count")
+
+# 7c. Chunks-based: divide signal into chunks and reorder
+shuffled_chunks = neuron.get_shuffled_calcium(method='chunks_based', seed=42)
+print(f"\n   [Chunks-based] Chunk reordering surrogate:")
+print(f"       Mean: {np.mean(shuffled_chunks):.4f}  (original: {np.mean(neuron.ca.data):.4f})")
+print(f"       Std:  {np.std(shuffled_chunks):.4f}  (original: {np.std(neuron.ca.data):.4f})")
+print(f"       Preserves: local structure within chunks")
+
+# --- Spike surrogates ---
+
+# 7d. ISI-based: shuffle inter-spike intervals, preserving ISI distribution
+shuffled_sp = neuron.get_shuffled_spikes(method='isi_based', seed=42)
+original_spike_count = int(np.sum(neuron.sp.data > 0))
+shuffled_spike_count = int(np.sum(shuffled_sp > 0))
+print(f"\n   [ISI-based] Spike train surrogate:")
+print(f"       Spike count: {shuffled_spike_count}  (original: {original_spike_count})")
+print(f"       Preserves: inter-spike interval distribution")
+
+# =============================================================================
 # Summary
 # =============================================================================
 print("\n" + "=" * 70)
