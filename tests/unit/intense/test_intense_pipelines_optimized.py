@@ -428,6 +428,35 @@ def test_compute_embedding_selectivity_multiple_methods(small_experiment):
     assert "pca" in results_single
 
 
+def test_compute_embedding_selectivity_downsampled(small_experiment):
+    """Test compute_embedding_selectivity with downsampled embeddings."""
+    exp = small_experiment
+
+    # Create a downsampled embedding via create_embedding (ds=2)
+    ds = 2
+    embedding = exp.create_embedding("pca", n_components=2, ds=ds)
+    expected_ds_frames = exp.n_frames // ds
+    assert embedding.shape[0] == expected_ds_frames
+
+    # Verify stored embedding has fewer frames than calcium
+    stored = exp.get_embedding("pca", "calcium")
+    assert stored["data"].shape[0] == expected_ds_frames
+    assert stored["data"].shape[0] < exp.n_frames
+
+    # compute_embedding_selectivity should interpolate and succeed
+    results = compute_embedding_selectivity(
+        exp,
+        embedding_methods=["pca"],
+        cell_bunch=[0, 1, 2],
+        **FAST_PARAMS,
+    )
+
+    assert "pca" in results
+    assert results["pca"]["n_components"] == 2
+    assert "component_selectivity" in results["pca"]
+    assert "significant_neurons" in results["pca"]
+
+
 def test_compute_embedding_selectivity_error_cases(small_experiment):
     """Test error handling in embedding selectivity."""
     exp = small_experiment

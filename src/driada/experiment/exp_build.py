@@ -15,7 +15,8 @@ from ..gdrive.download import download_gdrive_data, initialize_iabs_router
 
 # Reserved keys that should not become behavioral features (all lowercase)
 # These are neural data or metadata, not behavioral variables
-RESERVED_NEURAL_KEYS = {"calcium", "spikes", "sp", "asp", "reconstructions"}
+NEURAL_DATA_ALIASES = {"calcium", "activations", "neural_data", "activity", "rates"}
+RESERVED_NEURAL_KEYS = NEURAL_DATA_ALIASES | {"spikes", "sp", "asp", "reconstructions"}
 RESERVED_METADATA_KEYS = {"_metadata", "_sync_info"}
 
 
@@ -241,10 +242,17 @@ def load_exp_from_aligned_data(
     if verbose:
         print(f"Building experiment {expname}...")
 
-    if "calcium" in key_mapping:
-        calcium = adata.pop(key_mapping["calcium"])
+    neural_key = None
+    for alias in NEURAL_DATA_ALIASES:
+        if alias in key_mapping:
+            neural_key = alias
+            break
+    if neural_key is not None:
+        calcium = adata.pop(key_mapping[neural_key])
     else:
-        raise ValueError("No calcium data found!")
+        raise ValueError(
+            f"No neural data found. Use one of these keys: {sorted(NEURAL_DATA_ALIASES)}"
+        )
 
     spikes = None
     if "spikes" in key_mapping:
@@ -754,9 +762,11 @@ def load_experiment(
             except Exception as e:
                 raise ValueError(f"Failed to load NPZ file: {e}")
 
-            # Check for required 'calcium' key
-            if "calcium" not in aligned_data:
-                raise ValueError("NPZ file must contain 'calcium' key with neural data")
+            # Check for required neural data key
+            if not any(k in aligned_data for k in NEURAL_DATA_ALIASES):
+                raise ValueError(
+                    f"NPZ file must contain neural data under one of: {sorted(NEURAL_DATA_ALIASES)}"
+                )
 
             # Create experiment using the existing function
             Exp = load_exp_from_aligned_data(

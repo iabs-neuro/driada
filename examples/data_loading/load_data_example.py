@@ -60,6 +60,8 @@ def main():
     # Pack everything into a single dict. Rules:
     #
     #   'calcium'  -- REQUIRED. Shape (n_neurons, n_frames).
+    #                  Aliases also accepted: 'activations', 'neural_data',
+    #                  'activity', 'rates'.
     #   'spikes'   -- optional. Same shape as calcium (deconvolved spikes).
     #   other keys -- become dynamic features: time-varying behavioral
     #                 variables (1D or 2D arrays with n_frames samples).

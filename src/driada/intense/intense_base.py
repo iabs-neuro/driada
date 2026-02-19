@@ -123,12 +123,99 @@ def _get_ts_key(ts):
     )
 
 
+def _build_shift_valid_map(ts_bunch1, ts_bunch2, optimal_delays, ds):
+    """
+    Build boolean map of valid shift indices per pair from shuffle masks.
+
+    For each pair (i, j), combines the shuffle masks of ts_bunch1[i] and
+    ts_bunch2[j], rolls by the optimal delay, and marks which downsampled
+    shift indices are valid. The result is a 3D boolean array that can be
+    used for vectorized validity checking.
+
+    Cache keys use _get_ts_key() (ts.name) for stability across pickling,
+    consistent with fft_cache keying throughout INTENSE.
+
+    Parameters
+    ----------
+    ts_bunch1 : list
+        First set of time series (e.g., neurons).
+    ts_bunch2 : list
+        Second set of time series (e.g., features).
+    optimal_delays : np.ndarray
+        Optimal delays of shape (len(ts_bunch1), len(ts_bunch2)).
+    ds : int
+        Downsampling factor.
+
+    Returns
+    -------
+    valid_map : np.ndarray, dtype=bool
+        Shape (n1, n2, n_shifts). True means shift index s is valid for pair (i,j).
+    needs_correction : bool
+        False if all masks are trivial (all shifts valid for all pairs).
+    """
+    n1, n2 = len(ts_bunch1), len(ts_bunch2)
+    n_frames = ts_bunch1[0].data.shape[-1]
+    n_shifts = n_frames // ds
+
+    valid_map = np.ones((n1, n2, n_shifts), dtype=bool)
+    needs_correction = False
+
+    # Cache by (key1, key2, delay) — pairs sharing the same mask+delay
+    # combination (common: all neurons share one mask, features unmasked)
+    # only compute the valid set once.
+    _cache = {}
+    for i, ts1 in enumerate(ts_bunch1):
+        key1 = _get_ts_key(ts1)
+        for j, ts2 in enumerate(ts_bunch2):
+            key2 = _get_ts_key(ts2)
+            delay = int(optimal_delays[i, j])
+            ck = (key1, key2, delay)
+            if ck not in _cache:
+                combined = ts1.shuffle_mask & ts2.shuffle_mask
+                if delay != 0:
+                    combined = np.roll(combined, delay)
+                if np.all(combined):
+                    _cache[ck] = None  # all shifts valid
+                else:
+                    _cache[ck] = np.unique(np.where(~combined)[0] // ds)
+                    needs_correction = True
+            inv = _cache[ck]
+            if inv is not None:
+                valid_map[i, j, inv] = False
+
+    return valid_map, needs_correction
+
+
+def _find_invalid_shifts(random_shifts, valid_map):
+    """
+    Find shifts that land on masked (invalid) positions.
+
+    Uses advanced indexing to check all (n1 x n2 x nsh) shifts at once
+    against the validity map.
+
+    Parameters
+    ----------
+    random_shifts : np.ndarray, shape (n1, n2, nsh)
+        Shift indices to check.
+    valid_map : np.ndarray, shape (n1, n2, n_shifts), dtype=bool
+        Validity map from _build_shift_valid_map.
+
+    Returns
+    -------
+    bad : np.ndarray, shape (n1, n2, nsh), dtype=bool
+        True where the shift is invalid.
+    """
+    ii = np.arange(valid_map.shape[0])[:, None, None]
+    jj = np.arange(valid_map.shape[1])[None, :, None]
+    return ~valid_map[ii, jj, random_shifts]
+
+
 def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed, ds=1):
     """
-    Generate all random shifts upfront using deterministic per-pair seeding.
+    Generate all random shifts upfront for all pairs.
 
-    Pre-computes random shifts for all pairs before parallelization, enabling
-    workers to use pre-computed shifts without needing global indices for seeding.
+    Uses vectorized bulk generation followed by rejection resampling to
+    respect shuffle masks. Much faster than per-pair RandomState construction.
 
     Parameters
     ----------
@@ -153,28 +240,31 @@ def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed
 
     Notes
     -----
-    - Uses stable keys (_get_ts_key) for deterministic seeding
-    - Seeds are based on (key1, key2) pairs, not global indices
-    - Stable across pickling (works with both threading and loky backends)
-    - Respects shuffle masks for each time series
+    - Uses _build_shift_valid_map + _find_invalid_shifts for mask correction
+    - Respects shuffle masks via rejection resampling (converges in 2-3 rounds)
     """
     n1, n2 = len(ts_bunch1), len(ts_bunch2)
-    random_shifts = np.zeros((n1, n2, nsh), dtype=int)
+    n_frames = ts_bunch1[0].data.shape[-1]
+    n_shifts = n_frames // ds
 
-    for i, ts1 in enumerate(ts_bunch1):
-        for j, ts2 in enumerate(ts_bunch2):
-            # Seed based on stable keys (deterministic across pickling)
-            key1 = _get_ts_key(ts1)
-            key2 = _get_ts_key(ts2)
-            pair_seed = seed + hash((key1, key2)) % 1000000
-            pair_rng = np.random.RandomState(pair_seed)
+    rng = np.random.RandomState(seed)
 
-            # Generate shifts respecting shuffle masks
-            combined_mask = ts1.shuffle_mask & ts2.shuffle_mask
-            combined_mask = np.roll(combined_mask, int(optimal_delays[i, j]))
-            n_frames = ts1.data.shape[-1]
-            indices = np.arange(n_frames)[combined_mask]
-            random_shifts[i, j, :] = pair_rng.choice(indices, size=nsh) // ds
+    # Bulk generate all shifts uniformly
+    random_shifts = rng.randint(0, n_shifts, size=(n1, n2, nsh))
+
+    # Build validity map from shuffle masks (once)
+    valid_map, needs_correction = _build_shift_valid_map(
+        ts_bunch1, ts_bunch2, optimal_delays, ds
+    )
+
+    # Rejection loop: find invalid shifts, replace them, repeat until convergence
+    if needs_correction:
+        for _ in range(100):
+            bad = _find_invalid_shifts(random_shifts, valid_map)
+            n_bad = bad.sum()
+            if n_bad == 0:
+                break
+            random_shifts[bad] = rng.randint(0, n_shifts, size=n_bad)
 
     return random_shifts
 
@@ -1541,39 +1631,42 @@ def scan_pairs(
 
     # Generate random shifts if not provided
     if random_shifts is None:
-        random_shifts = np.zeros((n1, n2, nsh), dtype=int)
-
-        # Generate shifts using stable keys (no start_index needed)
-        for i, ts1 in enumerate(ts_bunch1):
-            if joint_distr:
-                # Create deterministic seed using stable keys
+        if joint_distr:
+            # DEPRECATED joint_distr path — per-pair shift generation
+            random_shifts = np.zeros((n1, n2, nsh), dtype=int)
+            for i, ts1 in enumerate(ts_bunch1):
                 key1 = _get_ts_key(ts1)
                 key2 = _get_ts_key(ts_bunch2[0]) if ts_bunch2 else 0
                 pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
                 pair_rng = np.random.RandomState(pair_seed)
 
-                # Combine shuffle masks from ts1 and all ts in tsbunch2
                 combined_shuffle_mask = ts1.shuffle_mask
                 for ts2 in ts_bunch2:
                     combined_shuffle_mask = combined_shuffle_mask & ts2.shuffle_mask
-                # move shuffle mask according to optimal shift
                 combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, 0]))
                 indices_to_select = np.arange(t)[combined_shuffle_mask]
                 random_shifts[i, 0, :] = pair_rng.choice(indices_to_select, size=nsh) // ds
+        else:
+            # Vectorized bulk generation + rejection resampling
+            n_shifts = t // ds
+            _rng = np.random.RandomState(seed if seed is not None else 0)
+            random_shifts = _rng.randint(0, n_shifts, size=(n1, n2, nsh))
+            valid_map, needs_correction = _build_shift_valid_map(
+                ts_bunch1, ts_bunch2, optimal_delays, ds
+            )
+            if needs_correction:
+                for _ in range(100):
+                    bad = _find_invalid_shifts(random_shifts, valid_map)
+                    n_bad = bad.sum()
+                    if n_bad == 0:
+                        break
+                    random_shifts[bad] = _rng.randint(0, n_shifts, size=n_bad)
 
-            else:
-                for j, ts2 in enumerate(ts_bunch2):
-                    # Create deterministic seed using stable keys
-                    key1 = _get_ts_key(ts1)
-                    key2 = _get_ts_key(ts2)
-                    pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
-                    pair_rng = np.random.RandomState(pair_seed)
-
-                    combined_shuffle_mask = ts1.shuffle_mask & ts2.shuffle_mask
-                    # move shuffle mask according to optimal shift
-                    combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, j]))
-                    indices_to_select = np.arange(t)[combined_shuffle_mask]
-                    random_shifts[i, j, :] = pair_rng.choice(indices_to_select, size=nsh) // ds
+    # Pre-generate noise for FFT cache path (avoids per-pair RandomState)
+    if fft_cache is not None:
+        _noise_rng = np.random.RandomState(seed)
+        _noise_true = _noise_rng.random(size=(n1, n2)) * noise_const
+        _noise_shuffles = _noise_rng.random(size=(n1, n2, nsh)) * noise_const
 
     # calculate similarity metric arrays
     for i, ts1 in tqdm.tqdm(
@@ -1620,11 +1713,8 @@ def scan_pairs(
         else:
             for j, ts2 in enumerate(ts_bunch2):
                 if mask[i, j] == 1:
-                    # Use deterministic RNG for this pair (stable key seeding)
                     key1 = _get_ts_key(ts1)
                     key2 = _get_ts_key(ts2)
-                    pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
-                    pair_rng = np.random.RandomState(pair_seed)
 
                     # Check cache first, then compute FFT type if needed (using stable keys)
                     cache_entry = fft_cache.get((key1, key2)) if fft_cache else None
@@ -1633,17 +1723,19 @@ def scan_pairs(
                         # Use cached MI values - just index!
                         mi_all = cache_entry.mi_all
 
-                        opt_shift = optimal_delays[i, j] // ds
+                        opt_shift = int(optimal_delays[i, j]) // ds
                         me0 = mi_all[opt_shift]
                         shuffle_mis = mi_all[random_shifts[i, j, :]]
 
-                        # Add noise for numerical stability
-                        me_table[i, j] = me0 + pair_rng.random() * noise_const
-                        random_noise = pair_rng.random(size=nsh) * noise_const
-                        me_table_shuffles[i, j, :] = shuffle_mis + random_noise
+                        # Add pre-generated noise for numerical stability
+                        me_table[i, j] = me0 + _noise_true[i, j]
+                        me_table_shuffles[i, j, :] = shuffle_mis + _noise_shuffles[i, j, :]
 
                     elif fft_cache is None:
-                        # No cache provided - compute FFT type fresh
+                        # No cache provided — need per-pair RNG for noise
+                        pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
+                        pair_rng = np.random.RandomState(pair_seed)
+                        # Compute FFT type fresh
                         fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, nsh, engine)
 
                         if fft_type is not None:
@@ -1692,7 +1784,10 @@ def scan_pairs(
                                 me_table_shuffles[i, j, k] = me + random_noise[k]
 
                     else:
-                        # Cache provided but entry is None - loop fallback required
+                        # Cache provided but entry is None — need per-pair RNG for noise
+                        pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
+                        pair_rng = np.random.RandomState(pair_seed)
+                        # Loop fallback required
                         me0 = get_sim(
                             ts1,
                             ts2,

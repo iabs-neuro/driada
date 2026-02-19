@@ -28,6 +28,7 @@ def plot_embedding_comparison(
     compute_metrics: bool = True,
     trajectory_kwargs: Optional[Dict] = None,
     figsize: Optional[Tuple[float, float]] = None,
+    scatter_size: float = 2,
     save_path: Optional[str] = None,
     dpi: int = DEFAULT_DPI,
 ) -> plt.Figure:
@@ -41,8 +42,9 @@ def plot_embedding_comparison(
         Arrays must be 2D with at least 2 components.
     features : dict, optional
         Dictionary mapping feature names to feature arrays. Arrays must have same
-        length as embeddings. Default features used: 'angle' (circular position
-        in radians [-π, π]) and 'speed'
+        length as embeddings. Features with 'angle' or 'direction' in the name
+        are treated as circular and plotted with the 'hsv' colormap; all others
+        use 'viridis'. The first two features are shown as rows 1 and 2.
     feature_names : dict, optional
         Dictionary mapping feature keys to display names
     methods : list of str, optional
@@ -55,6 +57,8 @@ def plot_embedding_comparison(
         Additional keyword arguments for trajectory plotting
     figsize : tuple, optional
         Figure size (width, height). If None, computed based on number of methods
+    scatter_size : float, default 2
+        Marker size for scatter points
     save_path : str, optional
         Path to save the figure
     dpi : int, default DEFAULT_DPI
@@ -133,89 +137,68 @@ def plot_embedding_comparison(
                         f"doesn't match embedding length ({len(embedding)})"
                     )
 
-        # First row: colored by angle/position
-        ax1 = fig.add_subplot(gs[0, i])
+        # Determine which features to plot (first two from features dict)
+        feat_keys = list(features.keys()) if features else []
+        _CIRCULAR_HINTS = ("angle", "direction", "heading", "phase")
 
-        if features is not None and "angle" in features:
-            angle = features["angle"]
-            # Normalize angle to [0, 1] for color mapping
-            angle_norm = (angle + np.pi) / (2 * np.pi)
+        for row_idx in range(min(2, len(feat_keys))):
+            ax = fig.add_subplot(gs[row_idx, i])
+            feat_key = feat_keys[row_idx]
+            feat_vals = features[feat_key]
+            display_name = feature_names.get(feat_key, feat_key) if feature_names else feat_key
+            is_circular = any(h in feat_key.lower() for h in _CIRCULAR_HINTS)
 
-            scatter = ax1.scatter(
-                embedding[:, 0],
-                embedding[:, 1],
-                c=angle_norm,
-                cmap="hsv",
-                alpha=0.7,
-                s=2,
-                vmin=0,
-                vmax=1,
-                edgecolors="none",
-            )
+            if is_circular:
+                vals_norm = (feat_vals - feat_vals.min()) / (feat_vals.max() - feat_vals.min() + 1e-12)
+                scatter = ax.scatter(
+                    embedding[:, 0], embedding[:, 1],
+                    c=vals_norm, cmap="hsv", alpha=0.7, s=scatter_size,
+                    vmin=0, vmax=1, edgecolors="none",
+                )
+                plt.colorbar(scatter, ax=ax, label=display_name)
 
-            cbar = plt.colorbar(scatter, ax=ax1, label=feature_names.get("angle", "Angle"))
-            # Set colorbar ticks to show actual angles
-            cbar.set_ticks([0, 0.25, 0.5, 0.75, 1])
-            cbar.set_ticklabels(["-π", "-π/2", "0", "π/2", "π"])
+                if compute_metrics:
+                    try:
+                        kde = gaussian_kde(embedding[:, :2].T)
+                        x_min, x_max = ax.get_xlim()
+                        y_min, y_max = ax.get_ylim()
+                        X, Y = np.mgrid[x_min:x_max:50j, y_min:y_max:50j]
+                        positions_grid = np.vstack([X.ravel(), Y.ravel()])
+                        Z = np.reshape(kde(positions_grid).T, X.shape)
+                        ax.contour(X, Y, Z, colors="gray", alpha=0.3, linewidths=0.5)
+                    except (ValueError, RuntimeError, np.linalg.LinAlgError):
+                        pass
+            else:
+                scatter = ax.scatter(
+                    embedding[:, 0], embedding[:, 1],
+                    c=feat_vals, cmap="viridis", alpha=0.7, s=scatter_size,
+                    edgecolors="none",
+                )
+                cbar = plt.colorbar(scatter, ax=ax, label=display_name)
 
-            # Add density contours if requested
-            if compute_metrics:
-                try:
-                    kde = gaussian_kde(embedding[:, :2].T)
-                    x_min, x_max = ax1.get_xlim()
-                    y_min, y_max = ax1.get_ylim()
-                    X, Y = np.mgrid[x_min:x_max:50j, y_min:y_max:50j]
-                    positions_grid = np.vstack([X.ravel(), Y.ravel()])
-                    Z = np.reshape(kde(positions_grid).T, X.shape)
-                    ax1.contour(X, Y, Z, colors="gray", alpha=0.3, linewidths=0.5)
-                except (ValueError, RuntimeError, np.linalg.LinAlgError):
-                    pass  # Skip contours if KDE fails (singular matrix, etc.)
-        else:
-            ax1.scatter(embedding[:, 0], embedding[:, 1], alpha=0.6, s=1)
+                if compute_metrics:
+                    percentiles = np.percentile(feat_vals, [25, 50, 75])
+                    for p, val in zip([25, 50, 75], percentiles):
+                        cbar.ax.axhline(y=val, color="red", alpha=0.3, linewidth=0.5)
+                        cbar.ax.text(
+                            1.05, val, f"{p}%",
+                            transform=cbar.ax.get_yaxis_transform(),
+                            fontsize=8, va="center",
+                        )
 
-        ax1.set_xlabel("Component 0")
-        ax1.set_ylabel("Component 1")
-        ax1.set_title(f'{method.upper()} - {feature_names.get("angle", "Position")}')
-        ax1.grid(True, alpha=0.3)
+            ax.set_xlabel("Component 0")
+            ax.set_ylabel("Component 1")
+            ax.set_title(f"{method.upper()} - {display_name}")
+            ax.grid(True, alpha=0.3)
 
-        # Second row: colored by speed or second feature
-        ax2 = fig.add_subplot(gs[1, i])
-
-        if features is not None and "speed" in features:
-            speed = features["speed"]
-
-            scatter = ax2.scatter(
-                embedding[:, 0],
-                embedding[:, 1],
-                c=speed,
-                cmap="viridis",
-                alpha=0.7,
-                s=2,
-                edgecolors="none",
-            )
-
-            cbar = plt.colorbar(scatter, ax=ax2, label=feature_names.get("speed", "Speed"))
-
-            # Add percentile markers if requested
-            if compute_metrics:
-                speed_percentiles = np.percentile(speed, [25, 50, 75])
-                for p, val in zip([25, 50, 75], speed_percentiles):
-                    cbar.ax.axhline(y=val, color="red", alpha=0.3, linewidth=0.5)
-                    cbar.ax.text(
-                        1.05,
-                        val,
-                        f"{p}%",
-                        transform=cbar.ax.get_yaxis_transform(),
-                        fontsize=8,
-                        va="center",
-                    )
-        else:
-            ax2.scatter(embedding[:, 0], embedding[:, 1], alpha=0.6, s=1)
-
-        ax2.set_xlabel("Component 0")
-        ax2.set_ylabel("Component 1")
-        ax2.set_title(f'{method.upper()} - {feature_names.get("speed", "Feature 2")}')
-        ax2.grid(True, alpha=0.3)
+        # Fill remaining rows if fewer than 2 features
+        for row_idx in range(len(feat_keys), 2):
+            ax = fig.add_subplot(gs[row_idx, i])
+            ax.scatter(embedding[:, 0], embedding[:, 1], alpha=0.6, s=scatter_size)
+            ax.set_xlabel("Component 0")
+            ax.set_ylabel("Component 1")
+            ax.set_title(f"{method.upper()}")
+            ax.grid(True, alpha=0.3)
 
         # Third row: trajectory visualization
         if with_trajectory:

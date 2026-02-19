@@ -190,11 +190,11 @@ def get_functional_organization(
             selective_neurons = []
 
             # Check which neurons are selective to this component
-            if feat_name in significance_data:
-                feat_sig = significance_data[feat_name]
-                # Iterate only over neurons actually used in the embedding
-                for idx, neuron_idx in enumerate(neuron_indices):
-                    if neuron_idx in feat_sig and feat_sig[neuron_idx].get("stage2", False):
+            # Significance structure: significance[neuron_id][feat_name]
+            for neuron_idx in neuron_indices:
+                if neuron_idx in significance_data:
+                    neuron_sig = significance_data[neuron_idx]
+                    if feat_name in neuron_sig and neuron_sig[feat_name].get("stage2", False):
                         selective_neurons.append(neuron_idx)
 
                         # Track neuron participation

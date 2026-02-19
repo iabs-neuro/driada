@@ -1558,6 +1558,14 @@ def compute_embedding_selectivity(
         embedding_data = embedding_dict["data"]
         n_components = embedding_data.shape[1]
 
+        # Handle downsampled embeddings: interpolate to match calcium length
+        n_frames = exp.n_frames
+        if embedding_data.shape[0] != n_frames:
+            from scipy.interpolate import interp1d
+            x_ds = np.linspace(0, 1, embedding_data.shape[0])
+            x_full = np.linspace(0, 1, n_frames)
+            embedding_data = interp1d(x_ds, embedding_data, axis=0, kind="linear")(x_full)
+
         # Create TimeSeries for each embedding component
         embedding_features = {}
         for comp_idx in range(n_components):
