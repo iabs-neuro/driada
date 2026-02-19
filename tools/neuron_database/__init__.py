@@ -14,6 +14,7 @@ from .database import NeuronDatabase
 from .configs import (ExperimentConfig, EXPERIMENT_CONFIGS, DELAY_STRATEGY,
                       DISCARDED_FEATURES, MI_THRESHOLD, PVAL_THRESHOLD)
 from .loaders import load_from_csv_directory, load_experiment
+from .visual import plot_mi_pval_scatter, plot_mi_pval_grid
 from .tables import (apply_significance_filters,
                      get_fully_matched_ids, significance_count_table,
                      significance_fraction_table,
@@ -48,4 +49,5 @@ __all__ = ['NeuronDatabase', 'ExperimentConfig', 'EXPERIMENT_CONFIGS',
            'export_retention_tables_excel',
            'export_retention_enrichment_excel',
            'cross_stats_table', 'export_cross_stats_csv',
-           'export_all']
+           'export_all',
+           'plot_mi_pval_scatter', 'plot_mi_pval_grid']

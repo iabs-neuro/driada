@@ -20,6 +20,7 @@ class ExperimentConfig:
     mice_metadata: list = field(default_factory=list)
     killed_sessions: list = field(default_factory=list)
     excluded_mice: list = field(default_factory=list)
+    discrete_place_features: list = field(default_factory=list)
     aggregate_features: dict = field(default_factory=dict)
 
 
@@ -29,12 +30,29 @@ PVAL_THRESHOLD = 0.001
 
 DISCARDED_FEATURES = {'speed_2d'}
 
-_PLACE_CONSTITUENTS = ['place', 'place-center', 'place-corners',
-                       'place-object', 'place-objects', 'place-walls']
+_NOF_DISCRETE_PLACE = [
+    'walls', 'corners', 'center',
+    'object1', 'object2', 'object3', 'object4', 'objects',
+]
 
 _NOF_AGGREGATE = {
     'any object': ['object1', 'object2', 'object3', 'object4', 'objects'],
-    'any place': _PLACE_CONSTITUENTS,
+    'any place': ['place'] + _NOF_DISCRETE_PLACE,
+}
+
+_BOWL_DISCRETE_PLACE = ['walls', 'corners', 'center']
+
+_BOWL_AGGREGATE = {
+    'any place': ['place'] + _BOWL_DISCRETE_PLACE,
+}
+
+_BOF_DISCRETE_PLACE = [
+    'bowlinside', 'objectinside', 'walls', 'corners',
+    'centermiddle', 'centertrue', 'center',
+]
+
+_BOF_AGGREGATE = {
+    'any place': ['place'] + _BOF_DISCRETE_PLACE,
 }
 
 EXPERIMENT_CONFIGS = {
@@ -42,6 +60,7 @@ EXPERIMENT_CONFIGS = {
         experiment_id='NOF',
         sessions=['1D', '2D', '3D', '4D'],
         delay_strategy=DELAY_STRATEGY,
+        discrete_place_features=_NOF_DISCRETE_PLACE,
         aggregate_features=_NOF_AGGREGATE,
     ),
 
@@ -52,6 +71,7 @@ EXPERIMENT_CONFIGS = {
         delay_strategy=DELAY_STRATEGY,
         mice_metadata=['Group'],
         excluded_mice=['J20', 'J21'],
+        discrete_place_features=_NOF_DISCRETE_PLACE,
         aggregate_features=_NOF_AGGREGATE,
     ),
 
@@ -62,6 +82,7 @@ EXPERIMENT_CONFIGS = {
         delay_strategy=DELAY_STRATEGY,
         mice_metadata=['Group'],
         excluded_mice=['J20', 'J21'],
+        discrete_place_features=_NOF_DISCRETE_PLACE,
         aggregate_features=_NOF_AGGREGATE,
     ),
 
@@ -72,6 +93,8 @@ EXPERIMENT_CONFIGS = {
         delay_strategy=DELAY_STRATEGY,
         mice_metadata=['Line', 'Group'],
         killed_sessions=['BOWL_F30_3D'],
+        discrete_place_features=_BOWL_DISCRETE_PLACE,
+        aggregate_features=_BOWL_AGGREGATE,
     ),
 
     '3DM': ExperimentConfig(
@@ -106,6 +129,8 @@ EXPERIMENT_CONFIGS = {
         nontrivial_matching=False,
         delay_strategy=DELAY_STRATEGY,
         mice_metadata=['Group'],
+        discrete_place_features=_BOF_DISCRETE_PLACE,
+        aggregate_features=_BOF_AGGREGATE,
     ),
 
     'FOF': ExperimentConfig(

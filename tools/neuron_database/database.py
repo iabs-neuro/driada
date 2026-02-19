@@ -8,6 +8,26 @@ import numpy as np
 import pandas as pd
 
 
+def pretransform_merge_composite_place(data, discrete_place_features):
+    """Rename 'place-X' features to 'X' for known discrete place features.
+
+    Only renames when X is in discrete_place_features, leaving other
+    composite features (e.g., place-object) unchanged.
+    """
+    if not discrete_place_features:
+        return data
+    targets = set(discrete_place_features)
+    prefix_mask = data['feature'].str.startswith('place-')
+    if not prefix_mask.any():
+        return data
+    data = data.copy()
+    stripped = data['feature'].str[6:]
+    rename_mask = prefix_mask & stripped.isin(targets)
+    if rename_mask.any():
+        data.loc[rename_mask, 'feature'] = stripped[rename_mask]
+    return data
+
+
 class NeuronDatabase:
     """Cross-session database for INTENSE selectivity results.
 

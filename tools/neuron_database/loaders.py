@@ -49,6 +49,10 @@ def _parse_dict_cell(cell_str):
     cell_str = str(cell_str).strip()
     if cell_str == '{}' or cell_str == '':
         return None
+    # Strip numpy type wrappers (e.g. np.float64(...) -> ..., np.True_ -> True)
+    cell_str = re.sub(r'np\.True_', 'True', cell_str)
+    cell_str = re.sub(r'np\.False_', 'False', cell_str)
+    cell_str = re.sub(r'np\.\w+\(([^)]*)\)', r'\1', cell_str)
     try:
         d = ast.literal_eval(cell_str)
         return d if isinstance(d, dict) and d else None
@@ -413,7 +417,7 @@ def load_experiment(experiment_id, data_dir, config=None):
         features injected.
     """
     from .configs import EXPERIMENT_CONFIGS, DISCARDED_FEATURES
-    from .database import NeuronDatabase
+    from .database import NeuronDatabase, pretransform_merge_composite_place
 
     if config is None:
         config = EXPERIMENT_CONFIGS[experiment_id]
@@ -433,6 +437,9 @@ def load_experiment(experiment_id, data_dir, config=None):
         if found:
             data = data[~data['feature'].isin(DISCARDED_FEATURES)]
             print(f"Discarded features: {sorted(found)}")
+
+    # Pre-transform: undo place-X disentanglement merges
+    data = pretransform_merge_composite_place(data, config.discrete_place_features)
 
     mice_info_dict = {}
     if config.mice_metadata:

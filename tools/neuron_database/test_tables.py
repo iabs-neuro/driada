@@ -17,7 +17,8 @@ from neuron_database import (
     load_experiment, get_fully_matched_ids,
     significance_count_table, significance_fraction_table,
     significance_fraction_of_sel_table,
-    retention_count_table, cross_stats_table,
+    retention_count_table, retention_enrichment,
+    cross_stats_table,
     mi_table, mi_table_composite,
 )
 from neuron_database.tables import (
@@ -48,7 +49,7 @@ def sel_counts(db):
     return _selectivity_counts(db)
 
 
-SPOT_FEATURES = ['place', 'speed', 'walls', 'any object']
+SPOT_FEATURES = ['place', 'speed', 'walls', 'any object', 'any place']
 
 
 # ---------------------------------------------------------------------------
@@ -104,23 +105,23 @@ class TestFractionConsistency:
         for feat in SPOT_FEATURES:
             frac = significance_fraction_table(db, feat)
             count = significance_count_table(db, feat)
-            expected = count / neuron_counts.replace(0, np.nan)
+            expected = ((count / neuron_counts.replace(0, np.nan)) * 100).round(2)
             pd.testing.assert_frame_equal(frac, expected, check_names=False)
 
     def test_fraction_range(self, db):
         for feat in SPOT_FEATURES:
             frac = significance_fraction_table(db, feat)
             vals = frac.values[~np.isnan(frac.values)]
-            assert (vals >= 0).all() and (vals <= 1).all(), (
-                f"{feat}: fraction out of [0,1]")
+            assert (vals >= 0).all() and (vals <= 100).all(), (
+                f"{feat}: fraction out of [0, 100]")
 
     def test_fraction_of_sel_range(self, db, sel_counts):
         sel_totals = _sel_count_to_table(sel_counts, db, 0)
         for feat in SPOT_FEATURES:
             frac = significance_fraction_of_sel_table(db, feat, sel_totals)
             vals = frac.values[~np.isnan(frac.values)]
-            assert (vals >= 0).all() and (vals <= 1).all(), (
-                f"{feat}: fraction_of_sel out of [0,1]")
+            assert (vals >= 0).all() and (vals <= 100).all(), (
+                f"{feat}: fraction_of_sel out of [0, 100]")
 
 
 # ---------------------------------------------------------------------------
@@ -344,3 +345,179 @@ class TestMatchedIds:
         for mouse in db.mice:
             assert all_sessions[mouse] == by_int[mouse], (
                 f"{mouse}: named sessions != int spec")
+
+
+# ---------------------------------------------------------------------------
+# 10. Retention enrichment: consistency with retention tables
+# ---------------------------------------------------------------------------
+
+class TestRetentionEnrichment:
+
+    def test_observed_matches_retention(self, db):
+        for feat in SPOT_FEATURES:
+            ret = retention_count_table(db, feat)
+            enr = retention_enrichment(db, feat, n_shuffles=10, seed=0)
+            for k in enr.index:
+                assert enr.loc[k, 'observed'] == ret.loc['total', k], (
+                    f"{feat}/k={k}: enrichment observed != retention total")
+
+    def test_bounds(self, db):
+        for feat in SPOT_FEATURES:
+            enr = retention_enrichment(db, feat, n_shuffles=10, seed=0)
+            assert (enr['observed'] >= 0).all(), f"{feat}: negative observed"
+            assert (enr['null_mean'] >= 0).all(), f"{feat}: negative null_mean"
+            assert (enr['null_std'] >= 0).all(), f"{feat}: negative null_std"
+            vals = enr['enrichment'].dropna().values
+            assert (vals >= 0).all(), f"{feat}: negative enrichment"
+
+    def test_pvalue_sanity(self, db):
+        for feat in SPOT_FEATURES:
+            enr = retention_enrichment(db, feat, n_shuffles=10, seed=0)
+            log_p = enr['-log10p'].dropna().values
+            assert (log_p >= 0).all(), f"{feat}: negative -log10p"
+            z = enr['zscore'].dropna().values
+            assert np.all(np.isfinite(z) | np.isnan(z)), (
+                f"{feat}: non-finite zscore")
+
+    def test_observed_monotonicity(self, db):
+        for feat in SPOT_FEATURES:
+            enr = retention_enrichment(db, feat, n_shuffles=10, seed=0)
+            obs = enr['observed'].values
+            for i in range(len(obs) - 1):
+                assert obs[i] >= obs[i + 1], (
+                    f"{feat}: observed not monotonic at k={i+1}")
+
+
+# ---------------------------------------------------------------------------
+# 11. Aggregate features: union bounds
+# ---------------------------------------------------------------------------
+
+class TestAggregateFeatures:
+
+    def test_aggregate_leq_sum_constituents(self, db):
+        from neuron_database.configs import EXPERIMENT_CONFIGS
+        config = EXPERIMENT_CONFIGS['NOF']
+        place_constituents = ['place'] + config.discrete_place_features
+        agg_table = significance_count_table(db, 'any place')
+        constituent_sum = sum(
+            significance_count_table(db, f) for f in place_constituents
+            if f in db.features)
+        assert (agg_table <= constituent_sum).all().all(), (
+            "any place > sum of constituents")
+
+    def test_aggregate_geq_max_constituent(self, db):
+        from neuron_database.configs import EXPERIMENT_CONFIGS
+        config = EXPERIMENT_CONFIGS['NOF']
+        place_constituents = ['place'] + config.discrete_place_features
+        agg_table = significance_count_table(db, 'any place')
+        for f in place_constituents:
+            if f not in db.features:
+                continue
+            part = significance_count_table(db, f)
+            assert (agg_table >= part).all().all(), (
+                f"any place < constituent '{f}'")
+
+
+# ---------------------------------------------------------------------------
+# 12. Database properties
+# ---------------------------------------------------------------------------
+
+class TestDatabaseProperties:
+
+    def test_experiment_id(self, db):
+        assert db.experiment_id == 'NOF'
+
+    def test_discarded_features_absent(self, db):
+        assert 'speed_2d' not in db.features
+
+
+# ---------------------------------------------------------------------------
+# 13. Cross-table consistency: identities linking different table types
+# ---------------------------------------------------------------------------
+
+class TestCrossTableConsistency:
+    """Verify algebraic identities that must hold across table types."""
+
+    def test_mi_row_count_equals_count_table(self, db):
+        """MI table rows with MI>0 per (mouse, session) = count table cell."""
+        for feat in SPOT_FEATURES:
+            mi_t = mi_table(db, feat)
+            count_t = significance_count_table(db, feat)
+            for mouse in db.mice:
+                rows = mi_t[mi_t['mouse'] == mouse]
+                for s in db.sessions:
+                    assert (rows[s] > 0).sum() == count_t.loc[mouse, s], (
+                        f"{feat}/{mouse}/{s}: MI rows != count")
+
+    def test_retention_sum_equals_count_sum(self, db):
+        """Telescoping: sum_k retention[M,k] = sum_S count[M,S]."""
+        for feat in SPOT_FEATURES:
+            ret = retention_count_table(db, feat)
+            count = significance_count_table(db, feat)
+            for mouse in db.mice:
+                assert ret.loc[mouse].sum() == count.loc[mouse].sum(), (
+                    f"{feat}/{mouse}: retention sum != count sum")
+
+    def test_retention_k1_equals_mi_rows_per_mouse(self, db):
+        """retention[M,1] = number of MI table rows for mouse M."""
+        for feat in SPOT_FEATURES:
+            mi_t = mi_table(db, feat)
+            ret = retention_count_table(db, feat)
+            for mouse in db.mice:
+                assert (mi_t['mouse'] == mouse).sum() == ret.loc[mouse, 1], (
+                    f"{feat}/{mouse}: MI rows != retention k=1")
+
+    def test_cross_stats_universe_equals_composite_mi(self, db):
+        """Cross-stats and composite MI 'all' have the same neuron set."""
+        cs = cross_stats_table(db)
+        mi_all = mi_table_composite(db, 0)
+        assert len(cs) == len(mi_all), (
+            f"cross-stats rows ({len(cs)}) != composite MI rows ({len(mi_all)})")
+
+    def test_cross_stats_nsel_matches_composite_mi(self, db):
+        """Feature count per cross-stats cell = nsel in composite MI."""
+        cs = cross_stats_table(db)
+        mi_all = mi_table_composite(db, 0)
+        mi_lookup = mi_all.set_index(['mouse', 'matched_id'])
+        for _, row in cs.iterrows():
+            mi_row = mi_lookup.loc[(row['mouse'], row['matching_row'])]
+            for s in db.sessions:
+                cell = row[s]
+                n_feats = 0 if cell in ('', '---') else len(cell.split(', '))
+                assert mi_row[f'{s}_nsel'] == n_feats, (
+                    f"{row['mouse']}/mid={row['matching_row']}/{s}: "
+                    f"cross-stats has {n_feats} features, nsel={mi_row[f'{s}_nsel']}")
+
+    def test_feature_count_sum_equals_weighted_selectivity(self, db, sel_counts):
+        """sum_F count[F][M,S] = sum of nsel over selective neurons in (M,S)."""
+        non_agg = [f for f in db.features
+                   if f not in db.aggregate_feature_names]
+        total_counts = sum(significance_count_table(db, f) for f in non_agg)
+        weighted = (sel_counts.groupby(['mouse', 'session'])['n_sel']
+                    .sum().unstack(fill_value=0))
+        weighted = weighted.reindex(
+            index=db.mice, columns=db.sessions, fill_value=0)
+        pd.testing.assert_frame_equal(
+            total_counts, weighted, check_names=False, check_dtype=False)
+
+    def test_frac_of_sel_sum_geq_100(self, db, sel_counts):
+        """Sum of fraction-of-sel across features >= 100 (mean nsel >= 1)."""
+        sel_totals = _sel_count_to_table(sel_counts, db, 0)
+        non_agg = [f for f in db.features
+                   if f not in db.aggregate_feature_names]
+        total_frac = sum(
+            significance_fraction_of_sel_table(db, f, sel_totals)
+            for f in non_agg)
+        vals = total_frac.values[~np.isnan(total_frac.values)]
+        assert (vals >= 100.0 - 0.1).all(), (
+            f"fraction-of-sel sum < 100: min={vals.min():.2f}")
+
+    def test_retention_kmax_bounded_by_fully_matched(self, db):
+        """retention[M, k=max] <= fully matched neurons for mouse M."""
+        fully = get_fully_matched_ids(db)
+        n_sessions = len(db.sessions)
+        for feat in db.features:
+            ret = retention_count_table(db, feat)
+            for mouse in db.mice:
+                assert ret.loc[mouse, n_sessions] <= len(fully[mouse]), (
+                    f"{feat}/{mouse}: retention k={n_sessions} > fully matched")

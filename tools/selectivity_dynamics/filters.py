@@ -519,7 +519,7 @@ EXPERIMENT_CONFIGS = {
     'NOF': {
         'place_feat_name': 'place',
         'discrete_place_features': ['walls', 'corners', 'center', 'object1', 'object2', 'object3', 'object4', 'objects'],
-        'feature_renaming': {'object1': 'object', 'object2': 'object', 'object3': 'object', 'object4': 'object'},
+        'feature_renaming': {},
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y'],
         'specific_filter': nof_filter,
@@ -528,7 +528,7 @@ EXPERIMENT_CONFIGS = {
     'LNOF': {
         'place_feat_name': 'place',
         'discrete_place_features': ['walls', 'corners', 'center', 'object1', 'object2', 'object3', 'object4', 'objects'],
-        'feature_renaming': {'object1': 'object', 'object2': 'object', 'object3': 'object', 'object4': 'object'},
+        'feature_renaming': {},
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y'],
         'specific_filter': nof_filter,
