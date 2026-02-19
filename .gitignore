@@ -78,6 +78,11 @@ tensorboard/
 gpu/
 benchmarks/
 
+# INTENSE output and data directories
+DRIADA data/
+INTENSE_*/
+truncated/
+
 # Temporary files
 *.tmp
 *.bak
