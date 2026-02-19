@@ -88,7 +88,7 @@ class TestLoadExpFromAlignedData:
         """Test error when calcium data is missing."""
         data = {"spikes": np.array([[1, 0]]), "position": np.array([1, 2])}
 
-        with pytest.raises(ValueError, match="No calcium data found"):
+        with pytest.raises(ValueError, match="No neural data found"):
             load_exp_from_aligned_data("IABS", exp_params, data)
 
     def test_case_insensitive_keys(self, exp_params):
@@ -668,7 +668,7 @@ class TestLoadExperiment:
         data_path = os.path.join(temp_dir, "no_calcium.npz")
         np.savez(data_path, position=np.random.rand(500), speed=np.random.rand(500))
 
-        with pytest.raises(ValueError, match="NPZ file must contain 'calcium' key"):
+        with pytest.raises(ValueError, match="NPZ file must contain neural data"):
             load_experiment("MyLab", {"name": "test"}, data_path=data_path, root=temp_dir)
 
     def test_generic_lab_invalid_npz(self, temp_dir):

@@ -861,8 +861,8 @@ class TestThresholdTuningType:
         sig_params = exp_sigmoid.ground_truth["tuning_parameters"][0]["fbm_0"]
         thresh_params = exp_threshold.ground_truth["tuning_parameters"][0]["fbm_0"]
 
-        # Sigmoid has "slope" and "threshold", threshold mode has "tuning_type"
-        assert "slope" in sig_params
+        # Default (ROI) has "center"/"lower_border"/"upper_border", threshold mode has "tuning_type"
+        assert "center" in sig_params
         assert "tuning_type" in thresh_params
         assert thresh_params["tuning_type"] == "threshold"
 

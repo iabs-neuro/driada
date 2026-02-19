@@ -650,7 +650,7 @@ class TestGetSimAdditional:
         binary = TimeSeries(np.array([0, 1, 0, 1]), discrete=True)
         continuous = TimeSeries(np.random.randn(4), discrete=False)
 
-        with pytest.raises(ValueError, match="Only 'av' and 'mi' metrics"):
+        with pytest.raises(ValueError, match="Only 'av', 'mi', and 'fast_pearsonr' metrics"):
             get_sim(binary, continuous, metric="pearsonr")
 
     def test_sim_discrete_discrete_error(self):
