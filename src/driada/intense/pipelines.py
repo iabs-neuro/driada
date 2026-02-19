@@ -1028,7 +1028,7 @@ def compute_feat_feat_significance(
                         stats_dict = stats[key1][key2]
                         if stats_dict:  # Check if dict is not empty
                             similarity_matrix[i, j] = stats_dict.get("me", 0)
-                            p_value_matrix[i, j] = stats_dict.get("p", 1)
+                            p_value_matrix[i, j] = stats_dict.get("pval", 1)
 
                         sig_dict = significance.get(key1, {}).get(key2, {})
                         if sig_dict.get("stage2") is not None:
@@ -1332,7 +1332,7 @@ def compute_cell_cell_significance(
                         stats_dict = stats[cell1][cell2]
                         if stats_dict:  # Check if dict is not empty
                             similarity_matrix[i, j] = stats_dict.get("me", 0)
-                            p_value_matrix[i, j] = stats_dict.get("p", 1)
+                            p_value_matrix[i, j] = stats_dict.get("pval", 1)
 
                         sig_dict = significance.get(cell1, {}).get(cell2, {})
                         if sig_dict.get("stage2") is not None:

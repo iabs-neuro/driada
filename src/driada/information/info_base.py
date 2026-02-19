@@ -29,6 +29,7 @@ from .info_fft import (
     compute_mi_mts_mts_fft,
     compute_mi_mts_discrete_fft,
     compute_pearson_batch_fft,
+    compute_av_batch_fft,
 )
 
 from ..dim_reduction.data import MVData

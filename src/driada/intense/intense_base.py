@@ -32,6 +32,7 @@ from ..information.info_base import (
     compute_mi_mts_discrete_fft,
     compute_mi_dd_fft,
     compute_pearson_batch_fft,
+    compute_av_batch_fft,
 )
 from ..utils.data import nested_dict_to_seq_of_tables, add_names_to_nested_dict
 from .io import IntenseResults
@@ -64,6 +65,7 @@ FFT_MTS_MTS = "mts_mts"     # MultiTimeSeries + MultiTimeSeries
 FFT_MTS_DISCRETE = "mts_discrete"  # MultiTimeSeries + discrete
 FFT_PEARSON_CONTINUOUS = "pearson_cc"  # Pearson correlation (continuous-continuous)
 FFT_PEARSON_DISCRETE = "pearson_gd"   # Pearson correlation (continuous-discrete, point-biserial)
+FFT_AV_DISCRETE = "av_gd"             # Activity ratio (continuous-discrete, binary)
 
 
 @contextmanager
@@ -274,16 +276,18 @@ def get_fft_type(
     if engine == "loop":
         return None
 
-    # FFT works with MI (GCMI estimator) and fast_pearsonr
+    # FFT works with MI (GCMI estimator), fast_pearsonr, and av
     if metric == "mi" and mi_estimator == "gcmi":
         pass  # proceed to type classification
     elif metric == "fast_pearsonr":
         pass  # proceed — continuous-continuous only
+    elif metric == "av":
+        pass  # proceed — binary-discrete + continuous only
     else:
         if engine == "fft":
             raise ValueError(
-                f"engine='fft' requires metric='mi' (with mi_estimator='gcmi') "
-                f"or metric='fast_pearsonr'. "
+                f"engine='fft' requires metric='mi' (with mi_estimator='gcmi'), "
+                f"'fast_pearsonr', or 'av'. "
                 f"Got: metric={metric}, mi_estimator={mi_estimator}"
             )
         return None
@@ -298,10 +302,12 @@ def get_fft_type(
     # For fast_pearsonr, only univariate continuous-continuous is supported via FFT
     is_pearson = (metric == "fast_pearsonr")
 
+    is_av = (metric == "av")
+
     # Check for MultiTimeSeries + univariate TimeSeries pair
     if isinstance(ts1, MultiTimeSeries) and isinstance(ts2, TimeSeries) and not isinstance(ts2, MultiTimeSeries):
-        if is_pearson:
-            error_msg = "FFT Pearson only supports univariate continuous-continuous pairs"
+        if is_pearson or is_av:
+            error_msg = f"FFT {metric} only supports univariate TimeSeries pairs"
         else:
             mts, ts = ts1, ts2
             # Check for MTS + discrete pair first
@@ -317,8 +323,8 @@ def get_fft_type(
                     f"Got: MTS discrete={mts.discrete}, TS discrete={ts.discrete}, MTS shape={mts.data.shape}"
                 )
     elif isinstance(ts2, MultiTimeSeries) and isinstance(ts1, TimeSeries) and not isinstance(ts1, MultiTimeSeries):
-        if is_pearson:
-            error_msg = "FFT Pearson only supports univariate continuous-continuous pairs"
+        if is_pearson or is_av:
+            error_msg = f"FFT {metric} only supports univariate TimeSeries pairs"
         else:
             mts, ts = ts2, ts1
             # Check for MTS + discrete pair first
@@ -335,8 +341,8 @@ def get_fft_type(
                 )
     # Check for MultiTimeSeries + MultiTimeSeries pair
     elif isinstance(ts1, MultiTimeSeries) and isinstance(ts2, MultiTimeSeries):
-        if is_pearson:
-            error_msg = "FFT Pearson only supports univariate continuous-continuous pairs"
+        if is_pearson or is_av:
+            error_msg = f"FFT {metric} only supports univariate TimeSeries pairs"
         else:
             d1 = ts1.data.shape[0]
             d2 = ts2.data.shape[0]
@@ -352,7 +358,18 @@ def get_fft_type(
     # Check for univariate TimeSeries pairs
     elif (isinstance(ts1, TimeSeries) and not isinstance(ts1, MultiTimeSeries) and
           isinstance(ts2, TimeSeries) and not isinstance(ts2, MultiTimeSeries)):
-        if is_pearson:
+        is_av = (metric == "av")
+        if is_av:
+            # AV requires one binary-discrete and one continuous variable
+            if ts1.discrete != ts2.discrete:
+                discrete_ts = ts1 if ts1.discrete else ts2
+                if discrete_ts.is_binary:
+                    fft_type = FFT_AV_DISCRETE
+                else:
+                    error_msg = "FFT av requires binary discrete variable"
+            else:
+                error_msg = "FFT av requires one discrete and one continuous variable"
+        elif is_pearson:
             if not ts1.discrete and not ts2.discrete:
                 fft_type = FFT_PEARSON_CONTINUOUS
             elif ts1.discrete != ts2.discrete:
@@ -437,6 +454,12 @@ def _extract_fft_data(ts1, ts2, fft_type, ds: int):
             return ts2.data[::ds], ts1.data[::ds].astype(float)
         else:
             return ts1.data[::ds], ts2.data[::ds].astype(float)
+    elif fft_type == FFT_AV_DISCRETE:
+        # AV uses RAW data (not copula-normalized): (continuous, binary)
+        if ts1.discrete:
+            return ts2.data[::ds], ts1.data[::ds].astype(float)
+        else:
+            return ts1.data[::ds], ts2.data[::ds].astype(float)
     else:
         raise ValueError(f"Unknown FFT type: {fft_type}")
 
@@ -451,6 +474,7 @@ _FFT_COMPUTE = {
     FFT_MTS_DISCRETE: compute_mi_mts_discrete_fft,
     FFT_PEARSON_CONTINUOUS: compute_pearson_batch_fft,
     FFT_PEARSON_DISCRETE: compute_pearson_batch_fft,
+    FFT_AV_DISCRETE: compute_av_batch_fft,
 }
 
 

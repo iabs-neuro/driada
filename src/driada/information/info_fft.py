@@ -14,6 +14,7 @@ Functions
 ---------
 Univariate:
     compute_mi_batch_fft : MI between two 1D continuous variables at multiple shifts
+    compute_pearson_batch_fft : Pearson r between two 1D continuous variables at multiple shifts
     mi_cd_fft : MI between 1D continuous and discrete variables at multiple shifts
     compute_mi_gd_fft : Wrapper for mi_cd_fft (continuous-discrete MI)
     mi_dd_fft : MI between two discrete variables at multiple shifts
@@ -147,6 +148,110 @@ def compute_mi_batch_fft(
     return np.maximum(0, mi)  # MI is non-negative
 
 
+def compute_pearson_batch_fft(
+    x: np.ndarray,
+    y: np.ndarray,
+    shifts: np.ndarray,
+) -> np.ndarray:
+    """Compute Pearson correlation at multiple shifts using FFT cross-correlation.
+
+    Uses the same FFT cross-correlation approach as compute_mi_batch_fft but
+    returns Pearson r values directly instead of converting to MI.
+
+    Parameters
+    ----------
+    x : ndarray of shape (n,)
+        First variable (raw data, not copula-normalized).
+    y : ndarray of shape (n,)
+        Second variable (raw data).
+    shifts : ndarray of shape (nsh,)
+        Shift indices (0 to n-1) to compute correlation for. These are circular
+        shifts applied to y before computing correlation with x.
+
+    Returns
+    -------
+    r_values : ndarray of shape (nsh,)
+        Pearson correlation coefficients at each shift, in [-1, 1].
+    """
+    n = len(x)
+
+    x_c = x - x.mean()
+    y_c = y - y.mean()
+
+    fft_x = np.fft.rfft(x_c)
+    fft_y = np.fft.rfft(y_c)
+    cross_corr = np.fft.irfft(fft_x * np.conj(fft_y), n=n)
+
+    std_x = np.std(x_c, ddof=1)
+    std_y = np.std(y_c, ddof=1)
+
+    if std_x < REG_VARIANCE_THRESHOLD or std_y < REG_VARIANCE_THRESHOLD:
+        return np.zeros(len(shifts))
+
+    r_all = cross_corr / ((n - 1) * std_x * std_y)
+
+    return np.abs(np.clip(r_all[shifts], -1, 1))
+
+
+def compute_av_batch_fft(
+    continuous_data: np.ndarray,
+    binary_data: np.ndarray,
+    shifts: np.ndarray,
+) -> np.ndarray:
+    """Compute av (signal ratio) at multiple circular shifts using FFT.
+
+    FFT-accelerated version of calc_signal_ratio for INTENSE shuffle loops.
+    Computes mean(roll(c,k)[b==1]) / mean(roll(c,k)[b==0]) for all shifts
+    in O(n log n) time via a single cross-correlation.
+
+    Parameters
+    ----------
+    continuous_data : ndarray of shape (n,)
+        Raw continuous signal (e.g., calcium trace). NOT copula-normalized.
+    binary_data : ndarray of shape (n,)
+        Binary signal (0/1).
+    shifts : ndarray of shape (nsh,)
+        Shift indices matching get_sim convention (continuous is rolled).
+
+    Returns
+    -------
+    av_values : ndarray of shape (nsh,)
+        Signal ratio at each shift.
+
+    Notes
+    -----
+    Uses the identity: sum_{j where b[j]=1} c[(j-k) % n] = IFFT(FFT(b) * conj(FFT(c)))[k].
+    This matches the get_sim convention where the continuous signal is rolled.
+    n_on = sum(b) is constant across circular shifts, so one FFT gives all shifts.
+    """
+    n = len(continuous_data)
+    c = np.asarray(continuous_data, dtype=float)
+    b = np.asarray(binary_data, dtype=float)
+
+    n_on = np.sum(b)
+    n_off = n - n_on
+
+    if n_on == 0 or n_off == 0:
+        return np.full(len(shifts), np.nan)
+
+    sum_c = np.sum(c)
+
+    # Cross-correlation matching get_sim convention (roll continuous):
+    # sum_{j where b[j]=1} c[(j-k) % n] = IFFT(FFT(b) * conj(FFT(c)))[k]
+    FFT_c = np.fft.rfft(c)
+    FFT_b = np.fft.rfft(b)
+    cross_corr_all = np.fft.irfft(FFT_b * np.conj(FFT_c), n=n)
+
+    shift_indices = np.asarray(shifts).astype(int) % n
+    cross_corr = cross_corr_all[shift_indices]
+
+    avg_on = cross_corr / n_on
+    avg_off = (sum_c - cross_corr) / n_off
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        av = avg_on / avg_off
+
+    return av
 
 
 def compute_mi_gd_fft(
