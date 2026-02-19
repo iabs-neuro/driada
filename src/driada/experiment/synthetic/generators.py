@@ -650,22 +650,30 @@ def generate_tuned_selectivity_exp(
                         ).astype(float)
 
                 elif feat_name.startswith("fbm_"):
-                    # FBM feature - sigmoid response to continuous FBM signal
+                    # FBM feature - ROI-based binary selectivity region
+                    # Select a random region in feature value space where this
+                    # neuron is responsive (~15% of values). This produces a
+                    # binary response identical in structure to discrete events,
+                    # so skip_prob operates symmetrically on both feature types.
                     feat_data = available_features[feat_name]
-                    threshold = _generate_random_tuning_param(feat_name, "threshold", rng)
-                    slope = _get_tuning_param("fbm", "slope",
-                                               user_tuning_params, tuning_defaults)
-                    if slope is None:
-                        slope = TUNING_DEFAULTS.get("fbm", {}).get("slope", 8.0)
-                    response = sigmoid_tuning_curve(feat_data, threshold, slope)
-                    neuron_tuning = {"threshold": threshold, "slope": slope}
+                    roi_seed = seed + current_idx * 100 + 43 if seed is not None else None
+                    center, lower_border, upper_border = select_signal_roi(
+                        feat_data, seed=roi_seed
+                    )
+                    response = np.where(
+                        (feat_data >= lower_border) & (feat_data <= upper_border),
+                        1.0, 0.0,
+                    )
+                    neuron_tuning = {
+                        "center": center,
+                        "lower_border": lower_border,
+                        "upper_border": upper_border,
+                    }
                     if skip_prob > 0:
                         skip_seed = seed + current_idx * 100 + 42 if seed is not None else None
-                        active_mask = (response > 0.5).astype(int)
-                        suppressed_mask = delete_one_islands(
-                            active_mask, skip_prob, seed=skip_seed
-                        )
-                        response = response * suppressed_mask
+                        response = delete_one_islands(
+                            response.astype(int), skip_prob, seed=skip_seed
+                        ).astype(float)
 
                 else:
                     raise ValueError(f"Unsupported feature type: {feat_name}")

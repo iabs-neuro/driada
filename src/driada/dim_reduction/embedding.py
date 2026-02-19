@@ -1337,6 +1337,10 @@ class Embedding:
 
         # create an optimizer object
         optimizer = optim.Adam(model.parameters(), lr=lr)
+        if continue_learning and hasattr(self, "_optimizer_state"):
+            optimizer.load_state_dict(self._optimizer_state)
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = lr
 
         # mean-squared error loss
         criterion = nn.MSELoss()
@@ -1401,8 +1405,14 @@ class Embedding:
         f_dropout = nn.Dropout(feature_dropout)
 
         best_test_epoch = -1
-        best_test_loss = 1e10
-        best_test_model = None
+        if continue_learning:
+            best_test_loss = self.nn_loss
+            best_test_model = model.state_dict().copy()
+            best_optimizer_state = optimizer.state_dict()
+        else:
+            best_test_loss = 1e10
+            best_test_model = None
+            best_optimizer_state = None
 
         for epoch in range(epochs):
             loss = 0
@@ -1510,7 +1520,8 @@ class Embedding:
                 if tloss < best_test_loss:
                     best_test_loss = tloss
                     best_test_epoch = epoch + 1
-                    best_test_model = model
+                    best_test_model = model.state_dict().copy()
+                    best_optimizer_state = optimizer.state_dict()
                 if verbose:
                     print(
                         f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}"
@@ -1520,10 +1531,14 @@ class Embedding:
             if best_test_epoch != epochs + 1:
                 print(f"best model: epoch {best_test_epoch}")
 
-        self.nnmodel = best_test_model
+        if best_test_model is not None:
+            model.load_state_dict(best_test_model)
+
+        self.nnmodel = model
+        self._optimizer_state = best_optimizer_state if best_optimizer_state is not None else optimizer.state_dict()
         input_ = torch.tensor(self.init_data.T).float().to(device)
         self.coords = model.get_code_embedding(input_)
-        self.nn_loss = tloss
+        self.nn_loss = best_test_loss
 
     # -------------------------------------
 
@@ -1653,6 +1668,10 @@ class Embedding:
         # create an optimizer object
         # Adam optimizer with learning rate lr
         optimizer = optim.Adam(model.parameters(), lr=lr)
+        if continue_learning and hasattr(self, "_optimizer_state"):
+            optimizer.load_state_dict(self._optimizer_state)
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = lr
 
         # BCE error loss
         # criterion = nn.BCELoss(reduction='sum')
@@ -1662,8 +1681,14 @@ class Embedding:
         f_dropout = nn.Dropout(feature_dropout)
 
         best_test_epoch = -1
-        best_test_loss = 1e10
-        best_test_model = None
+        if continue_learning:
+            best_test_loss = self.nn_loss if hasattr(self, 'nn_loss') else 1e10
+            best_test_model = model.state_dict().copy()
+            best_optimizer_state = optimizer.state_dict()
+        else:
+            best_test_loss = 1e10
+            best_test_model = None
+            best_optimizer_state = None
 
         for epoch in range(epochs):
             loss = 0
@@ -1728,8 +1753,8 @@ class Embedding:
                 if tloss < best_test_loss:
                     best_test_loss = tloss
                     best_test_epoch = epoch + 1
-                    # Deep copy the model state
                     best_test_model = model.state_dict().copy()
+                    best_optimizer_state = optimizer.state_dict()
 
                 if verbose:
                     print(
@@ -1745,8 +1770,10 @@ class Embedding:
             model.load_state_dict(best_test_model)
 
         self.nnmodel = model
+        self._optimizer_state = best_optimizer_state if best_optimizer_state is not None else optimizer.state_dict()
         input_ = torch.tensor(self.init_data.T).float().to(device)
         self.coords = model.get_code_embedding(input_)
+        self.nn_loss = best_test_loss
 
         # -------------------------------------
 
@@ -1974,15 +2001,26 @@ class Embedding:
         else:
             model = self.nnmodel
 
-        # Create optimizer
+        # Create optimizer and restore state if continuing
         optimizer = optim.Adam(model.parameters(), lr=lr)
+        if continue_learning and hasattr(self, "_optimizer_state"):
+            optimizer.load_state_dict(self._optimizer_state)
+            # Apply the (potentially new) learning rate
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = lr
 
         # Feature dropout
         f_dropout = nn.Dropout(feature_dropout)
 
         best_test_epoch = -1
-        best_test_loss = 1e10
-        best_test_model = None
+        if continue_learning:
+            best_test_loss = self.nn_loss
+            best_test_model = model.state_dict().copy()
+            best_optimizer_state = optimizer.state_dict()
+        else:
+            best_test_loss = 1e10
+            best_test_model = None
+            best_optimizer_state = None
 
         # Training loop
         for epoch in range(epochs):
@@ -2012,21 +2050,17 @@ class Embedding:
             for key in train_losses[0].keys():
                 avg_train_losses[key] = np.mean([d[key] for d in train_losses])
 
-            # Validation phase
+            # Validation phase (no feature dropout — evaluate on clean data)
             if (epoch + 1) % log_every == 0:
                 model.eval()
                 test_losses = []
 
                 with torch.no_grad():
                     for batch_features, indices in test_loader:
-                        batch_features = batch_features.to(device)
+                        batch_features = batch_features.to(device).float()
 
-                        # Apply feature dropout for consistency
-                        noisy_features = f_dropout(torch.ones_like(batch_features)) * batch_features
-                        noisy_features = noisy_features.float()
-
-                        # Compute loss
-                        total_loss, loss_dict = model.compute_loss(noisy_features, indices=indices)
+                        # Compute loss on clean data
+                        total_loss, loss_dict = model.compute_loss(batch_features, indices=indices)
 
                         test_losses.append(loss_dict)
 
@@ -2042,6 +2076,7 @@ class Embedding:
                     best_test_loss = test_loss
                     best_test_epoch = epoch + 1
                     best_test_model = model.state_dict().copy()
+                    best_optimizer_state = optimizer.state_dict()
 
                 if verbose:
                     train_loss = avg_train_losses["total_loss"]
@@ -2069,8 +2104,9 @@ class Embedding:
         if best_test_model is not None:
             model.load_state_dict(best_test_model)
 
-        # Store model and extract embeddings
+        # Store model, optimizer state (matched to best model), and extract embeddings
         self.nnmodel = model
+        self._optimizer_state = best_optimizer_state if best_optimizer_state is not None else optimizer.state_dict()
         input_ = torch.tensor(self.init_data.T).float().to(device)
         self.coords = model.get_latent_representation(input_)
         self.nn_loss = best_test_loss
@@ -2087,7 +2123,8 @@ class Embedding:
             Number of additional epochs to train. Must be positive.
         **kwargs
             Additional keyword arguments to pass to the training method.
-            These override the original training parameters.
+            These override the original training parameters (e.g., lr
+            for fine-tuning with a lower learning rate).
 
         Raises
         ------
@@ -2099,7 +2136,11 @@ class Embedding:
         Notes
         -----
         This method requires that an autoencoder model was previously
-        trained using one of the DL-based methods (ae, vae, flexible_ae)."""
+        trained using one of the DL-based methods (ae, vae, flexible_ae).
+
+        Training parameters from the original call (feature_dropout,
+        batch_size, etc.) are preserved automatically. Only parameters
+        explicitly passed in kwargs are overridden."""
         # Validate parameters
         check_positive(add_epochs=add_epochs)
 
@@ -2113,10 +2154,23 @@ class Embedding:
         if not hasattr(self, "nnmodel") or self.nnmodel is None:
             raise AttributeError("No model to continue training. Train a model first.")
 
+        # Restore original training parameters so they don't reset to defaults.
+        # User kwargs override these.
+        _training_params = [
+            "feature_dropout", "batch_size", "train_size", "seed",
+            "inter_dim", "architecture", "loss_components", "log_every",
+            "enc_kwargs", "dec_kwargs",
+        ]
+        merged = {}
+        for p in _training_params:
+            if hasattr(self, p):
+                merged[p] = getattr(self, p)
+        merged.update(kwargs)
+
         # Get the appropriate training method
         fn = getattr(self, "create_" + self.all_params["e_method_name"] + "_embedding_")
         # Continue training with additional epochs
-        fn(continue_learning=1, epochs=add_epochs, **kwargs)
+        fn(continue_learning=1, epochs=add_epochs, **merged)
 
     def to_mvdata(self):
         """Convert embedding coordinates to MVData for further processing.

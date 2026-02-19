@@ -253,18 +253,25 @@ class StylePreset:
         ax.yaxis.label.set_size(label_size)
         ax.title.set_size(title_size)
 
-        # Handle legend if present
+        # Handle legend if present — modify in-place to preserve custom
+        # positioning (bbox_to_anchor, loc, ncol) set by panel code
         if ax.legend_:
-            ax.legend(frameon=self.legend_frameon, fontsize=legend_fontsize)
+            for text in ax.legend_.get_texts():
+                text.set_fontsize(legend_fontsize)
+            ax.legend_.set_frame_on(self.legend_frameon)
 
-        # Apply lowercase if requested
+        # Apply lowercase if requested — use set_text() to modify text content
+        # without resetting font sizes or other properties
         if self.lowercase_labels:
             if ax.get_xlabel():
-                ax.set_xlabel(ax.get_xlabel().lower())
+                ax.xaxis.label.set_text(ax.get_xlabel().lower())
             if ax.get_ylabel():
-                ax.set_ylabel(ax.get_ylabel().lower())
+                ax.yaxis.label.set_text(ax.get_ylabel().lower())
             if ax.get_title():
-                ax.set_title(ax.get_title().lower())
+                ax.title.set_text(ax.get_title().lower())
+            if ax.legend_:
+                for text in ax.legend_.get_texts():
+                    text.set_text(text.get_text().lower())
 
         # Note: tight_layout is better handled at figure save time with bbox_inches='tight'
         # We don't force margins here to allow flexibility in plot content

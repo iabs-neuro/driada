@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Optional, Tuple
 from scipy.cluster.hierarchy import dendrogram, linkage
+from scipy.spatial.distance import squareform
 
 from ..utils.plot import make_beautiful, create_default_figure
 
@@ -54,9 +55,11 @@ def plot_rdm(
     if labels is None:
         labels = [f"Item {i+1}" for i in range(n_items)]
 
+    has_dendrogram = False
     if ax is None:
         # Create figure with optional dendrogram
         if dendrogram_ratio > 0:
+            has_dendrogram = True
             # Create figure
             fig = plt.figure(figsize=figsize)
 
@@ -79,8 +82,8 @@ def plot_rdm(
             ax_corner = fig.add_subplot(gs[0, 0])
             ax_corner.axis('off')
 
-            # Compute linkage
-            linkage_matrix = linkage(rdm, method="average")
+            # Compute linkage from condensed distance matrix
+            linkage_matrix = linkage(squareform(rdm), method="average")
 
             # Plot dendrograms
             dendro_top = dendrogram(
@@ -153,8 +156,11 @@ def plot_rdm(
     for spine in ax.spines.values():
         spine.set_linewidth(2)
 
-    # Adjust layout to prevent overlap (use rect to leave space for colorbar)
-    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    # Adjust layout to prevent overlap
+    if has_dendrogram:
+        fig.subplots_adjust(left=0.15, right=0.88, bottom=0.12, top=0.92)
+    else:
+        fig.tight_layout()
 
     return fig
 
@@ -199,7 +205,7 @@ def plot_rdm_comparison(
                 )
 
     if figsize is None:
-        figsize = (6 * n_rdms, 5)
+        figsize = (6 * n_rdms + 1, 5)
 
     if titles is None:
         titles = [f"RDM {i+1}" for i in range(n_rdms)]
@@ -235,10 +241,10 @@ def plot_rdm_comparison(
         for spine in ax.spines.values():
             spine.set_linewidth(2)
 
-    # Add single colorbar
-    cbar = fig.colorbar(im, ax=axes, fraction=0.046, pad=0.04)
+    # Add single colorbar (tight_layout first, then colorbar to avoid overlap)
+    fig.tight_layout()
+    cbar = fig.colorbar(im, ax=axes, fraction=0.04, pad=0.05)
     cbar.set_label("Dissimilarity", fontsize=12)
     cbar.ax.tick_params(labelsize=10, width=2, length=4)
 
-    fig.tight_layout()
     return fig
