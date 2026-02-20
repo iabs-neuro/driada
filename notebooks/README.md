@@ -1,102 +1,85 @@
-# DRIADA INTENSE Interactive Tutorials
+# DRIADA interactive tutorials
 
-Welcome to the DRIADA INTENSE interactive notebook tutorials! These Jupyter notebooks will guide you through using INTENSE for neuronal selectivity analysis.
+Five self-contained Colab/Jupyter notebooks that walk through the full DRIADA
+toolkit -- from loading data to building functional networks and running
+cross-method analyses. Every notebook generates its own synthetic data, so no
+external files are needed.
 
-## 📚 Available Notebooks
+## Notebooks
 
-### 1. [01_quick_start.ipynb](01_quick_start.ipynb) - Quick Start (5 minutes)
-- **Goal**: Get you analyzing neuronal selectivity in 5 minutes
-- **You'll learn**:
-  - How to generate synthetic neural data
-  - Running basic INTENSE analysis
-  - Interpreting significance results
-  - Creating your first visualizations
-- **Perfect for**: First-time users who want immediate results
+### 1. [Data loading & neuron analysis](01_data_loading_and_neurons.ipynb)
 
-### 2. [02_understanding_results.ipynb](02_understanding_results.ipynb) - Understanding Results
-- **Goal**: Deep understanding of INTENSE outputs and statistics
-- **You'll learn**:
-  - Navigating the results data structures
-  - Understanding statistical measures (MI, p-values, delays)
-  - Creating custom visualizations
-  - Analyzing temporal dynamics
-  - Exporting results for publication
-- **Perfect for**: Users who want to fully understand their analysis
+Loading data into DRIADA, inspecting `Experiment` objects, and working with
+individual neurons.
 
-### 3. [03_real_data_workflow.ipynb](03_real_data_workflow.ipynb) - Real Data Workflow
-- **Goal**: Apply INTENSE to your own neural recordings
-- **You'll learn**:
-  - Data formatting and preparation
-  - Creating Experiment objects from various sources
-  - Quality control and validation
-  - Advanced analysis workflows
-  - Performance optimization for large datasets
-- **Perfect for**: Researchers ready to analyze their own data
+- Creating an `Experiment` from aligned arrays (`load_exp_from_aligned_data`)
+- Feature types: continuous, circular, categorical, aggregated
+- `TimeSeries` / `MultiTimeSeries` data representations
+- Single-neuron spike reconstruction (wavelet vs threshold), kinetics, quality metrics
+- Calcium and spike surrogates
+- Save / reload experiments with pickle
 
-## 🚀 Getting Started
+### 2. [Detecting neuron selectivity with INTENSE](02_selectivity_detection_intense.ipynb)
 
-### Prerequisites
+Information-theoretic selectivity testing -- the core DRIADA workflow.
+
+- Information theory basics: `get_mi`, `get_sim`, `get_tdmi`, `conditional_mi`, `interaction_information`
+- GCMI vs KSG estimators
+- `compute_cell_feat_significance` -- two-stage shuffle pipeline with ground-truth validation
+- Optimal temporal delays
+- Feature-feature significance (`compute_feat_feat_significance`)
+- Mixed selectivity and disentanglement analysis
+- Saving / loading INTENSE results
+
+### 3. [Population geometry & dimensionality reduction](03_population_geometry_dr.ipynb)
+
+Embedding neural populations and measuring manifold quality.
+
+- `MVData` / `get_embedding` API -- PCA, Isomap, LLE, LE, t-SNE, UMAP, MDS
+- Sequential DR (`dr_sequence`), custom distance metrics, sparse data
+- Method comparison: speed benchmark, quality metrics (kNN preservation, trustworthiness, continuity, stress)
+- Autoencoder-based DR (`flexible_ae`, continue learning)
+- Circular manifold analysis and alignment metrics
+- Intrinsic dimensionality estimation (PCA, correlation, geodesic, effective)
+- INTENSE-guided DR: selectivity on embeddings
+
+### 4. [Functional networks](04_functional_networks.ipynb)
+
+Cell-cell significance networks and spectral graph analysis.
+
+- `compute_cell_cell_significance` -- building binary and weighted networks
+- `Network` object: degree distributions, clustering, communities (Louvain)
+- Spectral analysis: eigenvalues, eigenvectors, IPR, complex spacing ratios
+- Estrada communicability, bipartivity, Gromov hyperbolicity
+- Thermodynamic, free, and Renyi entropy
+- Laplacian Eigenmaps embedding
+- Directed networks and localization signatures
+- Network save / load and randomization
+
+### 5. [Advanced capabilities](05_advanced_capabilities.ipynb)
+
+Cross-method analyses and non-calcium applications.
+
+- **Embedding selectivity** -- running INTENSE on DR components (`compute_embedding_selectivity`, `get_functional_organization`, `compare_embeddings`)
+- **Leave-one-out neuron importance** -- measuring each neuron's contribution to manifold reconstruction
+- **RSA** -- `compute_rdm_unified`, `rsa_compare`, cross-region and cross-session RDM comparison, bootstrap confidence intervals, MVData integration
+- **Beyond calcium** -- applying the full DRIADA pipeline (INTENSE + networks + DR) to RNN activations
+
+## Running the notebooks
+
+All notebooks are designed to run in Google Colab (install cell included) or
+locally with a standard Jupyter setup:
+
 ```bash
-# Ensure you have Jupyter installed
-pip install jupyter notebook
-
-# Optional: For better notebook experience
-pip install jupyterlab
+pip install driada jupyter
+jupyter notebook
 ```
 
-### Running the Notebooks
+Notebooks are independent -- you can start with any one -- but they are ordered
+from foundational concepts to advanced analyses.
 
-1. **Navigate to the notebooks directory**:
-   ```bash
-   cd path/to/driada2/notebooks
-   ```
+## Further resources
 
-2. **Launch Jupyter**:
-   ```bash
-   jupyter notebook
-   # or for JupyterLab:
-   jupyter lab
-   ```
-
-3. **Open a notebook** and follow along!
-
-### Important Notes
-
-- These notebooks use relative imports to access DRIADA without installation
-- All notebooks are self-contained and use synthetic data
-- Run cells in order for best results
-- Restart kernel between notebooks to avoid conflicts
-
-## 📊 What You'll Accomplish
-
-After completing these tutorials, you'll be able to:
-- ✅ Run INTENSE analysis on any neural dataset
-- ✅ Identify which neurons encode specific behaviors
-- ✅ Understand and interpret all statistical outputs
-- ✅ Create publication-quality visualizations
-- ✅ Handle real-world data challenges
-- ✅ Optimize analysis for large-scale datasets
-
-## 💡 Tips for Success
-
-1. **Start with notebook 01** even if you're experienced
-2. **Run all code cells** to see outputs
-3. **Experiment with parameters** to understand their effects
-4. **Check the examples/ directory** for more advanced use cases
-5. **Read docstrings** for detailed function information
-
-## 🆘 Getting Help
-
-- **Documentation**: See [README_INTENSE.md](../README_INTENSE.md)
-- **Examples**: Check the [examples/](../examples/) directory
-- **Issues**: Report problems at the project repository
-
-## 🎯 Next Steps
-
-After completing these notebooks:
-1. Apply INTENSE to your own data
-2. Explore advanced features like mixed selectivity analysis
-3. Read the mathematical framework in README_INTENSE.md
-4. Check out the Python examples for production code patterns
-
-Happy analyzing! 🧠✨
+- [README_INTENSE.md](../README_INTENSE.md) -- mathematical framework behind INTENSE
+- [examples/](../examples/) -- standalone Python scripts for production workflows
+- [GitHub Issues](https://github.com/iabs-neuro/driada/issues) -- bug reports and questions
