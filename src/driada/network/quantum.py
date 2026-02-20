@@ -132,7 +132,7 @@ def get_density_matrix(A, t, norm=0):
     >>> A = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
     >>> rho = get_density_matrix(A, t=1.0)
     >>> np.trace(rho)  # Trace should be 1
-    1.0"""
+    np.float64(1.0)"""
     A = A.astype(float)
     if norm:
         X = get_norm_laplacian(A)
@@ -186,7 +186,7 @@ def manual_entropy(pr):
     >>> pr = np.array([0.5, 0.5, 0.0])
     >>> H = manual_entropy(pr)
     >>> np.isclose(H, 1.0)  # Maximum entropy for 2 equiprobable states
-    True"""
+    np.True_"""
     probs = np.trim_zeros(pr)
     probs = probs[np.where(probs > 1e-15)]
     return -np.real(np.sum(np.multiply(probs, np.log2(probs))))
