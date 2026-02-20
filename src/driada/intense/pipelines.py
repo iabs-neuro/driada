@@ -128,6 +128,8 @@ def compute_cell_feat_significance(
     mi_estimator : str, optional
         Mutual information estimator to use when metric='mi'. Options: 'gcmi' or 'ksg'.
         Default is 'gcmi'
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
     mode : str, optional
         Computation mode. 3 modes are available:
         'stage1': perform preliminary scanning with "n_shuffles_stage1" shuffles only.
@@ -792,6 +794,8 @@ def compute_feat_feat_significance(
     mi_estimator : str, optional
         Mutual information estimator to use when metric='mi'. Default: 'gcmi'.
         Options: 'gcmi' or 'ksg'
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
     mode : str, optional
         Computation mode: 'two_stage', 'stage1', or 'stage2'. Default: 'two_stage'.
     n_shuffles_stage1 : int, optional
@@ -1112,6 +1116,8 @@ def compute_cell_cell_significance(
     mi_estimator : str, optional
         Mutual information estimator to use when metric='mi'. Default: 'gcmi'.
         Options: 'gcmi' or 'ksg'
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
     mode : str, optional
         Computation mode: 'two_stage', 'stage1', or 'stage2'. Default: 'two_stage'.
     n_shuffles_stage1 : int, optional
@@ -1427,6 +1433,8 @@ def compute_embedding_selectivity(
     mi_estimator : str
         Mutual information estimator to use when metric='mi'. Default: 'gcmi'.
         Options: 'gcmi' or 'ksg'
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
     mode : str
         Computation mode: 'stage1', 'stage2', or 'two_stage' (default)
     n_shuffles_stage1 : int

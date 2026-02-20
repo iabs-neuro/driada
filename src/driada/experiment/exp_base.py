@@ -2124,10 +2124,50 @@ class Experiment:
 
         # Helper functions for parallel execution
         def _optimize_kinetics(neuron, fps):
+            """Optimize calcium kinetics for a single neuron.
+
+            Parameters
+            ----------
+            neuron : Neuron
+                Neuron object whose kinetics will be optimized in-place.
+            fps : float
+                Sampling rate in frames per second.
+
+            Returns
+            -------
+            Neuron
+                The same neuron object, after kinetics optimization.
+            """
             neuron.optimize_kinetics(method="direct", fps=fps)
             return neuron
 
         def _reconstruct_spikes(neuron, method, n_iter, fps, wavelet, rel_wvt_times, use_gpu, kwargs):
+            """Reconstruct spikes for a single neuron.
+
+            Parameters
+            ----------
+            neuron : Neuron
+                Neuron object whose spikes will be reconstructed in-place.
+            method : str
+                Reconstruction method ('wavelet' or 'threshold').
+            n_iter : int
+                Number of iterations for iterative detection.
+            fps : float
+                Sampling rate in frames per second.
+            wavelet : Wavelet or None
+                Pre-computed wavelet object for wavelet-based reconstruction.
+            rel_wvt_times : list or None
+                Pre-computed time resolutions for each wavelet scale.
+            use_gpu : bool
+                Whether to use GPU acceleration for wavelet transform.
+            kwargs : dict
+                Additional keyword arguments passed to ``neuron.reconstruct_spikes()``.
+
+            Returns
+            -------
+            Neuron
+                The same neuron object, after spike reconstruction.
+            """
             neuron.reconstruct_spikes(
                 method=method,
                 iterative=True,

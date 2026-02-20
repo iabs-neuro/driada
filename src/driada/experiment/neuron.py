@@ -198,6 +198,17 @@ class Neuron:
             kinetics optimization to provide event boundaries.
         seed : int, optional
             Random seed for preprocessing reproducibility.
+        reconstructed : array-like or None, optional
+            Pre-computed reconstructed calcium signal. If provided, must have
+            same length as ca. Skips reconstruction step and directly populates
+            the internal reconstructed trace.
+        metrics : dict or None, optional
+            Pre-computed quality metrics dictionary. Recognized keys include
+            't_rise' and 't_off' (kinetics in seconds, converted to frames),
+            'r2_score' and 'snr_recon' (reconstruction quality),
+            'event_r2_score' and 'event_snr' (event-level quality), and
+            'noise_level' (noise amplitude). Unrecognized keys are stored
+            but otherwise ignored.
 
         Raises
         ------

@@ -256,7 +256,32 @@ def _get_tuning_param(
     user_params: Optional[Dict] = None,
     tuning_defaults: Optional[Dict] = None,
 ) -> float:
-    """Get tuning parameter with fallback to defaults."""
+    """Get tuning parameter with fallback to defaults.
+
+    Looks up a tuning parameter by checking user overrides first, then
+    custom defaults, then module-level ``TUNING_DEFAULTS``.
+
+    Parameters
+    ----------
+    feature_name : str
+        Name of the feature (e.g., ``"head_direction"``, ``"speed"``).
+    param_name : str
+        Name of the tuning parameter to retrieve (e.g., ``"kappa"``).
+    user_params : dict, optional
+        Per-group user overrides for tuning parameters.
+    tuning_defaults : dict, optional
+        Custom default overrides keyed by feature name.
+
+    Returns
+    -------
+    float
+        The resolved parameter value.
+
+    Raises
+    ------
+    ValueError
+        If the parameter cannot be found in any source.
+    """
     # Check user params first
     if user_params and param_name in user_params:
         return user_params[param_name]
@@ -279,7 +304,33 @@ def _generate_random_tuning_param(
     param_name: str,
     rng: np.random.Generator,
 ) -> Union[float, np.ndarray]:
-    """Generate randomized per-neuron tuning parameter."""
+    """Generate randomized per-neuron tuning parameter.
+
+    Produces a random value appropriate for the given feature and parameter
+    combination (e.g., a random preferred direction for head-direction cells).
+
+    Parameters
+    ----------
+    feature_name : str
+        Name of the feature (e.g., ``"head_direction"``, ``"x"``,
+        ``"position_2d"``, ``"speed"``, ``"fbm_0"``).
+    param_name : str
+        Name of the tuning parameter to randomize (e.g., ``"pref_dir"``,
+        ``"center"``, ``"threshold"``).
+    rng : numpy.random.Generator
+        NumPy random number generator instance.
+
+    Returns
+    -------
+    float or numpy.ndarray
+        The randomized parameter value. Returns an array for
+        multi-dimensional parameters (e.g., 2D place-field center).
+
+    Raises
+    ------
+    ValueError
+        If the feature/parameter combination is not recognized.
+    """
     if feature_name == "head_direction" and param_name == "pref_dir":
         return rng.uniform(0, 2 * np.pi)
     elif feature_name in ["x", "y"] and param_name == "center":
@@ -374,6 +425,9 @@ def generate_tuned_selectivity_exp(
         Random seed for reproducibility.
     verbose : bool, optional
         Print progress messages. Default: True.
+    reconstruct_spikes : str, optional
+        Spike reconstruction method to apply after generating calcium
+        traces. If ``None``, no spike reconstruction is performed.
 
     Returns
     -------
@@ -988,8 +1042,10 @@ def generate_synthetic_exp_with_mixed_selectivity(
         Sampling rate in Hz. Default: 20.
     verbose : bool
         Print progress. Default: True.
-    baseline_rate, peak_rate : float
-        Baseline and active firing rates. Default: 0.1, 1.0.
+    baseline_rate : float
+        Baseline firing rate (spikes/frame). Default: 0.1.
+    peak_rate : float
+        Peak firing rate during selectivity (spikes/frame). Default: 2.0.
     skip_prob : float
         Probability of skipping spikes. Default: 0.1.
     calcium_amplitude_range : tuple

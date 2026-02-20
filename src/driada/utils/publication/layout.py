@@ -675,12 +675,18 @@ class PanelLayout:
         ----------
         name : str
             Panel name
-        fig_width_inches, fig_height_inches : float
-            Figure dimensions
-        col_positions_inches, row_positions_inches : list
-            Column and row positions
-        col_widths_inches, row_heights_inches : list
-            Column widths and row heights
+        fig_width_inches : float
+            Figure width in inches
+        fig_height_inches : float
+            Figure height in inches
+        col_positions_inches : list
+            Column positions in inches
+        row_positions_inches : list
+            Row positions in inches
+        col_widths_inches : list
+            Column widths in inches
+        row_heights_inches : list
+            Row heights in inches
 
         Returns
         -------

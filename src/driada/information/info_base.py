@@ -1371,6 +1371,8 @@ def get_sim(x, y, metric, shift=0, ds=1, k=5, estimator="gcmi", check_for_coinci
     check_for_coincidence : bool, optional
         Whether to check if x and y contain identical data (which would result
         in infinite MI). Only used for MI calculation. Default is False.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -1529,6 +1531,8 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
         - For continuous variables: raises ValueError (MI would be infinite)
         - For discrete MultiTimeSeries: raises NotImplementedError (not yet supported)
         Set to False to bypass this check (use with caution).
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -1834,6 +1838,8 @@ def get_1d_mi(ts1, ts2, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincide
         - For discrete variables: returns H(X)
         - For continuous variables: raises ValueError (MI is infinite)
         Default: True.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -2061,6 +2067,8 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator="gcmi", mi_
         is applied to the full data before downsampling. This is an approximation that works well for
         small downsampling factors (ds ≤ 5) and smooth signals, but may introduce inaccuracies for
         large downsampling factors or highly variable signals.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------

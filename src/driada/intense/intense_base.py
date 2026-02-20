@@ -70,7 +70,15 @@ FFT_AV_DISCRETE = "av_gd"             # Activity ratio (continuous-discrete, bin
 
 @contextmanager
 def _timed_section(timings, name):
-    """Context manager for timing code sections. No-op if timings is None."""
+    """Context manager for timing code sections. No-op if timings is None.
+
+    Parameters
+    ----------
+    timings : dict or None
+        Dictionary to store timing results. If None, timing is skipped (no-op).
+    name : str
+        Key under which the elapsed time (in seconds) will be stored in timings.
+    """
     if timings is None:
         yield
     else:
@@ -502,8 +510,10 @@ def _extract_fft_data(ts1, ts2, fft_type, ds: int):
 
     Parameters
     ----------
-    ts1, ts2 : TimeSeries or MultiTimeSeries
-        The time series pair.
+    ts1 : TimeSeries or MultiTimeSeries
+        First time series in the pair.
+    ts2 : TimeSeries or MultiTimeSeries
+        Second time series in the pair.
     fft_type : str
         FFT type constant (FFT_CONTINUOUS, FFT_DISCRETE, FFT_MULTIVARIATE).
     ds : int
@@ -1050,6 +1060,8 @@ def calculate_optimal_delays(
         Pre-computed FFT cache from _build_fft_cache. Keys are (key1, key2) tuples
         using stable identifiers from _get_ts_key(). If provided, avoids redundant
         data extraction.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -1238,6 +1250,8 @@ def calculate_optimal_delays_parallel(
     fft_cache : dict, optional
         Pre-computed FFT cache from _build_fft_cache. Keys are (key1, key2) tuples
         using stable identifiers from _get_ts_key(). Passed to each worker for cache reuse.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -1570,6 +1584,8 @@ def scan_pairs(
         Pre-computed FFT cache from _build_fft_cache. Keys are (key1, key2) tuples
         using stable identifiers from _get_ts_key(). If provided, avoids redundant
         data extraction.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -1886,6 +1902,8 @@ def scan_pairs_parallel(
         Pre-computed FFT cache mapping (key1, key2) tuples to FFTCacheEntry objects.
         Keys are stable identifiers from _get_ts_key(). If provided, avoids redundant
         data extraction. If None, FFT type is computed fresh for each pair.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -2089,6 +2107,8 @@ def scan_pairs_router(
         Pre-computed FFT cache mapping (global_i, j) tuples to FFTCacheEntry objects.
         If provided, avoids redundant data extraction. If None, FFT type is computed
         fresh for each pair. Use _build_fft_cache() to create this cache.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -2242,6 +2262,8 @@ def scan_stage(
         Pre-computed FFT cache for accelerated computation.
     verbose : bool, default=True
         Whether to print stage information.
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     Returns
     -------
@@ -2401,6 +2423,9 @@ def compute_me_stats(
 
     mi_estimator : str, default='gcmi'
         Mutual information estimator to use when metric='mi'. Options: 'gcmi' or 'ksg'
+
+    mi_estimator_kwargs : dict, optional
+        Additional keyword arguments passed to the MI estimator function.
 
     precomputed_mask_stage1 : np.array, optional
         precomputed mask for skipping some of possible pairs in stage 1.
