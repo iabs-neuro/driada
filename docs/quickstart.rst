@@ -541,7 +541,7 @@ Explore comprehensive examples demonstrating real-world workflows:
 
 For more information:
 
-- Read the :doc:`api/index` for comprehensive documentation
-- Check out :doc:`tutorials` for in-depth guides
+- Read the `API documentation <https://driada.readthedocs.io>`_ for comprehensive reference
+- Check out the `tutorial notebooks <https://github.com/iabs-neuro/driada/tree/main/notebooks>`_ for in-depth guides
 - Visit our `GitHub repository <https://github.com/iabs-neuro/driada>`_ for latest updates
 - Join our community for support and discussions

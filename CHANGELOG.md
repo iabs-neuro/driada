@@ -509,5 +509,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## TODO
-- [ ] **FINAL REVIEW**: Verify this CHANGELOG before v1.0.0 release (check after completing all other v1.0 preparation tasks)

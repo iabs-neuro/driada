@@ -28,8 +28,6 @@ dependencies = [
     "pandas>=2.1.4",
     "matplotlib>=3.7.0",
     "networkx>=3.1",
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
     "scipy>=1.11.4",
     "tqdm>=4.66.1",
     "numba>=0.59.0",
@@ -42,7 +40,6 @@ dependencies = [
     "regex>=2023.10.3",
     "beautifulsoup4>=4.12.3",
     "seaborn>=0.12.2",
-    #"setuptools~=68.2.2",
     "ssqueezepy>=0.6.5",
     "pynndescent>=0.5.10",
     "pydiffmap>=0.2.0.1",
@@ -50,7 +47,15 @@ dependencies = [
 ]
 
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
 
@@ -65,10 +70,13 @@ all = ["cvxpy>=1.4.2",
        "torchvision",
        "torchaudio",
        "torch-mist"]
+dev = ["pytest>=7.4.0",
+       "pytest-cov>=4.1.0"]
 
 
 [project.urls]
 Homepage = "https://github.com/iabs-neuro/driada"
+Documentation = "https://driada.readthedocs.io"
 Issues = "https://github.com/iabs-neuro/driada/issues"
 
 [tool.pytest.ini_options]
@@ -78,17 +86,16 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--strict-markers",
-    "--cov=driada",
-    "--cov-report=html",
-    "--cov-report=term-missing",
-    "--cov-report=term:skip-covered",
-    "--no-cov-on-fail",
+    "--tb=short",
     "-v"
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "gpu: marks tests that require GPU",
-    "integration: marks integration tests"
+    "integration: marks integration tests",
+    "fast: marks tests optimized for speed",
+    "visual: marks tests that generate visualizations",
+    "very_slow: marks tests as very slow (>60s)"
 ]
 
 [tool.coverage.run]

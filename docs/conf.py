@@ -35,7 +35,7 @@ except ImportError:
 
 # -- Project information -----------------------------------------------------
 project = 'DRIADA'
-copyright = '2025, DRIADA Contributors'
+copyright = '2020-2026, DRIADA Contributors'
 author = 'DRIADA Contributors'
 release = '1.0.0'
 
@@ -48,6 +48,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx_autodoc_typehints',
+    'myst_parser',
 ]
 
 # Napoleon settings

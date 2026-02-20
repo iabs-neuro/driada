@@ -6,11 +6,12 @@ TODO_NUMBA_CONFIG.md
 TODO_DISENTANGLEMENT_TESTS.md
 .claude/
 
-# Markdown files (except README)
+# Markdown files (except key project files)
 *.md
 !README*.md
 !readme*.md
 !tools/EXAMPLE_VALIDATION_PROTOCOL.md
+!.github/**/*.md
 
 # Python
 __pycache__/

@@ -370,17 +370,21 @@ class TestExperimentMethods:
 
         return exp
 
-    def test_check_ds(self, basic_experiment, capsys):
+    def test_check_ds(self, basic_experiment):
         """Test downsampling check."""
         # Normal ds - no warning
-        basic_experiment.check_ds(1)
-        captured = capsys.readouterr()
-        assert "too high" not in captured.err
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            basic_experiment.check_ds(1)
+            ds_warnings = [x for x in w if "too high" in str(x.message)]
+            assert len(ds_warnings) == 0
 
         # High ds - should warn
-        basic_experiment.check_ds(10)
-        captured = capsys.readouterr()
-        assert "too high" in captured.err
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            basic_experiment.check_ds(10)
+            ds_warnings = [x for x in w if "too high" in str(x.message)]
+            assert len(ds_warnings) == 1
 
     def test_process_cbunch(self, basic_experiment):
         """Test cell bunch processing."""

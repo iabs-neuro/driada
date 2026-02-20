@@ -93,16 +93,6 @@ pip install driada[gpu]
 
 For complete code examples, tutorials, and API documentation, please visit the **[official documentation](https://driada.readthedocs.io)**.
 
-## ⚠️ WARNING: Pre-Release Version
-
-**DRIADA is currently in pre-release stage (v0.x.x) and will be finalized to v1.0 soon.**
-
-Until the stable v1.0 release:
-- 📚 **Documentation takes precedence** over example code
-- 🔧 Examples and notebooks may be incomplete or broken
-- 🚧 API may undergo changes
-- 📖 Please refer to the [official documentation](https://driada.readthedocs.io) for the most up-to-date information
-
 ## Documentation
 
 📖 **[Official Documentation](https://driada.readthedocs.io)** - Complete API reference, tutorials, and guides
@@ -113,7 +103,7 @@ Until the stable v1.0 release:
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.9+
 - NumPy, SciPy, scikit-learn
 - numba (for performance optimization)
 - matplotlib, seaborn (for visualization)
@@ -157,7 +147,7 @@ If you use DRIADA in your research, please cite:
 @software{driada2024,
   title = {DRIADA: Dimensionality Reduction for Integrated Activity Data},
   author = {Pospelov, Nikita and contributors},
-  year = {2025},
+  year = {2026},
   url = {https://github.com/iabs-neuro/driada}
 }
 ```
