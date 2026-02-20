@@ -217,6 +217,9 @@ def ca_mse_error(t_off, ca, spk, t_rise):
     >>> error > 0
     True
     """
+    # scipy.optimize.minimize passes parameters as 1-element ndarrays;
+    # extract scalar to avoid NumPy deprecation (ndim>0 to scalar).
+    t_off = float(np.asarray(t_off).ravel()[0])
     ca = np.asarray(ca)
     spk = np.asarray(spk)
     if len(ca) != len(spk):
