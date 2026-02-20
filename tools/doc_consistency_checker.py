@@ -119,7 +119,7 @@ class DocConsistencyChecker:
                         
                         # Skip if it looks like a bullet point or special formatting
                         # But allow asterisks at the beginning for *args, **kwargs
-                        if param_name and not param_name.lstrip('*').startswith(('-', '*', '+', '•', '·', '◦')):
+                        if param_name and not param_name.lstrip('*').startswith(('-', '*', '+', '\u2022', '\u00b7', '\u25e6')):
                             param_type = parts[1].strip() if len(parts) > 1 else ''
                             # Keep the parameter name as-is (including asterisks for *args, **kwargs)
                             params[param_name] = param_type
@@ -288,7 +288,7 @@ class DocConsistencyChecker:
         report_lines.append("")
         
         if not issues:
-            report_lines.append("✅ No documentation inconsistencies found!")
+            report_lines.append("[OK] No documentation inconsistencies found!")
         else:
             # Count issues by type
             critical_count = 0
@@ -304,8 +304,8 @@ class DocConsistencyChecker:
             
             total_issues = critical_count + warning_count
             report_lines.append(f"Found {total_issues} issues in {len(issues)} files:")
-            report_lines.append(f"  ❌ Critical Issues: {critical_count}")
-            report_lines.append(f"  ⚠️  Warnings: {warning_count}")
+            report_lines.append(f"  [FAIL] Critical Issues: {critical_count}")
+            report_lines.append(f"  [WARN] Warnings: {warning_count}")
             report_lines.append("")
             
             # Group issues by type
@@ -326,23 +326,23 @@ class DocConsistencyChecker:
             
             # Print critical issues first
             if critical_files:
-                report_lines.append("\n❌ CRITICAL ISSUES - Must Fix")
+                report_lines.append("\n[FAIL] CRITICAL ISSUES - Must Fix")
                 report_lines.append("=" * 40)
                 for filepath, file_issues in sorted(critical_files.items()):
-                    report_lines.append(f"\n📄 {filepath}")
+                    report_lines.append(f"\n  {filepath}")
                     for line, func_name, issue_msg in sorted(file_issues):
                         report_lines.append(f"  Line {line} - {func_name}():")
-                        report_lines.append(f"    ❌ {issue_msg}")
+                        report_lines.append(f"    [FAIL] {issue_msg}")
             
             # Print warnings after
             if warning_files:
-                report_lines.append("\n\n⚠️  WARNINGS - Implementation Changes")
+                report_lines.append("\n\n[WARN] WARNINGS - Implementation Changes")
                 report_lines.append("=" * 40)
                 for filepath, file_issues in sorted(warning_files.items()):
-                    report_lines.append(f"\n📄 {filepath}")
+                    report_lines.append(f"\n  {filepath}")
                     for line, func_name, issue_msg in sorted(file_issues):
                         report_lines.append(f"  Line {line} - {func_name}():")
-                        report_lines.append(f"    ⚠️  {issue_msg}")
+                        report_lines.append(f"    [WARN] {issue_msg}")
         
         return "\n".join(report_lines)
 
@@ -384,7 +384,7 @@ def main():
     # Save cache if requested
     if args.save_cache:
         checker._save_cache()
-        print(f"\n💾 Cache saved to {checker.cache_file}")
+        print(f"\nCache saved to {checker.cache_file}")
     
     # Exit with error code only if critical issues found
     has_critical = False

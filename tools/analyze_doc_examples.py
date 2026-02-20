@@ -211,7 +211,7 @@ def main():
         total_blocks += results['total_blocks']
         
         if results['total_blocks'] > 0:
-            status = "✅" if results['blocks_with_issues'] == 0 else "⚠️"
+            status = "[OK]" if results['blocks_with_issues'] == 0 else "[WARN]"
             msg = f"{status} {relative_path}: {results['total_blocks']} blocks, " \
                   f"{results['blocks_with_issues']} with potential issues"
             print(msg)
@@ -240,7 +240,7 @@ def main():
                     report_content.append(line_msg)
                     print(line_msg)
                     for issue in analysis['issues']:
-                        issue_msg = f"    ⚠️  {issue}"
+                        issue_msg = f"    [WARN] {issue}"
                         report_content.append(issue_msg)
                         print(issue_msg)
     
@@ -252,7 +252,7 @@ def main():
     report_content.append(summary2)
     
     # Write report file
-    with open(report_file, 'w') as f:
+    with open(report_file, 'w', encoding='utf-8') as f:
         f.write('\n'.join(report_content))
     
     print(f"\nReport saved to: {report_file}")

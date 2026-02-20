@@ -211,11 +211,11 @@ def main():
             
             for issue in issues:
                 print(f"  Line {issue['line']}: {issue['type']} `{issue['reference']}`")
-                print(f"    → {issue['error']}")
+                print(f"    -> {issue['error']}")
     
     # Generate report file
     report_path = script_dir / "doc_verification_report.txt"
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write("Documentation Reference Verification Report\n")
         f.write("==========================================\n\n")
         f.write(f"Total references checked: {total_refs}\n")
@@ -237,10 +237,10 @@ def main():
     
     # Exit with error code if issues found
     if all_issues:
-        print("\n⚠️  Documentation references non-existent functions/classes!")
+        print("\n[WARN] Documentation references non-existent functions/classes!")
         sys.exit(1)
     else:
-        print("\n✅ All documentation references are valid!")
+        print("\n[OK] All documentation references are valid!")
         sys.exit(0)
 
 

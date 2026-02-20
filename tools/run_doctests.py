@@ -1054,9 +1054,9 @@ Examples:
             total_failed += results['failed']
             
             if results['failed'] == 0:
-                print(f" ✅ {results['passed']}/{results['total_blocks']} passed")
+                print(f" [OK]{results['passed']}/{results['total_blocks']} passed")
             else:
-                print(f" ❌ {results['passed']}/{results['total_blocks']} passed, {results['failed']} failed")
+                print(f" [FAIL]{results['passed']}/{results['total_blocks']} passed, {results['failed']} failed")
     
     # Test Python modules
     if python_files:
@@ -1082,9 +1082,9 @@ Examples:
             total_failed += results['failed']
             
             if results['failed'] == 0:
-                print(f" ✅ {results['passed']}/{results['total_blocks']} passed")
+                print(f" [OK]{results['passed']}/{results['total_blocks']} passed")
             else:
-                print(f" ❌ {results['passed']}/{results['total_blocks']} passed, {results['failed']} failed")
+                print(f" [FAIL]{results['passed']}/{results['total_blocks']} passed, {results['failed']} failed")
     
     # Print summary
     print("\n" + "=" * 80)
@@ -1137,7 +1137,7 @@ Examples:
     
     # Generate report
     report_path = script_dir / "doctest_report.txt"
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write("Documentation and Docstring Test Report\n")
         f.write("======================================\n\n")
         
@@ -1206,10 +1206,10 @@ Examples:
     
     # Exit with appropriate code
     if total_failed > 0:
-        print("\n⚠️  Some documentation examples failed!")
+        print("\n[WARN] Some documentation examples failed!")
         sys.exit(1)
     else:
-        print("\n✅ All documentation examples passed!")
+        print("\n[OK] All documentation examples passed!")
         sys.exit(0)
 
 
