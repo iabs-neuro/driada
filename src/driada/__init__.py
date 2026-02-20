@@ -13,7 +13,7 @@ import warnings as _warnings
 _warnings.filterwarnings("ignore", message=".*Python version.*google.api_core.*")
 del _warnings
 
-__version__ = "0.7.2"
+__version__ = "1.0.0"
 
 # =============================================================================
 # Global configuration
