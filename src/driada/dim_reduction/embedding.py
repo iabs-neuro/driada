@@ -1029,8 +1029,8 @@ class Embedding:
         Non-parametric: cannot embed new points without refitting.
         Stochastic: different runs may produce different results.
 
-        The perplexity parameter (related to number of neighbors) is
-        automatically set by sklearn based on dataset size.
+        The perplexity parameter (related to number of neighbors) controls
+        the balance between local and global structure preservation.
 
         References
         ----------
@@ -1048,7 +1048,14 @@ class Embedding:
         verbose = getattr(self, "verbose", 0)
 
         try:
-            model = TSNE(n_components=self.dim, verbose=verbose)
+            perplexity = getattr(self, "perplexity", 30)
+            random_state = getattr(self, "random_state", None)
+            model = TSNE(
+                n_components=self.dim,
+                perplexity=perplexity,
+                random_state=random_state,
+                verbose=verbose,
+            )
             self.coords = model.fit_transform(self.init_data.T).T
             self.reducer_ = model
         except Exception as e:
@@ -1094,8 +1101,12 @@ class Embedding:
             raise ImportError("umap-learn not installed. Install with: pip install umap-learn")
 
         try:
+            random_state = getattr(self, "random_state", None)
             reducer = umap.UMAP(
-                n_neighbors=self.graph.nn, n_components=self.dim, min_dist=self.min_dist
+                n_neighbors=self.graph.nn,
+                n_components=self.dim,
+                min_dist=self.min_dist,
+                random_state=random_state,
             )
             # Use init_data, not graph.data
             self.coords = reducer.fit_transform(self.init_data.T).T

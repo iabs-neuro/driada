@@ -1261,7 +1261,7 @@ class Network:
             self.logger.warning(f"{n - np.count_nonzero(indeg)} nodes without in-edges")
 
         nz = np.count_nonzero(deg)
-        if nz != n and self.n_cc == 1:
+        if nz != n and getattr(self, "n_cc", None) == 1:
             self.logger.error(f"Graph has {n - nz} isolated nodes!")
             raise Exception(f"Graph has {n - nz} isolated nodes!")
 
@@ -1290,7 +1290,7 @@ class Network:
 
         if "lap" in mode:
             n_comp = len(raw_eigs[np.abs(raw_eigs) == 0])
-            if n_comp != 1 and not self.weighted and self.n_cc == 1:
+            if n_comp != 1 and not self.weighted and getattr(self, "n_cc", None) == 1:
                 print("eigenvalues:", sorted_eigs)
                 raise Exception("Graph has %d components!" % n_comp)
 
@@ -1827,22 +1827,16 @@ class Network:
         dim : int
             Target embedding dimension. Must be less than number of nodes.
 
-        Returns
-        -------
-        np.ndarray
-            Embedding matrix of shape (n_nodes, dim) where each row is the
-            low-dimensional representation of a node.
-
         Notes
         -----
+        Sets ``self.lem_emb`` to an ndarray of shape ``(dim, n_nodes)``
+        where each row corresponds to one embedding dimension.
+
         The embedding minimizes the weighted sum of squared distances between
         connected nodes. The first eigenvector (constant) is excluded as it
         doesn't provide discriminative information.
 
         For disconnected graphs, only the giant component is embedded.
-
-        This method modifies self.lem_emb to store the embedding and
-        self.lem_eigvals to store the selected eigenvalues.
 
         References
         ----------

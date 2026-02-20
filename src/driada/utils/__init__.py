@@ -41,6 +41,7 @@ from .visual import (
     plot_embeddings_grid,
     plot_neuron_selectivity_summary,
     plot_component_selectivity_heatmap,
+    visualize_circular_manifold,
     DEFAULT_DPI,
 )
 
@@ -110,6 +111,7 @@ __all__ = [
     "plot_embeddings_grid",
     "plot_neuron_selectivity_summary",
     "plot_component_selectivity_heatmap",
+    "visualize_circular_manifold",
     "DEFAULT_DPI",
     # Output
     "show_output",
