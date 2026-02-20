@@ -389,6 +389,7 @@ Load and analyze your own neural recordings:
    from driada import load_exp_from_aligned_data
    
    # Load data from NPZ file (recommended format)
+   sample_npz_path = 'path/to/sample_recording.npz'
    data = dict(np.load(sample_npz_path))
    # Expected structure in sample_recording.npz:
    # - data['calcium']: (50, 10000) - neural activity, REQUIRED
@@ -482,8 +483,8 @@ Leverage DRIADA's advanced capabilities:
    )
    
    # Save complete analysis results
-   from driada.utils.data import write_dict_to_hdf5
-   
+   import pickle
+
    # Package all results
    analysis_results = {
        'experiment_signature': exp.signature,
@@ -495,12 +496,10 @@ Leverage DRIADA's advanced capabilities:
        },
        'significant_neurons': exp.get_significant_neurons()
    }
-   
-   # Save to HDF5 (remove file if exists for clean save)
-   import os
-   if os.path.exists('analysis_results.h5'):
-       os.remove('analysis_results.h5')
-   write_dict_to_hdf5(analysis_results, 'analysis_results.h5')
+
+   # Save to pickle
+   with open('analysis_results.pkl', 'wb') as f:
+       pickle.dump(analysis_results, f)
    
 
 Next Steps
