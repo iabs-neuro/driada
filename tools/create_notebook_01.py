@@ -47,8 +47,8 @@ cells.append(md_cell(
 "\n"
 "**What you will learn:**\n"
 "\n"
-"1. **Loading your data** -- wrap numpy arrays (from Suite2P, CaImAn, DeepLabCut, etc.) into a DRIADA `Experiment`.\n"
-"2. **Single neuron analysis** -- create a `Neuron`, reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
+"1. **Loading your data** -- wrap numpy arrays (from Suite2P, CaImAn, DeepLabCut, etc.) into a DRIADA [`Experiment`](https://driada.readthedocs.io/en/latest/api/experiment/core.html).\n"
+"2. **Single neuron analysis** -- create a [`Neuron`](https://driada.readthedocs.io/en/latest/api/experiment/reconstruction.html), reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
 "3. **Threshold vs wavelet reconstruction** -- compare two spike detection methods across four optimization modes.\n"
 "4. **Method agreement** -- quantify event-region overlap between threshold and wavelet at varying tolerance."
 ))
@@ -82,12 +82,14 @@ cells.append(md_cell(
 "## 1. Loading your data into DRIADA\n"
 "\n"
 "You have numpy arrays from your recording pipeline (Suite2P, CaImAn,\n"
-"DeepLabCut, etc.).  DRIADA wraps them into an **Experiment** object that\n"
+"DeepLabCut, etc.).  [`load_exp_from_aligned_data`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html)\n"
+"wraps them into an **Experiment** object that\n"
 "keeps neural activity and behavioral features aligned and annotated.\n"
 "\n"
-"The only required key is `'calcium'` -- a `(n_neurons, n_frames)` array of\n"
-"fluorescence traces.  Everything else you pass becomes a **dynamic feature**\n"
-"(one value per timepoint)."
+"The data dict must contain one neural-data key -- any of `'calcium'`,\n"
+"`'activations'`, `'neural_data'`, `'activity'`, or `'rates'` -- holding a\n"
+"`(n_neurons, n_frames)` array.  Everything else you pass becomes a\n"
+"**dynamic feature** (one value per timepoint)."
 ))
 
 cells.append(code_cell(
@@ -116,12 +118,30 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Feature types and aggregation\n"
 "\n"
-"DRIADA auto-detects whether each feature is **continuous** or **discrete**.\n"
-"You can override the detection with a `feature_types` dict.  Valid type\n"
-"strings include: `continuous`, `circular`, `categorical`, `binary`, `count`.\n"
+"DRIADA runs a multi-stage\n"
+"[auto-detection pipeline](https://driada.readthedocs.io/en/latest/api/information/utilities.html)\n"
+"on every feature to determine its type.  The pipeline considers uniqueness\n"
+"ratio, integer fraction, gap statistics, distribution tests, and -- for\n"
+"circular candidates -- variable name, value range, wraparound jumps, and\n"
+"Von Mises fit.  The result is a `primary_type` (continuous / discrete /\n"
+"ambiguous) plus a `subtype`:\n"
+"\n"
+"| Primary type | Subtypes |\n"
+"|---|---|\n"
+"| continuous | `linear`, `circular` |\n"
+"| discrete | `binary`, `categorical`, `count`, `timeline` |\n"
+"\n"
+"You can override the detection with a\n"
+"[`feature_types`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html)\n"
+"dict mapping feature names to type strings.  Valid strings: `continuous`,\n"
+"`linear`, `circular`, `phase`, `angle`, `discrete`, `binary`, `categorical`,\n"
+"`count`, `timeline`.  When `feature_types` is provided, any auto-detected\n"
+"circular feature **not** listed in it is overridden to `linear` (whitelist\n"
+"behaviour).\n"
 "\n"
 "`aggregate_features` groups related 1D features into a single\n"
-"`MultiTimeSeries` (e.g. x_pos + y_pos -> position_2d).\n"
+"[`MultiTimeSeries`](https://driada.readthedocs.io/en/latest/api/information/core.html)\n"
+"(e.g. x_pos + y_pos -> position_2d).\n"
 "\n"
 "`create_circular_2d=True` (the default) auto-creates a `(cos, sin)` encoding\n"
 "for every circular feature.  This is important because MI estimators (GCMI,\n"
@@ -211,7 +231,7 @@ cells.append(md_cell(
 "\n"
 "| Class | Description |\n"
 "|---|---|\n"
-"| **TimeSeries** | A single 1D variable (e.g. `speed`) |\n"
+"| [**`TimeSeries`**](https://driada.readthedocs.io/en/latest/api/information/core.html) | A single 1D variable (e.g. `speed`) |\n"
 "| **MultiTimeSeries** | Multiple aligned 1D variables stacked into a 2D array (e.g. `position_2d = [x, y]`) |\n"
 "\n"
 "Key attributes on both:\n"
@@ -254,8 +274,10 @@ cells.append(md_cell(
 "### Batch spike reconstruction\n"
 "\n"
 "`reconstruct_all_neurons()` applies the same reconstruction method across\n"
-"the whole population.  After reconstruction, per-neuron quality metrics\n"
-"(wavelet SNR, R-squared, event counts) are available."
+"the whole population.  Key parameters include `method` (`'wavelet'` or\n"
+"`'threshold'`), `n_iter` (number of iterative detection passes), and\n"
+"`show_progress` (display a progress bar).  After reconstruction, per-neuron\n"
+"quality metrics (wavelet SNR, R-squared, event counts) are available."
 ))
 
 cells.append(code_cell(
@@ -320,7 +342,9 @@ cells.append(md_cell(
 "### Save and reload\n"
 "\n"
 "The entire Experiment (neural data + features + metadata) can be serialized\n"
-"with pickle for fast roundtrip storage."
+"with [`save_exp_to_pickle`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html)\n"
+"and restored with [`load_exp_from_pickle`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html)\n"
+"for fast roundtrip storage."
 ))
 
 cells.append(code_cell(
@@ -349,7 +373,8 @@ cells.append(md_cell(
 "## 2. Single neuron analysis\n"
 "\n"
 "Deep dive into individual neuron quality: generate a synthetic calcium\n"
-"signal, create a `Neuron` object, reconstruct spikes, optimize kinetics,\n"
+"signal with [`generate_pseudo_calcium_signal`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html),\n"
+"create a `Neuron` object, reconstruct spikes, optimize kinetics,\n"
 "compute quality metrics, and generate surrogates for null-hypothesis testing."
 ))
 
@@ -396,7 +421,9 @@ cells.append(md_cell(
 "### Spike reconstruction\n"
 "\n"
 "The **wavelet** method detects calcium transient events via CWT (continuous\n"
-"wavelet transform) ridge analysis."
+"wavelet transform) ridge analysis.  CWT ridge detection identifies\n"
+"scale-persistent features in the wavelet scalogram -- ridges that persist\n"
+"across multiple scales correspond to true transient events rather than noise."
 ))
 
 cells.append(code_cell(
@@ -420,7 +447,9 @@ cells.append(md_cell(
 "### Kinetics optimization\n"
 "\n"
 "Fit rise and decay time constants to detected events using the **direct\n"
-"measurement** method."
+"measurement** method.  The `direct` method measures t_rise from the\n"
+"derivative of the onset-to-peak waveform and t_off by fitting an\n"
+"exponential to the peak-to-baseline decay, avoiding iterative optimization."
 ))
 
 cells.append(code_cell(
@@ -903,7 +932,9 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 4. Method agreement analysis\n"
 "\n"
-"Given the same data, how well do threshold and wavelet agree?  Both methods\n"
+"Given the same data, how well do threshold and wavelet agree?  We use\n"
+"[`generate_synthetic_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html)\n"
+"to create a small population, then run both methods.  Both\n"
 "detect calcium transient regions (event start to end) but use different\n"
 "signal processing: wavelet uses CWT ridge detection while threshold uses\n"
 "MAD-based signal crossing.  Event-region overlap with varying tolerance\n"

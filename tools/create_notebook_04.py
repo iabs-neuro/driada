@@ -88,9 +88,11 @@ cells.append(md_cell(
 "## Building the Network\n"
 "\n"
 "Create a synthetic modular population (120 neurons, 6 functional\n"
-"groups), compute pairwise cell-cell significance with INTENSE, and\n"
-"construct a `Network` object.  This network is reused in both\n"
-"analysis sections below."
+"groups) with [`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html),\n"
+"compute pairwise significance with\n"
+"[`compute_cell_cell_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html),\n"
+"and construct a [`Network`](https://driada.readthedocs.io/en/latest/api/network/core.html)\n"
+"object.  This network is reused in both analysis sections below."
 ))
 
 cells.append(code_cell(

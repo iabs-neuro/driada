@@ -45,7 +45,7 @@ cells.append(md_cell(
 "\n"
 "What does your neural population encode *as a whole*? This notebook\n"
 "explores DRIADA's dimensionality reduction (DR) toolkit -- from the\n"
-"basic `MVData` API through method comparison, sequential pipelines,\n"
+"basic [`MVData`](https://driada.readthedocs.io/en/latest/api/dim_reduction/data_structures.html) API through method comparison, sequential pipelines,\n"
 "autoencoder-based DR, circular manifold extraction, and INTENSE-guided\n"
 "neuron selection for cleaner embeddings.\n"
 "\n"
@@ -143,8 +143,9 @@ cells.append(md_cell(
 "## 1. DR API quick reference\n"
 "\n"
 "`MVData` wraps a *(n_features x n_samples)* matrix and provides one-line\n"
-"DR methods. Seven methods are available: **PCA**, **Isomap**, **LLE**,\n"
-"**Laplacian Eigenmaps**, **t-SNE**, **UMAP**, and **MDS**.\n"
+"DR via [`get_embedding`](https://driada.readthedocs.io/en/latest/api/dim_reduction/data_structures.html). Seven methods are available: **PCA**, **Isomap**, **LLE**,\n"
+"**Laplacian Eigenmaps**, **t-SNE**, **UMAP**, and **MDS**. For multi-step\n"
+"pipelines, see [`dr_sequence`](https://driada.readthedocs.io/en/latest/api/dim_reduction/data_structures.html).\n"
 "\n"
 "```python\n"
 "emb = mvdata.get_embedding(method='pca')          # defaults\n"
@@ -327,8 +328,13 @@ cells.append(md_cell(
 "## 2. Method comparison\n"
 "\n"
 "Systematic benchmark on multiple synthetic datasets. Quality metrics:\n"
-"**k-NN preservation**, **trustworthiness**, **continuity**, and\n"
-"**normalized stress**."
+"\n"
+"- [`knn_preservation_rate`](https://driada.readthedocs.io/en/latest/api/dim_reduction/manifold_metrics.html) -- fraction of original k nearest neighbors preserved in the embedding.\n"
+"- [`trustworthiness`](https://driada.readthedocs.io/en/latest/api/dim_reduction/manifold_metrics.html) -- fraction of embedding neighbors that are true neighbors in the original space.\n"
+"- [`continuity`](https://driada.readthedocs.io/en/latest/api/dim_reduction/manifold_metrics.html) -- fraction of true neighbors that remain neighbors in the embedding.\n"
+"- [`stress`](https://driada.readthedocs.io/en/latest/api/dim_reduction/manifold_metrics.html) -- normalized Frobenius distance between the original and embedded distance matrices.\n"
+"\n"
+"For a single composite score, use [`manifold_preservation_score`](https://driada.readthedocs.io/en/latest/api/dim_reduction/manifold_metrics.html)."
 ))
 
 cells.append(code_cell(
@@ -924,8 +930,10 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 4. Autoencoder-based DR\n"
 "\n"
-"Neural network DR alternatives: **standard autoencoder** (AE) with\n"
+"Neural network DR alternatives via [`flexible_ae`](https://driada.readthedocs.io/en/latest/api/dim_reduction/algorithms.html): **standard autoencoder** (AE) with\n"
 "`continue_learning`, **Beta-VAE** with KL divergence, and a PCA baseline.\n"
+"Key parameters: `architecture` (`'ae'` or `'vae'`) selects the model type,\n"
+"and `continue_learning` resumes training without resetting weights.\n"
 "Requires PyTorch."
 ))
 
@@ -1070,10 +1078,14 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 5. Circular manifold & dimensionality estimation\n"
 "\n"
-"Head direction cells encode a ring. We generate 100 HD cells, estimate\n"
-"the intrinsic dimensionality (PCA scree, correlation dimension,\n"
-"nearest-neighbor, geodesic, participation ratio), compare real vs\n"
-"shuffled data, and extract the circular manifold via DR."
+"Head direction cells encode a ring. We generate 100 HD cells with\n"
+"[`generate_circular_manifold_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html), estimate\n"
+"the intrinsic dimensionality ([`pca_dimension`](https://driada.readthedocs.io/en/latest/api/dimensionality/linear.html) scree,\n"
+"[`correlation_dimension`](https://driada.readthedocs.io/en/latest/api/dimensionality/intrinsic.html),\n"
+"[`geodesic_dimension`](https://driada.readthedocs.io/en/latest/api/dimensionality/intrinsic.html),\n"
+"[`eff_dim`](https://driada.readthedocs.io/en/latest/api/dimensionality/effective.html) participation ratio), compare real vs\n"
+"shuffled data, and extract the circular manifold via DR\n"
+"([`visualize_circular_manifold`](https://driada.readthedocs.io/en/latest/api/utils/visualization.html))."
 ))
 
 cells.append(code_cell(
@@ -1357,7 +1369,8 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 6. INTENSE-guided DR\n"
 "\n"
-"Use INTENSE to identify spatially selective neurons, then compare DR\n"
+"Use [`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html) (INTENSE) to identify spatially selective neurons\n"
+"from a [`generate_mixed_population_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html) dataset, then compare DR\n"
 "quality on **all neurons** vs **selective neurons only** vs a **random\n"
 "subset**. Selective neurons produce cleaner spatial embeddings."
 ))
