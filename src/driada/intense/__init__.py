@@ -3,7 +3,9 @@ INTENSE: Information-Theoretic Evaluation of Neuronal Selectivity
 
 A framework for analyzing neuronal selectivity to behavioral and environmental
 variables using information theory, particularly mutual information analysis
-with rigorous statistical testing.
+with rigorous statistical testing. Cell-cell pairwise analysis
+(``compute_cell_cell_significance``) produces adjacency matrices suitable
+for ``Network``-based spectral and topological analysis.
 """
 
 # Core computation functions

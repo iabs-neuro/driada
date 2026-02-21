@@ -1,7 +1,13 @@
 """
 Network Analysis Module for DRIADA
 
-This module provides tools for analyzing functional networks in neural data.
+General-purpose graph analysis: spectral decomposition, thermodynamic entropy,
+quantum-inspired measures, community detection, and visualization for any graph
+or network. Works equally well with structural connectomes, correlation matrices,
+or any other graph representation.
+
+The Network class also serves as the base for ProximityGraph (in dim_reduction),
+so graph-based DR methods produce objects with full spectral analysis capabilities.
 """
 
 # Core class

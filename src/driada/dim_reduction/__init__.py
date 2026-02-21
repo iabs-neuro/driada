@@ -2,7 +2,10 @@
 Dimensionality Reduction Module for DRIADA
 
 This module provides various dimensionality reduction algorithms and
-utilities for analyzing high-dimensional neural data.
+utilities for analyzing high-dimensional neural data. Graph-based methods
+(Isomap, LLE, Laplacian Eigenmaps, UMAP, diffusion maps) construct a
+ProximityGraph internally, which inherits from Network and gains full
+spectral analysis capabilities. Access it via ``embedding.graph``.
 """
 
 from .data import MVData
