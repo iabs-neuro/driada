@@ -19,6 +19,7 @@ Module Components
    intense/visual
    intense/disentanglement
    intense/base
+   ../intense_mathematical_framework
 
 Quick Links
 -----------

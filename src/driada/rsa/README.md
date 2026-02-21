@@ -18,10 +18,11 @@ A symmetric matrix where each element represents the dissimilarity between neura
 ## Main Functions
 
 ### Computing RDMs
-- `compute_rdm()` - Basic RDM from data matrix
-- `compute_rdm_from_trials()` - Average within conditions first
-- `compute_experiment_rdm()` - Direct from Experiment objects
-- `compute_rdm_unified()` - Flexible interface with bootstrapping
+- `compute_rdm()` — basic RDM from data matrix
+- `compute_rdm_from_trials()` — average within conditions first
+- `compute_experiment_rdm()` — direct from Experiment objects
+- `compute_rdm_unified()` — flexible interface with bootstrapping
+- `compute_mvdata_rdm()` — RDM from MVData objects (integrates with DR pipeline)
 
 ### Comparing RDMs
 - `compare_rdms()` - Correlate two RDMs

@@ -69,6 +69,6 @@ optimal_delay = delays[np.argmax(mi_profile)]
 
 ## Technical Notes
 
-- GCMI assumes monotonic relationships (captures all dependencies after copula transform)
-- KSG makes no assumptions but is computationally intensive
+- GCMI transforms variables to Gaussian via copula normalization (rank → empirical CDF → inverse normal), then estimates MI from the Pearson correlation of the transformed data (`-0.5 log(1 - r^2)`). Because copula normalization preserves rank order, this is equivalent to MI based on Spearman rank correlation of the original data. GCMI captures monotonic dependencies well but underestimates non-monotonic relationships (e.g., bell-shaped tuning, ROI-based selectivity), providing only a lower bound on true MI. Use KSG when non-monotonic selectivity is expected.
+- KSG makes no distributional assumptions and detects arbitrary dependencies, but is computationally intensive. Use `mi_estimator_kwargs={"alpha": 0}` to disable the LNC correction for a large speedup with negligible accuracy loss.
 - All estimators return values in bits (log₂)

@@ -22,10 +22,19 @@ INTENSE is DRIADA's core module for analyzing how individual neurons encode beha
 - `compute_cell_cell_significance()` - Analyze neuron-neuron connectivity
 - `compute_embedding_selectivity()` - Analyze selectivity to embedding components
 
+### Disentanglement
+- `disentangle_pair()` — decompose mixed selectivity for a neuron-feature-feature triplet
+- `disentangle_all_selectivities()` — run disentanglement across all significant pairs
+- `create_multifeature_map()` — build a multi-feature selectivity summary
+
 ### Visualization
-- `plot_neuron_feature_pair()` - Visualize single neuron-feature relationship
-- `plot_selectivity_heatmap()` - Overview of all selectivities
-- `plot_disentanglement_heatmap()` - Mixed selectivity analysis
+- `plot_neuron_feature_pair()` — single neuron-feature relationship
+- `plot_neuron_feature_density()` — density plot of neural activity vs feature
+- `plot_selectivity_heatmap()` — overview of all selectivities
+- `plot_disentanglement_heatmap()` — mixed selectivity analysis
+- `plot_disentanglement_summary()` — summary of disentanglement results
+- `plot_pc_activity()` — place cell spatial activity maps
+- `plot_shadowed_groups()` — highlight neuron groups on a shared axis
 
 ## Example Usage
 

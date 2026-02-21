@@ -7,9 +7,9 @@ This module provides methods for estimating the intrinsic dimensionality of neur
 ## Methods
 
 ### Linear Dimensionality
-- `pca_dimension()` - Number of PCs needed to capture a threshold of variance
-- `pca_dimension_profile()` - Full variance explained curve
-- `effective_rank()` - Based on eigenvalue entropy
+- `pca_dimension()` — number of PCs needed to capture a threshold of variance
+- `pca_dimension_profile()` — full variance explained curve
+- `effective_rank()` — based on eigenvalue entropy (Shannon entropy of normalized eigenvalues)
 
 ### Effective Dimensionality
 - `eff_dim()` - Participation ratio using Rényi entropy
@@ -17,9 +17,9 @@ This module provides methods for estimating the intrinsic dimensionality of neur
   - Configurable entropy order (q parameter)
 
 ### Intrinsic Dimensionality
-- `nn_dimension()` - k-nearest neighbor based estimation
-- `correlation_dimension()` - Grassberger-Procaccia algorithm
-- `geodesic_dimension()` - Based on geodesic distances
+- `nn_dimension()` — k-nearest neighbor based estimation
+- `correlation_dimension()` — Grassberger-Procaccia algorithm
+- `geodesic_dimension()` — based on geodesic distances
 
 ## Example Usage
 

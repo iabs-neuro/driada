@@ -80,6 +80,6 @@ from foundational concepts to advanced analyses.
 
 ## Further resources
 
-- [README_INTENSE.md](../README_INTENSE.md) -- mathematical framework behind INTENSE
+- [INTENSE mathematical framework](https://driada.readthedocs.io/en/latest/intense_mathematical_framework.html) -- mathematical framework behind INTENSE
 - [examples/](../examples/) -- standalone Python scripts for production workflows
 - [GitHub Issues](https://github.com/iabs-neuro/driada/issues) -- bug reports and questions

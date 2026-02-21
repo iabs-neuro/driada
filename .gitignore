@@ -12,6 +12,7 @@ TODO_DISENTANGLEMENT_TESTS.md
 !readme*.md
 !tools/EXAMPLE_VALIDATION_PROTOCOL.md
 !.github/**/*.md
+!docs/intense_mathematical_framework.md
 
 # Python
 __pycache__/

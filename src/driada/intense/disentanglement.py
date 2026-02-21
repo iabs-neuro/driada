@@ -281,7 +281,7 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
       based on pairwise MI and conditional MI values
     - If II > 0 (synergy), uses different criteria for special cases
 
-    See README_INTENSE.md for theoretical background."""
+    See docs/intense_mathematical_framework.md for theoretical background."""
     # Delegate to internal function (no pre-computed values)
     return _disentangle_pair_with_precomputed(
         ts1, ts2, ts3, mi12=None, mi13=None, mi23=None, verbose=verbose, ds=ds
