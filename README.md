@@ -19,11 +19,11 @@ Interactive notebooks — click a badge to open in Google Colab (no setup requir
 
 | | Notebook | Topics |
 |---|---|---|
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | **Data Loading & Neurons** | `Experiment` objects, feature types, spike reconstruction, kinetics, surrogates |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | **Selectivity Detection (INTENSE)** | Mutual information, two-stage testing, optimal delays, mixed selectivity |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | **Population Geometry & DR** | PCA, UMAP, Isomap, autoencoders, manifold quality metrics, dimensionality estimation |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_functional_networks.ipynb) | **Functional Networks** | Cell-cell significance, spectral analysis, communities, graph entropy |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | **Advanced Capabilities** | Embedding selectivity, leave-one-out importance, RSA, RNN analysis |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | **Data loading & neurons** | `Experiment` objects, feature types, spike reconstruction, kinetics, surrogates |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | **Selectivity detection (INTENSE)** | Mutual information, two-stage testing, optimal delays, mixed selectivity |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | **Population geometry & DR** | PCA, UMAP, Isomap, autoencoders, manifold quality metrics, dimensionality estimation |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | **Network analysis** | Cell-cell significance, spectral analysis, communities, graph entropy |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | **Advanced capabilities** | Embedding selectivity, leave-one-out importance, RSA, RNN analysis |
 
 All notebooks generate synthetic data internally — no external files needed.
 
@@ -83,15 +83,15 @@ If you use DRIADA in your research, please cite:
 
 DRIADA has been used in the following research:
 
-### Biological Neural Systems
+### Biological neural systems
 - **[Sotskov et al. (2022)](https://doi.org/10.3390/ijms23020638)** — Fast tuning dynamics of hippocampal place cells during free exploration
 - **[Pospelov et al. (2024)](https://doi.org/10.1109/DCNA63495.2024.10718588)** — Effective dimensionality of hippocampal population activity correlates with behavior
 - **[Bobyleva et al. (2025)](https://doi.org/10.1162/netn_a_00439)** — Multifractality of structural connectome eigenmodes
 
-### Artificial Neural Networks
+### Artificial neural networks
 - **[Kononov et al. (2024)](https://arxiv.org/abs/2510.11162)** — Hybrid computational dynamics in RNNs through reinforcement learning
 
-### Methodological Applications
+### Methodological applications
 - **[Pospelov et al. (2021)](https://doi.org/10.1016/j.ynirp.2021.100035)** — Laplacian Eigenmaps for fMRI resting-state analysis
 
 **See [PUBLICATIONS.md](PUBLICATIONS.md) for the complete list with abstracts and details.**

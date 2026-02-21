@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Generate Notebook 04: Functional Networks
+Generate Notebook 04: Network analysis
 ==========================================
 
 Assembles content from 2 validated examples into a single Colab-ready
@@ -39,7 +39,7 @@ cells = []
 # ===== HEADER + SETUP =====================================================
 
 cells.append(md_cell(
-"# Functional networks\n"
+"# Network analysis\n"
 "\n"
 "Neurons do not act in isolation -- their pairwise interactions form a\n"
 "network whose topology reveals modular organization and hub neurons.\n"
@@ -52,7 +52,7 @@ cells.append(md_cell(
 "| Load & inspect | [01 -- Data loading](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | Wrap your recording into an `Experiment`, reconstruct spikes, assess quality |\n"
 "| Single-neuron selectivity | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
 "| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
-"| **Functional networks** | **04 -- this notebook** | Build and analyze cell-cell interaction graphs |\n"
+"| **Network analysis** | **04 -- this notebook** | Build and analyze cell-cell interaction graphs |\n"
 "| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
 "\n"
 "**Overview:** INTENSE computes pairwise mutual-information between\n"
@@ -1032,7 +1032,7 @@ nb.metadata.update({
 nb.cells = cells
 
 out_path = os.path.join(
-    os.path.dirname(__file__), "..", "notebooks", "04_functional_networks.ipynb"
+    os.path.dirname(__file__), "..", "notebooks", "04_network_analysis.ipynb"
 )
 out_path = os.path.normpath(out_path)
 

@@ -4,39 +4,39 @@
 
 The experiment module provides the core `Experiment` class that serves as the central data structure in DRIADA. It manages neural recordings, behavioral features, and analysis results in a unified framework.
 
-## Key Components
+## Key components
 
-### Experiment Class
+### Experiment class
 The main container for all experimental data:
 - **Neural data**: Calcium imaging or spike trains
 - **Dynamic features**: Time-varying behavioral variables
 - **Static features**: Experimental metadata
 - **Analysis results**: Stored selectivity and embedding results
 
-### Data Loading
+### Data loading
 - `load_exp_from_aligned_data()` - Create experiment from numpy arrays
 - `load_experiment()` - Load from various file formats
 - `save_exp_to_pickle()` / `load_exp_from_pickle()` - Persistence
 
-### Synthetic Data Generation
+### Synthetic data generation
 
-**Canonical Generator:**
+**Canonical generator:**
 - `generate_tuned_selectivity_exp()` - **Recommended** for all synthetic data with ground truth
 
-**Convenience Wrappers:**
+**Convenience wrappers:**
 - `generate_mixed_population_exp()` - Mixed manifold + feature-selective populations
 - `generate_synthetic_exp()` - Simple discrete/continuous feature selectivity
 
-**Standalone Manifold Generators:**
+**Standalone manifold generators:**
 - `generate_circular_manifold_exp()` - Head direction cells only
 - `generate_2d_manifold_exp()` - Place cells only
 
-**Time Series Generators:**
+**Time series generators:**
 - `generate_pseudo_calcium_signal()` - Realistic calcium dynamics
 - `generate_binary_time_series()` - Discrete events
 - `generate_fbm_time_series()` - Fractional Brownian motion
 
-### Supported Feature Names
+### Supported feature names
 
 | Feature Type | Name | Description |
 |--------------|------|-------------|
@@ -48,7 +48,7 @@ The main container for all experimental data:
 | Discrete event | `event_0`, `event_1`, ... | Binary 0/1, threshold response |
 | Continuous FBM | `fbm_0`, `fbm_1`, ... | Fractional Brownian motion, sigmoid tuning |
 
-### Ground Truth Structure
+### Ground truth structure
 
 All synthetic generators attach ground truth to `exp.ground_truth`:
 
@@ -61,12 +61,12 @@ exp.ground_truth = {
 }
 ```
 
-### Spike Reconstruction
+### Spike reconstruction
 - `reconstruct_spikes()` - Main interface
 - `wavelet_reconstruction()` - Wavelet-based deconvolution
 - `threshold_reconstruction()` - Simple thresholding
 
-## Example Usage
+## Example usage
 
 ```python
 from driada.experiment import load_exp_from_aligned_data
@@ -111,7 +111,7 @@ calcium_data = exp.calcium.data  # MultiTimeSeries object
 head_dir = exp.dynamic_features['head_direction'].data
 ```
 
-## Working with Experiments
+## Working with experiments
 
 ```python
 # Run INTENSE analysis
@@ -124,7 +124,7 @@ significant = exp.get_significant_neurons()
 embedding = exp.calcium.get_embedding(method='umap', n_components=2)
 ```
 
-## Data Format
+## Data format
 
 The standard data format for neural recordings is:
 - **Shape**: `(n_neurons, n_timepoints)`

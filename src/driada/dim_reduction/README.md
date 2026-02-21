@@ -4,38 +4,38 @@
 
 The dimensionality reduction module provides a comprehensive suite of algorithms for extracting low-dimensional representations from high-dimensional neural population data. It supports both linear and nonlinear methods with a unified interface.
 
-## Key Components
+## Key components
 
-### MVData Class
+### MVData class
 The core data container that `MultiTimeSeries` inherits from. Provides:
 - Automatic downsampling
 - Preprocessing (normalization, standardization)
 - Direct access to dimensionality reduction methods via `get_embedding()`
 
-### Supported Methods
+### Supported methods
 
-**Linear Methods:**
+**Linear methods:**
 - PCA (Principal Component Analysis)
 - FA (Factor Analysis)
 - LLE (Locally Linear Embedding)
 - LEM (Laplacian Eigenmaps)
 - DM (Diffusion Maps)
 
-**Nonlinear Methods:**
+**Nonlinear methods:**
 - Isomap (Isometric Mapping)
 - UMAP (Uniform Manifold Approximation and Projection)
 - t-SNE (t-Distributed Stochastic Neighbor Embedding)
 - Autoencoders (standard and variational)
 - MVU (Maximum Variance Unfolding)
 
-### Manifold Quality Metrics
+### Manifold quality metrics
 - `knn_preservation_rate()` - Proportion of neighbors preserved
 - `trustworthiness()` - Are close points in low-D truly close in high-D?
 - `continuity()` - Are close points in high-D still close in low-D?
 - `procrustes_analysis()` - Optimal alignment between embeddings
 - `circular_structure_preservation()` - For ring-like manifolds
 
-## Example Usage
+## Example usage
 
 ```python
 from driada.dim_reduction import MVData
@@ -54,9 +54,9 @@ from driada.dim_reduction import knn_preservation_rate
 quality = knn_preservation_rate(neural_data, coords, k=10)
 ```
 
-## Advanced Features
+## Advanced features
 
-### Sequential Reduction
+### Sequential reduction
 Chain multiple methods for optimal results:
 ```python
 from driada.dim_reduction import dr_sequence
@@ -70,5 +70,5 @@ result = dr_sequence(
 )
 ```
 
-### Graph-Based Methods
+### Graph-based methods
 Graph-based DR methods (Isomap, LLE, Laplacian Eigenmaps, diffusion maps, UMAP) construct a `ProximityGraph` internally. `ProximityGraph` inherits from `Network` (`driada.network`), so the resulting graph has full spectral analysis, entropy, community detection, and visualization capabilities. Access it via `embedding.graph` after running a graph-based embedding.

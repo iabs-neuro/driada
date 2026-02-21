@@ -35,7 +35,7 @@ Welcome to DRIADA's documentation!
    contributing
    license
 
-Key Features
+Key features
 ------------
 
 * **INTENSE Analysis**: Information-theoretic selectivity analysis for single neurons

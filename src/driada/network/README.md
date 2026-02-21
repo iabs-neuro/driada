@@ -11,9 +11,9 @@ The `Network` class serves as the foundation for two key integrations within DRI
 
 The module itself is domain-agnostic — it works equally well with structural connectomes, correlation matrices, or any other graph representation.
 
-## Key Components
+## Key components
 
-### Network Class
+### Network class
 The core container built from sparse adjacency matrices or NetworkX graphs. Provides:
 - Degree distributions, clustering coefficients, connected components
 - Community detection (Louvain via NetworkX)
@@ -27,22 +27,22 @@ The core container built from sparse adjacency matrices or NetworkX graphs. Prov
 ### ProximityGraph (in `dim_reduction.graph`)
 Inherits from `Network`. Constructs k-NN, UMAP, or epsilon-ball graphs from data matrices for manifold learning. All `Network` analysis methods (spectral, entropy, etc.) are available on the resulting graph.
 
-### Entropy Measures
+### Entropy measures
 - `free_entropy()` — von Neumann-type free entropy from Laplacian spectrum
 - `q_entropy()` — Renyi entropy of order q
 - `spectral_entropy()` — Shannon entropy of normalized eigenvalues
 
-### Quantum-Inspired Methods
+### Quantum-inspired methods
 - `get_density_matrix()` — density matrix from graph Laplacian
 - `renyi_divergence()` — Renyi divergence between two density matrices
 - `js_divergence()` — Jensen-Shannon divergence between graphs
 
-### Graph Utilities
+### Graph utilities
 - `get_giant_cc_from_graph()` / `get_giant_scc_from_graph()` — extract largest components
 - `remove_selfloops_from_graph()` / `remove_isolates_from_graph()`
 - `small_world_index()` — small-world coefficient
 
-### Matrix Utilities
+### Matrix utilities
 - `get_laplacian()` / `get_norm_laplacian()` / `get_rw_laplacian()` — Laplacian variants
 - `get_trans_matrix()` — transition (random walk) matrix
 - `get_symmetry_index()` — asymmetry measure for directed networks
@@ -60,7 +60,7 @@ Inherits from `Network`. Constructs k-NN, UMAP, or epsilon-ball graphs from data
 - `show_mat()` — adjacency/Laplacian matrix heatmap
 - `plot_lem_embedding()` — Laplacian Eigenmaps 2D/3D scatter
 
-## Example: General-Purpose Network Analysis
+## Example: general-purpose network analysis
 
 ```python
 import scipy.sparse as sp
@@ -87,7 +87,7 @@ draw_spectrum(net)
 draw_degree_distr(net)
 ```
 
-## Example: Functional Network from INTENSE
+## Example: functional network from INTENSE
 
 ```python
 from driada.intense import compute_cell_cell_significance
@@ -103,7 +103,7 @@ net = Network(significance['adjacency'], directed=False)
 net.diagonalize(mode='lap')
 ```
 
-## Example: Spectral Analysis of DR Graph
+## Example: spectral analysis of DR graph
 
 ```python
 from driada.dim_reduction import MVData

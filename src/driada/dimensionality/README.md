@@ -6,22 +6,22 @@ This module provides methods for estimating the intrinsic dimensionality of neur
 
 ## Methods
 
-### Linear Dimensionality
+### Linear dimensionality
 - `pca_dimension()` — number of PCs needed to capture a threshold of variance
 - `pca_dimension_profile()` — full variance explained curve
 - `effective_rank()` — based on eigenvalue entropy (Shannon entropy of normalized eigenvalues)
 
-### Effective Dimensionality
+### Effective dimensionality
 - `eff_dim()` - Participation ratio using Rényi entropy
   - Supports finite-sample correction for small datasets
   - Configurable entropy order (q parameter)
 
-### Intrinsic Dimensionality
+### Intrinsic dimensionality
 - `nn_dimension()` — k-nearest neighbor based estimation
 - `correlation_dimension()` — Grassberger-Procaccia algorithm
 - `geodesic_dimension()` — based on geodesic distances
 
-## Example Usage
+## Example usage
 
 ```python
 from driada.dimensionality import eff_dim, pca_dimension, nn_dimension
@@ -42,14 +42,14 @@ intrinsic_d = nn_dimension(neural_data, k=5)
 print(f"Intrinsic dimension: {intrinsic_d:.2f}")
 ```
 
-## When to Use Each Method
+## When to use each method
 
 - **PCA dimension**: Quick assessment, linear relationships only
 - **Effective dimension**: Robust to noise, good general-purpose metric
 - **k-NN dimension**: When data lies on nonlinear manifold
 - **Correlation dimension**: For fractal or self-similar data
 
-## Technical Notes
+## Technical notes
 
 All methods expect data in scikit-learn format: `(n_samples, n_features)` where:
 - Rows are samples (e.g., time points)

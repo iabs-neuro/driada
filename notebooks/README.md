@@ -1,7 +1,7 @@
 # DRIADA interactive tutorials
 
 Five self-contained Colab/Jupyter notebooks that walk through the full DRIADA
-toolkit -- from loading data to building functional networks and running
+toolkit -- from loading data to network analysis and running
 cross-method analyses. Every notebook generates its own synthetic data, so no
 external files are needed.
 
@@ -43,7 +43,7 @@ Embedding neural populations and measuring manifold quality.
 - Intrinsic dimensionality estimation (PCA, correlation, geodesic, effective)
 - INTENSE-guided DR: selectivity on embeddings
 
-### 4. [Functional networks](04_functional_networks.ipynb)
+### 4. [Network analysis](04_network_analysis.ipynb)
 
 Cell-cell significance networks and spectral graph analysis.
 

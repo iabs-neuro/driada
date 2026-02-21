@@ -6,7 +6,7 @@
 
 INTENSE is DRIADA's core module for analyzing how individual neurons encode behavioral and environmental variables using information theory. It quantifies neuronal selectivity through mutual information (MI) analysis with rigorous statistical testing.
 
-## Key Features
+## Key features
 
 - **Mutual Information Analysis**: Quantify how much information neurons carry about features
 - **Statistical Significance Testing**: Two-stage approach with multiple comparison correction
@@ -14,9 +14,9 @@ INTENSE is DRIADA's core module for analyzing how individual neurons encode beha
 - **Mixed Selectivity Analysis**: Disentangle neurons responding to multiple features
 - **Cell-Cell Connectivity**: Analyze functional relationships between neurons
 
-## Main Functions
+## Main functions
 
-### Pipeline Functions
+### Pipeline functions
 - `compute_cell_feat_significance()` - Analyze neuron-feature selectivity
 - `compute_feat_feat_significance()` - Analyze feature-feature relationships
 - `compute_cell_cell_significance()` - Analyze neuron-neuron connectivity
@@ -36,7 +36,7 @@ INTENSE is DRIADA's core module for analyzing how individual neurons encode beha
 - `plot_pc_activity()` — place cell spatial activity maps
 - `plot_shadowed_groups()` — highlight neuron groups on a shared axis
 
-## Example Usage
+## Example usage
 
 ```python
 from driada.intense import compute_cell_feat_significance
@@ -54,7 +54,7 @@ stats, significance, info, results = compute_cell_feat_significance(
 significant_neurons = experiment.get_significant_neurons()
 ```
 
-## Technical Details
+## Technical details
 
 INTENSE uses a two-stage approach:
 1. **Stage 1**: Quick screening with fewer shuffles to identify candidates
@@ -62,7 +62,7 @@ INTENSE uses a two-stage approach:
 
 Statistical significance is determined by comparing actual MI values against null distributions generated through temporal shuffling.
 
-## Supported Metrics
+## Supported metrics
 
 While mutual information is the primary metric, INTENSE also supports:
 - **Pearson correlation** - Linear relationships

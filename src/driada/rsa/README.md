@@ -4,18 +4,18 @@
 
 The RSA module implements Representational Similarity Analysis for comparing neural population representations. RSA characterizes the geometry of neural representations by computing distances between population activity patterns.
 
-## Key Concepts
+## Key concepts
 
 ### RDM (Representational Dissimilarity Matrix)
 A symmetric matrix where each element represents the dissimilarity between neural population patterns for two conditions/stimuli/time points.
 
-### Distance Metrics
+### Distance metrics
 - Correlation distance (default)
 - Euclidean distance  
 - Cosine distance
 - Mahalanobis distance
 
-## Main Functions
+## Main functions
 
 ### Computing RDMs
 - `compute_rdm()` — basic RDM from data matrix
@@ -34,7 +34,7 @@ A symmetric matrix where each element represents the dissimilarity between neura
 - `plot_rdm()` - Heatmap visualization
 - `plot_rdm_comparison()` - Side-by-side comparison
 
-## Example Usage
+## Example usage
 
 ```python
 from driada.rsa import compute_experiment_rdm, compare_rdms, plot_rdm
@@ -63,9 +63,9 @@ p_value, null_dist = bootstrap_rdm_comparison(
 )
 ```
 
-## Advanced Usage
+## Advanced usage
 
-### Within-Condition Bootstrap
+### Within-condition bootstrap
 ```python
 from driada.rsa import compute_rdm_unified
 

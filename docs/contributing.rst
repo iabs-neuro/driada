@@ -8,7 +8,7 @@ The full contribution guidelines are available in the repository:
 .. include:: ../CONTRIBUTING.md
    :parser: myst_parser.sphinx_
 
-Quick Links
+Quick links
 -----------
 
 - `Report a bug <https://github.com/iabs-neuro/driada/issues/new>`_
@@ -16,7 +16,7 @@ Quick Links
 - `View open issues <https://github.com/iabs-neuro/driada/issues>`_
 - `Pull requests <https://github.com/iabs-neuro/driada/pulls>`_
 
-Development Setup
+Development setup
 -----------------
 
 Clone the repository and install in development mode:
@@ -29,7 +29,7 @@ Clone the repository and install in development mode:
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    pip install -e ".[dev]"
 
-Running Tests
+Running tests
 -------------
 
 .. code-block:: bash
@@ -43,7 +43,7 @@ Running Tests
    # Run specific test file
    pytest tests/test_experiment.py
 
-Code Style
+Code style
 ----------
 
 DRIADA uses NumPy-style docstrings for documentation. You can optionally format your code with:
@@ -56,7 +56,7 @@ DRIADA uses NumPy-style docstrings for documentation. You can optionally format 
    black src/driada tests
    isort src/driada tests
 
-Submitting Changes
+Submitting changes
 ------------------
 
 1. Fork the repository

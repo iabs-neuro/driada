@@ -4,7 +4,7 @@
 
 The integration module bridges single-neuron analysis (INTENSE) with population-level dimensionality reduction, revealing how individual neuron properties contribute to population dynamics.
 
-## Key Functions
+## Key functions
 
 ### get_functional_organization()
 Analyzes how neurons contribute to embedding components:
@@ -18,7 +18,7 @@ Compares functional organization across different DR methods:
 - Identifies method-specific features
 - Helps choose optimal DR approach
 
-## Example Usage
+## Example usage
 
 ```python
 from driada.integration import get_functional_organization
@@ -56,14 +56,14 @@ comparison = compare_embeddings(
 )
 ```
 
-## Analysis Pipeline
+## Analysis pipeline
 
 1. **Run INTENSE on features** - Identify what neurons encode
 2. **Apply DR** - Extract population structure  
 3. **Run INTENSE on components** - How neurons contribute to structure
 4. **Analyze organization** - Link single cells to population
 
-## Key Insights
+## Key insights
 
 This module helps answer:
 - Which neurons drive each principal component?

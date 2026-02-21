@@ -1,4 +1,4 @@
-Quick Start Guide
+Quick start guide
 =================
 
 This guide will help you get started with DRIADA in just a few minutes.
@@ -14,10 +14,10 @@ Installation
    # With GPU support (recommended for large datasets)
    pip install driada[gpu]
 
-Getting Started with DRIADA
+Getting started with DRIADA
 ---------------------------
 
-1. Generate Synthetic Data for Testing
+1. Generate synthetic data for testing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Start by generating synthetic data to understand DRIADA's capabilities:
@@ -57,7 +57,7 @@ Start by generating synthetic data to understand DRIADA's capabilities:
        seed=42
    )
 
-2. Analyze Single-Neuron Selectivity (INTENSE)
+2. Analyze single-neuron selectivity (INTENSE)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Discover which neurons encode which variables:
@@ -90,7 +90,7 @@ Discover which neurons encode which variables:
        feature_name = significant_neurons[neuron_id][0]
        plot_neuron_feature_pair(exp, neuron_id, feature_name)
 
-3. Estimate Intrinsic Dimensionality
+3. Estimate intrinsic dimensionality
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Before applying dimensionality reduction, estimate the intrinsic dimensionality:
@@ -126,7 +126,7 @@ Before applying dimensionality reduction, estimate the intrinsic dimensionality:
    print(f"k-NN dimension: {nn_dim:.2f}")
    print(f"Correlation dimension: {corr_dim:.2f}")
 
-4. Apply Dimensionality Reduction
+4. Apply dimensionality reduction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Extract low-dimensional representations of population activity:
@@ -178,7 +178,7 @@ Extract low-dimensional representations of population activity:
    stored_pca = exp.get_embedding('pca')  # Returns dict with 'data' key
    print(f"Stored PCA shape: {stored_pca['data'].shape}")
 
-5. Validate Manifold Quality
+5. Validate manifold quality
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Assess how well the embedding preserves the original structure:
@@ -212,7 +212,7 @@ Assess how well the embedding preserves the original structure:
    print(f"Trustworthiness: {trust:.3f}")
    print(f"Continuity: {cont:.3f}")
 
-6. Integrate Single-Cell and Population Analysis
+6. Integrate single-cell and population analysis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Analyze how single neurons contribute to population embeddings:
@@ -306,7 +306,7 @@ Analyze how single neurons contribute to population embeddings:
        figsize=(12, 5)
    )
 
-7. Network Analysis
+7. Network analysis
 ^^^^^^^^^^^^^^^^^^^
 
 The ``Network`` class provides general-purpose graph analysis -- spectral
@@ -383,7 +383,7 @@ Here is an example using INTENSE cell-cell connectivity:
        plt.axis('off')
        plt.tight_layout()
 
-8. Working with Real Data
+8. Working with real data
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Load and analyze your own neural recordings:
@@ -444,7 +444,7 @@ Load and analyze your own neural recordings:
        data=data
    )
 
-9. Advanced Analysis Workflows
+9. Advanced analysis workflows
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Leverage DRIADA's advanced capabilities:
@@ -506,38 +506,38 @@ Leverage DRIADA's advanced capabilities:
        pickle.dump(analysis_results, f)
    
 
-Next Steps
+Next steps
 ----------
 
 Explore comprehensive examples demonstrating real-world workflows:
 
-**Getting Started:**
+**Getting started:**
 
 - ``examples/data_loading/load_data_example.py`` - Load your own data into DRIADA
 - ``examples/neuron_basic_usage.py`` - Single neuron creation and spike reconstruction
 - ``examples/intense_basic_usage/intense_basic_usage.py`` - Detect selective neurons with INTENSE
 
-**Core Analysis Workflows:**
+**Core analysis workflows:**
 
 - ``examples/circular_manifold/extract_circular_manifold.py`` - Extract ring attractor from head direction cells
 - ``examples/spatial_analysis/spatial_visualization.py`` - Visualize spatial data (trajectory, rate maps, calcium traces)
 - ``examples/network_analysis/cell_cell_network_example.py`` - Build and analyze functional networks
 - ``examples/rsa/rsa_example.py`` - Representational similarity analysis
 
-**Dimensionality Reduction:**
+**Dimensionality reduction:**
 
 - ``examples/compare_dr_methods/compare_dr_methods.py`` - Systematic comparison of DR algorithms
 - ``examples/dr_sequence/dr_sequence_neural_example.py`` - Sequential DR pipeline
 - ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple DR API with all supported methods
 
-**Complete Pipelines:**
+**Complete pipelines:**
 
 - ``examples/full_intense_pipeline/full_intense_pipeline.py`` - Full INTENSE workflow with disentanglement
 - ``examples/intense_dr_pipeline/intense_dr_pipeline.py`` - INTENSE + dimensionality reduction integration
 - ``examples/mixed_selectivity/mixed_selectivity.py`` - Analyze neurons with mixed feature selectivity
 - ``examples/loo_dr_analysis/loo_dr_analysis.py`` - Leave-one-out neuron importance for manifolds
 
-**Advanced Techniques:**
+**Advanced techniques:**
 
 - ``examples/spike_reconstruction/spike_reconstruction_comparison.py`` - Compare spike deconvolution methods
 - ``examples/spike_reconstruction/threshold_vs_wavelet_optimization.py`` - Iterative detection and kinetics optimization

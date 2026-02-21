@@ -33,7 +33,7 @@ For all optional dependencies:
 
    pip install driada[all]
 
-Installing from Source
+Installing from source
 ----------------------
 
 To install the latest development version:
@@ -44,7 +44,7 @@ To install the latest development version:
    cd driada
    pip install -e .
 
-Verifying Installation
+Verifying installation
 ----------------------
 
 You can verify your installation by running:

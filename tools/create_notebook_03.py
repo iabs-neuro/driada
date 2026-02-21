@@ -53,7 +53,7 @@ cells.append(md_cell(
 "| Load & inspect | [01 -- Data loading](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | Wrap your recording into an `Experiment`, reconstruct spikes, assess quality |\n"
 "| Single-neuron selectivity | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
 "| **Population geometry** | **03 -- this notebook** | Extract low-dimensional manifolds from population activity |\n"
-"| Functional networks | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_functional_networks.ipynb) | Build and analyze cell-cell interaction graphs |\n"
+"| Network analysis | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
 "| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
 "\n"
 "**Sections:**\n"
@@ -345,7 +345,7 @@ cells.append(md_cell(
 "\n"
 "Access it via `embedding.graph` after running any graph-based method.\n"
 "For a full treatment of network spectral analysis, see\n"
-"[Notebook 04 -- Functional Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_functional_networks.ipynb)."
+"[Notebook 04 -- Network analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb)."
 ))
 
 cells.append(code_cell(
@@ -414,7 +414,7 @@ cells.append(md_cell(
 "\n"
 "These same spectral tools apply to *any* `Network` -- functional\n"
 "connectivity from INTENSE, structural connectomes, or correlation\n"
-"networks. See [Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_functional_networks.ipynb)\n"
+"networks. See [Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb)\n"
 "for the full spectral analysis toolkit."
 ))
 
