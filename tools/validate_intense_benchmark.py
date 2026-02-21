@@ -331,7 +331,7 @@ def run_intense_method(method, ts_calcium, ts_feats, gt, n_jobs=-1):
         shift_window=2,
         noise_ampl=1e-4,
         metric_distr_type='gamma_zi' if method in ('mi', 'fast_pearsonr') else 'norm',
-        joint_distr=False,
+
         verbose=False,
         enable_parallelization=True,
         n_jobs=n_jobs,

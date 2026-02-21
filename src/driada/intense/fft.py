@@ -375,7 +375,6 @@ def _build_fft_cache(
     mi_estimator: str,
     ds: int,
     engine: str,
-    joint_distr: bool = False,
     n_jobs: int = 1,
 ) -> dict:
     """Build FFT cache for all pairs using stable keys.
@@ -383,7 +382,7 @@ def _build_fft_cache(
     Pre-computes FFT data for all neuron-feature pairs that support FFT,
     enabling reuse across delay optimization, Stage 1, and Stage 2.
 
-    When n_jobs != 1 and joint_distr=False, uses parallel processing to
+    When n_jobs != 1, uses parallel processing to
     split ts_bunch1 across workers for faster cache building.
 
     Uses stable keys (TimeSeries names or data hashes) instead of positional
@@ -405,12 +404,10 @@ def _build_fft_cache(
         Downsampling factor.
     engine : str
         Computation engine: 'auto', 'fft', or 'loop'.
-    joint_distr : bool
-        If True, ts_bunch2 is treated as a single multifeature.
     n_jobs : int, optional
         Number of parallel jobs. Default: 1 (serial).
         Use -1 for all CPU cores. Parallelization is disabled
-        when joint_distr=True or ts_bunch1 has only one element.
+        when ts_bunch1 has only one element.
 
     Returns
     -------
@@ -447,7 +444,7 @@ def _build_fft_cache(
                     )
 
     # Delegate to parallel version if enabled and appropriate
-    if n_jobs != 1 and not joint_distr and len(ts_bunch1) > 1:
+    if n_jobs != 1 and len(ts_bunch1) > 1:
         return _build_fft_cache_parallel(
             ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, n_jobs
         )
@@ -457,39 +454,31 @@ def _build_fft_cache(
     fft_type_counts = {}  # Track counts for profiling
 
     for ts1 in ts_bunch1:
-        if joint_distr:
-            # Joint distribution mode - no FFT support
-            # Use first ts2 as representative (all treated as single multifeature)
+        for ts2 in ts_bunch2:
+            # Use count=1 since we just need type, not threshold check
+            fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
+
+            # Get stable keys for cache
             key1 = _get_ts_key(ts1)
-            key2 = _get_ts_key(ts_bunch2[0]) if ts_bunch2 else 0
-            cache[(key1, key2)] = None
-            fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
-        else:
-            for ts2 in ts_bunch2:
-                # Use count=1 since we just need type, not threshold check
-                fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
+            key2 = _get_ts_key(ts2)
 
-                # Get stable keys for cache
-                key1 = _get_ts_key(ts1)
-                key2 = _get_ts_key(ts2)
+            if fft_type is not None:
+                data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
+                compute_fn = _FFT_COMPUTE[fft_type]
 
-                if fft_type is not None:
-                    data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
-                    compute_fn = _FFT_COMPUTE[fft_type]
+                # Precompute MI for ALL shifts (FFT done once here)
+                n = len(data1) if data1.ndim == 1 else data1.shape[1]
+                all_shifts = np.arange(n)
+                mi_all = compute_fn(data1, data2, all_shifts)
 
-                    # Precompute MI for ALL shifts (FFT done once here)
-                    n = len(data1) if data1.ndim == 1 else data1.shape[1]
-                    all_shifts = np.arange(n)
-                    mi_all = compute_fn(data1, data2, all_shifts)
-
-                    cache[(key1, key2)] = FFTCacheEntry(
-                        fft_type=fft_type,
-                        mi_all=mi_all,
-                    )
-                    fft_type_counts[fft_type] = fft_type_counts.get(fft_type, 0) + 1
-                else:
-                    cache[(key1, key2)] = None
-                    fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
+                cache[(key1, key2)] = FFTCacheEntry(
+                    fft_type=fft_type,
+                    mi_all=mi_all,
+                )
+                fft_type_counts[fft_type] = fft_type_counts.get(fft_type, 0) + 1
+            else:
+                cache[(key1, key2)] = None
+                fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
 
     return cache, fft_type_counts
 

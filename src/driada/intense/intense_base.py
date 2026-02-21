@@ -461,7 +461,6 @@ def scan_pairs(
     optimal_delays,
     random_shifts=None,
     mi_estimator="gcmi",
-    joint_distr=False,
     ds=1,
     mask=None,
     noise_const=DEFAULT_NOISE_AMPLITUDE,
@@ -489,22 +488,19 @@ def scan_pairs(
     nsh : int
         Number of shuffles for significance testing.
     optimal_delays : np.ndarray
-        Optimal delays array of shape (len(ts_bunch1), len(ts_bunch2)) or
-        (len(ts_bunch1), 1) if joint_distr=True. Contains best shifts in frames.
+        Optimal delays array of shape (len(ts_bunch1), len(ts_bunch2)).
+        Contains best shifts in frames.
     random_shifts : np.ndarray, optional
         Pre-generated random shifts of shape (len(ts_bunch1), len(ts_bunch2), nsh).
         If None, shifts will be generated using seed and stable keys.
     mi_estimator : str, default='gcmi'
         Mutual information estimator to use when metric='mi'.
         Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
-    joint_distr : bool, default=False
-        If True, all TimeSeries in ts_bunch2 are treated as components of a
-        single multivariate feature. Deprecated - use MultiTimeSeries instead.
     ds : int, default=1
         Downsampling factor. Every ds-th point is used from the time series.
     mask : np.ndarray, optional
-        Binary mask array of shape (len(ts_bunch1), len(ts_bunch2)) or
-        (len(ts_bunch1), 1) if joint_distr=True. 0 skips calculation, 1 proceeds.
+        Binary mask array of shape (len(ts_bunch1), len(ts_bunch2)).
+        0 skips calculation, 1 proceeds.
     noise_const : float, default=1e-3
         Small noise amplitude added to improve numerical stability.
     seed : int, optional
@@ -535,8 +531,7 @@ def scan_pairs(
         Array of shape (len(ts_bunch1), len(ts_bunch2), nsh) containing
         random shifts used for shuffled distribution computation.
     me_total : np.ndarray
-        Array of shape (len(ts_bunch1), len(ts_bunch2), nsh+1) or
-        (len(ts_bunch1), 1, nsh+1) if joint_distr=True. Contains true metric
+        Array of shape (len(ts_bunch1), len(ts_bunch2), nsh+1). Contains true metric
         values at index 0 and shuffled values at indices 1:nsh+1.
 
     Notes
@@ -556,7 +551,7 @@ def scan_pairs(
 
     # Validate optimal_delays shape
     n1 = len(ts_bunch1)
-    n2 = 1 if joint_distr else len(ts_bunch2)
+    n2 = len(ts_bunch2)
 
     if optimal_delays.shape != (n1, n2):
         raise ValueError(
@@ -589,36 +584,20 @@ def scan_pairs(
 
     # Generate random shifts if not provided
     if random_shifts is None:
-        if joint_distr:
-            # DEPRECATED joint_distr path — per-pair shift generation
-            random_shifts = np.zeros((n1, n2, nsh), dtype=int)
-            for i, ts1 in enumerate(ts_bunch1):
-                key1 = _get_ts_key(ts1)
-                key2 = _get_ts_key(ts_bunch2[0]) if ts_bunch2 else 0
-                pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
-                pair_rng = np.random.RandomState(pair_seed)
-
-                combined_shuffle_mask = ts1.shuffle_mask
-                for ts2 in ts_bunch2:
-                    combined_shuffle_mask = combined_shuffle_mask & ts2.shuffle_mask
-                combined_shuffle_mask = np.roll(combined_shuffle_mask, int(optimal_delays[i, 0]))
-                indices_to_select = np.arange(t)[combined_shuffle_mask]
-                random_shifts[i, 0, :] = pair_rng.choice(indices_to_select, size=nsh) // ds
-        else:
-            # Vectorized bulk generation + rejection resampling
-            n_shifts = t // ds
-            _rng = np.random.RandomState(seed if seed is not None else 0)
-            random_shifts = _rng.randint(0, n_shifts, size=(n1, n2, nsh))
-            valid_map, needs_correction = _build_shift_valid_map(
-                ts_bunch1, ts_bunch2, optimal_delays, ds
-            )
-            if needs_correction:
-                for _ in range(100):
-                    bad = _find_invalid_shifts(random_shifts, valid_map)
-                    n_bad = bad.sum()
-                    if n_bad == 0:
-                        break
-                    random_shifts[bad] = _rng.randint(0, n_shifts, size=n_bad)
+        # Vectorized bulk generation + rejection resampling
+        n_shifts = t // ds
+        _rng = np.random.RandomState(seed if seed is not None else 0)
+        random_shifts = _rng.randint(0, n_shifts, size=(n1, n2, nsh))
+        valid_map, needs_correction = _build_shift_valid_map(
+            ts_bunch1, ts_bunch2, optimal_delays, ds
+        )
+        if needs_correction:
+            for _ in range(100):
+                bad = _find_invalid_shifts(random_shifts, valid_map)
+                n_bad = bad.sum()
+                if n_bad == 0:
+                    break
+                random_shifts[bad] = _rng.randint(0, n_shifts, size=n_bad)
 
     # Pre-generate noise for FFT cache path (avoids per-pair RandomState)
     if fft_cache is not None:
@@ -634,139 +613,104 @@ def scan_pairs(
         leave=True,
         disable=not enable_progressbar,
     ):
-        # DEPRECATED: This joint_distr branch is deprecated and will be removed in v2.0
-        # Use MultiTimeSeries for joint distribution handling instead
-        # FUTURE: Remove this entire branch in v2.0
-        if joint_distr:
-            if metric != "mi":
-                raise ValueError("joint_distr mode works with metric = 'mi' only")
-            if mask[i, 0] == 1:
-                # default metric without shuffling, minus due to different order
-                me0 = get_multi_mi(
-                    ts_bunch2, ts1, ds=ds, shift=-optimal_delays[i, 0] // ds, estimator=mi_estimator,
-                    mi_estimator_kwargs=mi_estimator_kwargs,
-                )
-                # Use deterministic RNG for this pair (stable key seeding)
-                key1 = _get_ts_key(ts1)
-                key2 = _get_ts_key(ts_bunch2[0]) if ts_bunch2 else 0
+        if fft_cache is not None:
+            # Vectorized cache path: batch all cached pairs for this neuron
+            key1 = _get_ts_key(ts1)
+            cached_js = []
+            mi_all_list = []
+            uncached_js = []
+
+            for j in range(n2):
+                if mask[i, j] == 1:
+                    entry = fft_cache.get((key1, _get_ts_key(ts_bunch2[j])))
+                    if entry is not None:
+                        cached_js.append(j)
+                        mi_all_list.append(entry.mi_all)
+                    else:
+                        uncached_js.append(j)
+
+            # Batch process all cached pairs at once
+            if cached_js:
+                cached_js_arr = np.array(cached_js)
+                mi_stack = np.array(mi_all_list)  # (n_cached, n_shifts)
+                arange_cached = np.arange(len(cached_js))
+
+                # Vectorized true MI lookup
+                opt_shifts = (optimal_delays[i, cached_js_arr] // ds).astype(int)
+                me0_vals = mi_stack[arange_cached, opt_shifts]
+
+                # Vectorized shuffle MI lookup
+                shifts_batch = random_shifts[i, cached_js_arr, :]  # (n_cached, nsh)
+                shuffle_vals = mi_stack[arange_cached[:, None], shifts_batch]
+
+                # Write results with pre-generated noise
+                me_table[i, cached_js_arr] = me0_vals + _noise_true[i, cached_js_arr]
+                me_table_shuffles[i, cached_js_arr, :] = shuffle_vals + _noise_shuffles[i, cached_js_arr, :]
+
+            # Non-FFT-able pairs (cache entry was None): loop fallback
+            for j in uncached_js:
+                ts2 = ts_bunch2[j]
+                key2 = _get_ts_key(ts2)
                 pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
                 pair_rng = np.random.RandomState(pair_seed)
-
-                me_table[i, 0] = (
-                    me0 + pair_rng.random() * noise_const
-                )  # add small noise for better fitting
-
-                random_noise = (
-                    pair_rng.random(size=nsh) * noise_const
-                )  # add small noise for better fitting
-                for k, shift in enumerate(random_shifts[i, 0, :]):
-                    mi = get_multi_mi(ts_bunch2, ts1, ds=ds, shift=shift, estimator=mi_estimator,
-                                      mi_estimator_kwargs=mi_estimator_kwargs)
-                    me_table_shuffles[i, 0, k] = mi + random_noise[k]
-
-            else:
-                me_table[i, 0] = None
-                me_table_shuffles[i, 0, :] = np.full(shape=nsh, fill_value=None)
+                me0 = get_sim(
+                    ts1, ts2, metric, ds=ds,
+                    shift=optimal_delays[i, j] // ds,
+                    estimator=mi_estimator,
+                    check_for_coincidence=True,
+                    mi_estimator_kwargs=mi_estimator_kwargs,
+                )
+                me_table[i, j] = me0 + pair_rng.random() * noise_const
+                random_noise = pair_rng.random(size=nsh) * noise_const
+                for k, shift in enumerate(random_shifts[i, j, :]):
+                    me = get_sim(
+                        ts1, ts2, metric, ds=ds, shift=shift,
+                        estimator=mi_estimator,
+                        mi_estimator_kwargs=mi_estimator_kwargs,
+                    )
+                    me_table_shuffles[i, j, k] = me + random_noise[k]
 
         else:
-            if fft_cache is not None:
-                # Vectorized cache path: batch all cached pairs for this neuron
-                key1 = _get_ts_key(ts1)
-                cached_js = []
-                mi_all_list = []
-                uncached_js = []
-
-                for j in range(n2):
-                    if mask[i, j] == 1:
-                        entry = fft_cache.get((key1, _get_ts_key(ts_bunch2[j])))
-                        if entry is not None:
-                            cached_js.append(j)
-                            mi_all_list.append(entry.mi_all)
-                        else:
-                            uncached_js.append(j)
-
-                # Batch process all cached pairs at once
-                if cached_js:
-                    cached_js_arr = np.array(cached_js)
-                    mi_stack = np.array(mi_all_list)  # (n_cached, n_shifts)
-                    arange_cached = np.arange(len(cached_js))
-
-                    # Vectorized true MI lookup
-                    opt_shifts = (optimal_delays[i, cached_js_arr] // ds).astype(int)
-                    me0_vals = mi_stack[arange_cached, opt_shifts]
-
-                    # Vectorized shuffle MI lookup
-                    shifts_batch = random_shifts[i, cached_js_arr, :]  # (n_cached, nsh)
-                    shuffle_vals = mi_stack[arange_cached[:, None], shifts_batch]
-
-                    # Write results with pre-generated noise
-                    me_table[i, cached_js_arr] = me0_vals + _noise_true[i, cached_js_arr]
-                    me_table_shuffles[i, cached_js_arr, :] = shuffle_vals + _noise_shuffles[i, cached_js_arr, :]
-
-                # Non-FFT-able pairs (cache entry was None): loop fallback
-                for j in uncached_js:
-                    ts2 = ts_bunch2[j]
+            # No cache — per-pair loop with fresh FFT or loop computation
+            for j, ts2 in enumerate(ts_bunch2):
+                if mask[i, j] == 1:
+                    key1 = _get_ts_key(ts1)
                     key2 = _get_ts_key(ts2)
                     pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
                     pair_rng = np.random.RandomState(pair_seed)
-                    me0 = get_sim(
-                        ts1, ts2, metric, ds=ds,
-                        shift=optimal_delays[i, j] // ds,
-                        estimator=mi_estimator,
-                        check_for_coincidence=True,
-                        mi_estimator_kwargs=mi_estimator_kwargs,
-                    )
-                    me_table[i, j] = me0 + pair_rng.random() * noise_const
-                    random_noise = pair_rng.random(size=nsh) * noise_const
-                    for k, shift in enumerate(random_shifts[i, j, :]):
-                        me = get_sim(
-                            ts1, ts2, metric, ds=ds, shift=shift,
+                    fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, nsh, engine)
+
+                    if fft_type is not None:
+                        # Unified FFT-accelerated path
+                        data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
+                        compute_fn = _FFT_COMPUTE[fft_type]
+
+                        opt_shift = optimal_delays[i, j] // ds
+                        me0 = compute_fn(data1, data2, np.array([opt_shift]))[0]
+                        shuffle_mis = compute_fn(data1, data2, random_shifts[i, j, :])
+
+                        me_table[i, j] = me0 + pair_rng.random() * noise_const
+                        random_noise = pair_rng.random(size=nsh) * noise_const
+                        me_table_shuffles[i, j, :] = shuffle_mis + random_noise
+
+                    else:
+                        # Original loop path (no FFT available)
+                        me0 = get_sim(
+                            ts1, ts2, metric, ds=ds,
+                            shift=optimal_delays[i, j] // ds,
                             estimator=mi_estimator,
+                            check_for_coincidence=True,
                             mi_estimator_kwargs=mi_estimator_kwargs,
                         )
-                        me_table_shuffles[i, j, k] = me + random_noise[k]
-
-            else:
-                # No cache — per-pair loop with fresh FFT or loop computation
-                for j, ts2 in enumerate(ts_bunch2):
-                    if mask[i, j] == 1:
-                        key1 = _get_ts_key(ts1)
-                        key2 = _get_ts_key(ts2)
-                        pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
-                        pair_rng = np.random.RandomState(pair_seed)
-                        fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, nsh, engine)
-
-                        if fft_type is not None:
-                            # Unified FFT-accelerated path
-                            data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
-                            compute_fn = _FFT_COMPUTE[fft_type]
-
-                            opt_shift = optimal_delays[i, j] // ds
-                            me0 = compute_fn(data1, data2, np.array([opt_shift]))[0]
-                            shuffle_mis = compute_fn(data1, data2, random_shifts[i, j, :])
-
-                            me_table[i, j] = me0 + pair_rng.random() * noise_const
-                            random_noise = pair_rng.random(size=nsh) * noise_const
-                            me_table_shuffles[i, j, :] = shuffle_mis + random_noise
-
-                        else:
-                            # Original loop path (no FFT available)
-                            me0 = get_sim(
-                                ts1, ts2, metric, ds=ds,
-                                shift=optimal_delays[i, j] // ds,
+                        me_table[i, j] = me0 + pair_rng.random() * noise_const
+                        random_noise = pair_rng.random(size=nsh) * noise_const
+                        for k, shift in enumerate(random_shifts[i, j, :]):
+                            me = get_sim(
+                                ts1, ts2, metric, ds=ds, shift=shift,
                                 estimator=mi_estimator,
-                                check_for_coincidence=True,
                                 mi_estimator_kwargs=mi_estimator_kwargs,
                             )
-                            me_table[i, j] = me0 + pair_rng.random() * noise_const
-                            random_noise = pair_rng.random(size=nsh) * noise_const
-                            for k, shift in enumerate(random_shifts[i, j, :]):
-                                me = get_sim(
-                                    ts1, ts2, metric, ds=ds, shift=shift,
-                                    estimator=mi_estimator,
-                                    mi_estimator_kwargs=mi_estimator_kwargs,
-                                )
-                                me_table_shuffles[i, j, k] = me + random_noise[k]
+                            me_table_shuffles[i, j, k] = me + random_noise[k]
 
     me_total = np.dstack((me_table, me_table_shuffles))
 
@@ -780,7 +724,6 @@ def scan_pairs_parallel(
     nsh,
     optimal_delays,
     mi_estimator="gcmi",
-    joint_distr=False,
     allow_mixed_dimensions=True,
     ds=1,
     mask=None,
@@ -812,8 +755,6 @@ def scan_pairs_parallel(
     mi_estimator : str, default='gcmi'
         Mutual information estimator to use when metric='mi'.
         Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
-    joint_distr : bool, default=False
-        If True, treats all ts_bunch2 as components of a single multifeature.
     allow_mixed_dimensions : bool, default=True
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
 
@@ -894,7 +835,7 @@ def scan_pairs_parallel(
     validate_common_parameters(ds=ds, nsh=nsh, noise_const=noise_const)
 
     n1 = len(ts_bunch1)
-    n2 = 1 if joint_distr else len(ts_bunch2)
+    n2 = len(ts_bunch2)
 
     # Validate optimal_delays shape
     if optimal_delays.shape != (n1, n2):
@@ -910,7 +851,7 @@ def scan_pairs_parallel(
     # Initialize mask if None
     if mask is None:
         n1 = len(ts_bunch1)
-        n2 = 1 if joint_distr else len(ts_bunch2)
+        n2 = len(ts_bunch2)
         mask = np.ones((n1, n2))
 
     # Pre-generate ALL random shifts upfront using stable key seeding
@@ -953,7 +894,7 @@ def scan_pairs_parallel(
                 split_optimal_delays[worker_idx],
                 split_random_shifts[worker_idx],  # Pre-generated, pre-split shifts
                 mi_estimator,
-                joint_distr=joint_distr,
+
                 allow_mixed_dimensions=allow_mixed_dimensions,
                 ds=ds,
                 mask=split_mask[worker_idx],
@@ -982,7 +923,6 @@ def scan_pairs_router(
     nsh,
     optimal_delays,
     mi_estimator="gcmi",
-    joint_distr=False,
     allow_mixed_dimensions=True,
     ds=1,
     mask=None,
@@ -1015,8 +955,6 @@ def scan_pairs_router(
     mi_estimator : str, default='gcmi'
         Mutual information estimator to use when metric='mi'.
         Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
-    joint_distr : bool, default=False
-        If True, treats all ts_bunch2 as components of a single multifeature.
     allow_mixed_dimensions : bool, default=True
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
 
@@ -1095,7 +1033,7 @@ def scan_pairs_router(
             nsh,
             optimal_delays,
             mi_estimator,
-            joint_distr=joint_distr,
+
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
             mask=mask,
@@ -1116,7 +1054,7 @@ def scan_pairs_router(
             optimal_delays,
             random_shifts=None,  # Generate shifts inside scan_pairs
             mi_estimator=mi_estimator,
-            joint_distr=joint_distr,
+
             allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
             mask=mask,
@@ -1141,7 +1079,6 @@ def scan_stage(
     noise_const: float,
     ds: int,
     seed: int,
-    joint_distr: bool,
     allow_mixed_dimensions: bool,
     enable_parallelization: bool,
     n_jobs: int,
@@ -1186,8 +1123,6 @@ def scan_stage(
         Downsampling factor.
     seed : int
         Random seed for reproducibility.
-    joint_distr : bool
-        If True, all ts_bunch2 are treated as single multivariate feature.
     allow_mixed_dimensions : bool
         Whether to allow mixed TimeSeries and MultiTimeSeries objects.
     enable_parallelization : bool
@@ -1217,7 +1152,7 @@ def scan_stage(
         - 'multicorr_thr': Multiple comparison threshold (Stage 2 only, None for Stage 1)
     """
     n1 = len(ts_bunch1)
-    n2 = 1 if joint_distr else len(ts_bunch2)
+    n2 = len(ts_bunch2)
 
     if verbose:
         print(f"Stage {config.stage_num}: {config.n_shuffles} shuffles")
@@ -1230,7 +1165,6 @@ def scan_stage(
         config.n_shuffles,
         optimal_delays,
         mi_estimator,
-        joint_distr=joint_distr,
         allow_mixed_dimensions=allow_mixed_dimensions,
         ds=ds,
         mask=config.mask,
@@ -1307,7 +1241,6 @@ def compute_me_stats(
     precomputed_mask_stage2=None,
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
-    joint_distr=False,
     allow_mixed_dimensions=True,
     metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=DEFAULT_NOISE_AMPLITUDE,
@@ -1367,13 +1300,13 @@ def compute_me_stats(
 
     precomputed_mask_stage1 : np.array, optional
         precomputed mask for skipping some of possible pairs in stage 1.
-        Shape: (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
+        Shape: (len(ts_bunch1), len(ts_bunch2))
         0 in mask values means calculation will be skipped.
         1 in mask values means calculation will proceed.
 
     precomputed_mask_stage2 : np.array, optional
         precomputed mask for skipping some of possible pairs in stage 2.
-        Shape: (len(ts_bunch1), len(ts_bunch2)) or (len(ts_bunch), 1) if joint_distr=True
+        Shape: (len(ts_bunch1), len(ts_bunch2))
         0 in mask values means calculation will be skipped.
         1 in mask values means calculation will proceed.
 
@@ -1383,13 +1316,8 @@ def compute_me_stats(
     n_shuffles_stage2 : int, default=10000
         number of shuffles for second stage
 
-    joint_distr : bool, default=False
-        if joint_distr=True, ALL features in feat_bunch will be treated as components of a single multifeature
-        For example, 'x' and 'y' features will be put together into ('x','y') multifeature.
-
     allow_mixed_dimensions : bool, default=True
         if True, both TimeSeries and MultiTimeSeries can be provided as signals.
-        This parameter overrides "joint_distr"
 
         .. deprecated:: 1.1
             This parameter is deprecated and will be removed in a future version.
@@ -1568,8 +1496,6 @@ def compute_me_stats(
         n1 = len(ts_bunch1)
         n2 = len(ts_bunch2)
         if not allow_mixed_dimensions:
-            n2 = 1 if joint_distr else len(ts_bunch2)
-
             tsbunch1_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch1])
             tsbunch2_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch2])
             if not (tsbunch1_is_1d and tsbunch2_is_1d):
@@ -1611,19 +1537,18 @@ def compute_me_stats(
                 else:  # warn
                     print(f"Warning: {msg}")
 
-            # Check for duplicates in ts_bunch2 (if not joint_distr)
-            if not joint_distr:
-                ts2_ids = []
-                for ts in ts_bunch2:
-                    ts_id = id(ts.data) if hasattr(ts, "data") else id(ts)
-                    ts2_ids.append(ts_id)
+            # Check for duplicates in ts_bunch2
+            ts2_ids = []
+            for ts in ts_bunch2:
+                ts_id = id(ts.data) if hasattr(ts, "data") else id(ts)
+                ts2_ids.append(ts_id)
 
-                if len(set(ts2_ids)) < len(ts2_ids):
-                    msg = "Duplicate TimeSeries objects found in ts_bunch2"
-                    if duplicate_behavior == "raise":
-                        raise ValueError(msg)
-                    else:  # warn
-                        print(f"Warning: {msg}")
+            if len(set(ts2_ids)) < len(ts2_ids):
+                msg = "Duplicate TimeSeries objects found in ts_bunch2"
+                if duplicate_behavior == "raise":
+                    raise ValueError(msg)
+                else:  # warn
+                    print(f"Warning: {msg}")
 
         optimal_delays = np.zeros((n1, n2), dtype=int)
 
@@ -1644,7 +1569,7 @@ def compute_me_stats(
             print(f"Building FFT cache for {len(ts_bunch1)}x{len(ts_bunch2)} pairs (engine={engine})...")
         with _timed_section(timings, 'fft_cache_building'):
             fft_cache, fft_type_counts = _build_fft_cache(
-                ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, joint_distr,
+                ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine,
                 n_jobs=n_jobs if enable_parallelization else 1,
             )
 
@@ -1730,7 +1655,7 @@ def compute_me_stats(
                     noise_const=noise_const,
                     ds=ds,
                     seed=seed,
-                    joint_distr=joint_distr,
+    
                     allow_mixed_dimensions=allow_mixed_dimensions,
                     enable_parallelization=enable_parallelization,
                     n_jobs=n_jobs,
@@ -1826,7 +1751,7 @@ def compute_me_stats(
                     noise_const=noise_const,
                     ds=ds,
                     seed=seed,
-                    joint_distr=joint_distr,
+    
                     allow_mixed_dimensions=allow_mixed_dimensions,
                     enable_parallelization=enable_parallelization,
                     n_jobs=n_jobs,

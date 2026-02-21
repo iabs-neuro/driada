@@ -79,7 +79,6 @@ def compute_cell_feat_significance(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
-    joint_distr=False,
     allow_mixed_dimensions=True,
     metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=1e-3,
@@ -146,14 +145,9 @@ def compute_cell_feat_significance(
         Number of shuffles for first stage. Default is 100
     n_shuffles_stage2 : int, optional
         Number of shuffles for second stage. Default is 10000
-    joint_distr : bool, optional
-        If True, ALL features in feat_bunch will be treated as components of a single multifeature.
-        For example, 'x' and 'y' features will be put together into ('x','y') multifeature.
-        Note: This parameter is marked for deprecation. Use allow_mixed_dimensions instead.
-        Default is False
     allow_mixed_dimensions : bool, optional
         If True, both TimeSeries and MultiTimeSeries can be provided as signals.
-        This parameter overrides "joint_distr". Default is True
+        Default is True
 
         .. deprecated:: 1.1
             This parameter is deprecated and will be removed in a future version.
@@ -350,7 +344,6 @@ def compute_cell_feat_significance(
 
     Notes
     -----
-    - When joint_distr=True, all features are combined into a single multifeature
     - shift_window is converted from seconds to frames using exp.fps
     - Updates exp.optimal_nf_delays as a side effect
     - Relative MI values are computed using appropriate neural data entropy
@@ -418,8 +411,6 @@ def compute_cell_feat_significance(
         feats = [
             exp.dynamic_features[feat_id] for feat_id in feat_ids if feat_id in exp.dynamic_features
         ]
-        if joint_distr:
-            feat_ids = [tuple(sorted(feat_ids))]
     else:
         feats = []
         for feat_id in feat_ids:
@@ -521,7 +512,6 @@ def compute_cell_feat_significance(
         precomputed_mask_stage2=precomputed_mask_stage2,
         n_shuffles_stage1=n_shuffles_stage1,
         n_shuffles_stage2=n_shuffles_stage2,
-        joint_distr=joint_distr,
         allow_mixed_dimensions=allow_mixed_dimensions,
         metric_distr_type=metric_distr_type,
         noise_ampl=noise_ampl,
@@ -594,7 +584,7 @@ def compute_cell_feat_significance(
             "metric": metric,
             "n_shuffles_stage1": n_shuffles_stage1,
             "n_shuffles_stage2": n_shuffles_stage2,
-            "joint_distr": joint_distr,
+
             "metric_distr_type": metric_distr_type,
             "noise_ampl": noise_ampl,
             "ds": ds,
@@ -985,7 +975,7 @@ def compute_feat_feat_significance(
         precomputed_mask_stage2=precomputed_mask_stage2,
         n_shuffles_stage1=n_shuffles_stage1,
         n_shuffles_stage2=n_shuffles_stage2,
-        joint_distr=False,
+
         allow_mixed_dimensions=True,  # Allow MultiTimeSeries
         metric_distr_type=metric_distr_type,
         noise_ampl=noise_ampl,
@@ -1296,7 +1286,7 @@ def compute_cell_cell_significance(
         precomputed_mask_stage2=precomputed_mask_stage2,
         n_shuffles_stage1=n_shuffles_stage1,
         n_shuffles_stage2=n_shuffles_stage2,
-        joint_distr=False,
+
         metric_distr_type=metric_distr_type,
         noise_ampl=noise_ampl,
         ds=ds,

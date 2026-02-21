@@ -83,7 +83,7 @@ def test_stage1(correlated_ts_medium, fast_test_params):
         tslist2,
         mode="stage1",
         n_shuffles_stage1=fast_test_params["n_shuffles_stage1"],
-        joint_distr=False,
+
         metric_distr_type="gamma",
         noise_ampl=fast_test_params["noise_ampl"],
         ds=fast_test_params["ds"],
@@ -108,7 +108,7 @@ def test_two_stage(correlated_ts_medium, strict_test_params):
         mode="two_stage",
         n_shuffles_stage1=strict_test_params["n_shuffles_stage1"],
         n_shuffles_stage2=strict_test_params["n_shuffles_stage2"],
-        joint_distr=False,
+
         metric_distr_type="gamma",
         noise_ampl=strict_test_params["noise_ampl"],
         ds=strict_test_params["ds"],
@@ -164,7 +164,7 @@ def test_mixed_dimensions(correlated_ts_medium, aggregate_two_ts_func, strict_te
         mode="two_stage",
         n_shuffles_stage1=strict_test_params["n_shuffles_stage1"],
         n_shuffles_stage2=strict_test_params["n_shuffles_stage2"],
-        joint_distr=False,
+
         allow_mixed_dimensions=True,
         metric_distr_type="gamma",
         noise_ampl=strict_test_params["noise_ampl"],
@@ -215,7 +215,7 @@ def test_mirror(correlated_ts_medium, aggregate_two_ts_func, strict_test_params)
         mode="two_stage",
         n_shuffles_stage1=strict_test_params["n_shuffles_stage1"],
         n_shuffles_stage2=strict_test_params["n_shuffles_stage2"],
-        joint_distr=False,
+
         allow_mixed_dimensions=True,
         metric_distr_type="gamma",
         noise_ampl=strict_test_params["noise_ampl"],
@@ -268,7 +268,7 @@ def test_two_stage_corr(correlated_ts_small, fast_test_params):
         mode="two_stage",
         n_shuffles_stage1=fast_test_params["n_shuffles_stage1"],
         n_shuffles_stage2=fast_test_params["n_shuffles_stage2"],
-        joint_distr=False,
+
         metric_distr_type="norm",  # Use normal for correlation metrics
         noise_ampl=1e-4,
         ds=2,  # Downsample for speed
@@ -302,7 +302,7 @@ def test_two_stage_avsignal(correlated_ts_binarized, balanced_test_params):
         mode="two_stage",
         n_shuffles_stage1=balanced_test_params["n_shuffles_stage1"],
         n_shuffles_stage2=balanced_test_params["n_shuffles_stage2"],
-        joint_distr=False,
+
         metric_distr_type="norm",  # Use normal for av metric
         noise_ampl=1e-4,
         ds=balanced_test_params["ds"],
@@ -651,7 +651,7 @@ def test_scan_pairs():
         metric="mi",
         nsh=10,
         optimal_delays=optimal_delays,
-        joint_distr=False,
+
         ds=1,
         noise_const=1e-3,
         allow_mixed_dimensions=False,
@@ -680,7 +680,7 @@ def test_scan_pairs_router():
         metric="mi",
         nsh=5,
         optimal_delays=optimal_delays,
-        joint_distr=False,
+
         allow_mixed_dimensions=False,
         ds=1,
         noise_const=1e-3,
@@ -868,7 +868,7 @@ def test_parallel_mi_equality(correlated_ts_small, fast_test_params):
         nsh=fast_test_params["n_shuffles_stage1"],
         optimal_delays=optd,
         ds=fast_test_params["ds"],
-        joint_distr=False,
+
         noise_const=fast_test_params["noise_ampl"],
         seed=42,
     )
@@ -881,7 +881,7 @@ def test_parallel_mi_equality(correlated_ts_small, fast_test_params):
         fast_test_params["n_shuffles_stage1"],
         optd,
         ds=fast_test_params["ds"],
-        joint_distr=False,
+
         n_jobs=2,  # Use 2 jobs for stability
         noise_const=fast_test_params["noise_ampl"],
         seed=42,
@@ -915,7 +915,7 @@ def test_parallel_router(correlated_ts_small, fast_test_params):
         fast_test_params["n_shuffles_stage1"],
         optd,
         ds=fast_test_params["ds"],
-        joint_distr=False,
+
         noise_const=fast_test_params["noise_ampl"],
         seed=42,
         enable_parallelization=True,
@@ -930,7 +930,7 @@ def test_parallel_router(correlated_ts_small, fast_test_params):
         fast_test_params["n_shuffles_stage1"],
         optd,
         ds=fast_test_params["ds"],
-        joint_distr=False,
+
         noise_const=fast_test_params["noise_ampl"],
         seed=42,
         enable_parallelization=False,

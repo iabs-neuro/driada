@@ -21,7 +21,7 @@ def test_intense_exp(medium_experiment):
         mode="two_stage",
         n_shuffles_stage1=100,
         n_shuffles_stage2=5000,
-        joint_distr=False,
+
         metric_distr_type="norm",
         noise_ampl=1e-4,
         ds=5,
