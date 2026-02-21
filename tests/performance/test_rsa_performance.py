@@ -165,7 +165,7 @@ def test_caching_performance():
     print(f"\nFirst computation:    {time_first:.4f} s")
     print(f"Cached computation:   {time_cached:.4f} s")
     print(f"No-cache computation: {time_no_cache:.4f} s")
-    print(f"Cache speedup:        {time_first/time_cached:.1f}x")
+    print(f"Cache speedup:        {time_first/max(time_cached, 1e-9):.1f}x")
 
     # Verify all results are the same
     assert np.allclose(rdm1, rdm2), "Cached result differs"
