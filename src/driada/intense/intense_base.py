@@ -465,7 +465,6 @@ def scan_pairs(
     mask=None,
     noise_const=DEFAULT_NOISE_AMPLITUDE,
     seed=None,
-    allow_mixed_dimensions=True,
     enable_progressbar=True,
     engine="auto",
     fft_cache: dict = None,
@@ -505,12 +504,6 @@ def scan_pairs(
         Small noise amplitude added to improve numerical stability.
     seed : int, optional
         Random seed for reproducibility.
-    allow_mixed_dimensions : bool, default=True
-        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
-
-        .. deprecated:: 1.1
-            This parameter is deprecated and will be removed in a future version.
-            Mixed dimensions are now always allowed.
     enable_progressbar : bool, default=True
         Whether to show progress bar during computation.
     engine : {'auto', 'fft', 'loop'}, default='auto'
@@ -543,9 +536,7 @@ def scan_pairs(
     - FFT optimization provides ~100x speedup for univariate continuous GCMI"""
 
     # Validate inputs
-    validate_time_series_bunches(
-        ts_bunch1, ts_bunch2, allow_mixed_dimensions=allow_mixed_dimensions
-    )
+    validate_time_series_bunches(ts_bunch1, ts_bunch2)
     validate_metric(metric)
     validate_common_parameters(ds=ds, nsh=nsh, noise_const=noise_const)
 
@@ -724,7 +715,6 @@ def scan_pairs_parallel(
     nsh,
     optimal_delays,
     mi_estimator="gcmi",
-    allow_mixed_dimensions=True,
     ds=1,
     mask=None,
     noise_const=DEFAULT_NOISE_AMPLITUDE,
@@ -755,12 +745,6 @@ def scan_pairs_parallel(
     mi_estimator : str, default='gcmi'
         Mutual information estimator to use when metric='mi'.
         Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
-    allow_mixed_dimensions : bool, default=True
-        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
-
-        .. deprecated:: 1.1
-            This parameter is deprecated and will be removed in a future version.
-            Mixed dimensions are now always allowed.
     ds : int, default=1
         Downsampling factor.
     mask : np.ndarray, optional
@@ -828,9 +812,7 @@ def scan_pairs_parallel(
     (2, 2, 6)"""
 
     # Validate inputs
-    validate_time_series_bunches(
-        ts_bunch1, ts_bunch2, allow_mixed_dimensions=allow_mixed_dimensions
-    )
+    validate_time_series_bunches(ts_bunch1, ts_bunch2)
     validate_metric(metric)
     validate_common_parameters(ds=ds, nsh=nsh, noise_const=noise_const)
 
@@ -894,8 +876,6 @@ def scan_pairs_parallel(
                 split_optimal_delays[worker_idx],
                 split_random_shifts[worker_idx],  # Pre-generated, pre-split shifts
                 mi_estimator,
-
-                allow_mixed_dimensions=allow_mixed_dimensions,
                 ds=ds,
                 mask=split_mask[worker_idx],
                 noise_const=noise_const,
@@ -923,7 +903,6 @@ def scan_pairs_router(
     nsh,
     optimal_delays,
     mi_estimator="gcmi",
-    allow_mixed_dimensions=True,
     ds=1,
     mask=None,
     noise_const=DEFAULT_NOISE_AMPLITUDE,
@@ -955,12 +934,6 @@ def scan_pairs_router(
     mi_estimator : str, default='gcmi'
         Mutual information estimator to use when metric='mi'.
         Options: 'gcmi' (Gaussian copula) or 'ksg' (k-nearest neighbors).
-    allow_mixed_dimensions : bool, default=True
-        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
-
-        .. deprecated:: 1.1
-            This parameter is deprecated and will be removed in a future version.
-            Mixed dimensions are now always allowed.
     ds : int, default=1
         Downsampling factor.
     mask : np.ndarray, optional
@@ -1033,8 +1006,6 @@ def scan_pairs_router(
             nsh,
             optimal_delays,
             mi_estimator,
-
-            allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
             mask=mask,
             noise_const=noise_const,
@@ -1054,8 +1025,6 @@ def scan_pairs_router(
             optimal_delays,
             random_shifts=None,  # Generate shifts inside scan_pairs
             mi_estimator=mi_estimator,
-
-            allow_mixed_dimensions=allow_mixed_dimensions,
             ds=ds,
             mask=mask,
             seed=seed,
@@ -1079,7 +1048,6 @@ def scan_stage(
     noise_const: float,
     ds: int,
     seed: int,
-    allow_mixed_dimensions: bool,
     enable_parallelization: bool,
     n_jobs: int,
     engine: str,
@@ -1123,8 +1091,6 @@ def scan_stage(
         Downsampling factor.
     seed : int
         Random seed for reproducibility.
-    allow_mixed_dimensions : bool
-        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
     enable_parallelization : bool
         Whether to use parallel processing.
     n_jobs : int
@@ -1165,7 +1131,6 @@ def scan_stage(
         config.n_shuffles,
         optimal_delays,
         mi_estimator,
-        allow_mixed_dimensions=allow_mixed_dimensions,
         ds=ds,
         mask=config.mask,
         noise_const=noise_const,
@@ -1241,7 +1206,6 @@ def compute_me_stats(
     precomputed_mask_stage2=None,
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
-    allow_mixed_dimensions=True,
     metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=DEFAULT_NOISE_AMPLITUDE,
     ds=1,
@@ -1315,13 +1279,6 @@ def compute_me_stats(
 
     n_shuffles_stage2 : int, default=10000
         number of shuffles for second stage
-
-    allow_mixed_dimensions : bool, default=True
-        if True, both TimeSeries and MultiTimeSeries can be provided as signals.
-
-        .. deprecated:: 1.1
-            This parameter is deprecated and will be removed in a future version.
-            Mixed dimensions are now always allowed.
 
     metric_distr_type : str, default="gamma_zi"
         Distribution type for shuffled metric null distribution. Options:
@@ -1432,7 +1389,6 @@ def compute_me_stats(
         If multicomp_correction is not None, 'bonferroni', 'holm', or 'fdr_bh'.
         If pval_thr is not between 0 and 1.
         If duplicate_behavior is not 'ignore', 'raise', or 'warn'.
-        If allow_mixed_dimensions=False but mixed types are provided.
         If duplicate TimeSeries found and duplicate_behavior='raise'.
 
     Notes
@@ -1448,9 +1404,7 @@ def compute_me_stats(
     # FUTURE: add automatic min_shifts from autocorrelation time
 
     # Validate inputs
-    validate_time_series_bunches(
-        ts_bunch1, ts_bunch2, allow_mixed_dimensions=allow_mixed_dimensions
-    )
+    validate_time_series_bunches(ts_bunch1, ts_bunch2)
     validate_metric(metric)
     validate_common_parameters(shift_window=shift_window, ds=ds, noise_const=noise_ampl)
 
@@ -1495,14 +1449,6 @@ def compute_me_stats(
 
         n1 = len(ts_bunch1)
         n2 = len(ts_bunch2)
-        if not allow_mixed_dimensions:
-            tsbunch1_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch1])
-            tsbunch2_is_1d = np.all([isinstance(ts, TimeSeries) for ts in ts_bunch2])
-            if not (tsbunch1_is_1d and tsbunch2_is_1d):
-                raise ValueError(
-                    "Multiple time series types found, but allow_mixed_dimensions=False."
-                    "Consider setting it to True"
-                )
 
         if precomputed_mask_stage1 is None:
             precomputed_mask_stage1 = np.ones((n1, n2))
@@ -1655,8 +1601,6 @@ def compute_me_stats(
                     noise_const=noise_const,
                     ds=ds,
                     seed=seed,
-    
-                    allow_mixed_dimensions=allow_mixed_dimensions,
                     enable_parallelization=enable_parallelization,
                     n_jobs=n_jobs,
                     engine=engine,
@@ -1751,8 +1695,6 @@ def compute_me_stats(
                     noise_const=noise_const,
                     ds=ds,
                     seed=seed,
-    
-                    allow_mixed_dimensions=allow_mixed_dimensions,
                     enable_parallelization=enable_parallelization,
                     n_jobs=n_jobs,
                     engine=engine,

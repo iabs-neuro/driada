@@ -29,7 +29,6 @@ Usage Example
    # First, run INTENSE analysis
    stats, sig, info, intense_results = compute_cell_feat_significance(
        exp,
-       allow_mixed_dimensions=True,
        find_optimal_delays=False  # Skip temporal alignment for demo
    )
 

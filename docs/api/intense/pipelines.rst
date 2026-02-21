@@ -5,11 +5,28 @@ INTENSE Pipelines
 
 High-level analysis pipelines for computing statistical significance of neural selectivity.
 
+All pipeline functions are importable from the top-level ``driada.intense`` namespace:
+
+.. doctest::
+
+   >>> from driada.intense import compute_cell_feat_significance
+   >>> from driada.intense import compute_cell_cell_significance
+   >>> from driada.intense import compute_embedding_selectivity
+   >>> import inspect
+   >>> 'n_shuffles_stage1' in inspect.signature(compute_cell_feat_significance).parameters
+   True
+   >>> 'n_shuffles_stage2' in inspect.signature(compute_cell_cell_significance).parameters
+   True
+
 ``compute_cell_cell_significance`` produces pairwise similarity and significance matrices.
 The significance matrix can be wrapped in a :class:`~driada.network.net_base.Network` for
 spectral and topological analysis:
 
 .. code-block:: python
+
+   sim_mat, sig_mat, pval_mat, cell_ids, info = compute_cell_cell_significance(
+       exp, n_shuffles_stage1=100, n_shuffles_stage2=1000, ds=5
+   )
 
    import scipy.sparse as sp
    from driada.network import Network
@@ -33,16 +50,13 @@ Usage Example
 
    from driada.intense import compute_cell_feat_significance
    from driada.experiment import load_demo_experiment
-   
-   # Load sample experiment
+
    exp = load_demo_experiment()
-   
-   # Analyze neuron-feature selectivity
+
    stats, significance, info, results = compute_cell_feat_significance(
        exp,
        n_shuffles_stage1=100,
        n_shuffles_stage2=1000,
-       ds=5,  # Downsample for speed
-       allow_mixed_dimensions=True,
-       find_optimal_delays=False  # Skip temporal alignment for demo
+       ds=5,
+       find_optimal_delays=False,
    )

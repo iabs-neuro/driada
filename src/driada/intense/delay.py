@@ -116,7 +116,7 @@ def calculate_optimal_delays(
     >>> -5 <= delays[0, 0] <= 5
     True"""
     # Validate inputs
-    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=True)
+    validate_time_series_bunches(ts_bunch1, ts_bunch2)
     validate_metric(metric)
     validate_common_parameters(shift_window=shift_window, ds=ds)
 
@@ -272,7 +272,7 @@ def calculate_optimal_delays_parallel(
     >>> np.all(np.abs(delays) <= 3)
     True"""
     # Validate inputs
-    validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=True)
+    validate_time_series_bunches(ts_bunch1, ts_bunch2)
     validate_metric(metric)
     validate_common_parameters(shift_window=shift_window, ds=ds)
 

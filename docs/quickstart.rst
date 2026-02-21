@@ -75,7 +75,6 @@ Discover which neurons encode which variables:
        n_shuffles_stage2=1000,   # Rigorous validation
        ds=5,                     # Downsample by factor of 5 for speed
        verbose=True,
-       allow_mixed_dimensions=True,
        find_optimal_delays=False # Skip temporal alignment for demo
    )
 
@@ -482,7 +481,6 @@ Leverage DRIADA's advanced capabilities:
        mode='two_stage',
        n_shuffles_stage1=100,     # Pre-screening
        n_shuffles_stage2=5000,    # High precision
-       allow_mixed_dimensions=True,  # Handle MultiTimeSeries
        find_optimal_delays=False,  # Skip temporal alignment
        ds=5,  # Downsample for speed
        verbose=True

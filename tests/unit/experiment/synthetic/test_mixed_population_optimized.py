@@ -233,7 +233,6 @@ class TestIntegrationWithINTENSE:
             n_shuffles_stage1=5,  # Minimal shuffles
             verbose=False,
             ds=5,  # Aggressive downsampling
-            allow_mixed_dimensions=True,  # Allow MultiTimeSeries
             find_optimal_delays=False,  # Disable to avoid MultiTimeSeries issue
         )
 

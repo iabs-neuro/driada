@@ -79,7 +79,6 @@ def compute_cell_feat_significance(
     mode="two_stage",
     n_shuffles_stage1=100,
     n_shuffles_stage2=10000,
-    allow_mixed_dimensions=True,
     metric_distr_type=DEFAULT_METRIC_DISTR_TYPE,
     noise_ampl=1e-3,
     ds=1,
@@ -145,14 +144,6 @@ def compute_cell_feat_significance(
         Number of shuffles for first stage. Default is 100
     n_shuffles_stage2 : int, optional
         Number of shuffles for second stage. Default is 10000
-    allow_mixed_dimensions : bool, optional
-        If True, both TimeSeries and MultiTimeSeries can be provided as signals.
-        Default is True
-
-        .. deprecated:: 1.1
-            This parameter is deprecated and will be removed in a future version.
-            Mixed dimensions are now always allowed.
-
     metric_distr_type : str, optional
         Distribution type for shuffled metric null distribution. Options:
 
@@ -340,7 +331,6 @@ def compute_cell_feat_significance(
     ValueError
         If data_type is not 'calcium' or 'spikes'
         If features are not found in experiment
-        If allow_mixed_dimensions enabled with unknown feature type
 
     Notes
     -----
@@ -407,33 +397,28 @@ def compute_cell_feat_significance(
         raise ValueError('"data_type" can be either "calcium" or "spikes"')
 
     # min_shifts = [int(cell.get_t_off() * MIN_CA_SHIFT) for cell in cells]
-    if not allow_mixed_dimensions:
-        feats = [
-            exp.dynamic_features[feat_id] for feat_id in feat_ids if feat_id in exp.dynamic_features
-        ]
-    else:
-        feats = []
-        for feat_id in feat_ids:
-            if isinstance(feat_id, str):
-                if feat_id not in exp.dynamic_features:
+    feats = []
+    for feat_id in feat_ids:
+        if isinstance(feat_id, str):
+            if feat_id not in exp.dynamic_features:
+                raise ValueError(
+                    f"Feature '{feat_id}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}"
+                )
+            ts = exp.dynamic_features[feat_id]
+            feats.append(ts)
+        elif isinstance(feat_id, tuple):
+            for f in feat_id:
+                if f not in exp.dynamic_features:
                     raise ValueError(
-                        f"Feature '{feat_id}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}"
+                        f"Feature '{f}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}"
                     )
-                ts = exp.dynamic_features[feat_id]
-                feats.append(ts)
-            elif isinstance(feat_id, tuple):
-                for f in feat_id:
-                    if f not in exp.dynamic_features:
-                        raise ValueError(
-                            f"Feature '{f}' not found in experiment. Available features: {list(exp.dynamic_features.keys())}"
-                        )
-                parts = [exp.dynamic_features[f] for f in feat_id]
-                # Create MultiTimeSeries with name from tuple
-                mts_name = "_".join(str(f) for f in feat_id)
-                mts = MultiTimeSeries(parts, name=mts_name)
-                feats.append(mts)
-            else:
-                raise ValueError("Unknown feature id type")
+            parts = [exp.dynamic_features[f] for f in feat_id]
+            # Create MultiTimeSeries with name from tuple
+            mts_name = "_".join(str(f) for f in feat_id)
+            mts = MultiTimeSeries(parts, name=mts_name)
+            feats.append(mts)
+        else:
+            raise ValueError("Unknown feature id type")
 
     n, t, f = len(cells), exp.n_frames, len(feats)
 
@@ -512,7 +497,6 @@ def compute_cell_feat_significance(
         precomputed_mask_stage2=precomputed_mask_stage2,
         n_shuffles_stage1=n_shuffles_stage1,
         n_shuffles_stage2=n_shuffles_stage2,
-        allow_mixed_dimensions=allow_mixed_dimensions,
         metric_distr_type=metric_distr_type,
         noise_ampl=noise_ampl,
         ds=ds,
@@ -975,8 +959,6 @@ def compute_feat_feat_significance(
         precomputed_mask_stage2=precomputed_mask_stage2,
         n_shuffles_stage1=n_shuffles_stage1,
         n_shuffles_stage2=n_shuffles_stage2,
-
-        allow_mixed_dimensions=True,  # Allow MultiTimeSeries
         metric_distr_type=metric_distr_type,
         noise_ampl=noise_ampl,
         ds=ds,

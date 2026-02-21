@@ -336,7 +336,6 @@ class TestGenerate2DManifoldExp:
             n_shuffles_stage2=5000,
             ds=2,
             enable_parallelization=False,  # Disable parallelization
-            allow_mixed_dimensions=True,
             verbose=False,
         )
 

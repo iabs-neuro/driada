@@ -165,7 +165,6 @@ def test_mixed_dimensions(correlated_ts_medium, aggregate_two_ts_func, strict_te
         n_shuffles_stage1=strict_test_params["n_shuffles_stage1"],
         n_shuffles_stage2=strict_test_params["n_shuffles_stage2"],
 
-        allow_mixed_dimensions=True,
         metric_distr_type="gamma",
         noise_ampl=strict_test_params["noise_ampl"],
         ds=strict_test_params["ds"],
@@ -216,7 +215,6 @@ def test_mirror(correlated_ts_medium, aggregate_two_ts_func, strict_test_params)
         n_shuffles_stage1=strict_test_params["n_shuffles_stage1"],
         n_shuffles_stage2=strict_test_params["n_shuffles_stage2"],
 
-        allow_mixed_dimensions=True,
         metric_distr_type="gamma",
         noise_ampl=strict_test_params["noise_ampl"],
         ds=strict_test_params["ds"],
@@ -654,7 +652,6 @@ def test_scan_pairs():
 
         ds=1,
         noise_const=1e-3,
-        allow_mixed_dimensions=False,
         enable_progressbar=False,
     )
 
@@ -681,7 +678,6 @@ def test_scan_pairs_router():
         nsh=5,
         optimal_delays=optimal_delays,
 
-        allow_mixed_dimensions=False,
         ds=1,
         noise_const=1e-3,
         enable_parallelization=True,
@@ -761,22 +757,6 @@ def test_get_mi_distr_pvalue_edge_cases():
     norm_data = np.random.normal(0, 1, 1000)
     p_norm = get_mi_distr_pvalue(norm_data, 2, "norm")
     assert 0 <= p_norm <= 1
-
-
-def test_validate_time_series_bunches_mixed_dimensions():
-    """Test validation with mixed dimensions."""
-    ts1 = TimeSeries(np.random.randn(100))
-    mts1 = MultiTimeSeries([ts1, ts1])
-
-    # Should pass by default (allow_mixed_dimensions=True is the new default)
-    validate_time_series_bunches([ts1], [mts1])
-
-    # Explicit True should also pass
-    validate_time_series_bunches([ts1], [mts1], allow_mixed_dimensions=True)
-
-    # Explicit False should fail (deprecated but still functional)
-    with pytest.raises(ValueError, match="MultiTimeSeries found"):
-        validate_time_series_bunches([ts1], [mts1], allow_mixed_dimensions=False)
 
 
 def test_get_multicomp_correction_fdr():
@@ -1516,7 +1496,6 @@ def test_intense_e2e_mts_mts_fft():
         engine="fft",
         mi_estimator="gcmi",
         enable_parallelization=False,
-        allow_mixed_dimensions=True,
     )
 
     # Compute with loop engine (reference)
@@ -1529,7 +1508,6 @@ def test_intense_e2e_mts_mts_fft():
         engine="loop",
         mi_estimator="gcmi",
         enable_parallelization=False,
-        allow_mixed_dimensions=True,
     )
 
     # compute_me_stats returns (stats, significance, info) tuple
@@ -1644,7 +1622,6 @@ def test_intense_e2e_mts_discrete_fft():
         mode="stage2",
         engine="fft",
         mi_estimator="gcmi",
-        allow_mixed_dimensions=True,
     )
 
     # Compute with loop engine
@@ -1655,7 +1632,6 @@ def test_intense_e2e_mts_discrete_fft():
         mode="stage2",
         engine="loop",
         mi_estimator="gcmi",
-        allow_mixed_dimensions=True,
     )
 
     # Extract MI values
@@ -1694,7 +1670,6 @@ def test_mts_delay_optimization_works():
     stats, _, info = compute_me_stats(
         [ts1], [mts],
         metric="mi",
-        allow_mixed_dimensions=True,
         find_optimal_delays=True,
         shift_window=30,
         ds=1,
@@ -1725,7 +1700,6 @@ def test_mts_with_delays_disabled():
     stats, _, info = compute_me_stats(
         [ts1], [mts],
         metric="mi",
-        allow_mixed_dimensions=True,
         find_optimal_delays=False,
         mode="stage2",
         n_shuffles_stage2=10,

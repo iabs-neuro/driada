@@ -5,14 +5,12 @@ Provides validation functions for time series bunches, metrics, and common
 parameters used throughout the INTENSE pipeline.
 """
 
-import warnings
-
 import numpy as np
 
 from ..information.info_base import TimeSeries, MultiTimeSeries
 
 
-def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=True) -> None:
+def validate_time_series_bunches(ts_bunch1, ts_bunch2) -> None:
     """
     Validate time series bunches for INTENSE computations.
 
@@ -22,49 +20,16 @@ def validate_time_series_bunches(ts_bunch1, ts_bunch2, allow_mixed_dimensions=Tr
         First set of time series objects (e.g., neural activity).
     ts_bunch2 : list of TimeSeries or MultiTimeSeries
         Second set of time series objects (e.g., behavioral features).
-    allow_mixed_dimensions : bool, default=True
-        Whether to allow mixed TimeSeries and MultiTimeSeries objects.
-        If False, all objects must be TimeSeries.
-
-        .. deprecated:: 1.1
-            This parameter is deprecated and will be removed in a future version.
-            Mixed dimensions are now always allowed.
 
     Raises
     ------
     ValueError
         If bunches are empty, contain wrong types, or have mismatched lengths.
-
-    Notes
-    -----
-    When allow_mixed_dimensions=False, both bunches must contain only TimeSeries
-    objects. All time series within each bunch must have the same length, and
-    both bunches must have matching lengths."""
+    """
     if len(ts_bunch1) == 0:
         raise ValueError("ts_bunch1 cannot be empty")
     if len(ts_bunch2) == 0:
         raise ValueError("ts_bunch2 cannot be empty")
-
-    # Check time series types
-    if not allow_mixed_dimensions:
-        ts1_types = [type(ts) for ts in ts_bunch1]
-        ts2_types = [type(ts) for ts in ts_bunch2]
-
-        if not all(issubclass(t, TimeSeries) for t in ts1_types):
-            if any(issubclass(t, MultiTimeSeries) for t in ts1_types):
-                raise ValueError(
-                    "MultiTimeSeries found in ts_bunch1 but allow_mixed_dimensions=False"
-                )
-            else:
-                raise ValueError("ts_bunch1 must contain TimeSeries objects")
-
-        if not all(issubclass(t, TimeSeries) for t in ts2_types):
-            if any(issubclass(t, MultiTimeSeries) for t in ts2_types):
-                raise ValueError(
-                    "MultiTimeSeries found in ts_bunch2 but allow_mixed_dimensions=False"
-                )
-            else:
-                raise ValueError("ts_bunch2 must contain TimeSeries objects")
 
     # Check lengths match
     lengths1 = [

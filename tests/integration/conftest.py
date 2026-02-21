@@ -53,7 +53,6 @@ def integration_test_params(request):
             "n_neurons": 20,
             "duration": 100,
             "verbose": False,
-            "allow_mixed_dimensions": True,
             "find_optimal_delays": False,  # Can't use with multifeatures
         },
         "balanced": {
@@ -63,7 +62,6 @@ def integration_test_params(request):
             "n_neurons": 30,
             "duration": 200,
             "verbose": False,
-            "allow_mixed_dimensions": True,
             "find_optimal_delays": False,
         },
         "thorough": {
@@ -73,7 +71,6 @@ def integration_test_params(request):
             "n_neurons": 40,
             "duration": 400,
             "verbose": False,
-            "allow_mixed_dimensions": True,
             "find_optimal_delays": False,
         },
     }
@@ -321,7 +318,6 @@ def intense_params_fast():
         "n_shuffles_stage2": 20,
         "ds": 5,
         "verbose": False,
-        "allow_mixed_dimensions": True,
         "find_optimal_delays": False,
         "enable_parallelization": False,  # Disable for faster single test execution
         "n_jobs": 1,
@@ -338,7 +334,6 @@ def intense_params_balanced():
         "n_shuffles_stage2": 50,
         "ds": 3,
         "verbose": False,
-        "allow_mixed_dimensions": True,
         "find_optimal_delays": False,
         "enable_parallelization": False,
         "n_jobs": 1,
@@ -353,7 +348,6 @@ def intense_params_thorough():
         "n_shuffles_stage2": 100,
         "ds": 2,
         "verbose": False,
-        "allow_mixed_dimensions": True,
         "find_optimal_delays": False,
         "enable_parallelization": False,
         "n_jobs": 1,
@@ -368,7 +362,6 @@ def intense_params_parallel():
         "n_shuffles_stage2": 100,
         "ds": 2,
         "verbose": False,
-        "allow_mixed_dimensions": True,
         "find_optimal_delays": False,
         "enable_parallelization": True,
         "n_jobs": -1,  # Use all available cores

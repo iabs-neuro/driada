@@ -85,7 +85,6 @@ def test_compute_cell_feat_significance_with_disentanglement_fast():
         pval_thr=0.1,  # Very lenient p-value threshold
         multicomp_correction=None,  # No multiple comparison correction
         find_optimal_delays=False,  # Disable to avoid MultiTimeSeries validation issues
-        allow_mixed_dimensions=True,  # Allow MultiTimeSeries features
         enable_parallelization=False,  # Disable parallelization for consistency
         with_disentanglement=True,
         verbose=True,  # See what's happening
@@ -515,7 +514,6 @@ def test_compute_cell_feat_significance_error_paths(small_experiment):
         compute_cell_feat_significance(
             exp,
             feat_bunch=["nonexistent_feature"],
-            allow_mixed_dimensions=True,
             use_precomputed_stats=False,  # Don't use precomputed stats
             **FAST_PARAMS,
         )
@@ -526,7 +524,6 @@ def test_compute_cell_feat_significance_error_paths(small_experiment):
         exp,
         cell_bunch=[0, 1],
         feat_bunch=["event_0", "event_1"],
-        allow_mixed_dimensions=True,
         use_precomputed_stats=False,  # Don't use precomputed stats
         verbose=True,  # Test verbose paths
         **FAST_PARAMS,
@@ -579,7 +576,6 @@ def test_disentanglement_with_asymmetric_features():
         metric="mi",
         pval_thr=0.05,
         with_disentanglement=True,
-        allow_mixed_dimensions=True,  # Needed for multifeatures
         find_optimal_delays=False,  # Disable to avoid MultiTimeSeries issues
         verbose=False,
         enable_parallelization=False,

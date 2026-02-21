@@ -258,7 +258,6 @@ def test_generate_circular_manifold_data_calcium():
         ds=2,  # Lower ds to preserve temporal structure
         metric_distr_type="gamma",  # Correct distribution for MI
         enable_parallelization=False,  # Disable parallelization
-        allow_mixed_dimensions=True,  # Allow MultiTimeSeries
         save_computed_stats=True,  # Save results to experiment
         verbose=False,
     )
@@ -511,7 +510,6 @@ def test_integration_with_intense():
         ds=5,
         metric_distr_type="norm",  # Use normal distribution for metric
         enable_parallelization=False,  # Disable parallelization
-        allow_mixed_dimensions=True,  # Allow MultiTimeSeries
         verbose=False,
     )
 
@@ -558,7 +556,6 @@ def test_linear_vs_circular_detection():
         n_shuffles_stage2=5000,
         ds=5,  # Downsample by 5x
         enable_parallelization=False,  # Disable parallelization
-        allow_mixed_dimensions=True,
         verbose=False,
     )
 
@@ -582,7 +579,6 @@ def test_linear_vs_circular_detection():
         n_shuffles_stage2=5000,
         ds=5,  # Downsample by 5x
         enable_parallelization=False,  # Disable parallelization
-        allow_mixed_dimensions=True,
         verbose=False,
     )
 

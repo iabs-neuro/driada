@@ -221,7 +221,6 @@ class TestGenerateSyntheticExpWithMixedSelectivity:
             enable_parallelization=False,  # Disable parallelization
             ds=2,
             find_optimal_delays=False,
-            allow_mixed_dimensions=True,
             with_disentanglement=True,
             verbose=False,
             seed=42,
@@ -408,7 +407,6 @@ class TestIntegrationWithAnalysisPipeline:
                 multicomp_correction=None,  # No correction for easier detection
                 with_disentanglement=True,
                 find_optimal_delays=False,
-                allow_mixed_dimensions=True,
                 ds=2,  # Downsampling as requested
                 enable_parallelization=False,
                 verbose=False,
@@ -507,7 +505,6 @@ class TestIntegrationWithAnalysisPipeline:
             multicomp_correction=None,
             with_disentanglement=False,  # No disentanglement
             find_optimal_delays=False,
-            allow_mixed_dimensions=True,
             ds=2,  # Downsampling as requested
             enable_parallelization=False,
             verbose=False,
