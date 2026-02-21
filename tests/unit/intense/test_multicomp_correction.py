@@ -5,7 +5,7 @@ Verifies Holm-Bonferroni and FDR-BH corrections are implemented correctly.
 """
 import pytest
 import numpy as np
-from driada.intense.intense_base import get_multicomp_correction_thr
+from driada.intense.correction import get_multicomp_correction_thr
 
 
 class TestHolmCorrection:

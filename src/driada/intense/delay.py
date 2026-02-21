@@ -15,17 +15,19 @@ from joblib import delayed
 
 from ..information.info_base import get_sim
 from ..utils.parallel import parallel_executor as _parallel_executor
-from .intense_base import (
-    MIN_SHIFTS_FOR_FFT_DELAYS,
-    _extract_cache_subset,
-    _extract_fft_data,
-    _FFT_COMPUTE,
-    _get_ts_key,
-    get_fft_type,
+from .validation import (
     validate_common_parameters,
     validate_metric,
     validate_time_series_bunches,
 )
+from .fft import (
+    MIN_SHIFTS_FOR_FFT_DELAYS,
+    _extract_fft_data,
+    _FFT_COMPUTE,
+    _get_ts_key,
+    get_fft_type,
+)
+from .intense_base import _extract_cache_subset
 
 
 def calculate_optimal_delays(

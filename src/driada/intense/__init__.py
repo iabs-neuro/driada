@@ -15,9 +15,11 @@ from .intense_base import (
     scan_pairs_parallel,
     scan_pairs_router,
     compute_me_stats,
-    get_multicomp_correction_thr,
     IntenseResults,
 )
+
+# Multiple comparison correction
+from .correction import get_multicomp_correction_thr
 
 # Delay optimization
 from .delay import (

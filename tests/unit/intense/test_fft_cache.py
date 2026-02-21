@@ -8,7 +8,7 @@ import numpy as np
 import pickle
 import gc
 from driada.information import TimeSeries
-from driada.intense.intense_base import _build_fft_cache, _get_ts_key
+from driada.intense.fft import _build_fft_cache, _get_ts_key
 
 
 class TestDuplicateNameDetection:

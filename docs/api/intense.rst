@@ -19,6 +19,9 @@ Module Components
    intense/visual
    intense/disentanglement
    intense/delay
+   intense/validation
+   intense/fft
+   intense/correction
    intense/base
    ../intense_mathematical_framework
 
@@ -49,6 +52,15 @@ Quick Links
 
 **Delay Optimization**
    * :doc:`intense/delay` - Temporal delay optimization between time series
+
+**Input Validation**
+   * :doc:`intense/validation` - Time series and parameter validation
+
+**FFT Infrastructure**
+   * :doc:`intense/fft` - FFT type dispatch and MI caching
+
+**Multiple Comparison Correction**
+   * :doc:`intense/correction` - P-value threshold calculation (Holm, FDR, Bonferroni)
 
 **Core Implementation**
    * :doc:`intense/base` - Low-level computation functions

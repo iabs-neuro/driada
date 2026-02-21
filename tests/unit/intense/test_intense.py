@@ -350,11 +350,13 @@ def test_two_stage_avsignal(correlated_ts_binarized, balanced_test_params):
 
 # Additional unit tests for better coverage
 import scipy.stats
-from driada.intense.intense_base import (
+from driada.intense.validation import (
     validate_time_series_bunches,
     validate_metric,
     validate_common_parameters,
-    get_multicomp_correction_thr,
+)
+from driada.intense.correction import get_multicomp_correction_thr
+from driada.intense.intense_base import (
     IntenseResults,
     scan_pairs,
     scan_pairs_router,
@@ -1177,7 +1179,7 @@ def test_optimal_delays_fft_matches_loop_correlated():
 def test_optimal_delays_fft_auto_selection():
     """Test that engine='auto' selects FFT when conditions are met."""
     from driada.intense.delay import calculate_optimal_delays
-    from driada.intense.intense_base import MIN_SHIFTS_FOR_FFT_DELAYS
+    from driada.intense.fft import MIN_SHIFTS_FOR_FFT_DELAYS
 
     # Create test signals
     length = 500
@@ -1253,7 +1255,7 @@ def test_optimal_delays_fft_fallback_for_discrete():
 
 def test_optimal_delays_fft_supports_multitimeseries():
     """Test that FFT supports MultiTimeSeries via FFT_MULTIVARIATE."""
-    from driada.intense.intense_base import get_fft_type, FFT_MULTIVARIATE
+    from driada.intense.fft import get_fft_type, FFT_MULTIVARIATE
 
     length = 200
     np.random.seed(42)
@@ -1422,7 +1424,7 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
 
 def test_fft_mts_mts_uses_fft_type():
     """Test that INTENSE uses FFT_MTS_MTS for eligible MTS-MTS pairs."""
-    from driada.intense.intense_base import get_fft_type, FFT_MTS_MTS
+    from driada.intense.fft import get_fft_type, FFT_MTS_MTS
 
     length = 200
     np.random.seed(42)
@@ -1455,7 +1457,7 @@ def test_fft_mts_mts_uses_fft_type():
 
 def test_fft_mts_mts_falls_back_when_d_too_large():
     """Test that INTENSE uses loop fallback when d1+d2 > 6."""
-    from driada.intense.intense_base import get_fft_type
+    from driada.intense.fft import get_fft_type
 
     length = 200
     np.random.seed(43)
@@ -1549,7 +1551,7 @@ def test_intense_e2e_mts_mts_fft():
 
 def test_fft_mts_discrete_uses_fft_type():
     """Test that INTENSE uses FFT_MTS_DISCRETE for eligible MTS-discrete pairs."""
-    from driada.intense.intense_base import get_fft_type, FFT_MTS_DISCRETE
+    from driada.intense.fft import get_fft_type, FFT_MTS_DISCRETE
 
     length = 200
     np.random.seed(200)
@@ -1586,7 +1588,7 @@ def test_fft_mts_discrete_uses_fft_type():
 
 def test_fft_mts_discrete_falls_back_when_d_too_large():
     """Test that INTENSE uses loop fallback when d > 3 for MTS-discrete."""
-    from driada.intense.intense_base import get_fft_type
+    from driada.intense.fft import get_fft_type
 
     length = 200
     np.random.seed(201)

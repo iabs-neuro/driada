@@ -22,4 +22,3 @@ Function Groups
 
 **Statistical Analysis**
    .. autofunction:: compute_me_stats
-   .. autofunction:: get_multicomp_correction_thr

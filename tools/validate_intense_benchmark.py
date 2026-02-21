@@ -49,7 +49,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from driada.experiment.synthetic import generate_synthetic_data
 from driada.experiment.event_detection import CA_SHIFT_N_TOFF, MIN_FEAT_SHIFT_SEC
-from driada.intense.intense_base import compute_me_stats, _build_fft_cache
+from driada.intense.intense_base import compute_me_stats
+from driada.intense.fft import _build_fft_cache
 from driada.information.info_base import TimeSeries, get_mi
 
 
