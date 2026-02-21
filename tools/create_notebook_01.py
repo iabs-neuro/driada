@@ -50,10 +50,10 @@ cells.append(md_cell(
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
 "| **Load & inspect** | **01 -- this notebook** | Wrap your recording into an `Experiment`, reconstruct spikes, assess quality |\n"
-"| **Single-neuron selectivity** | [02 -- INTENSE](02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
-"| **Population geometry** | [03 -- Dimensionality reduction](03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
-"| **Functional networks** | [04 -- Networks](04_functional_networks.ipynb) | Build and analyze cell-cell interaction graphs |\n"
-"| **Putting it together** | [05 -- Advanced](05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
+"| **Single-neuron selectivity** | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
+"| **Population geometry** | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
+"| **Functional networks** | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_functional_networks.ipynb) | Build and analyze cell-cell interaction graphs |\n"
+"| **Putting it together** | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
 "\n"
 "Everything starts with an `Experiment` -- a container that keeps neural\n"
 "activity and behavioral variables aligned and annotated.  This notebook\n"
@@ -1130,13 +1130,21 @@ cells.append(code_cell(
 nb = nbformat.v4.new_notebook()
 nb.metadata.update({
     "kernelspec": {
-        "display_name": "Python 3",
+        "display_name": "Python 3 (ipykernel)",
         "language": "python",
         "name": "python3",
     },
     "language_info": {
+        "codemirror_mode": {
+            "name": "ipython",
+            "version": 3,
+        },
+        "file_extension": ".py",
+        "mimetype": "text/x-python",
         "name": "python",
-        "version": "3.10.0",
+        "nbconvert_exporter": "python",
+        "pygments_lexer": "ipython3",
+        "version": "3.10.19",
     },
     "colab": {
         "provenance": [],

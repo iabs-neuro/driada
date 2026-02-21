@@ -49,11 +49,11 @@ cells.append(md_cell(
 "\n"
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
-"| Load & inspect | [01 -- Data loading](01_data_loading_and_neurons.ipynb) | Wrap your recording into an `Experiment`, reconstruct spikes, assess quality |\n"
-"| Single-neuron selectivity | [02 -- INTENSE](02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
-"| Population geometry | [03 -- Dimensionality reduction](03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
+"| Load & inspect | [01 -- Data loading](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | Wrap your recording into an `Experiment`, reconstruct spikes, assess quality |\n"
+"| Single-neuron selectivity | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
+"| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
 "| **Functional networks** | **04 -- this notebook** | Build and analyze cell-cell interaction graphs |\n"
-"| Putting it together | [05 -- Advanced](05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
+"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
 "\n"
 "**Overview:** INTENSE computes pairwise mutual-information between\n"
 "all neuron pairs and determines which connections are statistically\n"
@@ -65,7 +65,7 @@ cells.append(md_cell(
 "\n"
 "1. **Network structure** -- Binary and weighted network properties,\n"
 "   module detection (Louvain), degree distribution, null model\n"
-"   comparison (Erdos-Renyi).\n"
+"   comparison (degree-preserving randomization).\n"
 "2. **Spectral analysis** -- Eigendecomposition of adjacency and\n"
 "   normalized Laplacian matrices. IPR (eigenvector localization),\n"
 "   complex spacing ratios, localization signatures, thermodynamic\n"
@@ -95,7 +95,7 @@ cells.append(code_cell(
 # ===== SHARED SETUP: GENERATE DATA & BUILD NETWORK ========================
 
 cells.append(md_cell(
-"## Building the Network\n"
+"## Building the network\n"
 "\n"
 "Create a synthetic modular population (120 neurons, 6 functional\n"
 "groups) with [`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html),\n"
@@ -328,7 +328,7 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-'# Null model comparison (Erdos-Renyi)\n'
+'# Null model comparison (degree-preserving randomization)\n'
 'print("\\n" + "=" * 60)\n'
 'print("Null model comparison (degree-preserving randomization)")\n'
 'print("=" * 60)\n'
@@ -590,6 +590,17 @@ cells.append(code_cell(
 ))
 
 # ===== SECTION 2: SPECTRAL ANALYSIS =======================================
+
+cells.append(md_cell(
+"> **Cross-reference:** The spectral analysis below applies to *any*\n"
+"> `Network` object -- not just cell-cell functional networks. Graph-based\n"
+"> DR methods (Isomap, LLE, Laplacian Eigenmaps) construct a\n"
+"> `ProximityGraph` that inherits from `Network`, so all the spectral,\n"
+"> entropy, and community analysis shown below works on DR graphs too.\n"
+"> See the \"Graph structure behind DR\" subsection of\n"
+"> [Notebook 03](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb)\n"
+"> for a demonstration."
+))
 
 cells.append(md_cell(
 "## 2. Spectral analysis\n"
