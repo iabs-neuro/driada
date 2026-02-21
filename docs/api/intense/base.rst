@@ -14,10 +14,6 @@ Classes
 Function Groups
 ---------------
 
-**Delay Optimization**
-   .. autofunction:: calculate_optimal_delays
-   .. autofunction:: calculate_optimal_delays_parallel
-
 **Mutual Information Computation**
    .. autofunction:: get_calcium_feature_me_profile
    .. autofunction:: scan_pairs

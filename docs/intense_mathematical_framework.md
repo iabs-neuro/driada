@@ -58,7 +58,7 @@ for cell_id in list(significant_neurons.keys())[:3]:  # Show first 3 neurons
         print(f"  Mutual Information: {pair_stats['pre_rval']:.4f}")
         if 'pval' in pair_stats:
             print(f"  P-value: {pair_stats['pval']:.2e}")
-        print(f"  Optimal delay: {pair_stats.get('shift_used', 0):.2f}s")
+        print(f"  Optimal delay: {pair_stats.get('opt_delay', 0):.2f}s")
 ```
 
 **Expected output:**

@@ -18,6 +18,7 @@ Module Components
    intense/stats
    intense/visual
    intense/disentanglement
+   intense/delay
    intense/base
    ../intense_mathematical_framework
 
@@ -46,7 +47,9 @@ Quick Links
    * Feature correlation analysis
    * Selectivity decomposition
 
+**Delay Optimization**
+   * :doc:`intense/delay` - Temporal delay optimization between time series
+
 **Core Implementation**
    * :doc:`intense/base` - Low-level computation functions
    * Mutual information computation
-   * Delay optimization algorithms

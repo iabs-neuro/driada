@@ -10,8 +10,6 @@ for ``Network``-based spectral and topological analysis.
 
 # Core computation functions
 from .intense_base import (
-    calculate_optimal_delays,
-    calculate_optimal_delays_parallel,
     get_calcium_feature_me_profile,
     scan_pairs,
     scan_pairs_parallel,
@@ -19,6 +17,12 @@ from .intense_base import (
     compute_me_stats,
     get_multicomp_correction_thr,
     IntenseResults,
+)
+
+# Delay optimization
+from .delay import (
+    calculate_optimal_delays,
+    calculate_optimal_delays_parallel,
 )
 
 # I/O functions

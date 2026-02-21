@@ -356,10 +356,10 @@ from driada.intense.intense_base import (
     validate_common_parameters,
     get_multicomp_correction_thr,
     IntenseResults,
-    calculate_optimal_delays,
     scan_pairs,
     scan_pairs_router,
 )
+from driada.intense.delay import calculate_optimal_delays
 from driada.intense.stats import (
     chebyshev_ineq,
     get_lognormal_p,
@@ -947,7 +947,7 @@ def test_parallel_router(correlated_ts_small, fast_test_params):
 
 def test_optimal_delays_parallel(correlated_ts_small, fast_test_params):
     """Test parallel vs serial optimal delay calculation."""
-    from driada.intense.intense_base import (
+    from driada.intense.delay import (
         calculate_optimal_delays,
         calculate_optimal_delays_parallel,
     )
@@ -1114,7 +1114,7 @@ def test_get_calcium_feature_me_profile_cbunch_fbunch(small_experiment):
 
 def test_optimal_delays_fft_matches_loop_correlated():
     """Test that FFT and loop engines produce identical delays for correlated signals."""
-    from driada.intense.intense_base import calculate_optimal_delays
+    from driada.intense.delay import calculate_optimal_delays
 
     # Create correlated signals with known delay
     length = 1000
@@ -1176,10 +1176,8 @@ def test_optimal_delays_fft_matches_loop_correlated():
 
 def test_optimal_delays_fft_auto_selection():
     """Test that engine='auto' selects FFT when conditions are met."""
-    from driada.intense.intense_base import (
-        calculate_optimal_delays,
-        MIN_SHIFTS_FOR_FFT_DELAYS,
-    )
+    from driada.intense.delay import calculate_optimal_delays
+    from driada.intense.intense_base import MIN_SHIFTS_FOR_FFT_DELAYS
 
     # Create test signals
     length = 500
@@ -1210,7 +1208,7 @@ def test_optimal_delays_fft_auto_selection():
 
 def test_optimal_delays_fft_fallback_for_discrete():
     """Test that FFT supports discrete-continuous pairs via FFT_DISCRETE."""
-    from driada.intense.intense_base import calculate_optimal_delays
+    from driada.intense.delay import calculate_optimal_delays
 
     length = 200
     np.random.seed(42)
@@ -1285,7 +1283,7 @@ def test_optimal_delays_fft_supports_multitimeseries():
 
 def test_optimal_delays_parallel_fft_matches_loop():
     """Test parallel FFT delay calculation matches loop for correlated signals."""
-    from driada.intense.intense_base import calculate_optimal_delays_parallel
+    from driada.intense.delay import calculate_optimal_delays_parallel
 
     # Create multiple correlated pairs with different known delays
     length = 800
@@ -1339,7 +1337,7 @@ def test_optimal_delays_parallel_fft_matches_loop():
 
 def test_optimal_delays_engine_loop_explicit():
     """Test explicit loop engine works correctly."""
-    from driada.intense.intense_base import calculate_optimal_delays
+    from driada.intense.delay import calculate_optimal_delays
 
     length = 300
     np.random.seed(42)
