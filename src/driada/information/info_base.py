@@ -2298,15 +2298,13 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
 
     else:
         # CDD: X continuous, Y,Z discrete
-        # Here we use the identity I(X;Y|Z) = H(X,Z) + H(Y,Z) - H(X,Y,Z) - H(Z)
-        # Implementation verified: Uses the mathematically correct identity
-        # I(X;Y|Z) = H(X,Z) + H(Y,Z) - H(X,Y,Z) - H(Z)
-        # Note that GCMI estimator is poorly applicable here because of the uncontrollable biases:
-        # GCMI correctly estimates the lower bound on MI, but copula transform does not conserve the entropy
-        # See  https://doi.org/10.1002/hbm.23471 for further details
-        # Therefore, joint entropy estimation relies on ksg estimator instead
-        # Note: Original code used copula_normal_data, but our entropy functions expect raw data
-        # Using data instead of copula_normal_data for consistency with entropy functions
+        # Uses identity: I(X;Y|Z) = H(X,Z) + H(Y,Z) - H(X,Y,Z) - H(Z)
+        # Mixed entropy terms (H_xz, H_xyz) use GCMI (Gaussian assumption) via
+        # joint_entropy_cd / joint_entropy_cdd with default estimator="gcmi".
+        # Pure discrete terms (H_yz, H_z) are computed exactly.
+        # NOTE: GCMI may have biases for discrete-discrete conditioning
+        # (see https://doi.org/10.1002/hbm.23471). A future improvement could
+        # pass estimator="ksg" for more accurate nonparametric estimation.
         x_ds = _downsample_time_axis(ts1.data, ds)
         y_int_ds = _downsample_time_axis(ts2.int_data, ds)
         z_int_ds = _downsample_time_axis(ts3.int_data, ds)
