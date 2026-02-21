@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 from unittest.mock import patch
-from driada.experiment.neuron import Neuron, MIN_CA_SHIFT
+from driada.experiment.neuron import Neuron
+from driada.experiment.event_detection import CA_SHIFT_N_TOFF
 from driada.information.info_base import TimeSeries
 from driada.experiment.synthetic import generate_pseudo_calcium_multisignal
 from driada.experiment.wavelet_event_detection import (
@@ -71,7 +72,7 @@ class TestNeuronInitialization:
         assert len(neuron.ca.shuffle_mask) == 1000
 
         # Check that edges are masked
-        min_shift = int(neuron.default_t_off * MIN_CA_SHIFT)
+        min_shift = int(neuron.default_t_off * CA_SHIFT_N_TOFF)
         assert not np.any(neuron.ca.shuffle_mask[:min_shift])
         assert not np.any(neuron.ca.shuffle_mask[-min_shift:])
         assert np.all(neuron.ca.shuffle_mask[min_shift:-min_shift])

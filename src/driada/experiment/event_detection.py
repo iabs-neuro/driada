@@ -16,7 +16,8 @@ DEFAULT_MIN_BEHAVIOUR_TIME = 0.25
 
 # Time-based constants for FPS-adaptive parameters (at reference 20 Hz)
 # Phase 1: Critical detection parameters
-MIN_CA_SHIFT_SEC = 0.25  # Minimum calcium shift in seconds (5 frames @ 20 Hz)
+CA_SHIFT_N_TOFF = 5  # Exclude circular shifts within this many t_off periods (calcium)
+MIN_FEAT_SHIFT_SEC = 2.0  # Minimum feature shift exclusion in seconds (40 frames @ 20 Hz)
 BASELINE_WINDOW_SEC = 1.0  # Baseline window in seconds (20 frames @ 20 Hz)
 MAX_FRAMES_FORWARD_SEC = 5.0  # Max forward search for t_off (100 frames @ 20 Hz)
 MAX_FRAMES_BACK_SEC = 1.5  # Max backward search for t_rise (30 frames @ 20 Hz)
@@ -28,8 +29,9 @@ MIN_VALID_POINTS_SEC = 0.25  # Minimum valid data points (5 frames @ 20 Hz)
 SAVGOL_WINDOW_SEC = 0.25  # Savitzky-Golay smoothing window (5 frames @ 20 Hz)
 BASELINE_OFFSET_SEC = 0.25  # Default baseline offset for fast indicators (5 frames @ 20 Hz)
 
-# Legacy frame-based constant (deprecated, use MIN_CA_SHIFT_SEC * fps instead)
-MIN_CA_SHIFT = 5
+# Legacy aliases (deprecated, use CA_SHIFT_N_TOFF instead)
+MIN_CA_SHIFT = CA_SHIFT_N_TOFF
+MIN_CA_SHIFT_SEC = CA_SHIFT_N_TOFF / DEFAULT_FPS
 
 
 class SimpleEvent:

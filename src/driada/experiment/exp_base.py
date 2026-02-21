@@ -11,10 +11,10 @@ from .neuron import (
     DEFAULT_MIN_BEHAVIOUR_TIME,
     DEFAULT_T_OFF,
     DEFAULT_FPS,
-    MIN_CA_SHIFT,
-    MIN_CA_SHIFT_SEC,
     Neuron,
 )
+from .event_detection import CA_SHIFT_N_TOFF
+from .event_detection import MIN_FEAT_SHIFT_SEC
 from ..utils.data import get_hash, populate_nested_dict
 from ..information.info_base import get_1d_mi
 from ..intense.intense_base import get_multicomp_correction_thr
@@ -539,6 +539,13 @@ class Experiment:
         if create_circular_2d:
             self._create_circular_2d_features(verbose=self.verbose)
 
+        # Set shuffle masks on dynamic features to exclude near-zero shifts
+        min_feat_shift = int(MIN_FEAT_SHIFT_SEC * fps)
+        for feat_ts in self.dynamic_features.values():
+            if isinstance(feat_ts, (TimeSeries, MultiTimeSeries)):
+                feat_ts.shuffle_mask[:min_feat_shift] = False
+                feat_ts.shuffle_mask[-min_feat_shift:] = False
+
         # Store experiment-level metadata
         self.metadata = metadata
 
@@ -1039,10 +1046,8 @@ class Experiment:
         t_off_sec = getattr(self, "t_off_sec", DEFAULT_T_OFF)
         fps = getattr(self, "fps", DEFAULT_FPS)
         t_off_frames = t_off_sec * fps
-        # FPS-adaptive: MIN_CA_SHIFT_SEC seconds worth of frames
-        min_ca_shift_frames = int(MIN_CA_SHIFT_SEC * fps)
         min_required_frames = (
-            int(t_off_frames * min_ca_shift_frames * 2) + 10
+            int(t_off_frames * CA_SHIFT_N_TOFF * 2) + 10
         )  # Need space for both ends + some valid positions
 
         if self.n_frames < min_required_frames:

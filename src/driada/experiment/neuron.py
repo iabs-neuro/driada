@@ -30,7 +30,7 @@ from .event_detection import (
     _calculate_event_r2,
     DEFAULT_FPS,
     DEFAULT_MIN_BEHAVIOUR_TIME,
-    MIN_CA_SHIFT_SEC,
+    CA_SHIFT_N_TOFF,
     BASELINE_WINDOW_SEC,
     MAX_FRAMES_FORWARD_SEC,
     MAX_FRAMES_BACK_SEC,
@@ -39,7 +39,6 @@ from .event_detection import (
     MIN_VALID_POINTS_SEC,
     SAVGOL_WINDOW_SEC,
     BASELINE_OFFSET_SEC,
-    MIN_CA_SHIFT,
 )
 
 
@@ -220,8 +219,8 @@ class Neuron:
 
         Notes
         -----
-        The shuffle mask excludes MIN_CA_SHIFT_SEC * fps * t_off frames from each end
-        to prevent artifacts in temporal shuffling analyses.
+        The shuffle mask excludes CA_SHIFT_N_TOFF * t_off frames from each end
+        to prevent near-zero circular shifts from contaminating the null distribution.
 
         **New workflow** (recommended):
         >>> neuron = Neuron(cell_id=0, ca=calcium, sp=None, fps=20)
@@ -355,9 +354,8 @@ class Neuron:
         else:
             t_off = self.default_t_off
         self.ca.shuffle_mask = np.ones(self.n_frames, dtype=bool)
-        # FPS-adaptive minimum shift: MIN_CA_SHIFT_SEC seconds worth of frames
-        min_shift_frames = int(MIN_CA_SHIFT_SEC * self.fps)
-        min_shift = int(t_off * min_shift_frames)
+        # Exclude shifts within CA_SHIFT_N_TOFF multiples of t_off
+        min_shift = int(t_off * CA_SHIFT_N_TOFF)
         self.ca.shuffle_mask[:min_shift] = False
         self.ca.shuffle_mask[self.n_frames - min_shift :] = False
 
