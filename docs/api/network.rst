@@ -5,12 +5,12 @@ Network Analysis Module
    :no-members:
    :noindex:
 
-Tools for analyzing functional networks in neural data, including graph-based analysis,
-spectral methods, and network visualization.
+General-purpose graph analysis: spectral decomposition, thermodynamic entropy,
+quantum-inspired measures, community detection, and visualization for any graph.
 
-.. note::
-   As of version 0.5.1, all major functions are now exported at the module level.
-   You can use ``from driada.network import get_giant_cc_from_graph`` etc.
+The ``Network`` class is also the base for ``ProximityGraph`` (in ``dim_reduction``),
+which means graph-based DR methods (Isomap, LLE, Laplacian Eigenmaps, diffusion maps)
+produce objects with full spectral and topological analysis capabilities.
 
 Module Components
 -----------------

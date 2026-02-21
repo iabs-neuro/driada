@@ -71,4 +71,4 @@ result = dr_sequence(
 ```
 
 ### Graph-Based Methods
-The module includes `ProximityGraph` for methods that build on nearest-neighbor graphs, enabling shared graph construction across algorithms.
+Graph-based DR methods (Isomap, LLE, Laplacian Eigenmaps, diffusion maps, UMAP) construct a `ProximityGraph` internally. `ProximityGraph` inherits from `Network` (`driada.network`), so the resulting graph has full spectral analysis, entropy, community detection, and visualization capabilities. Access it via `embedding.graph` after running a graph-based embedding.

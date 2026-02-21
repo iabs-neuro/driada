@@ -29,7 +29,7 @@ All notebooks generate synthetic data internally — no external files needed.
 - 📊 **Dimensionality Reduction** — PCA, Isomap, UMAP, diffusion maps, t-SNE, autoencoders with manifold quality metrics
 - 📐 **Dimensionality Estimation** — PCA-based, effective rank, k-NN, correlation, and geodesic dimension
 - 🔗 **Integration** — map single-cell selectivity onto population manifolds and embedding components
-- 🌐 **Network Analysis** — cell-cell functional networks, spectral graph theory, communities, entropy
+- 🌐 **Network Analysis** — general-purpose graph analysis (spectral, entropy, communities) for connectomes, functional networks, or DR proximity graphs
 - 📏 **RSA** — representational dissimilarity matrices, cross-region and cross-session comparisons
 - 🧪 **Synthetic Data** — generate populations with known ground truth for validation
 

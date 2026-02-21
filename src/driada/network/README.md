@@ -2,20 +2,30 @@
 
 ## Overview
 
-This module provides tools for building and analyzing functional networks from neural data. It wraps NetworkX graphs with spectral analysis, thermodynamic entropy, quantum-inspired measures, and visualization.
+General-purpose graph analysis module built on NetworkX and scipy sparse matrices. Provides spectral decomposition, thermodynamic entropy, quantum-inspired measures, community detection, and visualization for any graph or network.
+
+The `Network` class serves as the foundation for two key integrations within DRIADA:
+
+- **INTENSE** — `compute_cell_cell_significance()` produces adjacency matrices that can be wrapped into a `Network` for functional connectivity analysis
+- **Dimensionality reduction** — graph-based DR methods (Isomap, LLE, Laplacian Eigenmaps, UMAP, diffusion maps) construct a `ProximityGraph` internally, which inherits from `Network` and gains all its spectral and topological analysis capabilities
+
+The module itself is domain-agnostic — it works equally well with structural connectomes, correlation matrices, or any other graph representation.
 
 ## Key Components
 
 ### Network Class
-The core container built from adjacency matrices or NetworkX graphs. Provides:
+The core container built from sparse adjacency matrices or NetworkX graphs. Provides:
 - Degree distributions, clustering coefficients, connected components
-- Community detection (Louvain)
+- Community detection (Louvain via NetworkX)
 - Spectral decomposition (adjacency, Laplacian, normalized Laplacian, random walk)
 - Inverse participation ratio (IPR) and localization signatures
 - Estrada communicability and bipartivity index
 - Gromov hyperbolicity estimation
 - Laplacian Eigenmaps embedding
 - Save/load and randomization
+
+### ProximityGraph (in `dim_reduction.graph`)
+Inherits from `Network`. Constructs k-NN, UMAP, or epsilon-ball graphs from data matrices for manifold learning. All `Network` analysis methods (spectral, entropy, etc.) are available on the resulting graph.
 
 ### Entropy Measures
 - `free_entropy()` — von Neumann-type free entropy from Laplacian spectrum
@@ -50,7 +60,34 @@ The core container built from adjacency matrices or NetworkX graphs. Provides:
 - `show_mat()` — adjacency/Laplacian matrix heatmap
 - `plot_lem_embedding()` — Laplacian Eigenmaps 2D/3D scatter
 
-## Example Usage
+## Example: General-Purpose Network Analysis
+
+```python
+import scipy.sparse as sp
+from driada.network import Network
+
+# Any sparse adjacency matrix — connectome, correlation, etc.
+net = Network(adj=adjacency_matrix, directed=False, preprocessing='giant_cc')
+
+# Spectral analysis
+net.diagonalize(mode='lap')
+spectrum = net.get_spectrum(mode='lap')
+ipr = net.get_ipr(mode='lap')
+
+# Community detection
+import networkx.algorithms.community as nx_comm
+communities = nx_comm.louvain_communities(net.graph, seed=42)
+
+# Entropy at multiple temperatures
+S = net.calculate_free_entropy(tlist=[0.1, 1.0, 10.0])
+
+# Visualization
+from driada.network import draw_spectrum, draw_degree_distr
+draw_spectrum(net)
+draw_degree_distr(net)
+```
+
+## Example: Functional Network from INTENSE
 
 ```python
 from driada.intense import compute_cell_cell_significance
@@ -61,30 +98,31 @@ stats, significance, info, results = compute_cell_cell_significance(
     exp, n_shuffles_stage1=100, n_shuffles_stage2=1000
 )
 
-# Create Network from adjacency matrix
+# Wrap into Network for full spectral/topological analysis
 net = Network(significance['adjacency'], directed=False)
-
-# Spectral analysis
 net.diagonalize(mode='lap')
-spectrum = net.get_spectrum(mode='lap')
-ipr = net.get_ipr(mode='lap')
+```
 
-# Community detection
-communities = net.g.community_louvain()  # via NetworkX/community
+## Example: Spectral Analysis of DR Graph
 
-# Entropy
-from driada.network import free_entropy
-S = free_entropy(net.get_spectrum(mode='lap'), tlist=[0.1, 1.0, 10.0])
+```python
+from driada.dim_reduction import MVData
 
-# Visualization
-from driada.network import draw_spectrum, draw_degree_distr
-draw_spectrum(net)
-draw_degree_distr(net)
+# Graph-based DR methods construct a ProximityGraph (inherits Network)
+mvdata = MVData(neural_data, downsampling=5)
+embedding = mvdata.get_embedding(method='isomap', n_components=3, n_neighbors=15)
+
+# The proximity graph is accessible on the Embedding object
+pgraph = embedding.graph  # ProximityGraph, inherits from Network
+pgraph.diagonalize(mode='lap')
+spectrum = pgraph.get_spectrum(mode='lap')
 ```
 
 ## Applications
 
-- Functional connectivity networks from calcium imaging
-- Spectral signatures of network organization
-- Comparing network structure across conditions or brain regions
-- Detecting localization and community structure in neural populations
+- Structural and functional connectome analysis
+- Functional connectivity networks from calcium imaging (via INTENSE)
+- Spectral signatures of graph-based DR embeddings (via ProximityGraph)
+- Comparing network structure across conditions, regions, or species
+- Community detection and modular organization
+- Graph entropy and complexity measures
