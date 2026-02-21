@@ -87,7 +87,10 @@ cells.append(code_cell(
 "    generate_synthetic_exp,\n"
 ")\n"
 "from driada.experiment.neuron import Neuron\n"
-"from driada.experiment.synthetic import generate_pseudo_calcium_signal"
+"from driada.experiment.synthetic import (\n"
+"    generate_pseudo_calcium_signal,\n"
+"    generate_pseudo_calcium_multisignal,\n"
+")"
 ))
 
 # ===== SECTION 1: LOADING YOUR DATA ========================================
@@ -103,18 +106,39 @@ cells.append(md_cell(
 "The data dict must contain one neural-data key -- any of `'calcium'`,\n"
 "`'activations'`, `'neural_data'`, `'activity'`, or `'rates'` -- holding a\n"
 "`(n_neurons, n_frames)` array.  Everything else you pass becomes a\n"
-"**dynamic feature** (one value per timepoint)."
+"**dynamic feature** (one value per timepoint).\n"
+"\n"
+"Below we use DRIADA's\n"
+"[`generate_pseudo_calcium_multisignal`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html)\n"
+"to create realistic synthetic calcium traces with GCaMP-like dynamics\n"
+"(transient events, exponential decay, baseline noise).  In your own work,\n"
+"replace this with your actual recording data."
 ))
 
 cells.append(code_cell(
 "# In practice: raw = np.load('your_recording.npz')\n"
-"# Here we generate synthetic arrays that mimic a real recording.\n"
+"# Here we use DRIADA's synthetic calcium generator for realistic GCaMP dynamics.\n"
 "\n"
-"np.random.seed(0)\n"
-"n_neurons, n_frames = 50, 10000\n"
+"n_neurons = 20\n"
 "fps = 30.0\n"
+"duration = 200.0  # seconds\n"
 "\n"
-"calcium = np.random.randn(n_neurons, n_frames) * 0.1          # (50, 10000)\n"
+"calcium = generate_pseudo_calcium_multisignal(\n"
+"    n=n_neurons,\n"
+"    duration=duration,\n"
+"    sampling_rate=fps,\n"
+"    event_rate=0.15,\n"
+"    amplitude_range=(0.5, 2.0),\n"
+"    decay_time=1.5,\n"
+"    rise_time=0.15,\n"
+"    noise_std=0.05,\n"
+"    kernel='double_exponential',\n"
+"    seed=0,\n"
+")\n"
+"n_frames = calcium.shape[1]\n"
+"\n"
+"# Behavioral variables (one value per timepoint)\n"
+"np.random.seed(0)\n"
 "x_pos = np.cumsum(np.random.randn(n_frames) * 0.5)            # continuous\n"
 "y_pos = np.cumsum(np.random.randn(n_frames) * 0.5)            # continuous\n"
 "speed = np.abs(np.random.randn(n_frames)) * 5.0               # continuous\n"
@@ -168,7 +192,7 @@ cells.append(code_cell(
 '# Build the data dict\n'
 'data = {\n'
 '    # --- neural activity (required) --------------------------------\n'
-'    "calcium": calcium,               # (50, 10000)\n'
+'    "calcium": calcium,               # (n_neurons, n_frames)\n'
 '    # "spikes": my_spikes_array,      # optional, same shape as calcium\n'
 '    # --- dynamic features: behavioral variables (one per timepoint) -\n'
 '    "x_pos": x_pos,                   # continuous\n'
