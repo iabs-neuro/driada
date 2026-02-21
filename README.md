@@ -4,8 +4,12 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://img.shields.io/pypi/v/driada.svg)](https://pypi.org/project/driada/)
+[![Downloads](https://img.shields.io/pypi/dm/driada.svg)](https://pypi.org/project/driada/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml/badge.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/iabs-neuro/driada/branch/main/graph/badge.svg)](https://codecov.io/gh/iabs-neuro/driada)
+[![Docs](https://readthedocs.org/projects/driada/badge/?version=latest)](https://driada.readthedocs.io/en/latest/)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20windows-lightgrey.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
 
 DRIADA connects single-neuron selectivity analysis with population-level dimensionality reduction. Given calcium imaging or spike data together with behavioral variables, it identifies which neurons encode which variables, extracts low-dimensional population structure, and links the two.
 
