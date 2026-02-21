@@ -11,7 +11,7 @@ The key advantage of MI over traditional correlation measures is its ability to 
 - Monotonic relationships (captured by Spearman correlation)  
 - Complex nonlinear dependencies (only captured by MI)
 
-## Key Features
+## Key features
 
 - **Mutual Information Analysis**: Quantifies statistical dependencies between neural signals and behavioral variables
 - **Two-Stage Statistical Testing**: Efficient hypothesis testing with multiple comparison correction
@@ -20,7 +20,7 @@ The key advantage of MI over traditional correlation measures is its ability to 
 - **Multiple Metrics Support**: MI, Spearman correlation, and other similarity metrics
 - **Parallel Processing**: Efficient computation for large-scale neural datasets
 
-## Quick Start
+## Quick start
 
 Analyze neuronal selectivity with synthetic data:
 
@@ -84,11 +84,11 @@ if significant_neurons:
     plt.show()
 ```
 
-## Using Your Own Data
+## Using your own data
 
 The `Experiment` class is the main data container throughout DRIADA. It holds neural recordings, behavioral variables, and analysis results in a unified structure.
 
-### Creating an Experiment from Your Data
+### Creating an Experiment from your data
 
 ```python
 import numpy as np
@@ -140,7 +140,7 @@ print(f"Created experiment with {exp.n_cells} neurons and {exp.n_frames} timepoi
 stats, significance, info, results = driada.compute_cell_feat_significance(exp)
 ```
 
-**Key Points:**
+**Key points:**
 - **calcium**: Neural activity traces (numpy array, shape: n_neurons × n_timepoints)
 - **dynamic_features**: Behavioral variables that change over time (dict of numpy arrays)
 - **static_features**: Experimental parameters (dict with 'fps', 't_rise_sec', 't_off_sec')
@@ -148,9 +148,9 @@ stats, significance, info, results = driada.compute_cell_feat_significance(exp)
 - The Experiment automatically converts numpy arrays to TimeSeries objects internally
 - All subsequent DRIADA analysis uses this unified Experiment container
 
-## Mathematical Framework
+## Mathematical framework
 
-### Mutual Information Computation
+### Mutual information computation
 
 INTENSE uses Gaussian Copula Mutual Information (GCMI) for robust MI estimation. The mutual information between two random variables X and Y is defined as:
 
@@ -165,7 +165,7 @@ I(X;Y) = H(X) + H(Y) - H(X,Y)
 
 where H(X) = -∫ p(x) log p(x) dx is the differential entropy.
 
-#### Gaussian Copula Transformation
+#### Gaussian copula transformation
 
 The GCMI method leverages the copula representation of joint distributions. The key insight is that MI is invariant under monotonic transformations, allowing us to transform to a convenient representation:
 
@@ -186,7 +186,7 @@ The GCMI method leverages the copula representation of joint distributions. The 
    ```
    where R is the correlation matrix of (X̃, Ỹ).
 
-#### Handling Different Variable Types
+#### Handling different variable types
 
 **Continuous-Continuous Case**: Direct application of GCMI formula above.
 
@@ -196,7 +196,7 @@ I(X;Y) = Σ_{k=1}^K p(X=k) · H(Y) - Σ_{k=1}^K p(X=k) · H(Y|X=k)
 ```
 Each conditional entropy H(Y|X=k) is computed using GCMI on the subset where X=k.
 
-### Statistical Significance Testing
+### Statistical significance testing
 
 Significance is assessed by comparing observed MI against a null distribution generated from time-shuffled signals:
 
@@ -206,7 +206,7 @@ MI_shuffle^(i) = I(X(t); Y(t + τᵢ))
 
 where τᵢ represents random circular shifts preserving the temporal structure of individual signals while destroying their correlation.
 
-#### Parametric Null Distribution Modeling
+#### Parametric null distribution modeling
 
 The null distribution of shuffled MI values is modeled using a parametric distribution. The gamma distribution is the default choice due to:
 - Non-negativity of MI values
@@ -226,14 +226,14 @@ p-value = P(MI_shuffle ≥ MI_observed) = 1 - F_Γ(MI_observed; α̂, β̂)
 
 where F_Γ is the cumulative distribution function of the fitted gamma distribution.
 
-#### Noise Addition for Numerical Stability
+#### Noise addition for numerical stability
 
 A small amount of noise (default: 10^-3) is added to MI values to:
 - Prevent numerical issues with identical values
 - Improve parametric distribution fitting
 - Avoid degeneracies in rank-based statistics
 
-#### Rank Values (r-vals) and Non-parametric Testing
+#### Rank values (r-vals) and non-parametric testing
 
 INTENSE employs a dual approach combining parametric and non-parametric methods:
 
@@ -261,7 +261,7 @@ This dual approach provides robustness:
 - The parametric p-value provides a continuous measure of significance
 - Both must pass, preventing false positives from poor distribution fits
 
-### Two-Stage Testing Procedure
+### Two-stage testing procedure
 
 The two-stage approach balances computational efficiency with statistical rigor:
 
@@ -277,7 +277,7 @@ The two-stage approach balances computational efficiency with statistical rigor:
   1. Rank criterion: MI_observed > 99.95th percentile of shuffles
   2. Parametric test: p-value < threshold (after multiple comparison correction)
 
-#### Multiple Comparison Correction
+#### Multiple comparison correction
 
 The Holm-Bonferroni method is used to control family-wise error rate (FWER):
 
@@ -292,7 +292,7 @@ The Holm-Bonferroni method is used to control family-wise error rate (FWER):
 
 This provides strong FWER control while being more powerful than standard Bonferroni correction.
 
-### Optimal Delay Detection
+### Optimal delay detection
 
 Neural activity often shows temporal delays relative to behavior due to:
 - Calcium indicator dynamics (~1-2s delay for GCaMP)
@@ -313,11 +313,37 @@ where:
 
 The significance testing uses the optimally delayed signals, accounting for the multiple comparison issue in delay selection.
 
-### Mixed Selectivity Analysis
+### FFT-accelerated permutation testing
+
+The two-stage procedure requires evaluating MI at thousands of circular shifts per neuron-behavior pair. A naive implementation recomputes MI independently for each shift, yielding a per-pair cost of $O(n_{\text{sh}} \cdot n)$ where $n$ is the number of time frames and $n_{\text{sh}}$ the number of shuffles. For a typical experiment with $N$ neurons, $M$ behavioral features, $D$ delay steps, and $n_{\text{sh}} = 10{,}000$ shuffles, this becomes prohibitive.
+
+INTENSE exploits the fact that circular time shifts correspond to circular cross-correlations, which can be computed for *all* $n$ possible shifts simultaneously via the convolution theorem:
+
+$$C_{XY}[s] = \sum_{i=0}^{n-1} X[i] \, Y[(i+s) \bmod n] = \mathcal{F}^{-1}\!\bigl[\mathcal{F}[X] \cdot \mathcal{F}[Y]^{*}\bigr][s]$$
+
+where $\mathcal{F}$ denotes the discrete Fourier transform and $^{*}$ complex conjugation. This reduces the cost from $O(n_{\text{sh}} \cdot n)$ to $O(n \log n)$ for computing MI at all shifts, after which any specific shift is an $O(1)$ array lookup. The particular form of MI at each shift depends on the variable types:
+
+**Continuous--continuous case.** For copula-normalized Gaussian variables, MI reduces to $I(X; Y_s) = -\tfrac{1}{2}\log_2(1 - r(s)^2)$ where $r(s)$ is the Pearson correlation at shift $s$. The correlation for all shifts is obtained as $r(s) = C_{XY}[s] / [(n-1)\,\sigma_X \sigma_Y]$, requiring a single pair of real-valued FFTs.
+
+**Continuous--discrete case.** For a continuous variable $Z$ and a discrete variable $X$ with $K$ classes, class-conditional sums at every shift are circular correlations with indicator functions:
+
+$$\sum_i Z[i] \cdot \mathbb{1}[X_{(i+s)} = k] = \mathcal{F}^{-1}[\mathcal{F}[Z] \cdot \mathcal{F}[\mathbb{1}_{X=k}]^{*}][s]$$
+
+From these sums and the analogous sums of $Z^2$, class-conditional variances and Gaussian entropies are computed for all shifts simultaneously, yielding MI via $I = H(Z) - \sum_k p(k)\,H(Z | X\!=\!k)$. This requires $2K+2$ FFTs (for $Z$, $Z^2$, and $K$ indicator functions), independent of the number of shuffles.
+
+**Discrete--discrete case.** Contingency tables for all shifts are obtained via indicator cross-correlations: $n_{ij}(s) = \mathcal{F}^{-1}[\mathcal{F}[\mathbb{1}_{X=i}] \cdot \mathcal{F}[\mathbb{1}_{Y=j}]^{*}][s]$, requiring $K_X \cdot K_Y$ FFT pairs.
+
+**Multivariate case.** For $d$-dimensional behavioral features (e.g., 2D spatial position), the joint covariance matrix separates into shift-invariant within-variable blocks and shift-dependent cross-covariance blocks computed via $d$ FFTs. MI is then evaluated through closed-form vectorized determinant formulas ($d \leq 3$).
+
+#### FFT cache strategy
+
+INTENSE precomputes MI for all $n$ shifts once per neuron-feature pair and stores the result in an FFT cache. This cache is reused across delay optimization, Stage 1 screening, and Stage 2 validation without recomputation. The total cost is $O(N \cdot M \cdot n \log n)$ for the cache build plus $O(N \cdot M \cdot n_{\text{sh}})$ for shift lookups, compared to $O(N \cdot M \cdot n_{\text{sh}} \cdot n)$ without acceleration.
+
+### Mixed selectivity analysis
 
 Many neurons respond to multiple, often correlated behavioral variables. INTENSE disentangles these relationships using information-theoretic decomposition.
 
-#### Conditional Mutual Information
+#### Conditional mutual information
 
 For neural activity A and behavioral variables X, Y:
 
@@ -327,7 +353,7 @@ I(A;X|Y) = H(A|Y) - H(A|X,Y) = I(A;X,Y) - I(A;Y)
 
 This quantifies information about A in X that is not present in Y.
 
-#### Interaction Information
+#### Interaction information
 
 The three-way interaction (synergy/redundancy) is measured using the Williams & Beer (2010) convention:
 
@@ -340,21 +366,21 @@ II(A;X;Y) = I(A;X|Y) - I(A;X) = I(A;Y|X) - I(A;Y)
 
 Note: Interaction information (II) provides the net redundancy or synergy but does not decompose mutual information into unique, redundant, and synergistic components. A future Partial Information Decomposition (PID) module will provide this full decomposition.
 
-#### Variable Type Handling
+#### Variable type handling
 
 1. **Both continuous**: Use multivariate GCMI with Cholesky decomposition
 2. **X continuous, Y discrete**: Compute I(A;X|Y=y) for each y, then average
 3. **X discrete, Y continuous**: Use the identity I(A;X|Y) = I(A;X) - [I(A;Y) - I(A;Y|X)]
 4. **Both discrete**: Standard discrete MI formulas with empirical probabilities
 
-#### Interpretation Framework
+#### Interpretation framework
 
 For negative II (common in neural data), we identify the "weakest" link:
 - If |I(A;X)| < |II|: X is redundant given Y
 - If |I(A;Y)| < |II|: Y is redundant given X
 - Otherwise: Both variables contribute independently
 
-## Usage Example
+## Usage example
 
 ```python
 from driada.intense.pipelines import compute_cell_feat_significance
@@ -389,19 +415,19 @@ INTENSE provides:
 - Population-level analysis of neural representations
 - Validation of computational models against neural data
 
-## Limitations and Considerations
+## Limitations and considerations
 
-### Statistical Power
+### Statistical power
 - Stage 1 screening may miss weak but real effects (1% false negative rate)
 - Multiple comparison correction reduces power for large neuron populations
 - Minimum recommended recording length: 1000 timepoints per behavioral state
 
-### Computational Considerations
+### Computational considerations
 - Memory usage scales as O(N × M × S) for N neurons, M behaviors, S shuffles
 - Optimal delay search adds 40-80x computational overhead
 - Parallel processing recommended for >100 neurons
 
-### Methodological Assumptions
+### Methodological assumptions
 - Stationarity: Assumes stable neuron-behavior relationships
 - Temporal resolution: Limited by sampling rate (calcium imaging: ~10-30 Hz)
 - Shuffle validity: Assumes temporal shifts destroy all dependencies
@@ -418,7 +444,7 @@ Key publications underlying INTENSE methodology:
 
 4. **MI Distribution Theory**: Hutter, M. (2001). Distribution of mutual information. Advances in neural information processing systems, 14.
 
-## Performance Considerations
+## Performance considerations
 
 - Parallel processing supported for large datasets
 - Downsampling available to reduce computational load

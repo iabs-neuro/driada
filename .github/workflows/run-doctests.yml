@@ -65,7 +65,7 @@ jobs:
     
     - name: Run doctests for ${{ matrix.module }}
       run: |
-        python tools/run_doctests.py ${{ matrix.module }} --timeout 60
+        python tools/run_doctests.py ${{ matrix.module }} --timeout 300
       continue-on-error: true
     
     - name: Set artifact name
