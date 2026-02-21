@@ -310,7 +310,7 @@ Analyze how single neurons contribute to population embeddings:
 7. Network Analysis
 ^^^^^^^^^^^^^^^^^^^
 
-The ``Network`` class provides general-purpose graph analysis — spectral
+The ``Network`` class provides general-purpose graph analysis -- spectral
 decomposition, entropy, community detection, and visualization for any graph.
 Within DRIADA, it integrates naturally with INTENSE (cell-cell significance
 produces adjacency matrices) and dimensionality reduction (graph-based methods
