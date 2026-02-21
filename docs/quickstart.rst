@@ -307,10 +307,16 @@ Analyze how single neurons contribute to population embeddings:
        figsize=(12, 5)
    )
 
-7. Network Analysis: Cell-Cell Functional Connectivity
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+7. Network Analysis
+^^^^^^^^^^^^^^^^^^^
 
-Identify functional networks by analyzing pairwise neural correlations:
+The ``Network`` class provides general-purpose graph analysis — spectral
+decomposition, entropy, community detection, and visualization for any graph.
+Within DRIADA, it integrates naturally with INTENSE (cell-cell significance
+produces adjacency matrices) and dimensionality reduction (graph-based methods
+construct a ``ProximityGraph`` that inherits from ``Network``).
+
+Here is an example using INTENSE cell-cell connectivity:
 
 .. code-block:: python
 

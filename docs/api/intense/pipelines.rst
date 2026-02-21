@@ -5,6 +5,19 @@ INTENSE Pipelines
 
 High-level analysis pipelines for computing statistical significance of neural selectivity.
 
+``compute_cell_cell_significance`` produces pairwise similarity and significance matrices.
+The significance matrix can be wrapped in a :class:`~driada.network.net_base.Network` for
+spectral and topological analysis:
+
+.. code-block:: python
+
+   import scipy.sparse as sp
+   from driada.network import Network
+
+   net = Network(adj=sp.csr_matrix(sig_mat), preprocessing='giant_cc')
+   net.diagonalize(mode='nlap')
+   spectrum = net.get_spectrum('nlap')
+
 Main Functions
 --------------
 
