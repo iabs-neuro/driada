@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from scipy.stats import lognorm, gamma, norm, rankdata
+from scipy.stats import lognorm, gamma, norm
 from ..utils.data import populate_nested_dict
 
 # Default distribution type for p-value calculation from shuffled MI values
@@ -561,8 +561,10 @@ def get_table_of_stats(
     a, b, sh = metable.shape
     stage_stats = populate_nested_dict(dict(), range(a), range(b))
 
-    ranked_total_mi = rankdata(metable, axis=2, nan_policy="omit")
-    ranks = ranked_total_mi[:, :, 0] / (nsh + 1)  # how many shuffles have MI lower than true mi
+    # Count shuffles strictly below true MI — O(n1*n2*nsh) vectorized comparison.
+    # For no-tie data: identical to rankdata. For ties: more conservative (safe direction).
+    count_below = (metable[:, :, 1:] < metable[:, :, 0:1]).sum(axis=2)
+    ranks = (count_below + 1.0) / (nsh + 1)
 
     # Vectorized p-value computation for 'norm' distribution (14x faster than per-pair)
     # norm.fit() just computes mean+std, so vectorized mean/std + norm.sf is identical

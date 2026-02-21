@@ -1727,31 +1727,71 @@ def scan_pairs(
                 me_table_shuffles[i, 0, :] = np.full(shape=nsh, fill_value=None)
 
         else:
-            for j, ts2 in enumerate(ts_bunch2):
-                if mask[i, j] == 1:
-                    key1 = _get_ts_key(ts1)
+            if fft_cache is not None:
+                # Vectorized cache path: batch all cached pairs for this neuron
+                key1 = _get_ts_key(ts1)
+                cached_js = []
+                mi_all_list = []
+                uncached_js = []
+
+                for j in range(n2):
+                    if mask[i, j] == 1:
+                        entry = fft_cache.get((key1, _get_ts_key(ts_bunch2[j])))
+                        if entry is not None:
+                            cached_js.append(j)
+                            mi_all_list.append(entry.mi_all)
+                        else:
+                            uncached_js.append(j)
+
+                # Batch process all cached pairs at once
+                if cached_js:
+                    cached_js_arr = np.array(cached_js)
+                    mi_stack = np.array(mi_all_list)  # (n_cached, n_shifts)
+                    arange_cached = np.arange(len(cached_js))
+
+                    # Vectorized true MI lookup
+                    opt_shifts = (optimal_delays[i, cached_js_arr] // ds).astype(int)
+                    me0_vals = mi_stack[arange_cached, opt_shifts]
+
+                    # Vectorized shuffle MI lookup
+                    shifts_batch = random_shifts[i, cached_js_arr, :]  # (n_cached, nsh)
+                    shuffle_vals = mi_stack[arange_cached[:, None], shifts_batch]
+
+                    # Write results with pre-generated noise
+                    me_table[i, cached_js_arr] = me0_vals + _noise_true[i, cached_js_arr]
+                    me_table_shuffles[i, cached_js_arr, :] = shuffle_vals + _noise_shuffles[i, cached_js_arr, :]
+
+                # Non-FFT-able pairs (cache entry was None): loop fallback
+                for j in uncached_js:
+                    ts2 = ts_bunch2[j]
                     key2 = _get_ts_key(ts2)
+                    pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
+                    pair_rng = np.random.RandomState(pair_seed)
+                    me0 = get_sim(
+                        ts1, ts2, metric, ds=ds,
+                        shift=optimal_delays[i, j] // ds,
+                        estimator=mi_estimator,
+                        check_for_coincidence=True,
+                        mi_estimator_kwargs=mi_estimator_kwargs,
+                    )
+                    me_table[i, j] = me0 + pair_rng.random() * noise_const
+                    random_noise = pair_rng.random(size=nsh) * noise_const
+                    for k, shift in enumerate(random_shifts[i, j, :]):
+                        me = get_sim(
+                            ts1, ts2, metric, ds=ds, shift=shift,
+                            estimator=mi_estimator,
+                            mi_estimator_kwargs=mi_estimator_kwargs,
+                        )
+                        me_table_shuffles[i, j, k] = me + random_noise[k]
 
-                    # Check cache first, then compute FFT type if needed (using stable keys)
-                    cache_entry = fft_cache.get((key1, key2)) if fft_cache else None
-
-                    if cache_entry is not None:
-                        # Use cached MI values - just index!
-                        mi_all = cache_entry.mi_all
-
-                        opt_shift = int(optimal_delays[i, j]) // ds
-                        me0 = mi_all[opt_shift]
-                        shuffle_mis = mi_all[random_shifts[i, j, :]]
-
-                        # Add pre-generated noise for numerical stability
-                        me_table[i, j] = me0 + _noise_true[i, j]
-                        me_table_shuffles[i, j, :] = shuffle_mis + _noise_shuffles[i, j, :]
-
-                    elif fft_cache is None:
-                        # No cache provided — need per-pair RNG for noise
+            else:
+                # No cache — per-pair loop with fresh FFT or loop computation
+                for j, ts2 in enumerate(ts_bunch2):
+                    if mask[i, j] == 1:
+                        key1 = _get_ts_key(ts1)
+                        key2 = _get_ts_key(ts2)
                         pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
                         pair_rng = np.random.RandomState(pair_seed)
-                        # Compute FFT type fresh
                         fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, nsh, engine)
 
                         if fft_type is not None:
@@ -1759,14 +1799,10 @@ def scan_pairs(
                             data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
                             compute_fn = _FFT_COMPUTE[fft_type]
 
-                            # Compute true MI at optimal delay
                             opt_shift = optimal_delays[i, j] // ds
                             me0 = compute_fn(data1, data2, np.array([opt_shift]))[0]
-
-                            # Compute all shuffle MIs at once
                             shuffle_mis = compute_fn(data1, data2, random_shifts[i, j, :])
 
-                            # Add noise for numerical stability
                             me_table[i, j] = me0 + pair_rng.random() * noise_const
                             random_noise = pair_rng.random(size=nsh) * noise_const
                             me_table_shuffles[i, j, :] = shuffle_mis + random_noise
@@ -1774,61 +1810,21 @@ def scan_pairs(
                         else:
                             # Original loop path (no FFT available)
                             me0 = get_sim(
-                                ts1,
-                                ts2,
-                                metric,
-                                ds=ds,
+                                ts1, ts2, metric, ds=ds,
                                 shift=optimal_delays[i, j] // ds,
                                 estimator=mi_estimator,
                                 check_for_coincidence=True,
                                 mi_estimator_kwargs=mi_estimator_kwargs,
-                            )  # default metric without shuffling
-
-                            me_table[i, j] = (
-                                me0 + pair_rng.random() * noise_const
-                            )  # add small noise for better fitting
-
-                            random_noise = (
-                                pair_rng.random(size=nsh) * noise_const
-                            )  # add small noise for better fitting
-
+                            )
+                            me_table[i, j] = me0 + pair_rng.random() * noise_const
+                            random_noise = pair_rng.random(size=nsh) * noise_const
                             for k, shift in enumerate(random_shifts[i, j, :]):
                                 me = get_sim(
-                                    ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator,
+                                    ts1, ts2, metric, ds=ds, shift=shift,
+                                    estimator=mi_estimator,
                                     mi_estimator_kwargs=mi_estimator_kwargs,
                                 )
                                 me_table_shuffles[i, j, k] = me + random_noise[k]
-
-                    else:
-                        # Cache provided but entry is None — need per-pair RNG for noise
-                        pair_seed = seed + hash((key1, key2)) % 1000000 if seed is not None else None
-                        pair_rng = np.random.RandomState(pair_seed)
-                        # Loop fallback required
-                        me0 = get_sim(
-                            ts1,
-                            ts2,
-                            metric,
-                            ds=ds,
-                            shift=optimal_delays[i, j] // ds,
-                            estimator=mi_estimator,
-                            check_for_coincidence=True,
-                            mi_estimator_kwargs=mi_estimator_kwargs,
-                        )
-
-                        me_table[i, j] = me0 + pair_rng.random() * noise_const
-
-                        random_noise = pair_rng.random(size=nsh) * noise_const
-
-                        for k, shift in enumerate(random_shifts[i, j, :]):
-                            me = get_sim(
-                                ts1, ts2, metric, ds=ds, shift=shift, estimator=mi_estimator,
-                                mi_estimator_kwargs=mi_estimator_kwargs,
-                            )
-                            me_table_shuffles[i, j, k] = me + random_noise[k]
-
-                else:
-                    me_table[i, j] = None
-                    me_table_shuffles[i, j, :] = np.full(nsh, None)
 
     me_total = np.dstack((me_table, me_table_shuffles))
 
