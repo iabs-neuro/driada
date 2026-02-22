@@ -252,7 +252,7 @@ def calculate_optimal_delays_parallel(
 
     See Also
     --------
-    ~driada.intense.delay.calculate_optimal_delays : Sequential version of this function
+    calculate_optimal_delays : Sequential version of this function
 
     Examples
     --------

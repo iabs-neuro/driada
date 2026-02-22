@@ -1508,7 +1508,7 @@ def compute_embedding_selectivity(
 
     See Also
     --------
-    ~driada.intense.pipelines.compute_cell_feat_significance : Compute selectivity for behavioral features
+    compute_cell_feat_significance : Compute selectivity for behavioral features
     ~driada.integration.manifold_analysis.get_functional_organization : Analyze organization in embeddings
     ~driada.integration.manifold_analysis.compare_embeddings : Compare multiple embedding methods"""
 

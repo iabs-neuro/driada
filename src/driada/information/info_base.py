@@ -558,7 +558,7 @@ class TimeSeries:
 
         See Also
         --------
-        ~driada.information.info_base.get_kdtree_query : Query the KDTree for k-nearest neighbors.
+        get_kdtree_query : Query the KDTree for k-nearest neighbors.
         """
         if self.kdtree is None:
             tree = self._compute_kdtree()
@@ -615,7 +615,7 @@ class TimeSeries:
 
         See Also
         --------
-        ~driada.information.info_base.get_kdtree : Build or retrieve the KDTree structure."""
+        get_kdtree : Build or retrieve the KDTree structure."""
         if k not in self.kdtree_query:
             q = self._compute_kdtree_query(k=k)
             self.kdtree_query[k] = q
@@ -686,7 +686,7 @@ class TimeSeries:
         See Also
         --------
         ~driada.information.entropy.entropy_d : Discrete entropy calculation.
-        ~driada.information.ksg.nonparam_entropy_c : Continuous entropy estimation using KSG method.
+        ~driada.information.nonparam_entropy_c : Continuous entropy estimation using KSG method.
         """
         # Validate downsampling factor
         if not isinstance(ds, int) or ds < 1:
@@ -1577,10 +1577,10 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
 
     See Also
     --------
-    ~driada.information.info_base.get_1d_mi : MI for univariate time series (called internally)
-    ~driada.information.info_base.get_multi_mi : MI between multiple and single time series
-    ~driada.information.info_base.get_tdmi : Time-delayed MI for finding optimal embedding delays
-    ~driada.information.info_base.conditional_mi : Conditional mutual information I(X;Y|Z)"""
+    get_1d_mi : MI for univariate time series (called internally)
+    get_multi_mi : MI between multiple and single time series
+    get_tdmi : Time-delayed MI for finding optimal embedding delays
+    conditional_mi : Conditional mutual information I(X;Y|Z)"""
 
     def _check_input(ts):
         """Convert array input to TimeSeries/MultiTimeSeries if needed.

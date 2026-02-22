@@ -290,7 +290,7 @@ def rsa_between_experiments(
 
     See Also
     --------
-    ~driada.rsa.integration.compute_experiment_rdm : Compute RDM from single experiment
+    compute_experiment_rdm : Compute RDM from single experiment
     ~driada.rsa.core.compare_rdms : Direct RDM comparison
     ~driada.rsa.core.bootstrap_rdm_comparison : Bootstrap analysis details"""
     # Compute RDMs for each experiment

@@ -99,8 +99,8 @@ def compute_mi_batch_fft(
 
     See Also
     --------
-    mi_gg : Single-shift MI computation (slower for multiple shifts)
-    get_1d_mi : High-level MI function with TimeSeries support
+    ~driada.information.gcmi.mi_gg : Single-shift MI computation (slower for multiple shifts)
+    ~driada.information.info_base.get_1d_mi : High-level MI function with TimeSeries support
     """
     n = len(copnorm_x)
     ln2 = np.log(2)
@@ -353,7 +353,7 @@ def compute_mi_mts_fft(
     --------
     compute_mi_batch_fft : FFT version for 1D-1D MI
     compute_mi_gd_fft : FFT version for discrete-continuous MI
-    mi_gg : Reference implementation for multivariate Gaussian MI
+    ~driada.information.gcmi.mi_gg : Reference implementation for multivariate Gaussian MI
     """
     n = len(copnorm_z)
 
@@ -744,7 +744,7 @@ def compute_mi_mts_mts_fft(
     --------
     compute_mi_mts_fft : FFT version for MTS + 1D TimeSeries
     compute_mi_batch_fft : FFT version for 1D-1D MI
-    mi_gg : Reference implementation for multivariate Gaussian MI
+    ~driada.information.gcmi.mi_gg : Reference implementation for multivariate Gaussian MI
     """
     from .gcmi import regularized_cholesky
 
@@ -947,7 +947,7 @@ def compute_mi_mts_discrete_fft(
     compute_mi_mts_fft : FFT version for MTS + continuous univariate
     compute_mi_mts_mts_fft : FFT version for MTS + MTS
     mi_cd_fft : FFT version for continuous + discrete (1D case)
-    mi_model_gd : Reference loop implementation
+    ~driada.information.gcmi.mi_model_gd : Reference loop implementation
     """
     from scipy.special import psi  # digamma function
 

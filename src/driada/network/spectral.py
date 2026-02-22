@@ -28,8 +28,8 @@ def free_entropy(spectrum, t):
 
     See Also
     --------
-    ~driada.network.spectral.q_entropy : Rényi q-entropy from spectrum.
-    ~driada.network.spectral.spectral_entropy : Von Neumann entropy from spectrum.
+    q_entropy : Rényi q-entropy from spectrum.
+    spectral_entropy : Von Neumann entropy from spectrum.
 
     Notes
     -----
@@ -93,8 +93,8 @@ def q_entropy(spectrum, t, q=1):
 
     See Also
     --------
-    ~driada.network.spectral.free_entropy : Free entropy from spectrum.
-    ~driada.network.spectral.spectral_entropy : Von Neumann entropy (q=1 case).
+    free_entropy : Free entropy from spectrum.
+    spectral_entropy : Von Neumann entropy (q=1 case).
 
     Notes
     -----
@@ -168,8 +168,8 @@ def spectral_entropy(spectrum, t, verbose=0):
 
     See Also
     --------
-    ~driada.network.spectral.q_entropy : Generalized Rényi entropy (reduces to this for q=1).
-    ~driada.network.spectral.free_entropy : Related free energy measure.
+    q_entropy : Generalized Rényi entropy (reduces to this for q=1).
+    free_entropy : Related free energy measure.
 
     Notes
     -----

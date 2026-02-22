@@ -65,7 +65,8 @@ Loss Functions
 .. autoclass:: driada.dim_reduction.losses.SparsityLoss
    :members:
 
-See :class:`~driada.dim_reduction.losses.LossRegistry` for the complete list of available losses.
+.. autoclass:: driada.dim_reduction.losses.LossRegistry
+   :members:
 
 Data Handling
 -------------

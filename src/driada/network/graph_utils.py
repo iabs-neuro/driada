@@ -28,9 +28,9 @@ def get_giant_cc_from_graph(G):
 
     See Also
     --------
-    ~driada.network.graph_utils.get_giant_scc_from_graph : Extract giant strongly connected component.
-    :func:`networkx.connected_components` : Find all connected components.
-    :func:`networkx.weakly_connected_components` : Find weakly connected components.
+    get_giant_scc_from_graph : Extract giant strongly connected component.
+    networkx.algorithms.components.connected_components : Find all connected components.
+    networkx.algorithms.components.weakly_connected_components : Find weakly connected components.
 
     Examples
     --------
@@ -75,8 +75,8 @@ def get_giant_scc_from_graph(G):
 
     See Also
     --------
-    ~driada.network.graph_utils.get_giant_cc_from_graph : Extract giant connected component.
-    :func:`networkx.strongly_connected_components` : Find all strongly connected components.
+    get_giant_cc_from_graph : Extract giant connected component.
+    networkx.algorithms.components.strongly_connected_components : Find all strongly connected components.
 
     Examples
     --------
@@ -118,8 +118,8 @@ def remove_selfloops_from_graph(graph):
 
     See Also
     --------
-    ~driada.network.graph_utils.remove_isolates_and_selfloops_from_graph : Remove both isolates and self-loops.
-    :func:`networkx.selfloop_edges` : Find all self-loop edges in a graph.
+    remove_isolates_and_selfloops_from_graph : Remove both isolates and self-loops.
+    networkx.classes.function.selfloop_edges : Find all self-loop edges in a graph.
 
     Examples
     --------
@@ -154,10 +154,10 @@ def remove_isolates_and_selfloops_from_graph(graph):
 
     See Also
     --------
-    ~driada.network.graph_utils.remove_selfloops_from_graph : Remove only self-loops.
-    ~driada.network.graph_utils.remove_isolates_from_graph : Remove only isolated nodes.
-    :func:`networkx.isolates` : Find isolated nodes in a graph.
-    :func:`networkx.selfloop_edges` : Find self-loop edges in a graph.
+    remove_selfloops_from_graph : Remove only self-loops.
+    remove_isolates_from_graph : Remove only isolated nodes.
+    networkx.algorithms.isolate.isolates : Find isolated nodes in a graph.
+    networkx.classes.function.selfloop_edges : Find self-loop edges in a graph.
 
     Examples
     --------
@@ -194,8 +194,8 @@ def remove_isolates_from_graph(graph):
 
     See Also
     --------
-    ~driada.network.graph_utils.remove_isolates_and_selfloops_from_graph : Remove both isolates and self-loops.
-    :func:`networkx.isolates` : Find isolated nodes in a graph.
+    remove_isolates_and_selfloops_from_graph : Remove both isolates and self-loops.
+    networkx.algorithms.isolate.isolates : Find isolated nodes in a graph.
 
     Examples
     --------
@@ -245,9 +245,9 @@ def small_world_index(G, nrand=10, null_model="erdos-renyi"):
 
     See Also
     --------
-    :func:`networkx.average_clustering` : Compute average clustering coefficient.
-    :func:`networkx.average_shortest_path_length` : Compute average shortest path length.
-    :func:`networkx.watts_strogatz_graph` : Generate small-world graphs.
+    networkx.algorithms.cluster.average_clustering : Compute average clustering coefficient.
+    networkx.algorithms.shortest_paths.generic.average_shortest_path_length : Compute average shortest path length.
+    networkx.generators.random_graphs.watts_strogatz_graph : Generate small-world graphs.
 
     Notes
     -----

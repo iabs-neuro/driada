@@ -138,8 +138,8 @@ def adj_random_rewiring_iom_preserving(
 
     See Also
     --------
-    ~driada.network.randomization.random_rewiring_complete_graph : For complete graphs
-    ~driada.network.randomization.random_rewiring_dense_graph : For dense graphs with gap filling"""
+    random_rewiring_complete_graph : For complete graphs
+    random_rewiring_dense_graph : For dense graphs with gap filling"""
     # Setup
     logger = logger or logging.getLogger(__name__)
     _validate_adjacency_matrix(a)

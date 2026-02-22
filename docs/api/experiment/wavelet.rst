@@ -11,6 +11,9 @@ Functions
 .. autofunction:: driada.experiment.wavelet_event_detection.extract_wvt_events
 .. autofunction:: driada.experiment.wavelet_event_detection.get_cwt_ridges
 
+.. autoclass:: driada.experiment.wavelet_ridge.Ridge
+   :members:
+
 Usage Examples
 --------------
 

@@ -595,8 +595,8 @@ def nonparam_cond_entropy_cc(x, y, k=DEFAULT_NN, base=np.e):
 
     See Also
     --------
-    ~driada.information.ksg.nonparam_entropy_c : Computes unconditional entropy H(X)
-    ~driada.information.ksg.nonparam_mi_cc : Computes mutual information I(X;Y)
+    nonparam_entropy_c : Computes unconditional entropy H(X)
+    nonparam_mi_cc : Computes mutual information I(X;Y)
 
     Raises
     ------
@@ -844,8 +844,8 @@ def lnc_correction(tree, points, k, alpha):
 
     See Also
     --------
-    ~driada.information.ksg.get_lnc_alpha : Get optimal alpha value from lookup table
-    ~driada.information.ksg.nonparam_mi_cc : Main MI estimator that uses this correction with alpha="auto"
+    get_lnc_alpha : Get optimal alpha value from lookup table
+    nonparam_mi_cc : Main MI estimator that uses this correction with alpha="auto"
 
     References
     ----------

@@ -139,7 +139,7 @@ def ctransform(x):
 
     See Also
     --------
-    ~driada.information.gcmi.copnorm : Complete copula normalization to standard normal"""
+    copnorm : Complete copula normalization to standard normal"""
     x = np.atleast_2d(x)
 
     # Use JIT version if available
@@ -207,8 +207,8 @@ def copnorm(x):
 
     See Also
     --------
-    ~driada.information.gcmi.ctransform : First step of copula normalization
-    ~driada.information.gcmi.gcmi_cc : Uses copnorm internally for MI estimation
+    ctransform : First step of copula normalization
+    gcmi_cc : Uses copnorm internally for MI estimation
 
     References
     ----------
@@ -417,7 +417,7 @@ def ent_g(x, biascorrect=True):
 
     See Also
     --------
-    ~driada.information.gcmi.mi_gg : Uses entropy to compute mutual information
+    ~driada.information.mi_gg : Uses entropy to compute mutual information
 
     References
     ----------
@@ -524,7 +524,7 @@ def mi_gg(x, y, biascorrect=True, demeaned=False):
 
     See Also
     --------
-    ~driada.information.gcmi.gcmi_cc : Gaussian-copula MI for arbitrary continuous distributions
+    gcmi_cc : Gaussian-copula MI for arbitrary continuous distributions
     ~driada.information.gcmi.ent_g : Gaussian entropy used in MI calculation
 
     References
@@ -645,7 +645,6 @@ def mi_model_gd(x, y, Ym=None, biascorrect=True, demeaned=False):
 
     See Also
     --------
-    ~driada.information.gcmi.mi_mixture_gd : MI estimation using mixture of Gaussians model.
     ~driada.information.gcmi.ent_g : Gaussian entropy estimation"""
 
     x = np.atleast_2d(x)
@@ -837,8 +836,8 @@ def gcmi_cc(x, y):
 
     See Also
     --------
-    ~driada.information.gcmi.mi_gg : MI for Gaussian variables (without copula transform)
-    ~driada.information.gcmi.gccmi_ccd : Conditional MI with discrete conditioning variable
+    ~driada.information.mi_gg : MI for Gaussian variables (without copula transform)
+    ~driada.information.gccmi_ccd : Conditional MI with discrete conditioning variable
 
     References
     ----------
@@ -960,8 +959,8 @@ def cmi_ggg(x, y, z, biascorrect=True, demeaned=False):
 
     See Also
     --------
-    ~driada.information.gcmi.mi_gg : Unconditional mutual information
-    ~driada.information.gcmi.gccmi_ccd : CMI with discrete conditioning variable
+    ~driada.information.mi_gg : Unconditional mutual information
+    ~driada.information.gccmi_ccd : CMI with discrete conditioning variable
 
     References
     ----------
@@ -1120,9 +1119,8 @@ def gccmi_ccd(x, y, z, Zm=None):
 
     See Also
     --------
-    ~driada.information.gcmi.gcmi_cc : Unconditional Gaussian-copula MI
-    ~driada.information.gcmi.cmi_ggg : CMI for all-continuous variables
-    ~driada.information.gcmi.gcmi_cd : MI between continuous and discrete variables
+    gcmi_cc : Unconditional Gaussian-copula MI
+    cmi_ggg : CMI for all-continuous variables
 
     References
     ----------

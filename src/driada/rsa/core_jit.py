@@ -51,8 +51,8 @@ def fast_correlation_distance(patterns):
     See Also
     --------
     ~driada.rsa.core.compute_rdm : Higher-level function that uses this for correlation metric
-    ~driada.rsa.core_jit.fast_euclidean_distance : Alternative distance metric
-    ~driada.rsa.core_jit.fast_manhattan_distance : Alternative distance metric"""
+    fast_euclidean_distance : Alternative distance metric
+    fast_manhattan_distance : Alternative distance metric"""
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
 
@@ -236,8 +236,8 @@ def fast_euclidean_distance(patterns):
     See Also
     --------
     ~driada.rsa.core.compute_rdm : Higher-level function that uses this for euclidean metric
-    ~driada.rsa.core_jit.fast_correlation_distance : Alternative distance metric
-    ~driada.rsa.core_jit.fast_manhattan_distance : Alternative distance metric"""
+    fast_correlation_distance : Alternative distance metric
+    fast_manhattan_distance : Alternative distance metric"""
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
 
@@ -293,8 +293,8 @@ def fast_manhattan_distance(patterns):
     See Also
     --------
     ~driada.rsa.core.compute_rdm : Higher-level function that uses this for manhattan metric
-    ~driada.rsa.core_jit.fast_euclidean_distance : Alternative distance metric
-    ~driada.rsa.core_jit.fast_correlation_distance : Alternative distance metric"""
+    fast_euclidean_distance : Alternative distance metric
+    fast_correlation_distance : Alternative distance metric"""
     n_items, n_features = patterns.shape
     rdm = np.zeros((n_items, n_items))
 

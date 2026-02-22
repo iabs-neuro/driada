@@ -559,7 +559,7 @@ def phase_synchrony(vec1, vec2):
 
     See Also
     --------
-    :func:`scipy.signal.hilbert` :
+    scipy.signal.hilbert :
         Hilbert transform used to extract phases.
     """
     vec1 = np.asarray(vec1)

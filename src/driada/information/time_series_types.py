@@ -395,9 +395,9 @@ def _detect_periodicity(
 
     See Also
     --------
-    ~driada.information.time_series_types._detect_circular : Detects if data represents circular quantities.
-    :func:`scipy.signal.correlate` : Used for autocorrelation analysis.
-    :func:`scipy.signal.find_peaks` : Used to find periodic peaks.
+    _detect_circular : Detects if data represents circular quantities.
+    scipy.signal.correlate : Used for autocorrelation analysis.
+    scipy.signal.find_peaks : Used to find periodic peaks.
 
     Notes
     -----
@@ -747,8 +747,8 @@ def _detect_discrete_subtype(
 
     See Also
     --------
-    ~driada.information.time_series_types._detect_primary_type : Parent function that determines if data is discrete.
-    ~driada.information.time_series_types._detect_continuous_subtype : Analogous function for continuous data.
+    _detect_primary_type : Parent function that determines if data is discrete.
+    _detect_continuous_subtype : Analogous function for continuous data.
 
     Notes
     -----

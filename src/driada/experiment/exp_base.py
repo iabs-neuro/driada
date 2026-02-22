@@ -1876,8 +1876,7 @@ class Experiment:
 
         See Also
         --------
-        ~driada.experiment.exp_base.get_stats_slice : More general method for extracting any statistics
-        ~driada.experiment.exp_base._update_stats_and_significance : Internal method that computes significance
+        get_stats_slice : More general method for extracting any statistics
 
         Examples
         --------
@@ -2445,8 +2444,8 @@ class Experiment:
 
         See Also
         --------
-        ~driada.experiment.exp_base.get_embedding : Retrieve stored embeddings
-        ~driada.experiment.exp_base.create_embedding : Create and store embeddings in one step"""
+        get_embedding : Retrieve stored embeddings
+        create_embedding : Create and store embeddings in one step"""
         if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
 
@@ -2540,9 +2539,9 @@ class Experiment:
 
         See Also
         --------
-        ~driada.experiment.exp_base.store_embedding : Store computed embeddings
-        ~driada.experiment.exp_base.get_embedding : Retrieve stored embeddings
-        ~driada.experiment.exp_base.get_significant_neurons : Get neurons with significant selectivity
+        store_embedding : Store computed embeddings
+        get_embedding : Retrieve stored embeddings
+        get_significant_neurons : Get neurons with significant selectivity
         """
         from ..information.info_base import MultiTimeSeries
         from ..utils.data import check_positive
@@ -2713,8 +2712,8 @@ class Experiment:
 
         See Also
         --------
-        ~driada.experiment.exp_base.store_embedding : Store embeddings in the experiment
-        ~driada.experiment.exp_base.create_embedding : Create and store embeddings in one step"""
+        store_embedding : Store embeddings in the experiment
+        create_embedding : Create and store embeddings in one step"""
         if data_type not in ["calcium", "spikes"]:
             raise ValueError("data_type must be 'calcium' or 'spikes'")
 
@@ -2802,7 +2801,7 @@ class Experiment:
 
         See Also
         --------
-        ~driada.experiment.exp_base.compute_rdm : Method that uses and populates the RDM cache
+        compute_rdm : Method that uses and populates the RDM cache
 
         Examples
         --------

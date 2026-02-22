@@ -8,6 +8,7 @@ This module provides functions for estimating entropy of discrete and continuous
 Functions
 ---------
 
+.. autofunction:: driada.information.entropy.entropy_d
 .. autofunction:: driada.information.entropy.joint_entropy_dd
 .. autofunction:: driada.information.entropy.conditional_entropy_cdd
 .. autofunction:: driada.information.entropy.conditional_entropy_cd

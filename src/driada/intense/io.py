@@ -96,7 +96,6 @@ class IntenseResults:
         See Also
         --------
         ~driada.intense.pipelines.compute_cell_feat_significance : Main function that returns IntenseResults
-        ~driada.intense.io.save_results : Method to persist results to disk
         """
         pass
 
@@ -170,7 +169,7 @@ class IntenseResults:
 
         See Also
         --------
-        ~driada.intense.io.IntenseResults.update : Add single property
+        update : Add single property
         """
         for dname, data in datadict.items():
             setattr(self, dname, data)
@@ -274,7 +273,7 @@ class IntenseResults:
 
         See Also
         --------
-        generate_tuned_selectivity_exp : Generates experiments with ground truth
+        ~driada.experiment.synthetic.generators.generate_tuned_selectivity_exp : Generates experiments with ground truth
         """
         if not hasattr(self, "significance"):
             raise ValueError(

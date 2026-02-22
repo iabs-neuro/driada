@@ -118,7 +118,7 @@ def make_beautiful(
 
     See Also
     --------
-    ~driada.utils.plot.create_default_figure :
+    create_default_figure :
         Create figure with default styling applied.
     ~driada.utils.publication.PanelLayout :
         Layout manager for multi-panel figures with precise dimensions.
@@ -372,7 +372,7 @@ def create_default_figure(
 
     See Also
     --------
-    ~driada.utils.plot.make_beautiful :
+    make_beautiful :
         Apply styling to existing axes.
     matplotlib.pyplot.subplots :
         Base function for creating subplots.

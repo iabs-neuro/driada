@@ -36,19 +36,14 @@ Quick Links
    * :func:`~driada.intense.pipelines.compute_embedding_selectivity` - Embedding dimension selectivity
 
 **Statistical Tools**
-   * :doc:`intense/stats` - Statistical testing and p-value computation
-   * Distribution fitting and testing
-   * Multiple comparison corrections
+   * :doc:`intense/stats` - Distribution fitting, testing, and p-value computation
+   * :doc:`intense/correction` - Multiple comparison corrections
 
 **Visualization**
-   * :doc:`intense/visual` - Plotting functions for INTENSE results
-   * Selectivity heatmaps and summaries
-   * Neuron-feature pair visualization
+   * :doc:`intense/visual` - Selectivity heatmaps, summaries, and neuron-feature pair plots
 
 **Advanced Analysis**
-   * :doc:`intense/disentanglement` - Mixed selectivity disentanglement
-   * Feature correlation analysis
-   * Selectivity decomposition
+   * :doc:`intense/disentanglement` - Mixed selectivity disentanglement and feature correlation analysis
 
 **Delay Optimization**
    * :doc:`intense/delay` - Temporal delay optimization between time series
@@ -63,5 +58,4 @@ Quick Links
    * :doc:`intense/correction` - P-value threshold calculation (Holm, FDR, Bonferroni)
 
 **Core Implementation**
-   * :doc:`intense/base` - Low-level computation functions
-   * Mutual information computation
+   * :doc:`intense/base` - Low-level MI computation functions

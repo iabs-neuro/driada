@@ -35,13 +35,10 @@ Quick Links
    * :doc:`information/mutual_information` - All MI-related functions
 
 **Entropy Estimation**
-   * :doc:`information/entropy` - Discrete and continuous entropy
-   * JIT-optimized implementations for performance
+   * :doc:`information/entropy` - Discrete and continuous entropy (JIT-optimized)
 
 **Estimators**
-   * :doc:`information/estimators` - Different MI estimation methods
-   * GCMI (Gaussian Copula) - Fast parametric estimation
-   * KSG (k-nearest neighbors) - Non-parametric estimation
+   * :doc:`information/estimators` - GCMI (Gaussian copula) and KSG (k-nearest neighbors)
 
 Usage Example
 -------------

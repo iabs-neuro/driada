@@ -16,6 +16,14 @@ Plotting Utilities
    :undoc-members:
    :show-inheritance:
 
+Publication Utilities
+---------------------
+
+.. automodule:: driada.utils.publication
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 GIF Creation
 ------------
 

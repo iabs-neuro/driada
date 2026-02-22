@@ -2636,9 +2636,6 @@ class Neuron:
         - Consistently updates self.t_rise/t_off and reconstructs events
         - Setting update_reconstruction=False allows manual control of reconstruction timing
 
-        See Also
-        --------
-        _optimize_kinetics_direct : Fast derivative-based measurement
         """
         if method != "direct":
             raise ValueError(f"Only 'direct' method is supported, got '{method}'")

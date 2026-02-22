@@ -8,6 +8,7 @@ This module provides functions for generating synthetic neural data with known g
 Functions
 ---------
 
+.. autofunction:: driada.experiment.synthetic.generators.generate_tuned_selectivity_exp
 .. autofunction:: driada.experiment.generate_synthetic_exp
 .. autofunction:: driada.experiment.generate_circular_manifold_exp
 .. autofunction:: driada.experiment.generate_2d_manifold_exp

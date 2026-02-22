@@ -41,15 +41,10 @@ Quick Links
    * See :data:`~driada.dim_reduction.dr_base.METHODS_DICT` for available methods
 
 **Manifold Quality Metrics**
-   * :doc:`dim_reduction/manifold_metrics` - Comprehensive validation tools
-   * Preservation metrics (k-NN, trustworthiness, continuity)
-   * Reconstruction accuracy metrics
-   * Structure preservation measures
+   * :doc:`dim_reduction/manifold_metrics` - Preservation, trustworthiness, continuity, and reconstruction metrics
 
 **Neural Network Methods**
-   * :doc:`dim_reduction/neural_methods` - Autoencoder implementations
-   * Flexible architecture design
-   * Custom loss functions
+   * :doc:`dim_reduction/neural_methods` - Autoencoders with flexible architecture and custom losses
 
 Usage Example
 -------------

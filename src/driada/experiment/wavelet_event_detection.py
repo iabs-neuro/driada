@@ -197,7 +197,6 @@ def get_cwt_ridges(
 
     See Also
     --------
-    ~driada.experiment.wavelet_event_detection.get_cwt_ridges_fast : Numba-accelerated version
     ~driada.experiment.wavelet_ridge.Ridge : Ridge object storing ridge properties"""
     # Lazy import to avoid loading torch at module import time
     from ssqueezepy import cwt
@@ -338,8 +337,8 @@ def get_cwt_ridges_fast(wvtdata, peaks, wvt_times, wvt_scales):
 
     See Also
     --------
-    ~driada.experiment.wavelet_event_detection.get_cwt_ridges : Original implementation
-    ~driada.experiment.wavelet_event_detection.events_from_trace : High-level function using this for event detection
+    get_cwt_ridges : Original implementation
+    events_from_trace : High-level function using this for event detection
     """
     # Validate inputs (before JIT compilation)
     wvtdata = np.asarray(wvtdata)
@@ -531,8 +530,8 @@ def get_events_from_ridges(
 
     See Also
     --------
-    ~driada.experiment.wavelet_event_detection.passing_criterion : Function that evaluates ridge quality
-    ~driada.experiment.wavelet_event_detection.events_from_trace : High-level event detection function
+    passing_criterion : Function that evaluates ridge quality
+    events_from_trace : High-level event detection function
     """
     # Validate parameters
     check_nonnegative(
@@ -647,8 +646,8 @@ def events_from_trace(
 
     See Also
     --------
-    ~driada.experiment.wavelet_event_detection.extract_wvt_events : Batch processing for multiple neurons
-    ~driada.experiment.wavelet_event_detection.WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary
+    extract_wvt_events : Batch processing for multiple neurons
+    WVT_EVENT_DETECTION_PARAMS : Default parameter dictionary
     """
     # Lazy import to avoid loading torch at module import time
     from ssqueezepy import cwt

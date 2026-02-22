@@ -118,7 +118,7 @@ def is_positive_definite(B):
     --------
     ~driada.utils.matrix.nearestPD :
         Find the nearest positive-definite matrix.
-    :func:`numpy.linalg.cholesky` :
+    numpy.linalg.cholesky :
         Cholesky decomposition.
     """
     try:

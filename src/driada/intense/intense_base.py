@@ -790,8 +790,8 @@ def scan_pairs_parallel(
 
     See Also
     --------
-    ~driada.intense.intense_base.scan_pairs : Sequential version of this function
-    ~driada.intense.intense_base.scan_pairs_router : Wrapper that chooses between parallel and sequential
+    scan_pairs : Sequential version of this function
+    scan_pairs_router : Wrapper that chooses between parallel and sequential
 
     Examples
     --------
@@ -976,8 +976,8 @@ def scan_pairs_router(
 
     See Also
     --------
-    ~driada.intense.intense_base.scan_pairs : Sequential implementation
-    ~driada.intense.intense_base.scan_pairs_parallel : Parallel implementation
+    scan_pairs : Sequential implementation
+    scan_pairs_parallel : Parallel implementation
 
     Examples
     --------

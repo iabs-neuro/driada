@@ -69,8 +69,8 @@ class Encoder(nn.Module):
 
     See Also
     --------
-    ~driada.dim_reduction.neural.Decoder : The corresponding decoder network.
-    ~driada.dim_reduction.neural.VAEEncoder : Variational encoder for probabilistic latent representations.
+    Decoder : The corresponding decoder network.
+    VAEEncoder : Variational encoder for probabilistic latent representations.
     """
 
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
@@ -209,8 +209,8 @@ class VAEEncoder(nn.Module):
 
     See Also
     --------
-    ~driada.dim_reduction.neural.VAE : Complete variational autoencoder that uses this encoder.
-    ~driada.dim_reduction.neural.Encoder : Standard encoder with bounded outputs."""
+    VAE : Complete variational autoencoder that uses this encoder.
+    Encoder : Standard encoder with bounded outputs."""
 
     def __init__(self, orig_dim, inter_dim, code_dim, kwargs, device=None):
         """Initialize the variational encoder network.
@@ -341,8 +341,8 @@ class Decoder(nn.Module):
 
     See Also
     --------
-    ~driada.dim_reduction.neural.Encoder : The corresponding encoder network.
-    ~driada.dim_reduction.neural.AE : Complete autoencoder using this decoder."""
+    Encoder : The corresponding encoder network.
+    AE : Complete autoencoder using this decoder."""
 
     def __init__(self, code_dim, inter_dim, orig_dim, kwargs, device=None):
         """Initialize the decoder network.
@@ -479,9 +479,9 @@ class AE(nn.Module):
 
     See Also
     --------
-    ~driada.dim_reduction.neural.VAE : Variational autoencoder for probabilistic encoding.
-    ~driada.dim_reduction.neural.Encoder : The encoder component.
-    ~driada.dim_reduction.neural.Decoder : The decoder component."""
+    VAE : Variational autoencoder for probabilistic encoding.
+    Encoder : The encoder component.
+    Decoder : The decoder component."""
 
     def __init__(self, orig_dim, inter_dim, code_dim, enc_kwargs, dec_kwargs, device):
         """Initialize the autoencoder.
@@ -635,8 +635,8 @@ class VAE(nn.Module):
 
     See Also
     --------
-    ~driada.dim_reduction.neural.AE : Standard deterministic autoencoder.
-    ~driada.dim_reduction.neural.VAEEncoder : The probabilistic encoder component."""
+    AE : Standard deterministic autoencoder.
+    VAEEncoder : The probabilistic encoder component."""
 
     def __init__(
         self,
@@ -843,8 +843,8 @@ class VAE(nn.Module):
 
         See Also
         --------
-        ~driada.dim_reduction.neural.get_code : For encoding only without reconstruction.
-        ~driada.dim_reduction.neural.reparameterization : The sampling mechanism."""
+        get_code : For encoding only without reconstruction.
+        reparameterization : The sampling mechanism."""
         # encoding
         code, mu, log_var = self.get_code(features)
 
@@ -905,8 +905,8 @@ class VAE(nn.Module):
 
         See Also
         --------
-        ~driada.dim_reduction.neural.get_code : Returns code, mean, and log variance as tensors.
-        ~driada.dim_reduction.neural.AE.get_code_embedding : Always deterministic (standard autoencoder).
+        get_code : Returns code, mean, and log variance as tensors.
+        AE.get_code_embedding : Always deterministic (standard autoencoder).
         """
         code, mu, log_var = self.get_code(input_)
         if use_mean:
