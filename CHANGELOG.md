@@ -9,52 +9,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-XX-XX
 
-**🎉 First stable release with JOSS publication**
+**First stable release — JOSS publication**
 
-### Added
-- **JOSS Submission Materials**
-  - Academic paper (`paper.md`) with comprehensive literature review covering information-theoretic toolboxes (NIT, MINT, FRITES), calcium imaging tools (CaImAn, Suite2p), and dimensionality reduction frameworks
-  - Complete bibliography (`paper.bib`) with 38 references spanning neuroscience methodology, information theory, and manifold learning
-  - Publications documentation (`PUBLICATIONS.md`) listing 8 research papers using DRIADA across biological and artificial neural systems
+95 commits, 282 files changed, 30,481 insertions, 9,826 deletions since v0.7.2.
+1,875 tests passing on Linux, macOS, Windows (Python 3.9-3.13).
 
-- **Project Governance**
-  - Contribution guidelines (`CONTRIBUTING.md`) with development setup, testing procedures, and code style standards
-  - Community standards (`CODE_OF_CONDUCT.md`) establishing inclusive collaboration practices
-  - Machine-readable citation metadata (`CITATION.cff`) with synchronized author database (`AUTHORS.yaml`)
+### INTENSE performance
 
-- **Reproducibility**
-  - Configurable random seed parameter for graph construction (`g_params['seed']`) ensuring reproducible manifold learning experiments across runs
+- **FFT cache build 2x faster** — precompute per-signal FFT and std once (520 unique signals instead of 20,000 pairs for a 500-neuron × 20-feature problem), then combine via cross-correlation. Bit-exact results. (`9d865c3`)
+- **Stage 2 scan 1.4x faster** — replaced `scipy.stats.rankdata` with count-based comparison, vectorized per-neuron cache lookup to eliminate Python inner loop. (`fe9bb55`)
+- **FFT-accelerated `av` metric** — average-value selectivity metric now uses the FFT path, matching cc/pearson_cc performance. (`7e37c5b`)
 
-### Changed
-- **FFT Code Quality, Optimization, and Refactoring**
-  - **New Modules**: Created dedicated FFT acceleration modules for better organization:
-    - `info_fft.py` (1,130 lines): All FFT-accelerated MI estimators
-    - `info_fft_utils.py` (256 lines): Shared utilities and helpers
-  - **Performance Improvements**:
-    - Replaced `fft`/`ifft` with `rfft`/`irfft` for real inputs → **50% speedup** in `mi_cd_fft` and `compute_mi_mts_discrete_fft`
-    - Fixed memory waste in `compute_mi_mts_fft` and `compute_mi_mts_mts_fft` → **100-1000x memory reduction** when nsh << n
-  - **Code Quality**:
-    - Unified bias correction using `scipy.special.psi` across all functions
-    - Standardized regularization thresholds (dimension-specific: 1e-10, 1e-15, 1e-20)
-    - Eliminated code duplication via shared helpers (~40% reduction in FFT-related code)
-    - Reduced `info_base.py` from 3,246 to 2,311 lines (~30% reduction)
-    - Reduced `entropy.py` from 500 to 378 lines
-  - **Backward Compatibility**: All public APIs unchanged via re-exports in `info_base.py` and `entropy.py`
+### INTENSE features
 
-- **Major Code Refactoring**
-  - Extracted monolithic `neuron.py` (3,807 lines) into focused, maintainable modules:
-    - `calcium_kinetics.py` (237 lines) - Double-exponential kernel modeling and spike-to-calcium reconstruction
-    - `signal_preprocessing.py` (97 lines) - Signal validation, normalization, and quality checks
-    - `event_detection.py` (536 lines) - Wavelet and threshold-based calcium transient detection
-  - Maintained 100% backward compatibility via static method delegation pattern
+- **Feature shuffle masks** — independent circular-shift exclusion zones for calcium (CA_SHIFT_N_TOFF=5 frames) and features (MIN_FEAT_SHIFT_SEC=2s), replacing the single global minimum shift. Prevents trivial self-correlation at small shifts without over-restricting the shuffle range. (`8744e52`)
+- **`feature_types` parameter** — override auto-detected feature subtypes (e.g., force `head_direction` to `circular`, `trial_type` to `categorical`) in `load_exp_from_aligned_data`. (`98da360`)
+- **Automatic circular → (cos, sin) encoding** — circular features are automatically transformed to 2D representations for MI estimators that assume Euclidean distance. Controlled by `create_circular_2d` parameter. (`aca9d69`)
+- **`mi_estimator_kwargs` passthrough** — thread estimator-specific parameters (e.g., KSG neighbors, LNC alpha) through the entire INTENSE pipeline. (`9075eee`)
+- **MTS delay optimization** — MultiTimeSeries features (e.g., 2D position) now support optimal delay search. (`2b0f9d4`)
+- **Post-hoc pre_pval reconstruction** — reconstruct Stage 1 p-values from saved shuffle data without re-running the analysis. (`7a6b6e4`)
 
-- **Code Quality**
-  - Applied Black formatter (line-length 100) and isort (Black profile) across entire codebase (177 files, 8,762 insertions/9,219 deletions)
-  - Enhanced documentation consistency and fixed high-priority issues flagged by automated verification tools
+### INTENSE refactoring
 
-### Fixed
-- Documentation cross-reference validation issues
-- Missing docstring parameters in several modules
+- **`intense_base.py` factored into 4 modules** — extracted validation (`intense_validation.py`), FFT cache management (`fft.py`), multiple-comparison correction (`corrections.py`), and delay optimization (`delay.py`). The monolithic file is now the orchestrator only. (`c5f5d59`, `b45cd1b`)
+- **Removed deprecated parameters** — `joint_distr` (use `find_joint=True` instead) and `allow_mixed_dimensions` (MTS delay optimization makes this unnecessary). Clean deprecation with no silent fallbacks. (`afe68f2`, `f60e488`)
+
+### Experiment & data loading
+
+- **3D place cell support** — volumetric spatial manifold generator for 3-photon and light-sheet experiments. (`8842516`)
+- **Experiment partitioning** — split experiments by time windows or trial indices for cross-validation. (`3f44f77`)
+- **Circular feature rescaling** — detects and rescales [0,1]-normalized circular features to [0, 2π] before INTENSE analysis, preventing silent MI underestimation. (`7edf26e`)
+
+### Tutorial notebooks (new)
+
+Five Colab-ready notebooks with auto-generation scripts (`tools/create_notebook_0X.py`):
+
+1. **Data loading & neuron analysis** — Experiment construction, spike reconstruction methods comparison, surrogate generation (`37b71d4`)
+2. **Selectivity detection with INTENSE** — Two-stage testing, MultiTimeSeries features, circular features, multiple comparison correction (`38fa6c4`)
+3. **Population geometry & DR** — MVData API, method comparison benchmark (PCA, Isomap, UMAP), sequential DR, autoencoder DR, circular manifold extraction, INTENSE-guided DR (`df27aef`)
+4. **Network analysis** — Network construction, spectral decomposition, community detection, thermodynamic entropy, ProximityGraph from DR (`e1515fc`)
+5. **Advanced capabilities** — INTENSE + DR pipeline, leave-one-out importance, RSA, RNN analysis (`b4d2b15`)
+
+All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigation links and API documentation links across all 5. Sentence case throughout.
+
+### Documentation overhaul
+
+- **28 docstring-signature mismatches fixed** — parameter names, types, and counts verified against source across all public functions. (`ce1065c`)
+- **All Sphinx cross-references fixed** — broken `:func:`, `:class:`, `:meth:` references and non-clickable See Also entries corrected. (`c5d6112`, `a05c655`)
+- **Quickstart rewritten** — removed references to deleted functions, fixed undefined variables in code examples. (`09dcbcb`)
+- **README rewrite** — added data requirements section, pipeline examples, Colab badges, macOS CI badge, synced citation sections. (`5244ec3`, `33b98fd`, `235874f`)
+- **Network-DR relationship documented** — ProximityGraph inherits from Network; documented in module docstrings, Sphinx RST, and notebook 03/04 cross-references. (`c6f5fd8`, `b223d3e`, `7f89c8b`, `c18193b`)
+- **INTENSE math framework** — added FFT-accelerated permutation testing explanation to docs. (`34c25dc`)
+
+### Test quality
+
+- **36 RED findings resolved** — zero-assertion tests, loose tolerances for exact results, dead code, and lowered-bar comments identified by `tools/validate_tests.py` and fixed. (`add6f37`, `c57e700`, `cec65cd`)
+- **Flaky CI tests fixed** — RSA cache division by zero, diffusion maps threshold too tight for cross-platform variance, JIT benchmark timing resolution on Windows, warmup fixture durations too short for shuffle mask exclusion zones. (`aefcc22`, `4d46560`, `e70353c`)
+- **Python 3.13 CI** — added to test matrix. (`4aa1b36`)
+
+### Bug fixes
+
+- **t-SNE/UMAP parameter forwarding** — `perplexity` and `random_state` were silently swallowed by `**kwargs`; now properly forwarded. (`28533cd`)
+- **IntenseResults JSON round-trip** — dict keys converted from int to string during serialization; now handled correctly on load. (`04b7690`)
+- **NumPy scalar compatibility** — `ca_mse_error` returned ndarray instead of scalar on newer NumPy; extracted with `.item()`. (`eebcc0a`)
+- **Network.n_cc guard** — connected components count now handles uninitialized graph state. (`28533cd`)
+- **Bare except narrowed** — `neuron.py:2826` catch-all replaced with `except (ValueError, TypeError)`. (`4aa1b36`)
+- **Gamma-ZI fit warning** — silent `p=1.0` fallback on MLE failure now emits `RuntimeWarning`. (`4aa1b36`)
+- **Windows encoding** — emoji in doc tool output replaced with ASCII; em dash bytes in RST fixed. (`f20fed4`, `e70353c`)
+
+### Code quality & refactoring
+
+- **FFT module reorganization** — `info_fft.py` (1,130 lines) and `info_fft_utils.py` (256 lines) extracted from `info_base.py`. `rfft`/`irfft` replacing `fft`/`ifft` for 50% speedup. 100-1000x memory reduction in MTS functions. Shared helpers eliminate ~40% code duplication. All public APIs preserved via re-exports. (`info_base.py` reduced from 3,246 to 2,311 lines)
+- **Neuron module reorganization** — `neuron.py` (3,807 lines) factored into `calcium_kinetics.py`, `signal_preprocessing.py`, `event_detection.py`. Backward compatible via static method delegation.
+- **Black + isort** applied across entire codebase (177 files)
+- **Removed MDS and t-SNE from notebook 03** — too slow for educational use; replaced with Laplacian Eigenmaps in visualization. (`fa43796`)
+- **`visualize_circular_manifold` exported** from public API. (`28533cd`)
+
+### Tooling
+
+- **`tools/verify_notebooks.py`** — executes all notebook code cells against current API, catching broken examples before release. (`fa43796`)
+- **INTENSE validation benchmark** — SNR × skip_prob parameter sweep across 315 configurations comparing GCMI vs Pearson methods. (`ef00bc2`, `844905f`)
+- **`tools/validate_tests.py`** — automated test quality checker flagging zero-assertion tests, loose tolerances, and dead code. (`add6f37`)
+
+### Project governance (new)
+
+- Academic paper (`paper.md`) with literature review covering NIT, MINT, FRITES, CaImAn, Suite2p, CEBRA
+- Bibliography (`paper.bib`) with 38 references
+- Publications list (`PUBLICATIONS.md`) — 8 research papers using DRIADA
+- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `AUTHORS.yaml`
+- PR template (`.github/pull_request_template.md`)
 
 ---
 
