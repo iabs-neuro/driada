@@ -99,10 +99,10 @@ cells.append(md_cell(
 "## Building the network\n"
 "\n"
 "Create a synthetic modular population (120 neurons, 6 functional\n"
-"groups) with [`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html),\n"
+"groups) with [`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html#driada.experiment.synthetic.generators.generate_tuned_selectivity_exp),\n"
 "compute pairwise significance with\n"
-"[`compute_cell_cell_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html),\n"
-"and construct a [`Network`](https://driada.readthedocs.io/en/latest/api/network/core.html)\n"
+"[`compute_cell_cell_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_cell_cell_significance),\n"
+"and construct a [`Network`](https://driada.readthedocs.io/en/latest/api/network/core.html#driada.network.net_base.Network)\n"
 "object.  This network is reused in both analysis sections below."
 ))
 
@@ -590,7 +590,7 @@ cells.append(code_cell(
 
 cells.append(md_cell(
 "> **Cross-reference:** The spectral analysis below applies to *any*\n"
-"> `Network` object -- not just cell-cell functional networks. Graph-based\n"
+"> [`Network`](https://driada.readthedocs.io/en/latest/api/network/core.html#driada.network.net_base.Network) object -- not just cell-cell functional networks. Graph-based\n"
 "> DR methods (Isomap, LLE, Laplacian Eigenmaps) construct a\n"
 "> `ProximityGraph` that inherits from `Network`, so all the spectral,\n"
 "> entropy, and community analysis shown below works on DR graphs too.\n"

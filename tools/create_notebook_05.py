@@ -94,15 +94,15 @@ cells.append(md_cell(
 "neurons drive which embedding dimensions?**\n"
 "\n"
 "Key APIs:\n"
-"- [`compute_embedding_selectivity`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html) -- INTENSE on embedding components.\n"
+"- [`compute_embedding_selectivity`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_embedding_selectivity) -- INTENSE on embedding components.\n"
 "  Internally, each embedding component is added as a temporary dynamic\n"
 "  feature and tested via standard INTENSE, so parameters like `n_shuffles`\n"
-"  and `pval_thr` pass through to [`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html).\n"
-"- [`get_functional_organization`](https://driada.readthedocs.io/en/latest/api/integration.html) -- cluster and participation analysis\n"
-"- [`compare_embeddings`](https://driada.readthedocs.io/en/latest/api/integration.html) -- cross-method comparison\n"
+"  and `pval_thr` pass through to [`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_cell_feat_significance).\n"
+"- [`get_functional_organization`](https://driada.readthedocs.io/en/latest/api/integration.html#driada.integration.manifold_analysis.get_functional_organization) -- cluster and participation analysis\n"
+"- [`compare_embeddings`](https://driada.readthedocs.io/en/latest/api/integration.html#driada.integration.manifold_analysis.compare_embeddings) -- cross-method comparison\n"
 "\n"
 "The synthetic data below is created with\n"
-"[`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html)."
+"[`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html#driada.experiment.synthetic.generators.generate_tuned_selectivity_exp)."
 ))
 
 cells.append(code_cell(
@@ -377,7 +377,7 @@ cells.append(md_cell(
 "correlation, decoding accuracy, and reconstruction error (comparing the\n"
 "embedding against known head direction angles). INTENSE selectivity is\n"
 "computed with\n"
-"`compute_cell_feat_significance`\n"
+"[`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_cell_feat_significance)\n"
 "for comparison."
 ))
 
@@ -659,10 +659,10 @@ cells.append(md_cell(
 "abstracting away neuron identity and number.\n"
 "\n"
 "DRIADA's `rsa` module provides:\n"
-"- [`compute_rdm_unified`](https://driada.readthedocs.io/en/latest/api/rsa/core.html) -- RDM from neural data + condition labels\n"
-"- [`rsa_compare`](https://driada.readthedocs.io/en/latest/api/rsa/core.html) -- Compare two populations directly\n"
+"- [`compute_rdm_unified`](https://driada.readthedocs.io/en/latest/api/rsa/core.html#driada.rsa.core.compute_rdm_unified) -- RDM from neural data + condition labels\n"
+"- [`rsa_compare`](https://driada.readthedocs.io/en/latest/api/rsa/core.html#driada.rsa.core.rsa_compare) -- Compare two populations directly\n"
 "- `compare_rdms` -- Correlate two pre-computed RDMs\n"
-"- [`bootstrap_rdm_comparison`](https://driada.readthedocs.io/en/latest/api/rsa/core.html) -- Statistical significance via bootstrap\n"
+"- [`bootstrap_rdm_comparison`](https://driada.readthedocs.io/en/latest/api/rsa/core.html#driada.rsa.core.bootstrap_rdm_comparison) -- Statistical significance via bootstrap\n"
 "- `plot_rdm`, `plot_rdm_comparison` -- Visualization"
 ))
 
@@ -753,7 +753,7 @@ cells.append(md_cell(
 "### 3.2 Comparing representations between regions\n"
 "\n"
 "Generate two \"regions\" with partially shared tuning and compare their\n"
-"representations directly using `rsa_compare` (no pre-computed RDMs\n"
+"representations directly using [`rsa_compare`](https://driada.readthedocs.io/en/latest/api/rsa/core.html#driada.rsa.core.rsa_compare) (no pre-computed RDMs\n"
 "needed). Try multiple distance metrics and comparison methods."
 ))
 
@@ -890,8 +890,8 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 3.4 MVData integration\n"
 "\n"
-"RSA works seamlessly with [`MVData`](https://driada.readthedocs.io/en/latest/api/dim_reduction/data_structures.html) objects from the DR pipeline. Pass\n"
-"an `MVData` object directly to `compute_rdm_unified`."
+"RSA works seamlessly with [`MVData`](https://driada.readthedocs.io/en/latest/api/dim_reduction/data_structures.html#driada.dim_reduction.data.MVData) objects from the DR pipeline. Pass\n"
+"an `MVData` object directly to [`compute_rdm_unified`](https://driada.readthedocs.io/en/latest/api/rsa/core.html#driada.rsa.core.compute_rdm_unified)."
 ))
 
 cells.append(code_cell(
@@ -935,12 +935,12 @@ cells.append(md_cell(
 "DR + network analysis.\n"
 "\n"
 "Data is loaded with\n"
-"[`load_exp_from_aligned_data`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html),\n"
-"selectivity tested with `compute_cell_feat_significance`, pairwise\n"
+"[`load_exp_from_aligned_data`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html#driada.experiment.exp_build.load_exp_from_aligned_data),\n"
+"selectivity tested with [`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_cell_feat_significance), pairwise\n"
 "dependencies found with\n"
-"[`compute_cell_cell_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html),\n"
+"[`compute_cell_cell_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_cell_cell_significance),\n"
 "and the resulting adjacency matrix wrapped in a\n"
-"[`Network`](https://driada.readthedocs.io/en/latest/api/network/core.html)\n"
+"[`Network`](https://driada.readthedocs.io/en/latest/api/network/core.html#driada.network.net_base.Network)\n"
 "object.\n"
 "\n"
 "The `Experiment` constructor accepts multiple neural data key aliases:\n"

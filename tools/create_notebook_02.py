@@ -114,7 +114,7 @@ cells.append(md_cell(
 cells.append(md_cell(
 "### Creating TimeSeries\n"
 "\n"
-"Wrap numpy arrays as [`TimeSeries`](https://driada.readthedocs.io/en/latest/api/information/core.html) with type hints (`linear`, `categorical`,\n"
+"Wrap numpy arrays as [`TimeSeries`](https://driada.readthedocs.io/en/latest/api/information/core.html#driada.information.info_base.TimeSeries) with type hints (`linear`, `categorical`,\n"
 "`circular`). The type determines which MI estimator and preprocessing\n"
 "DRIADA uses internally. Continuous-continuous pairs use GCMI (Gaussian copula,\n"
 "via `mi_gg`) or KSG; continuous-discrete pairs use `mi_model_gd`;\n"
@@ -146,7 +146,7 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Pairwise MI: GCMI vs KSG\n"
 "\n"
-"[`get_mi`](https://driada.readthedocs.io/en/latest/api/information/core.html)`()` estimates mutual information between two `TimeSeries`.\n"
+"[`get_mi`](https://driada.readthedocs.io/en/latest/api/information/core.html#driada.information.info_base.get_mi)`()` estimates mutual information between two `TimeSeries`.\n"
 "**GCMI** (Gaussian Copula MI) is fast but only captures monotonic\n"
 "dependency. **KSG** (Kraskov-Stoegbauer-Grassberger) captures arbitrary\n"
 "dependency but is slower."
@@ -196,7 +196,7 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Similarity metrics\n"
 "\n"
-"[`get_sim`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html)`()` wraps MI, Pearson r, and Spearman rho in a unified interface.\n"
+"[`get_sim`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#driada.information.get_sim)`()` wraps MI, Pearson r, and Spearman rho in a unified interface.\n"
 "Available metrics include `mi`, `pearsonr`, `spearmanr`, `kendalltau`,\n"
 "`fast_pearsonr`, `av` (activity ratio for binary-gated signals), and any\n"
 "scipy.stats correlation function by name."
@@ -217,7 +217,7 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Time-delayed MI\n"
 "\n"
-"[`get_tdmi`](https://driada.readthedocs.io/en/latest/api/information/core.html)`()` sweeps temporal lags to find the shift that maximizes MI.\n"
+"[`get_tdmi`](https://driada.readthedocs.io/en/latest/api/information/core.html#driada.information.info_base.get_tdmi)`()` sweeps temporal lags to find the shift that maximizes MI.\n"
 "This is useful for detecting delayed neural responses to behavior."
 ))
 
@@ -246,8 +246,8 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Conditional MI and interaction information\n"
 "\n"
-"**Conditional MI** ([`conditional_mi`](https://driada.readthedocs.io/en/latest/api/information/core.html)) `I(X;Y|Z)` removes shared variance with Z.\n"
-"**Interaction information** ([`interaction_information`](https://driada.readthedocs.io/en/latest/api/information/core.html)) distinguishes synergy (>0) from\n"
+"**Conditional MI** ([`conditional_mi`](https://driada.readthedocs.io/en/latest/api/information/core.html#driada.information.info_base.conditional_mi)) `I(X;Y|Z)` removes shared variance with Z.\n"
+"**Interaction information** ([`interaction_information`](https://driada.readthedocs.io/en/latest/api/information/core.html#driada.information.info_base.interaction_information)) distinguishes synergy (>0) from\n"
 "redundancy (<0)."
 ))
 
@@ -305,9 +305,10 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 2. Basic INTENSE workflow\n"
 "\n"
-"The minimal pipeline: [`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html) creates a synthetic\n"
-"population with known selectivity, [`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html) runs\n"
-"two-stage significance testing, and results are extracted from the experiment."
+"The minimal pipeline: [`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html#driada.experiment.synthetic.generators.generate_tuned_selectivity_exp) creates a synthetic\n"
+"population with known selectivity, [`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_cell_feat_significance) runs\n"
+"two-stage significance testing, and [`plot_neuron_feature_pair`](https://driada.readthedocs.io/en/latest/api/intense/visual.html#driada.intense.visual.plot_neuron_feature_pair) visualizes\n"
+"individual neuron-feature relationships."
 ))
 
 cells.append(code_cell(
@@ -774,8 +775,8 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Save and load results\n"
 "\n"
-"Persist INTENSE results to disk with [`save_results`](https://driada.readthedocs.io/en/latest/api/intense/base.html) and reload them\n"
-"with [`load_results`](https://driada.readthedocs.io/en/latest/api/intense/base.html) for later analysis."
+"Persist INTENSE results to disk with [`save_results`](https://driada.readthedocs.io/en/latest/api/intense/base.html#driada.intense.io.save_results) and reload them\n"
+"with [`load_results`](https://driada.readthedocs.io/en/latest/api/intense/base.html#driada.intense.io.load_results) for later analysis."
 ))
 
 cells.append(code_cell(
@@ -797,7 +798,7 @@ cells.append(md_cell(
 "## 4. Feature-feature relations\n"
 "\n"
 "Before disentangling neuron selectivity, check which behavioral variables\n"
-"are themselves correlated. [`compute_feat_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html) tests all\n"
+"are themselves correlated. [`compute_feat_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_feat_feat_significance) tests all\n"
 "feature pairs with FFT-based circular shuffles."
 ))
 
@@ -928,7 +929,8 @@ cells.append(md_cell(
 "\n"
 "Neurons responding to multiple correlated features: true mixed selectivity\n"
 "vs redundant detections. Here we generate a 30-neuron population with\n"
-"explicit mixed selectivity groups and apply disentanglement."
+"explicit mixed selectivity groups and run [`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_cell_feat_significance)\n"
+"with disentanglement enabled."
 ))
 
 cells.append(code_cell(
@@ -1007,7 +1009,8 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Disentanglement analysis\n"
 "\n"
-"Extract and interpret disentanglement results from the pipeline."
+"Extract and interpret disentanglement results from the pipeline.\n"
+"[`plot_selectivity_heatmap`](https://driada.readthedocs.io/en/latest/api/intense/visual.html#driada.intense.visual.plot_selectivity_heatmap) shows the full neuron-feature MI matrix."
 ))
 
 cells.append(code_cell(
