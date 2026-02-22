@@ -74,7 +74,8 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"!pip install -q driada\n"
+"# TODO: revert to '!pip install -q driada' after v1.0.0 PyPI release\n"
+"!pip install -q git+https://github.com/iabs-neuro/driada.git@main\n"
 "%matplotlib inline\n"
 "\n"
 "import os\n"
