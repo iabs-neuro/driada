@@ -11,7 +11,7 @@
 [![Docs](https://readthedocs.org/projects/driada/badge/?version=latest)](https://driada.readthedocs.io/en/latest/)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
 
-DRIADA connects single-neuron selectivity analysis with population-level dimensionality reduction. Given calcium imaging or spike data together with behavioral variables, it identifies which neurons encode which variables, extracts low-dimensional population structure, and links the two.
+DRIADA connects single-neuron selectivity analysis with population-level dimensionality reduction. Given neural activity and related behavior/environment variables, it identifies which neurons encode which variables, extracts low-dimensional population structure, and links the two.
 
 ## 🚀 Tutorials
 
@@ -30,7 +30,7 @@ All notebooks generate synthetic data internally — no external files needed.
 ## 🔬 Key Capabilities
 
 - 🧠 **INTENSE** — detect neuron-feature selectivity via mutual information with rigorous two-stage statistical testing, delay optimization, and mixed selectivity disentanglement
-- 📊 **Dimensionality Reduction** — PCA, Isomap, UMAP, diffusion maps, t-SNE, autoencoders with manifold quality metrics
+- 📊 **Dimensionality Reduction** — linear (PCA), graph-based (Isomap, diffusion maps, LLE), neighbor-embedding (UMAP, t-SNE), and neural network-based (autoencoders) with manifold quality metrics
 - 📐 **Dimensionality Estimation** — PCA-based, effective rank, k-NN, correlation, and geodesic dimension
 - 🔗 **Integration** — map single-cell selectivity onto population manifolds and embedding components
 - 🌐 **Network Analysis** — general-purpose graph analysis (spectral, entropy, communities) for connectomes, functional networks, or DR proximity graphs
@@ -45,7 +45,8 @@ DRIADA is designed for **calcium imaging** data but works with any neural activi
 
 ```python
 from driada.experiment import load_exp_from_aligned_data
-from driada.intense import compute_cell_feat_significance, compute_cell_cell_significance
+from driada.intense import (compute_cell_feat_significance,
+    compute_cell_cell_significance, compute_embedding_selectivity)
 from driada.rsa import compute_experiment_rdm
 from driada.network import Network
 from driada.integration import get_functional_organization
@@ -62,12 +63,14 @@ data = {
 exp = load_exp_from_aligned_data('MyLab', {'name': 'session1'}, data,
                                  static_features={'fps': 30.0})
 
-stats, sig, info, res = compute_cell_feat_significance(exp)       # neuron-feature selectivity
-sim, sig, pvals, ids, info = compute_cell_cell_significance(exp)  # functional connectivity
-net = Network(adj=sp.csr_matrix(sig), preprocessing='giant_cc')   # network analysis
-embedding = exp.create_embedding('umap', n_components=2)          # dimensionality reduction
-rdm, labels = compute_experiment_rdm(exp, items='trial_type')     # representational similarity
-org = get_functional_organization(exp, 'umap', intense_results=res)  # selectivity-to-embedding bridge
+feat_stats, feat_sig, *_ = compute_cell_feat_significance(exp)       # neuron-feature selectivity
+cell_sim, cell_sig, *_ = compute_cell_cell_significance(exp)         # functional connectivity
+net = Network(adj=sp.csr_matrix(cell_sig), preprocessing='giant_cc') # network analysis
+embedding = exp.create_embedding('umap', n_components=2)             # dimensionality reduction
+rdm, labels = compute_experiment_rdm(exp, items='trial_type')        # representational similarity
+emb_res = compute_embedding_selectivity(exp, ['umap'])               # which neurons encode which components
+org = get_functional_organization(exp, 'umap',
+    intense_results=emb_res['umap']['intense_results'])              # selectivity-to-embedding bridge
 ```
 
 You can also load directly from `.npz` files via `load_experiment()`. See the [RNN analysis tutorial](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) for a non-calcium example.

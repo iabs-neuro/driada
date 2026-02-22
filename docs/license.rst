@@ -22,12 +22,16 @@ The complete license text is available in the `LICENSE <https://github.com/iabs-
 Citation
 --------
 
-If you use DRIADA in your research, please cite:
+A paper describing DRIADA has been submitted to the `Journal of Open Source Software (JOSS) <https://joss.theoj.org/>`_. In the meantime, please cite:
 
-.. code-block:: text
+.. code-block:: bibtex
 
-   Pospelov, N. A. (2026). DRIADA: A Unified Framework Bridging Single-Neuron
-   Selectivity and Population Dynamics. Journal of Open Source Software, X(X), XXX.
+   @software{driada2026,
+     title = {DRIADA: Dimensionality Reduction for Integrated Activity Data},
+     author = {Pospelov, Nikita and contributors},
+     year = {2026},
+     url = {https://github.com/iabs-neuro/driada}
+   }
 
 For machine-readable citation metadata, see `CITATION.cff <https://github.com/iabs-neuro/driada/blob/main/CITATION.cff>`_.
 

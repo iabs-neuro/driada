@@ -123,15 +123,14 @@ Pospelov, N.A. et al. (in preparation)
 
 ## Citing DRIADA
 
-If you use DRIADA in your research, please cite the software and relevant methodological papers:
+A paper describing DRIADA has been submitted to the [Journal of Open Source Software (JOSS)](https://joss.theoj.org/). In the meantime, please cite:
 
 ```bibtex
 @software{driada2026,
-  author = {Pospelov, Nikita A.},
-  title = {{DRIADA}: Dimensionality Reduction for Integrated Activity Data Analysis},
+  title = {DRIADA: Dimensionality Reduction for Integrated Activity Data},
+  author = {Pospelov, Nikita and contributors},
   year = {2026},
-  url = {https://github.com/iabs-neuro/driada},
-  version = {1.0.0}
+  url = {https://github.com/iabs-neuro/driada}
 }
 ```
 
