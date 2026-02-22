@@ -23,12 +23,16 @@ from ..information.info_base import (
     compute_pearson_batch_fft,
     compute_av_batch_fft,
 )
+from ..information.info_fft_utils import REG_VARIANCE_THRESHOLD
+from ..information.info_utils import py_fast_digamma
 from ..utils.parallel import parallel_executor as _parallel_executor
 from .validation import (
     validate_time_series_bunches,
     validate_metric,
     validate_common_parameters,
 )
+
+_LN2 = np.log(2)
 
 # Minimum number of shuffles to benefit from FFT optimization
 # FFT is always beneficial due to high per-call overhead in loop fallback
@@ -368,6 +372,205 @@ _FFT_COMPUTE = {
 }
 
 
+def _precompute_cc_signals(ts_list, fft_type, ds):
+    """Precompute (rfft_of_demeaned, std) for each unique signal.
+
+    For FFT_CONTINUOUS and FFT_PEARSON_CONTINUOUS pair types, the per-signal
+    quantities (demean, rfft, std) are independent of the pairing partner.
+    Precomputing them once per unique signal eliminates redundant work when
+    the same signal appears in many pairs (e.g., each neuron paired with
+    all features).
+
+    Parameters
+    ----------
+    ts_list : list
+        Time series to precompute for.
+    fft_type : str
+        FFT_CONTINUOUS (uses copula_normal_data) or
+        FFT_PEARSON_CONTINUOUS (uses raw data).
+    ds : int
+        Downsampling factor.
+
+    Returns
+    -------
+    dict
+        Mapping key -> (fft_array, std_value, n_samples).
+    """
+    precomp = {}
+    for ts in ts_list:
+        key = _get_ts_key(ts)
+        if key in precomp:
+            continue
+        if isinstance(ts, MultiTimeSeries):
+            continue
+        if ts.discrete:
+            continue
+        if fft_type == FFT_CONTINUOUS:
+            data = ts.copula_normal_data[::ds].astype(np.float64)
+        else:  # FFT_PEARSON_CONTINUOUS
+            data = ts.data[::ds].astype(np.float64)
+        demeaned = data - data.mean()
+        precomp[key] = (np.fft.rfft(demeaned), np.std(demeaned, ddof=1), len(data))
+    return precomp
+
+
+def _mi_from_precomp(fft_x, std_x, fft_y, std_y, n, bias_correction):
+    """Compute MI for all n shifts from precomputed rfft and std values.
+
+    Equivalent to compute_mi_batch_fft but skips the redundant demean/rfft/std
+    steps by accepting precomputed values.
+
+    Parameters
+    ----------
+    fft_x, fft_y : ndarray
+        Precomputed rfft of demeaned signals.
+    std_x, std_y : float
+        Precomputed std(ddof=1) of demeaned signals.
+    n : int
+        Signal length.
+    bias_correction : float
+        Precomputed Panzeri-Treves bias correction term.
+
+    Returns
+    -------
+    ndarray of shape (n,)
+        MI values for all shifts, in bits.
+    """
+    if std_x < REG_VARIANCE_THRESHOLD or std_y < REG_VARIANCE_THRESHOLD:
+        return np.zeros(n)
+    cross_corr = np.fft.irfft(fft_x * np.conj(fft_y), n=n)
+    r_all = cross_corr / ((n - 1) * std_x * std_y)
+    r_squared = np.clip(r_all ** 2, 0, 1 - 1e-10)
+    mi_all = -0.5 * np.log(1 - r_squared) / _LN2
+    mi_all = mi_all + bias_correction
+    return np.maximum(0, mi_all)
+
+
+def _pearson_from_precomp(fft_x, std_x, fft_y, std_y, n):
+    """Compute |Pearson r| for all n shifts from precomputed rfft and std.
+
+    Equivalent to compute_pearson_batch_fft but skips redundant demean/rfft/std.
+
+    Parameters
+    ----------
+    fft_x, fft_y : ndarray
+        Precomputed rfft of demeaned signals.
+    std_x, std_y : float
+        Precomputed std(ddof=1) of demeaned signals.
+    n : int
+        Signal length.
+
+    Returns
+    -------
+    ndarray of shape (n,)
+        |Pearson r| values for all shifts.
+    """
+    if std_x < REG_VARIANCE_THRESHOLD or std_y < REG_VARIANCE_THRESHOLD:
+        return np.zeros(n)
+    cross_corr = np.fft.irfft(fft_x * np.conj(fft_y), n=n)
+    r_all = cross_corr / ((n - 1) * std_x * std_y)
+    return np.abs(np.clip(r_all, -1, 1))
+
+
+def _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine):
+    """Core cache building logic shared by serial and parallel paths.
+
+    For continuous-continuous (cc) and Pearson continuous (pearson_cc) pairs,
+    precomputes per-signal quantities (demean, rfft, std) once per unique signal
+    instead of once per pair, giving ~2x speedup. Other pair types (discrete,
+    multivariate, etc.) use the standard per-pair computation path.
+
+    Parameters
+    ----------
+    ts_bunch1 : list
+        First set of time series (subset or full).
+    ts_bunch2 : list
+        Second set of time series (always full).
+    metric : str
+        Similarity metric.
+    mi_estimator : str
+        MI estimator ('gcmi' or 'ksg').
+    ds : int
+        Downsampling factor.
+    engine : str
+        Computation engine.
+
+    Returns
+    -------
+    tuple
+        (cache, fft_type_counts).
+    """
+    cache = {}
+    fft_type_counts = {}
+
+    # Detect if any cc/pearson_cc pairs exist by checking one representative pair
+    precomp_type = None
+    for ts1 in ts_bunch1:
+        for ts2 in ts_bunch2:
+            ft = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
+            if ft in (FFT_CONTINUOUS, FFT_PEARSON_CONTINUOUS):
+                precomp_type = ft
+                break
+        if precomp_type is not None:
+            break
+
+    # Precompute per-signal quantities for eligible types
+    precomp = {}
+    bias_correction = 0.0
+    n_samples = None
+
+    if precomp_type is not None:
+        precomp = _precompute_cc_signals(
+            list(ts_bunch1) + list(ts_bunch2), precomp_type, ds
+        )
+        if precomp:
+            first_entry = next(iter(precomp.values()))
+            n_samples = first_entry[2]
+            # Precompute bias correction (only for MI, constant across all pairs)
+            if precomp_type == FFT_CONTINUOUS and n_samples > 2:
+                psi_1 = py_fast_digamma((n_samples - 1) / 2.0)
+                psi_2 = py_fast_digamma((n_samples - 2) / 2.0)
+                bias_correction = (psi_2 - psi_1) / (2.0 * _LN2)
+
+    # Build cache for all pairs
+    for ts1 in ts_bunch1:
+        for ts2 in ts_bunch2:
+            fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
+            key1 = _get_ts_key(ts1)
+            key2 = _get_ts_key(ts2)
+
+            if fft_type is not None:
+                # Fast path: use precomputed per-signal quantities
+                if fft_type == FFT_CONTINUOUS and key1 in precomp and key2 in precomp:
+                    fft_x, std_x, n = precomp[key1]
+                    fft_y, std_y, _ = precomp[key2]
+                    mi_all = _mi_from_precomp(
+                        fft_x, std_x, fft_y, std_y, n, bias_correction
+                    )
+                elif fft_type == FFT_PEARSON_CONTINUOUS and key1 in precomp and key2 in precomp:
+                    fft_x, std_x, n = precomp[key1]
+                    fft_y, std_y, _ = precomp[key2]
+                    mi_all = _pearson_from_precomp(
+                        fft_x, std_x, fft_y, std_y, n
+                    )
+                else:
+                    # Standard path for non-precomputable types
+                    data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
+                    compute_fn = _FFT_COMPUTE[fft_type]
+                    n = len(data1) if data1.ndim == 1 else data1.shape[1]
+                    mi_all = compute_fn(data1, data2, np.arange(n))
+
+                cache[(key1, key2)] = FFTCacheEntry(
+                    fft_type=fft_type, mi_all=mi_all
+                )
+                fft_type_counts[fft_type] = fft_type_counts.get(fft_type, 0) + 1
+            else:
+                cache[(key1, key2)] = None
+                fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
+
+    return cache, fft_type_counts
+
+
 def _build_fft_cache(
     ts_bunch1: list,
     ts_bunch2: list,
@@ -450,37 +653,7 @@ def _build_fft_cache(
         )
 
     # Serial implementation
-    cache = {}
-    fft_type_counts = {}  # Track counts for profiling
-
-    for ts1 in ts_bunch1:
-        for ts2 in ts_bunch2:
-            # Use count=1 since we just need type, not threshold check
-            fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
-
-            # Get stable keys for cache
-            key1 = _get_ts_key(ts1)
-            key2 = _get_ts_key(ts2)
-
-            if fft_type is not None:
-                data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
-                compute_fn = _FFT_COMPUTE[fft_type]
-
-                # Precompute MI for ALL shifts (FFT done once here)
-                n = len(data1) if data1.ndim == 1 else data1.shape[1]
-                all_shifts = np.arange(n)
-                mi_all = compute_fn(data1, data2, all_shifts)
-
-                cache[(key1, key2)] = FFTCacheEntry(
-                    fft_type=fft_type,
-                    mi_all=mi_all,
-                )
-                fft_type_counts[fft_type] = fft_type_counts.get(fft_type, 0) + 1
-            else:
-                cache[(key1, key2)] = None
-                fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
-
-    return cache, fft_type_counts
+    return _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine)
 
 
 def _build_fft_cache_worker(
@@ -516,27 +689,9 @@ def _build_fft_cache_worker(
     tuple
         (partial_cache, partial_fft_type_counts) for this subset.
     """
-    cache = {}
-    fft_type_counts = {}
-
-    for ts1 in ts_bunch1_subset:
-        for ts2 in ts_bunch2:
-            fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
-            key1 = _get_ts_key(ts1)
-            key2 = _get_ts_key(ts2)
-
-            if fft_type is not None:
-                data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
-                compute_fn = _FFT_COMPUTE[fft_type]
-                n = len(data1) if data1.ndim == 1 else data1.shape[1]
-                mi_all = compute_fn(data1, data2, np.arange(n))
-                cache[(key1, key2)] = FFTCacheEntry(fft_type=fft_type, mi_all=mi_all)
-                fft_type_counts[fft_type] = fft_type_counts.get(fft_type, 0) + 1
-            else:
-                cache[(key1, key2)] = None
-                fft_type_counts['loop'] = fft_type_counts.get('loop', 0) + 1
-
-    return cache, fft_type_counts
+    return _build_fft_cache_core(
+        ts_bunch1_subset, ts_bunch2, metric, mi_estimator, ds, engine
+    )
 
 
 def _build_fft_cache_parallel(
