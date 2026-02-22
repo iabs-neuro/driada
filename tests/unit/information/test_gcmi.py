@@ -784,21 +784,20 @@ class TestGCMIJIT:
             _ = ctransform_jit(data)
             _ = copnorm_jit(data)
 
-            # Time ctransform
-            n_iter = 100
-            start = time.time()
+            # Time ctransform — use perf_counter for sub-ms resolution
+            n_iter = 1000
+            start = time.perf_counter()
             for _ in range(n_iter):
                 _ = ctransform(data)
-            time_regular = time.time() - start
+            time_regular = time.perf_counter() - start
 
-            start = time.time()
+            start = time.perf_counter()
             for _ in range(n_iter):
                 _ = ctransform_jit(data)
-            time_jit = time.time() - start
+            time_jit = time.perf_counter() - start
 
             # JIT version should not be significantly slower
-            # JIT should not be significantly slower than pure Python
-            assert time_jit < time_regular * 2.0, f"JIT too slow for size {size}"
+            assert time_jit < max(time_regular, 1e-4) * 2.0, f"JIT too slow for size {size}"
 
     def test_integration_with_gcmi(self):
         """Test that gcmi functions automatically use JIT versions."""
