@@ -174,69 +174,22 @@ cells.append(code_cell(
 "# Create MVData object\n"
 "mvdata = MVData(X)\n"
 "\n"
-"print('=' * 60)\n"
-"print('DIMENSIONALITY REDUCTION METHODS')\n"
-"print('=' * 60)\n"
-"\n"
-"# Linear methods\n"
-"print('\\n--- Linear Methods ---')\n"
-"\n"
-"print('\\n1. PCA (Principal Component Analysis):')\n"
-"print('   Default usage:')\n"
-"print(\"     emb = mvdata.get_embedding(method='pca')\")\n"
-"print('   With parameters:')\n"
-"print(\"     emb = mvdata.get_embedding(method='pca', dim=3)\")\n"
 "emb_pca = mvdata.get_embedding(method='pca')\n"
-"print(f'   -> Result shape: {emb_pca.coords.shape}')\n"
+"print(f'PCA: {emb_pca.coords.shape}')\n"
 "\n"
-"# Manifold learning methods\n"
-"print('\\n--- Manifold Learning Methods ---')\n"
-"\n"
-"print('\\n2. Isomap (Isometric Mapping):')\n"
-"print('   Default usage:')\n"
-"print(\"     emb = mvdata.get_embedding(method='isomap')\")\n"
-"print('   With parameters:')\n"
-"print(\"     emb = mvdata.get_embedding(method='isomap', n_neighbors=30, dim=3)\")\n"
 "emb_iso = mvdata.get_embedding(method='isomap')\n"
-"print(f'   -> Result shape: {emb_iso.coords.shape}')\n"
+"print(f'Isomap: {emb_iso.coords.shape}')\n"
 "\n"
-"print('\\n3. LLE (Locally Linear Embedding):')\n"
-"print('   Default usage:')\n"
-"print(\"     emb = mvdata.get_embedding(method='lle')\")\n"
 "emb_lle = mvdata.get_embedding(method='lle')\n"
-"print(f'   -> Result shape: {emb_lle.coords.shape}')\n"
+"print(f'LLE: {emb_lle.coords.shape}')\n"
 "\n"
-"print('\\n4. Laplacian Eigenmaps:')\n"
-"print('   Default usage:')\n"
-"print(\"     emb = mvdata.get_embedding(method='le')\")\n"
 "emb_le = mvdata.get_embedding(method='le')\n"
-"print(f'   -> Result shape: {emb_le.coords.shape}')"
+"print(f'Laplacian Eigenmaps: {emb_le.coords.shape}')"
 ))
 
 cells.append(code_cell(
-"# Visualization methods\n"
-"print('--- Visualization Methods ---')\n"
-"\n"
-"print('\\n5. UMAP (Uniform Manifold Approximation and Projection):')\n"
-"print('   Default usage:')\n"
-"print(\"     emb = mvdata.get_embedding(method='umap')\")\n"
-"print('   With parameters:')\n"
-"print(\"     emb = mvdata.get_embedding(method='umap', n_neighbors=50, min_dist=0.3)\")\n"
 "emb_umap = mvdata.get_embedding(method='umap', n_neighbors=50, min_dist=0.3)\n"
-"print(f'   -> Result shape: {emb_umap.coords.shape}')\n"
-"\n"
-"# Show parameter options\n"
-"print('\\n' + '=' * 60)\n"
-"print('COMMON PARAMETERS')\n"
-"print('=' * 60)\n"
-"print('\\nAll methods accept:')\n"
-"print('  dim: int - Number of output dimensions (default: 2)')\n"
-"print('\\nGraph-based methods accept:')\n"
-"print('  n_neighbors: int - Number of nearest neighbors')\n"
-"print('\\nUMAP specific:')\n"
-"print('  min_dist: float - Minimum distance between points in embedding')\n"
-"print('\\nDiffusion maps specific:')\n"
-"print('  dm_alpha: float - Diffusion map alpha parameter')"
+"print(f'UMAP: {emb_umap.coords.shape}')"
 ))
 
 cells.append(code_cell(
@@ -272,8 +225,6 @@ cells.append(md_cell(
 
 cells.append(code_cell(
 "# Sequential dimensionality reduction (PCA -> UMAP)\n"
-"print('ADVANCED USAGE PATTERNS')\n"
-"print('=' * 60)\n"
 "\n"
 "# Generate high-dimensional data\n"
 "high_dim_data = np.random.randn(100, 500)  # 100 features, 500 samples\n"
@@ -330,7 +281,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# The Isomap embedding from Section 1 built a k-NN proximity graph internally\n"
 "pgraph = emb_iso.graph\n"
 "\n"
 "print(f\"Type: {type(pgraph).__name__}\")\n"
@@ -342,7 +292,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Spectral analysis of the k-NN graph that powers Isomap\n"
 "pgraph.diagonalize(mode='nlap')\n"
 "nlap_spectrum = pgraph.get_spectrum('nlap')\n"
 "ipr = pgraph.get_ipr('nlap')\n"
@@ -474,8 +423,6 @@ cells.append(code_cell(
 "\n"
 "\n"
 "# Generate test datasets\n"
-"print('1. GENERATING TEST DATASETS')\n"
-"print('-' * 40)\n"
 "datasets = generate_test_datasets(n_samples=1000, noise=0.05)\n"
 "print(f'\\nGenerated {len(datasets)} test datasets')"
 ))
@@ -500,8 +447,6 @@ cells.append(code_cell(
 "\n"
 "\n"
 "# Configure methods\n"
-"print('2. CONFIGURING DR METHODS')\n"
-"print('-' * 40)\n"
 "methods = get_dr_method_configs()\n"
 "print(f'Configured {len(methods)} DR methods: {\", \".join(methods.keys())}')"
 ))
@@ -613,8 +558,6 @@ cells.append(code_cell(
 "\n"
 "\n"
 "# Run the comparison\n"
-"print('\\n3. RUNNING SYSTEMATIC COMPARISON')\n"
-"print('-' * 40)\n"
 "results_df = run_comparison(datasets, methods)"
 ))
 
@@ -834,7 +777,34 @@ cells.append(code_cell(
 "true_positions = positions  # (2, n_timepoints)\n"
 "\n"
 "print(f'Neural data shape: {neural_data.shape}')\n"
-"print(f'True positions shape: {true_positions.shape}')"
+"print(f'True positions shape: {true_positions.shape}')\n"
+"\n"
+"fps = 20.0"
+))
+
+cells.append(code_cell(
+"# Quick look at the neural data\n"
+"fig, axes = plt.subplots(2, 1, figsize=(14, 5), sharex=True)\n"
+"\n"
+"n_show = min(5, calcium.shape[0])\n"
+"time_sec = np.arange(calcium.shape[1]) / fps\n"
+"\n"
+"ax = axes[0]\n"
+"for i in range(n_show):\n"
+"    ax.plot(time_sec, calcium[i], linewidth=0.6, label=f'neuron {i}')\n"
+"ax.set_ylabel('dF/F0')\n"
+"ax.set_title(f'Synthetic place cell traces ({calcium.shape[0]} neurons)')\n"
+"ax.legend(loc='upper right', fontsize=8)\n"
+"ax.grid(True, alpha=0.3)\n"
+"\n"
+"ax = axes[1]\n"
+"ax.imshow(calcium, aspect='auto', cmap='hot', interpolation='none')\n"
+"ax.set_xlabel('Frame')\n"
+"ax.set_ylabel('Neuron')\n"
+"ax.set_title('Population activity raster')\n"
+"\n"
+"plt.tight_layout()\n"
+"plt.show()"
 ))
 
 cells.append(code_cell(
@@ -842,13 +812,13 @@ cells.append(code_cell(
 "mvdata_neural = MVData(neural_data, downsampling=5)\n"
 "\n"
 "# Approach 1: Direct UMAP on all neurons\n"
-"print('\\n=== Approach 1: Direct UMAP ===')\n"
+"print('Approach 1: Direct UMAP')\n"
 "embedding_direct = mvdata_neural.get_embedding(\n"
 "    method='umap', dim=2, n_neighbors=50, min_dist=0.8\n"
 ")\n"
 "\n"
 "# Approach 2: PCA -> UMAP sequence\n"
-"print('\\n=== Approach 2: PCA -> UMAP ===')\n"
+"print('Approach 2: PCA -> UMAP')\n"
 "embedding_sequence = dr_sequence(\n"
 "    mvdata_neural,\n"
 "    steps=[\n"
@@ -858,7 +828,7 @@ cells.append(code_cell(
 ")\n"
 "\n"
 "# Compute manifold preservation metrics\n"
-"print('\\n=== Manifold Preservation Metrics ===')\n"
+"print('Manifold Preservation Metrics')\n"
 "\n"
 "# Downsample true positions to match the embeddings\n"
 "true_positions_ds = true_positions[:, ::5]\n"
@@ -928,7 +898,7 @@ cells.append(code_cell(
 "plt.show()\n"
 "\n"
 "# Print improvement percentages\n"
-"print('\\n=== Method Comparison ===')\n"
+"print('Method Comparison')\n"
 "print('PCA -> UMAP vs Direct UMAP:')\n"
 "for metric in ['knn_preservation', 'trustworthiness', 'continuity']:\n"
 "    improvement = (\n"
@@ -981,7 +951,7 @@ cells.append(code_cell(
 "plt.show()\n"
 "\n"
 "# Print improvement summary\n"
-"print('\\n=== Improvement Summary ===')\n"
+"print('Improvement Summary')\n"
 "for metric in metrics_names:\n"
 "    improvement = (\n"
 "        (metrics_sequence[metric] - metrics_direct[metric])\n"
@@ -1017,14 +987,7 @@ cells.append(code_cell(
 
 cells.append(code_cell(
 "if HAS_TORCH:\n"
-"    print('=' * 60)\n"
-"    print('DRIADA autoencoder DR example')\n"
-"    print('=' * 60)\n"
-"\n"
-"    # ------------------------------------------------------------------\n"
-"    # 1. Generate synthetic data (head direction cells on circular manifold)\n"
-"    # ------------------------------------------------------------------\n"
-"    print('\\n[1] Generating synthetic head direction cell data')\n"
+"    print('[1] Generating synthetic head direction cell data')\n"
 "    print('-' * 40)\n"
 "    calcium_ae, head_direction_ae, preferred_dirs_ae, rates_ae = (\n"
 "        generate_circular_manifold_data(\n"
@@ -1044,9 +1007,6 @@ cells.append(code_cell(
 
 cells.append(code_cell(
 "if HAS_TORCH:\n"
-"    # ------------------------------------------------------------------\n"
-"    # 2. Standard autoencoder with continue_learning\n"
-"    # ------------------------------------------------------------------\n"
 "    print('\\n[2] Standard autoencoder')\n"
 "    print('-' * 40)\n"
 "\n"
@@ -1072,9 +1032,6 @@ cells.append(code_cell(
 "    emb_ae.continue_learning(20, lr=1e-4, verbose=False)\n"
 "    print(f'  After 20 fine-tune - loss: {emb_ae.nn_loss:.4f}')\n"
 "\n"
-"    # ------------------------------------------------------------------\n"
-"    # 3. Beta-VAE\n"
-"    # ------------------------------------------------------------------\n"
 "    print('\\n[3] Beta-VAE (beta=4.0)')\n"
 "    print('-' * 40)\n"
 "    emb_vae = mvdata_ae.get_embedding(\n"
@@ -1094,9 +1051,6 @@ cells.append(code_cell(
 "    print(f'  Embedding shape: {emb_vae.coords.shape}')\n"
 "    print(f'  Test loss (reconstruction + KL): {emb_vae.nn_loss:.4f}')\n"
 "\n"
-"    # ------------------------------------------------------------------\n"
-"    # 4. PCA baseline\n"
-"    # ------------------------------------------------------------------\n"
 "    print('\\n[4] PCA baseline')\n"
 "    print('-' * 40)\n"
 "    emb_pca_ae = mvdata_ae.get_embedding(method='pca', dim=2)\n"
@@ -1105,10 +1059,7 @@ cells.append(code_cell(
 
 cells.append(code_cell(
 "if HAS_TORCH:\n"
-"    # ------------------------------------------------------------------\n"
-"    # 5. Side-by-side visualization\n"
-"    # ------------------------------------------------------------------\n"
-"    print('\\n[5] Creating comparison plot')\n"
+"    print('[5] Creating comparison plot')\n"
 "    print('-' * 40)\n"
 "\n"
 "    fig, axes = plt.subplots(1, 3, figsize=(15, 4))\n"
@@ -1131,11 +1082,7 @@ cells.append(code_cell(
 "    fig.colorbar(sc, ax=axes[-1], label='Head direction (rad)')\n"
 "    plt.suptitle('Circular manifold recovery (colored by head direction)')\n"
 "    plt.tight_layout()\n"
-"    plt.show()\n"
-"\n"
-"    print('\\n' + '=' * 60)\n"
-"    print('Autoencoder DR example complete')\n"
-"    print('=' * 60)"
+"    plt.show()"
 ))
 
 # ===== SECTION 5: CIRCULAR MANIFOLD & DIMENSIONALITY ESTIMATION ===========
@@ -1209,11 +1156,7 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"print('=' * 70)\n"
-"print('CIRCULAR MANIFOLD EXTRACTION FROM HEAD DIRECTION CELLS')\n"
-"print('=' * 70)\n"
-"\n"
-"print('\\n1. Generating head direction cell population...')\n"
+"print('1. Generating head direction cell population...')\n"
 "\n"
 "# Generate synthetic head direction cells\n"
 "exp_circ, info_circ = generate_circular_manifold_exp(\n"
@@ -1417,16 +1360,17 @@ cells.append(code_cell(
 "    else:\n"
 "        quality_str = 'Poor'\n"
 "\n"
-"    print(f'{method:10s} | {r:12.3f} | {error:9.3f} rad | {quality_str:8s}')\n"
+"    print(f'{method:10s} | {r:12.3f} | {error:9.3f} rad | {quality_str:8s}')"
+))
+
+cells.append(md_cell(
+"### Conclusions\n"
 "\n"
-"print('\\n' + '=' * 70)\n"
-"print('CONCLUSIONS:')\n"
-"print('- Head direction cells have low intrinsic dimensionality (~1-2)')\n"
-"print('- Temporal shuffling destroys manifold structure (dimensionality increases)')\n"
-"print('- Nonlinear methods (Isomap, UMAP) better preserve circular topology')\n"
-"print('- PCA captures variance but may distort circular structure')\n"
-"print('- Higher n_neighbors helps preserve global structure')\n"
-"print('=' * 70)"
+"- Head direction cells have low intrinsic dimensionality (~1-2).\n"
+"- Temporal shuffling destroys manifold structure (dimensionality increases).\n"
+"- Nonlinear methods (Isomap, UMAP) better preserve circular topology.\n"
+"- PCA captures variance but may distort circular structure.\n"
+"- Higher `n_neighbors` helps preserve global structure."
 ))
 
 # ===== SECTION 6: INTENSE-GUIDED DR =======================================
@@ -1502,12 +1446,7 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"print('=' * 70)\n"
-"print('INTENSE-Guided Dimensionality Reduction for Spatial Data')\n"
-"print('=' * 70)\n"
-"\n"
-"# 1. Generate mixed population data\n"
-"print('\\n1. Generating mixed population with spatial and non-spatial neurons...')\n"
+"print('1. Generating mixed population with spatial and non-spatial neurons...')\n"
 "\n"
 "n_neurons_intense = 50   # Minimal for notebook execution speed\n"
 "duration_intense = 300   # 5 minutes\n"
@@ -1863,11 +1802,7 @@ cells.append(code_cell(
 
 cells.append(code_cell(
 "# 8. Summary statistics\n"
-"print('\\n' + '=' * 70)\n"
-"print('SUMMARY')\n"
-"print('=' * 70)\n"
-"\n"
-"print('\\nBest performing method for spatial reconstruction:')\n"
+"print('Best performing method for spatial reconstruction:')\n"
 "best_method_i = None\n"
 "best_score_i = -1\n"
 "for method_name in results_intense.keys():\n"

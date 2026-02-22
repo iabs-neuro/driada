@@ -125,9 +125,6 @@ cells.append(code_cell(
 "rng = np.random.default_rng(42)\n"
 "n = 5000\n"
 "\n"
-"# ------------------------------------------------------------------\n"
-"# 1. Create TimeSeries from numpy arrays\n"
-"# ------------------------------------------------------------------\n"
 "print(\"[1] Creating TimeSeries objects\")\n"
 "print(\"-\" * 40)\n"
 "\n"
@@ -156,9 +153,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# ------------------------------------------------------------------\n"
-"# 2. get_mi -- pairwise MI\n"
-"# ------------------------------------------------------------------\n"
 "print(\"[2] Pairwise mutual information (get_mi)\")\n"
 "print(\"-\" * 40)\n"
 "\n"
@@ -177,9 +171,6 @@ cells.append(code_cell(
 "print(f\"  MI(X, Y_independent) = {mi_indep:.4f} bits\")\n"
 "print(f\"  Correlated MI >> independent MI: {mi_corr > 5 * mi_indep}\")\n"
 "\n"
-"# Compare estimators on monotonic vs non-monotonic relationships.\n"
-"# GCMI reduces to -0.5*log(1-rho^2) where rho is Spearman rank correlation,\n"
-"# so it only captures monotonic dependency. KSG captures any dependency.\n"
 "mi_gcmi = get_mi(ts_x, ts_y_corr, estimator=\"gcmi\")\n"
 "mi_ksg = get_mi(ts_x, ts_y_corr, estimator=\"ksg\")\n"
 "print(f\"\\n  Monotonic relationship (y = x + noise):\")\n"
@@ -187,7 +178,7 @@ cells.append(code_cell(
 "print(f\"    KSG:  {mi_ksg:.4f} bits\")\n"
 "print(f\"    (agree because relationship is monotonic)\")\n"
 "\n"
-"# Non-monotonic: y = x^2. Spearman rho ~ 0 due to exact symmetry, so GCMI ~ 0.\n"
+"# Spearman rho ~ 0 due to exact symmetry, so GCMI ~ 0.\n"
 "x_sym = rng.uniform(-3, 3, size=n)\n"
 "y_quad = x_sym ** 2 + 0.3 * rng.normal(size=n)\n"
 "ts_x_sym = TimeSeries(x_sym)\n"
@@ -212,9 +203,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# ------------------------------------------------------------------\n"
-"# 3. get_sim -- compare metrics on the same data\n"
-"# ------------------------------------------------------------------\n"
 "print(\"[3] Similarity metrics comparison (get_sim)\")\n"
 "print(\"-\" * 40)\n"
 "\n"
@@ -234,9 +222,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# ------------------------------------------------------------------\n"
-"# 4. get_tdmi -- time-delayed MI\n"
-"# ------------------------------------------------------------------\n"
 "print(\"[4] Time-delayed MI (get_tdmi)\")\n"
 "print(\"-\" * 40)\n"
 "\n"
@@ -267,9 +252,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# ------------------------------------------------------------------\n"
-"# 5. conditional_mi -- I(X;Y|Z)\n"
-"# ------------------------------------------------------------------\n"
 "print(\"[5] Conditional MI: I(X;Y|Z)\")\n"
 "print(\"-\" * 40)\n"
 "\n"
@@ -292,9 +274,6 @@ cells.append(code_cell(
 # --- 1.6 Interaction information ---
 
 cells.append(code_cell(
-"# ------------------------------------------------------------------\n"
-"# 6. interaction_information -- synergy vs redundancy\n"
-"# ------------------------------------------------------------------\n"
 "print(\"[6] Interaction information: synergy vs redundancy\")\n"
 "print(\"-\" * 40)\n"
 "\n"
@@ -332,7 +311,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# Step 1: Generate synthetic experiment with meaningful features\n"
 "print(\"1. Generating synthetic experiment...\")\n"
 "print(\"   - 10 neurons with realistic tuning\")\n"
 "print(\"   - Head direction cells (circular tuning)\")\n"
@@ -364,7 +342,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Step 2: Analyze neuronal selectivity\n"
 "print(\"2. Running INTENSE analysis...\")\n"
 "print(\"   - Two-stage statistical testing\")\n"
 "print(\"   - Mutual information metric\")\n"
@@ -385,7 +362,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Step 3: Extract significant results\n"
 "print(\"3. Extracting significant results...\")\n"
 "\n"
 "significant_neurons = exp.get_significant_neurons()\n"
@@ -394,7 +370,6 @@ cells.append(code_cell(
 "print(f\"   [OK] Found {len(significant_neurons)} neurons with significant selectivity\")\n"
 "print(f\"   [OK] Total significant neuron-feature pairs: {total_pairs}\")\n"
 "\n"
-"# Step 4: Display results\n"
 "print(\"\\n4. Results summary:\")\n"
 "\n"
 "if significant_neurons:\n"
@@ -421,7 +396,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Step 5: Create visualization\n"
 "print(\"5. Creating visualization...\")\n"
 "\n"
 "if significant_neurons:\n"
@@ -526,7 +500,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Run INTENSE with full options\n"
 "print(\"\\nRunning INTENSE analysis...\")\n"
 "print(f\"  Stage 1: {CONFIG['n_shuffles_stage1']} shuffles\")\n"
 "print(f\"  Stage 2: {CONFIG['n_shuffles_stage2']} shuffles\")\n"
@@ -671,8 +644,6 @@ cells.append(code_cell(
 "optimal_delays = info3.get(\"optimal_delays\")\n"
 "if optimal_delays is not None:\n"
 "    fps = CONFIG[\"fps\"]\n"
-"    print(f\"\\n  Delay optimization compensates for calcium indicator dynamics.\")\n"
-"    print(f\"  Positive delays = neural activity lags behavior (expected).\")\n"
 "    print(f\"  Sampling rate: {fps} Hz\")\n"
 "\n"
 "    # Report delays for significant pairs, grouped by neuron type\n"
@@ -871,10 +842,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Compute feat-feat significance.\n"
-"# Use feat_bunch to select features explicitly.\n"
-"# Exclude raw head_direction -- the pipeline uses head_direction_2d\n"
-"# (cos/sin encoding) which preserves circular topology.\n"
 "print(\"[3] Computing feature-feature significance\")\n"
 "print(\"-\" * 40)\n"
 "features_to_test = [\n"
@@ -1044,7 +1011,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# Process disentanglement results from the pipeline\n"
 "print(\"=== DISENTANGLEMENT ANALYSIS ===\")\n"
 "\n"
 "if mixed_candidates5 and disentanglement_results5 is not None:\n"
@@ -1080,7 +1046,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Interpret: redundancy vs independence vs synergy\n"
 "print(\"=== INTERPRETING DISENTANGLEMENT RESULTS ===\")\n"
 "\n"
 "if disent_matrix5 is not None and count_matrix5 is not None:\n"
@@ -1138,7 +1103,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Selectivity heatmap visualization\n"
 "print(\"Creating neuron-feature selectivity heatmap...\")\n"
 "\n"
 "try:\n"
@@ -1156,7 +1120,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Disentanglement heatmap\n"
 "if disent_matrix5 is not None and count_matrix5 is not None:\n"
 "    try:\n"
 "        print(\"Creating disentanglement heatmap...\")\n"

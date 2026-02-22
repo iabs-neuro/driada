@@ -179,7 +179,6 @@ cells.append(code_cell(
 '    return exp, n_modules, module_sizes\n'
 '\n'
 '\n'
-'# Create synthetic experiment with hierarchical modular structure\n'
 'print("Creating synthetic experiment with hierarchical modular structure...")\n'
 'print("  120 neurons: 30+30+30 (single-feature) + 10+10+10 (dual-feature)")\n'
 'exp, n_modules_true, module_sizes_true = create_modular_experiment(duration=300)\n'
@@ -187,10 +186,19 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-'# Compute cell-cell significance\n'
-'print("=" * 60)\n'
+"# Quick look at the calcium activity\n"
+"fig, ax = plt.subplots(figsize=(14, 4))\n"
+"ax.imshow(exp.calcium.data, aspect='auto', cmap='hot', interpolation='none')\n"
+"ax.set_xlabel('Frame')\n"
+"ax.set_ylabel('Neuron')\n"
+"ax.set_title(f'Calcium traces ({exp.n_cells} neurons, {exp.n_frames} frames)')\n"
+"plt.colorbar(ax.images[0], ax=ax, fraction=0.02)\n"
+"plt.tight_layout()\n"
+"plt.show()"
+))
+
+cells.append(code_cell(
 'print("Computing cell-cell functional connectivity")\n'
-'print("=" * 60)\n'
 '\n'
 'sim_mat, sig_mat, pval_mat, cells_list, info = compute_cell_cell_significance(\n'
 '    exp,\n'
@@ -210,10 +218,7 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-'# Create binary network from significant connections\n'
-'print("\\n" + "=" * 60)\n'
 'print("Creating functional network")\n'
-'print("=" * 60)\n'
 '\n'
 'sig_sparse = sp.csr_matrix(sig_mat)\n'
 'net_binary = Network(\n'
@@ -247,10 +252,7 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-'# Binary network: degree distribution, connected components\n'
-'print("\\n" + "=" * 60)\n'
 'print("Network properties analysis")\n'
-'print("=" * 60)\n'
 '\n'
 '# Basic properties\n'
 'net = net_weighted\n'
@@ -305,10 +307,7 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-'# Module detection (Louvain), compare to ground truth\n'
-'print("\\n" + "=" * 60)\n'
 'print("Detecting functional modules")\n'
-'print("=" * 60)\n'
 '\n'
 '# Use Louvain community detection\n'
 '# For weighted network, use weight attribute\n'
@@ -329,10 +328,7 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-'# Null model comparison (degree-preserving randomization)\n'
-'print("\\n" + "=" * 60)\n'
 'print("Null model comparison (degree-preserving randomization)")\n'
-'print("=" * 60)\n'
 '\n'
 'n_replicates = 10\n'
 '\n'
@@ -607,35 +603,30 @@ cells.append(md_cell(
 "## 2. Spectral analysis\n"
 "\n"
 "Eigendecomposition of the adjacency and normalized Laplacian matrices\n"
-"reveals global structure that is invisible to local metrics. The\n"
-"normalized Laplacian $L_{\\text{norm}} = I - D^{-1/2} A D^{-1/2}$ has\n"
-"eigenvalues bounded in $[0, 2]$ regardless of network size or degree\n"
+"reveals global structure that is invisible to local metrics.\n"
+"\n"
+"**Adjacency spectrum.** The adjacency eigenvalues reflect community\n"
+"structure: isolated clusters produce near-degenerate eigenvalue groups.\n"
+"The spectral radius (largest $|\\lambda|$) scales with the mean degree\n"
+"for random graphs.\n"
+"\n"
+"**Normalized Laplacian.**\n"
+"$L_{\\text{norm}} = I - D^{-1/2} A D^{-1/2}$\n"
+"has eigenvalues bounded in $[0, 2]$ regardless of network size or degree\n"
 "distribution, making it suitable for cross-network comparison."
 ))
 
 cells.append(code_cell(
-'# Eigendecomposition: adjacency + normalized Laplacian\n'
-'# Use the binary network for spectral analysis (same as network_spectrum example)\n'
 'net_spectral = net_binary\n'
 '\n'
-'print("\\n" + "=" * 60)\n'
-'print("1. Eigendecomposition")\n'
-'print("=" * 60)\n'
+'print("Eigendecomposition")\n'
 '\n'
-'# --- Adjacency spectrum ---\n'
-'# The adjacency eigenvalues reflect community structure: isolated clusters\n'
-'# produce near-degenerate eigenvalue groups. The spectral radius (largest\n'
-'# |lambda|) scales with the mean degree for random graphs.\n'
 'adj_spectrum = net_spectral.get_spectrum("adj")\n'
 'print(f"\\nAdjacency matrix:")\n'
 'print(f"  Spectral radius (max |lambda|): {np.max(np.abs(adj_spectrum)):.3f}")\n'
 'print(f"  Min eigenvalue: {np.min(np.real(adj_spectrum)):.3f}")\n'
 'print(f"  Max eigenvalue: {np.max(np.real(adj_spectrum)):.3f}")\n'
 '\n'
-'# --- Normalized Laplacian spectrum ---\n'
-'# L_norm = I - D^{-1/2} A D^{-1/2}\n'
-'# Eigenvalues are bounded in [0, 2] regardless of network size or degree,\n'
-'# making them suitable for comparing networks of different sizes.\n'
 'nlap_spectrum = net_spectral.get_spectrum("nlap")\n'
 'sorted_nlap = np.sort(np.real(nlap_spectrum))\n'
 '\n'
@@ -668,18 +659,17 @@ cells.append(code_cell(
 ))
 
 cells.append(md_cell(
-"### Spectral metrics"
+"### Spectral metrics\n"
+"\n"
+"**IPR (Inverse Participation Ratio):**\n"
+"$\\text{IPR} = \\sum_i |v_i|^4$ for each eigenvector $v$.\n"
+"For a vector uniformly spread over $N$ nodes, $\\text{IPR} = 1/N$.\n"
+"For a vector concentrated on one node, $\\text{IPR} = 1$."
 ))
 
 cells.append(code_cell(
-'# IPR per eigenvector -- identify localized modes\n'
-'print("\\n" + "=" * 60)\n'
-'print("2. IPR analysis (eigenvector localization)")\n'
-'print("=" * 60)\n'
+'print("IPR analysis (eigenvector localization)")\n'
 '\n'
-'# IPR = sum(|v_i|^4) for each eigenvector v.\n'
-'# For a vector uniformly spread over N nodes, IPR = 1/N.\n'
-'# For a vector concentrated on one node, IPR = 1.\n'
 'ipr_adj = net_spectral.get_ipr("adj")\n'
 'ipr_nlap = net_spectral.get_ipr("nlap")\n'
 '\n'
@@ -696,18 +686,25 @@ cells.append(code_cell(
 'print(f"  Max:  {np.max(ipr_nlap):.4f}")'
 ))
 
+cells.append(md_cell(
+"**Complex spacing ratios.**\n"
+"For a symmetric (Hermitian) matrix all eigenvalues are real, so the\n"
+"complex spacing ratios $z = (\\lambda_{\\text{nn}} - \\lambda) /\n"
+"(\\lambda_{\\text{nnn}} - \\lambda)$ collapse to the real line and\n"
+"$\\arg(z)$ is either $0$ or $\\pi$. `get_z_values` builds a\n"
+"$k$-d tree in the complex plane and returns one ratio per unique\n"
+"eigenvalue.\n"
+"\n"
+"**Localization signatures.**\n"
+"$\\langle\\cos(\\arg z)\\rangle$ measures phase coherence of spacing ratios;\n"
+"$\\langle 1/|z|^2 \\rangle$ amplifies cases where nearest and next-nearest\n"
+"neighbour distances differ strongly. Zero $z$-values (from degenerate\n"
+"eigenvalues) are filtered internally to avoid singularities."
+))
+
 cells.append(code_cell(
-'# Complex spacing ratios -- GOE vs Poisson\n'
-'print("\\n" + "=" * 60)\n'
-'print("3. Spacing ratios and localization signatures")\n'
-'print("=" * 60)\n'
+'print("Spacing ratios and localization signatures")\n'
 '\n'
-'# --- Undirected (Hermitian) case ---\n'
-'# For symmetric matrices all eigenvalues are real, so z-values collapse\n'
-'# to the real line and arg(z) is either 0 or pi.\n'
-'\n'
-'# get_z_values returns a dict {eigenvalue: z_value} using nearest-neighbor\n'
-'# search in the complex plane (k-d tree). Duplicate eigenvalues are removed.\n'
 'z_dict = net_spectral.get_z_values("nlap")\n'
 '\n'
 '# Discard the z-value for the zero eigenvalue (one per connected component).\n'
@@ -728,54 +725,58 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-'# Localization signatures -- hub neurons\n'
-'# <cos(arg(z))> measures phase coherence of spacing ratios;\n'
-'# <1/|z|^2> amplifies cases where nearest and next-nearest\n'
-'# distances differ strongly. Zero z-values (from degenerate eigenvalues)\n'
-'# are filtered internally to avoid singularities.\n'
 'mean_inv_r2, mean_cos_phi = net_spectral.localization_signatures("nlap")\n'
 'print(f"\\nLocalization signatures (undirected, normalized Laplacian):")\n'
 'print(f"  <cos(arg(z))>: {mean_cos_phi:.4f}")\n'
 'print(f"  <1/|z|^2>:     {mean_inv_r2:.4f}")'
 ))
 
+cells.append(md_cell(
+"**Communicability.**\n"
+"Estrada communicability $\\text{EE} = \\sum_i \\exp(\\lambda_i)$ where\n"
+"$\\lambda_i$ are adjacency eigenvalues. This counts walks of all lengths,\n"
+"weighted by $1/k!$.\n"
+"\n"
+"**Bipartivity index.** Ratio of even-length to total weighted walks,\n"
+"using both $\\exp(\\lambda)$ and $\\exp(-\\lambda)$ of the adjacency spectrum.\n"
+"\n"
+"**Gromov hyperbolicity.** For every 4-point set, measures how far the\n"
+"shortest-path metric deviates from a tree metric.\n"
+"$\\delta = 0$ means the network is a tree; larger values indicate cycles."
+))
+
 cells.append(code_cell(
-'# Communicability matrix + hyperbolicity\n'
-'print("\\n" + "=" * 60)\n'
-'print("4. Communicability and network geometry")\n'
-'print("=" * 60)\n'
+'print("Communicability and network geometry")\n'
 '\n'
-'# Estrada communicability: EE = sum_i exp(lambda_i) where lambda_i are\n'
-'# adjacency eigenvalues. Counts walks of all lengths, weighted by 1/k!.\n'
 'comm = net_spectral.calculate_estrada_communicability()\n'
 'print(f"\\nEstrada communicability index: {comm:.4g}")\n'
 '\n'
-'# Bipartivity index: ratio of even-length to total weighted walks.\n'
-'# Uses both exp(lambda) and exp(-lambda) of the adjacency spectrum.\n'
 'bipartivity = net_spectral.get_estrada_bipartivity_index()\n'
 'print(f"Estrada bipartivity index: {bipartivity:.4f}")\n'
 'print(f"  (1.0 = perfectly bipartite, 0.0 = far from bipartite)")\n'
 '\n'
-'# Gromov hyperbolicity: for every 4-point set, measures how far the\n'
-'# shortest-path metric deviates from a tree metric.\n'
-'# delta = 0 means the network is a tree; larger values indicate cycles.\n'
 'hyp = net_spectral.calculate_gromov_hyperbolicity(num_samples=50000)\n'
 'print(f"\\nGromov hyperbolicity (mean delta): {hyp:.3f}")\n'
 'print(f"  (0 = tree-like, higher = more cycle-rich)")'
 ))
 
+cells.append(md_cell(
+"**Thermodynamic entropy.**\n"
+"Temperature sweep: low $t$ probes local structure, high $t$ probes global.\n"
+"\n"
+"- **Von Neumann entropy:** $S(t) = -\\sum_i p_i \\log_2 p_i$ where\n"
+"  $p_i = \\exp(-\\lambda_i / t) / Z$ is the Boltzmann distribution over\n"
+"  normalized Laplacian eigenvalues.\n"
+"- **Free entropy:** $F(t) = \\log_2 Z$ where $Z = \\sum_i \\exp(-\\lambda_i / t)$.\n"
+"- **Renyi $q$-entropy:** $S_q(t) = \\log_2(\\sum_i p_i^q) / (1 - q)$.\n"
+"  At $q = 2$, this is related to the purity of the Gibbs state."
+))
+
 cells.append(code_cell(
-'# Thermodynamic entropy vs temperature beta\n'
-'print("\\n" + "=" * 60)\n'
-'print("5. Thermodynamic entropy analysis")\n'
-'print("=" * 60)\n'
+'print("Thermodynamic entropy analysis")\n'
 '\n'
-'# Temperature sweep: low t probes local structure, high t probes global.\n'
 'tlist = np.logspace(-2, 2, 50)\n'
 '\n'
-'# Von Neumann entropy S(t) = -sum_i p_i log2(p_i)\n'
-'# where p_i = exp(-lambda_i / t) / Z is the Boltzmann distribution\n'
-'# over normalized Laplacian eigenvalues.\n'
 'vn_entropy = net_spectral.calculate_thermodynamic_entropy(tlist, norm=True)\n'
 'print(f"\\nVon Neumann entropy S(t) [normalized Laplacian]:")\n'
 'print(f"  At t=0.01: {vn_entropy[0]:.3f} bits")\n'
@@ -784,14 +785,11 @@ cells.append(code_cell(
 'print(f"  Max entropy: {np.max(vn_entropy):.3f} bits"\n'
 '      f"  (upper bound = log2(N) = {np.log2(net_spectral.n):.2f})")\n'
 '\n'
-'# Free entropy F(t) = log2(Z) where Z = sum_i exp(-lambda_i / t).\n'
 'free_ent = net_spectral.calculate_free_entropy(tlist, norm=True)\n'
 'print(f"\\nFree entropy F(t) = log2(Z):")\n'
 'print(f"  At t=0.01: {free_ent[0]:.3f}")\n'
 'print(f"  At t=100:  {free_ent[-1]:.3f}")\n'
 '\n'
-'# Renyi q-entropy: S_q(t) = log2(sum_i p_i^q) / (1 - q).\n'
-'# At q=2, this is related to the purity of the Gibbs state.\n'
 'q_ent = net_spectral.calculate_q_entropy(q=2, tlist=tlist, norm=True)\n'
 'print(f"\\nRenyi 2-entropy S_2(t):")\n'
 'print(f"  At t=0.01: {q_ent[0]:.3f} bits")\n'
@@ -799,18 +797,17 @@ cells.append(code_cell(
 ))
 
 cells.append(md_cell(
-"### Laplacian Eigenmaps embedding"
+"### Laplacian Eigenmaps embedding\n"
+"\n"
+"LEM uses the normalized Laplacian and selects the smallest non-zero\n"
+"eigenvectors as embedding coordinates. Nearby nodes in the graph map\n"
+"to nearby points in the embedding."
 ))
 
 cells.append(code_cell(
-'# LEM embedding from normalized Laplacian, colored by module\n'
-'print("\\n" + "=" * 60)\n'
-'print("6. Laplacian Eigenmaps embedding")\n'
-'print("=" * 60)\n'
+'print("Laplacian Eigenmaps embedding")\n'
 '\n'
 'dim = 3\n'
-'# LEM internally uses the normalized Laplacian and selects the dim\n'
-'# smallest non-zero eigenvectors as embedding coordinates.\n'
 'net_spectral.construct_lem_embedding(dim)\n'
 '\n'
 '# Access stored embedding (shape: dim x n_nodes)\n'
@@ -840,17 +837,16 @@ cells.append(code_cell(
 ))
 
 cells.append(md_cell(
-"### Directed variant"
+"### Directed variant\n"
+"\n"
+"Randomly orienting edges breaks the Hermitian symmetry, giving complex\n"
+"eigenvalues and $z$-values that spread across the complex plane. This\n"
+"demonstrates the full capability of the complex spacing ratio framework.\n"
+"In practice, directed networks arise from causal or effective\n"
+"connectivity (e.g. Granger causality, transfer entropy)."
 ))
 
 cells.append(code_cell(
-'# Create directed network, complex eigenvalue plot\n'
-'# --- Directed (non-Hermitian) case ---\n'
-'# Randomly orienting edges breaks symmetry, giving complex eigenvalues\n'
-'# and z-values that spread across the complex plane. This demonstrates\n'
-'# the full capability of the complex spacing ratio framework.\n'
-'# In practice, directed networks arise from causal or effective\n'
-'# connectivity (e.g. Granger causality, transfer entropy).\n'
 'dir_adj = turn_to_partially_directed(net_spectral.adj, directed=1.0)\n'
 'dir_net = Network(adj=dir_adj, preprocessing=None, name="Directed variant")\n'
 '\n'
@@ -888,15 +884,7 @@ cells.append(code_cell(
 # ===== SPECTRAL SUMMARY FIGURE ============================================
 
 cells.append(code_cell(
-'# Summary figure (2x3 grid)\n'
-'print("\\n" + "=" * 60)\n'
-'print("Creating summary figure")\n'
-'print("=" * 60)\n'
-'\n'
-'# Null model comparison for spectral properties\n'
-'print("\\n" + "=" * 60)\n'
-'print("7. Null model comparison (degree-preserving randomization)")\n'
-'print("=" * 60)\n'
+'print("Spectral null model comparison (degree-preserving randomization)")\n'
 '\n'
 'real_ipr = np.mean(net_spectral.get_ipr("nlap"))\n'
 'nlap_sorted = np.sort(np.real(net_spectral.get_spectrum("nlap")))\n'

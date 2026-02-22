@@ -61,7 +61,7 @@ cells.append(md_cell(
 "\n"
 "**What you will learn:**\n"
 "\n"
-"1. **Loading your data** -- wrap numpy arrays (from Suite2P, CaImAn, DeepLabCut, etc.) into a DRIADA [`Experiment`](https://driada.readthedocs.io/en/latest/api/experiment/core.html).\n"
+"1. **Loading your data** -- wrap numpy arrays into a DRIADA [`Experiment`](https://driada.readthedocs.io/en/latest/api/experiment/core.html).\n"
 "2. **Single neuron analysis** -- create a [`Neuron`](https://driada.readthedocs.io/en/latest/api/experiment/core.html), reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
 "3. **Threshold vs wavelet reconstruction** -- compare two spike detection methods across four optimization modes.\n"
 "4. **Method agreement** -- quantify event-region overlap between threshold and wavelet at varying tolerance."
@@ -117,8 +117,7 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# In practice: raw = np.load('your_recording.npz')\n"
-"# Here we use DRIADA's synthetic calcium generator for realistic GCaMP dynamics.\n"
+"# In practice: calcium = np.load('your_recording.npz')['calcium']\n"
 "\n"
 "n_neurons = 20\n"
 "fps = 30.0\n"
@@ -152,6 +151,38 @@ cells.append(code_cell(
 'print(f"speed:          shape={speed.shape}, dtype={speed.dtype}")\n'
 'print(f"head_direction: shape={head_direction.shape}, dtype={head_direction.dtype}")\n'
 'print(f"trial_type:     shape={trial_type.shape}, dtype={trial_type.dtype}")'
+))
+
+cells.append(code_cell(
+"# Quick look at the calcium traces\n"
+"fig, axes = plt.subplots(2, 1, figsize=(14, 5), sharex=True)\n"
+"\n"
+"time_sec = np.arange(n_frames) / fps\n"
+"n_show = min(5, n_neurons)\n"
+"\n"
+"# Top: overlaid traces (first few neurons)\n"
+"ax = axes[0]\n"
+"for i in range(n_show):\n"
+"    ax.plot(time_sec, calcium[i], linewidth=0.8, label=f'neuron {i}')\n"
+"ax.set_ylabel('dF/F0')\n"
+"ax.set_title(f'Synthetic calcium traces ({n_neurons} neurons, {duration:.0f}s @ {fps:.0f} Hz)')\n"
+"ax.legend(loc='upper right', fontsize=8)\n"
+"ax.grid(True, alpha=0.3)\n"
+"\n"
+"# Bottom: offset traces for clearer event structure\n"
+"ax = axes[1]\n"
+"offsets = np.arange(n_show) * 3\n"
+"for i in range(n_show):\n"
+"    ax.plot(time_sec, calcium[i] + offsets[i], 'k', linewidth=0.6)\n"
+"ax.set_xlabel('Time (s)')\n"
+"ax.set_ylabel('dF/F0 + offset')\n"
+"ax.set_title('Offset view (same neurons)')\n"
+"ax.set_yticks(offsets)\n"
+"ax.set_yticklabels([f'n{i}' for i in range(n_show)])\n"
+"ax.grid(True, alpha=0.3)\n"
+"\n"
+"plt.tight_layout()\n"
+"plt.show()"
 ))
 
 cells.append(md_cell(
@@ -222,13 +253,7 @@ cells.append(code_cell(
 '    feature_types=feature_types,\n'
 '    aggregate_features=aggregate_features,\n'
 '    static_features={"fps": 30.0},\n'
-'    # create_circular_2d=True is the default: for every circular\n'
-'    # feature (here head_direction), DRIADA auto-creates a _2d\n'
-'    # version as (cos, sin). This is important because MI estimators\n'
-'    # (GCMI, KSG) work on the real line -- a raw angle wraps around\n'
-'    # at 0/2pi, breaking the distance metric. The (cos, sin) encoding\n'
-'    # maps the circle onto R^2 where Euclidean distance is meaningful.\n'
-'    create_circular_2d=True,\n'
+'    create_circular_2d=True,  # auto-create (cos, sin) for circular features\n'
 '    verbose=True,\n'
 ')'
 ))
@@ -247,9 +272,6 @@ cells.append(code_cell(
 'print(f"FPS:         {exp.static_features.get(\'fps\', \'unknown\')}")\n'
 'print(f"Calcium:     {exp.calcium.data.shape}")\n'
 '\n'
-'# Note the auto-generated features in the list below:\n'
-'#   - position_2d:        from aggregate_features (x_pos + y_pos)\n'
-'#   - head_direction_2d:  from create_circular_2d (cos + sin encoding)\n'
 'print("\\nDynamic features (time-varying behavioral variables):")\n'
 'for name, ts in sorted(exp.dynamic_features.items()):\n'
 '    ti = getattr(ts, "type_info", None)\n'
@@ -418,12 +440,8 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# Set random seed for reproducibility\n"
 "np.random.seed(42)\n"
 "\n"
-"# =============================================================================\n"
-"# Step 1: Generate Synthetic Calcium Signal\n"
-"# =============================================================================\n"
 'print("1. Generating synthetic calcium signal...")\n'
 "\n"
 "signal = generate_pseudo_calcium_signal(\n"
@@ -439,9 +457,6 @@ cells.append(code_cell(
 "\n"
 'print(f"   [OK] Generated signal: {len(signal)} frames ({len(signal)/20:.1f} seconds)")\n'
 "\n"
-"# =============================================================================\n"
-"# Step 2: Create Neuron Object\n"
-"# =============================================================================\n"
 'print("\\n2. Creating Neuron object...")\n'
 "\n"
 "neuron = Neuron(\n"
@@ -466,9 +481,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# =============================================================================\n"
-"# Step 3: Reconstruct Spikes with Wavelet Method\n"
-"# =============================================================================\n"
 'print("3. Reconstructing spikes using wavelet method...")\n'
 "\n"
 "spikes = neuron.reconstruct_spikes(\n"
@@ -492,9 +504,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# =============================================================================\n"
-"# Step 4: Optimize Calcium Kinetics\n"
-"# =============================================================================\n"
 'print("4. Optimizing calcium kinetics...")\n'
 "\n"
 "kinetics = neuron.get_kinetics(\n"
@@ -518,9 +527,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# =============================================================================\n"
-"# Step 5: Calculate Wavelet SNR\n"
-"# =============================================================================\n"
 'print("5. Computing wavelet SNR...")\n'
 "\n"
 "wavelet_snr = neuron.get_wavelet_snr()\n"
@@ -528,30 +534,19 @@ cells.append(code_cell(
 'print(f"   [OK] Wavelet SNR: {wavelet_snr:.2f}")\n'
 'print(f"       (Ratio of event amplitude to baseline noise)")\n'
 "\n"
-"# =============================================================================\n"
-"# Step 6: Calculate Reconstruction Quality Metrics\n"
-"# =============================================================================\n"
 'print("\\n6. Computing reconstruction quality metrics...")\n'
 "\n"
-"# R2 (coefficient of determination)\n"
 "r2 = neuron.get_reconstruction_r2()\n"
-'print(f"   [OK] Reconstruction R2: {r2:.4f}")\n'
-'print(f"       (1.0 = perfect, >0.7 = good quality)")\n'
+'print(f"   [OK] Reconstruction R2:  {r2:.4f}")\n'
 "\n"
-"# Event-only R2 (focuses on event regions)\n"
 "r2_events = neuron.get_reconstruction_r2(event_only=True)\n"
-'print(f"   [OK] Event-only R2: {r2_events:.4f}")\n'
-'print(f"       (Quality in event regions only)")\n'
+'print(f"   [OK] Event-only R2:      {r2_events:.4f}")\n'
 "\n"
-"# Normalized RMSE\n"
 "nrmse = neuron.get_nrmse()\n"
-'print(f"   [OK] Normalized RMSE: {nrmse:.4f}")\n'
-'print(f"       (Lower is better)")\n'
+'print(f"   [OK] Normalized RMSE:    {nrmse:.4f}")\n'
 "\n"
-"# Normalized MAE\n"
 "nmae = neuron.get_nmae()\n"
-'print(f"   [OK] Normalized MAE: {nmae:.4f}")\n'
-'print(f"       (Lower is better)")'
+'print(f"   [OK] Normalized MAE:     {nmae:.4f}")'
 ))
 
 cells.append(md_cell(
@@ -568,44 +563,28 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# =============================================================================\n"
-"# Step 7: Surrogate Generation Methods\n"
-"# =============================================================================\n"
 'print("7. Surrogate generation methods...")\n'
-'print("   Three calcium surrogate types and one spike surrogate type.")\n'
 "\n"
-"# --- Calcium surrogates ---\n"
-"\n"
-"# 7a. Roll-based: circular shift preserving all autocorrelations\n"
 "shuffled_roll = neuron.get_shuffled_calcium(method='roll_based', seed=42)\n"
 'print(f"\\n   [Roll-based] Circular shift surrogate:")\n'
 'print(f"       Mean: {np.mean(shuffled_roll):.4f}  (original: {np.mean(neuron.ca.data):.4f})")\n'
 'print(f"       Std:  {np.std(shuffled_roll):.4f}  (original: {np.std(neuron.ca.data):.4f})")\n'
-'print(f"       Preserves: autocorrelation structure, amplitude distribution")\n'
 "\n"
-"# 7b. Waveform-based: shuffle detected spike times, reconstruct calcium\n"
 "shuffled_wf = neuron.get_shuffled_calcium(method='waveform_based', seed=42)\n"
 'print(f"\\n   [Waveform-based] Spike-shuffle + reconstruct surrogate:")\n'
 'print(f"       Mean: {np.mean(shuffled_wf):.4f}  (original: {np.mean(neuron.ca.data):.4f})")\n'
 'print(f"       Std:  {np.std(shuffled_wf):.4f}  (original: {np.std(neuron.ca.data):.4f})")\n'
-'print(f"       Preserves: individual waveform shapes, event count")\n'
 "\n"
-"# 7c. Chunks-based: divide signal into chunks and reorder\n"
 "shuffled_chunks = neuron.get_shuffled_calcium(method='chunks_based', seed=42)\n"
 'print(f"\\n   [Chunks-based] Chunk reordering surrogate:")\n'
 'print(f"       Mean: {np.mean(shuffled_chunks):.4f}  (original: {np.mean(neuron.ca.data):.4f})")\n'
 'print(f"       Std:  {np.std(shuffled_chunks):.4f}  (original: {np.std(neuron.ca.data):.4f})")\n'
-'print(f"       Preserves: local structure within chunks")\n'
 "\n"
-"# --- Spike surrogates ---\n"
-"\n"
-"# 7d. ISI-based: shuffle inter-spike intervals, preserving ISI distribution\n"
 "shuffled_sp = neuron.get_shuffled_spikes(method='isi_based', seed=42)\n"
 "original_spike_count = int(np.sum(neuron.sp.data > 0))\n"
 "shuffled_spike_count = int(np.sum(shuffled_sp > 0))\n"
 'print(f"\\n   [ISI-based] Spike train surrogate:")\n'
-'print(f"       Spike count: {shuffled_spike_count}  (original: {original_spike_count})")\n'
-'print(f"       Preserves: inter-spike interval distribution")'
+'print(f"       Spike count: {shuffled_spike_count}  (original: {original_spike_count})")'
 ))
 
 # ===== SECTION 3: THRESHOLD VS WAVELET ====================================
@@ -992,20 +971,16 @@ cells.append(code_cell(
 'n_neurons4 = calcium4.scdata.shape[0]\n'
 'time4 = np.arange(calcium4.scdata.shape[1]) / fps4\n'
 '\n'
-'# Both methods use Neuron-level iterative reconstruction (n_iter=3)\n'
-'# to catch overlapping events via residual analysis.\n'
 'wavelet_events = []\n'
 'threshold_events = []\n'
 '\n'
 'for neuron in exp4.neurons:\n'
-'    # Wavelet: CWT ridge detection on residuals\n'
 '    print(f"  Neuron {neuron.cell_id}: wavelet...", end="")\n'
 '    neuron.reconstruct_spikes(\n'
 '        method="wavelet", iterative=True, n_iter=3, fps=fps4\n'
 '    )\n'
 '    wavelet_events.append(list(neuron.wvt_ridges))\n'
 '\n'
-'    # Threshold: MAD-based event detection on residuals\n'
 '    print(" threshold...", end="")\n'
 '    neuron.reconstruct_spikes(\n'
 '        method="threshold", iterative=True, n_iter=3, n_mad=4.0,\n'
@@ -1078,8 +1053,6 @@ cells.append(code_cell(
 
 cells.append(code_cell(
 "# Agreement vs tolerance curve\n"
-"# Both methods detect event regions via iterative residual analysis.\n"
-"# Sweeping tolerance reveals how well the detected regions align.\n"
 "tolerance_sec = np.arange(0, 1.05, 0.05)\n"
 "tolerance_frames_arr = (tolerance_sec * fps4).astype(int)\n"
 "\n"

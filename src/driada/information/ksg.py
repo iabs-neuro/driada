@@ -694,8 +694,8 @@ def nonparam_mi_cc(
     Kraskov, A., Stögbauer, H., & Grassberger, P. (2004). Estimating mutual
     information. Physical Review E, 69(6), 066138.
 
-    Gao, W., et al. (2015). Estimating mutual information for discrete-continuous
-    mixtures. NIPS 2017. (LNC correction)
+    Gao, S., Ver Steeg, G., & Galstyan, A. (2015). Efficient Estimation of Mutual
+    Information for Strongly Dependent Variables. AISTATS, PMLR 38:277-286. (LNC correction)
 
     Examples
     --------

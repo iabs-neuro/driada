@@ -130,7 +130,6 @@ cells.append(code_cell(
 "    population, duration=300, fps=20, seed=42, verbose=True\n"
 ")\n"
 "\n"
-"# Build ground truth group map for later comparison\n"
 "gt_groups = {}\n"
 "idx = 0\n"
 "for group in population:\n"
@@ -144,7 +143,29 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Create embeddings via Experiment API\n"
+"fig, axes = plt.subplots(2, 1, figsize=(14, 5))\n"
+"\n"
+"n_show = min(5, exp_emb.n_cells)\n"
+"time_sec = np.arange(exp_emb.n_frames) / exp_emb.fps\n"
+"\n"
+"ax = axes[0]\n"
+"for i in range(n_show):\n"
+"    ax.plot(time_sec, exp_emb.calcium.data[i], linewidth=0.6, label=f'neuron {i}')\n"
+"ax.set_ylabel('dF/F0')\n"
+"ax.set_title(f'Synthetic neural traces ({exp_emb.n_cells} neurons)')\n"
+"ax.legend(loc='upper right', fontsize=8)\n"
+"ax.grid(True, alpha=0.3)\n"
+"\n"
+"ax = axes[1]\n"
+"ax.imshow(exp_emb.calcium.data, aspect='auto', cmap='hot', interpolation='none')\n"
+"ax.set_xlabel('Frame')\n"
+"ax.set_ylabel('Neuron')\n"
+"\n"
+"plt.tight_layout()\n"
+"plt.show()"
+))
+
+cells.append(code_cell(
 "print('\\n2. Creating embeddings...')\n"
 "\n"
 "n_pca_components = 4\n"
@@ -158,8 +179,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Run INTENSE on embedding components\n"
-"# Each component is temporarily added as a dynamic feature, then tested\n"
 "print('\\n3. Computing embedding selectivity (INTENSE on components)...')\n"
 "\n"
 "results_emb = compute_embedding_selectivity(\n"
@@ -189,7 +208,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Analyze functional organization (PCA)\n"
 "print('\\n4. Functional organization (PCA)...')\n"
 "\n"
 "org = get_functional_organization(\n"
@@ -228,7 +246,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Compare PCA vs UMAP organization\n"
 "print('\\n5. Comparing PCA vs UMAP functional organization...')\n"
 "\n"
 "intense_dict = {\n"
@@ -251,7 +268,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Visualize functional organization\n"
 "fig, axes = plt.subplots(2, 2, figsize=(14, 10))\n"
 "fig.suptitle('Functional organization analysis', fontsize=14)\n"
 "\n"
@@ -334,7 +350,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Embedding scatter plots colored by behavioral features\n"
 "ds_emb = 5  # must match ds used in create_embedding\n"
 "hd = exp_emb.dynamic_features['head_direction'].data[::ds_emb]\n"
 "spd = exp_emb.dynamic_features['speed'].data[::ds_emb]\n"
@@ -382,7 +397,6 @@ cells.append(code_cell(
 "from driada.intense import compute_cell_feat_significance\n"
 "from driada.utils.visual import visualize_circular_manifold\n"
 "\n"
-"# Generate mixed population: HD-coding + non-coding neurons\n"
 "print('[1/4] Generating mixed population experiment...')\n"
 "population_loo = [\n"
 "    {'name': 'hd_broad', 'count': 15, 'features': ['head_direction'],\n"
@@ -397,13 +411,13 @@ cells.append(code_cell(
 "    population=population_loo, duration=600, seed=42\n"
 ")\n"
 "print(f'  Created: {exp_loo.n_cells} neurons, {exp_loo.calcium.data.shape[1]} timepoints')\n"
-"print(f'  Population: 45 HD (15 broad/15 medium/15 sharp) + 15 non-selective')"
+"group_desc = ' + '.join(\n"
+"    f'{g[\"count\"]} {g[\"name\"]}' for g in population_loo\n"
+")\n"
+"print(f'  Population: {group_desc}')"
 ))
 
 cells.append(code_cell(
-"# LOO analysis: remove each neuron, recompute embedding, measure quality\n"
-"# We inline the core functions from the loo_dr_analysis example\n"
-"\n"
 "dr_method = 'isomap'\n"
 "dr_params = {'dim': 2, 'nn': 20, 'max_deleted_nodes': 0.3}\n"
 "ds_loo = 5\n"
@@ -453,14 +467,12 @@ cells.append(code_cell(
 "    return metrics\n"
 "\n"
 "\n"
-"# Baseline with all neurons\n"
 "print('  Computing baseline...')\n"
 "baseline_coords, baseline_gt = _compute_loo_embedding(\n"
 "    neural_data_loo, dr_method, dr_params, ds_loo\n"
 ")\n"
 "baseline_metrics = _compute_metrics(baseline_coords, baseline_gt)\n"
 "\n"
-"# LOO loop\n"
 "loo_metric_rows = [{'neuron': 'all', **baseline_metrics}]\n"
 "print(f'  LOO analysis for {n_neurons_loo} neurons...')\n"
 "for nidx in tqdm(range(n_neurons_loo), desc=f'LOO {dr_method}'):\n"
@@ -477,7 +489,6 @@ cells.append(code_cell(
 "\n"
 "loo_results = pd.DataFrame(loo_metric_rows).set_index('neuron')\n"
 "\n"
-"# Importance scores: weighted degradation when each neuron is removed\n"
 "baseline_row = loo_results.loc['all']\n"
 "importance_scores = []\n"
 "for nidx in range(n_neurons_loo):\n"
@@ -512,7 +523,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Verify the manifold is circular and visualize\n"
 "print('  Verifying circular structure...')\n"
 "ds = 5\n"
 "mvdata_vis = MVData(exp_loo.calcium.data, downsampling=ds)\n"
@@ -544,7 +554,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Run INTENSE on the same population\n"
 "print('\\n[3/4] Running INTENSE analysis...')\n"
 "stats_loo, significant_loo, info_loo, intense_res_loo = compute_cell_feat_significance(\n"
 "    exp_loo,\n"
@@ -558,10 +567,8 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Compare LOO importance with INTENSE selectivity\n"
 "print('\\n[4/4] Comparing LOO importance with INTENSE selectivity...')\n"
 "\n"
-"# Extract INTENSE MI for each neuron\n"
 "intense_mi_values = np.full(n_neurons_loo, np.nan)\n"
 "intense_pval_values = np.full(n_neurons_loo, np.nan)\n"
 "for nid in range(n_neurons_loo):\n"
@@ -569,14 +576,12 @@ cells.append(code_cell(
 "        intense_mi_values[nid] = stats_loo[nid]['head_direction_2d'].get('me', np.nan)\n"
 "        intense_pval_values[nid] = stats_loo[nid]['head_direction_2d'].get('pval', np.nan)\n"
 "\n"
-"# Build combined dataframe\n"
 "combined = pd.DataFrame({\n"
 "    'loo_importance': importance.values,\n"
 "    'intense_mi': intense_mi_values,\n"
 "    'intense_pval': intense_pval_values,\n"
 "}, index=range(n_neurons_loo))\n"
 "\n"
-"# Compute correlation\n"
 "valid_data = combined.dropna(subset=['loo_importance', 'intense_mi'])\n"
 "\n"
 "if len(valid_data) >= 5:\n"
@@ -602,7 +607,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Visualize LOO importance vs INTENSE MI\n"
 "fig, axes = plt.subplots(1, 3, figsize=(16, 5))\n"
 "\n"
 "# (a) Scatter plot: LOO importance vs INTENSE MI\n"
@@ -697,7 +701,6 @@ cells.append(code_cell(
 "    return labels\n"
 "\n"
 "\n"
-"# Design population with two stimulus categories\n"
 "population_rsa = [\n"
 "    {'name': 'cat_a_shared', 'count': 20,\n"
 "     'features': ['event_0', 'event_1'], 'combination': 'or'},\n"
@@ -710,8 +713,6 @@ cells.append(code_cell(
 "]\n"
 "\n"
 "print('Generating stimulus-selective neurons (100 neurons, 4 conditions)...')\n"
-"print('  Category A: Stim A & B share 20 neurons')\n"
-"print('  Category B: Stim C & D share 20 neurons')\n"
 "exp_rsa = generate_tuned_selectivity_exp(\n"
 "    population=population_rsa,\n"
 "    n_discrete_features=4,\n"
@@ -725,7 +726,6 @@ cells.append(code_cell(
 "    reconstruct_spikes='threshold',\n"
 ")\n"
 "\n"
-"# Compute RDM from spike patterns\n"
 "print('Computing RDM from spike patterns...')\n"
 "stimulus_labels = create_stimulus_labels_from_events(\n"
 "    exp_rsa, ['event_0', 'event_1', 'event_2', 'event_3']\n"
@@ -741,7 +741,6 @@ cells.append(code_cell(
 "print(f'RDM shape: {rdm1.shape}')\n"
 "print(f'Stimulus conditions: {labels1}')\n"
 "\n"
-"# Visualize RDM\n"
 "label_names = ['Stim A', 'Stim B', 'Stim C', 'Stim D']\n"
 "fig = rsa.plot_rdm(\n"
 "    rdm1, labels=label_names[:len(labels1)],\n"
@@ -759,7 +758,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# Generate two related neural populations (e.g., V1 and V2)\n"
 "np.random.seed(42)\n"
 "n_items = 20\n"
 "n_neurons_v1 = 100\n"
@@ -777,24 +775,20 @@ cells.append(code_cell(
 "v2_data = (base_patterns @ transform) @ np.random.randn(50, n_neurons_v2)\n"
 "v2_data += 0.2 * np.random.randn(n_items, n_neurons_v2)\n"
 "\n"
-"# Compare representations directly\n"
 "print('Comparing V1 and V2 representations...')\n"
 "similarity = rsa.rsa_compare(v1_data, v2_data)\n"
 "print(f'V1-V2 similarity (Spearman): {similarity:.3f}')\n"
 "\n"
-"# Different distance metrics\n"
 "print('\\nDifferent distance metrics:')\n"
 "for metric in ['correlation', 'euclidean', 'cosine']:\n"
 "    sim = rsa.rsa_compare(v1_data, v2_data, metric=metric)\n"
 "    print(f'  {metric}: {sim:.3f}')\n"
 "\n"
-"# Different comparison methods\n"
 "print('\\nDifferent comparison methods:')\n"
 "for comparison in ['spearman', 'pearson', 'kendall']:\n"
 "    sim = rsa.rsa_compare(v1_data, v2_data, comparison=comparison)\n"
 "    print(f'  {comparison}: {sim:.3f}')\n"
 "\n"
-"# Visualize both RDMs\n"
 "rdm_v1 = rsa.compute_rdm(v1_data)\n"
 "rdm_v2 = rsa.compute_rdm(v2_data)\n"
 "\n"
@@ -813,7 +807,6 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# Generate two sessions with same population structure, different noise\n"
 "population_sessions = [\n"
 "    {'name': 'cat_a_shared', 'count': 14,\n"
 "     'features': ['event_0', 'event_1'], 'combination': 'or'},\n"
@@ -847,7 +840,6 @@ cells.append(code_cell(
 "    seed=123, verbose=False, reconstruct_spikes='threshold',\n"
 ")\n"
 "\n"
-"# Compute RDMs from spike data\n"
 "stim_labels_1 = create_stimulus_labels_from_events(exp_s1, event_names_6)\n"
 "stim_labels_2 = create_stimulus_labels_from_events(exp_s2, event_names_6)\n"
 "\n"
@@ -866,7 +858,6 @@ cells.append(code_cell(
 "similarity_sessions = rsa.compare_rdms(rdm_s1, rdm_s2, method='spearman')\n"
 "print(f'Cross-session RDM similarity: {similarity_sessions:.3f}')\n"
 "\n"
-"# Visualize\n"
 "label_names_6 = ['Stim A', 'Stim B', 'Stim C', 'Stim D', 'Stim E', 'Stim F']\n"
 "fig = rsa.plot_rdm_comparison(\n"
 "    [rdm_s1, rdm_s2], labels=label_names_6[:len(labels_s1)],\n"
@@ -876,7 +867,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Bootstrap significance testing\n"
 "print('Running bootstrap significance test (Pearson)...')\n"
 "bootstrap_results = rsa.bootstrap_rdm_comparison(\n"
 "    exp_s1.spikes.data[:, valid_1],\n"
@@ -907,7 +897,6 @@ cells.append(md_cell(
 cells.append(code_cell(
 "from driada.dim_reduction.data import MVData\n"
 "\n"
-"# Create MVData object with known condition structure\n"
 "n_features = 100\n"
 "n_timepoints = 1000\n"
 "n_conditions = 5\n"
@@ -990,7 +979,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Generate behavioral inputs for the RNN\n"
 "print('[1] GENERATING BEHAVIORAL INPUTS')\n"
 "print('-' * 40)\n"
 "\n"
@@ -1038,7 +1026,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Simulate the driven random RNN\n"
 "print('\\n[2] SIMULATING RNN')\n"
 "print('-' * 40)\n"
 "\n"
@@ -1083,8 +1070,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Load RNN activations into DRIADA Experiment\n"
-"# Note: 'activations' is one of the accepted neural data key aliases\n"
 "print('\\n[3] LOADING INTO DRIADA')\n"
 "print('-' * 40)\n"
 "\n"
@@ -1105,7 +1090,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Run INTENSE selectivity analysis on RNN units\n"
 "print('\\n[4] INTENSE SELECTIVITY ANALYSIS')\n"
 "print('-' * 40)\n"
 "\n"
@@ -1136,7 +1120,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Dimensionality reduction on RNN activity\n"
 "print('\\n[5] DIMENSIONALITY REDUCTION')\n"
 "print('-' * 40)\n"
 "\n"
@@ -1146,7 +1129,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Cell-cell functional network\n"
 "print('\\n[6] CELL-CELL FUNCTIONAL NETWORK')\n"
 "print('-' * 40)\n"
 "\n"
@@ -1167,7 +1149,6 @@ cells.append(code_cell(
 "n_pairs_rnn = len(cell_ids_rnn) * (len(cell_ids_rnn) - 1) // 2\n"
 "print(f'\\n  Significant pairs: {n_sig_rnn} / {n_pairs_rnn}')\n"
 "\n"
-"# Build weighted network\n"
 "weighted_rnn = sp.csr_matrix(sim_mat_rnn * sig_mat_rnn)\n"
 "net_rnn = Network(\n"
 "    adj=weighted_rnn, preprocessing='giant_cc', name='RNN functional network'\n"
@@ -1176,7 +1157,6 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Summary visualization: 3x3 figure\n"
 "fig = plt.figure(figsize=(18, 14))\n"
 "fps = CONFIG['fps']\n"
 "\n"
