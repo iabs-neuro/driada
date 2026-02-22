@@ -14,6 +14,10 @@ Installation
    # With GPU support (recommended for large datasets)
    pip install driada[gpu]
 
+For an interactive introduction, start with the
+`DRIADA overview notebook <https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb>`_
+which covers data loading, feature types, and demos of each analysis module.
+
 Getting started with DRIADA
 ---------------------------
 

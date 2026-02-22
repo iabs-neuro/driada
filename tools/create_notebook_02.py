@@ -50,6 +50,7 @@ cells.append(md_cell(
 "\n"
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
+"| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
 "| Load & inspect | [01 -- Data loading](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | Wrap your recording into an `Experiment`, reconstruct spikes, assess quality |\n"
 "| **Single-neuron selectivity** | **02 -- this notebook** | Detect which neurons encode which behavioral variables |\n"
 "| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"

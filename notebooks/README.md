@@ -1,20 +1,29 @@
 # DRIADA interactive tutorials
 
-Five self-contained Colab/Jupyter notebooks that walk through the full DRIADA
+Six self-contained Colab/Jupyter notebooks that walk through the full DRIADA
 toolkit -- from loading data to network analysis and running
 cross-method analyses. Every notebook generates its own synthetic data, so no
 external files are needed.
 
 ## Notebooks
 
-### 1. [Data loading & neuron analysis](01_data_loading_and_neurons.ipynb)
+### 0. [DRIADA overview](00_driada_overview.ipynb)
 
-Loading data into DRIADA, inspecting `Experiment` objects, and working with
-individual neurons.
+Quick tour of the framework: core data structures and a taste of each
+analysis module.
 
 - Creating an `Experiment` from aligned arrays (`load_exp_from_aligned_data`)
 - Feature types: continuous, circular, categorical, aggregated
 - `TimeSeries` / `MultiTimeSeries` data representations
+- Mini-demo: INTENSE selectivity detection
+- Mini-demo: UMAP dimensionality reduction
+- Mini-demo: functional connectivity networks
+
+### 1. [Data loading & neuron analysis](01_data_loading_and_neurons.ipynb)
+
+Working with individual neurons: spike reconstruction and quality analysis.
+See [Notebook 00](00_driada_overview.ipynb) for `Experiment` and feature basics.
+
 - Single-neuron spike reconstruction (wavelet vs threshold), kinetics, quality metrics
 - Calcium and spike surrogates
 - Save / reload experiments with pickle

@@ -19,7 +19,8 @@ Interactive notebooks — click a badge to open in Google Colab (no setup requir
 
 | | Notebook | Topics |
 |---|---|---|
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | **Data loading & neurons** | `Experiment` objects, feature types, spike reconstruction, kinetics, surrogates |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | **DRIADA overview** | `Experiment` objects, feature types, quick tour of INTENSE, DR, networks |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | **Data loading & neurons** | Spike reconstruction, kinetics optimization, quality metrics, surrogates |
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | **Selectivity detection (INTENSE)** | Mutual information, two-stage testing, optimal delays, mixed selectivity |
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | **Population geometry & DR** | PCA, UMAP, Isomap, autoencoders, manifold quality metrics, dimensionality estimation |
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | **Network analysis** | Cell-cell significance, spectral analysis, communities, graph entropy |

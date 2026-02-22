@@ -49,22 +49,21 @@ cells.append(md_cell(
 "\n"
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
+"| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
 "| **Load & inspect** | **01 -- this notebook** | Wrap your recording into an `Experiment`, reconstruct spikes, assess quality |\n"
 "| **Single-neuron selectivity** | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
 "| **Population geometry** | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
 "| **Network analysis** | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
 "| **Putting it together** | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
 "\n"
-"Everything starts with an `Experiment` -- a container that keeps neural\n"
-"activity and behavioral variables aligned and annotated.  This notebook\n"
-"shows you how to create one and how to work with its core building blocks.\n"
+"This notebook focuses on individual neuron analysis: spike reconstruction,\n"
+"kinetics optimization, and quality assessment.\n"
 "\n"
 "**What you will learn:**\n"
 "\n"
-"1. **Loading your data** -- wrap numpy arrays into a DRIADA [`Experiment`](https://driada.readthedocs.io/en/latest/api/experiment/core.html#driada.experiment.exp_base.Experiment).\n"
-"2. **Single neuron analysis** -- create a [`Neuron`](https://driada.readthedocs.io/en/latest/api/experiment/core.html#driada.experiment.neuron.Neuron), reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
-"3. **Threshold vs wavelet reconstruction** -- compare two spike detection methods across four optimization modes.\n"
-"4. **Method agreement** -- quantify event-region overlap between threshold and wavelet at varying tolerance."
+"1. **Single neuron analysis** -- create a [`Neuron`](https://driada.readthedocs.io/en/latest/api/experiment/core.html#driada.experiment.neuron.Neuron), reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
+"2. **Threshold vs wavelet reconstruction** -- compare two spike detection methods across four optimization modes.\n"
+"3. **Method agreement** -- quantify event-region overlap between threshold and wavelet at varying tolerance."
 ))
 
 cells.append(code_cell(
@@ -94,31 +93,20 @@ cells.append(code_cell(
 ")"
 ))
 
-# ===== SECTION 1: LOADING YOUR DATA ========================================
+# ===== SECTION 1: QUICK SETUP ================================================
 
 cells.append(md_cell(
-"## 1. Loading your data into DRIADA\n"
+"## 1. Setup\n"
 "\n"
-"You have numpy arrays from your recording pipeline (Suite2P, CaImAn,\n"
-"DeepLabCut, etc.).  [`load_exp_from_aligned_data`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html#driada.experiment.exp_build.load_exp_from_aligned_data)\n"
-"wraps them into an **Experiment** object that\n"
-"keeps neural activity and behavioral features aligned and annotated.\n"
+"This notebook covers spike reconstruction and neuron quality analysis.\n"
+"For an introduction to `Experiment` objects, feature types, and\n"
+"TimeSeries, see\n"
+"[Notebook 00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb).\n"
 "\n"
-"The data dict must contain one neural-data key -- any of `'calcium'`,\n"
-"`'activations'`, `'neural_data'`, `'activity'`, or `'rates'` -- holding a\n"
-"`(n_neurons, n_frames)` array.  Everything else you pass becomes a\n"
-"**dynamic feature** (one value per timepoint).\n"
-"\n"
-"Below we use DRIADA's\n"
-"[`generate_pseudo_calcium_multisignal`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html#driada.experiment.synthetic.core.generate_pseudo_calcium_multisignal)\n"
-"to create realistic synthetic calcium traces with GCaMP-like dynamics\n"
-"(transient events, exponential decay, baseline noise).  In your own work,\n"
-"replace this with your actual recording data."
+"We start by creating a synthetic Experiment with pseudo-calcium traces."
 ))
 
 cells.append(code_cell(
-"# In practice: calcium = np.load('your_recording.npz')['calcium']\n"
-"\n"
 "n_neurons = 20\n"
 "fps = 30.0\n"
 "duration = 200.0  # seconds\n"
@@ -137,295 +125,28 @@ cells.append(code_cell(
 ")\n"
 "n_frames = calcium.shape[1]\n"
 "\n"
-"# Behavioral variables (one value per timepoint)\n"
 "np.random.seed(0)\n"
-"x_pos = np.cumsum(np.random.randn(n_frames) * 0.5)            # continuous\n"
-"y_pos = np.cumsum(np.random.randn(n_frames) * 0.5)            # continuous\n"
-"speed = np.abs(np.random.randn(n_frames)) * 5.0               # continuous\n"
-"head_direction = np.random.uniform(0, 2 * np.pi, n_frames)    # circular (radians)\n"
-"trial_type = np.random.choice([0, 1, 2], size=n_frames)       # discrete labels\n"
+"speed = np.abs(np.random.randn(n_frames)) * 5.0\n"
+"head_direction = np.random.uniform(0, 2 * np.pi, n_frames)\n"
+"trial_type = np.random.choice([0, 1, 2], size=n_frames)\n"
 "\n"
-'print(f"calcium:        shape={calcium.shape}, dtype={calcium.dtype}")\n'
-'print(f"x_pos:          shape={x_pos.shape}, dtype={x_pos.dtype}")\n'
-'print(f"y_pos:          shape={y_pos.shape}, dtype={y_pos.dtype}")\n'
-'print(f"speed:          shape={speed.shape}, dtype={speed.dtype}")\n'
-'print(f"head_direction: shape={head_direction.shape}, dtype={head_direction.dtype}")\n'
-'print(f"trial_type:     shape={trial_type.shape}, dtype={trial_type.dtype}")'
-))
-
-cells.append(code_cell(
-"# Quick look at the calcium traces\n"
-"fig, axes = plt.subplots(2, 1, figsize=(14, 5), sharex=True)\n"
+"data = {\n"
+'    "calcium": calcium,\n'
+'    "speed": speed,\n'
+'    "head_direction": head_direction,\n'
+'    "trial_type": trial_type,\n'
+"}\n"
 "\n"
-"time_sec = np.arange(n_frames) / fps\n"
-"n_show = min(5, n_neurons)\n"
-"\n"
-"# Top: overlaid traces (first few neurons)\n"
-"ax = axes[0]\n"
-"for i in range(n_show):\n"
-"    ax.plot(time_sec, calcium[i], linewidth=0.8, label=f'neuron {i}')\n"
-"ax.set_ylabel('dF/F0')\n"
-"ax.set_title(f'Synthetic calcium traces ({n_neurons} neurons, {duration:.0f}s @ {fps:.0f} Hz)')\n"
-"ax.legend(loc='upper right', fontsize=8)\n"
-"ax.grid(True, alpha=0.3)\n"
-"\n"
-"# Bottom: offset traces for clearer event structure\n"
-"ax = axes[1]\n"
-"offsets = np.arange(n_show) * 3\n"
-"for i in range(n_show):\n"
-"    ax.plot(time_sec, calcium[i] + offsets[i], 'k', linewidth=0.6)\n"
-"ax.set_xlabel('Time (s)')\n"
-"ax.set_ylabel('dF/F0 + offset')\n"
-"ax.set_title('Offset view (same neurons)')\n"
-"ax.set_yticks(offsets)\n"
-"ax.set_yticklabels([f'n{i}' for i in range(n_show)])\n"
-"ax.grid(True, alpha=0.3)\n"
-"\n"
-"plt.tight_layout()\n"
-"plt.show()"
-))
-
-cells.append(md_cell(
-"### Feature types and aggregation\n"
-"\n"
-"DRIADA runs a multi-stage\n"
-"[auto-detection pipeline](https://driada.readthedocs.io/en/latest/api/information/utilities.html#module-driada.information.time_series_types)\n"
-"on every feature to determine its type.  The pipeline considers uniqueness\n"
-"ratio, integer fraction, gap statistics, distribution tests, and -- for\n"
-"circular candidates -- variable name, value range, wraparound jumps, and\n"
-"Von Mises fit.  The result is a `primary_type` (continuous / discrete /\n"
-"ambiguous) plus a `subtype`:\n"
-"\n"
-"| Primary type | Subtypes |\n"
-"|---|---|\n"
-"| continuous | `linear`, `circular` |\n"
-"| discrete | `binary`, `categorical`, `count`, `timeline` |\n"
-"\n"
-"You can override the detection with a\n"
-"[`feature_types`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html#driada.experiment.exp_build.load_exp_from_aligned_data)\n"
-"dict mapping feature names to type strings.  Valid strings: `continuous`,\n"
-"`linear`, `circular`, `phase`, `angle`, `discrete`, `binary`, `categorical`,\n"
-"`count`, `timeline`.  When `feature_types` is provided, any auto-detected\n"
-"circular feature **not** listed in it is overridden to `linear` (whitelist\n"
-"behaviour).\n"
-"\n"
-"`aggregate_features` groups related 1D features into a single\n"
-"[`MultiTimeSeries`](https://driada.readthedocs.io/en/latest/api/information/core.html#driada.information.info_base.MultiTimeSeries)\n"
-"(e.g. x_pos + y_pos -> position_2d).\n"
-"\n"
-"`create_circular_2d=True` (the default) auto-creates a `(cos, sin)` encoding\n"
-"for every circular feature.  This is important because MI estimators (GCMI,\n"
-"KSG) assume the real line -- a raw angle wraps at 0 / 2*pi, breaking the\n"
-"distance metric.  The `(cos, sin)` encoding maps the circle onto R^2 where\n"
-"Euclidean distance is meaningful."
-))
-
-cells.append(code_cell(
-'# Build the data dict\n'
-'data = {\n'
-'    # --- neural activity (required) --------------------------------\n'
-'    "calcium": calcium,               # (n_neurons, n_frames)\n'
-'    # "spikes": my_spikes_array,      # optional, same shape as calcium\n'
-'    # --- dynamic features: behavioral variables (one per timepoint) -\n'
-'    "x_pos": x_pos,                   # continuous\n'
-'    "y_pos": y_pos,                   # continuous\n'
-'    "speed": speed,                   # continuous\n'
-'    "head_direction": head_direction,  # circular (radians)\n'
-'    "trial_type": trial_type,         # discrete labels\n'
-'}\n'
-'\n'
-'# Override auto-detected feature types (optional)\n'
-'feature_types = {\n'
-'    "head_direction": "circular",   # auto-detection may miss this\n'
-'    "trial_type": "categorical",    # refine from generic discrete\n'
-'}\n'
-'\n'
-'# Aggregate multi-component features (optional)\n'
-'aggregate_features = {\n'
-'    ("x_pos", "y_pos"): "position_2d",\n'
-'}\n'
-'\n'
-'# Build the Experiment\n'
-'exp = load_exp_from_aligned_data(\n'
+"exp = load_exp_from_aligned_data(\n"
 '    data_source="MyLab",\n'
 '    exp_params={"name": "demo_recording"},\n'
-'    data=data,\n'
-'    feature_types=feature_types,\n'
-'    aggregate_features=aggregate_features,\n'
-'    static_features={"fps": 30.0},\n'
-'    create_circular_2d=True,  # auto-create (cos, sin) for circular features\n'
-'    verbose=True,\n'
-')'
-))
-
-cells.append(md_cell(
-"### Inspecting the Experiment\n"
+"    data=data,\n"
+'    feature_types={"head_direction": "circular"},\n'
+'    static_features={"fps": fps},\n'
+"    verbose=True,\n"
+")\n"
 "\n"
-"Note the auto-generated features in the list below:\n"
-"- **position_2d** -- from `aggregate_features` (x_pos + y_pos)\n"
-"- **head_direction_2d** -- from `create_circular_2d` (cos + sin encoding)"
-))
-
-cells.append(code_cell(
-'print(f"Neurons:     {exp.n_cells}")\n'
-'print(f"Timepoints:  {exp.n_frames}")\n'
-'print(f"FPS:         {exp.static_features.get(\'fps\', \'unknown\')}")\n'
-'print(f"Calcium:     {exp.calcium.data.shape}")\n'
-'\n'
-'print("\\nDynamic features (time-varying behavioral variables):")\n'
-'for name, ts in sorted(exp.dynamic_features.items()):\n'
-'    ti = getattr(ts, "type_info", None)\n'
-'    if ti and hasattr(ti, "primary_type"):\n'
-'        dtype_str = f"{ti.primary_type}/{ti.subtype}"\n'
-'        if ti.is_circular:\n'
-'            dtype_str += " (circular)"\n'
-'    else:\n'
-'        dtype_str = "discrete" if ts.discrete else "continuous"\n'
-'    shape = ts.data.shape\n'
-'    print(f"  {name:25s}  shape={str(shape):15s}  type={dtype_str}")'
-))
-
-cells.append(md_cell(
-"### TimeSeries and MultiTimeSeries\n"
-"\n"
-"Each dynamic feature is stored as one of two classes:\n"
-"\n"
-"| Class | Description |\n"
-"|---|---|\n"
-"| [**`TimeSeries`**](https://driada.readthedocs.io/en/latest/api/information/core.html#driada.information.info_base.TimeSeries) | A single 1D variable (e.g. `speed`) |\n"
-"| [**`MultiTimeSeries`**](https://driada.readthedocs.io/en/latest/api/information/core.html#driada.information.info_base.MultiTimeSeries) | Multiple aligned 1D variables stacked into a 2D array (e.g. `position_2d = [x, y]`) |\n"
-"\n"
-"Key attributes on both:\n"
-"- `.data` -- raw numpy array (1D or 2D)\n"
-"- `.discrete` -- True if discrete, False if continuous\n"
-"- `.type_info` -- rich type metadata (subtype, circularity)\n"
-"- `.copula_normal_data` -- GCMI-ready transform (continuous only)\n"
-"- `.int_data` -- integer-coded values (discrete only)\n"
-"\n"
-"MultiTimeSeries additionally has `.ts_list` (list of component TimeSeries)\n"
-"and `.n_dim` (number of components)."
-))
-
-cells.append(code_cell(
-'# Features are accessible as attributes: exp.speed, exp.position_2d, etc.\n'
-'# This is equivalent to exp.dynamic_features["speed"].\n'
-'speed_ts = exp.speed\n'
-'print(f"speed.data.shape:   {speed_ts.data.shape}")\n'
-'print(f"speed.discrete:     {speed_ts.discrete}")\n'
-'print(f"speed.type_info:    {speed_ts.type_info.primary_type}"\n'
-'      f"/{speed_ts.type_info.subtype}")\n'
-'print(f"speed has copula:   {speed_ts.copula_normal_data is not None}")\n'
-'\n'
-'# Access a 2D feature (MultiTimeSeries)\n'
-'pos_mts = exp.position_2d\n'
-'print(f"\\nposition_2d.data.shape: {pos_mts.data.shape}")\n'
-'print(f"position_2d.n_dim:      {pos_mts.n_dim}  (x and y)")\n'
-'# Individual components are full TimeSeries objects:\n'
-'print(f"position_2d.ts_list[0]: {pos_mts.ts_list[0].name}"\n'
-'      f"  shape={pos_mts.ts_list[0].data.shape}")\n'
-'\n'
-'# Discrete feature\n'
-'trial_ts = exp.trial_type\n'
-'print(f"\\ntrial_type.discrete:  {trial_ts.discrete}")\n'
-'print(f"trial_type.int_data:  {trial_ts.int_data[:8]}...")\n'
-'print(f"trial_type has copula: {trial_ts.copula_normal_data is not None}")'
-))
-
-cells.append(md_cell(
-"### Batch spike reconstruction\n"
-"\n"
-"`reconstruct_all_neurons()` applies the same reconstruction method across\n"
-"the whole population.  Key parameters include `method` (`'wavelet'` or\n"
-"`'threshold'`), `n_iter` (number of iterative detection passes), and\n"
-"`show_progress` (display a progress bar).  After reconstruction, per-neuron\n"
-"quality metrics (wavelet SNR, R-squared, event counts) are available."
-))
-
-cells.append(code_cell(
-"exp.reconstruct_all_neurons(method='threshold', n_iter=3, show_progress=True)\n"
-'print(f"[OK] Reconstructed spikes for {exp.n_cells} neurons")\n'
-"\n"
-"# Collect per-neuron quality metrics\n"
-"snr_list = []\n"
-"r2_list = []\n"
-"event_counts = []\n"
-"\n"
-"for n in exp.neurons:\n"
-"    snr_list.append(n.get_wavelet_snr())\n"
-"    r2_list.append(n.get_reconstruction_r2())\n"
-"    event_counts.append(n.get_event_count())\n"
-"\n"
-"snr_arr = np.array(snr_list)\n"
-"r2_arr = np.array(r2_list)\n"
-"evt_arr = np.array(event_counts)\n"
-"\n"
-'print(f"\\nPopulation quality summary ({exp.n_cells} neurons):")\n'
-'print(f"  Wavelet SNR:  {np.mean(snr_arr):.2f} +/- {np.std(snr_arr):.2f}"\n'
-'      f"  (range {np.min(snr_arr):.2f} - {np.max(snr_arr):.2f})")\n'
-'print(f"  Recon R2:     {np.mean(r2_arr):.4f} +/- {np.std(r2_arr):.4f}"\n'
-'      f"  (range {np.min(r2_arr):.4f} - {np.max(r2_arr):.4f})")\n'
-'print(f"  Event count:  {np.mean(evt_arr):.1f} +/- {np.std(evt_arr):.1f}"\n'
-'      f"  (range {np.min(evt_arr)} - {np.max(evt_arr)})")'
-))
-
-cells.append(md_cell(
-"### Neural data access\n"
-"\n"
-"Neural activity is stored in two complementary ways:\n"
-"\n"
-"| View | Description |\n"
-"|---|---|\n"
-"| `exp.calcium` | `MultiTimeSeries` (n_neurons, n_frames) -- convenient for population-level analysis (DR, RSA, decoding) |\n"
-"| `exp.neurons` | List of `Neuron` objects -- for single-cell analysis (reconstruction, kinetics, quality) |"
-))
-
-cells.append(code_cell(
-'# Population-level: full calcium matrix as MultiTimeSeries\n'
-'print(f"exp.calcium:        {type(exp.calcium).__name__}"\n'
-'      f"  shape={exp.calcium.data.shape}")\n'
-'has_spikes = exp.spikes is not None and exp.spikes.data.any()\n'
-'print(f"exp.spikes:         {\'available\' if has_spikes else \'not provided\'}")\n'
-'\n'
-'# Single-neuron level: list of Neuron objects\n'
-'neuron = exp.neurons[0]\n'
-'print(f"\\nexp.neurons:        {len(exp.neurons)} Neuron objects")\n'
-'print(f"neuron.cell_id:     {neuron.cell_id}")\n'
-'print(f"neuron.ca:          {type(neuron.ca).__name__}"\n'
-'      f"  shape={neuron.ca.data.shape}")\n'
-'print(f"neuron.sp:          "\n'
-'      f"{\'shape=\' + str(neuron.sp.data.shape) if neuron.sp else \'None (no spikes provided)\'}")\n'
-'print(f"neuron.fps:         {neuron.fps}")\n'
-'# See Section 2 for spike reconstruction, event detection,\n'
-'# kinetics optimization, and other Neuron methods.'
-))
-
-cells.append(md_cell(
-"### Save and reload\n"
-"\n"
-"The entire Experiment (neural data + features + metadata) can be serialized\n"
-"with [`save_exp_to_pickle`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html#driada.experiment.exp_build.save_exp_to_pickle)\n"
-"and restored with [`load_exp_from_pickle`](https://driada.readthedocs.io/en/latest/api/experiment/loading.html#driada.experiment.exp_build.load_exp_from_pickle)\n"
-"for fast roundtrip storage."
-))
-
-cells.append(code_cell(
-'pkl_path = os.path.join(tempfile.gettempdir(), "demo_experiment.pkl")\n'
-'save_exp_to_pickle(exp, pkl_path, verbose=False)\n'
-'file_size_mb = os.path.getsize(pkl_path) / 1024 / 1024\n'
-'print(f"Saved:  {pkl_path} ({file_size_mb:.1f} MB)")\n'
-'\n'
-'exp_loaded = load_exp_from_pickle(pkl_path, verbose=False)\n'
-'print(f"Loaded: {exp_loaded.n_cells} neurons, {exp_loaded.n_frames} frames")\n'
-'\n'
-'# Verify roundtrip\n'
-'assert exp_loaded.n_cells == exp.n_cells\n'
-'assert exp_loaded.n_frames == exp.n_frames\n'
-'assert np.allclose(exp_loaded.calcium.data, exp.calcium.data)\n'
-'print("Roundtrip verified -- data matches.")\n'
-'\n'
-'# Clean up\n'
-'os.remove(pkl_path)\n'
-'print(f"Cleaned up {pkl_path}")'
+'print(f"Experiment: {exp.n_cells} neurons, {exp.n_frames} frames")'
 ))
 
 # ===== SECTION 2: SINGLE NEURON ANALYSIS ==================================
@@ -547,6 +268,53 @@ cells.append(code_cell(
 "\n"
 "nmae = neuron.get_nmae()\n"
 'print(f"   [OK] Normalized MAE:     {nmae:.4f}")'
+))
+
+cells.append(md_cell(
+"### Event and noise metrics\n"
+"\n"
+"Event-specific metrics assess quality only within detected transient\n"
+"regions, which matters more than full-signal metrics when events are\n"
+"sparse.  Noise estimates help set detection thresholds."
+))
+
+cells.append(code_cell(
+"# Event-level metrics\n"
+"event_count = neuron.get_event_count()\n"
+"event_rmse = neuron.get_event_rmse()\n"
+"event_mae = neuron.get_event_mae()\n"
+"event_snr = neuron.get_event_snr()\n"
+"\n"
+'print(f"Event count:      {event_count}")\n'
+'print(f"Event RMSE:       {event_rmse:.4f}")\n'
+'print(f"Event MAE:        {event_mae:.4f}")\n'
+'print(f"Event SNR:        {event_snr:.2f}")\n'
+"\n"
+"# Noise characterization\n"
+"mad = neuron.get_mad()\n"
+"baseline_std = neuron.get_baseline_noise_std()\n"
+"\n"
+'print(f"\\nMAD (robust noise):    {mad:.4f}")\n'
+'print(f"Baseline noise std:    {baseline_std:.4f}")'
+))
+
+cells.append(md_cell(
+"### Accessing the reconstruction\n"
+"\n"
+"The `reconstructed` property returns the cached model fit (calcium\n"
+"kernel convolved with detected spikes).  Use `get_reconstructed()` to\n"
+"recompute with custom kinetics."
+))
+
+cells.append(code_cell(
+"# Cached reconstruction (uses optimized kinetics)\n"
+"recon = neuron.reconstructed  # TimeSeries object\n"
+'print(f"Reconstructed shape: {recon.data.shape}")\n'
+'print(f"Reconstructed range: [{recon.data.min():.3f}, {recon.data.max():.3f}]")\n'
+"\n"
+"# Recompute with custom time constants (in frames)\n"
+"recon_custom = neuron.get_reconstructed(t_rise_frames=3, t_off_frames=30)\n"
+'print(f"Custom recon range:  [{recon_custom.data.min():.3f}, {recon_custom.data.max():.3f}]")'
 ))
 
 cells.append(md_cell(
