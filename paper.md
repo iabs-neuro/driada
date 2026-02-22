@@ -56,7 +56,7 @@ DRIADA employs a modular architecture centered on three core data structures: th
 
 **Integration capabilities** uniquely map single-cell selectivity onto population manifolds, enabling researchers to identify which neurons encode task variables and how their tuning properties shape collective geometry—addressing the methodological gap identified by @spalletti2022single between single-neuron and population approaches.
 
-Performance optimization employs conditional Numba JIT compilation (27 functions across information theory and signal processing), joblib-based parallelization with automatic backend selection, and optional PyTorch GPU acceleration. The codebase maintains 90% test coverage with comprehensive CI/CD workflows.
+Performance optimization employs conditional Numba JIT compilation (27 functions across information theory and signal processing), joblib-based parallelization with automatic backend selection, and optional PyTorch GPU acceleration. The codebase maintains >90% test coverage for core computational modules (information theory, INTENSE, network analysis) with comprehensive CI/CD workflows across Linux, macOS, and Windows.
 
 # Research Applications
 

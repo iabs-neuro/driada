@@ -427,6 +427,7 @@ class Neuron:
             Additional parameters depend on method:
 
             For 'wavelet':
+
             * fps : float, optional
                 Sampling rate in Hz. Default is DEFAULT_FPS (20.0 Hz).
             * min_event_dur : float, optional
@@ -435,6 +436,7 @@ class Neuron:
                 Maximum event duration in seconds. Default is 2.5.
 
             For 'threshold':
+
             * threshold_std : float, optional
                 Number of standard deviations above mean. Default is 2.5.
             * smooth_sigma : float, optional
@@ -1032,6 +1034,7 @@ class Neuron:
         method : {'simple', 'wavelet'}, optional
             - 'simple': Peak-based SNR using spike locations (fast, default)
             - 'wavelet': Event-based SNR using wavelet regions (accurate)
+
             Default is 'simple'.
 
         Returns
@@ -1358,7 +1361,7 @@ class Neuron:
 
         Notes
         -----
-        MAE = mean(|Ca_observed - Ca_reconstructed|)
+        MAE = mean(\|Ca_observed - Ca_reconstructed\|)
 
         Unlike RMSE, MAE treats all errors equally (no squaring). Useful
         for understanding typical deviation and detecting outlier sensitivity:
@@ -1479,7 +1482,7 @@ class Neuron:
 
         Notes
         -----
-        Event_MAE = mean(|Ca_events - Recon_events|)
+        Event_MAE = mean(\|Ca_events - Recon_events\|)
 
         Where events are defined as: Ca > median + n_mad * MAD
 
@@ -2590,11 +2593,14 @@ class Neuron:
             - 'auto': Use threshold if threshold_events exist, else wavelet (default)
             - 'wavelet': Always use wavelet detection (slower, more sensitive)
             - 'threshold': Always use threshold detection (faster, requires high SNR)
+
             Default: 'auto'
         **kwargs : dict
             Method-specific parameters including:
+
             - min_r2 : float, minimum R² for t_off fit quality (default: 0.8).
               Events with poor exponential fit are rejected.
+
             See _optimize_kinetics_direct() for full list.
 
         Returns
@@ -2823,7 +2829,7 @@ class Neuron:
                     smoothed = savgol_filter(rise_signal, actual_window, 2)
                 else:
                     smoothed = rise_signal
-            except:
+            except (ValueError, TypeError):
                 smoothed = rise_signal
             derivative = np.gradient(smoothed) * fps
             max_deriv_idx = np.argmax(derivative)

@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import scipy
 from scipy.stats import lognorm, gamma, norm
@@ -30,7 +32,7 @@ def chebyshev_ineq(data, val):
 
     Notes
     -----
-    Chebyshev's inequality states that P(|X - μ| >= k*σ) <= 1/k²
+    Chebyshev's inequality states that P(\|X - μ\| >= k*σ) <= 1/k²
     This gives P(X >= val) <= 1/z² where z = (val - μ)/σ"""
     mean = np.mean(data)
     std = np.std(data)
@@ -134,15 +136,18 @@ def get_gamma_zi_p(data, val, zero_threshold=1e-10):
     Notes
     -----
     Zero-Inflated Gamma model:
+
     - P(X = 0) = pi (zero inflation parameter)
     - P(X > 0) = (1-pi) * Gamma(shape, scale)
 
     P-value calculation:
+
     - If val <= zero_threshold: p_value = 1.0 (zeros never significant)
     - If val > zero_threshold: p_value = (1-pi) * Gamma.sf(val)
       (zero mass doesn't contribute to tail probability for positive values)
 
     Edge cases:
+
     - All zeros (pi=1): Returns 1.0 for any val
     - No zeros (pi=0): Equivalent to pure gamma distribution
     - Gamma fit fails: Returns conservative 1.0
@@ -182,8 +187,12 @@ def get_gamma_zi_p(data, val, zero_threshold=1e-10):
         # Ensure p-value is in valid range [0, 1]
         return np.clip(p_value, 0.0, 1.0)
 
-    except Exception:
-        # Conservative: return 1.0 if fitting fails
+    except Exception as e:
+        warnings.warn(
+            f"Gamma-ZI fit failed ({e}), returning conservative p=1.0",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         return 1.0
 
 
