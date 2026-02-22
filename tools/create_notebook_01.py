@@ -62,7 +62,7 @@ cells.append(md_cell(
 "**What you will learn:**\n"
 "\n"
 "1. **Loading your data** -- wrap numpy arrays (from Suite2P, CaImAn, DeepLabCut, etc.) into a DRIADA [`Experiment`](https://driada.readthedocs.io/en/latest/api/experiment/core.html).\n"
-"2. **Single neuron analysis** -- create a [`Neuron`](https://driada.readthedocs.io/en/latest/api/experiment/reconstruction.html), reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
+"2. **Single neuron analysis** -- create a [`Neuron`](https://driada.readthedocs.io/en/latest/api/experiment/core.html), reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
 "3. **Threshold vs wavelet reconstruction** -- compare two spike detection methods across four optimization modes.\n"
 "4. **Method agreement** -- quantify event-region overlap between threshold and wavelet at varying tolerance."
 ))

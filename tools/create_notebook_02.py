@@ -204,7 +204,7 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Similarity metrics\n"
 "\n"
-"[`get_sim`](https://driada.readthedocs.io/en/latest/api/information/core.html)`()` wraps MI, Pearson r, and Spearman rho in a unified interface.\n"
+"[`get_sim`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html)`()` wraps MI, Pearson r, and Spearman rho in a unified interface.\n"
 "Available metrics include `mi`, `pearsonr`, `spearmanr`, `kendalltau`,\n"
 "`fast_pearsonr`, `av` (activity ratio for binary-gated signals), and any\n"
 "scipy.stats correlation function by name."

@@ -5,14 +5,20 @@ Synthetic Data Generation
 
 This module provides functions for generating synthetic neural data with known ground truth properties.
 
-Functions
----------
+Experiment Generators
+---------------------
 
 .. autofunction:: driada.experiment.synthetic.generators.generate_tuned_selectivity_exp
 .. autofunction:: driada.experiment.generate_synthetic_exp
 .. autofunction:: driada.experiment.generate_circular_manifold_exp
 .. autofunction:: driada.experiment.generate_2d_manifold_exp
 .. autofunction:: driada.experiment.generate_mixed_population_exp
+
+Signal Generators
+-----------------
+
+.. autofunction:: driada.experiment.synthetic.core.generate_pseudo_calcium_signal
+.. autofunction:: driada.experiment.synthetic.core.generate_pseudo_calcium_multisignal
 
 Usage Examples
 --------------

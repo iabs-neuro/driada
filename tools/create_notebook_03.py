@@ -155,7 +155,7 @@ cells.append(md_cell(
 "`MVData` wraps a *(n_features x n_samples)* matrix and provides one-line\n"
 "DR via [`get_embedding`](https://driada.readthedocs.io/en/latest/api/dim_reduction/data_structures.html). Seven methods are available: **PCA**, **Isomap**, **LLE**,\n"
 "**Laplacian Eigenmaps**, **t-SNE**, **UMAP**, and **MDS**. For multi-step\n"
-"pipelines, see [`dr_sequence`](https://driada.readthedocs.io/en/latest/api/dim_reduction/data_structures.html).\n"
+"pipelines, see [`dr_sequence`](https://driada.readthedocs.io/en/latest/api/dim_reduction/algorithms.html).\n"
 "\n"
 "```python\n"
 "emb = mvdata.get_embedding(method='pca')          # defaults\n"
@@ -1026,7 +1026,7 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 4. Autoencoder-based DR\n"
 "\n"
-"Neural network DR alternatives via [`flexible_ae`](https://driada.readthedocs.io/en/latest/api/dim_reduction/algorithms.html): **standard autoencoder** (AE) with\n"
+"Neural network DR alternatives via [`flexible_ae`](https://driada.readthedocs.io/en/latest/api/dim_reduction/neural_methods.html): **standard autoencoder** (AE) with\n"
 "`continue_learning`, **Beta-VAE** with KL divergence, and a PCA baseline.\n"
 "Key parameters: `architecture` (`'ae'` or `'vae'`) selects the model type,\n"
 "and `continue_learning` resumes training without resetting weights.\n"
