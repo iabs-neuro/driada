@@ -460,7 +460,10 @@ cells.append(md_cell(
 "\n"
 "[INTENSE](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html)\n"
 "tests every neuron-feature pair for significant mutual information using a\n"
-"two-stage permutation test.  See\n"
+"two-stage permutation test.  The function returns an\n"
+"[`IntenseResults`](https://driada.readthedocs.io/en/latest/api/intense/base.html#driada.intense.io.IntenseResults)\n"
+"object -- the primary container for all INTENSE outputs (statistics,\n"
+"significance, metadata).  See\n"
 "[Notebook 02](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb)\n"
 "for the full walkthrough."
 ))
@@ -472,28 +475,18 @@ cells.append(code_cell(
 "    exp_demo, verbose=True,\n"
 ")\n"
 "\n"
-'# significance is a nested dict: significance[neuron_id][feat_name] -> bool\n'
-'neuron_ids = sorted(significance.keys())\n'
-'feat_names = sorted(next(iter(significance.values())).keys())\n'
-'\n'
-'# Compare detected selectivity against ground truth\n'
-'gt_pairs = set(exp_demo.ground_truth["expected_pairs"])\n'
-'\n'
-'print("\\nSelective neurons per feature (detected / ground truth):")\n'
-'for feat_name in feat_names:\n'
-'    sig_neurons = [nid for nid in neuron_ids\n'
-'                   if significance[nid][feat_name].get("stage2", False)]\n'
-'    expected = [nid for nid in neuron_ids if (nid, feat_name) in gt_pairs]\n'
-'    print(f"  {feat_name:25s}  {len(sig_neurons):3d} detected / {len(expected):3d} expected")'
+"# results is an IntenseResults object -- the primary container for outputs.\n"
+"# Validate detections against synthetic ground truth:\n"
+"metrics = results.validate_against_ground_truth(exp_demo.ground_truth)"
 ))
 
 cells.append(code_cell(
-"# stats is a nested dict: stats[neuron_id][feat_name] -> {'me': ..., ...}\n"
-"# Pairs not tested in stage 1 have empty dicts, so use .get() with default 0\n"
-"neuron_ids = sorted(stats.keys())\n"
-"feat_names = sorted(next(iter(stats.values())).keys())\n"
-"mi_matrix = np.array([[stats[nid][fn].get('me', 0.0) for fn in feat_names]\n"
-"                       for nid in neuron_ids])\n"
+"# results.stats is a nested dict: results.stats[neuron_id][feat_name] -> {'me': ...}\n"
+"# Build MI matrix from IntenseResults for visualization\n"
+"neuron_ids = sorted(results.stats.keys())\n"
+"feat_names = sorted(next(iter(results.stats.values())).keys())\n"
+"mi_matrix = np.array([[results.stats[nid][fn].get('me', 0.0)\n"
+"                        for fn in feat_names] for nid in neuron_ids])\n"
 "\n"
 "fig, ax = plt.subplots(figsize=(8, 6))\n"
 "im = ax.imshow(mi_matrix.T, aspect='auto', cmap='viridis')\n"
@@ -532,7 +525,7 @@ cells.append(md_cell(
 
 cells.append(code_cell(
 "embedding = exp_demo.create_embedding(\n"
-"    'isomap', n_components=2, n_neighbors=30, ds=3,\n"
+"    'isomap', n_components=2, n_neighbors=20, ds=3,\n"
 ")\n"
 "# ds=3 downsamples the time axis by 3x for speed\n"
 "\n"
@@ -613,13 +606,15 @@ cells.append(code_cell(
 "# Annotate population group boundaries\n"
 "boundaries = [0, 10, 20, 30, 35, 50]\n"
 "labels = ['HD', 'Speed', 'Event', 'Mixed', 'Bkg']\n"
-"for i, (start, label) in enumerate(zip(boundaries[:-1], labels)):\n"
-"    mid = (start + boundaries[i+1]) / 2\n"
-"    ax.text(mid, -1.5, label, ha='center', fontsize=8, fontweight='bold')\n"
-"\n"
 "for b in boundaries[1:-1]:\n"
 "    ax.axhline(b - 0.5, color='red', linewidth=0.5, alpha=0.5)\n"
 "    ax.axvline(b - 0.5, color='red', linewidth=0.5, alpha=0.5)\n"
+"for i, (start, label) in enumerate(zip(boundaries[:-1], labels)):\n"
+"    mid = (start + boundaries[i+1]) / 2\n"
+"    ax.text(mid, -2.5, label, ha='center', fontsize=8, fontweight='bold',\n"
+"            clip_on=False)\n"
+"ax.set_xlim(-0.5, 49.5)\n"
+"ax.set_ylim(49.5, -0.5)\n"
 "\n"
 "plt.tight_layout()\n"
 "plt.show()"
