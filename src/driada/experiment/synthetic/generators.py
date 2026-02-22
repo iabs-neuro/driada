@@ -845,6 +845,18 @@ def generate_tuned_selectivity_exp(
         reconstruct_spikes=reconstruct_spikes,
     )
 
+    # Update expected_pairs to use _2d feature names for circular features.
+    # INTENSE substitutes circular features with their (cos, sin) _2d encoding,
+    # so ground truth must match for correct TP/FP/FN calculation.
+    updated_pairs = []
+    for nid, feat in exp.ground_truth["expected_pairs"]:
+        feat_2d = feat + "_2d"
+        if feat_2d in exp.dynamic_features:
+            updated_pairs.append((nid, feat_2d))
+        else:
+            updated_pairs.append((nid, feat))
+    exp.ground_truth["expected_pairs"] = updated_pairs
+
     if verbose:
         print(f"  Created experiment: {n_neurons} neurons, {n_frames} frames")
         print(f"  Features: {list(dynamic_features.keys())}")

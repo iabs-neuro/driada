@@ -306,8 +306,9 @@ class TestGenerateTunedSelectivityExp:
         # Total: 4 pairs
         assert len(expected_pairs) == 4
 
-        # Check specific pairs
-        hd_pairs = [(n, f) for n, f in expected_pairs if f == "head_direction"]
+        # Check specific pairs (head_direction becomes head_direction_2d
+        # because create_circular_2d=True generates the (cos, sin) encoding)
+        hd_pairs = [(n, f) for n, f in expected_pairs if f == "head_direction_2d"]
         speed_pairs = [(n, f) for n, f in expected_pairs if f == "speed"]
         assert len(hd_pairs) == 2
         assert len(speed_pairs) == 2
@@ -726,12 +727,12 @@ class TestGroundTruthToSelectivityMatrix:
 
         result = ground_truth_to_selectivity_matrix(ground_truth)
 
-        # Check shape: 2 features (head_direction, speed), 5 neurons
+        # Check shape: 2 features (head_direction_2d, speed), 5 neurons
         assert result["matrix"].shape[1] == 5
         assert len(result["feature_names"]) == 2
 
         # Check that selectivity is correct
-        feat_idx_hd = result["feature_names"].index("head_direction")
+        feat_idx_hd = result["feature_names"].index("head_direction_2d")
         feat_idx_speed = result["feature_names"].index("speed")
 
         # Neurons 0,1 are HD cells

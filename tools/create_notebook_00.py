@@ -320,7 +320,8 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Batch spike reconstruction\n"
 "\n"
-"`reconstruct_all_neurons()` applies the same reconstruction method across\n"
+"[`reconstruct_all_neurons()`](https://driada.readthedocs.io/en/latest/api/experiment/core.html#driada.experiment.exp_base.Experiment.reconstruct_all_neurons)\n"
+"applies the same reconstruction method across\n"
 "the whole population.  Key parameters include `method` (`'wavelet'` or\n"
 "`'threshold'`), `n_iter` (number of iterative detection passes), and\n"
 "`show_progress` (display a progress bar).  After reconstruction, per-neuron\n"
@@ -475,10 +476,15 @@ cells.append(code_cell(
 'neuron_ids = sorted(significance.keys())\n'
 'feat_names = sorted(next(iter(significance.values())).keys())\n'
 '\n'
-'print("\\nSelective neurons per feature:")\n'
+'# Compare detected selectivity against ground truth\n'
+'gt_pairs = set(exp_demo.ground_truth["expected_pairs"])\n'
+'\n'
+'print("\\nSelective neurons per feature (detected / ground truth):")\n'
 'for feat_name in feat_names:\n'
-'    sig_neurons = [nid for nid in neuron_ids if significance[nid][feat_name]]\n'
-'    print(f"  {feat_name:25s}  {len(sig_neurons):3d} neurons")'
+'    sig_neurons = [nid for nid in neuron_ids\n'
+'                   if significance[nid][feat_name].get("stage2", False)]\n'
+'    expected = [nid for nid in neuron_ids if (nid, feat_name) in gt_pairs]\n'
+'    print(f"  {feat_name:25s}  {len(sig_neurons):3d} detected / {len(expected):3d} expected")'
 ))
 
 cells.append(code_cell(
@@ -500,39 +506,60 @@ cells.append(code_cell(
 "plt.show()"
 ))
 
+cells.append(code_cell(
+"# Convenience method: get neurons with at least 1 significant feature\n"
+"sig_dict = exp_demo.get_significant_neurons(min_nspec=1)\n"
+"\n"
+'print(f"Neurons with >= 1 significant feature: {len(sig_dict)} / {exp_demo.n_cells}")\n'
+'for nid, feats in sorted(sig_dict.items())[:10]:\n'
+'    print(f"  neuron {nid:3d}: {feats}")\n'
+'if len(sig_dict) > 10:\n'
+'    print(f"  ... ({len(sig_dict) - 10} more)")'
+))
+
 # ----- 2.3 DR mini-demo ----------------------------------------------------
 
 cells.append(md_cell(
 "### 2.3 Dimensionality reduction -- population geometry\n"
 "\n"
-"Project population activity onto a 2D UMAP embedding to see how behavioral\n"
-"variables are encoded in the neural manifold.  See\n"
+"Project population activity onto a 2D Isomap embedding to see how behavioral\n"
+"variables are encoded in the neural manifold.  `n_neighbors` controls the\n"
+"locality of the manifold approximation (20-50 is typical); `ds` downsamples\n"
+"the time axis for faster computation.  See\n"
 "[Notebook 03](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb)\n"
 "for the full walkthrough."
 ))
 
 cells.append(code_cell(
-"embedding = exp_demo.create_embedding('umap', n_components=2, seed=0)\n"
+"embedding = exp_demo.create_embedding(\n"
+"    'isomap', n_components=2, n_neighbors=30, ds=3,\n"
+")\n"
+"# ds=3 downsamples the time axis by 3x for speed\n"
 "\n"
 "fig, axes = plt.subplots(1, 2, figsize=(12, 5))\n"
 "\n"
+"# head_direction must be downsampled to match embedding length\n"
+"ds = 3\n"
+"hd_ds = exp_demo.head_direction.data[::ds][:len(embedding)]\n"
+"speed_ds = exp_demo.speed.data[::ds][:len(embedding)]\n"
+"\n"
 "ax = axes[0]\n"
 "sc = ax.scatter(embedding[:, 0], embedding[:, 1],\n"
-"                c=exp_demo.head_direction.data, cmap='hsv',\n"
+"                c=hd_ds, cmap='hsv',\n"
 "                s=1, alpha=0.5)\n"
-"ax.set_title('UMAP colored by head direction')\n"
+"ax.set_title('Isomap colored by head direction')\n"
 "plt.colorbar(sc, ax=ax, label='head direction (rad)')\n"
 "\n"
 "ax = axes[1]\n"
 "sc = ax.scatter(embedding[:, 0], embedding[:, 1],\n"
-"                c=exp_demo.speed.data, cmap='plasma',\n"
+"                c=speed_ds, cmap='plasma',\n"
 "                s=1, alpha=0.5)\n"
-"ax.set_title('UMAP colored by speed')\n"
+"ax.set_title('Isomap colored by speed')\n"
 "plt.colorbar(sc, ax=ax, label='speed')\n"
 "\n"
 "for ax in axes:\n"
-"    ax.set_xlabel('UMAP 1')\n"
-"    ax.set_ylabel('UMAP 2')\n"
+"    ax.set_xlabel('Isomap 1')\n"
+"    ax.set_ylabel('Isomap 2')\n"
 "\n"
 "plt.tight_layout()\n"
 "plt.show()"
@@ -567,12 +594,33 @@ cells.append(code_cell(
 'print(f"Clustering coefficient: {clustering:.3f}")'
 ))
 
+cells.append(md_cell(
+"The adjacency matrix below shows significant neuron-neuron correlations.\n"
+"Notice the block-diagonal structure: neurons sharing the same ground-truth\n"
+"selectivity (head direction, speed, events) form dense clusters because\n"
+"they co-vary with the same behavioral signal.  Mixed-selectivity neurons\n"
+"(indices 30-34) connect to multiple blocks.  Background neurons (35-49)\n"
+"have sparse or no connections."
+))
+
 cells.append(code_cell(
 "fig, ax = plt.subplots(figsize=(6, 6))\n"
 "ax.imshow(cell_sig, cmap='Greys', interpolation='nearest')\n"
 "ax.set_xlabel('Neuron')\n"
 "ax.set_ylabel('Neuron')\n"
 "ax.set_title('Functional connectivity (significant pairs)')\n"
+"\n"
+"# Annotate population group boundaries\n"
+"boundaries = [0, 10, 20, 30, 35, 50]\n"
+"labels = ['HD', 'Speed', 'Event', 'Mixed', 'Bkg']\n"
+"for i, (start, label) in enumerate(zip(boundaries[:-1], labels)):\n"
+"    mid = (start + boundaries[i+1]) / 2\n"
+"    ax.text(mid, -1.5, label, ha='center', fontsize=8, fontweight='bold')\n"
+"\n"
+"for b in boundaries[1:-1]:\n"
+"    ax.axhline(b - 0.5, color='red', linewidth=0.5, alpha=0.5)\n"
+"    ax.axvline(b - 0.5, color='red', linewidth=0.5, alpha=0.5)\n"
+"\n"
 "plt.tight_layout()\n"
 "plt.show()"
 ))
