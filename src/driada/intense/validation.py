@@ -55,6 +55,7 @@ def validate_metric(metric, allow_scipy=True) -> str:
     ----------
     metric : str
         Metric name to validate. Supported metrics:
+
         - 'mi': Mutual information (supports multivariate data)
         - 'av': Activity ratio (requires one binary and one continuous variable)
         - 'fast_pearsonr': Fast Pearson correlation implementation
@@ -67,6 +68,7 @@ def validate_metric(metric, allow_scipy=True) -> str:
     -------
     metric_type : str
         Type of metric:
+
         - 'mi': Mutual information metric
         - 'special': Special metrics ('av', 'fast_pearsonr')
         - 'scipy': scipy.stats functions
@@ -79,7 +81,8 @@ def validate_metric(metric, allow_scipy=True) -> str:
     Notes
     -----
     The function validates that scipy.stats attributes are callable to prevent
-    accepting non-function attributes like constants or data arrays."""
+    accepting non-function attributes like constants or data arrays.
+    """
     # Built-in metrics
     if metric == "mi":
         return "mi"
@@ -130,16 +133,15 @@ def validate_common_parameters(shift_window=None, ds=None, nsh=None, noise_const
     Raises
     ------
     TypeError
-        If parameters have incorrect types (non-integer for shift_window, ds, nsh;
-        non-numeric for noise_const).
+        If parameters have incorrect types (non-integer for int params; non-numeric for noise_const).
     ValueError
-        If parameters have invalid values (negative shift_window or noise_const;
-        non-positive ds or nsh).
+        If parameters have invalid values (negative shift_window or noise_const; non-positive ds or nsh).
 
     Notes
     -----
     This function validates parameter types using isinstance checks for numpy
-    compatibility (accepts both Python int and numpy integer types)."""
+    compatibility (accepts both Python int and numpy integer types).
+    """
     if shift_window is not None:
         if not isinstance(shift_window, (int, np.integer)):
             raise TypeError(f"shift_window must be integer, got {type(shift_window).__name__}")

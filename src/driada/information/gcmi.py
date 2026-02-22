@@ -795,12 +795,14 @@ def gcmi_cc(x, y):
     Notes
     -----
     The GCMI method:
+
     1. Transforms each variable to standard normal marginals using the
        empirical CDF (copula transform)
     2. Computes MI under the Gaussian copula assumption
     3. Applies bias correction for finite samples
 
     This approach is:
+
     - Robust to outliers due to rank-based transform
     - Computationally efficient (no density estimation)
     - Provides MI lower bound (exact for jointly Gaussian data)

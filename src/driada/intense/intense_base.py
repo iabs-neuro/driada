@@ -1059,11 +1059,11 @@ def scan_stage(
     Execute a single stage of INTENSE computation.
 
     This function encapsulates the common logic between Stage 1 and Stage 2:
+
     1. Scan pairs to compute metric values and shuffle distributions
     2. Compute statistical tables from the results
-    3. Apply the appropriate criterion:
-       - Stage 1: criterion1 (rank-based filtering using topk)
-       - Stage 2: criterion2 (p-value based with multiple comparison correction)
+    3. Apply the appropriate criterion (Stage 1: rank-based filtering
+       using topk; Stage 2: p-value based with multiple comparison correction)
 
     For Stage 2, the multiple comparison correction threshold is computed
     internally from the stage statistics using config.pval_thr and
@@ -1243,15 +1243,17 @@ def compute_me_stats(
         names than will be given to time series from tsbunch2 in final results
 
     mode : str, default='two_stage'
-        Computation mode. 3 modes are available:
-        'stage1': perform preliminary scanning with "n_shuffles_stage1" shuffles only.
-                  Rejects strictly non-significant neuron-feature pairs, does not give definite results
-                  about significance of the others.
-        'stage2': skip stage 1 and perform full-scale scanning ("n_shuffles_stage2" shuffles) of all neuron-feature pairs.
-                  Gives definite results, but can be very time-consuming. Also reduces statistical power
-                  of multiple comparison tests, since the number of hypotheses is very high.
-        'two_stage': prune non-significant pairs during stage 1 and perform thorough testing for the rest during stage 2.
-                     Recommended mode.
+        Computation mode. Options:
+
+        - ``'stage1'``: preliminary scanning with n_shuffles_stage1 shuffles only.
+          Rejects strictly non-significant pairs, does not give definite results
+          about significance of the others.
+        - ``'stage2'``: skip stage 1, perform full-scale scanning (n_shuffles_stage2
+          shuffles) of all pairs. Gives definite results but can be very
+          time-consuming. Also reduces statistical power of multiple comparison
+          tests since the number of hypotheses is very high.
+        - ``'two_stage'``: prune non-significant pairs during stage 1 then
+          perform thorough testing for the rest during stage 2. Recommended.
 
     metric : str, default='mi'
         similarity metric between TimeSeries

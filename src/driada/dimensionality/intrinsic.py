@@ -21,6 +21,7 @@ def nn_dimension(data=None, k=2, graph_method="sklearn", precomputed_graph=None)
     distance ratios.
 
     The algorithm works by:
+
     1. For each point, computing the ratio r_i = d_2 / d_1 (for k=2), where
        d_1 and d_2 are distances to the 1st and 2nd nearest neighbors
     2. Using maximum likelihood to estimate dimension from the distribution

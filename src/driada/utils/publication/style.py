@@ -107,6 +107,7 @@ class StylePreset:
         -------
         float
             Scale factor to apply to all visual elements:
+
             - scaling_mode='fixed': Always returns 1.0 (same physical size on all panels)
             - scaling_mode='area': Returns sqrt(panel_area / reference_area) to preserve
               visual density across different panel sizes

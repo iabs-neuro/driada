@@ -255,10 +255,11 @@ def filter_1d_timeseries(data: np.ndarray, method: str = "gaussian", **kwargs) -
         Filtering method: 'gaussian', 'savgol', 'wavelet', or 'none'
     **kwargs : dict
         Method-specific parameters:
+
         - gaussian: sigma (default: 1.0) - standard deviation for Gaussian kernel
         - savgol: window_length (default: 5), polyorder (default: 2)
         - wavelet: wavelet (default: 'db4'), level (default: auto),
-                  mode (default: 'smooth'), threshold_method (default: 'mad')
+          mode (default: 'smooth'), threshold_method (default: 'mad')
 
     Returns
     -------

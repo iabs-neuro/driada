@@ -29,27 +29,35 @@ class ProximityGraph(Network):
         Data matrix of shape (n_features, n_samples). Each column is a data point.
     m_params : dict
         Metric parameters dictionary. Required key:
+
         - 'metric_name' : str or callable
-            Distance metric name from pynndescent.distances.named_distances
-            ('euclidean', 'cosine', 'manhattan', etc.), 'hyperbolic',
-            or a callable custom distance function
+          Distance metric name from pynndescent.distances.named_distances
+          ('euclidean', 'cosine', 'manhattan', etc.), 'hyperbolic',
+          or a callable custom distance function.
+
         Optional keys (filtered by m_param_filter):
+
         - 'sigma' : float, bandwidth for heat kernel affinity transformation
         - 'p' : float, parameter for minkowski metric
         - Additional metric-specific parameters passed to distance function
     g_params : dict
         Graph construction parameters. Required key:
-        - 'g_method_name' : str, graph construction method
-            Options: 'knn', 'umap', 'auto_knn', 'eps'
+
+        - 'g_method_name' : str, graph construction method.
+          Options: 'knn', 'umap', 'auto_knn', 'eps'.
+
         Method-specific keys (filtered by g_param_filter):
+
         - 'nn' : int, number of nearest neighbors (for knn/umap/auto_knn)
         - 'eps' : float, epsilon radius (for eps method)
         - 'min_density' : float, minimum graph density threshold (for eps method)
+
         General optional keys:
+
         - 'weighted' : bool, whether to create weighted edges
         - 'dist_to_aff' : str, distance to affinity conversion ('hk' for heat kernel)
         - 'max_deleted_nodes' : float, maximum fraction of nodes that can be
-            deleted during giant component extraction (raises exception if exceeded)
+          deleted during giant component extraction (raises exception if exceeded)
         - 'graph_preprocessing' : str, preprocessing method (default: 'giant_cc')
         - 'seed' : int, random seed for reproducibility (default: 42)
     create_nx_graph : bool, default=False
@@ -268,8 +276,9 @@ class ProximityGraph(Network):
         The transformation method is specified by self.dist_to_aff parameter.
 
         Currently implemented methods:
-        - 'hk': Heat kernel with adaptive bandwidth
-          w_ij = exp(-d_ij^2 / (sigma * mean_squared_distance))
+
+        - 'hk': Heat kernel with adaptive bandwidth:
+          ``w_ij = exp(-d_ij^2 / (sigma * mean_squared_distance))``
 
         Raises
         ------

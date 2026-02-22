@@ -17,7 +17,7 @@ Usage Examples
 --------------
 
 Loading from IABS Data
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 

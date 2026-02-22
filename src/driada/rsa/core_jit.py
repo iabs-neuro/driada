@@ -277,7 +277,7 @@ def fast_manhattan_distance(patterns):
     Notes
     -----
     Manhattan distance (also called L1 distance or taxicab distance) is
-    the sum of absolute differences: d(i,j) = sum(|patterns[i,k] - patterns[j,k]|)
+    the sum of absolute differences: ``d(i,j) = sum(abs(patterns[i,k] - patterns[j,k]))``
 
     This metric is more robust to outliers than Euclidean distance and
     often used for high-dimensional or sparse data.

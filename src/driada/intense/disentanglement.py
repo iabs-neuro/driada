@@ -15,12 +15,17 @@ import driada  # For PARALLEL_BACKEND
 from .intense_base import _parallel_executor
 
 
-# Default multifeature mapping for common behavioral variable combinations
-# Maps component tuples to their semantic names
 DEFAULT_MULTIFEATURE_MAP = {
     ("x", "y"): "place",  # 2D spatial location multifeature
     ("x", "y", "z"): "3d-place",  # 3D spatial location multifeature
 }
+"""Default multifeature mapping for common behavioral variable combinations.
+
+Maps component tuples to their semantic names:
+
+- ``("x", "y")``: mapped to ``"place"`` (2D spatial location)
+- ``("x", "y", "z")``: mapped to ``"3d-place"`` (3D spatial location)
+"""
 
 # Epsilon tolerance for floating-point comparisons
 # MI values are computed via numerical estimation and rarely equal exactly 0.0
@@ -270,6 +275,7 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
     -------
     float
         Disentanglement result:
+
         - 0: ts2 is the primary variable (ts3 is redundant)
         - 1: ts3 is the primary variable (ts2 is redundant)
         - 0.5: Both variables contribute - undistinguishable
@@ -277,6 +283,7 @@ def disentangle_pair(ts1, ts2, ts3, verbose=False, ds=1):
     Notes
     -----
     The method uses interaction information to detect redundancy/synergy:
+
     - If II < 0 (redundancy), identifies the "weakest link" using criteria
       based on pairwise MI and conditional MI values
     - If II > 0 (synergy), uses different criteria for special cases
@@ -553,11 +560,7 @@ def disentangle_all_selectivities(
     multifeature_map : dict, optional
         Mapping from multifeature tuples to aggregated names and their
         corresponding MultiTimeSeries. If None, uses DEFAULT_MULTIFEATURE_MAP.
-        Example: {
-            ('x', 'y'): 'place',
-            ('speed', 'head_direction'): 'locomotion',
-            ('lick', 'reward'): 'consummatory'
-        }
+        Example: ``{('x', 'y'): 'place', ('speed', 'head_direction'): 'locomotion'}``.
     feat_feat_significance : ndarray, optional
         Binary significance matrix from compute_feat_feat_significance.
         If provided, only feature pairs marked as significant (value=1)
@@ -624,15 +627,13 @@ def disentangle_all_selectivities(
     -------
     dict
         Dictionary containing:
+
         - 'disent_matrix': ndarray where element [i,j] indicates how many times
           feature i was primary when paired with feature j across all neurons.
         - 'count_matrix': ndarray where element [i,j] indicates how many
           neuron-feature pairs were tested for features i and j.
-        - 'per_neuron_disent': dict mapping neuron_id to detailed results:
-          - 'pairs': {(feat_i, feat_j): {'result': 0/0.5/1, 'source': str}}
-          - 'renames': {new_name: (old1, old2)} from filter chain
-          - 'final_sels': list of final selectivities after filtering
-          - 'errors': list of (neuron_id, sel_comb, error_msg) tuples for failed pairs
+        - 'per_neuron_disent': dict mapping neuron_id to detailed results
+          with keys 'pairs', 'renames', 'final_sels', and 'errors'.
 
     Notes
     -----

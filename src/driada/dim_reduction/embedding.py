@@ -74,7 +74,7 @@ class Embedding:
         For neural network methods, the trained model.
     nn_loss : float or None
         For neural network methods, the final loss value.
-    reducer_ : object
+    reducer\_ : object
         The underlying reducer object (sklearn model, etc.) for potential reuse.
 
     Plus all parameters from params dict set as attributes via setattr.
@@ -124,7 +124,7 @@ class Embedding:
     - Neural methods (AE/VAE) require PyTorch to be installed
     - Some methods (MVU) require additional dependencies (cvxpy)
     - Coordinates are stored as (dim, n_samples) for consistency
-    - The 'auto_' prefix indicates methods using external libraries
+    - The ``auto_`` prefix indicates methods using external libraries
 
     Examples
     --------
@@ -234,7 +234,7 @@ class Embedding:
         """Build the embedding using the specified method.
 
         Dynamically calls the appropriate embedding creation method based on
-        the embedding method name (e.g., 'pca' calls create_pca_embedding_).
+        the embedding method name (e.g., 'pca' calls ``create_pca_embedding_``).
 
         Parameters
         ----------
@@ -303,7 +303,7 @@ class Embedding:
         Notes
         -----
         Sets self.coords to shape (dim, n_samples) and stores the PCA object
-        in self.reducer_ for potential reuse or analysis.
+        in ``self.reducer_`` for potential reuse or analysis.
 
         Data is transposed before fitting since init_data is (n_features, n_samples)
         while sklearn expects (n_samples, n_features).
@@ -355,7 +355,7 @@ class Embedding:
         Warning: Converts sparse adjacency to dense matrix which may
         use excessive memory for large datasets.
 
-        The Isomap object is stored in self.reducer_ for potential reuse.
+        The Isomap object is stored in ``self.reducer_`` for potential reuse.
 
         Examples
         --------
@@ -419,7 +419,7 @@ class Embedding:
         where d_ij are the input distances.
 
         Uses fixed random_state=42 for reproducibility - to be changed in the future.
-        The MDS object is stored in self.reducer_ for potential reuse.
+        The MDS object is stored in ``self.reducer_`` for potential reuse.
 
         Examples
         --------
@@ -457,7 +457,7 @@ class Embedding:
         semidefinite programming problem to find the optimal embedding.
 
         Sets self.coords to shape (dim, n_samples) embedding coordinates
-        and self.reducer_ to the fitted MVU object.
+        and ``self.reducer_`` to the fitted MVU object.
 
         Raises
         ------
@@ -532,7 +532,7 @@ class Embedding:
         neighbors, and these weights are preserved in lower dimensions.
 
         Sets self.coords to shape (dim, n_samples) embedding coordinates
-        and self.reducer_ to the fitted sklearn LLE object.
+        and ``self.reducer_`` to the fitted sklearn LLE object.
 
         Raises
         ------
@@ -592,7 +592,7 @@ class Embedding:
         for manifolds with varying curvature.
 
         Sets self.coords to shape (dim, n_samples) embedding coordinates
-        and self.reducer_ to the fitted sklearn HLLE object.
+        and ``self.reducer_`` to the fitted sklearn HLLE object.
 
         Raises
         ------
@@ -1214,34 +1214,8 @@ class Embedding:
         """Create autoencoder embedding.
 
         .. deprecated::
-            This method is deprecated. Use `create_flexible_ae_embedding_` instead
-            for more flexibility and advanced loss functions.
-
-            To recreate the same functionality with the new method:
-
-            # Basic AE (no additional losses)
-            create_flexible_ae_embedding_(architecture="ae", ...)
-
-            # AE with correlation loss
-            create_flexible_ae_embedding_(
-                architecture="ae",
-                loss_components=[
-                    {"name": "reconstruction", "weight": 1.0},
-                    {"name": "correlation", "weight": corr_hyperweight}
-                ],
-                ...
-            )
-
-            # AE with MI/orthogonality loss
-            create_flexible_ae_embedding_(
-                architecture="ae",
-                loss_components=[
-                    {"name": "reconstruction", "weight": 1.0},
-                    {"name": "orthogonality", "weight": mi_hyperweight,
-                     "external_data": minimize_mi_data}
-                ],
-                ...
-            )
+            This method is deprecated. Use ``create_flexible_ae_embedding_``
+            instead for more flexibility and advanced loss functions.
 
         Parameters
         ----------
@@ -1291,7 +1265,7 @@ class Embedding:
 
         Notes
         -----
-        This method is deprecated in favor of create_flexible_ae_embedding_
+        This method is deprecated in favor of ``create_flexible_ae_embedding_``
         which provides more flexibility and advanced loss functions."""
 
         # ---------------------------------------------------------------------------
@@ -1573,24 +1547,8 @@ class Embedding:
         """Create variational autoencoder embedding.
 
         .. deprecated::
-            This method is deprecated. Use `create_flexible_ae_embedding_` instead
-            for more flexibility and advanced loss functions.
-
-            To recreate the same functionality with the new method:
-
-            # Standard VAE
-            create_flexible_ae_embedding_(
-                architecture="vae",
-                loss_components=[
-                    {"name": "reconstruction", "weight": 1.0},
-                    {"name": "beta_vae", "weight": 1.0, "beta": kld_weight}
-                ],
-                ...
-            )
-
-            # For advanced disentanglement methods, use:
-            # - TC-VAE: {"name": "tc_vae", "alpha": 1.0, "beta": 5.0, "gamma": 1.0}
-            # - Factor-VAE: {"name": "factor_vae", "gamma": 10.0}
+            This method is deprecated. Use ``create_flexible_ae_embedding_``
+            instead for more flexibility and advanced loss functions.
 
         Parameters
         ----------
@@ -1632,7 +1590,7 @@ class Embedding:
 
         Notes
         -----
-        This method is deprecated in favor of create_flexible_ae_embedding_
+        This method is deprecated in favor of ``create_flexible_ae_embedding_``
         which provides more flexibility and advanced loss functions."""
 
         # ---------------------------------------------------------------------------
@@ -1938,7 +1896,7 @@ class Embedding:
         -----
         This method provides a flexible framework for various autoencoder
         architectures with modular loss composition. It replaces the
-        deprecated create_ae_embedding_ and create_vae_embedding_ methods."""
+        deprecated ``create_ae_embedding_`` and ``create_vae_embedding_`` methods."""
         # Validate parameters
         check_positive(epochs=epochs, lr=lr, inter_dim=inter_dim, log_every=log_every)
         if architecture not in ["ae", "vae"]:

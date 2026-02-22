@@ -1138,8 +1138,8 @@ class Network:
 
         Notes
         -----
-        IPR = sum(|v_i|^4) / (sum(|v_i|^2))^2
-        For normalized eigenvectors, this simplifies to IPR = sum(|v_i|^4).
+        ``IPR = sum(abs(v_i)^4) / (sum(abs(v_i)^2))^2``
+        For normalized eigenvectors, this simplifies to ``IPR = sum(abs(v_i)^4)``.
         Range: 1/n <= IPR <= 1, where n is the number of nodes."""
         check_matrix_type(mode, self.directed)
         ipr = getattr(self, mode + "_ipr")
@@ -1496,7 +1496,7 @@ class Network:
         Notes
         -----
         For each eigenvector v_i with components v_{i,j}, the IPR is:
-        IPR_i = sum_j |v_{i,j}|^4
+        ``IPR_i = sum_j abs(v_{i,j})^4``
 
         The IPR ranges from 1/N (completely delocalized) to 1 (completely localized
         on a single node), where N is the number of nodes.
@@ -1786,7 +1786,7 @@ class Network:
         Returns
         -------
         mean_inv_r_sq : float
-            Average of 1/|z|² over all non-zero z-values.
+            Average of ``1/abs(z)^2`` over all non-zero z-values.
         mean_cos_phi : float
             Average of cos(arg(z)) over all non-zero z-values.
 
@@ -1797,7 +1797,7 @@ class Network:
         in their eigenvalue spacing ratios compared to extended states.
 
         Z-values that are exactly zero (from degenerate eigenvalues, see
-        calculate_z_values) are excluded to avoid singularities in 1/|z|².
+        calculate_z_values) are excluded to avoid singularities in ``1/abs(z)^2``.
 
         Requires prior calculation of z-values via calculate_z_values()."""
         zvals = self.get_z_values(mode)

@@ -1149,6 +1149,7 @@ class MultiTimeSeries(MVData):
         -------
         float
             Joint entropy value in bits. The method used depends on data type:
+
             - Discrete data: Uses entropy_d for single variable, joint_entropy_dd
               for 2 variables. More than 2 discrete variables not yet supported.
             - Continuous data: Uses Gaussian copula entropy estimation (ent_g)

@@ -1032,6 +1032,8 @@ class Neuron:
         Parameters
         ----------
         method : {'simple', 'wavelet'}, optional
+            Calculation method. Options:
+
             - 'simple': Peak-based SNR using spike locations (fast, default)
             - 'wavelet': Event-based SNR using wavelet regions (accurate)
 
@@ -1051,11 +1053,13 @@ class Neuron:
         Notes
         -----
         **Simple method:**
+
         - SNR = mean(calcium at spike peaks) / MAD(entire signal)
         - Fast computation, uses asp (amplitude spikes) or sp (binary spikes)
         - Caches result in self.snr
 
         **Wavelet method:**
+
         - SNR = median(event amplitudes) / std(baseline)
         - More accurate, empirically validated against ground truth
         - Requires prior wavelet reconstruction
@@ -1365,6 +1369,7 @@ class Neuron:
 
         Unlike RMSE, MAE treats all errors equally (no squaring). Useful
         for understanding typical deviation and detecting outlier sensitivity:
+
         - If RMSE >> MAE: Few large errors dominate (e.g., missed events)
         - If RMSE ≈ MAE: Errors uniformly distributed (e.g., white noise)
 
@@ -1488,6 +1493,7 @@ class Neuron:
 
         Unlike Event RMSE, Event MAE does not square errors, making it less
         sensitive to outliers. Useful for understanding typical deviation:
+
         - If Event_RMSE >> Event_MAE: Few large errors (missed/false events)
         - If Event_RMSE ≈ Event_MAE: Errors uniformly distributed
         """
@@ -2590,6 +2596,7 @@ class Neuron:
             Recommended range: 3.0-5.0. Default: 4.0 (optimal balance).
         detection_method : {'auto', 'wavelet', 'threshold'}, optional
             Method to use for event re-detection when update_reconstruction=True:
+
             - 'auto': Use threshold if threshold_events exist, else wavelet (default)
             - 'wavelet': Always use wavelet detection (slower, more sensitive)
             - 'threshold': Always use threshold detection (faster, requires high SNR)
@@ -2607,6 +2614,7 @@ class Neuron:
         -------
         dict
             Optimization results with keys:
+
             - 'optimized': bool, whether optimization succeeded
             - 't_rise': float, optimized rise time (seconds)
             - 't_off': float, optimized decay time (seconds)

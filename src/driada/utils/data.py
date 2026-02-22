@@ -539,7 +539,7 @@ def phase_synchrony(vec1, vec2):
     1. Applies Hilbert transform to get analytic signals
     2. Extracts instantaneous phases using np.angle()
     3. Computes phase difference at each time point
-    4. Maps to [0,1] using: 1 - sin(|Δφ|/2)
+    4. Maps to [0,1] using: ``1 - sin(abs(Δφ)/2)``
 
     This metric is 1 when phases are aligned (Δφ = 0) and 0 when
     maximally misaligned (Δφ = π).

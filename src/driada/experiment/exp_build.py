@@ -79,17 +79,20 @@ def load_exp_from_aligned_data(
         Used with exp_params to construct the experiment name.
     exp_params : dict
         Experiment parameters dictionary. For IABS data source, requires:
+
         - 'track': experimental paradigm (e.g., 'linear_track')
         - 'animal_id': subject identifier
         - 'session': session identifier
+
         For other sources, can contain any metadata for experiment naming.
     data : dict
         Dictionary containing aligned data with keys:
+
         - 'calcium' or 'Calcium': 2D array of calcium signals (neurons x time)
         - 'spikes' or 'Spikes': 2D array of spike data (optional)
-        - Other keys: behavioral variables as 1D or 2D arrays
-          * 1D arrays (time,): treated as single time series
-          * 2D arrays (components, time): treated as MultiTimeSeries
+        - Other keys: behavioral variables as 1D or 2D arrays.
+          1D arrays (time,) are treated as single time series;
+          2D arrays (components, time) are treated as MultiTimeSeries.
     force_continuous : list, optional
         **Deprecated.** Use ``feature_types`` instead. List of feature names
         to force as continuous. Converted to ``feature_types={f: 'continuous'}``
@@ -105,6 +108,7 @@ def load_exp_from_aligned_data(
         motion artifacts or recording gaps.
     static_features : dict, optional
         Static experimental parameters. Common keys:
+
         - 't_rise_sec': calcium rise time (default: 0.25)
         - 't_off_sec': calcium decay time (default: 2.0)
         - 'fps': frame rate in Hz (default: 20.0)

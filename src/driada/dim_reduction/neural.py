@@ -31,9 +31,8 @@ class Encoder(nn.Module):
     code_dim : int
         Output dimension of the encoded representation (latent space).
     kwargs : dict
-        Additional parameters:
-        - dropout : float, optional
-            Dropout rate (0 to 1). Default is no dropout.
+        Additional parameters. Supports key 'dropout' (float, optional):
+        dropout rate from 0 to 1. Default is no dropout.
     device : torch.device, optional
         Device to run the model on. Defaults to CUDA if available, else CPU.
 
@@ -170,9 +169,8 @@ class VAEEncoder(nn.Module):
         latent_dim means and latent_dim log variances. The encoder outputs
         code_dim values total.
     kwargs : dict
-        Additional parameters:
-        - dropout : float, optional
-            Dropout rate (0 to 1). Default is no dropout.
+        Additional parameters. Supports key 'dropout' (float, optional):
+        dropout rate from 0 to 1. Default is no dropout.
     device : torch.device, optional
         Device to run the model on. Defaults to CUDA if available, else CPU.
 
@@ -303,9 +301,8 @@ class Decoder(nn.Module):
     orig_dim : int
         Output dimension (same as original data dimension).
     kwargs : dict
-        Additional parameters:
-        - dropout : float, optional
-            Dropout rate (0 to 1). Default is no dropout.
+        Additional parameters. Supports key 'dropout' (float, optional):
+        dropout rate from 0 to 1. Default is no dropout.
     device : torch.device, optional
         Device to run the model on. Defaults to CUDA if available, else CPU.
 

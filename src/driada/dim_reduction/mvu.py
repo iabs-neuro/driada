@@ -193,9 +193,10 @@ class MaximumVarianceUnfolding(object):
         Notes
         -----
         The Gram matrix Q satisfies:
+
         - Q is positive semidefinite
         - Sum of each row is zero (centering constraint)
-        - For neighbors i,j: ||x_i - x_j||² = ||y_i - y_j||²
+        - For neighbors i,j: ``||x_i - x_j||² = ||y_i - y_j||²``
           where x are original points and y are embedded points"""
         # Number of data points in the set
         n = data.shape[0]

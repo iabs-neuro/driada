@@ -2,6 +2,7 @@
 JIT-compiled entropy calculation functions for performance optimization.
 
 Performance characteristics:
+
 - entropy_d_jit: Faster for small datasets (< 1000 samples), slower for large datasets
   due to numpy's highly optimized C implementation. Best speedups seen with small data.
 - joint_entropy_dd_jit: Consistently faster across all dataset sizes (2x-30x speedup)

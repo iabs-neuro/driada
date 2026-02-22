@@ -73,18 +73,9 @@ def construct_session_name(data_source, exp_params, allow_unknown=True):
         The data source identifier (e.g., 'IABS', 'MyLab', 'NeuroLab').
     exp_params : dict
         Dictionary containing experimental parameters.
-
-        For IABS, must include:
-        - 'track': The experimental track/paradigm name
-        - 'animal_id': The animal identifier
-        - 'session': The session identifier
-
-        For other sources, can include:
-        - 'name': Explicit name (takes priority if present)
-        - 'experiment': Experiment type or name
-        - 'subject' or 'animal_id': Subject identifier
-        - 'session': Session identifier
-        - 'date': Recording date
+        For IABS, must include keys 'track', 'animal_id', 'session'.
+        For other sources, can include 'name' (takes priority), 'experiment',
+        'subject' or 'animal_id', 'session', 'date'.
 
     allow_unknown : bool, optional
         Whether to allow unknown track names (IABS only). If False, raises
@@ -134,11 +125,13 @@ def construct_session_name(data_source, exp_params, allow_unknown=True):
     Notes
     -----
     For IABS data source:
+
     - Old tracks (HT, RT, FS): Use legacy naming patterns
     - Standard tracks (FcOY, STFP, AP, NOF, Trace, CC): Use {track}_{animal}_{session}
     - Unknown tracks: Use standard pattern if allow_unknown=True
 
     For other data sources:
+
     - If 'name' parameter exists, it's used directly
     - Otherwise combines available standard parameters in order:
       experiment, subject/animal_id, session, date

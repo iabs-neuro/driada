@@ -130,14 +130,16 @@ def compute_cell_feat_significance(
         Additional keyword arguments passed to the MI estimator function.
     mode : str, optional
         Computation mode. 3 modes are available:
-        'stage1': perform preliminary scanning with "n_shuffles_stage1" shuffles only.
-                  Rejects strictly non-significant neuron-feature pairs, does not give definite results
-                  about significance of the others.
-        'stage2': skip stage 1 and perform full-scale scanning ("n_shuffles_stage2" shuffles) of all neuron-feature pairs.
-                  Gives definite results, but can be very time-consuming. Also reduces statistical power
-                  of multiple comparison tests, since the number of hypotheses is very high.
-        'two_stage': prune non-significant pairs during stage 1 and perform thorough testing for the rest during stage 2.
-                     Recommended mode.
+
+        - ``'stage1'``: perform preliminary scanning with "n_shuffles_stage1" shuffles only.
+          Rejects strictly non-significant neuron-feature pairs, does not give definite results
+          about significance of the others.
+        - ``'stage2'``: skip stage 1 and perform full-scale scanning ("n_shuffles_stage2" shuffles) of all neuron-feature pairs.
+          Gives definite results, but can be very time-consuming. Also reduces statistical power
+          of multiple comparison tests, since the number of hypotheses is very high.
+        - ``'two_stage'``: prune non-significant pairs during stage 1 and perform thorough testing for the rest during stage 2.
+          Recommended mode.
+
         Default is 'two_stage'
 
     n_shuffles_stage1 : int, optional
@@ -221,9 +223,11 @@ def compute_cell_feat_significance(
         Random seed for reproducibility. Default is 42
     with_disentanglement : bool, optional
         If True, performs a full INTENSE pipeline with mixed selectivity analysis:
+
         1. Computes behavioral feature-feature significance
         2. Computes neuron-feature significance
         3. Disentangles mixed selectivities using behavioral correlations.
+
         Default is False
     multifeature_map : dict or None, optional
         Mapping from multifeature tuples to aggregated names for disentanglement.
@@ -231,15 +235,19 @@ def compute_cell_feat_significance(
         Only used when with_disentanglement=True. Default is None
     duplicate_behavior : str, optional
         How to handle duplicate TimeSeries in neuron or feature bunches.
+
         - 'ignore': Process duplicates normally (default)
         - 'raise': Raise an error if duplicates are found
         - 'warn': Print a warning but continue processing.
+
         Default is 'ignore'
     engine : {'auto', 'fft', 'loop'}, optional
         Computation engine for MI shuffles:
+
         - 'auto': Use FFT when applicable (univariate continuous GCMI with nsh >= 50)
         - 'fft': Force FFT (raises error if not applicable)
         - 'loop': Force per-shift loop (original behavior)
+
         FFT provides ~100x speedup for Stage 2. Default is 'auto'
     store_random_shifts : bool, optional
         Whether to store the random shift indices used during shuffle computation.
@@ -250,12 +258,14 @@ def compute_cell_feat_significance(
     profile : bool, optional
         Whether to collect internal timing information. When True, info['timings']
         will contain execution times (in seconds) for:
+
         - 'stage1_delay_optimization': delay optimization (if find_optimal_delays=True)
         - 'stage1_pair_scanning': stage 1 pair scanning
         - 'stage2_pair_scanning': stage 2 pair scanning (if applicable)
         - 'fft_type_counts': Dictionary of FFT type usage counts
         - 'disentanglement': disentanglement analysis (if with_disentanglement=True)
         - 'total': sum of all timing sections
+
         Default is False
     pre_filter_func : callable or None, optional
         Population-level filter function (or composed filter) to run BEFORE
@@ -314,15 +324,14 @@ def compute_cell_feat_significance(
         Additional information from compute_me_stats
     intense_res: IntenseResults
         Complete results object
-    disentanglement_results: dict (only if with_disentanglement=True)
+    disentanglement_results : dict (only if with_disentanglement=True)
         Contains:
+
         - 'feat_feat_significance': Feature-feature significance matrix
         - 'disent_matrix': Disentanglement results matrix
         - 'count_matrix': Count matrix from disentanglement
-        - 'per_neuron_disent': Per-neuron detailed results dict mapping neuron_id to:
-          - 'pairs': {(feat_i, feat_j): {'result': 0/0.5/1, 'source': str}}
-          - 'renames': {new_name: (old1, old2)} from filter chain
-          - 'final_sels': list of final selectivities after filtering
+        - 'per_neuron_disent': Per-neuron detailed results dict mapping neuron_id
+          to 'pairs', 'renames', and 'final_sels' sub-dicts.
         - 'feature_names': List of feature names
         - 'summary': Summary statistics from disentanglement
 

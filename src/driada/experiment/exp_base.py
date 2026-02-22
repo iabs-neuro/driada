@@ -145,6 +145,7 @@ class Experiment:
         must have the same length (number of timepoints).
     **kwargs : dict
         Additional parameters including:
+
         - optimize_kinetics : bool or str, optimize kinetics per neuron (default: False).
           If True, uses 'lbfgs' method. Can specify 'lbfgs' or 'grid' explicitly.
         - reconstruct_spikes : str or bool, spike reconstruction method (default: 'wavelet')
@@ -294,6 +295,7 @@ class Experiment:
             - "population_config": original population configuration
         **kwargs
             Additional parameters:
+
             - optimize_kinetics (bool or str): Optimize kinetics per neuron. Default False.
               If True, uses 'lbfgs' method. Can specify 'lbfgs' or 'grid' explicitly.
             - reconstruct_spikes (str, False, or None): Method for spike reconstruction.

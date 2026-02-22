@@ -32,8 +32,8 @@ def chebyshev_ineq(data, val):
 
     Notes
     -----
-    Chebyshev's inequality states that P(\|X - μ\| >= k*σ) <= 1/k²
-    This gives P(X >= val) <= 1/z² where z = (val - μ)/σ"""
+    Chebyshev's inequality states that ``P(abs(X - μ) >= k*σ) <= 1/k²``
+    This gives ``P(X >= val) <= 1/z²`` where ``z = (val - μ)/σ``"""
     mean = np.mean(data)
     std = np.std(data)
 

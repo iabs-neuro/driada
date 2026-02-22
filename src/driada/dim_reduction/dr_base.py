@@ -341,6 +341,7 @@ def e_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     All methods support: 'e_method', 'e_method_name', 'dim' (target dimension).
 
     Method-specific parameters:
+
     - 'umap': adds 'min_dist' (minimum distance in low-dimensional space)
     - 'dmaps', 'auto_dmaps': adds 'dm_alpha' (diffusion maps alpha parameter)
       and 'dm_t' (diffusion time)

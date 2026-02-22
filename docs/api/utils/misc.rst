@@ -3,14 +3,6 @@ Miscellaneous Utilities
 
 This module contains various utility functions that don't fit into other categories.
 
-Neural Utilities
-----------------
-
-.. automodule:: driada.utils.neural
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Naming Utilities
 ----------------
 

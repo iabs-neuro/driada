@@ -316,12 +316,13 @@ class CorrelationLoss(AELoss):
     would have a diagonal correlation matrix (identity matrix after normalization).
 
     This regularization is particularly useful for:
+
     - Learning interpretable latent representations
     - Preventing redundancy in latent dimensions
     - Improving generalization by reducing overfitting
 
     Mathematical formulation:
-        L_corr = (1/P) * sum_{i≠j} |corr(z_i, z_j)|
+    ``L_corr = (1/P) * sum_{i≠j} abs(corr(z_i, z_j))``
     where z_i is the i-th dimension of the latent code across the batch,
     and P is the number of off-diagonal pairs.
 

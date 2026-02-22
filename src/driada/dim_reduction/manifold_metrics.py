@@ -5,27 +5,30 @@ This module provides comprehensive metrics for evaluating how well dimensionalit
 reduction methods preserve manifold structure.
 
 Key metric categories:
----------------------
+----------------------
 1. Neighborhood preservation: How well are local neighborhoods preserved?
 2. Distance preservation: How well are geodesic distances preserved?
 3. Topology preservation: How well is the global structure preserved?
 4. Shape matching: How similar are the shapes after optimal alignment?
 
 KNN-based Metrics Comparison:
-----------------------------
+-----------------------------
 This module provides three complementary k-nearest neighbor metrics:
 
 1. **knn_preservation_rate**: Simple intersection-based metric
-   - Measures: |neighbors_original ∩ neighbors_embedding| / k
+
+   - Measures: intersection(neighbors_original, neighbors_embedding) / k
    - Symmetric: Treats false positives and false negatives equally
    - Use when: You want a simple, interpretable overall score
 
 2. **trustworthiness**: Focuses on avoiding false neighbors
+
    - Measures: How much can we trust that embedded neighbors are true neighbors?
    - Penalizes: Points that appear close in embedding but were far in original
    - Use when: False patterns in embedding would be problematic (e.g., clustering)
 
-3. **continuity**: Focuses on preserving true neighbors  
+3. **continuity**: Focuses on preserving true neighbors
+
    - Measures: How well are original neighborhoods preserved in embedding?
    - Penalizes: True neighbors that become separated in embedding
    - Use when: Losing connections would miss important structure (e.g., manifolds)
@@ -109,17 +112,18 @@ def knn_preservation_rate(
     Notes
     -----
     This metric differs from trustworthiness and continuity in that it:
+
     - Treats false positives and false negatives equally
     - Uses exact neighborhood matching (or flexible matching if enabled)
     - Does not consider the ranking of points beyond the k-th neighbor
 
     Use this metric when:
+
     - You want a simple, interpretable measure of neighborhood preservation
     - Both types of errors (missing neighbors and false neighbors) are equally important
     - You don't need to distinguish between different types of embedding errors
 
-    Mathematical formulation:
-        preservation_rate = |N_k(i, high) ∩ N_k(i, low)| / k
+    Mathematical formulation: ``preservation_rate = |N_k(i, high) ∩ N_k(i, low)| / k``
     where N_k(i, space) is the set of k nearest neighbors of point i in that space.
 
     See Also
@@ -186,16 +190,17 @@ def trustworthiness(X_high: np.ndarray, X_low: np.ndarray, k: int = 10) -> float
     when false neighbors could lead to incorrect interpretations.
 
     Use trustworthiness when:
+
     - You want to avoid spurious patterns in the embedding
     - False neighbors (points incorrectly appearing close) are problematic
     - You're using the embedding for neighbor-based analysis or clustering
 
     Mathematical formulation:
-        T(k) = 1 - (2/N*k*(2N-3k-1)) * Σᵢ Σⱼ∈Uₖ(i) (r(i,j) - k)
-    where:
-    - Uₖ(i) is the set of points that are among k-NN of i in embedding but not in original
-    - r(i,j) is the rank of j as neighbor of i in the original space
-    - The penalty (r(i,j) - k) increases with how far j was from i originally
+    ``T(k) = 1 - (2/(Nk(2N-3k-1))) * sum_i sum_{j in U_k(i)} (r(i,j) - k)``
+
+    where ``U_k(i)`` is the set of points among k-NN of i in the embedding but
+    not in the original space, and ``r(i,j)`` is the rank of j as neighbor of i
+    in the original space.
 
     See Also
     --------
@@ -275,18 +280,17 @@ def continuity(X_high: np.ndarray, X_low: np.ndarray, k: int = 10) -> float:
     important connections would miss critical structure.
 
     Use continuity when:
+
     - You want to preserve all important relationships from the original data
     - Missing neighbors (losing true connections) is problematic
     - You're studying the continuity of manifolds or connected structures
 
-    Mathematical formulation:
-        C(k) = 1 - (2/N*k*(2N-3k-1)) * Σᵢ Σⱼ∈Vₖ(i) (r'(i,j) - k)
-    where:
-    - Vₖ(i) is the set of points that are among k-NN of i in original but not in embedding
-    - r'(i,j) is the rank of j as neighbor of i in the embedding space
-    - The penalty (r'(i,j) - k) increases with how far j is from i in embedding
+    Mathematical formulation: ``C(k) = 1 - (2/N*k*(2N-3k-1)) * sum_i sum_{j in Vk(i)} (r'(i,j) - k)``
+    where Vk(i) is the set of k-NN of i in the original but not in embedding,
+    and r'(i,j) is the rank of j as neighbor of i in the embedding.
 
     Together with trustworthiness:
+
     - High trustworthiness + High continuity = Excellent embedding
     - High trustworthiness + Low continuity = Embedding compresses neighborhoods
     - Low trustworthiness + High continuity = Embedding creates false neighborhoods
@@ -740,7 +744,7 @@ def circular_distance(angles1: np.ndarray, angles2: np.ndarray) -> np.ndarray:
 
     Notes
     -----
-    Uses the formula: |arctan2(sin(θ₁-θ₂), cos(θ₁-θ₂))| to ensure
+    Uses the formula: ``abs(arctan2(sin(θ₁-θ₂), cos(θ₁-θ₂)))`` to ensure
     the result is the shortest distance on the circle."""
     diff = angles1 - angles2
     return np.abs(np.arctan2(np.sin(diff), np.cos(diff)))
@@ -1352,6 +1356,7 @@ def compute_embedding_quality(
     -------
     Dict[str, float]
         Dictionary containing:
+
         - 'train_error': Reconstruction error on training set
         - 'test_error': Reconstruction error on test set
         - 'generalization_gap': Difference between test and train error

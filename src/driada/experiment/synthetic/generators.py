@@ -381,16 +381,13 @@ def generate_tuned_selectivity_exp(
     ----------
     population : list of dict
         Population configuration. Each dict specifies a neuron group with keys:
+
         - "name" : str - Group name (e.g., "hd_cells", "place_cells")
         - "count" : int - Number of neurons in this group
         - "features" : list of str - Feature names this group responds to.
-          Supported features:
-          * "head_direction" - von Mises tuning to heading direction
-          * "position_2d" - True 2D Gaussian place field (recommended for place cells)
-          * "x", "y" - 1D marginal Gaussian tuning to position axes
-          * "speed" - sigmoid tuning to running speed
-          * "event_0", "event_1", ... - binary response to discrete events
-          * "fbm_0", "fbm_1", ... - sigmoid response to FBM continuous features
+          Supported: "head_direction" (von Mises), "position_2d" (2D Gaussian),
+          "x", "y" (1D Gaussian), "speed" (sigmoid), "event_0"/"event_1"/...
+          (binary), "fbm_0"/"fbm_1"/... (FBM continuous).
         - "combination" : str, optional - How to combine multiple features:
           "or" (default) or "and"
         - "tuning_params" : dict, optional - Override default tuning parameters

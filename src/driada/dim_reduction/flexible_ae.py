@@ -533,9 +533,8 @@ class FlexibleVAE(FlexibleAutoencoderBase):
     decoder_config : dict, optional
         Configuration for decoder.
     loss_components : list of dict, optional
-        List of loss component configurations. Defaults to
-        [{"name": "reconstruction", "weight": 1.0},
-         {"name": "beta_vae", "weight": 1.0, "beta": 1.0}].
+        List of loss component configurations. Defaults to reconstruction +
+        beta_vae losses (each with weight 1.0 and beta 1.0).
     device : torch.device, optional
         Device to run the model on.
     logger : logging.Logger, optional

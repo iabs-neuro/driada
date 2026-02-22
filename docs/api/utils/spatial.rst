@@ -60,7 +60,7 @@ Metrics Wrapper
    Place field detection removed - use INTENSE instead.
 
 Experimental Functions
----------------------
+----------------------
 
 .. warning::
    The following function is **EXPERIMENTAL** and uses arbitrary thresholds.
