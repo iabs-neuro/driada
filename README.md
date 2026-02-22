@@ -1,6 +1,6 @@
 # DRIADA
 
-**Dimensionality Reduction for Integrated Activity Data** — a Python framework for analyzing neural population activity at both single-neuron and population levels.
+**D**imensionality **R**eduction for **I**ntegrated **A**ctivity **Da**ta — a Python framework for analyzing neural population activity at both single-neuron and population levels.
 
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://img.shields.io/pypi/v/driada.svg)](https://pypi.org/project/driada/)
@@ -9,7 +9,7 @@
 [![Tests](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml/badge.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/iabs-neuro/driada/branch/main/graph/badge.svg)](https://codecov.io/gh/iabs-neuro/driada)
 [![Docs](https://readthedocs.org/projects/driada/badge/?version=latest)](https://driada.readthedocs.io/en/latest/)
-[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20windows-lightgrey.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
 
 DRIADA connects single-neuron selectivity analysis with population-level dimensionality reduction. Given calcium imaging or spike data together with behavioral variables, it identifies which neurons encode which variables, extracts low-dimensional population structure, and links the two.
 
@@ -37,13 +37,50 @@ All notebooks generate synthetic data internally — no external files needed.
 - 📏 **RSA** — representational dissimilarity matrices, cross-region and cross-session comparisons
 - 🧪 **Synthetic Data** — generate populations with known ground truth for validation
 
+## Data
+
+DRIADA is designed for **calcium imaging** data but works with any neural activity represented as a `(n_units, n_frames)` array — RNN activations, firing rates, LFP channels, or anything else. Behavioral variables are 1D or multi-component arrays of the same length.
+
+**Input workflow:** load your arrays into a Python dict and call `load_exp_from_aligned_data`:
+
+```python
+from driada.experiment import load_exp_from_aligned_data
+from driada.intense import compute_cell_feat_significance, compute_cell_cell_significance
+from driada.rsa import compute_experiment_rdm
+from driada.network import Network
+from driada.integration import get_functional_organization
+import scipy.sparse as sp
+
+data = {
+    'calcium': calcium_array,       # (n_neurons, n_frames) — or 'activations', 'rates', etc.
+    'speed': speed_array,           # (n_frames,) continuous variable
+    'position': position_array,     # (2, n_frames) multi-component variable
+    'head_direction': hd_array,     # auto-detected as circular
+    'trial_type': trial_type_array, # auto-detected as discrete
+}
+
+exp = load_exp_from_aligned_data('MyLab', {'name': 'session1'}, data,
+                                 static_features={'fps': 30.0})
+
+stats, sig, info, res = compute_cell_feat_significance(exp)       # neuron-feature selectivity
+sim, sig, pvals, ids, info = compute_cell_cell_significance(exp)  # functional connectivity
+net = Network(adj=sp.csr_matrix(sig), preprocessing='giant_cc')   # network analysis
+embedding = exp.create_embedding('umap', n_components=2)          # dimensionality reduction
+rdm, labels = compute_experiment_rdm(exp, items='trial_type')     # representational similarity
+org = get_functional_organization(exp, 'umap', intense_results=res)  # selectivity-to-embedding bridge
+```
+
+You can also load directly from `.npz` files via `load_experiment()`. See the [RNN analysis tutorial](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) for a non-calcium example.
+
 ## Installation
 
 ```bash
 pip install driada
 
-# With GPU support (autoencoders, torch-based methods)
-pip install driada[gpu]
+# Optional extras
+pip install driada[gpu]   # autoencoders, torch-based methods
+pip install driada[mvu]   # MVU dimensionality reduction (cvxpy)
+pip install driada[all]   # everything
 
 # From source
 git clone https://github.com/iabs-neuro/driada.git
@@ -51,9 +88,12 @@ cd driada
 pip install -e ".[dev]"
 ```
 
+DRIADA pulls in ~30 dependencies (numpy, scipy, scikit-learn, numba, joblib, etc.). See [pyproject.toml](pyproject.toml) for the full list.
+
 ## Documentation
 
 📖 **[driada.readthedocs.io](https://driada.readthedocs.io)** — API reference, installation guide, and quickstart
+📋 **[Changelog](CHANGELOG.md)** — release history and migration notes
 
 ## Contributing
 
@@ -68,7 +108,7 @@ pytest
 
 ## Citation
 
-If you use DRIADA in your research, please cite:
+A paper describing DRIADA has been submitted to the [Journal of Open Source Software (JOSS)](https://joss.theoj.org/). In the meantime, please cite:
 
 ```bibtex
 @software{driada2026,
