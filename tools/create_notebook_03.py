@@ -278,7 +278,15 @@ cells.append(md_cell(
 "\n"
 "Access it via `embedding.graph` after running any graph-based method.\n"
 "For a full treatment of network spectral analysis, see\n"
-"[Notebook 04 -- Network analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb)."
+"[Notebook 04 -- Network analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb).\n"
+"\n"
+"**Lost nodes:** When the k-NN graph is disconnected, DRIADA extracts the\n"
+"giant connected component and discards all nodes outside it. The removed\n"
+"indices are stored in `embedding.graph.lost_nodes` (a set, empty if no\n"
+"nodes were lost). The `max_deleted_nodes` parameter (default 0.5)\n"
+"controls the maximum fraction of points that can be discarded before an\n"
+"error is raised -- set it higher if your data is expected to have\n"
+"outliers or sparse regions."
 ))
 
 cells.append(code_cell(
