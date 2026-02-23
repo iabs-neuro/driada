@@ -63,7 +63,7 @@ cells.append(md_cell(
 "\n"
 "1. **Single neuron analysis** -- create a [`Neuron`](https://driada.readthedocs.io/en/latest/api/experiment/core.html#driada.experiment.neuron.Neuron), reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
 "2. **Threshold vs wavelet reconstruction** -- compare two spike detection methods across four optimization modes.\n"
-"3. **Method agreement** -- quantify event-region overlap between threshold and wavelet at varying tolerance."
+"3. **Threshold vs wavelet reconstruction** -- compare two spike detection methods, visualize agreement, and quantify event-region overlap."
 ))
 
 cells.append(code_cell(
@@ -353,6 +353,37 @@ cells.append(code_cell(
 'print(f"       Spike count: {shuffled_spike_count}  (original: {original_spike_count})")'
 ))
 
+cells.append(code_cell(
+"# Visualize surrogates: original trace + 4 surrogate methods\n"
+"fig, axes = plt.subplots(5, 1, figsize=(14, 10), sharex=True)\n"
+"\n"
+"time_surr = np.arange(len(neuron.ca.data)) / neuron.fps\n"
+"xlim = (0, min(30, time_surr[-1]))  # Show first 30 seconds\n"
+"\n"
+"surrogates = [\n"
+"    ('Original', neuron.ca.data, 'black'),\n"
+"    ('Roll-based', shuffled_roll, '#1f77b4'),\n"
+"    ('Waveform-based', shuffled_wf, '#ff7f0e'),\n"
+"    ('Chunks-based', shuffled_chunks, '#2ca02c'),\n"
+"    ('ISI-based', neuron.get_reconstructed(\n"
+"        t_rise_frames=int(0.15 * neuron.fps),\n"
+"        t_off_frames=int(1.5 * neuron.fps),\n"
+"        spikes=shuffled_sp,\n"
+"    ).data, '#d62728'),\n"
+"]\n"
+"\n"
+"for ax, (label, trace, color) in zip(axes, surrogates):\n"
+"    ax.plot(time_surr, trace, color=color, linewidth=0.8)\n"
+"    ax.set_ylabel(label, fontsize=9)\n"
+"    ax.set_xlim(xlim)\n"
+"    ax.grid(True, alpha=0.3)\n"
+"\n"
+"axes[-1].set_xlabel('Time (s)')\n"
+"axes[0].set_title('Surrogate methods comparison (first 30 s)')\n"
+"plt.tight_layout()\n"
+"plt.show()"
+))
+
 # ===== SECTION 3: THRESHOLD VS WAVELET ====================================
 
 cells.append(md_cell(
@@ -446,20 +477,6 @@ cells.append(code_cell(
 "plt.show()"
 ))
 
-# ===== SECTION 4: METHOD AGREEMENT ========================================
-
-cells.append(md_cell(
-"## 4. Method agreement\n"
-"\n"
-"Visual comparison shows broad agreement but also differences in event\n"
-"boundaries. Let's quantify this overlap systematically.\n"
-"\n"
-"Given the same data, how well do threshold and wavelet agree?  We use\n"
-"[`generate_synthetic_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html#driada.experiment.generate_synthetic_exp)\n"
-"to create a small population, then run both methods and compare\n"
-"event regions."
-))
-
 cells.append(code_cell(
 'print("Generating synthetic experiment...")\n'
 'exp4 = generate_synthetic_exp(\n'
@@ -485,43 +502,19 @@ cells.append(code_cell(
 '          f"threshold={len(threshold_events[i])}")'
 ))
 
-cells.append(code_cell(
-"# Event region comparison for one neuron\n"
-"neuron_idx = 2\n"
+# ---------------------------------------------------------------------------
+# Further reading
+# ---------------------------------------------------------------------------
+
+cells.append(md_cell(
+"## Further reading\n"
 "\n"
-"fig, axes = plt.subplots(3, 1, figsize=(12, 6), sharex=True)\n"
+"Standalone examples (run directly, no external data needed):\n"
+"- [neuron_basic_usage](https://github.com/iabs-neuro/driada/tree/main/examples/neuron_basic_usage) -- Core Neuron class and quality metrics\n"
+"- [spike_reconstruction](https://github.com/iabs-neuro/driada/tree/main/examples/spike_reconstruction) -- Wavelet vs threshold comparison\n"
+"- [threshold_vs_wavelet_optimization](https://github.com/iabs-neuro/driada/tree/main/examples/spike_reconstruction) -- Optimization modes and benchmarks\n"
 "\n"
-"ax = axes[0]\n"
-'ax.plot(time4, exp4.calcium.scdata[neuron_idx, :], "k-", linewidth=1)\n'
-'ax.set_ylabel("Calcium")\n'
-'ax.set_title(f"Neuron {neuron_idx}: event region comparison")\n'
-"ax.grid(True, alpha=0.3)\n"
-"\n"
-"ax = axes[1]\n"
-"for ev in wavelet_events[neuron_idx]:\n"
-'    ax.axvspan(ev.start / fps4, ev.end / fps4, alpha=0.5, color="blue")\n'
-'ax.set_ylabel("Wavelet")\n'
-"ax.set_ylim(-0.1, 1.1)\n"
-"ax.grid(True, alpha=0.3)\n"
-"ax.legend(\n"
-'    handles=[Patch(facecolor="blue", alpha=0.5, label="Event region")],\n'
-'    loc="upper right",\n'
-")\n"
-"\n"
-"ax = axes[2]\n"
-"for ev in threshold_events[neuron_idx]:\n"
-'    ax.axvspan(ev.start / fps4, ev.end / fps4, alpha=0.5, color="red")\n'
-'ax.set_ylabel("Threshold")\n'
-"ax.set_ylim(-0.1, 1.1)\n"
-'ax.set_xlabel("Time (s)")\n'
-"ax.grid(True, alpha=0.3)\n"
-"ax.legend(\n"
-'    handles=[Patch(facecolor="red", alpha=0.5, label="Event region")],\n'
-'    loc="upper right",\n'
-")\n"
-"\n"
-"plt.tight_layout()\n"
-"plt.show()"
+"[All examples](https://github.com/iabs-neuro/driada/tree/main/examples)"
 ))
 
 # ---------------------------------------------------------------------------

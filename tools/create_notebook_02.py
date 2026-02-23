@@ -461,18 +461,17 @@ cells.append(code_cell(
 ")\n"
 "ground_truth = exp3.ground_truth\n"
 "\n"
-"# Add a derived feature: smoothed speed (known correlation with raw speed)\n"
-"# NOTE: adding features after experiment creation is not recommended.\n"
-"# Prefer defining all features upfront in the generator or loader.\n"
+"# Add a derived feature: locomotion flag (thresholded speed)\n"
 "speed_data = exp3.dynamic_features['speed'].data\n"
-"kernel_size = int(1 * CONFIG['fps'])  # 1-second moving average\n"
-"kernel = np.ones(kernel_size) / kernel_size\n"
-"smoothed = np.convolve(speed_data, kernel, mode='same')\n"
-"exp3.dynamic_features['speed_smoothed'] = TimeSeries(\n"
-"    smoothed, ts_type='linear', name='speed_smoothed'\n"
+"median_speed = np.median(speed_data)\n"
+"mad_speed = np.median(np.abs(speed_data - median_speed))\n"
+"locomotion = (speed_data > median_speed + 3 * mad_speed).astype(float)\n"
+"exp3.dynamic_features['locomotion'] = TimeSeries(\n"
+"    locomotion, ts_type='discrete', name='locomotion'\n"
 ")\n"
 "exp3._build_data_hashes(mode='calcium')\n"
-"print(f'  Added speed_smoothed (1s moving average of speed)')"
+"frac = np.mean(locomotion)\n"
+"print(f'  Added locomotion flag (speed > median + 3*MAD, {frac:.1%} active)')"
 ))
 
 # --- 3.1 Feature-feature analysis (before neuron analysis) ---
@@ -482,8 +481,10 @@ cells.append(md_cell(
 "\n"
 "Before analyzing neurons, check which behavioral variables are themselves\n"
 "correlated. [`compute_feat_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_feat_feat_significance)\n"
-"tests all feature pairs with FFT-based circular shuffles. Any significant\n"
-"correlations here will inform the disentanglement step later."
+"tests all feature pairs with FFT-based circular shuffles. For example,\n"
+"the locomotion flag is derived from speed by thresholding, so they are\n"
+"correlated by construction. Any significant correlations here will inform\n"
+"the disentanglement step later."
 ))
 
 cells.append(code_cell(
@@ -559,7 +560,7 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Running INTENSE with disentanglement\n"
 "\n"
-"Some features are correlated (e.g. speed and smoothed speed above). Before\n"
+"Some features are correlated (e.g. speed and locomotion above). Before\n"
 "interpreting neuron selectivity, we need to account for these redundancies.\n"
 "Disentanglement uses conditional MI to separate genuine from inherited\n"
 "selectivity.\n"
@@ -822,6 +823,18 @@ cells.append(code_cell(
 "    loaded = load_results(results_path)\n"
 "    print(f\"  Reloaded: {len(loaded.stats)} neurons\")\n"
 "    print(f\"  Stats keys match: {set(str(k) for k in results3.stats.keys()) == set(loaded.stats.keys())}\")"
+))
+
+cells.append(md_cell(
+"## Further reading\n"
+"\n"
+"Standalone examples (run directly, no external data needed):\n"
+"- [full_intense_pipeline](https://github.com/iabs-neuro/driada/tree/main/examples/full_intense_pipeline) -- Complete pipeline across all feature types\n"
+"- [mixed_selectivity](https://github.com/iabs-neuro/driada/tree/main/examples/mixed_selectivity) -- Disentanglement and interaction information\n"
+"- [signal_association](https://github.com/iabs-neuro/driada/tree/main/examples/signal_association) -- MI estimators, TDMI, conditional MI\n"
+"- [behavior_relations](https://github.com/iabs-neuro/driada/tree/main/examples/behavior_relations) -- Feature-feature significance testing\n"
+"\n"
+"[All examples](https://github.com/iabs-neuro/driada/tree/main/examples)"
 ))
 
 # ---------------------------------------------------------------------------

@@ -55,7 +55,7 @@ cells.append(md_cell(
 "\n"
 "1. **Loading data into an Experiment** -- wrap numpy arrays into a DRIADA [`Experiment`](https://driada.readthedocs.io/en/latest/api/experiment/core.html#driada.experiment.exp_base.Experiment).\n"
 "2. **Feature types and TimeSeries** -- understand how DRIADA represents and auto-detects behavioral variables.\n"
-"3. **Quick tour: selectivity, dimensionality reduction, networks** -- run INTENSE, project onto UMAP, and build a functional connectivity graph."
+"3. **Quick tour: selectivity, dimensionality reduction, networks** -- run INTENSE, project onto Isomap, and build a functional connectivity graph."
 ))
 
 cells.append(code_cell(
@@ -535,7 +535,7 @@ cells.append(md_cell(
 
 cells.append(code_cell(
 "embedding = exp_demo.create_embedding(\n"
-"    'isomap', n_components=2, n_neighbors=20, ds=3,  # neighbors: local vs global\n"
+"    'isomap', n_components=2, n_neighbors=30, ds=3,  # neighbors: local vs global\n"
 ")\n"
 "# ds=3 downsamples the time axis by 3x for speed\n"
 "\n"
@@ -580,7 +580,9 @@ cells.append(md_cell(
 "Test all neuron pairs for shared mutual information, build a binary\n"
 "connectivity graph, and inspect its topology.  See\n"
 "[Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb)\n"
-"for the full walkthrough."
+"for the full walkthrough.\n"
+"\n"
+"[Network API reference](https://driada.readthedocs.io/en/latest/api/network/core.html)"
 ))
 
 cells.append(code_cell(
@@ -646,7 +648,14 @@ cells.append(md_cell(
 "2. [**INTENSE selectivity detection**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) -- two-stage permutation test, tuning curves, ground-truth validation.\n"
 "3. [**Population geometry (DR)**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) -- PCA, UMAP, Isomap, Laplacian Eigenmaps, sequential DR, alignment metrics.\n"
 "4. [**Network analysis**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) -- degree distributions, community detection, spectral analysis, null models.\n"
-"5. [**Advanced capabilities**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) -- INTENSE + DR pipeline, leave-one-out importance, RSA, RNN analysis."
+"5. [**Advanced capabilities**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) -- INTENSE + DR pipeline, leave-one-out importance, RSA, RNN analysis.\n"
+"\n"
+"**Standalone examples** (run directly, no external data needed):\n"
+"- [intense_basic_usage](https://github.com/iabs-neuro/driada/tree/main/examples/intense_basic_usage) -- Minimal INTENSE workflow\n"
+"- [compare_dr_methods](https://github.com/iabs-neuro/driada/tree/main/examples/compare_dr_methods) -- DR method comparison with quality metrics\n"
+"- [network_analysis](https://github.com/iabs-neuro/driada/tree/main/examples/network_analysis) -- Network construction and structural analysis\n"
+"\n"
+"[All examples](https://github.com/iabs-neuro/driada/tree/main/examples)"
 ))
 
 # ---------------------------------------------------------------------------

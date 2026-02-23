@@ -189,7 +189,6 @@ cells.append(code_cell(
 "ax1.imshow(exp.calcium.data, aspect='auto', cmap='hot', interpolation='none')\n"
 "ax1.set_ylabel('Neuron')\n"
 "ax1.set_title(f'Calcium traces ({exp.n_cells} neurons, {exp.n_frames} frames)')\n"
-"plt.colorbar(ax1.images[0], ax=ax1, fraction=0.02)\n"
 "\n"
 "event_colors = ['#1f77b4', '#ff7f0e', '#2ca02c']\n"
 "for i in range(3):\n"
@@ -402,11 +401,11 @@ cells.append(code_cell(
 'module_colors = plt.cm.tab10(np.linspace(0, 1, n_modules))\n'
 'module_to_color = {mod: module_colors[i] for i, mod in enumerate(unique_modules)}\n'
 '\n'
-'fig = plt.figure(figsize=(16, 8))\n'
+'fig = plt.figure(figsize=(15, 10))\n'
 '\n'
 '# 1. Similarity matrix with module boundaries\n'
 'ax1 = plt.subplot(1, 3, 1)\n'
-'im1 = ax1.imshow(sim_mat, cmap="hot", aspect="auto")\n'
+'im1 = ax1.imshow(sim_mat, cmap="hot", aspect="equal")\n'
 'ax1.set_title("Similarity matrix (MI)")\n'
 'ax1.set_xlabel("Neuron ID")\n'
 'ax1.set_ylabel("Neuron ID")\n'
@@ -870,6 +869,16 @@ cells.append(code_cell(
 '\n'
 'plt.tight_layout()\n'
 'plt.show()'
+))
+
+cells.append(md_cell(
+"## Further reading\n"
+"\n"
+"Standalone examples (run directly, no external data needed):\n"
+"- [network_analysis](https://github.com/iabs-neuro/driada/tree/main/examples/network_analysis) -- Network construction and structural analysis\n"
+"- [network_spectrum](https://github.com/iabs-neuro/driada/tree/main/examples/network_spectrum) -- Spectral analysis, entropy, and communicability\n"
+"\n"
+"[All examples](https://github.com/iabs-neuro/driada/tree/main/examples)"
 ))
 
 # ---------------------------------------------------------------------------
