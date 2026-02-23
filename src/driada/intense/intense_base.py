@@ -131,7 +131,8 @@ def _build_shift_valid_map(ts_bunch1, ts_bunch2, optimal_delays, ds):
                 if np.all(combined):
                     _cache[ck] = None  # all shifts valid
                 else:
-                    _cache[ck] = np.unique(np.where(~combined)[0] // ds)
+                    raw_inv = np.unique(np.where(~combined)[0] // ds)
+                    _cache[ck] = raw_inv[raw_inv < n_shifts]
                     needs_correction = True
             inv = _cache[ck]
             if inv is not None:

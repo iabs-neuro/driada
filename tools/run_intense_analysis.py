@@ -248,6 +248,10 @@ Examples:
                         help='Disable experiment-specific disentanglement filters')
     parser.add_argument('--skip-computed', action='store_true',
                         help='Skip files that already have results in output directory')
+    parser.add_argument('--metric', type=str, default='mi', choices=['mi', 'fast_pearsonr'],
+                        help='Similarity metric (default: mi)')
+    parser.add_argument('--no-disentanglement', action='store_true',
+                        help='Disable disentanglement analysis')
     parser.add_argument('--parallel-backend', type=str, default='loky',
                         choices=['loky', 'threading', 'multiprocessing'],
                         help='Joblib parallel backend: loky (default, true parallelism), '
@@ -265,6 +269,8 @@ Examples:
         'multicomp_correction': None,  # No correction
         'ds': args.ds,
         'engine': args.engine,
+        'metric': args.metric,
+        'with_disentanglement': not args.no_disentanglement,
     }
 
     # Expand paths from --dir option or from positional arguments
@@ -318,6 +324,8 @@ Examples:
     print(f"  Multiple comparison correction: {config['multicomp_correction']}")
     print(f"  Downsampling factor: {config['ds']}")
     print(f"  Engine: {config['engine']}")
+    print(f"  Metric: {config['metric']}")
+    print(f"  Disentanglement: {config['with_disentanglement']}")
     print(f"  Skip/aggregate features: experiment-specific (from EXPERIMENT_CONFIGS)")
     print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
     print(f"  Skip computed: {args.skip_computed}")

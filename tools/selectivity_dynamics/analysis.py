@@ -115,7 +115,21 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
     # Fix circular features erroneously normalized to [0, 1]
     _fix_normalized_circular_features(exp)
 
+    metric = config.get('metric', 'mi')
     feat_bunch = build_feature_list(exp, skip_features)
+
+    # Non-MI metrics cannot handle multi-dimensional features
+    use_circular_2d = True
+    if metric != 'mi':
+        use_circular_2d = False
+        from driada.information import MultiTimeSeries
+        multidim = [
+            name for name, ts in exp.dynamic_features.items()
+            if isinstance(ts, MultiTimeSeries) and name in feat_bunch
+        ]
+        if multidim:
+            feat_bunch = [f for f in feat_bunch if f not in multidim]
+            print(f"\nSkipping multi-dimensional features (incompatible with {metric}): {multidim}")
 
     print(f"\nFeatures to analyze: {feat_bunch}")
     print(f"Features skipped: {skip_features}")
@@ -124,9 +138,11 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
     if post_filter_func:
         print(f"Post-filter: {post_filter_func.__name__ if hasattr(post_filter_func, '__name__') else 'composed'}")
 
-    stats, significance, info, results, disent_results = driada.compute_cell_feat_significance(
+    with_disentanglement = config.get('with_disentanglement', True)
+    result = driada.compute_cell_feat_significance(
         exp,
         feat_bunch=feat_bunch,
+        metric=metric,
         mode='two_stage',
         n_shuffles_stage1=config['n_shuffles_stage1'],
         n_shuffles_stage2=config['n_shuffles_stage2'],
@@ -134,7 +150,7 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         ds=config['ds'],
         pval_thr=config['pval_thr'],
         multicomp_correction=config['multicomp_correction'],
-        with_disentanglement=True,
+        with_disentanglement=with_disentanglement,
         enable_parallelization=True,
         verbose=True,
         engine=config['engine'],
@@ -142,7 +158,13 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         pre_filter_func=pre_filter_func,
         post_filter_func=post_filter_func,
         filter_kwargs=filter_kwargs,
+        use_circular_2d=use_circular_2d,
     )
+    if with_disentanglement:
+        stats, significance, info, results, disent_results = result
+    else:
+        stats, significance, info, results = result
+        disent_results = None
 
     # Extract timing info from results if available
     timings = {}
