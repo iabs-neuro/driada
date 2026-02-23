@@ -11,6 +11,7 @@ Welcome to DRIADA's documentation!
 
    installation
    quickstart
+   examples
 
 .. toctree::
    :maxdepth: 2
