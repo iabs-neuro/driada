@@ -110,6 +110,8 @@ class TestAddFeature:
 
         ts = basic_exp.dynamic_features["multi_feat"]
         assert isinstance(ts, MultiTimeSeries)
+        assert ts.data.shape == (3, 500)
+        np.testing.assert_array_equal(ts.data, data)
 
     def test_non_string_name_raises_type_error(self, basic_exp):
         """Non-string feature name raises TypeError."""

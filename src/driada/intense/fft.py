@@ -422,10 +422,14 @@ def _mi_from_precomp(fft_x, std_x, fft_y, std_y, n, bias_correction):
 
     Parameters
     ----------
-    fft_x, fft_y : ndarray
-        Precomputed rfft of demeaned signals.
-    std_x, std_y : float
-        Precomputed std(ddof=1) of demeaned signals.
+    fft_x : ndarray
+        Precomputed rfft of demeaned signal x.
+    std_x : float
+        Precomputed std(ddof=1) of demeaned signal x.
+    fft_y : ndarray
+        Precomputed rfft of demeaned signal y.
+    std_y : float
+        Precomputed std(ddof=1) of demeaned signal y.
     n : int
         Signal length.
     bias_correction : float
@@ -453,10 +457,14 @@ def _pearson_from_precomp(fft_x, std_x, fft_y, std_y, n):
 
     Parameters
     ----------
-    fft_x, fft_y : ndarray
-        Precomputed rfft of demeaned signals.
-    std_x, std_y : float
-        Precomputed std(ddof=1) of demeaned signals.
+    fft_x : ndarray
+        Precomputed rfft of demeaned signal x.
+    std_x : float
+        Precomputed std(ddof=1) of demeaned signal x.
+    fft_y : ndarray
+        Precomputed rfft of demeaned signal y.
+    std_y : float
+        Precomputed std(ddof=1) of demeaned signal y.
     n : int
         Signal length.
 

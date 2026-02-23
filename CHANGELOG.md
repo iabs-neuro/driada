@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.0] - 2026-XX-XX
+## [1.0.0] - 2026-03-01
 
 **First stable release — JOSS publication**
 
@@ -36,21 +36,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Experiment & data loading
 
+- **`Experiment.add_feature()`** — register dynamic features after initialization with full attribute binding, shuffle mask application, and hash rebuild. Fixes disentanglement invisibility when features are added via dict assignment. (`520bc27`)
 - **3D place cell support** — volumetric spatial manifold generator for 3-photon and light-sheet experiments. (`8842516`)
 - **Experiment partitioning** — split experiments by time windows or trial indices for cross-validation. (`3f44f77`)
 - **Circular feature rescaling** — detects and rescales [0,1]-normalized circular features to [0, 2π] before INTENSE analysis, preventing silent MI underestimation. (`7edf26e`)
 
 ### Tutorial notebooks (new)
 
-Five Colab-ready notebooks with auto-generation scripts (`tools/create_notebook_0X.py`):
+Six Colab-ready notebooks with auto-generation scripts (`tools/create_notebook_0X.py`):
 
+0. **DRIADA overview** — Core data structures, quick tour of INTENSE, dimensionality reduction, and networks (`0f9b806`)
 1. **Data loading & neuron analysis** — Experiment construction, spike reconstruction methods comparison, surrogate generation (`37b71d4`)
 2. **Selectivity detection with INTENSE** — Two-stage testing, MultiTimeSeries features, circular features, multiple comparison correction (`38fa6c4`)
 3. **Population geometry & DR** — MVData API, method comparison benchmark (PCA, Isomap, UMAP), sequential DR, autoencoder DR, circular manifold extraction, INTENSE-guided DR (`df27aef`)
 4. **Network analysis** — Network construction, spectral decomposition, community detection, thermodynamic entropy, ProximityGraph from DR (`e1515fc`)
 5. **Advanced capabilities** — INTENSE + DR pipeline, leave-one-out importance, RSA, RNN analysis (`b4d2b15`)
 
-All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigation links and API documentation links across all 5. Sentence case throughout.
+All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigation links and API documentation links across all 6. Sentence case throughout.
 
 ### Documentation overhaul
 
@@ -69,6 +71,8 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ### Bug fixes
 
+- **Shift index out-of-bounds after downsampling** — invalid-shift indices could exceed array length when `ds > 1`; now clipped. (`6aeeff7`)
+- **Ground truth `_2d` names** — synthetic generator `expected_pairs` now use `_2d` suffixed names for circular features, matching the auto-created 2D representations. (`a9ee6ef`)
 - **t-SNE/UMAP parameter forwarding** — `perplexity` and `random_state` were silently swallowed by `**kwargs`; now properly forwarded. (`28533cd`)
 - **IntenseResults JSON round-trip** — dict keys converted from int to string during serialization; now handled correctly on load. (`04b7690`)
 - **NumPy scalar compatibility** — `ca_mse_error` returned ndarray instead of scalar on newer NumPy; extracted with `.item()`. (`eebcc0a`)

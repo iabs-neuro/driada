@@ -135,10 +135,10 @@ Before applying dimensionality reduction, estimate the intrinsic dimensionality:
 
 Extract low-dimensional representations of population activity:
 
-.. code-block:: python
+.. code-block::
 
    from driada.experiment import load_demo_experiment
-   
+
    # Load sample experiment
    exp = load_demo_experiment()
    
@@ -392,11 +392,11 @@ Here is an example using INTENSE cell-cell connectivity:
 
 Load and analyze your own neural recordings:
 
-.. code-block:: python
+.. code-block::
 
    import numpy as np
    from driada import load_exp_from_aligned_data
-   
+
    # Load data from NPZ file (recommended format)
    sample_npz_path = 'path/to/sample_recording.npz'
    data = dict(np.load(sample_npz_path))
@@ -453,12 +453,12 @@ Load and analyze your own neural recordings:
 
 Leverage DRIADA's advanced capabilities:
 
-.. code-block:: python
+.. code-block::
 
    # Sequential dimensionality reduction pipeline
    from driada.dim_reduction import dr_sequence
    from driada.experiment import load_demo_experiment
-   
+
    exp = load_demo_experiment()
    
    # Chain multiple DR methods for optimal results

@@ -22,7 +22,7 @@ All pipeline functions are importable from the top-level ``driada.intense`` name
 The significance matrix can be wrapped in a :class:`~driada.network.net_base.Network` for
 spectral and topological analysis:
 
-.. code-block:: python
+.. code-block::
 
    sim_mat, sig_mat, pval_mat, cell_ids, info = compute_cell_cell_significance(
        exp, n_shuffles_stage1=100, n_shuffles_stage2=1000, ds=5
