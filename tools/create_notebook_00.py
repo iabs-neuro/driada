@@ -105,15 +105,15 @@ cells.append(md_cell(
 cells.append(code_cell(
 "# In practice: calcium = np.load('your_recording.npz')['calcium']\n"
 "\n"
-"n_neurons = 20\n"
-"fps = 30.0\n"
+"n_neurons = 20  # small for demo; real datasets: 100-1000+\n"
+"fps = 30.0  # frames per second of your recording\n"
 "duration = 200.0  # seconds\n"
 "\n"
 "calcium = generate_pseudo_calcium_multisignal(\n"
 "    n=n_neurons,\n"
 "    duration=duration,\n"
 "    sampling_rate=fps,\n"
-"    event_rate=0.15,\n"
+"    event_rate=0.15,  # events per second; typical calcium: 0.05-0.5\n"
 "    amplitude_range=(0.5, 2.0),\n"
 "    decay_time=1.5,\n"
 "    rise_time=0.15,\n"
@@ -417,6 +417,12 @@ cells.append(code_cell(
 
 # ===== PART 2: MINI DEMOS ==================================================
 
+cells.append(md_cell(
+"Now that you know how DRIADA stores data, let's see what you can do with it.\n"
+"The following demos use a synthetic population with known ground truth, so we\n"
+"can verify that each analysis recovers the correct answer."
+))
+
 # ----- 2.1 Synthetic experiment with ground truth ---------------------------
 
 cells.append(md_cell(
@@ -515,6 +521,10 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 2.3 Dimensionality reduction -- population geometry\n"
 "\n"
+"INTENSE identifies *which* neurons respond to *which* features. But how do\n"
+"these neurons collectively represent information? Dimensionality reduction\n"
+"reveals the population-level geometry.\n"
+"\n"
 "Project population activity onto a 2D Isomap embedding to see how behavioral\n"
 "variables are encoded in the neural manifold.  `n_neighbors` controls the\n"
 "locality of the manifold approximation (20-50 is typical); `ds` downsamples\n"
@@ -525,7 +535,7 @@ cells.append(md_cell(
 
 cells.append(code_cell(
 "embedding = exp_demo.create_embedding(\n"
-"    'isomap', n_components=2, n_neighbors=20, ds=3,\n"
+"    'isomap', n_components=2, n_neighbors=20, ds=3,  # neighbors: local vs global\n"
 ")\n"
 "# ds=3 downsamples the time axis by 3x for speed\n"
 "\n"
@@ -562,6 +572,10 @@ cells.append(code_cell(
 
 cells.append(md_cell(
 "### 2.4 Network -- functional connectivity\n"
+"\n"
+"Individual selectivity and population geometry capture different facets of\n"
+"the data. Network analysis adds a third: pairwise functional relationships\n"
+"between neurons.\n"
 "\n"
 "Test all neuron pairs for shared mutual information, build a binary\n"
 "connectivity graph, and inspect its topology.  See\n"

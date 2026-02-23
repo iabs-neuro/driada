@@ -358,6 +358,9 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 3. Threshold vs wavelet reconstruction\n"
 "\n"
+"Above we analyzed one neuron with the wavelet method. DRIADA also supports\n"
+"threshold-based detection. How do the two methods compare on the same signal?\n"
+"\n"
 "DRIADA supports two spike detection methods:\n"
 "\n"
 "| Method | Description |\n"
@@ -373,7 +376,7 @@ cells.append(code_cell(
 "# Generate a synthetic signal with non-default kinetics\n"
 "fps_cmp = 30.0\n"
 "signal_cmp = generate_pseudo_calcium_signal(\n"
-"    duration=120.0, sampling_rate=fps_cmp, event_rate=0.3,\n"
+"    duration=120.0, sampling_rate=fps_cmp, event_rate=0.3,  # higher rate for denser events\n"
 "    amplitude_range=(0.3, 1.2), decay_time=0.8, rise_time=0.10,\n"
 "    noise_std=0.04, kernel='double_exponential',\n"
 ")\n"
@@ -393,7 +396,7 @@ cells.append(code_cell(
 "with warnings.catch_warnings():\n"
 "    warnings.simplefilter('ignore', UserWarning)\n"
 "    n_thr.reconstruct_spikes(method='threshold', iterative=True, n_iter=3,\n"
-"                              n_mad=4.0, create_event_regions=True,\n"
+"                              n_mad=4.0, create_event_regions=True,  # n_mad: noise multiplier for threshold\n"
 "                              adaptive_thresholds=True)\n"
 "    n_thr.optimize_kinetics(method='direct', fps=fps_cmp,\n"
 "                             update_reconstruction=True, detection_method='threshold',\n"
@@ -448,6 +451,9 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 4. Method agreement\n"
 "\n"
+"Visual comparison shows broad agreement but also differences in event\n"
+"boundaries. Let's quantify this overlap systematically.\n"
+"\n"
 "Given the same data, how well do threshold and wavelet agree?  We use\n"
 "[`generate_synthetic_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html#driada.experiment.generate_synthetic_exp)\n"
 "to create a small population, then run both methods and compare\n"
@@ -471,7 +477,7 @@ cells.append(code_cell(
 '    n4.reconstruct_spikes(method="wavelet", iterative=True, n_iter=3, fps=fps4)\n'
 '    wavelet_events.append(list(n4.wvt_ridges))\n'
 '    n4.reconstruct_spikes(method="threshold", iterative=True, n_iter=3,\n'
-'                           n_mad=4.0, adaptive_thresholds=True, fps=fps4)\n'
+'                           n_mad=4.0, adaptive_thresholds=True, fps=fps4)  # lower n_mad catches more events\n'
 '    threshold_events.append(list(n4.threshold_events))\n'
 '\n'
 'for i in range(n_neurons4):\n'

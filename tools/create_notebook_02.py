@@ -223,7 +223,7 @@ cells.append(code_cell(
 "clean_sine = np.sin(2 * np.pi * t_demo / period_samples)\n"
 "signal = clean_sine + 0.4 * rng.normal(size=n)\n"
 "\n"
-"max_shift = 60\n"
+"max_shift = 60  # lag window in samples (= 3 sec at 20 fps)\n"
 "tdmi_values = np.array(get_tdmi(signal, max_shift=max_shift))\n"
 "lags = np.arange(1, max_shift)\n"
 "best_lag = lags[np.argmax(tdmi_values)]\n"
@@ -317,6 +317,10 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 2. Basic INTENSE workflow\n"
 "\n"
+"These information-theoretic tools are the building blocks. DRIADA's INTENSE\n"
+"pipeline combines them into a two-stage significance test that scales to\n"
+"hundreds of neurons and features.\n"
+"\n"
 "The minimal pipeline: [`generate_tuned_selectivity_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html#driada.experiment.synthetic.generators.generate_tuned_selectivity_exp) creates a synthetic\n"
 "population with known selectivity, [`compute_cell_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_cell_feat_significance) runs\n"
 "two-stage significance testing, and [`plot_neuron_feature_pair`](https://driada.readthedocs.io/en/latest/api/intense/visual.html#driada.intense.visual.plot_neuron_feature_pair) visualizes\n"
@@ -352,8 +356,8 @@ cells.append(code_cell(
 "stats, significance, info, results = driada.compute_cell_feat_significance(\n"
 "    exp,\n"
 "    mode=\"two_stage\",\n"
-"    n_shuffles_stage1=100,\n"
-"    n_shuffles_stage2=10000,\n"
+"    n_shuffles_stage1=100,   # fast screening\n"
+"    n_shuffles_stage2=10000,  # precise p-values via gamma fit\n"
 "    pval_thr=0.001,\n"
 "    multicomp_correction=None,\n"
 "    ds=5,\n"
@@ -390,6 +394,10 @@ cells.append(code_cell(
 
 cells.append(md_cell(
 "## 3. Complete pipeline with ground truth validation\n"
+"\n"
+"The basic workflow above used a small population and default settings. Next,\n"
+"we set up a realistic pipeline with ground truth to evaluate detection\n"
+"accuracy.\n"
 "\n"
 "Production workflow: feature-feature correlation analysis, all feature types\n"
 "(circular, spatial, linear, discrete), Holm correction, disentanglement,\n"
@@ -551,6 +559,11 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Running INTENSE with disentanglement\n"
 "\n"
+"Some features are correlated (e.g. speed and smoothed speed above). Before\n"
+"interpreting neuron selectivity, we need to account for these redundancies.\n"
+"Disentanglement uses conditional MI to separate genuine from inherited\n"
+"selectivity.\n"
+"\n"
 "With the feature correlation structure in mind, run the full pipeline\n"
 "with `with_disentanglement=True` to resolve redundant multi-feature\n"
 "detections."
@@ -661,6 +674,10 @@ cells.append(code_cell(
 
 cells.append(md_cell(
 "### Optimal delays\n"
+"\n"
+"Neurons often respond to stimuli with a lag. Optimal delay estimation shifts\n"
+"each feature to maximize MI, capturing delayed responses that fixed-lag\n"
+"analysis would miss.\n"
 "\n"
 "Temporal offset maximizing MI between neural activity and behavior.\n"
 "Positive delays mean neural activity lags behind behavior (expected\n"
@@ -781,6 +798,11 @@ cells.append(code_cell(
 ))
 
 # --- 3.7 Save and load results ---
+
+cells.append(md_cell(
+"Once analysis is complete, save the results for later visualization or\n"
+"cross-session comparison."
+))
 
 cells.append(md_cell(
 "### Save and load results\n"

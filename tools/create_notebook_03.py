@@ -354,6 +354,9 @@ cells.append(md_cell(
 cells.append(md_cell(
 "## 2. Method comparison\n"
 "\n"
+"The API handles the mechanics. But which method should you use? The following\n"
+"benchmark on a Swiss Roll manifold reveals the trade-offs.\n"
+"\n"
 "DRIADA provides four quality metrics to evaluate DR embeddings:\n"
 "\n"
 "- [`knn_preservation_rate`](https://driada.readthedocs.io/en/latest/api/dim_reduction/manifold_metrics.html#driada.dim_reduction.manifold_metrics.knn_preservation_rate) -- fraction of original k nearest neighbors preserved.\n"
@@ -370,8 +373,8 @@ cells.append(code_cell(
 "\n"
 "methods_cmp = {\n"
 "    'PCA': {},\n"
-"    'Isomap': {'n_neighbors': 10, 'max_deleted_nodes': 0.3},\n"
-"    'UMAP': {'n_neighbors': 15, 'min_dist': 0.1},\n"
+"    'Isomap': {'n_neighbors': 10, 'max_deleted_nodes': 0.3},  # 10 neighbors: local geodesics\n"
+"    'UMAP': {'n_neighbors': 15, 'min_dist': 0.1},  # min_dist: tighter clusters\n"
 "}\n"
 "cmp_results = {}\n"
 "\n"
@@ -436,6 +439,10 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 3. Autoencoder-based DR\n"
 "\n"
+"Linear and graph-based methods assume fixed neighborhoods or geodesics.\n"
+"Autoencoders learn a flexible nonlinear mapping — at the cost of more\n"
+"hyperparameters and training time.\n"
+"\n"
 "Neural network DR alternatives via [`flexible_ae`](https://driada.readthedocs.io/en/latest/api/dim_reduction/neural_methods.html): **standard autoencoder** (AE) with\n"
 "`continue_learning`, and **Beta-VAE** with KL divergence, compared against PCA.\n"
 "Key parameters: `architecture` (`'ae'` or `'vae'`) selects the model type,\n"
@@ -486,8 +493,8 @@ cells.append(code_cell(
 "        method='flexible_ae',\n"
 "        dim=2,\n"
 "        architecture='ae',\n"
-"        inter_dim=64,\n"
-"        epochs=5,\n"
+"        inter_dim=64,  # bottleneck width\n"
+"        epochs=5,  # under-trained for demo\n"
 "        lr=1e-3,\n"
 "        feature_dropout=0.1,\n"
 "        loss_components=[{'name': 'reconstruction', 'weight': 1.0, 'loss_type': 'mse'}],\n"
@@ -515,7 +522,7 @@ cells.append(code_cell(
 "        feature_dropout=0.1,\n"
 "        loss_components=[\n"
 "            {'name': 'reconstruction', 'weight': 1.0, 'loss_type': 'mse'},\n"
-"            {'name': 'beta_vae', 'weight': 1.0, 'beta': 4.0},\n"
+"            {'name': 'beta_vae', 'weight': 1.0, 'beta': 4.0},  # beta > 1: encourages disentanglement\n"
 "        ],\n"
 "        verbose=False,\n"
 "    )\n"
@@ -560,6 +567,10 @@ cells.append(code_cell(
 
 cells.append(md_cell(
 "## 4. Circular manifold & dimensionality estimation\n"
+"\n"
+"Synthetic benchmarks show what methods *can* do; real neural data shows what\n"
+"they *must* handle. Head direction cells encode a circular variable — a\n"
+"topology that some DR methods preserve better than others.\n"
 "\n"
 "Head direction cells encode a ring. We generate 100 HD cells with\n"
 "[`generate_circular_manifold_exp`](https://driada.readthedocs.io/en/latest/api/experiment/synthetic.html#driada.experiment.generate_circular_manifold_exp)\n"
@@ -746,7 +757,7 @@ cells.append(code_cell(
 "print('-' * 50)\n"
 "\n"
 "# Create MVData object from calcium data with downsampling\n"
-"downsampling_circ = 10\n"
+"downsampling_circ = 10  # use every 10th frame for speed\n"
 "mvdata_circ = MVData(neural_data_circ, downsampling=downsampling_circ)\n"
 "\n"
 "# Downsample true angles to match\n"
@@ -854,6 +865,10 @@ cells.append(md_cell(
 
 cells.append(md_cell(
 "## 5. INTENSE-guided DR\n"
+"\n"
+"Not all neurons carry manifold information. If we first identify\n"
+"feature-selective cells with INTENSE, we can build cleaner embeddings from\n"
+"the relevant subpopulation.\n"
 "\n"
 "In real experiments, only a subset of neurons encode any given variable.\n"
 "Including non-selective neurons in DR adds noise and distorts the manifold.\n"
@@ -969,6 +984,12 @@ cells.append(md_cell(
 "Neurons passing the p-value threshold are classified as **selective**.\n"
 "For details, see\n"
 "[Notebook 02](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb)."
+))
+
+cells.append(md_cell(
+"We generated a mixed population above: half place cells encoding spatial\n"
+"position, half selective for discrete/continuous features. INTENSE separates\n"
+"them so we can compare DR on each subgroup."
 ))
 
 cells.append(code_cell(

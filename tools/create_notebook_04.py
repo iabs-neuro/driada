@@ -212,7 +212,7 @@ cells.append(code_cell(
 'sim_mat, sig_mat, pval_mat, cells_list, info = compute_cell_cell_significance(\n'
 '    exp,\n'
 '    data_type="calcium",\n'
-'    ds=5,                      # Downsample by 5x for speed (~5x faster)\n'
+'    ds=5,                      # temporal downsampling for MI computation\n'
 '    n_shuffles_stage1=100,     # Stage 1 screening\n'
 '    n_shuffles_stage2=10000,   # FFT makes high shuffle counts fast!\n'
 '    pval_thr=0.001,\n'
@@ -367,7 +367,7 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-'n_replicates = 10\n'
+'n_replicates = 10  # null-model rewirings; more = smoother null distribution\n'
 '\n'
 'real_clustering = nx.average_clustering(net.graph)\n'
 'real_modularity = nx_comm.modularity(net.graph, communities)\n'
@@ -610,7 +610,7 @@ cells.append(code_cell(
 'print(f"Estrada bipartivity index: {bipartivity:.4f}")\n'
 'print(f"  (1.0 = perfectly bipartite, 0.0 = far from bipartite)")\n'
 '\n'
-'hyp = net_spectral.calculate_gromov_hyperbolicity(num_samples=50000)\n'
+'hyp = net_spectral.calculate_gromov_hyperbolicity(num_samples=50000)  # random quadruples sampled\n'
 'print(f"\\nGromov hyperbolicity (mean delta): {hyp:.3f}")\n'
 'print(f"  (0 = tree-like, higher = more cycle-rich)")'
 ))
@@ -632,7 +632,7 @@ cells.append(md_cell(
 cells.append(code_cell(
 'print("Thermodynamic entropy analysis")\n'
 '\n'
-'tlist = np.logspace(-2, 2, 50)\n'
+'tlist = np.logspace(-2, 2, 50)  # temperature: 0.01 (local) to 100 (global)\n'
 '\n'
 'vn_entropy = net_spectral.calculate_thermodynamic_entropy(tlist, norm=True)\n'
 'print(f"\\nVon Neumann entropy S(t) [normalized Laplacian]:")\n'
@@ -744,6 +744,10 @@ cells.append(code_cell(
 
 cells.append(md_cell(
 "### Spectral null-model comparison\n"
+"\n"
+"We've explored the real network's spectral properties from multiple angles.\n"
+"How much of this structure is explained by degree alone? Null-model\n"
+"comparison answers this.\n"
 "\n"
 "Compare spectral metrics against degree-preserving random rewirings\n"
 "using [`net.randomize`](https://driada.readthedocs.io/en/latest/api/network/randomization.html)."
