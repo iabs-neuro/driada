@@ -119,11 +119,11 @@ def reconstruct_with_mode(neuron, fps, method, mode_name, iterative=False, n_ite
 
     # Quality metrics from Neuron API
     r2 = neuron.get_reconstruction_r2()
-    corr = np.corrcoef(neuron.ca.data, neuron._reconstructed.data)[0, 1]
+    corr = np.corrcoef(neuron.ca.data, neuron.reconstructed.data)[0, 1]
 
     return {
         'mode': mode_name,
-        'reconstruction': neuron._reconstructed.data,
+        'reconstruction': neuron.reconstructed.data,
         't_rise': t_rise / fps,
         't_off': t_off / fps,
         'n_events': n_events,
