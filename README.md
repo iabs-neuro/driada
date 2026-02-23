@@ -26,7 +26,7 @@ Interactive notebooks — click a badge to open in Google Colab (no setup requir
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | **Network analysis** | Cell-cell significance, spectral analysis, communities, graph entropy |
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | **Advanced capabilities** | Embedding selectivity, leave-one-out importance, RSA, RNN analysis |
 
-All notebooks generate synthetic data internally — no external files needed. See the [`examples/`](examples/) folder for standalone scripts covering additional use cases.
+All notebooks generate synthetic data internally — no external files needed. See the [examples reference](https://driada.readthedocs.io/en/latest/examples.html) for 23 standalone scripts covering additional use cases.
 
 ## 🔬 Key Capabilities
 
