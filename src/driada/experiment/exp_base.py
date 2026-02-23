@@ -245,6 +245,23 @@ class Experiment:
     example, if 'position' is a dynamic feature, access it via self.position.
     Protected attribute names will have an underscore prefix if conflicts occur."""
 
+    _PROTECTED_ATTRS = frozenset({
+        "neurons",
+        "calcium",
+        "spikes",
+        "n_cells",
+        "n_frames",
+        "stats_tables",
+        "significance_tables",
+        "embeddings",
+        "_rdm_cache",
+        "_data_hashes",
+        "signature",
+        "exp_identificators",
+        "static_features",
+        "dynamic_features",
+    })
+
     def __init__(
         self,
         signature,
@@ -551,34 +568,15 @@ class Experiment:
         # Store experiment-level metadata
         self.metadata = metadata
 
-        # Protected attributes that should not be overwritten
-        protected_attrs = {
-            "neurons",
-            "calcium",
-            "spikes",
-            "n_cells",
-            "n_frames",
-            "stats_tables",
-            "significance_tables",
-            "embeddings",
-            "_rdm_cache",
-            "_data_hashes",
-            "signature",
-            "exp_identificators",
-            "static_features",
-            "dynamic_features",
-        }
-
-        # Check for protected attributes in dynamic features and remove them
-        conflicting_features = []
-        for feat_id in dynamic_features:
-            if isinstance(feat_id, str) and feat_id in protected_attrs:
-                conflicting_features.append(feat_id)
-
+        # Check for protected attributes in dynamic features
+        conflicting_features = [
+            feat_id for feat_id in dynamic_features
+            if isinstance(feat_id, str) and feat_id in self._PROTECTED_ATTRS
+        ]
         if conflicting_features:
             raise ValueError(
                 f"Dynamic feature names conflict with protected attributes: {conflicting_features}. "
-                f"Protected attributes are: {sorted(protected_attrs)}"
+                f"Protected attributes are: {sorted(self._PROTECTED_ATTRS)}"
             )
 
         # Store static_features as an attribute for consistency
@@ -594,7 +592,7 @@ class Experiment:
 
         # Also set static features as individual attributes for backward compatibility
         for sfeat_name in static_features:
-            if sfeat_name in protected_attrs:
+            if sfeat_name in self._PROTECTED_ATTRS:
                 warnings.warn(
                     f"Static feature name '{sfeat_name}' conflicts with protected attribute. "
                     f"Access via attribute name with underscore: _{sfeat_name}"
@@ -826,6 +824,79 @@ class Experiment:
                 self._data_hashes[mode][feat_id][cell_id] = self._build_pair_hash(
                     cell_id, feat_id, mode=mode
                 )
+
+    def add_feature(self, name, data, ts_type=None, **ts_kwargs):
+        """Add a dynamic feature to the experiment after initialization.
+
+        Mirrors the feature registration performed during ``__init__``:
+        wraps raw arrays, validates length, applies shuffle masks, stores
+        in ``dynamic_features`` dict, and sets a direct attribute.
+
+        Parameters
+        ----------
+        name : str
+            Feature name. Must not conflict with protected attributes.
+        data : array_like or TimeSeries or MultiTimeSeries
+            Feature data. Length must match ``n_frames``. Raw arrays are
+            wrapped in TimeSeries automatically.
+        ts_type : str or None, optional
+            Passed to ``TimeSeries(ts_type=...)`` when wrapping raw arrays.
+            Common values: ``'discrete'``, ``'circular'``.
+            Ignored if *data* is already a TimeSeries/MultiTimeSeries.
+        **ts_kwargs
+            Additional keyword arguments forwarded to the TimeSeries
+            constructor (e.g. ``circular_period``).
+        """
+        if not isinstance(name, str):
+            raise TypeError(f"Feature name must be a string, got {type(name).__name__}")
+        if name in self._PROTECTED_ATTRS:
+            raise ValueError(
+                f"Feature name '{name}' conflicts with a protected attribute. "
+                f"Protected attributes are: {sorted(self._PROTECTED_ATTRS)}"
+            )
+
+        # Wrap raw arrays
+        if isinstance(data, (TimeSeries, MultiTimeSeries)):
+            ts = data
+        elif isinstance(data, np.ndarray):
+            if data.ndim == 1:
+                ts = TimeSeries(data, name=name, ts_type=ts_type, **ts_kwargs)
+            elif data.ndim == 2:
+                ts_list = [
+                    TimeSeries(data[i, :], discrete=False, name=f"{name}_{i}")
+                    for i in range(data.shape[0])
+                ]
+                ts = MultiTimeSeries(ts_list, name=name)
+            else:
+                raise ValueError(
+                    f"Feature '{name}' has unsupported dimensionality: {data.ndim}D"
+                )
+        else:
+            ts = TimeSeries(np.asarray(data), name=name, ts_type=ts_type, **ts_kwargs)
+
+        # Validate length
+        n = ts.data.shape[1] if isinstance(ts, MultiTimeSeries) else ts.data.shape[-1]
+        if n != self.n_frames:
+            raise ValueError(
+                f"Feature '{name}' has {n} timepoints but experiment has {self.n_frames}"
+            )
+
+        # Apply shuffle mask
+        fps = getattr(self, "fps", None)
+        if fps is not None:
+            min_feat_shift = int(MIN_FEAT_SHIFT_SEC * fps)
+            ts.shuffle_mask[:min_feat_shift] = False
+            ts.shuffle_mask[-min_feat_shift:] = False
+
+        self.dynamic_features[name] = ts
+        setattr(self, name, ts)
+        self._build_data_hashes(mode="calcium")
+
+        warnings.warn(
+            f"Feature '{name}' added after initialization. "
+            "Cached INTENSE stats will not reflect this feature; re-run analysis if needed.",
+            stacklevel=2,
+        )
 
     def _create_circular_2d_features(self, verbose=True):
         """Create _2d (cos, sin) versions of circular features during __init__.

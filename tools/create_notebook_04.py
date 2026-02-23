@@ -401,7 +401,7 @@ cells.append(code_cell(
 'module_colors = plt.cm.tab10(np.linspace(0, 1, n_modules))\n'
 'module_to_color = {mod: module_colors[i] for i, mod in enumerate(unique_modules)}\n'
 '\n'
-'fig = plt.figure(figsize=(15, 10))\n'
+'fig = plt.figure(figsize=(15, 5))\n'
 '\n'
 '# 1. Similarity matrix with module boundaries\n'
 'ax1 = plt.subplot(1, 3, 1)\n'

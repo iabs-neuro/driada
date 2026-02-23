@@ -5,7 +5,7 @@ Generate Notebook 00: DRIADA Overview
 
 Assembles a Colab-ready overview notebook with two parts:
   1. Data structures (Experiment, TimeSeries, feature types) -- adapted from NB01 Section 1
-  2. Mini demos of INTENSE, DR, and networks using a synthetic population
+  2. Mini demos of INTENSE, dimensionality reduction, and networks using a synthetic population
 """
 
 import os
@@ -44,12 +44,12 @@ cells.append(md_cell(
 "\n"
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
-"| **Overview** | **00 -- this notebook** | Core data structures, quick tour of INTENSE, DR, networks |\n"
+"| **Overview** | **00 -- this notebook** | Core data structures, quick tour of INTENSE, dimensionality reduction, networks |\n"
 "| Neuron analysis | [01 -- Neuron analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | Spike reconstruction, kinetics optimization, quality metrics, surrogates |\n"
 "| Single-neuron selectivity | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
-"| Population geometry | [03 -- DR](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
+"| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
 "| Network analysis | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
-"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
+"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + dimensionality reduction, leave-one-out importance, RSA, RNN analysis |\n"
 "\n"
 "**What you will learn:**\n"
 "\n"
@@ -362,7 +362,7 @@ cells.append(md_cell(
 "\n"
 "| View | Description |\n"
 "|---|---|\n"
-"| `exp.calcium` | `MultiTimeSeries` (n_neurons, n_frames) -- convenient for population-level analysis (DR, RSA, decoding) |\n"
+"| `exp.calcium` | `MultiTimeSeries` (n_neurons, n_frames) -- convenient for population-level analysis (dimensionality reduction, RSA, decoding) |\n"
 "| `exp.neurons` | List of `Neuron` objects -- for single-cell analysis (reconstruction, kinetics, quality) |"
 ))
 
@@ -516,7 +516,7 @@ cells.append(code_cell(
 '    print(f"  ... ({len(sig_dict) - 10} more)")'
 ))
 
-# ----- 2.3 DR mini-demo ----------------------------------------------------
+# ----- 2.3 Dimensionality reduction mini-demo ----------------------------------------------------
 
 cells.append(md_cell(
 "### 2.3 Dimensionality reduction -- population geometry\n"
@@ -646,13 +646,13 @@ cells.append(md_cell(
 "\n"
 "1. [**Neuron analysis**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) -- spike reconstruction, kinetics optimization, quality metrics, surrogates.\n"
 "2. [**INTENSE selectivity detection**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) -- two-stage permutation test, tuning curves, ground-truth validation.\n"
-"3. [**Population geometry (DR)**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) -- PCA, UMAP, Isomap, Laplacian Eigenmaps, sequential DR, alignment metrics.\n"
+"3. [**Population geometry & dimensionality reduction**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) -- PCA, UMAP, Isomap, Laplacian Eigenmaps, sequential DR, alignment metrics.\n"
 "4. [**Network analysis**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) -- degree distributions, community detection, spectral analysis, null models.\n"
 "5. [**Advanced capabilities**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) -- INTENSE + DR pipeline, leave-one-out importance, RSA, RNN analysis.\n"
 "\n"
 "**Standalone examples** (run directly, no external data needed):\n"
 "- [intense_basic_usage](https://github.com/iabs-neuro/driada/tree/main/examples/intense_basic_usage) -- Minimal INTENSE workflow\n"
-"- [compare_dr_methods](https://github.com/iabs-neuro/driada/tree/main/examples/compare_dr_methods) -- DR method comparison with quality metrics\n"
+"- [compare_dr_methods](https://github.com/iabs-neuro/driada/tree/main/examples/compare_dr_methods) -- Dimensionality reduction method comparison with quality metrics\n"
 "- [network_analysis](https://github.com/iabs-neuro/driada/tree/main/examples/network_analysis) -- Network construction and structural analysis\n"
 "\n"
 "[All examples](https://github.com/iabs-neuro/driada/tree/main/examples)"

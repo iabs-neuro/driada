@@ -62,8 +62,7 @@ cells.append(md_cell(
 "**What you will learn:**\n"
 "\n"
 "1. **Single neuron analysis** -- create a [`Neuron`](https://driada.readthedocs.io/en/latest/api/experiment/core.html#driada.experiment.neuron.Neuron), reconstruct spikes, optimize kinetics, compute quality metrics, and generate surrogates.\n"
-"2. **Threshold vs wavelet reconstruction** -- compare two spike detection methods across four optimization modes.\n"
-"3. **Threshold vs wavelet reconstruction** -- compare two spike detection methods, visualize agreement, and quantify event-region overlap."
+"2. **Threshold vs wavelet reconstruction** -- compare two spike detection methods across four optimization modes, visualize agreement, and quantify event-region overlap."
 ))
 
 cells.append(code_cell(

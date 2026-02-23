@@ -465,13 +465,10 @@ cells.append(code_cell(
 "speed_data = exp3.dynamic_features['speed'].data\n"
 "median_speed = np.median(speed_data)\n"
 "mad_speed = np.median(np.abs(speed_data - median_speed))\n"
-"locomotion = (speed_data > median_speed + 3 * mad_speed).astype(float)\n"
-"exp3.dynamic_features['locomotion'] = TimeSeries(\n"
-"    locomotion, ts_type='discrete', name='locomotion'\n"
-")\n"
-"exp3._build_data_hashes(mode='calcium')\n"
+"locomotion = (speed_data > median_speed + mad_speed).astype(float)\n"
+"exp3.add_feature('locomotion', locomotion, ts_type='discrete')\n"
 "frac = np.mean(locomotion)\n"
-"print(f'  Added locomotion flag (speed > median + 3*MAD, {frac:.1%} active)')"
+"print(f'  Added locomotion flag (speed > median + MAD, {frac:.1%} active)')"
 ))
 
 # --- 3.1 Feature-feature analysis (before neuron analysis) ---
