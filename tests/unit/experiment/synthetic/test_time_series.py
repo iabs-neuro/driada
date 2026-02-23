@@ -10,12 +10,11 @@ class TestBinaryTimeSeries:
 
     def test_generate_binary_time_series_basic(self):
         """Test basic binary time series generation."""
-        np.random.seed(42)
         length = 1000
         avg_islands = 10
         avg_duration = 20
 
-        series = generate_binary_time_series(length, avg_islands, avg_duration)
+        series = generate_binary_time_series(length, avg_islands, avg_duration, seed=42)
 
         # Check basic properties
         assert len(series) == length

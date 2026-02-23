@@ -1,5 +1,5 @@
 ---
-title: 'DRIADA: A Substrate-Agnostic Framework Bridging Single-Neuron Selectivity and Population Dynamics'
+title: 'DRIADA: A Python Framework Bridging Single-Neuron Selectivity and Population Dynamics'
 tags:
   - Python
   - neuroscience
@@ -7,8 +7,7 @@ tags:
   - dimensionality reduction
   - mutual information
   - neural selectivity
-  - artificial neural networks
-  - interpretability
+  - neural networks
 authors:
   - name: Nikita A. Pospelov
     orcid: 0000-0000-0000-0000
@@ -22,52 +21,201 @@ bibliography: paper.bib
 
 # Summary
 
-DRIADA (Dimensionality Reduction for Integrated Activity Data) is a Python framework that connects single-neuron selectivity analysis with population-level dimensionality reduction. The framework operates on neural activity data regardless of its source—calcium imaging recordings, electrophysiology, or artificial neural network activations. While neuroscience has increasingly adopted population-level approaches [@saxena2019towards], understanding how individual neuron properties contribute to collective representations remains methodologically challenging [@spalletti2022single]. DRIADA provides an integrated workflow linking information-theoretic selectivity testing at the single-cell level with manifold learning at the population level.
+DRIADA (Dimensionality Reduction for Integrated Activity Data) is a Python
+framework that links single-neuron selectivity analysis with population-level
+dimensionality reduction for neural activity data. The framework accepts any
+(n_units, n_frames) activity matrix -- calcium imaging, electrophysiology, or
+artificial neural network activations -- alongside time-aligned behavioral
+variables, and provides an integrated workflow from information-theoretic
+significance testing of individual neurons through manifold extraction and
+network analysis of the full population. DRIADA is designed for neuroscientists
+who need to move beyond analyzing scales in isolation
+[@saxena2019towards], enabling them to ask:
+which neurons encode which behavioral variables, and how do those tuning
+properties shape the population's collective geometry?
 
 # Statement of Need
 
-Analyzing neural computation requires tools that span both individual neurons and population dynamics, yet existing software addresses these scales separately. @quirogapanzeri2009 noted that "the complementary knowledge offered by decoding and information theory has not been exploited enough in neuroscience." This integration gap persists: @chung2021neural demonstrate that population manifold geometry "depends on the tuning curves of all neurons," explicitly linking single-neuron selectivity to population structure. No existing software provides a complete workflow to operationalize this connection.
+Neurons encode information through selective responses to stimuli, behaviors,
+and cognitive states, but deciphering these codes is complicated by two
+challenges. First, neurons often exhibit mixed selectivity -- responding to
+combinations of variables rather than single features
+[@rigotti2013importance; @tye2024mixed]. When behavioral variables covary, as
+they typically do in naturalistic settings, it becomes difficult to determine
+whether a neuron truly encodes a given variable or merely correlates with it
+through a confound [@fusi2016why]. Modern automated behavior analysis tools
+now extract hundreds of features from video recordings, producing rich yet
+highly correlated datasets that exacerbate this identifiability problem.
+Second, population manifold geometry depends on the tuning curves of
+individual neurons [@chung2021neural], yet existing software addresses
+single-neuron statistics and population dynamics separately
+[@spalletti2022single], forcing researchers to assemble ad hoc pipelines with
+no shared data model.
 
-**Information-theoretic toolboxes** provide mutual information estimation but do not integrate with dimensionality reduction. @climer2021information identify that traditional spike-based information metrics "were not designed for the slow timescales and variable amplitudes typical of functional fluorescence recordings," motivating the need for continuous estimators like Gaussian Copula MI [@ince2017statistical]. NIT [@maffulli2022nit] focuses on spike trains and local field potentials with Poisson-based estimators, while MINT [@lorenz2025mint] addresses information flow across brain areas at the population level without single-neuron selectivity testing. FRITES [@combrisson2022frites] implements information-based functional connectivity for EEG/MEG/sEEG data but targets different recording modalities than calcium imaging. None provide integrated workflows connecting single-cell information content to population manifold structure.
+DRIADA targets experimentalists working with calcium imaging or
+electrophysiology who need to (1) detect which neurons encode which variables
+with rigorous statistical testing, (2) disentangle genuine mixed selectivity
+from behavioral covariance, (3) extract low-dimensional population structure,
+and (4) map single-cell properties onto population manifolds. Calcium imaging
+presents particular analytical challenges: fluorescence signals are continuous
+with slow indicator kinetics that create temporal smearing, and traditional
+spike-based information measures are not directly applicable
+[@climer2021information]. DRIADA operates on raw calcium traces without
+requiring spike deconvolution, using estimators designed for continuous data.
 
-**Population dimensionality reduction tools** extract latent representations but lack single-neuron selectivity statistics. CEBRA [@schneider2023learnable] produces consistent embeddings across modalities but operates purely at the population level. CILDS [@koh2023dimensionality] performs joint deconvolution and dimensionality reduction for calcium imaging without selectivity analysis. Demixed PCA [@kobak2016demixed] provides neuron contribution weights but lacks formal statistical tests for individual selectivity and is limited to categorical variables.
+# State of the Field
 
-**DRIADA addresses this gap through:**
+Several open-source packages address subsets of the neural analysis workflow.
 
-1. **Information Module**: Built on Gaussian Copula Mutual Information [@ince2017statistical], this module provides single-neuron selectivity analysis with two-stage statistical testing and Holm-Bonferroni correction [@holm1979simple]. The implementation supports interaction information and other multivariate measures through an efficient GCMI-based framework. Unlike correlation methods, it detects nonlinear relationships, handles temporal delays, and disentangles mixed selectivity when neurons respond to multiple correlated variables [@rigotti2013importance; @fusi2016why].
+**Information-theoretic toolboxes.** NIT [@maffulli2022nit] provides mutual
+information estimation for spike trains and local field potentials but assumes
+Poisson statistics, which are unsuitable for the continuous signals of calcium
+imaging. MINT [@lorenz2025mint] analyzes information transmission at the
+population level without single-neuron selectivity testing. FRITES
+[@combrisson2022frites] implements information-based functional connectivity
+for EEG/MEG data. IDTxl [@wollstadt2019idtxl] and HOI [@neri2024hoi] focus
+on information dynamics and higher-order interactions in networks. The
+Gaussian Copula MI framework [@ince2017statistical] enables efficient MI
+estimation for continuous data but has not been adapted for calcium-specific
+challenges: temporal delay optimization for indicator kinetics, circular-shift
+permutations for autocorrelated signals, or mixed-selectivity
+disentanglement. None of these toolboxes integrate single-neuron information
+content with population manifold structure.
 
-2. **Dimensionality Reduction Module**: Implements both classical methods (PCA, Factor Analysis) and manifold learning approaches (Isomap, UMAP [@mcinnes2018umap], Diffusion Maps). Includes a comprehensive autoencoder system with configurable architectures for neural network-based dimensionality reduction. Dimensionality estimation methods include PCA-based dimension, effective rank, k-NN dimension, and correlation dimension.
+**Population-level tools.** CEBRA [@schneider2023learnable] produces
+consistent embeddings across modalities but operates purely at the population
+level without single-neuron statistics. CILDS [@koh2023dimensionality] jointly
+deconvolves and reduces dimensionality for calcium imaging without selectivity
+analysis. Demixed PCA [@kobak2016demixed] decomposes population activity by
+task variable but lacks formal statistical tests for individual neuron
+selectivity and is limited to categorical variables.
 
-3. **Network Analysis Module**: Tools for analyzing functional connectivity structure in neural populations using graph-theoretic methods, including heat kernel affinities and giant component analysis.
+**Calcium imaging pipelines.** CaImAn [@giovannucci2019caiman] handles
+upstream preprocessing (motion correction, source extraction, deconvolution)
+and is complementary to DRIADA, which begins where preprocessing ends.
 
-4. **Signal Processing**: Calcium transient detection using synchrosqueezing wavelet transforms [@muradeli2020ssqueezepy] with GPU acceleration support.
+DRIADA fills the gap between these tools by connecting Gaussian Copula MI
+with dimensionality reduction and network analysis under a shared data model.
+We built DRIADA rather than extending an existing toolbox because the
+integration requires a unified data model (`Experiment`, `TimeSeries`,
+`MultiTimeSeries`) spanning both analysis scales -- something that cannot be
+added as a plugin to packages designed around different abstractions.
 
-5. **Substrate-Agnostic Design**: The framework analyzes activity from biological recordings and artificial neural networks identically. This follows @mante2013context, who applied identical analyses to prefrontal cortex and RNNs. Cross-domain tools such as RSA [@kriegeskorte2008representational] and CKA [@kornblith2019similarity] operate at the population level; DRIADA extends this to single-neuron selectivity testing across substrates.
+# Software Design
 
-6. **Validation Tools**: Synthetic data generators produce populations with known ground truth (head direction cells, place cells, mixed-selectivity neurons) for algorithm validation.
+DRIADA's architecture reflects four design decisions motivated by the
+neuroscience workflow.
 
-# Key Features and Implementation
+**Unified data model.** The `Experiment` class holds neural activity as a
+`MultiTimeSeries` (n_units $\times$ n_frames), behavioral variables as
+`TimeSeries` objects, and per-neuron `Neuron` objects that handle spike
+reconstruction via synchrosqueezing wavelet transforms
+[@muradeli2020ssqueezepy], kinetics optimization, and surrogate generation.
+Each `TimeSeries` carries both the raw data and precomputed representations
+required by downstream modules: a copula-normal transform for Gaussian Copula
+MI, integer-coded values for discrete estimators, a boolean shuffle mask
+defining valid circular-shift boundaries, and rich type metadata produced by
+an automatic detection pipeline that classifies variables as continuous
+(linear or circular), discrete (binary, categorical, count, or timeline), or
+multivariate based on uniqueness ratio, gap statistics, and Von Mises
+goodness-of-fit. Circular variables are additionally encoded as cos/sin pairs
+on $\mathbb{R}^2$ to avoid wraparound artifacts in correlation-based
+measures. This shared representation allows downstream modules -- INTENSE
+selectivity testing, dimensionality reduction, network analysis, RSA
+[@kriegeskorte2008representational] -- to operate on the same data without
+format conversion.
 
-DRIADA employs a modular architecture centered on three core data structures: the `Experiment` class manages multi-neuron recordings and behavioral variables, individual `Neuron` objects handle spike-calcium deconvolution and event detection, and `TimeSeries`/`MultiTimeSeries` objects represent neural and behavioral variables with automatic type detection (discrete vs. continuous). The analysis pipeline integrates single-neuron and population-level methods through a unified interface.
+**FFT-accelerated permutation testing.** The INTENSE module uses circular
+time-shift permutations to assess whether each neuron's mutual information
+with each behavioral variable exceeds chance. Circular shifts preserve the
+temporal autocorrelation structure of both calcium and behavioral signals --
+a critical requirement, since naive permutation tests produce overwhelming
+false positive rates on autocorrelated data. The computational bottleneck is
+addressed by precomputing per-signal FFTs and combining them via
+cross-correlation, reducing redundant computation from O(n_neurons $\times$
+n_features) to O(n_neurons + n_features) unique FFTs. A two-stage design
+(100 permutations for screening, 10,000 for validation) with Holm-Bonferroni
+correction [@holm1979simple] maintains statistical rigor while keeping
+computation tractable. The MI estimator is Gaussian Copula MI
+[@ince2017statistical], which captures nonlinear dependencies that
+correlation-based methods miss -- in hippocampal data, MI-based testing
+detected 2.2$\times$ more selective neurons than correlation applied within
+the same pipeline.
 
-**Information-theoretic analysis** leverages multiple mutual information estimators [@ince2017statistical] automatically selected based on data type: Gaussian Copula MI for continuous data, k-nearest neighbor (KSG) for non-parametric estimation, and discrete MI for categorical variables. Two-stage significance testing (100 permutations for screening, 10,000 for validation) with Holm-Bonferroni correction [@holm1979simple] ensures statistical rigor while maintaining computational efficiency. The framework supports conditional MI, interaction information, and redundancy/synergy decomposition for multivariate analysis.
+**Mixed-selectivity disentanglement.** When a neuron appears selective to
+multiple correlated variables, INTENSE uses conditional mutual information to
+test whether selectivity to each variable persists after controlling for the
+others, and interaction information to classify feature pairs as redundant or
+synergistic [@rigotti2013importance]. In hippocampal recordings, this
+procedure attributed roughly one-third of apparent multi-variable associations
+to behavioral covariance rather than genuine mixed encoding.
 
-**Dimensionality reduction** operates through `MVData` containers into a unified interface supporting 12+ methods [@cunningham2014dimensionality; @vyas2020computation]: linear (PCA, MDS), manifold (Isomap, LLE, UMAP [@mcinnes2018umap]), spectral (Laplacian Eigenmaps, Diffusion Maps), and neural network-based (autoencoders, VAEs with flexible loss composition). Each method includes quality metrics (reconstruction error, embedding stress, neighborhood preservation) for validation [@jazayeri2021interpreting].
+**Modularity across analysis scales.** Five modules operate on the shared
+`Experiment` object through pipeline functions. The dimensionality reduction
+module wraps the activity matrix in an `MVData` object that provides a
+uniform interface to 15 embedding methods (PCA, Isomap, UMAP
+[@mcinnes2018umap], diffusion maps, autoencoders, and others)
+[@cunningham2014dimensionality] with quality metrics (k-NN preservation,
+trustworthiness, continuity, stress) for method comparison, plus intrinsic
+dimensionality estimators for characterizing manifold complexity
+[@jazayeri2021interpreting]. Graph-based
+DR methods return a `ProximityGraph` that inherits from `Network`, so the
+full spectral and community-detection toolkit of the network module applies
+directly to DR-derived graphs. The network module itself constructs
+functional connectivity graphs from pairwise MI
+(`compute_cell_cell_significance`) and provides structural analysis (degree,
+clustering, Louvain communities), spectral analysis (eigendecomposition,
+inverse participation ratio, communicability, Von Neumann entropy), and
+null-model comparison via degree-preserving randomization. An integration
+module bridges scales: `compute_embedding_selectivity` runs INTENSE on
+embedding components to identify which neurons drive each manifold dimension,
+and leave-one-out analysis quantifies each neuron's contribution to manifold
+structure, enabling direct comparison with single-neuron MI. A
+representational similarity analysis (RSA) module computes representational
+dissimilarity matrices from neural data or embeddings, supporting
+cross-region and cross-session comparisons with bootstrap significance
+testing. The same architecture supports artificial neural networks -- RNN
+hidden-unit activations load identically to calcium traces -- following the
+cross-domain approach of @mante2013context.
 
-**Integration capabilities** uniquely map single-cell selectivity onto population manifolds, enabling researchers to identify which neurons encode task variables and how their tuning properties shape collective geometry—addressing the methodological gap identified by @spalletti2022single between single-neuron and population approaches.
+# Research Impact Statement
 
-Performance optimization employs conditional Numba JIT compilation (27 functions across information theory and signal processing), joblib-based parallelization with automatic backend selection, and optional PyTorch GPU acceleration. The codebase maintains >90% test coverage for core computational modules (information theory, INTENSE, network analysis) with comprehensive CI/CD workflows across Linux, macOS, and Windows.
+DRIADA formalizes analysis methods developed over several years of
+neuroscience research. The framework has been applied to hippocampal calcium
+imaging, revealing fast tuning dynamics of place cells during free exploration
+[@Sotskov2022], and to dimensionality estimation of hippocampal population
+activity, demonstrating behavioral correlates [@Pospelov2024]. The
+dimensionality reduction module has been used for fMRI resting-state analysis
+[@Pospelov2021] the network module for structural connectome
+characterization [@Bobyleva2025] and spectral entropy analysis of functional
+brain networks [@Pospelov2022]. Demonstrating substrate-agnostic
+applicability, @Kononov2024 used DRIADA to analyze recurrent neural network
+activations, revealing hybrid attractor dynamics in reinforcement learning
+agents.
 
-# Research Applications
+The package includes six tutorial notebooks executable on Google Colab,
+23 standalone example scripts, and a synthetic data generator producing
+populations with known ground truth for validating analysis pipelines.
+Validation on synthetic datasets with known selectivity demonstrates robust
+detection across a wide range of signal-to-noise ratios and response
+reliability conditions. The test suite contains 1,900+ tests running on
+Linux, macOS, and Windows across Python 3.9--3.13. Full API documentation is
+hosted at [driada.readthedocs.io](https://driada.readthedocs.io).
 
-DRIADA formalizes and extends analysis methods developed and refined over several years of neuroscience research. The framework has been applied to calcium imaging analysis of hippocampal place cells, revealing fast tuning dynamics during free exploration [@Sotskov2022]. Dimensionality estimation methods from DRIADA have demonstrated behavioral correlates of neural population activity [@Pospelov2024] and enabled analysis of structural connectome architecture [@Bobyleva2025]. The framework's dimensionality reduction toolkit has been applied to fMRI resting-state analysis [@Pospelov2021] and functional connectome characterization [@Pospelov2022].
+# AI Usage Disclosure
 
-Demonstrating substrate-agnostic applicability, DRIADA has been used to analyze recurrent neural networks, revealing hybrid attractor architectures in reinforcement learning agents [@Kononov2024]. This cross-domain capability positions DRIADA as both a neuroscience analysis tool and an artificial neural network interpretability framework.
-
-A comprehensive list of publications using DRIADA is maintained at https://github.com/iabs-neuro/driada/blob/main/PUBLICATIONS.md.
+Generative AI tools (Anthropic Claude) were used during DRIADA's development
+for code generation assistance, documentation writing, and test development.
+All AI-generated code was reviewed, tested, and validated by the authors.
+The scientific methodology, algorithmic design, and research applications
+are the original intellectual contribution of the authors. This paper was
+drafted with AI assistance and reviewed by the authors for accuracy.
 
 # Acknowledgements
 
-We acknowledge feedback from the neuroscience community on the INTENSE methodology and from users who tested early versions of the framework.
+This work was supported by the Non-Commercial Foundation for Support of
+Science and Education "INTELLECT". We acknowledge feedback from the
+neuroscience community on the INTENSE methodology and from users who tested
+early versions of the framework.
 
 # References
