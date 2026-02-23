@@ -39,7 +39,7 @@ cells = []
 # ===== HEADER + SETUP =====================================================
 
 cells.append(md_cell(
-"# Data loading & neuron analysis\n"
+"# Neuron analysis\n"
 "\n"
 "[**DRIADA**](https://driada.readthedocs.io) (Dimensionality Reduction for\n"
 "Integrated Activity Data) is a Python framework for neural data analysis.\n"
@@ -50,7 +50,7 @@ cells.append(md_cell(
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
 "| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
-"| **Load & inspect** | **01 -- this notebook** | Wrap your recording into an `Experiment`, reconstruct spikes, assess quality |\n"
+"| **Neuron analysis** | **01 -- this notebook** | Spike reconstruction, kinetics optimization, quality metrics, surrogates |\n"
 "| **Single-neuron selectivity** | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
 "| **Population geometry** | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
 "| **Network analysis** | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
