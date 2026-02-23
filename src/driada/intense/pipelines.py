@@ -668,7 +668,8 @@ def compute_cell_feat_significance(
             from .disentanglement import get_disentanglement_summary
 
             summary = get_disentanglement_summary(
-                disent_matrix, count_matrix, feat_names, feat_feat_significance
+                disent_matrix, count_matrix, feat_names, feat_feat_significance,
+                per_neuron_disent=per_neuron_disent,
             )
 
             # Package disentanglement results

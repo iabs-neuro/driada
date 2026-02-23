@@ -468,18 +468,54 @@ def test_get_disentanglement_summary_redundant():
     )
     count_matrix = np.array([[0, 5], [5, 0]])
 
-    summary = get_disentanglement_summary(disent_matrix, count_matrix, feat_names)
+    # With per_neuron_disent: exact counts
+    per_neuron_disent = {
+        0: {'pairs': {('feat1', 'feat2'): {'result': 0, 'source': 'standard'}}},
+        1: {'pairs': {('feat1', 'feat2'): {'result': 0, 'source': 'standard'}}},
+        2: {'pairs': {('feat1', 'feat2'): {'result': 0, 'source': 'standard'}}},
+        3: {'pairs': {('feat1', 'feat2'): {'result': 1, 'source': 'standard'}}},
+        4: {'pairs': {('feat1', 'feat2'): {'result': 0.5, 'source': 'standard'}}},
+    }
+    summary = get_disentanglement_summary(
+        disent_matrix, count_matrix, feat_names,
+        per_neuron_disent=per_neuron_disent,
+    )
 
     pair = summary["feature_pairs"]["feat1_vs_feat2"]
-    # Check percentages
     assert pair["feat1_primary"] == 3.5 / 5 * 100  # 70%
     assert pair["feat2_primary"] == 1.5 / 5 * 100  # 30%
-
-    # With the corrected formula:
-    # Fractional parts: 0.5 each, so n_undistinguishable = 0.5 * 2 = 1
-    # n_redundant = 5 - 1 = 4
     assert pair["undistinguishable_pct"] == 20.0  # 1 out of 5
     assert pair["redundant_pct"] == 80.0  # 4 out of 5
+
+
+def test_get_disentanglement_summary_all_undistinguishable():
+    """Test that even-count all-0.5 results are counted correctly.
+
+    Regression test: when an even number of neurons all get result=0.5,
+    the aggregate matrix values are integers, which the old formula
+    incorrectly interpreted as wins instead of ties."""
+    feat_names = ["speed", "speed_smoothed"]
+
+    # 4 neurons, all result=0.5 → disent[i,j] = 2.0, disent[j,i] = 2.0
+    disent_matrix = np.array([[0, 2.0], [2.0, 0]])
+    count_matrix = np.array([[0, 4], [4, 0]])
+    feat_feat_sig = np.array([[0, 1], [1, 0]])  # significant pair
+
+    per_neuron_disent = {
+        i: {'pairs': {('speed', 'speed_smoothed'): {'result': 0.5, 'source': 'standard'}}}
+        for i in range(4)
+    }
+
+    summary = get_disentanglement_summary(
+        disent_matrix, count_matrix, feat_names,
+        feat_feat_significance=feat_feat_sig,
+        per_neuron_disent=per_neuron_disent,
+    )
+
+    pair = summary["feature_pairs"]["speed_vs_speed_smoothed"]
+    assert pair["undistinguishable_pct"] == 100.0  # all 4 are undist
+    assert pair["redundant_pct"] == 0.0
+    assert summary["overall_stats"]["redundancy_rate"] == 0.0
 
 
 # Edge case tests

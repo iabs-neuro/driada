@@ -35,6 +35,11 @@ MI_EPSILON = 1e-6
 # 2.0 means one feature has >2x the MI of the other, indicating strong dominance
 DOMINANCE_RATIO_THRESHOLD = 2.0
 
+# Threshold for CMI-ratio redundancy detection
+# If conditioning on the other feature reduces MI below this fraction of the
+# original, the feature is considered redundant (its information is mostly shared)
+REDUNDANCY_CMI_RATIO = 0.1
+
 # Valid disentanglement result values
 VALID_DISRES_VALUES = (0, 0.5, 1)
 
@@ -231,8 +236,25 @@ def _disentangle_pair_with_precomputed(
             return 1  # ts2 is redundant, ts3 is primary
         elif criterion2 and not criterion1:
             return 0  # ts3 is redundant, ts2 is primary
-        else:
-            return 0.5  # Both contribute - undistinguishable
+
+        # Fallback: use CMI ratios when the strict criteria can't pick a winner.
+        # A feature is redundant if conditioning on the other removes most of
+        # its MI (residual ratio below threshold).
+        if mi12 > MI_EPSILON and mi13 > MI_EPSILON:
+            ratio_ts2 = cmi123 / mi12  # ts2's residual fraction
+            ratio_ts3 = cmi132 / mi13  # ts3's residual fraction
+            if ratio_ts2 < REDUNDANCY_CMI_RATIO and ratio_ts3 >= REDUNDANCY_CMI_RATIO:
+                return 1  # ts2 is redundant
+            if ratio_ts3 < REDUNDANCY_CMI_RATIO and ratio_ts2 >= REDUNDANCY_CMI_RATIO:
+                return 0  # ts3 is redundant
+            # Both highly redundant — remove the one with lower MI
+            if ratio_ts2 < REDUNDANCY_CMI_RATIO and ratio_ts3 < REDUNDANCY_CMI_RATIO:
+                if mi12 > mi13:
+                    return 0  # ts2 has higher MI, keep it
+                elif mi13 > mi12:
+                    return 1  # ts3 has higher MI, keep it
+
+        return 0.5  # Both contribute - undistinguishable
 
     else:  # Positive interaction information (synergy)
         # Use epsilon tolerance for near-zero MI comparisons
@@ -837,7 +859,8 @@ def create_multifeature_map(exp, mapping_dict):
 
 
 def get_disentanglement_summary(
-    disent_matrix, count_matrix, feat_names, feat_feat_significance=None
+    disent_matrix, count_matrix, feat_names, feat_feat_significance=None,
+    per_neuron_disent=None,
 ):
     """Generate a summary of disentanglement results.
 
@@ -852,6 +875,10 @@ def get_disentanglement_summary(
     feat_feat_significance : ndarray, optional
         Binary significance matrix indicating which feature pairs
         were analyzed for disentanglement.
+    per_neuron_disent : dict, optional
+        Per-neuron disentanglement results from disentangle_all_selectivities.
+        When provided, redundancy/undistinguishable counts are computed exactly
+        from per-neuron pair decisions instead of the aggregate matrices.
 
     Returns
     -------
@@ -866,13 +893,26 @@ def get_disentanglement_summary(
     -----
     The calculation distinguishes between:
     - Redundant cases: One feature is primary (disentangle result 0 or 1)
-    - Undistinguishable cases: Both features contribute (disentangle result 0.5)
-
-    Undistinguishable cases are identified by fractional values in the
-    disentanglement matrix, as each such case contributes 0.5 to both features."""
+    - Undistinguishable cases: Both features contribute (disentangle result 0.5)"""
     summary = {"feature_pairs": {}, "overall_stats": {}}
 
     n_features = len(feat_names)
+
+    # Build exact per-pair counts from per_neuron_disent when available.
+    # The aggregate matrices lose information when an even number of neurons
+    # all get result=0.5, making it indistinguishable from actual wins.
+    pair_counts = None
+    if per_neuron_disent is not None:
+        # pair_counts[(fi, fj)] = {0: n_fi_primary, 1: n_fj_primary, 0.5: n_undist}
+        pair_counts = {}
+        for neuron_info in per_neuron_disent.values():
+            for (fi, fj), pinfo in neuron_info.get('pairs', {}).items():
+                result = pinfo.get('result', 0.5)
+                key = (fi, fj)
+                if key not in pair_counts:
+                    pair_counts[key] = {0: 0, 0.5: 0, 1: 0}
+                pair_counts[key][result] += 1
+
     total_redundant = 0
     total_undistinguishable = 0
     total_pairs = 0
@@ -884,26 +924,33 @@ def get_disentanglement_summary(
                 n_i_primary = disent_matrix[i, j]
                 n_j_primary = disent_matrix[j, i]
 
-                # Calculate undistinguishable cases
-                # When feat_feat_significance indicates features are not correlated (sig=0),
-                # disentanglement is skipped and all neurons get 0.5 (undistinguishable)
-                if feat_feat_significance is not None and feat_feat_significance[i, j] == 0:
-                    # Non-significant feature pair: all neurons are undistinguishable
-                    # (true mixed selectivity - features are independent)
+                # Count undistinguishable cases
+                if pair_counts is not None:
+                    # Exact counts from per-neuron results
+                    fi, fj = feat_names[i], feat_names[j]
+                    key = (fi, fj)
+                    rev_key = (fj, fi)
+                    if key in pair_counts:
+                        pc = pair_counts[key]
+                    elif rev_key in pair_counts:
+                        pc = pair_counts[rev_key]
+                        # Swap 0 and 1 for reversed key
+                        pc = {0: pc[1], 1: pc[0], 0.5: pc[0.5]}
+                    else:
+                        pc = {0: 0, 0.5: int(n_total), 1: 0}
+                    n_undistinguishable = pc[0.5]
+                elif feat_feat_significance is not None and feat_feat_significance[i, j] == 0:
                     n_undistinguishable = int(n_total)
                 else:
-                    # Significant feature pair: calculate from matrix values
-                    # Each undistinguishable case contributes 0.5 to both matrices
-                    # Use: n_undist = n_total - (i_wins + j_wins)
-                    # where i_wins = int(n_i_primary), j_wins = int(n_j_primary)
-                    # when n_undist is even (no fractional part)
+                    # Fallback: estimate from aggregate matrices (may be inaccurate
+                    # when an even number of neurons all have result=0.5)
                     frac_i = n_i_primary - int(n_i_primary)
-                    if frac_i > 0.25:  # Has fractional part (odd n_undist)
+                    if frac_i > 0.25:
                         n_undistinguishable = round(frac_i * 2)
-                    else:  # No fractional part (even n_undist, including 0)
-                        # i_wins + j_wins + n_undist = n_total
-                        # i_wins = n_i_primary (when frac=0), j_wins = n_j_primary
-                        n_undistinguishable = int(n_total - int(n_i_primary) - int(n_j_primary))
+                    else:
+                        n_undistinguishable = int(
+                            n_total - int(n_i_primary) - int(n_j_primary)
+                        )
                 n_redundant = int(n_total) - n_undistinguishable
 
                 pair_key = f"{feat_names[i]}_vs_{feat_names[j]}"

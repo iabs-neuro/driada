@@ -461,14 +461,14 @@ cells.append(code_cell(
 ")\n"
 "ground_truth = exp3.ground_truth\n"
 "\n"
-"# Add a derived feature: locomotion flag (thresholded speed)\n"
+"# Add a derived feature: speed with measurement noise (correlated by construction)\n"
 "speed_data = exp3.dynamic_features['speed'].data\n"
-"median_speed = np.median(speed_data)\n"
-"mad_speed = np.median(np.abs(speed_data - median_speed))\n"
-"locomotion = (speed_data > median_speed + mad_speed).astype(float)\n"
-"exp3.add_feature('locomotion', locomotion, ts_type='discrete')\n"
-"frac = np.mean(locomotion)\n"
-"print(f'  Added locomotion flag (speed > median + MAD, {frac:.1%} active)')"
+"rng = np.random.RandomState(CONFIG['seed'])\n"
+"speed_noisy = speed_data + rng.normal(0, 0.3 * np.std(speed_data), len(speed_data))\n"
+"exp3.add_feature('speed_noisy', speed_noisy, ts_type='linear')\n"
+"from scipy.stats import pearsonr\n"
+"r, _ = pearsonr(speed_data, speed_noisy)\n"
+"print(f'  Added speed_noisy (speed + 30% Gaussian noise, r={r:.3f})')"
 ))
 
 # --- 3.1 Feature-feature analysis (before neuron analysis) ---
@@ -479,8 +479,8 @@ cells.append(md_cell(
 "Before analyzing neurons, check which behavioral variables are themselves\n"
 "correlated. [`compute_feat_feat_significance`](https://driada.readthedocs.io/en/latest/api/intense/pipelines.html#driada.intense.pipelines.compute_feat_feat_significance)\n"
 "tests all feature pairs with FFT-based circular shuffles. For example,\n"
-"the locomotion flag is derived from speed by thresholding, so they are\n"
-"correlated by construction. Any significant correlations here will inform\n"
+"the noisy speed is derived from speed by adding measurement noise, so they\n"
+"are correlated by construction. Any significant correlations here will inform\n"
 "the disentanglement step later."
 ))
 
@@ -557,7 +557,7 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### Running INTENSE with disentanglement\n"
 "\n"
-"Some features are correlated (e.g. speed and locomotion above). Before\n"
+"Some features are correlated (e.g. speed and noisy speed above). Before\n"
 "interpreting neuron selectivity, we need to account for these redundancies.\n"
 "Disentanglement uses conditional MI to separate genuine from inherited\n"
 "selectivity.\n"
