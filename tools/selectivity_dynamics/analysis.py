@@ -160,6 +160,8 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         filter_kwargs=filter_kwargs,
         use_circular_2d=use_circular_2d,
     )
+    # TODO: make compute_cell_feat_significance always return 5 values
+    #       (disent_results=None when off) so callers don't need this branch
     if with_disentanglement:
         stats, significance, info, results, disent_results = result
     else:
