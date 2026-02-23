@@ -34,6 +34,11 @@ def skip_on_network_error(func):
                 pytest.skip(f"Skipping test due to network error: {type(e).__name__}")
             else:
                 raise
+        except Exception as e:
+            # gdown raises FileURLRetrievalError on rate-limiting / permission issues
+            if "FileURLRetrievalError" in type(e).__name__:
+                pytest.skip(f"Skipping test due to GDrive access error: {e}")
+            raise
 
     return wrapper
 
