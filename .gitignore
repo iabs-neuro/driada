@@ -140,6 +140,12 @@ tools/*
 !tools/selectivity_dynamics/
 !tools/neuron_database/
 
+# One-off tool scripts (not part of release)
+tools/_doc_audit.py
+tools/extract_paper_numbers.py
+tools/recompute_mi_ksg.py
+tools/run_nof_cross_analysis_3_0.py
+
 # Papers folder
 papers/
 
