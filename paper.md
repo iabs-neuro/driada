@@ -9,13 +9,41 @@ tags:
   - neural selectivity
   - neural networks
 authors:
-  - name: Nikita A. Pospelov
-    orcid: 0000-0000-0000-0000
+  - name: Nikita Pospelov
+    orcid: 0000-0001-6637-2120
+    affiliation: 1
+  - name: Victor Plusnin
+    orcid: 0000-0001-9784-8283
+    affiliation: 1
+  - name: Olga Rogozhnikova
+    orcid: 0000-0002-2540-4402
+    affiliation: 1
+  - name: Anna Ivanova
+    orcid: 0000-0002-2454-1288
+    affiliation: 1
+  - name: Vladimir Sotskov
+    orcid: 0000-0002-1729-5744
+    affiliation: 1
+  - name: Margarita Orobets
+    affiliation: 1
+  - name: Ksenia Toropova
+    orcid: 0000-0003-3081-2133
+    affiliation: 1
+  - name: Olga Ivashkina
+    orcid: 0000-0002-1540-7677
+    affiliation: 1
+  - name: Vladik Avetisov
+    orcid: 0000-0002-2516-8868
+    affiliation: 2
+  - name: Konstantin Anokhin
+    orcid: 0000-0003-4437-6002
     affiliation: 1
 affiliations:
- - name: Faculty of Physics, Lomonosov Moscow State University, Moscow, Russia
+ - name: Institute for Advanced Brain Studies, Lomonosov Moscow State University, Moscow, Russia
    index: 1
-date: 3 January 2026
+ - name: Semenov Institute of Chemical Physics, Russian Academy of Sciences, Moscow, Russia
+   index: 2
+date: 1 March 2026
 bibliography: paper.bib
 ---
 
@@ -189,7 +217,7 @@ dimensionality reduction module has been used for fMRI resting-state analysis
 [@Pospelov2021] the network module for structural connectome
 characterization [@Bobyleva2025] and spectral entropy analysis of functional
 brain networks [@Pospelov2022]. Demonstrating substrate-agnostic
-applicability, @Kononov2024 used DRIADA to analyze recurrent neural network
+applicability, @Kononov2025 used DRIADA to analyze recurrent neural network
 activations, revealing hybrid attractor dynamics in reinforcement learning
 agents.
 
@@ -217,5 +245,26 @@ This work was supported by the Non-Commercial Foundation for Support of
 Science and Education "INTELLECT". We acknowledge feedback from the
 neuroscience community on the INTENSE methodology and from users who tested
 early versions of the framework.
+
+# Author Contributions (CRediT)
+
+<!-- Fill in each author's contributions using CRediT taxonomy:
+     https://credit.niso.org/
+
+     Roles: Conceptualization, Methodology, Software, Validation,
+     Formal Analysis, Investigation, Data Curation, Writing – Original Draft,
+     Writing – Review & Editing, Visualization, Supervision,
+     Project Administration, Funding Acquisition -->
+
+**N.P.:** Conceptualization, Methodology, Software, Writing – Original Draft.
+**V.P.:**
+**O.R.:**
+**A.I.:**
+**V.S.:**
+**M.O.:**
+**K.T.:**
+**O.I.:**
+**V.A.:**
+**K.A.:**
 
 # References
