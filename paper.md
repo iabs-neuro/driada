@@ -11,6 +11,7 @@ tags:
 authors:
   - name: Nikita Pospelov
     orcid: 0000-0001-6637-2120
+    corresponding: true
     affiliation: 1
   - name: Victor Plusnin
     orcid: 0000-0001-9784-8283
@@ -25,6 +26,7 @@ authors:
     orcid: 0000-0002-1729-5744
     affiliation: 1
   - name: Margarita Orobets
+    orcid: 0009-0002-4231-5329
     affiliation: 1
   - name: Ksenia Toropova
     orcid: 0000-0003-3081-2133
@@ -39,10 +41,10 @@ authors:
     orcid: 0000-0003-4437-6002
     affiliation: 1
 affiliations:
- - name: Institute for Advanced Brain Studies, Lomonosov Moscow State University, Moscow, Russia
-   index: 1
- - name: Semenov Institute of Chemical Physics, Russian Academy of Sciences, Moscow, Russia
-   index: 2
+  - name: Institute for Advanced Brain Studies, Lomonosov Moscow State University, Moscow, Russia
+    index: 1
+  - name: Semenov Institute of Chemical Physics, Russian Academy of Sciences, Moscow, Russia
+    index: 2
 date: 1 March 2026
 bibliography: paper.bib
 ---
@@ -95,7 +97,7 @@ requiring spike deconvolution, using estimators designed for continuous data.
 
 Several open-source packages address subsets of the neural analysis workflow.
 
-**Information-theoretic toolboxes.** NIT [@maffulli2022nit] provides mutual
+**Information-theoretic toolboxes.** NIT [@maffulli2024nit] provides mutual
 information estimation for spike trains and local field potentials but assumes
 Poisson statistics, which are unsuitable for the continuous signals of calcium
 imaging. MINT [@lorenz2025mint] analyzes information transmission at the
@@ -187,7 +189,7 @@ uniform interface to 15 embedding methods (PCA, Isomap, UMAP
 trustworthiness, continuity, stress) for method comparison, plus intrinsic
 dimensionality estimators for characterizing manifold complexity
 [@jazayeri2021interpreting]. Graph-based
-DR methods return a `ProximityGraph` that inherits from `Network`, so the
+dimensionality reduction methods return a `ProximityGraph` that inherits from `Network`, so the
 full spectral and community-detection toolkit of the network module applies
 directly to DR-derived graphs. The network module itself constructs
 functional connectivity graphs from pairwise MI
@@ -214,7 +216,7 @@ imaging, revealing fast tuning dynamics of place cells during free exploration
 [@Sotskov2022], and to dimensionality estimation of hippocampal population
 activity, demonstrating behavioral correlates [@Pospelov2024]. The
 dimensionality reduction module has been used for fMRI resting-state analysis
-[@Pospelov2021] the network module for structural connectome
+[@Pospelov2021], the network module for structural connectome
 characterization [@Bobyleva2025] and spectral entropy analysis of functional
 brain networks [@Pospelov2022]. Demonstrating substrate-agnostic
 applicability, @Kononov2025 used DRIADA to analyze recurrent neural network
@@ -226,18 +228,21 @@ The package includes six tutorial notebooks executable on Google Colab,
 populations with known ground truth for validating analysis pipelines.
 Validation on synthetic datasets with known selectivity demonstrates robust
 detection across a wide range of signal-to-noise ratios and response
-reliability conditions. The test suite contains 1,900+ tests running on
+reliability conditions. The test suite contains 1,880+ tests running on
 Linux, macOS, and Windows across Python 3.9--3.13. Full API documentation is
 hosted at [driada.readthedocs.io](https://driada.readthedocs.io).
 
 # AI Usage Disclosure
 
-Generative AI tools (Anthropic Claude) were used during DRIADA's development
-for code generation assistance, documentation writing, and test development.
-All AI-generated code was reviewed, tested, and validated by the authors.
-The scientific methodology, algorithmic design, and research applications
-are the original intellectual contribution of the authors. This paper was
-drafted with AI assistance and reviewed by the authors for accuracy.
+The core algorithms and library code were written manually over the course
+of DRIADA's multi-year development. Starting from mid-2025, generative AI
+tools (Anthropic Claude, Opus 4 and Sonnet 4 families) were used for
+partial assistance with test generation, documentation writing, and
+development acceleration. All AI-assisted outputs were reviewed, tested,
+and validated by the authors. The scientific methodology, algorithmic
+design, and research applications are the original intellectual
+contribution of the authors. This paper was drafted with partial AI
+assistance and will be revised by the authors.
 
 # Acknowledgements
 
@@ -246,25 +251,23 @@ Science and Education "INTELLECT". We acknowledge feedback from the
 neuroscience community on the INTENSE methodology and from users who tested
 early versions of the framework.
 
-# Author Contributions (CRediT)
+<!-- CRediT Author Contributions (not rendered in JOSS paper — for internal records)
 
-<!-- Fill in each author's contributions using CRediT taxonomy:
-     https://credit.niso.org/
+N.P.: Conceptualization, Methodology, Software, Writing – Original Draft.
+V.P.:
+O.R.:
+A.I.:
+V.S.:
+M.O.:
+K.T.:
+O.I.:
+V.A.:
+K.A.:
 
-     Roles: Conceptualization, Methodology, Software, Validation,
-     Formal Analysis, Investigation, Data Curation, Writing – Original Draft,
-     Writing – Review & Editing, Visualization, Supervision,
-     Project Administration, Funding Acquisition -->
-
-**N.P.:** Conceptualization, Methodology, Software, Writing – Original Draft.
-**V.P.:**
-**O.R.:**
-**A.I.:**
-**V.S.:**
-**M.O.:**
-**K.T.:**
-**O.I.:**
-**V.A.:**
-**K.A.:**
+Roles: Conceptualization, Methodology, Software, Validation,
+Formal Analysis, Investigation, Data Curation, Writing – Original Draft,
+Writing – Review & Editing, Visualization, Supervision,
+Project Administration, Funding Acquisition
+-->
 
 # References
