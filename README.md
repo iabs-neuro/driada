@@ -134,7 +134,7 @@ DRIADA has been used in the following research:
 - **[Bobyleva et al. (2025)](https://doi.org/10.1162/netn_a_00439)** — Multifractality of structural connectome eigenmodes
 
 ### Artificial neural networks
-- **[Kononov et al. (2024)](https://arxiv.org/abs/2510.11162)** — Hybrid computational dynamics in RNNs through reinforcement learning
+- **[Kononov et al. (2025)](https://arxiv.org/abs/2510.11162)** — Hybrid computational dynamics in RNNs through reinforcement learning
 
 ### Methodological applications
 - **[Pospelov et al. (2021)](https://doi.org/10.1016/j.ynirp.2021.100035)** — Laplacian Eigenmaps for fMRI resting-state analysis

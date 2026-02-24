@@ -518,7 +518,7 @@ Explore comprehensive examples demonstrating real-world workflows:
 **Getting started:**
 
 - ``examples/data_loading/load_data_example.py`` - Load your own data into DRIADA
-- ``examples/neuron_basic_usage.py`` - Single neuron creation and spike reconstruction
+- ``examples/neuron_basic_usage/neuron_basic_usage.py`` - Single neuron creation and spike reconstruction
 - ``examples/intense_basic_usage/intense_basic_usage.py`` - Detect selective neurons with INTENSE
 
 **Core analysis workflows:**

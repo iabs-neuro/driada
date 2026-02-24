@@ -24,7 +24,7 @@ Project maintainers are responsible for clarifying standards of acceptable behav
 
 ## Reporting
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue or contacting the project maintainers directly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue or emailing the maintainer at pospelov.na14@physics.msu.ru.
 
 ## Attribution
 

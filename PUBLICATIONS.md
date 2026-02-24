@@ -94,13 +94,13 @@ DOI: [10.1109/CNN67635.2025.11177525](https://doi.org/10.1109/CNN67635.2025.1117
 
 ## Preprints & Submitted Manuscripts
 
-### Kononov et al. (2024) — RNN Dynamics [Submitted to npj Artificial Intelligence]
+### Kononov et al. (2025) — RNN Dynamics [Submitted to Neurocomputing]
 
 **Emergence of Hybrid Computational Dynamics Through Reinforcement Learning**
 
 Kononov, R.A., Pospelov, N.A., Anokhin, K.V., Nekorkin, V.V., Maslennikov, O.V.
 
-*arXiv:2510.11162* (2024) — Submitted to *npj Artificial Intelligence*
+*arXiv:2510.11162* (2025) — Submitted to *Neurocomputing*
 
 [arXiv:2510.11162](https://arxiv.org/abs/2510.11162)
 

@@ -212,7 +212,7 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ---
 
-## [0.6.6] - 2025-12-XX
+## [0.6.6] - 2025-12-01
 
 ### Added
 - **Dependency Management**
@@ -232,7 +232,7 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ---
 
-## [0.6.5] - 2025-12-XX
+## [0.6.5] - 2025-12-01
 
 ### Added
 - **Wavelet Optimization**
@@ -250,7 +250,7 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ---
 
-## [0.6.4] - 2025-11-XX
+## [0.6.4] - 2025-11-01
 
 ### Added
 - **Publication Tools**
@@ -290,7 +290,7 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ---
 
-## [0.6.1] - 2025-10-XX
+## [0.6.1] - 2025-10-01
 
 ### Added
 - **Frame Rate Adaptivity**
@@ -314,7 +314,7 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ---
 
-## [0.6.0] - 2025-09-XX
+## [0.6.0] - 2025-09-01
 
 ### Added
 - **Kinetics Analysis System**
@@ -340,7 +340,7 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ---
 
-## [0.5.1] - 2025-08-XX
+## [0.5.1] - 2025-08-01
 
 ### Added
 - **Cross-Validation Framework**
@@ -368,7 +368,7 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ---
 
-## [0.4.0] - 2025-07-XX
+## [0.4.0] - 2025-07-01
 
 ### Added
 - **CI/CD Infrastructure**
@@ -437,7 +437,7 @@ All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigat
 
 ---
 
-## [0.2.0] - 2025-03-XX
+## [0.2.0] - 2025-03-01
 
 ### Added
 - **Synthetic Data Generators**

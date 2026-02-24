@@ -42,8 +42,8 @@ pytest
 # Run with coverage report
 pytest --cov=driada
 
-# Run specific test file
-pytest tests/test_experiment.py
+# Run specific test directory
+pytest tests/unit/experiment/
 ```
 
 ## Code Style
@@ -86,8 +86,8 @@ isort src/driada tests
 To build and view documentation locally:
 
 ```bash
-cd docs
-make html
+pip install -e ".[docs]"
+sphinx-build docs docs/_build/html
 # Open docs/_build/html/index.html in your browser
 ```
 

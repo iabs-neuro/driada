@@ -70,5 +70,5 @@ Core dependencies include:
 
 Optional dependencies:
 
-- **GPU support**: torch, torchvision
+- **GPU support**: torch, torchvision, torchaudio, torch-mist
 - **MVU support**: cvxpy >= 1.4.2
