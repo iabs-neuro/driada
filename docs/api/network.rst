@@ -9,7 +9,7 @@ General-purpose graph analysis: spectral decomposition, thermodynamic entropy,
 quantum-inspired measures, community detection, and visualization for any graph.
 
 The ``Network`` class is also the base for ``ProximityGraph`` (in ``dim_reduction``),
-which means graph-based DR methods (Isomap, LLE, Laplacian Eigenmaps, diffusion maps)
+which means graph-based dimensionality reduction methods (Isomap, LLE, Laplacian Eigenmaps, diffusion maps)
 produce objects with full spectral and topological analysis capabilities.
 
 Module Components

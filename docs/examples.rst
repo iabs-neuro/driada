@@ -39,17 +39,17 @@ Dimensionality Reduction
    :header-rows: 0
 
    * - `compare_dr_methods <https://github.com/iabs-neuro/driada/tree/main/examples/compare_dr_methods>`__
-     - Systematic comparison of DR methods (PCA, Isomap, UMAP, t-SNE, etc.)
+     - Systematic comparison of dimensionality reduction methods (PCA, Isomap, UMAP, t-SNE, etc.)
        on synthetic datasets with quality metrics (k-NN preservation,
        trustworthiness, continuity, stress) and timing benchmarks.
    * - `dr_simplified_api <https://github.com/iabs-neuro/driada/tree/main/examples/dr_simplified_api>`__
-     - Quick-start guide for DRIADA's DR API: ``MVData``, automatic parameter
+     - Quick-start guide for DRIADA's dimensionality reduction API: ``MVData``, automatic parameter
        handling, custom metrics, and method-specific configurations.
    * - `dr_sequence <https://github.com/iabs-neuro/driada/tree/main/examples/dr_sequence>`__
      - Compare direct UMAP vs PCA-then-UMAP sequential dimensionality reduction
        on synthetic neural manifolds with preservation metrics.
    * - `autoencoder_dr <https://github.com/iabs-neuro/driada/tree/main/examples/autoencoder_dr>`__
-     - Neural-network-based DR on circular manifold data: standard autoencoder
+     - Neural-network-based dimensionality reduction on circular manifold data: standard autoencoder
        with ``continue_learning``, Beta-VAE, and PCA comparison.
 
 
@@ -62,19 +62,19 @@ Dimensionality Estimation
 
    * - `circular_manifold <https://github.com/iabs-neuro/driada/tree/main/examples/circular_manifold>`__
      - Extract 1D circular structure from head direction cells using multiple
-       DR methods and intrinsic dimensionality estimators (correlation dimension,
+       dimensionality reduction methods and intrinsic dimensionality estimators (correlation dimension,
        geodesic dimension, participation ratio).
 
 
-Integration — INTENSE + DR
-----------------------------
+Integration — INTENSE + Dimensionality Reduction
+--------------------------------------------------
 
 .. list-table::
    :widths: 30 70
    :header-rows: 0
 
    * - `intense_dr_pipeline <https://github.com/iabs-neuro/driada/tree/main/examples/intense_dr_pipeline>`__
-     - Use INTENSE to identify spatially selective neurons, then compare DR
+     - Use INTENSE to identify spatially selective neurons, then compare dimensionality reduction
        quality (decoding R², distance correlation) using all neurons vs the
        INTENSE-selected subset.
    * - `loo_dr_analysis <https://github.com/iabs-neuro/driada/tree/main/examples/loo_dr_analysis>`__
@@ -127,7 +127,7 @@ Synthetic Data
    * - `rnn_activations <https://github.com/iabs-neuro/driada/tree/main/examples/rnn_activations>`__
      - Full DRIADA pipeline on simulated RNN activations: generate behavioral
        inputs, simulate a driven RNN, load into an ``Experiment``, and run
-       INTENSE + DR + network analysis. Demonstrates that DRIADA works with
+       INTENSE + dimensionality reduction + network analysis. Demonstrates that DRIADA works with
        any ``(n_units, n_frames)`` data, not just calcium imaging.
 
 

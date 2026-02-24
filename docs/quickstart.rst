@@ -150,7 +150,7 @@ Extract low-dimensional representations of population activity:
    # exp.calcium is a MultiTimeSeries, which inherits from MVData
    # So it directly supports all dimensionality reduction methods!
    
-   # Apply different DR methods directly on calcium data
+   # Apply different dimensionality reduction methods directly on calcium data
    # PCA - captures linear variance
    pca_emb = exp.calcium.get_embedding(method='pca', dim=3)
    
@@ -461,7 +461,7 @@ Leverage DRIADA's advanced capabilities:
 
    exp = load_demo_experiment()
    
-   # Chain multiple DR methods for optimal results
+   # Chain multiple dimensionality reduction methods for optimal results
    embedding = dr_sequence(
        exp.calcium,
        steps=[
@@ -530,9 +530,9 @@ Explore comprehensive examples demonstrating real-world workflows:
 
 **Dimensionality reduction:**
 
-- ``examples/compare_dr_methods/compare_dr_methods.py`` - Systematic comparison of DR algorithms
-- ``examples/dr_sequence/dr_sequence_neural_example.py`` - Sequential DR pipeline
-- ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple DR API with all supported methods
+- ``examples/compare_dr_methods/compare_dr_methods.py`` - Systematic comparison of dimensionality reduction algorithms
+- ``examples/dr_sequence/dr_sequence_neural_example.py`` - Sequential dimensionality reduction pipeline
+- ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple dimensionality reduction API with all supported methods
 
 **Complete pipelines:**
 

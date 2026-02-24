@@ -9,7 +9,7 @@ Comprehensive dimensionality reduction tools for analyzing high-dimensional neur
 including classical methods (PCA, FA), manifold learning (Isomap, UMAP), and neural network
 approaches (autoencoders).
 
-Graph-based DR methods (Isomap, LLE, Laplacian Eigenmaps, UMAP, diffusion maps) construct
+Graph-based dimensionality reduction methods (Isomap, LLE, Laplacian Eigenmaps, UMAP, diffusion maps) construct
 a :class:`~driada.dim_reduction.graph.ProximityGraph` internally, which inherits from
 :class:`~driada.network.net_base.Network`. This means the proximity graph powering your
 embedding has full spectral analysis, entropy, community detection, and visualization
@@ -37,7 +37,7 @@ Quick Links
    * :class:`~driada.dim_reduction.dr_base.DRMethod` - Method base class
 
 **Main Functions**
-   * :func:`~driada.dim_reduction.sequences.dr_sequence` - Sequential DR pipeline
+   * :func:`~driada.dim_reduction.sequences.dr_sequence` - Sequential dimensionality reduction pipeline
    * See :data:`~driada.dim_reduction.dr_base.METHODS_DICT` for available methods
 
 **Manifold Quality Metrics**

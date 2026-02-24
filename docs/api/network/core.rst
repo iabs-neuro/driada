@@ -6,7 +6,7 @@ Network Core
 General-purpose graph analysis class. Accepts any scipy sparse adjacency matrix
 or NetworkX graph -- connectomes, correlation networks, functional connectivity,
 or any other graph. Also serves as the base class for
-:class:`~driada.dim_reduction.graph.ProximityGraph`, so graph-based DR methods
+:class:`~driada.dim_reduction.graph.ProximityGraph`, so graph-based dimensionality reduction methods
 produce objects with the full Network analysis toolkit.
 
 Network Class

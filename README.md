@@ -19,10 +19,10 @@ Interactive notebooks — click a badge to open in Google Colab (no setup requir
 
 | | Notebook | Topics |
 |---|---|---|
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | **DRIADA overview** | `Experiment` objects, feature types, quick tour of INTENSE, DR, networks |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | **DRIADA overview** | `Experiment` objects, feature types, quick tour of INTENSE, dimensionality reduction, networks |
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | **Neuron analysis** | Spike reconstruction, kinetics optimization, quality metrics, surrogates |
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | **Selectivity detection (INTENSE)** | Mutual information, two-stage testing, optimal delays, mixed selectivity |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | **Population geometry & DR** | PCA, UMAP, Isomap, autoencoders, manifold quality metrics, dimensionality estimation |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | **Population geometry & dimensionality reduction** | PCA, UMAP, Isomap, autoencoders, manifold quality metrics, dimensionality estimation |
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | **Network analysis** | Cell-cell significance, spectral analysis, communities, graph entropy |
 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | **Advanced capabilities** | Embedding selectivity, leave-one-out importance, RSA, RNN analysis |
 
@@ -34,7 +34,7 @@ All notebooks generate synthetic data internally — no external files needed. S
 - 📊 **Dimensionality Reduction** — linear (PCA), graph-based (Isomap, diffusion maps, LLE), neighbor-embedding (UMAP, t-SNE), and neural network-based (autoencoders) with manifold quality metrics
 - 📐 **Dimensionality Estimation** — PCA-based, effective rank, k-NN, correlation, and geodesic dimension
 - 🔗 **Integration** — map single-cell selectivity onto population manifolds and embedding components
-- 🌐 **Network Analysis** — general-purpose graph analysis (spectral, entropy, communities) for connectomes, functional networks, or DR proximity graphs
+- 🌐 **Network Analysis** — general-purpose graph analysis (spectral, entropy, communities) for connectomes, functional networks, or dimensionality reduction proximity graphs
 - 📏 **RSA** — representational dissimilarity matrices, cross-region and cross-session comparisons
 - 🧪 **Synthetic Data** — generate populations with known ground truth for validation
 - 🔬 **Neuron** — calcium kinetics optimization (rise/decay fitting), event detection, and signal quality metrics
