@@ -82,7 +82,7 @@ benchmarks/
 
 # INTENSE output and data directories
 DRIADA data/
-INTENSE_*/
+.analysis/
 truncated/
 
 # Temporary files
@@ -118,7 +118,6 @@ DOC_VERIFICATION*.txt
 /time_*.py
 /quick_*.py
 /original_*.py
-/analysis_*/
 
 # All tools directory scripts
 # tools/  # Commented out - CI workflows need these scripts

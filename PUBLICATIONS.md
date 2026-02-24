@@ -52,8 +52,7 @@ DOI: [10.1162/netn_a_00439](https://doi.org/10.1162/netn_a_00439)
 
 **Network Entropy Analysis Reveals High Heterogeneity of Human Functional Networks**
 
-<!-- TODO: Add full author list -->
-Pospelov, N. et al.
+Pospelov, N., Levchenko, E., Tiselko, V., Safronova, R., Zakharov, I., Sotskov, V., Anokhin, K.
 
 *2022 6th Scientific School Dynamics of Complex Networks and their Applications (DCNA)*, IEEE, Document 9923313 (2022)
 
@@ -79,14 +78,15 @@ DOI: [10.1109/DCNA63495.2024.10718588](https://doi.org/10.1109/DCNA63495.2024.10
 
 ---
 
-### Pospelov et al. — Intrinsic Dimensionality of Neural Populations
+### Pospelov et al. (2025) — Intrinsic Dimensionality of Neural Populations
 
 **Intrinsic Dimensionality Analysis of Neuronal Population Activity**
 
-<!-- TODO: Add full author list and publication details -->
-Pospelov, N. et al.
+Pospelov, N., Rogozhnikova, O., Plusnin, V., Ivanova, A., Toropova, K., Ivashkina, O., Anokhin, K.
 
-[ResearchGate](https://www.researchgate.net/profile/Nikita-Pospelov/publication/396021948_Intrinsic_dimensionality_analysis_of_neuronal_population_activity/links/68dcf964ffdca73694b4b0a7/Intrinsic-dimensionality-analysis-of-neuronal-population-activity.pdf)
+*2025 7th International Conference Neurotechnologies and Neurointerfaces (CNN)*, IEEE (2025)
+
+DOI: [10.1109/CNN67635.2025.11177525](https://doi.org/10.1109/CNN67635.2025.11177525)
 
 > Applied DRIADA's dimensionality estimation toolkit to characterize intrinsic dimensionality of neural population recordings.
 
@@ -114,8 +114,7 @@ Kononov, R.A., Pospelov, N.A., Anokhin, K.V., Nekorkin, V.V., Maslennikov, O.V.
 
 **INTENSE: Information-Theoretic Evaluation of Neuronal Selectivity for Calcium Imaging Data**
 
-<!-- TODO: Add co-authors -->
-Pospelov, N.A. et al. (in preparation)
+Pospelov, N.A., Plusnin, V.V., Rogozhnikova, O., Ivanova, A., Sotskov, V., Toropova, K., Ivashkina, O., Avetisov, V., Anokhin, K.V. (in preparation)
 
 > Methodological paper describing DRIADA's INTENSE module for rigorous single-neuron selectivity analysis using Gaussian Copula Mutual Information with two-stage statistical testing. To be uploaded to arXiv soon.
 
@@ -151,4 +150,4 @@ Include: full author list, title, journal/venue, year, DOI, and a brief descript
 
 ---
 
-*Last updated: January 2026*
+*Last updated: February 2026*
