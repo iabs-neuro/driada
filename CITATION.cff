@@ -4,7 +4,7 @@
 # GitHub and Zenodo parse this file automatically
 
 cff-version: 1.2.0
-title: "DRIADA: Dimensionality Reduction for Integrated Activity Data Analysis"
+title: "DRIADA: A Python Framework Bridging Single-Neuron Selectivity and Population Dynamics"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
@@ -27,7 +27,7 @@ authors:
     orcid: "0000-0002-2454-1288"
   - family-names: "Sotskov"
     given-names: "Vladimir"
-    affiliation: "Institute for Advanced Brain Studies, Lomonosov Moscow State University, Moscow, Russia"
+    affiliation: "Center for Interdisciplinary Research in Biology, Collège de France, Paris, France"
     orcid: "0000-0002-1729-5744"
   - family-names: "Orobets"
     given-names: "Margarita"
