@@ -54,38 +54,42 @@ bibliography: paper.bib
 # Summary
 
 DRIADA (Dimensionality Reduction for Integrated Activity DAta) is a Python
-framework for analyzing neural recordings across three scales—single-neuron
-selectivity, population manifold structure, and functional network
-organization—within a unified workflow. The framework accepts any neural
-activity data (calcium imaging, electrophysiology, or artificial neural
-network activations) alongside time-aligned behavioral variables, providing
-an integrated path from information-theoretic selectivity testing through
-manifold extraction to network analysis. Automatic variable type detection
-handles continuous, discrete, circular, and multivariate variables
-transparently, making information-theoretic analysis accessible without
-expertise in estimator selection. DRIADA enables neuroscientists to move
-beyond analyzing scales in isolation [@saxena2019towards]: which neurons
-encode which variables, and how do those tuning properties shape the
-population's collective geometry?
+framework for integrated analysis of neural activity across three scales:
+single-neuron selectivity, population manifold structure, and functional
+network organization. The framework supports calcium imaging,
+electrophysiology, and artificial neural network activations, alongside
+time-aligned behavioral variables, and provides a unified path from
+information-theoretic selectivity testing to manifold extraction and network
+analysis. DRIADA automatically detects variable types (continuous, discrete,
+circular, and multivariate) and selects appropriate information-theoretic
+estimators, making these analyses accessible to users without specialized
+expertise in estimator choice. By combining analyses that are often performed
+in isolation [@saxena2019towards], DRIADA helps users test how neuron-level
+tuning relates to the collective geometry and network structure of population
+activity.
 
 # Statement of Need
 
-Neural data analysis increasingly requires working across scales: population
-manifold geometry depends on the tuning curves of individual neurons
-[@chung2021neural], yet existing software addresses single-neuron statistics
-and population dynamics separately [@spalletti2022single], forcing
-researchers to assemble ad hoc pipelines. As experiments grow in neuron
-counts and behavioral complexity [@rigotti2013importance; @fusi2016why; @tye2024mixed], the
-need for a unified framework connecting these scales becomes acute.
+Neural data analysis increasingly requires linking multiple scales of
+organization: population manifold geometry is shaped by single-neuron tuning
+properties [@chung2021neural], yet existing software often treats
+single-neuron statistics and population dynamics as separate tasks
+[@spalletti2022single], forcing researchers to assemble ad hoc pipelines. As
+experiments increase in neuron counts and behavioral complexity
+[@rigotti2013importance; @fusi2016why; @tye2024mixed], the practical need for
+a unified framework connecting these scales becomes increasingly pressing.
 
-DRIADA targets experimentalists who need a single software stack to test
-which neurons encode which variables, extract low-dimensional population
-structure, map single-cell properties onto manifolds, and analyze functional
-networks—all without reformatting data between tools. Calcium imaging
-presents particular challenges: fluorescence signals are continuous with slow
-indicator kinetics, and spike-based information measures are not directly
-applicable [@climer2021information]. DRIADA addresses this through estimators
-designed for continuous data and permutation schemes that respect temporal
+DRIADA is intended for experimental researchers who need a single software
+workflow to identify which neurons encode which variables, extract
+low-dimensional population structure, relate single-cell properties to
+manifold geometry, and analyze functional networks. By reducing tool
+switching and repeated data reformatting, DRIADA supports cross-scale
+analyses that are difficult to implement reproducibly with fragmented
+toolchains. This need is especially strong for calcium imaging data, where
+fluorescence signals are continuous and shaped by slow indicator kinetics,
+making spike-oriented information measures not directly applicable
+[@climer2021information]. DRIADA addresses this by providing estimators for
+continuous activity signals and permutation schemes that preserve temporal
 autocorrelation.
 
 # State of the Field
