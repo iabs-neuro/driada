@@ -93,18 +93,19 @@ autocorrelation.
 Several packages address subsets of the neural analysis workflow. Table 1
 summarizes key differences.
 
-| Feature | DRIADA | NIT | CEBRA | dPCA |
-|---------|--------|-----|-------|------|
-| Single-neuron selectivity (p-values) | $\checkmark$ | $\checkmark$ | — | — |
-| Autocorrelation-aware permutations | $\checkmark$ | — | — | — |
-| Automatic variable type handling | $\checkmark$ | — | — | — |
-| Population dimensionality reduction | $\checkmark$ | — | $\checkmark$ | $\checkmark$ |
-| Network analysis | $\checkmark$ | — | — | — |
-| Scale integration | $\checkmark$ | — | — | — |
+| Feature | DRIADA | NIT | MINT | FRITES | CEBRA | dPCA |
+|---------|--------|-----|------|--------|-------|------|
+| Role of individual neurons | $\checkmark$ | $\checkmark$ | — | — | — | $\checkmark$ |
+| Autocorrelation-aware p-values | $\checkmark$ | — | — | — | — | — |
+| Diverse variable types | $\checkmark$ | $\checkmark$ | $\checkmark$ | — | $\checkmark$ | — |
+| Population coding analysis | $\checkmark$ | — | $\checkmark$ | $\checkmark$ | $\checkmark$ | $\checkmark$ |
+| Network analysis | $\checkmark$ | — | — | $\checkmark$ | — | — |
 
 : Comparison of DRIADA with related tools. NIT [@maffulli2024nit] provides MI
-estimation; CEBRA [@schneider2023learnable] learns population embeddings;
-dPCA [@kobak2016demixed] decomposes activity by task variable.
+estimation; MINT [@lorenz2025mint] analyzes population-level information
+transmission; FRITES [@combrisson2022frites] targets neurophysiological
+functional connectivity; CEBRA [@schneider2023learnable] learns population
+embeddings; dPCA [@kobak2016demixed] decomposes activity by task variable.
 
 **Information-theoretic toolboxes.** NIT [@maffulli2024nit] provides mutual
 information estimation including GCMI for continuous signals and extensive
