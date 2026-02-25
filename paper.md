@@ -61,7 +61,7 @@ activity data (calcium imaging, electrophysiology, or artificial neural
 network activations) alongside time-aligned behavioral variables, providing
 an integrated path from information-theoretic selectivity testing through
 manifold extraction to network analysis. Automatic variable type detection
-handles continuous, discrete, circular, and multivariate features
+handles continuous, discrete, circular, and multivariate variables
 transparently, making information-theoretic analysis accessible without
 expertise in estimator selection. DRIADA enables neuroscientists to move
 beyond analyzing scales in isolation [@saxena2019towards]: which neurons
@@ -180,9 +180,9 @@ return proximity graphs that inherit the full network analysis toolkit, so
 population structure obtained via manifold learning can be analyzed as a
 network without conversion. Multiple latent representations can be computed,
 compared, and mapped back to individual neuron roles within a single
-experiment. The same MI-based significance engine underlies cell--feature,
-cell--cell, and feature--feature analysis, providing a uniform statistical
-framework across interaction types.
+experiment. The same MI-based significance engine underlies cell--variable,
+cell--cell, and variable--variable analysis, providing a uniform statistical
+framework for both neural and behavioral analyses.
 
 **Scale bridging.** The integration module connects single-neuron properties
 to population structure: selectivity analysis can target embedding components
@@ -204,8 +204,8 @@ tuning dynamics of hippocampal place cells [@Sotskov2022], dimensionality
 estimation with behavioral correlates [@Pospelov2024], fMRI resting-state
 analysis [@Pospelov2021], structural connectome characterization
 [@Bobyleva2025], and spectral entropy of functional networks [@Pospelov2022].
-Demonstrating substrate-agnostic applicability, @Kononov2025 analyzed
-recurrent neural network activations.
+Demonstrating substrate-agnostic applicability, @Kononov2025 analyzed recurrent
+neural network activations.
 
 The package includes six tutorial notebooks (Google Colab compatible), 23
 example scripts, and synthetic data generators for validation. The test suite

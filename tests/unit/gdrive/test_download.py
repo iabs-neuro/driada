@@ -1,3 +1,4 @@
+import json
 import os
 import pytest
 from driada.gdrive.download import *
@@ -23,9 +24,12 @@ def skip_on_network_error(func):
             urllib3.exceptions.SSLError,
             urllib3.exceptions.MaxRetryError,
             http.client.RemoteDisconnected,
+            json.JSONDecodeError,
             OSError,
         ) as e:
             # Check if it's a network-related error
+            if isinstance(e, json.JSONDecodeError):
+                pytest.skip(f"Skipping test due to GDrive response error: {type(e).__name__}")
             error_msg = str(e).lower()
             if any(
                 keyword in error_msg
