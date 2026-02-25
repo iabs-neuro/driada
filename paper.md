@@ -95,12 +95,12 @@ summarizes key differences.
 
 | Feature | DRIADA | NIT | CEBRA | dPCA |
 |---------|--------|-----|-------|------|
-| Single-neuron selectivity (p-values) | ✓ | ✓ | — | — |
-| Autocorrelation-aware permutations | ✓ | — | — | — |
-| Automatic variable type handling | ✓ | — | — | — |
-| Population dimensionality reduction | ✓ | — | ✓ | ✓ |
-| Network analysis | ✓ | — | — | — |
-| Scale integration | ✓ | — | — | — |
+| Single-neuron selectivity (p-values) | $\checkmark$ | $\checkmark$ | — | — |
+| Autocorrelation-aware permutations | $\checkmark$ | — | — | — |
+| Automatic variable type handling | $\checkmark$ | — | — | — |
+| Population dimensionality reduction | $\checkmark$ | — | $\checkmark$ | $\checkmark$ |
+| Network analysis | $\checkmark$ | — | — | — |
+| Scale integration | $\checkmark$ | — | — | — |
 
 : Comparison of DRIADA with related tools. NIT [@maffulli2024nit] provides MI
 estimation; CEBRA [@schneider2023learnable] learns population embeddings;
