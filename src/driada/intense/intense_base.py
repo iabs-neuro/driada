@@ -1635,6 +1635,7 @@ def compute_me_stats(
             accumulated_info.update(stage1_info)
 
             nhyp = int(np.sum(mask_from_stage1))  # number of hypotheses for further statistical testing
+            accumulated_info['n_significant_stage1'] = nhyp
             if verbose:
                 print("Stage 1 results:")
                 print(
