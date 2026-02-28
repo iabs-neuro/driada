@@ -111,6 +111,9 @@ def _tau_first_minimum(tdmi):
     int
         Time delay at the first local minimum (>= 1).
     """
+    if len(tdmi) < 2:
+        return 1
+
     for i in range(1, len(tdmi) - 1):
         if tdmi[i] < tdmi[i - 1] and tdmi[i] <= tdmi[i + 1]:
             return i + 1  # +1 because tdmi[0] corresponds to shift=1
@@ -145,7 +148,7 @@ def _tau_exponential_fit(tdmi):
         Time delay estimated from exponential fit (>= 1).
     """
     tdmi = np.array(tdmi, dtype=float)
-    if tdmi[0] <= 0:
+    if len(tdmi) == 0 or tdmi[0] <= 0:
         return 1
 
     # Find the initial monotonically decreasing segment

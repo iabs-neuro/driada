@@ -90,7 +90,15 @@ class TestMultiTimeSeriesRecurrence:
 
     def test_population_caches_individual_graphs(self, sine_mts):
         """After population call, individual TS should have cached graphs."""
+        # Verify no cache before
+        ts0 = sine_mts.ts_list[0]
+        assert not hasattr(ts0, '_recurrence_graph_cache') or ts0._recurrence_graph_cache is None
+
         sine_mts.population_recurrence_graph(tau=8, m=3, method='joint', n_jobs=1)
-        # Individual TS should now have cached recurrence graphs
-        rg = sine_mts.ts_list[0].recurrence_graph(tau=8, m=3, method='knn', k=5)
-        assert isinstance(rg, RecurrenceGraph)
+
+        # Cache must exist after population call
+        assert ts0._recurrence_graph_cache is not None, (
+            "population_recurrence_graph did not populate per-component cache"
+        )
+        cached_key, cached_rg = ts0._recurrence_graph_cache
+        assert isinstance(cached_rg, RecurrenceGraph)

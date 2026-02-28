@@ -15,7 +15,7 @@ def estimate_tau(ts, max_shift=100, method='first_minimum', estimator='gcmi', **
     if ts.discrete:
         raise ValueError("Recurrence analysis requires continuous time series")
 
-    cache_key = (max_shift, method, estimator)
+    cache_key = (max_shift, method, estimator, tuple(sorted(kw.items())))
     if hasattr(ts, '_recurrence_tau') and ts._recurrence_tau is not None:
         cached_key, cached_val = ts._recurrence_tau
         if cached_key == cache_key:
@@ -39,7 +39,7 @@ def estimate_embedding_dim(ts, tau=None, max_dim=10, **kw):
     if tau is None:
         tau = estimate_tau(ts)
 
-    cache_key = (tau, max_dim)
+    cache_key = (tau, max_dim, tuple(sorted(kw.items())))
     if hasattr(ts, '_recurrence_embedding_dim') and ts._recurrence_embedding_dim is not None:
         cached_key, cached_val = ts._recurrence_embedding_dim
         if cached_key == cache_key:

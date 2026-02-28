@@ -89,6 +89,11 @@ class TestRecurrenceGraphConstruction:
         rg = RecurrenceGraph.from_adjacency(adj, theiler_window=10)
         assert rg.theiler_window == 10
 
+    def test_negative_theiler_window_raises(self, sine_embedded):
+        """Negative theiler_window must raise ValueError."""
+        with pytest.raises(ValueError, match="non-negative"):
+            RecurrenceGraph(sine_embedded, method='knn', k=5, theiler_window=-1)
+
     def test_theiler_degrees_consistent(self, sine_embedded):
         """Degree sequences must reflect the Theiler-filtered adjacency.
 

@@ -80,7 +80,7 @@ class TestComputeRQA:
         emb = takens_embedding(data, tau=1, m=3)
         rg = RecurrenceGraph(emb, method='knn', k=5, theiler_window=3)
         rqa = rg.rqa()
-        assert rqa['DET'] < 0.5
+        assert rqa['DET'] < 0.35, f"Noise DET should be low, got {rqa['DET']:.3f}"
 
     def test_all_keys_present(self):
         """All standard RQA keys must be present."""

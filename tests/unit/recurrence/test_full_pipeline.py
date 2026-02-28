@@ -32,7 +32,7 @@ class TestFullPipeline:
         assert rg.n > 0
 
         rqa = rg.rqa()
-        assert rqa['DET'] > 0.0  # Non-trivial determinism for periodic signal
+        assert rqa['DET'] > 0.2, f"Periodic signal should have non-trivial DET, got {rqa['DET']:.3f}"
         assert 0 < rqa['RR'] < 1
 
         spectrum = rg.get_spectrum('adj')
@@ -58,7 +58,7 @@ class TestFullPipeline:
         assert pop.adj.nnz > 0
 
     def test_caching_workflow(self):
-        """Verify caching: same params -> same object, different combo -> fast."""
+        """Verify per-component RG cache is reused across population calls."""
         t = np.arange(500)
         data = np.vstack([np.sin(2 * np.pi * t / 30) for _ in range(3)])
         mts = MultiTimeSeries(data, discrete=False, allow_zero_columns=True)
@@ -66,23 +66,35 @@ class TestFullPipeline:
         pop1 = mts.population_recurrence_graph(
             tau=7, m=3, method='joint', rg_method='knn', k=5, n_jobs=1,
         )
+        # Grab the cached RG object from first component
+        cached_rg_after_first = mts.ts_list[0]._recurrence_graph_cache[1]
+
+        # Second call with same RG params but different combination method
+        # should reuse the cached per-component graphs
         pop2 = mts.population_recurrence_graph(
             tau=7, m=3, method='mean', rg_method='knn', k=5, n_jobs=1,
         )
+        cached_rg_after_second = mts.ts_list[0]._recurrence_graph_cache[1]
 
+        # Same object identity — cache was reused, not rebuilt
+        assert cached_rg_after_first is cached_rg_after_second, (
+            "Per-component RG was rebuilt instead of reusing cache"
+        )
         assert pop1.adj.nnz > 0
         assert pop2.adj.nnz > 0
 
     def test_recurrence_then_spectral(self):
-        """RecurrenceGraph spectral analysis should match Network API."""
+        """RecurrenceGraph spectral analysis should produce valid spectrum."""
         t = np.arange(500)
         data = np.sin(2 * np.pi * t / 30)
         ts = TimeSeries(data, discrete=False)
         rg = ts.recurrence_graph(tau=7, m=3)
 
-        assert hasattr(rg, 'get_spectrum')
-        assert hasattr(rg, 'deg')
+        spectrum = rg.get_spectrum('adj')
+        assert len(spectrum) == rg.n
+        assert np.all(np.isfinite(spectrum))
         assert rg.directed is False
+        assert len(rg.deg) == rg.n
 
     def test_top_level_import(self):
         """RecurrenceGraph importable from top-level driada."""

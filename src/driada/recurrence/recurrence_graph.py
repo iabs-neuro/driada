@@ -76,6 +76,11 @@ class RecurrenceGraph(ProximityGraph):
         else:
             raise ValueError(f"Unknown method '{method}'. Choose 'knn' or 'eps'.")
 
+        if theiler_window is not None and theiler_window < 0:
+            raise ValueError(
+                f"theiler_window must be non-negative, got {theiler_window}"
+            )
+
         # Store Theiler window BEFORE calling super().__init__(), because
         # super().__init__() calls self.construct_adjacency() via dynamic
         # dispatch — our override (see below) reads _theiler_window to apply
@@ -147,6 +152,11 @@ class RecurrenceGraph(ProximityGraph):
 
         Bypasses ProximityGraph construction. Used for population
         recurrence graphs or loaded matrices.
+
+        The resulting object has full Network functionality (degrees,
+        spectral analysis, RQA) but no embedding data — ``data``,
+        ``knn_indices``, ``knn_distances``, ``neigh_distmat``, and
+        ``metric`` are all ``None``.
 
         Parameters
         ----------

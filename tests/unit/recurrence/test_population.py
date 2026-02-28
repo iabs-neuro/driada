@@ -53,10 +53,13 @@ class TestPopulationRecurrenceGraph:
         assert majority.adj.nnz >= strict.adj.nnz
 
     def test_mean_method(self, three_sine_graphs):
-        """Mean method should produce a graph."""
+        """Mean method should produce averaged values in [0, 1]."""
         pop = population_recurrence_graph(three_sine_graphs, method='mean')
         assert pop.adj.shape[0] == three_sine_graphs[0].adj.shape[0]
         assert pop.adj.nnz > 0
+        # Mean of binary matrices should have values in (0, 1]
+        assert pop.adj.data.min() > 0
+        assert pop.adj.data.max() <= 1.0
 
     def test_mean_binarize(self, three_sine_graphs):
         """Mean with binarize_threshold should produce binary adjacency."""

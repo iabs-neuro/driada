@@ -23,8 +23,9 @@ try:
         diag_idx = cols - rows
         positions = rows
 
-        # Sort by (diag_idx, position)
-        order = np.argsort(diag_idx * n + positions)
+        # Sort by (diag_idx, position) — use int64 to avoid overflow
+        # when n > 46,340 (int32 max ~ 2.1e9, n^2 overflows)
+        order = np.argsort(diag_idx.astype(np.int64) * np.int64(n) + positions.astype(np.int64))
 
         lines = np.zeros(n_entries, dtype=numba.int32)
         n_lines = 0
