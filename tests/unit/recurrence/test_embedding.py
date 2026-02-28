@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from driada.recurrence.embedding import takens_embedding
+from driada.recurrence.embedding import takens_embedding, estimate_tau
 
 
 class TestTakensEmbedding:
@@ -48,3 +48,42 @@ class TestTakensEmbedding:
         result = takens_embedding(data, tau=50, m=2)
         corr = np.abs(np.corrcoef(result[0], result[1])[0, 1])
         assert corr < 0.3
+
+
+class TestEstimateTau:
+    """Tests for estimate_tau()."""
+
+    def test_sinusoid_first_minimum(self):
+        """Sine wave: tau should be near quarter-period."""
+        period = 40  # samples per cycle
+        t = np.arange(2000)
+        data = np.sin(2 * np.pi * t / period)
+        tau = estimate_tau(data, max_shift=50, method='first_minimum')
+        assert 7 <= tau <= 13
+
+    def test_exponential_fit(self):
+        """Exponential fit should also find reasonable tau for sine."""
+        period = 40
+        t = np.arange(2000)
+        data = np.sin(2 * np.pi * t / period)
+        tau = estimate_tau(data, max_shift=50, method='exponential_fit')
+        assert 3 <= tau <= 20
+
+    def test_white_noise_reasonable(self):
+        """White noise: tau should be small (MI drops immediately)."""
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal(2000)
+        tau = estimate_tau(data, max_shift=50, method='first_minimum')
+        assert 1 <= tau <= 10
+
+    def test_returns_int(self):
+        """Result must be a positive integer."""
+        data = np.random.randn(500)
+        tau = estimate_tau(data, max_shift=30)
+        assert isinstance(tau, (int, np.integer))
+        assert tau >= 1
+
+    def test_unknown_method_raises(self):
+        """Unknown method must raise ValueError."""
+        with pytest.raises(ValueError, match="method"):
+            estimate_tau(np.random.randn(100), method='unknown')

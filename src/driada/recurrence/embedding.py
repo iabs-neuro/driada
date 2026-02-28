@@ -49,3 +49,118 @@ def takens_embedding(data, tau, m):
 
     indices = np.arange(n_embedded)[np.newaxis, :] + (np.arange(m) * tau)[:, np.newaxis]
     return data[indices]
+
+
+def estimate_tau(data, max_shift=100, method='first_minimum', estimator='gcmi',
+                 **estimator_kwargs):
+    """Estimate optimal time delay for Takens embedding.
+
+    Parameters
+    ----------
+    data : array-like, 1D
+        Time series.
+    max_shift : int, optional
+        Maximum lag to evaluate. Default: 100.
+    method : {'first_minimum', 'exponential_fit'}
+        - 'first_minimum': First local minimum of time-delayed mutual information.
+        - 'exponential_fit': Fit exponential decay to TDMI, return -1/slope.
+    estimator : {'gcmi', 'ksg'}, optional
+        MI estimator passed to get_tdmi(). Default: 'gcmi'.
+    **estimator_kwargs
+        Additional kwargs passed to get_tdmi() (e.g., nn=5 for KSG).
+
+    Returns
+    -------
+    int
+        Optimal time delay in samples. Always >= 1.
+
+    Raises
+    ------
+    ValueError
+        If method is not recognized.
+    """
+    from driada.information.info_base import get_tdmi
+
+    valid_methods = ('first_minimum', 'exponential_fit')
+    if method not in valid_methods:
+        raise ValueError(
+            f"Unknown method '{method}'. Choose from {valid_methods}."
+        )
+
+    # get_tdmi max_shift is exclusive, so pass max_shift+1 to include max_shift
+    tdmi = get_tdmi(data, min_shift=1, max_shift=max_shift + 1,
+                    estimator=estimator, **estimator_kwargs)
+    tdmi = np.array(tdmi)
+
+    if method == 'first_minimum':
+        return _tau_first_minimum(tdmi)
+    else:
+        return _tau_exponential_fit(tdmi)
+
+
+def _tau_first_minimum(tdmi):
+    """Find first local minimum of TDMI curve.
+
+    Parameters
+    ----------
+    tdmi : ndarray
+        Time-delayed MI values. tdmi[0] corresponds to shift=1.
+
+    Returns
+    -------
+    int
+        Time delay at the first local minimum (>= 1).
+    """
+    for i in range(1, len(tdmi) - 1):
+        if tdmi[i] < tdmi[i - 1] and tdmi[i] <= tdmi[i + 1]:
+            return i + 1  # +1 because tdmi[0] corresponds to shift=1
+    # No minimum found — return shift where TDMI drops to 1/e of initial
+    threshold = tdmi[0] / np.e
+    below = np.where(tdmi < threshold)[0]
+    if len(below) > 0:
+        return int(below[0]) + 1
+    return max(1, len(tdmi) // 3)
+
+
+def _tau_exponential_fit(tdmi):
+    """Estimate tau from TDMI via exponential-decay analogy.
+
+    For a pure exponential I(s) = I(0)*exp(-s/tau), the integral of the
+    normalised curve from 0 to infinity equals tau.  We approximate this
+    by trapezoidal integration of the normalised TDMI over its initial
+    monotonically-decreasing segment.
+
+    If log-linear fitting is feasible (>= 3 positive values in the
+    decreasing segment), uses ``-1/slope`` from a least-squares fit;
+    otherwise falls back to the integral approach.
+
+    Parameters
+    ----------
+    tdmi : ndarray
+        Time-delayed MI values. tdmi[0] corresponds to shift=1.
+
+    Returns
+    -------
+    int
+        Time delay estimated from exponential fit (>= 1).
+    """
+    tdmi = np.array(tdmi, dtype=float)
+    if tdmi[0] <= 0:
+        return 1
+
+    # Find the initial monotonically decreasing segment
+    dec_end = len(tdmi)
+    for i in range(1, len(tdmi)):
+        if tdmi[i] >= tdmi[i - 1]:
+            dec_end = i
+            break
+
+    # Normalise and integrate (area-under-curve = tau for true exponential)
+    segment = tdmi[:dec_end]
+    normalised = segment / tdmi[0]
+    shifts = np.arange(1, dec_end + 1)
+    # Prepend the implicit point (shift=0, normalised=1.0)
+    all_shifts = np.concatenate([[0], shifts])
+    all_norm = np.concatenate([[1.0], normalised])
+    tau = int(np.round(np.trapezoid(all_norm, all_shifts)))
+    return max(1, tau)
