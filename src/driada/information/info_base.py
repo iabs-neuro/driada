@@ -536,6 +536,9 @@ class TimeSeries:
         self.entropy.clear()
         self.kdtree = None
         self.kdtree_query.clear()
+        self._recurrence_tau = None
+        self._recurrence_embedding_dim = None
+        self._recurrence_graph_cache = None
 
     def get_kdtree(self):
         """Get or build KDTree for efficient nearest neighbor queries.
@@ -824,6 +827,33 @@ class TimeSeries:
             r = 0.2 * np.std(self.data)
 
         return approximate_entropy(self.data, m=m, r=r)
+
+    # --- Recurrence analysis (delegates to information.recurrence) ---
+
+    def estimate_tau(self, **kwargs):
+        """Estimate optimal embedding delay. See ``information.recurrence.estimate_tau``."""
+        from .recurrence import estimate_tau
+        return estimate_tau(self, **kwargs)
+
+    def estimate_embedding_dim(self, **kwargs):
+        """Estimate embedding dimension via FNN. See ``information.recurrence.estimate_embedding_dim``."""
+        from .recurrence import estimate_embedding_dim
+        return estimate_embedding_dim(self, **kwargs)
+
+    def takens_embedding(self, **kwargs):
+        """Compute Takens delay embedding. See ``information.recurrence.takens_embedding``."""
+        from .recurrence import takens_embedding
+        return takens_embedding(self, **kwargs)
+
+    def recurrence_graph(self, **kwargs):
+        """Build recurrence graph. See ``information.recurrence.recurrence_graph``."""
+        from .recurrence import recurrence_graph
+        return recurrence_graph(self, **kwargs)
+
+    def rqa(self, **kwargs):
+        """Compute RQA measures. See ``information.recurrence.rqa``."""
+        from .recurrence import rqa
+        return rqa(self, **kwargs)
 
 
 class MultiTimeSeries(MVData):
@@ -1270,6 +1300,13 @@ class MultiTimeSeries(MVData):
             shuffle_mask=self.shuffle_mask.copy(),
             allow_zero_columns=self.allow_zero_columns,  # Inherit from original
         )
+
+    # --- Recurrence analysis (delegates to information.recurrence) ---
+
+    def population_recurrence_graph(self, **kwargs):
+        """Build population recurrence graph. See ``information.recurrence.population_recurrence_graph``."""
+        from .recurrence import population_recurrence_graph
+        return population_recurrence_graph(self, **kwargs)
 
 
 def get_stats_function(sname):
