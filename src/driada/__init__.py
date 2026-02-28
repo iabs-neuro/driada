@@ -59,11 +59,13 @@ from . import dim_reduction
 from . import dimensionality
 from . import integration
 from . import gdrive
+from . import recurrence
 
 # Key classes
 from .experiment import Experiment
 from .information import TimeSeries, MultiTimeSeries
 from .network import Network
+from .recurrence import RecurrenceGraph
 
 # Main INTENSE pipeline functions
 from .intense import (
@@ -117,11 +119,13 @@ __all__ = [
     "dimensionality",
     "integration",
     "gdrive",
+    "recurrence",
     # Core classes
     "Experiment",
     "TimeSeries",
     "MultiTimeSeries",
     "Network",
+    "RecurrenceGraph",
     # INTENSE pipelines
     "compute_cell_feat_significance",
     "compute_feat_feat_significance",
