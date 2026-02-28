@@ -3,6 +3,15 @@
 import numpy as np
 import scipy.sparse as sp
 
+try:
+    from ._numba_rqa import (
+        scan_diagonal_lines_numba,
+        scan_vertical_lines_numba,
+        HAS_NUMBA,
+    )
+except ImportError:
+    HAS_NUMBA = False
+
 
 def compute_rqa(adj, l_min=2, v_min=2):
     """Compute RQA measures from a sparse recurrence matrix.
@@ -68,6 +77,14 @@ def _scan_diagonal_lines(adj_coo):
     if adj_coo.nnz == 0:
         return []
 
+    if HAS_NUMBA and adj_coo.nnz > 1000:
+        lines, n = scan_diagonal_lines_numba(
+            adj_coo.row.astype(np.int32),
+            adj_coo.col.astype(np.int32),
+            adj_coo.shape[0],
+        )
+        return lines[:n].tolist()
+
     row = adj_coo.row
     col = adj_coo.col
     diag_idx = col - row
@@ -89,6 +106,15 @@ def _scan_vertical_lines(adj_coo):
         return []
 
     adj_csc = sp.csc_matrix(adj_coo)
+
+    if HAS_NUMBA and adj_coo.nnz > 1000:
+        lines, n = scan_vertical_lines_numba(
+            adj_csc.indptr.astype(np.int32),
+            adj_csc.indices.astype(np.int32),
+            adj_csc.shape[1],
+        )
+        return lines[:n].tolist()
+
     all_lines = []
 
     for j in range(adj_csc.shape[1]):
