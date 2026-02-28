@@ -2,7 +2,9 @@
 
 import numpy as np
 import pytest
-from driada.recurrence.embedding import takens_embedding, estimate_tau
+from driada.recurrence.embedding import (
+    takens_embedding, estimate_tau, estimate_embedding_dim,
+)
 
 
 class TestTakensEmbedding:
@@ -87,3 +89,35 @@ class TestEstimateTau:
         """Unknown method must raise ValueError."""
         with pytest.raises(ValueError, match="method"):
             estimate_tau(np.random.randn(100), method='unknown')
+
+
+class TestEstimateEmbeddingDim:
+    """Tests for estimate_embedding_dim() via FNN."""
+
+    def test_sinusoid_finds_low_dim(self):
+        """Sine wave is 1D dynamics -- FNN should find m <= 3."""
+        t = np.arange(2000)
+        data = np.sin(2 * np.pi * t / 40)
+        m = estimate_embedding_dim(data, tau=10, max_dim=8)
+        assert 2 <= m <= 3
+
+    def test_returns_int(self):
+        """Result must be a positive integer >= 2."""
+        data = np.random.randn(1000)
+        m = estimate_embedding_dim(data, tau=5, max_dim=6)
+        assert isinstance(m, (int, np.integer))
+        assert m >= 2
+
+    def test_max_dim_respected(self):
+        """If FNN never drops below threshold, return max_dim."""
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal(500)
+        m = estimate_embedding_dim(data, tau=1, max_dim=5)
+        assert m <= 5
+
+    def test_known_multicomponent_signal(self):
+        """Sum of 3 incommensurate sines -- FNN should find m >= 3."""
+        t = np.arange(5000)
+        data = np.sin(t * 0.1) + np.sin(t * 0.0314) + np.sin(t * 0.00712)
+        m = estimate_embedding_dim(data, tau=15, max_dim=8)
+        assert 3 <= m <= 6

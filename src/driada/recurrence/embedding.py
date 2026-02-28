@@ -164,3 +164,84 @@ def _tau_exponential_fit(tdmi):
     all_norm = np.concatenate([[1.0], normalised])
     tau = int(np.round(np.trapezoid(all_norm, all_shifts)))
     return max(1, tau)
+
+
+def estimate_embedding_dim(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0,
+                           fnn_threshold=0.01):
+    """Estimate embedding dimension via false nearest neighbors (FNN).
+
+    For each candidate dimension *m* (from 2 to *max_dim*), embeds the time
+    series, finds each point's nearest neighbor, and checks whether that
+    neighbor is still close in dimension *m* + 1.  "False" neighbors appear
+    close only because the attractor is projected into too few dimensions.
+
+    Parameters
+    ----------
+    data : array-like, 1D
+        Time series.
+    tau : int
+        Time delay for embedding.
+    max_dim : int, optional
+        Maximum dimension to test.  Default: 10.
+    r_tol : float, optional
+        Distance-ratio threshold (Kennel *et al.* 1992).  Default: 10.0.
+    a_tol : float, optional
+        Absolute threshold relative to attractor size.  Default: 2.0.
+    fnn_threshold : float, optional
+        FNN fraction below which the dimension is accepted.
+        Default: 0.01 (1 %).
+
+    Returns
+    -------
+    int
+        Estimated embedding dimension.  Minimum 2.
+    """
+    from scipy.spatial import cKDTree
+
+    data = np.asarray(data, dtype=float).ravel()
+    attractor_size = np.std(data)
+    if attractor_size == 0:
+        return 2
+
+    # Minimum meaningful distance: pairs closer than this are considered
+    # true (deterministic) neighbors and excluded from the FNN ratio test.
+    dist_tol = attractor_size * 1e-8
+
+    for m in range(2, max_dim + 1):
+        emb_m = takens_embedding(data, tau, m).T       # (N_embedded, m)
+        emb_m1 = takens_embedding(data, tau, m + 1).T  # (N_embedded_m1, m+1)
+
+        n_m1 = emb_m1.shape[0]
+        emb_m_trimmed = emb_m[:n_m1]
+
+        tree = cKDTree(emb_m_trimmed)
+        dists, indices = tree.query(emb_m_trimmed, k=2)
+
+        nn_dists_m = dists[:, 1]       # distance to nearest neighbor
+        nn_indices = indices[:, 1]     # index of nearest neighbor
+
+        # Euclidean distance in m+1 dimensions
+        nn_dists_m1 = np.linalg.norm(
+            emb_m1 - emb_m1[nn_indices], axis=1
+        )
+
+        # Points with near-zero NN distance are deterministic repeats
+        # (e.g. periodic signals); exclude them from the ratio criterion.
+        valid = nn_dists_m > dist_tol
+        if not np.any(valid):
+            # All neighbors are true neighbors — no false neighbors at dim m
+            return m
+
+        ratio = np.zeros(n_m1)
+        ratio[valid] = (
+            np.abs(nn_dists_m1[valid] - nn_dists_m[valid]) / nn_dists_m[valid]
+        )
+
+        criterion1 = ratio > r_tol
+        criterion2 = (nn_dists_m1 / attractor_size) > a_tol
+        fnn_fraction = np.sum(criterion1 | criterion2) / n_m1
+
+        if fnn_fraction < fnn_threshold:
+            return m
+
+    return max_dim
