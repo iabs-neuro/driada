@@ -8,3 +8,5 @@ recurrence combination methods.
 from .embedding import takens_embedding, estimate_tau, estimate_embedding_dim
 from .recurrence_graph import RecurrenceGraph
 from .rqa import compute_rqa
+from .population import population_recurrence_graph
+from .plotting import plot_recurrence
