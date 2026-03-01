@@ -211,8 +211,9 @@ def main():
     log(f'\n--- RQA Analysis ---')
     t3 = time.time()
 
-    with parallel_executor(args.n_jobs, backend='threading') as par:
-        rqa_results = par(delayed(lambda rg: rg.rqa())(rg) for rg in trimmed)
+    rqa_results = []
+    for rg in trimmed:
+        rqa_results.append(rg.rqa())
 
     measures = ['RR', 'DET', 'LAM', 'L_mean', 'L_max', 'TT', 'ENTR']
     rqa_arrays = {}
