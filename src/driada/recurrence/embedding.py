@@ -170,7 +170,7 @@ def _tau_exponential_fit(tdmi):
 
 
 def estimate_embedding_dim(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0,
-                           fnn_threshold=0.01):
+                           fnn_threshold=0.05):
     """Estimate embedding dimension via false nearest neighbors (FNN).
 
     For each candidate dimension *m* (from 2 to *max_dim*), embeds the time
@@ -192,7 +192,7 @@ def estimate_embedding_dim(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0,
         Absolute threshold relative to attractor size.  Default: 2.0.
     fnn_threshold : float, optional
         FNN fraction below which the dimension is accepted.
-        Default: 0.01 (1 %).
+        Default: 0.05 (5 %).
 
     Returns
     -------
