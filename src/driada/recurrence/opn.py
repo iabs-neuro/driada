@@ -140,7 +140,7 @@ class OrdinalPartitionNetwork(Network):
         h_max = np.log2(n_states)
         if h_max == 0:
             return 0.0
-        return h / h_max
+        return max(0.0, h / h_max)
 
     @property
     def missing_patterns(self):
