@@ -595,24 +595,41 @@ class Network:
         self.create_nx_graph = create_nx_graph
         self.logger = logger or logging.getLogger(self.__class__.__name__)
 
-        self.init_method, self._calculated_directionality = select_construction_pipeline(adj, graph)
-
         self.directed = network_args.get("directed")
+
         if self.directed is None:
-            # Use the calculated directionality fraction
+            # Auto-detect: need pipeline determination AND directionality
+            self.init_method, self._calculated_directionality = (
+                select_construction_pipeline(adj, graph)
+            )
             if self._calculated_directionality is not None:
-                # Convert float directionality to boolean
                 self.directed = bool(self._calculated_directionality > 0)
             else:
-                # Fallback to binary detection (for backward compatibility)
                 if self.init_method == "adj":
-                    # Use sparse operations to avoid memory issues
                     if sp.issparse(adj):
                         self.directed = (adj != adj.T).nnz > 0
                     else:
                         self.directed = not np.allclose(adj, adj.T)
                 elif self.init_method == "graph":
                     self.directed = nx.is_directed(graph)
+        else:
+            # directed is known — skip expensive directionality calculation
+            if adj is not None and graph is not None:
+                raise ValueError('Either "adj" or "graph" should be given, not both')
+            if adj is None and graph is None:
+                raise ValueError('Either "adj" or "graph" argument must be non-empty')
+            if adj is not None:
+                self.init_method = "adj"
+            else:
+                if not np.any(
+                    [isinstance(graph, gtype) for gtype in SUPPORTED_GRAPH_TYPES]
+                ):
+                    raise TypeError(
+                        f"graph should have one of supported graph types: "
+                        f"{SUPPORTED_GRAPH_TYPES}"
+                    )
+                self.init_method = "graph"
+            self._calculated_directionality = 0.0
 
         self.weighted = network_args.get("weighted")
         if self.weighted is None:
@@ -908,6 +925,8 @@ class Network:
         else:
             raise ValueError("Unknown randomization method")
 
+        params = {k: v for k, v in self.network_params.items()
+                  if k not in ('directed', 'weighted', 'real_world')}
         rand_net = Network(
             adj=sp.csr_matrix(rand_adj),
             name=self.name + f" {rmode} rand",
@@ -916,7 +935,7 @@ class Network:
             weighted=self.weighted,
             real_world=False,
             verbose=False,
-            **self.network_params,
+            **params,
         )
 
         return rand_net

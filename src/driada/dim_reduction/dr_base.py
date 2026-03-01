@@ -298,7 +298,7 @@ def g_param_filter(para: Dict[str, Any]) -> Dict[str, Any]:
     ]
 
     if gmethod in ["knn", "auto_knn", "umap"]:
-        appr_keys.extend(["nn"])
+        appr_keys.extend(["nn", "knn_engine", "symmetrization"])
 
     elif gmethod == "eps":
         appr_keys.extend(["eps", "min_density"])

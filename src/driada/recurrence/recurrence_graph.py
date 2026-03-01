@@ -61,6 +61,8 @@ class RecurrenceGraph(ProximityGraph):
                 'weighted': False,
                 'graph_preprocessing': None,
                 'max_deleted_nodes': 0.0,
+                'knn_engine': 'cKDTree',
+                'symmetrization': 'union',
             }
         elif method == 'eps':
             if epsilon is None:

@@ -214,6 +214,8 @@ class ProximityGraph(Network):
             "dist_to_aff",
             "graph_preprocessing",
             "seed",
+            "knn_engine",
+            "symmetrization",
         }
         for key in all_params:
             if key in allowed_attrs:
@@ -417,67 +419,45 @@ class ProximityGraph(Network):
         self.knn_distances = None
 
     def create_knn_graph_(self):
-        """Create k-nearest neighbors graph using pynndescent.
+        """Create k-nearest neighbors graph.
 
         Constructs a symmetric k-NN graph where each point is connected to its
-        k nearest neighbors. Uses approximate nearest neighbor search for efficiency.
+        k nearest neighbors. Supports two engines:
+
+        - ``'pynndescent'`` (default): approximate NN, supports custom metrics
+        - ``'cKDTree'``: exact NN via scipy, faster for moderate dimensions
+
+        Symmetrization can be ``'intersection'`` (default, ``.minimum()``) or
+        ``'union'`` (``.maximum()``).
 
         Raises
         ------
         ValueError
             If nn exceeds number of samples minus 1.
             If metric is unknown or invalid.
-
-        Notes
-        -----
-        - Supports custom metrics via callable functions or named distances
-        - Stores k-NN indices and distances for potential reuse
-        - Creates both weighted and binary adjacency matrices
-        - Uses diversify_prob=1.0 and pruning_degree_multiplier=1.5
-        - Data is transposed to match pynndescent expected format
-        - Excludes self-connections (uses nn+1 neighbors then skips first)"""
+            If knn_engine is unknown."""
         N = self.data.shape[1]
         if self.nn >= N:
             raise ValueError(f"nn ({self.nn}) must be less than number of samples ({N})")
 
-        if callable(self.metric):
-            # Custom metric function passed directly
-            curr_metric = self.metric
-        elif self.metric in named_distances:
-            # Built-in metric name
-            curr_metric = self.metric
+        engine = getattr(self, 'knn_engine', 'pynndescent')
+        sym = getattr(self, 'symmetrization', 'intersection')
+
+        if engine == 'cKDTree':
+            self._create_knn_cKDTree(N)
+        elif engine == 'pynndescent':
+            self._create_knn_pynndescent(N)
         else:
-            # Safer approach - check if metric is a known string
             raise ValueError(
-                f"Unknown metric '{self.metric}'. Must be one of {list(named_distances.keys())} "
-                f"or a callable function."
+                f"Unknown knn_engine '{engine}'. Choose 'pynndescent' or 'cKDTree'."
             )
 
-        index = pynndescent.NNDescent(
-            self.data.T,  # Transpose for (n_samples, n_features)
-            metric=curr_metric,
-            metric_kwds=self.metric_args,
-            n_neighbors=self.nn + 1,  # +1 to exclude self
-            diversify_prob=1.0,
-            pruning_degree_multiplier=1.5,
-        )
-
-        neighs, dists = index.neighbor_graph
-
-        # Save the k-NN graph for potential use in intrinsic dimension estimation
-        self.knn_indices = neighs
-        self.knn_distances = dists
-
-        neigh_cols = neighs[:, 1:].flatten()
-        dist_vals = dists[:, 1:].flatten()
-        neigh_rows = np.repeat(np.arange(N), self.nn)
-
-        # Create initial sparse matrix
-        self.neigh_distmat = sp.csr_matrix((dist_vals, (neigh_rows, neigh_cols)), shape=(N, N))
-
-        # Symmetrize by taking minimum (same as sklearn's approach)
-        # This avoids doubling distances when edges appear in both directions
-        self.neigh_distmat = self.neigh_distmat.minimum(self.neigh_distmat.T)
+        # Symmetrize
+        if sym == 'union':
+            self.neigh_distmat = self.neigh_distmat.maximum(self.neigh_distmat.T)
+        else:
+            # 'intersection' — default, same as sklearn
+            self.neigh_distmat = self.neigh_distmat.minimum(self.neigh_distmat.T)
 
         # Create binary adjacency from distance matrix
         self.bin_adj = (self.neigh_distmat > 0).astype(int)
@@ -486,6 +466,58 @@ class ProximityGraph(Network):
             self.distances_to_affinities()
         else:
             self.adj = self.bin_adj.copy()
+
+    def _create_knn_pynndescent(self, N):
+        """Build k-NN graph using pynndescent approximate nearest neighbors."""
+        if callable(self.metric):
+            curr_metric = self.metric
+        elif self.metric in named_distances:
+            curr_metric = self.metric
+        else:
+            raise ValueError(
+                f"Unknown metric '{self.metric}'. Must be one of "
+                f"{list(named_distances.keys())} or a callable function."
+            )
+
+        index = pynndescent.NNDescent(
+            self.data.T,
+            metric=curr_metric,
+            metric_kwds=self.metric_args,
+            n_neighbors=self.nn + 1,
+            diversify_prob=1.0,
+            pruning_degree_multiplier=1.5,
+        )
+
+        neighs, dists = index.neighbor_graph
+
+        self.knn_indices = neighs
+        self.knn_distances = dists
+
+        neigh_cols = neighs[:, 1:].flatten()
+        dist_vals = dists[:, 1:].flatten()
+        neigh_rows = np.repeat(np.arange(N), self.nn)
+
+        self.neigh_distmat = sp.csr_matrix(
+            (dist_vals, (neigh_rows, neigh_cols)), shape=(N, N)
+        )
+
+    def _create_knn_cKDTree(self, N):
+        """Build k-NN graph using scipy cKDTree exact nearest neighbors."""
+        from scipy.spatial import cKDTree
+
+        tree = cKDTree(self.data.T)
+        dists, neighs = tree.query(self.data.T, k=self.nn + 1, workers=1)
+
+        self.knn_indices = neighs
+        self.knn_distances = dists
+
+        neigh_cols = neighs[:, 1:].flatten()
+        dist_vals = dists[:, 1:].flatten()
+        neigh_rows = np.repeat(np.arange(N), self.nn)
+
+        self.neigh_distmat = sp.csr_matrix(
+            (dist_vals, (neigh_rows, neigh_cols)), shape=(N, N)
+        )
 
     def create_auto_knn_graph_(self):
         """Create k-NN graph using scikit-learn's implementation.

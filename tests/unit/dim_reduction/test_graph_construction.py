@@ -254,6 +254,92 @@ class TestGraphConstruction:
         with pytest.raises(Exception, match="Adjacency matrix is not constructed"):
             graph._checkpoint()
 
+    def test_knn_cKDTree_engine(self, sample_data):
+        """Test k-NN graph construction with cKDTree engine."""
+        m_params = {"metric_name": "euclidean", "sigma": 1.0}
+        g_params = {
+            "g_method_name": "knn",
+            "nn": 5,
+            "weighted": False,
+            "dist_to_aff": None,
+            "max_deleted_nodes": 0.5,
+            "knn_engine": "cKDTree",
+        }
+
+        graph = ProximityGraph(sample_data, m_params, g_params, create_nx_graph=False)
+
+        assert graph.adj is not None
+        assert graph.adj.nnz > 0
+        assert graph.adj.shape == (graph.n, graph.n)
+        # Symmetric
+        assert np.allclose(graph.adj.toarray(), graph.adj.toarray().T)
+
+    def test_knn_union_symmetrization(self, sample_data):
+        """Union symmetrization produces superset of intersection edges."""
+        m_params = {"metric_name": "euclidean", "sigma": 1.0}
+        g_base = {
+            "g_method_name": "knn",
+            "nn": 5,
+            "weighted": False,
+            "dist_to_aff": None,
+            "max_deleted_nodes": 1.0,
+            "graph_preprocessing": None,
+        }
+
+        g_inter = {**g_base, "symmetrization": "intersection"}
+        g_union = {**g_base, "symmetrization": "union"}
+
+        graph_inter = ProximityGraph(sample_data, m_params, g_inter, create_nx_graph=False)
+        graph_union = ProximityGraph(sample_data, m_params, g_union, create_nx_graph=False)
+
+        # Same number of nodes (no preprocessing)
+        assert graph_inter.n == graph_union.n == sample_data.shape[1]
+        # Union has >= edges than intersection
+        assert graph_union.adj.nnz >= graph_inter.adj.nnz
+        # Both symmetric
+        assert np.allclose(graph_union.adj.toarray(), graph_union.adj.toarray().T)
+        # Intersection edges are a subset of union edges
+        inter_dense = graph_inter.adj.toarray()
+        union_dense = graph_union.adj.toarray()
+        assert np.all(union_dense >= inter_dense)
+
+    def test_knn_cKDTree_union_combined(self, sample_data):
+        """cKDTree + union produces valid symmetric graph."""
+        m_params = {"metric_name": "euclidean", "sigma": 1.0}
+        g_params = {
+            "g_method_name": "knn",
+            "nn": 5,
+            "weighted": False,
+            "dist_to_aff": None,
+            "max_deleted_nodes": 0.5,
+            "knn_engine": "cKDTree",
+            "symmetrization": "union",
+        }
+
+        graph = ProximityGraph(sample_data, m_params, g_params, create_nx_graph=False)
+
+        assert graph.adj is not None
+        assert graph.adj.nnz > 0
+        assert np.allclose(graph.adj.toarray(), graph.adj.toarray().T)
+        # Every node should have at least nn neighbors with union
+        degrees = np.array(graph.adj.sum(axis=1)).flatten()
+        assert np.all(degrees >= 5)
+
+    def test_knn_unknown_engine_raises(self, sample_data):
+        """Unknown knn_engine must raise ValueError."""
+        m_params = {"metric_name": "euclidean", "sigma": 1.0}
+        g_params = {
+            "g_method_name": "knn",
+            "nn": 5,
+            "weighted": False,
+            "dist_to_aff": None,
+            "max_deleted_nodes": 0.5,
+            "knn_engine": "unknown",
+        }
+
+        with pytest.raises(ValueError, match="Unknown knn_engine"):
+            ProximityGraph(sample_data, m_params, g_params, create_nx_graph=False)
+
     def test_checkpoint_with_dense_matrix_error(self, sample_data):
         """Test _checkpoint raises error for non-sparse adjacency"""
         m_params = {"metric_name": "euclidean", "sigma": 1.0}

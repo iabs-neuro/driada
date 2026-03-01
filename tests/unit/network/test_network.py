@@ -1023,3 +1023,39 @@ class TestCalculateDirectionalityFraction:
         A_exact = np.array([[0, 1.0], [1.0, 0]])
         frac_exact = calculate_directionality_fraction(A_exact)
         assert frac_exact == 0.0
+
+
+class TestSkipDirectionality:
+    """Test that explicit directed= skips calculate_directionality_fraction."""
+
+    def test_skip_when_directed_false(self):
+        """Network(directed=False) must not call calculate_directionality_fraction."""
+        A = sp.csr_matrix(np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]))
+        with patch(
+            "driada.network.net_base.calculate_directionality_fraction"
+        ) as mock_fn:
+            net = Network(adj=A, preprocessing=None, directed=False)
+            mock_fn.assert_not_called()
+        assert net.directed is False
+        assert net._calculated_directionality == 0.0
+
+    def test_skip_when_directed_true(self):
+        """Network(directed=True) must not call calculate_directionality_fraction."""
+        A = sp.csr_matrix(np.array([[0, 1, 0], [0, 0, 1], [0, 0, 0]]))
+        with patch(
+            "driada.network.net_base.calculate_directionality_fraction"
+        ) as mock_fn:
+            net = Network(adj=A, preprocessing=None, directed=True)
+            mock_fn.assert_not_called()
+        assert net.directed is True
+
+    def test_autodetect_still_calls_directionality(self):
+        """Network without explicit directed= must call directionality detection."""
+        A = sp.csr_matrix(np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]))
+        with patch(
+            "driada.network.net_base.calculate_directionality_fraction",
+            return_value=0.0,
+        ) as mock_fn:
+            net = Network(adj=A, preprocessing=None)
+            mock_fn.assert_called_once()
+        assert net.directed is False
