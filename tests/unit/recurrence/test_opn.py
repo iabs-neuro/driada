@@ -73,3 +73,48 @@ class TestOrdinalPartitionNetwork:
         from driada.recurrence import OrdinalPartitionNetwork
         with pytest.raises(ValueError, match="1D"):
             OrdinalPartitionNetwork(np.random.randn(10, 2), d=3, tau=1)
+
+    def test_d2_binary_patterns(self):
+        """d=2 should produce exactly 2 patterns: ascending and descending."""
+        from driada.recurrence import OrdinalPartitionNetwork
+        np.random.seed(42)
+        data = np.random.randn(500)
+        opn = OrdinalPartitionNetwork(data, d=2, tau=1)
+        assert opn.missing_patterns == 0  # both patterns visited
+        assert opn.permutation_entropy > 0.95  # near uniform
+
+
+class TestOPNValidation:
+    """Test input validation for OrdinalPartitionNetwork."""
+
+    def test_rejects_empty_array(self):
+        """Empty array must raise ValueError."""
+        from driada.recurrence import OrdinalPartitionNetwork
+        with pytest.raises(ValueError, match="at least 2"):
+            OrdinalPartitionNetwork(np.array([]), d=3, tau=1)
+
+    def test_rejects_single_point(self):
+        """Single data point must raise ValueError."""
+        from driada.recurrence import OrdinalPartitionNetwork
+        with pytest.raises(ValueError, match="at least 2"):
+            OrdinalPartitionNetwork(np.array([1.0]), d=3, tau=1)
+
+    def test_rejects_nan(self):
+        """NaN values must raise ValueError."""
+        from driada.recurrence import OrdinalPartitionNetwork
+        data = np.array([1.0, np.nan, 3.0, 4.0, 5.0])
+        with pytest.raises(ValueError, match="NaN or Inf"):
+            OrdinalPartitionNetwork(data, d=3, tau=1)
+
+    def test_rejects_inf(self):
+        """Inf values must raise ValueError."""
+        from driada.recurrence import OrdinalPartitionNetwork
+        data = np.array([1.0, np.inf, 3.0, 4.0, 5.0])
+        with pytest.raises(ValueError, match="NaN or Inf"):
+            OrdinalPartitionNetwork(data, d=3, tau=1)
+
+    def test_rejects_d_less_than_2(self):
+        """d < 2 must raise ValueError."""
+        from driada.recurrence import OrdinalPartitionNetwork
+        with pytest.raises(ValueError, match=">= 2"):
+            OrdinalPartitionNetwork(np.random.randn(100), d=1, tau=1)

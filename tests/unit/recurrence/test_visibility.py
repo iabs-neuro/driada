@@ -42,6 +42,7 @@ class TestHorizontalVisibilityGraph:
     def test_inherits_network(self):
         """Result must be a Network instance with working spectral methods."""
         from driada.recurrence import VisibilityGraph
+        np.random.seed(7)
         data = np.random.randn(50)
         vg = VisibilityGraph(data, method='horizontal')
         assert isinstance(vg, Network)
@@ -52,6 +53,7 @@ class TestHorizontalVisibilityGraph:
     def test_adjacency_is_symmetric(self):
         """Undirected VG must produce symmetric adjacency."""
         from driada.recurrence import VisibilityGraph
+        np.random.seed(8)
         data = np.random.randn(30)
         vg = VisibilityGraph(data, method='horizontal')
         diff = vg.adj - vg.adj.T
@@ -92,6 +94,7 @@ class TestNaturalVisibilityGraph:
     def test_directed_is_upper_triangular(self):
         """Directed VG should only have forward-in-time edges."""
         from driada.recurrence import VisibilityGraph
+        np.random.seed(9)
         data = np.random.randn(20)
         vg = VisibilityGraph(data, method='horizontal', directed=True)
         adj_dense = vg.adj.toarray()
@@ -102,3 +105,46 @@ class TestNaturalVisibilityGraph:
         from driada.recurrence import VisibilityGraph
         with pytest.raises(ValueError, match="1D"):
             VisibilityGraph(np.random.randn(10, 2))
+
+
+class TestVisibilityGraphValidation:
+    """Test input validation for VisibilityGraph."""
+
+    def test_rejects_empty_array(self):
+        """Empty array must raise ValueError."""
+        from driada.recurrence import VisibilityGraph
+        with pytest.raises(ValueError, match="at least 2"):
+            VisibilityGraph(np.array([]))
+
+    def test_rejects_single_point(self):
+        """Single data point must raise ValueError."""
+        from driada.recurrence import VisibilityGraph
+        with pytest.raises(ValueError, match="at least 2"):
+            VisibilityGraph(np.array([1.0]))
+
+    def test_rejects_nan(self):
+        """NaN values must raise ValueError."""
+        from driada.recurrence import VisibilityGraph
+        data = np.array([1.0, np.nan, 3.0, 4.0])
+        with pytest.raises(ValueError, match="NaN or Inf"):
+            VisibilityGraph(data)
+
+    def test_rejects_inf(self):
+        """Inf values must raise ValueError."""
+        from driada.recurrence import VisibilityGraph
+        data = np.array([1.0, np.inf, 3.0, 4.0])
+        with pytest.raises(ValueError, match="NaN or Inf"):
+            VisibilityGraph(data)
+
+    def test_two_points_minimal(self):
+        """Two data points should work and produce one edge."""
+        from driada.recurrence import VisibilityGraph
+        vg = VisibilityGraph(np.array([1.0, 2.0]))
+        assert vg.adj.nnz == 2  # one undirected edge = 2 entries
+
+    def test_nvg_large_n_warns(self):
+        """NVG with N > 2000 should emit a warning."""
+        from driada.recurrence import VisibilityGraph
+        data = np.random.randn(2001)
+        with pytest.warns(UserWarning, match="slow"):
+            VisibilityGraph(data, method='natural')

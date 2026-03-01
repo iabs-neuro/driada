@@ -50,7 +50,10 @@ def _build_transition_matrix(pattern_ids, d):
     Returns
     -------
     adj : sparse CSR matrix of shape (n_states, n_states)
-        Row-normalized transition probabilities.
+        Row-normalized transition probabilities. Rows for patterns whose
+        only outgoing transitions are self-loops will sum to 0 (not 1),
+        because self-loops are removed before normalization to stay
+        consistent with the Network base class.
     """
     n_states = math.factorial(d)
     n = len(pattern_ids)
@@ -95,6 +98,12 @@ class OrdinalPartitionNetwork(Network):
         Embedding dimension (pattern length). Must be <= 7.
     tau : int
         Embedding delay.
+
+    Notes
+    -----
+    Tied values in the time series are ranked by position (stable argsort),
+    so equal values receive deterministic but position-dependent ordinal
+    patterns. This is standard practice (Bandt & Pompe, 2002).
     """
 
     def __init__(self, data, d, tau):
@@ -103,6 +112,12 @@ class OrdinalPartitionNetwork(Network):
             raise ValueError(
                 f"Data must be 1D time series, got {data.ndim}D."
             )
+        if len(data) < 2:
+            raise ValueError(
+                f"Time series must have at least 2 data points, got {len(data)}."
+            )
+        if not np.all(np.isfinite(data)):
+            raise ValueError("Data contains NaN or Inf values.")
         if d > _MAX_D:
             raise ValueError(
                 f"Embedding dimension d={d} too large (d! = {math.factorial(d)} "

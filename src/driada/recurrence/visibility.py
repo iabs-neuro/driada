@@ -1,5 +1,7 @@
 """Visibility graph from 1D time series."""
 
+import warnings
+
 import numpy as np
 import scipy.sparse as sp
 from ..network.net_base import Network
@@ -101,6 +103,19 @@ class VisibilityGraph(Network):
         if data.ndim != 1:
             raise ValueError(
                 f"Data must be 1D time series, got {data.ndim}D."
+            )
+        if len(data) < 2:
+            raise ValueError(
+                f"Time series must have at least 2 data points, got {len(data)}."
+            )
+        if not np.all(np.isfinite(data)):
+            raise ValueError("Data contains NaN or Inf values.")
+
+        if method == 'natural' and len(data) > 2000:
+            warnings.warn(
+                f"NVG with {len(data)} points will be slow (O(N^2)). "
+                "Consider method='horizontal' for large time series.",
+                stacklevel=2,
             )
 
         if method == 'horizontal':
