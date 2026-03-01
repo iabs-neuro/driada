@@ -1011,10 +1011,15 @@ class TestCalculateDirectionalityFraction:
         frac = calculate_directionality_fraction(A)
         assert frac == 0.0  # Only off-diagonal symmetric edges
 
-    def test_tolerance_in_weight_comparison(self):
-        """Test that floating point tolerance is used for weight comparison."""
-        # Almost equal weights should be considered symmetric
+    def test_exact_weight_comparison(self):
+        """Test that exact weight comparison is used (no allclose tolerance)."""
+        # Nearly equal weights are now treated as asymmetric (exact subtraction)
         A = np.array([[0, 1.0], [1.0000001, 0]])
 
         frac = calculate_directionality_fraction(A)
-        assert frac == 0.0  # Should be symmetric within tolerance
+        assert frac == 1.0  # Weights differ exactly, so fully directed
+
+        # Exactly equal weights should still be symmetric
+        A_exact = np.array([[0, 1.0], [1.0, 0]])
+        frac_exact = calculate_directionality_fraction(A_exact)
+        assert frac_exact == 0.0

@@ -211,60 +211,41 @@ def calculate_directionality_fraction(adj):
     An edge (i,j) with weight w1 and edge (j,i) with weight w2 are only
     considered symmetric if w1 == w2.
 
-    The function works efficiently with sparse matrices without converting
-    to dense format when possible."""
-    # For sparse matrices, work directly with COO format
+    Uses vectorized sparse matrix operations instead of Python loops.
+    For weighted networks, edges (i,j) and (j,i) are symmetric only if
+    their weights are equal (checked via subtraction).
+    Self-loops are ignored."""
     if sp.issparse(adj):
-        # Convert to COO format for easy access to (row, col, data)
-        adj_coo = adj.tocoo()
+        a = adj.tocsr().copy()
+        a.setdiag(0)
+        a.eliminate_zeros()
 
-        # Remove diagonal entries
-        mask = adj_coo.row != adj_coo.col
-        rows = adj_coo.row[mask]
-        cols = adj_coo.col[mask]
-        data = adj_coo.data[mask]
-
-        total_edges = len(rows)
+        total_edges = a.nnz
         if total_edges == 0:
             return 0.0
 
-        # Create a dictionary for fast lookup of edge weights
-        edge_dict = {}
-        for r, c, d in zip(rows, cols, data):
-            edge_dict[(r, c)] = d
+        diff = a - a.T
+        diff.eliminate_zeros()
 
-        # Count symmetric edges (with equal weights)
-        symmetric_edges = 0
-        for r, c, d in zip(rows, cols, data):
-            if r < c:  # Only check each pair once
-                if (c, r) in edge_dict and np.allclose(edge_dict[(c, r)], d):
-                    symmetric_edges += 2  # Count both directions
+        if diff.nnz == 0:
+            return 0.0  # fully symmetric
+
+        # Count asymmetric entries within a's sparsity pattern only
+        a_bool = (a != 0).astype(np.float64)
+        diff_in_a = diff.multiply(a_bool)
+        diff_in_a.eliminate_zeros()
+        asymmetric_in_a = diff_in_a.nnz
+
+        return asymmetric_in_a / total_edges
     else:
-        # For dense matrices
-        A_no_diag = adj.copy()
-        np.fill_diagonal(A_no_diag, 0)
-
-        # Count total edges (non-zero entries)
-        total_edges = np.count_nonzero(A_no_diag)
-
+        A = np.array(adj, dtype=float)
+        np.fill_diagonal(A, 0)
+        total_edges = np.count_nonzero(A)
         if total_edges == 0:
             return 0.0
-
-        # Count symmetric edges with equal weights
-        symmetric_edges = 0
-        rows, cols = np.nonzero(A_no_diag)
-
-        for i, j in zip(rows, cols):
-            if i < j:  # Only count each pair once
-                # Check if reciprocal edge exists with same weight
-                if A_no_diag[j, i] != 0 and np.allclose(A_no_diag[i, j], A_no_diag[j, i]):
-                    symmetric_edges += 2
-
-    # Directed edges are those that don't have a reciprocal edge with same weight
-    directed_edges = total_edges - symmetric_edges
-
-    # Return fraction of directed edges
-    return directed_edges / total_edges
+        diff = A - A.T
+        asymmetric_in_a = np.count_nonzero((A != 0) & (diff != 0))
+        return asymmetric_in_a / total_edges
 
 
 def select_construction_pipeline(a, graph):
