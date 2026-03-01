@@ -151,5 +151,15 @@ papers/
 
 # Science folder
 science/
+
+# eLife submission artifacts
+elife*
+
+# Recurrence analysis outputs
+recurrence/
+
+# fof_validation scripts (exclude from tracking)
+tools/fof_validation/
+
 NUL
 nul
