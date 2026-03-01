@@ -6,29 +6,29 @@ from ..network.net_base import Network
 
 
 def _build_hvg(data):
-    """Build Horizontal Visibility Graph adjacency.
+    """Build Horizontal Visibility Graph adjacency. O(N) via stack.
 
-    Two points i, j are connected if no intermediate value
-    strictly exceeds the minimum of the two endpoints:
-    for all k with i < k < j, x_k <= min(x_i, x_j).
+    Two points i, j are connected if all intermediate values
+    x_k < min(x_i, x_j) for i < k < j (Luque et al. 2009).
 
-    Equivalently, a point k blocks visibility only if
-    x_k > min(x_i, x_j) (strict inequality).
+    Uses a monotone stack: process points left to right, maintaining
+    a stack of indices with non-increasing values. Each point connects
+    to the stack top (nearest left point >= it) and to each popped
+    element (which it dominates).
     """
     n = len(data)
     rows, cols = [], []
 
-    for i in range(n - 1):
-        for j in range(i + 1, n):
-            min_ij = min(data[i], data[j])
-            blocked = False
-            for k in range(i + 1, j):
-                if data[k] > min_ij:
-                    blocked = True
-                    break
-            if not blocked:
-                rows.append(i)
-                cols.append(j)
+    stack = []
+    for i in range(n):
+        while stack and data[stack[-1]] < data[i]:
+            j = stack.pop()
+            rows.append(j)
+            cols.append(i)
+        if stack:
+            rows.append(stack[-1])
+            cols.append(i)
+        stack.append(i)
 
     rows = np.array(rows, dtype=np.int32)
     cols = np.array(cols, dtype=np.int32)
@@ -95,8 +95,8 @@ class VisibilityGraph(Network):
     data : array-like, 1D
         Raw time series values.
     method : {'horizontal', 'natural'}, default='horizontal'
-        'horizontal' (HVG): O(N) via stack algorithm. Default.
-        'natural' (NVG): O(N^2) geometric line-of-sight.
+        'horizontal' (HVG): O(N) via monotone stack. Default.
+        'natural' (NVG): O(N^2) pairwise line-of-sight.
     directed : bool, default=False
         If True, edges point forward in time only.
     """
