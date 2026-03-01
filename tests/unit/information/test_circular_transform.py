@@ -191,6 +191,7 @@ class TestHelperFunctions:
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
 
+    @pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
     def test_boundary_values(self):
         """Test handling of values at and near boundaries."""
         # Values very close to 0 and 2pi

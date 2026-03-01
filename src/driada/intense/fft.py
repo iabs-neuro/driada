@@ -441,13 +441,13 @@ def _mi_from_precomp(fft_x, std_x, fft_y, std_y, n, bias_correction):
         MI values for all shifts, in bits.
     """
     if std_x < REG_VARIANCE_THRESHOLD or std_y < REG_VARIANCE_THRESHOLD:
-        return np.zeros(n)
+        return np.zeros(n, dtype=np.float32)
     cross_corr = np.fft.irfft(fft_x * np.conj(fft_y), n=n)
     r_all = cross_corr / ((n - 1) * std_x * std_y)
     r_squared = np.clip(r_all ** 2, 0, 1 - 1e-10)
     mi_all = -0.5 * np.log(1 - r_squared) / _LN2
     mi_all = mi_all + bias_correction
-    return np.maximum(0, mi_all)
+    return np.maximum(0, mi_all).astype(np.float32)
 
 
 def _pearson_from_precomp(fft_x, std_x, fft_y, std_y, n):
@@ -474,10 +474,10 @@ def _pearson_from_precomp(fft_x, std_x, fft_y, std_y, n):
         |Pearson r| values for all shifts.
     """
     if std_x < REG_VARIANCE_THRESHOLD or std_y < REG_VARIANCE_THRESHOLD:
-        return np.zeros(n)
+        return np.zeros(n, dtype=np.float32)
     cross_corr = np.fft.irfft(fft_x * np.conj(fft_y), n=n)
     r_all = cross_corr / ((n - 1) * std_x * std_y)
-    return np.abs(np.clip(r_all, -1, 1))
+    return np.abs(np.clip(r_all, -1, 1)).astype(np.float32)
 
 
 def _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine,
@@ -573,7 +573,7 @@ def _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine
                     data1, data2 = _extract_fft_data(ts1, ts2, fft_type, ds)
                     compute_fn = _FFT_COMPUTE[fft_type]
                     n = len(data1) if data1.ndim == 1 else data1.shape[1]
-                    mi_all = compute_fn(data1, data2, np.arange(n))
+                    mi_all = compute_fn(data1, data2, np.arange(n)).astype(np.float32)
 
                 cache[(key1, key2)] = FFTCacheEntry(
                     fft_type=fft_type, mi_all=mi_all

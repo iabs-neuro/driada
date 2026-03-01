@@ -34,6 +34,7 @@ FAST_PARAMS = {
 }
 
 
+@pytest.mark.filterwarnings("ignore:.*peak_rate.*exceeds recommended:UserWarning")
 def test_compute_cell_feat_significance_with_disentanglement_fast():
     """Fast test for cell-feat significance with disentanglement."""
     # Use the proper mixed selectivity generator instead of small_experiment
@@ -204,6 +205,7 @@ def test_mixed_selectivity_generation_fast():
     assert exp.ground_truth["selectivity_matrix"].shape == (n_features, n_neurons)
 
 
+@pytest.mark.filterwarnings("ignore:Downsampling constant is too high:UserWarning")
 def test_disentanglement_minimal():
     """Minimal disentanglement test with tiny data."""
     # Generate minimal data with longer duration to avoid shuffle mask issues

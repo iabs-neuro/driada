@@ -110,6 +110,7 @@ class TestLNCAlphaSelection:
         # There should be a noticeable difference with LNC correction
         assert abs(mi_auto - mi_no_lnc) > 0.01  # Significant difference
 
+    @pytest.mark.filterwarnings("ignore:LNC correction disabled:UserWarning")
     def test_conditional_mi_with_auto_alpha(self):
         """Test conditional MI with automatic alpha selection."""
         np.random.seed(42)

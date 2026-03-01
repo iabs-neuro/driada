@@ -522,6 +522,7 @@ class TestAmbiguousTypeDetection:
             continuous_score = result.metadata.get("continuous_score", 0)
             assert abs(discrete_score - continuous_score) < 0.2
 
+    @pytest.mark.filterwarnings("ignore:Time series type is ambiguous:UserWarning")
     def test_ambiguous_properties(self):
         """Test properties of ambiguous type."""
         from driada.information.info_base import TimeSeries

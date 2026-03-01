@@ -70,6 +70,7 @@ class TestCalcSignalRatio:
         ratio = calc_signal_ratio(binary, continuous)
         assert np.isnan(ratio)
 
+    @pytest.mark.filterwarnings("ignore::RuntimeWarning")
     def test_all_ones(self):
         """Test when binary signal is all ones."""
         binary = np.ones(10, dtype=int)

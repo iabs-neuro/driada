@@ -21,6 +21,7 @@ from driada.intense.stats import (
 )
 
 
+@pytest.mark.filterwarnings("ignore:divide by zero encountered:RuntimeWarning")
 def test_chebyshev_ineq():
     """Test Chebyshev's inequality calculation."""
     np.random.seed(42)
@@ -437,6 +438,7 @@ def test_merge_stage_significance():
     assert merged[0][0]["final_pval"] == 0.001
 
 
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_edge_cases_and_numerical_stability():
     """Test edge cases and numerical stability."""
     # Test 1: Empty arrays
@@ -552,6 +554,7 @@ def test_get_gamma_zi_p_vs_gamma_with_noise():
         assert 0 <= p_gamma <= 1
 
 
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_get_gamma_zi_p_numerical_stability():
     """Test numerical stability of ZIG."""
     np.random.seed(42)
@@ -644,6 +647,7 @@ def test_get_gamma_zi_p_monotonicity():
             f"P-value not monotonic: {p_values[i]} < {p_values[i+1]}"
 
 
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_get_gamma_zi_p_fit_failure():
     """Test ZIG gracefully handles gamma fit failures."""
     # Edge case: Single non-zero value (gamma fit may fail)

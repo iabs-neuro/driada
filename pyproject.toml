@@ -102,6 +102,16 @@ markers = [
     "visual: marks tests that generate visualizations",
     "very_slow: marks tests as very slow (>60s)"
 ]
+filterwarnings = [
+    # Synthetic data: FBM generator warns about global state on every call
+    "ignore:FBM generation uses global np\\.random state:UserWarning",
+    # Edge-case tests intentionally use tiny inputs (<20 samples)
+    "ignore:Only \\d+ samples available\\. Detection may be unreliable:UserWarning",
+    # scipy moment calculation on constant/degenerate arrays
+    "ignore:Precision loss occurred in moment calculation:RuntimeWarning",
+    # scipy kurtosistest with few observations in edge-case tests
+    "ignore:`kurtosistest` p-value may be inaccurate:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["driada"]

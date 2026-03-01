@@ -548,6 +548,7 @@ class TestTimeSeriesInputValidation:
         with pytest.raises(ValueError, match="Shuffle mask must contain only 0s and 1s"):
             TimeSeries(data, shuffle_mask=mask)
 
+    @pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
     def test_edge_cases(self):
         """Test edge cases for input validation."""
         # Minimum valid series

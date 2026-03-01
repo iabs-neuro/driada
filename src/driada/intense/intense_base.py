@@ -205,7 +205,7 @@ def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed
     rng = np.random.RandomState(seed)
 
     # Bulk generate all shifts uniformly
-    random_shifts = rng.randint(0, n_shifts, size=(n1, n2, nsh))
+    random_shifts = rng.randint(0, n_shifts, size=(n1, n2, nsh)).astype(np.int32)
 
     # Build validity map from shuffle masks (once)
     valid_map, needs_correction = _build_shift_valid_map(
@@ -219,7 +219,7 @@ def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed
             n_bad = bad.sum()
             if n_bad == 0:
                 break
-            random_shifts[bad] = rng.randint(0, n_shifts, size=n_bad)
+            random_shifts[bad] = rng.randint(0, n_shifts, size=n_bad).astype(np.int32)
 
     return random_shifts
 
@@ -571,15 +571,15 @@ def scan_pairs(
     if mask is None:
         mask = np.ones((n1, n2))
 
-    me_table = np.zeros((n1, n2))
-    me_table_shuffles = np.zeros((n1, n2, nsh))
+    me_table = np.zeros((n1, n2), dtype=np.float32)
+    me_table_shuffles = np.zeros((n1, n2, nsh), dtype=np.float32)
 
     # Generate random shifts if not provided
     if random_shifts is None:
         # Vectorized bulk generation + rejection resampling
         n_shifts = t // ds
         _rng = np.random.RandomState(seed if seed is not None else 0)
-        random_shifts = _rng.randint(0, n_shifts, size=(n1, n2, nsh))
+        random_shifts = _rng.randint(0, n_shifts, size=(n1, n2, nsh)).astype(np.int32)
         valid_map, needs_correction = _build_shift_valid_map(
             ts_bunch1, ts_bunch2, optimal_delays, ds
         )
@@ -589,13 +589,13 @@ def scan_pairs(
                 n_bad = bad.sum()
                 if n_bad == 0:
                     break
-                random_shifts[bad] = _rng.randint(0, n_shifts, size=n_bad)
+                random_shifts[bad] = _rng.randint(0, n_shifts, size=n_bad).astype(np.int32)
 
     # Pre-generate noise for FFT cache path (avoids per-pair RandomState)
     if fft_cache is not None:
         _noise_rng = np.random.RandomState(seed)
-        _noise_true = _noise_rng.random(size=(n1, n2)) * noise_const
-        _noise_shuffles = _noise_rng.random(size=(n1, n2, nsh)) * noise_const
+        _noise_true = _noise_rng.random(size=(n1, n2)).astype(np.float32) * noise_const
+        _noise_shuffles = _noise_rng.random(size=(n1, n2, nsh)).astype(np.float32) * noise_const
 
     # calculate similarity metric arrays
     for i, ts1 in tqdm.tqdm(
@@ -826,7 +826,7 @@ def scan_pairs_parallel(
             f"optimal_delays shape {optimal_delays.shape} doesn't match expected ({n1}, {n2})"
         )
 
-    me_total = np.zeros((n1, n2, nsh + 1))
+    me_total = np.zeros((n1, n2, nsh + 1), dtype=np.float32)
 
     if n_jobs == -1:
         n_jobs = min(multiprocessing.cpu_count(), n1)

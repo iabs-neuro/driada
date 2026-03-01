@@ -1,5 +1,6 @@
 """Tests for information theory utility functions."""
 
+import pytest
 import numpy as np
 from scipy.special import digamma
 from driada.information.info_utils import (
@@ -169,6 +170,7 @@ class TestBinaryMIScore:
         assert mi > 0.2  # Lower threshold since MI is in nats
         assert mi <= np.log(3)  # Maximum MI is log(min(|X|, |Y|)) in nats
 
+    @pytest.mark.filterwarnings("ignore:divide by zero encountered in log:RuntimeWarning")
     def test_binary_mi_score_empty_contingency(self):
         """Test MI score with empty contingency table."""
         # Empty table

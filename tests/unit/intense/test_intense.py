@@ -194,6 +194,7 @@ def test_mixed_dimensions(correlated_ts_medium, aggregate_two_ts_func, strict_te
     assert len(false_positives) <= 2, f"Too many false positives: {false_positives}"
 
 
+@pytest.mark.filterwarnings("ignore:Conditional covariance determinant near zero:UserWarning")
 def test_mirror(correlated_ts_medium, aggregate_two_ts_func, strict_test_params):
     """Test INTENSE of a TimeSeries and MultiTimeSeries set with itself."""
     tslist1, tslist2, n = correlated_ts_medium
@@ -1345,6 +1346,7 @@ def test_optimal_delays_engine_loop_explicit():
     assert np.abs(delays[0, 0]) <= 30
 
 
+@pytest.mark.filterwarnings("ignore:No spike data provided:UserWarning")
 def test_intense_handles_no_significant_neurons(balanced_test_params):
     """Test that INTENSE handles cases with no significant neurons gracefully."""
     # Create truly non-selective neurons by using a different approach
