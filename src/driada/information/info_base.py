@@ -539,6 +539,8 @@ class TimeSeries:
         self._recurrence_tau = None
         self._recurrence_embedding_dim = None
         self._recurrence_graph_cache = None
+        self._vg_cache = None
+        self._opn_cache = None
 
     def get_kdtree(self):
         """Get or build KDTree for efficient nearest neighbor queries.
@@ -854,6 +856,21 @@ class TimeSeries:
         """Compute RQA measures. See ``information.recurrence.rqa``."""
         from .recurrence import rqa
         return rqa(self, **kwargs)
+
+    def visibility_graph(self, **kwargs):
+        """Build visibility graph. See ``information.recurrence.visibility_graph``."""
+        from .recurrence import visibility_graph
+        return visibility_graph(self, **kwargs)
+
+    def ordinal_partition_network(self, **kwargs):
+        """Build ordinal partition network. See ``information.recurrence.ordinal_partition_network``."""
+        from .recurrence import ordinal_partition_network
+        return ordinal_partition_network(self, **kwargs)
+
+    def permutation_entropy(self, **kwargs):
+        """Compute permutation entropy. See ``information.recurrence.permutation_entropy``."""
+        from .recurrence import permutation_entropy
+        return permutation_entropy(self, **kwargs)
 
 
 class MultiTimeSeries(MVData):

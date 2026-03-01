@@ -138,3 +138,51 @@ def population_recurrence_graph(mts, tau=None, m=None, method='joint',
 
     return _pop_rg(graphs, method=method, threshold=threshold,
                    binarize_threshold=binarize_threshold)
+
+
+def visibility_graph(ts, method='horizontal', directed=False):
+    """Build VisibilityGraph for a TimeSeries. Caches result."""
+    if ts.discrete:
+        raise ValueError("Visibility graph requires continuous time series")
+
+    cache_key = (method, directed)
+    if hasattr(ts, '_vg_cache') and ts._vg_cache is not None:
+        cached_key, cached_val = ts._vg_cache
+        if cached_key == cache_key:
+            return cached_val
+
+    from driada.recurrence.visibility import VisibilityGraph
+    vg = VisibilityGraph(ts.data, method=method, directed=directed)
+    ts._vg_cache = (cache_key, vg)
+    return vg
+
+
+def ordinal_partition_network(ts, d=None, tau=None):
+    """Build OrdinalPartitionNetwork for a TimeSeries. Caches result.
+
+    Auto-estimates tau and d if None. d is capped at 7.
+    """
+    if ts.discrete:
+        raise ValueError("OPN requires continuous time series")
+
+    if tau is None:
+        tau = estimate_tau(ts)
+    if d is None:
+        d = min(estimate_embedding_dim(ts, tau=tau), 7)
+
+    cache_key = (d, tau)
+    if hasattr(ts, '_opn_cache') and ts._opn_cache is not None:
+        cached_key, cached_val = ts._opn_cache
+        if cached_key == cache_key:
+            return cached_val
+
+    from driada.recurrence.opn import OrdinalPartitionNetwork
+    opn = OrdinalPartitionNetwork(ts.data, d=d, tau=tau)
+    ts._opn_cache = (cache_key, opn)
+    return opn
+
+
+def permutation_entropy(ts, d=None, tau=None):
+    """Compute permutation entropy for a TimeSeries."""
+    opn = ordinal_partition_network(ts, d=d, tau=tau)
+    return opn.permutation_entropy
