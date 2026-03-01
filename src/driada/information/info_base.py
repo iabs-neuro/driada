@@ -2073,13 +2073,19 @@ def get_tdmi(data, min_shift=1, max_shift=100, nn=DEFAULT_NN, estimator="gcmi"):
     >>>
     >>> # Using KSG for more accuracy
     >>> tdmi_ksg = get_tdmi(data, min_shift=1, max_shift=50, estimator='ksg')"""
+    shifts = np.arange(min_shift, max_shift)
+    if len(shifts) == 0:
+        return []
+
+    if estimator == "gcmi":
+        cn = copnorm(np.asarray(data, dtype=float)).ravel()
+        return compute_mi_batch_fft(cn, cn, shifts, biascorrect=True).tolist()
+
     ts = TimeSeries(data, discrete=False)
-    tdmi = [
+    return [
         get_1d_mi(ts, ts, shift=shift, k=nn, estimator=estimator)
         for shift in range(min_shift, max_shift)
     ]
-
-    return tdmi
 
 
 def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator="gcmi", mi_estimator_kwargs=None):

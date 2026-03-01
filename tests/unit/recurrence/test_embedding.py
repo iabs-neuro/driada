@@ -121,3 +121,44 @@ class TestEstimateEmbeddingDim:
         data = np.sin(t * 0.1) + np.sin(t * 0.0314) + np.sin(t * 0.00712)
         m = estimate_embedding_dim(data, tau=15, max_dim=8)
         assert 3 <= m <= 6
+
+
+class TestGetTdmiFFTEquivalence:
+    """Verify FFT-accelerated GCMI TDMI matches loop-based computation."""
+
+    def test_fft_matches_loop_gcmi(self):
+        """FFT-accelerated GCMI TDMI must match loop-based mi_gg."""
+        from driada.information.info_base import get_1d_mi, TimeSeries
+        from driada.information.gcmi import copnorm
+        from driada.information.info_fft import compute_mi_batch_fft
+
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal(1000)
+
+        # FFT path (what get_tdmi now does internally)
+        cn = copnorm(data).ravel()
+        shifts = np.arange(1, 61)
+        mi_fft = compute_mi_batch_fft(cn, cn, shifts, biascorrect=True)
+
+        # Loop path (previous behavior)
+        ts = TimeSeries(data, discrete=False)
+        mi_loop = np.array([
+            get_1d_mi(ts, ts, shift=s, estimator='gcmi') for s in range(1, 61)
+        ])
+
+        np.testing.assert_allclose(mi_fft, mi_loop, atol=1e-12)
+
+    def test_get_tdmi_returns_list(self):
+        """get_tdmi must return list of float for API compatibility."""
+        from driada.information.info_base import get_tdmi
+
+        result = get_tdmi(np.random.default_rng(42).standard_normal(500),
+                          min_shift=1, max_shift=20)
+        assert isinstance(result, list)
+        assert len(result) == 19
+
+    def test_get_tdmi_empty_range(self):
+        """min_shift >= max_shift returns empty list."""
+        from driada.information.info_base import get_tdmi
+
+        assert get_tdmi(np.random.randn(100), min_shift=50, max_shift=50) == []
