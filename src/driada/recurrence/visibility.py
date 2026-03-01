@@ -5,6 +5,19 @@ import scipy.sparse as sp
 from ..network.net_base import Network
 
 
+def _symmetrize_edges(rows, cols, n):
+    """Build symmetric sparse binary adjacency from directed edge list."""
+    ones = np.ones(len(rows), dtype=np.float64)
+    all_rows = np.concatenate([rows, cols])
+    all_cols = np.concatenate([cols, rows])
+    all_data = np.concatenate([ones, ones])
+    adj = sp.csr_matrix((all_data, (all_rows, all_cols)), shape=(n, n))
+    adj.setdiag(0)
+    adj.eliminate_zeros()
+    adj.data[:] = 1.0
+    return adj
+
+
 def _build_hvg(data):
     """Build Horizontal Visibility Graph adjacency. O(N) via stack.
 
@@ -32,25 +45,17 @@ def _build_hvg(data):
 
     rows = np.array(rows, dtype=np.int32)
     cols = np.array(cols, dtype=np.int32)
-    ones = np.ones(len(rows), dtype=np.float64)
-
-    # Symmetrize: add both (i,j) and (j,i)
-    all_rows = np.concatenate([rows, cols])
-    all_cols = np.concatenate([cols, rows])
-    all_data = np.concatenate([ones, ones])
-
-    adj = sp.csr_matrix((all_data, (all_rows, all_cols)), shape=(n, n))
-    adj.setdiag(0)
-    adj.eliminate_zeros()
-    adj.data[:] = 1.0
-    return adj
+    return _symmetrize_edges(rows, cols, n)
 
 
 def _build_nvg(data):
-    """Build Natural Visibility Graph adjacency. O(N^2).
+    """Build Natural Visibility Graph adjacency. O(N^2) to O(N^3).
 
     Two points i, j are connected if for all k with i < k < j:
         (x_k - x_i) / (k - i) < (x_j - x_i) / (j - i)
+
+    For N > ~2000, this is slow (pure Python loops). Use
+    method='horizontal' for long time series.
     """
     n = len(data)
     rows, cols = [], []
@@ -70,17 +75,7 @@ def _build_nvg(data):
 
     rows = np.array(rows, dtype=np.int32)
     cols = np.array(cols, dtype=np.int32)
-    ones = np.ones(len(rows), dtype=np.float64)
-
-    all_rows = np.concatenate([rows, cols])
-    all_cols = np.concatenate([cols, rows])
-    all_data = np.concatenate([ones, ones])
-
-    adj = sp.csr_matrix((all_data, (all_rows, all_cols)), shape=(n, n))
-    adj.setdiag(0)
-    adj.eliminate_zeros()
-    adj.data[:] = 1.0
-    return adj
+    return _symmetrize_edges(rows, cols, n)
 
 
 class VisibilityGraph(Network):
@@ -96,7 +91,7 @@ class VisibilityGraph(Network):
         Raw time series values.
     method : {'horizontal', 'natural'}, default='horizontal'
         'horizontal' (HVG): O(N) via monotone stack. Default.
-        'natural' (NVG): O(N^2) pairwise line-of-sight.
+        'natural' (NVG): O(N^2) pairwise line-of-sight. Slow for N > ~2000.
     directed : bool, default=False
         If True, edges point forward in time only.
     """
