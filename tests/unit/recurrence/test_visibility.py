@@ -56,3 +56,49 @@ class TestHorizontalVisibilityGraph:
         vg = VisibilityGraph(data, method='horizontal')
         diff = vg.adj - vg.adj.T
         assert diff.nnz == 0
+
+
+class TestNaturalVisibilityGraph:
+    """Test NVG construction."""
+
+    def test_nvg_monotonic_is_path(self):
+        """Monotonic signal: NVG is also a path graph."""
+        from driada.recurrence import VisibilityGraph
+        data = np.arange(15, dtype=float)
+        vg = VisibilityGraph(data, method='natural')
+        assert vg.adj.nnz == 2 * (len(data) - 1)
+
+    def test_nvg_has_more_edges_than_hvg(self):
+        """NVG is a supergraph of HVG (more or equal edges)."""
+        from driada.recurrence import VisibilityGraph
+        np.random.seed(42)
+        data = np.random.randn(50)
+        hvg = VisibilityGraph(data, method='horizontal')
+        nvg = VisibilityGraph(data, method='natural')
+        assert nvg.adj.nnz >= hvg.adj.nnz
+
+    def test_hvg_is_subgraph_of_nvg(self):
+        """Every HVG edge must also appear in NVG."""
+        from driada.recurrence import VisibilityGraph
+        np.random.seed(123)
+        data = np.random.randn(30)
+        hvg = VisibilityGraph(data, method='horizontal')
+        nvg = VisibilityGraph(data, method='natural')
+        # Every nonzero in HVG must be nonzero in NVG
+        hvg_dense = hvg.adj.toarray()
+        nvg_dense = nvg.adj.toarray()
+        assert np.all(nvg_dense[hvg_dense > 0] > 0)
+
+    def test_directed_is_upper_triangular(self):
+        """Directed VG should only have forward-in-time edges."""
+        from driada.recurrence import VisibilityGraph
+        data = np.random.randn(20)
+        vg = VisibilityGraph(data, method='horizontal', directed=True)
+        adj_dense = vg.adj.toarray()
+        assert np.allclose(np.tril(adj_dense, k=-1), 0)
+
+    def test_rejects_2d(self):
+        """Must reject non-1D input."""
+        from driada.recurrence import VisibilityGraph
+        with pytest.raises(ValueError, match="1D"):
+            VisibilityGraph(np.random.randn(10, 2))
