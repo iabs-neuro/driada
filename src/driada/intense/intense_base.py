@@ -1513,13 +1513,19 @@ def compute_me_stats(
         ts_with_delays = [ts for _, ts in enumerate(ts_bunch2) if not skip_delays or _ not in skip_delays]
         ts_with_delays_inds = np.array([_ for _, ts in enumerate(ts_bunch2) if not skip_delays or _ not in skip_delays])
 
+        # Combine masks: cache any pair needed by either stage
+        cache_mask = np.maximum(precomputed_mask_stage1, precomputed_mask_stage2)
+
         # Build FFT cache once at the start for reuse across delays + stages
         if verbose:
-            print(f"Building FFT cache for {len(ts_bunch1)}x{len(ts_bunch2)} pairs (engine={engine})...")
+            n_to_cache = int(np.sum(cache_mask))
+            n_total = len(ts_bunch1) * len(ts_bunch2)
+            print(f"Building FFT cache for {n_to_cache}/{n_total} pairs (engine={engine})...")
         with _timed_section(timings, 'fft_cache_building'):
             fft_cache, fft_type_counts = _build_fft_cache(
                 ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine,
                 n_jobs=n_jobs if enable_parallelization else 1,
+                pair_mask=cache_mask,
             )
 
         # Store FFT type counts for profiling

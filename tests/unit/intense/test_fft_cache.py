@@ -174,6 +174,61 @@ class TestFFTCacheBuilding:
             )
 
 
+class TestPairMask:
+    """Test pair_mask filtering in FFT cache building."""
+
+    def test_pair_mask_reduces_cache_size(self):
+        """pair_mask should only build entries for nonzero mask positions."""
+        signals = [
+            TimeSeries(np.random.randn(200), discrete=False, name=f"n{i}")
+            for i in range(5)
+        ]
+        # Full cache: 5x5 = 25 entries
+        cache_full, counts_full = _build_fft_cache(
+            signals, signals, "mi", "gcmi", ds=1, engine="auto"
+        )
+        # Upper triangle: 5*4/2 = 10 entries
+        mask = np.triu(np.ones((5, 5)), k=1)
+        cache_masked, counts_masked = _build_fft_cache(
+            signals, signals, "mi", "gcmi", ds=1, engine="auto",
+            pair_mask=mask,
+        )
+        assert len(cache_full) == 25
+        assert len(cache_masked) == 10
+        # Every masked entry matches the full cache
+        for key, entry in cache_masked.items():
+            assert key in cache_full
+            np.testing.assert_array_equal(entry.mi_all, cache_full[key].mi_all)
+
+    def test_pair_mask_none_builds_all(self):
+        """pair_mask=None should build all pairs (backward compatible)."""
+        signals = [
+            TimeSeries(np.random.randn(200), discrete=False, name=f"n{i}")
+            for i in range(3)
+        ]
+        cache_default, _ = _build_fft_cache(
+            signals, signals, "mi", "gcmi", ds=1, engine="auto"
+        )
+        cache_none, _ = _build_fft_cache(
+            signals, signals, "mi", "gcmi", ds=1, engine="auto",
+            pair_mask=None,
+        )
+        assert len(cache_default) == len(cache_none) == 9
+
+    def test_pair_mask_empty_builds_nothing(self):
+        """All-zero mask should produce empty cache."""
+        signals = [
+            TimeSeries(np.random.randn(200), discrete=False, name=f"n{i}")
+            for i in range(3)
+        ]
+        mask = np.zeros((3, 3))
+        cache, counts = _build_fft_cache(
+            signals, signals, "mi", "gcmi", ds=1, engine="auto",
+            pair_mask=mask,
+        )
+        assert len(cache) == 0
+
+
 class TestMemoryCleanup:
     """Test FFT cache memory cleanup (integration test)."""
 

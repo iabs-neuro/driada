@@ -480,7 +480,8 @@ def _pearson_from_precomp(fft_x, std_x, fft_y, std_y, n):
     return np.abs(np.clip(r_all, -1, 1))
 
 
-def _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine):
+def _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine,
+                          pair_mask=None):
     """Core cache building logic shared by serial and parallel paths.
 
     For continuous-continuous (cc) and Pearson continuous (pearson_cc) pairs,
@@ -502,6 +503,10 @@ def _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine
         Downsampling factor.
     engine : str
         Computation engine.
+    pair_mask : ndarray or None, optional
+        Boolean/int mask of shape (len(ts_bunch1), len(ts_bunch2)).
+        Only pairs where pair_mask[i, j] != 0 are cached.
+        None means cache all pairs (backward compatible).
 
     Returns
     -------
@@ -540,11 +545,13 @@ def _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine
                 psi_2 = py_fast_digamma((n_samples - 2) / 2.0)
                 bias_correction = (psi_2 - psi_1) / (2.0 * _LN2)
 
-    # Build cache for all pairs
-    for ts1 in ts_bunch1:
-        for ts2 in ts_bunch2:
+    # Build cache for pairs (optionally filtered by pair_mask)
+    for i, ts1 in enumerate(ts_bunch1):
+        key1 = _get_ts_key(ts1)
+        for j, ts2 in enumerate(ts_bunch2):
+            if pair_mask is not None and not pair_mask[i, j]:
+                continue
             fft_type = get_fft_type(ts1, ts2, metric, mi_estimator, 1, engine)
-            key1 = _get_ts_key(ts1)
             key2 = _get_ts_key(ts2)
 
             if fft_type is not None:
@@ -587,6 +594,7 @@ def _build_fft_cache(
     ds: int,
     engine: str,
     n_jobs: int = 1,
+    pair_mask=None,
 ) -> dict:
     """Build FFT cache for all pairs using stable keys.
 
@@ -619,6 +627,10 @@ def _build_fft_cache(
         Number of parallel jobs. Default: 1 (serial).
         Use -1 for all CPU cores. Parallelization is disabled
         when ts_bunch1 has only one element.
+    pair_mask : ndarray or None, optional
+        Boolean/int mask of shape (len(ts_bunch1), len(ts_bunch2)).
+        Only pairs where pair_mask[i, j] != 0 are cached.
+        None means cache all pairs (backward compatible).
 
     Returns
     -------
@@ -657,11 +669,15 @@ def _build_fft_cache(
     # Delegate to parallel version if enabled and appropriate
     if n_jobs != 1 and len(ts_bunch1) > 1:
         return _build_fft_cache_parallel(
-            ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, n_jobs
+            ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine, n_jobs,
+            pair_mask=pair_mask,
         )
 
     # Serial implementation
-    return _build_fft_cache_core(ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine)
+    return _build_fft_cache_core(
+        ts_bunch1, ts_bunch2, metric, mi_estimator, ds, engine,
+        pair_mask=pair_mask,
+    )
 
 
 def _build_fft_cache_worker(
@@ -671,6 +687,7 @@ def _build_fft_cache_worker(
     mi_estimator: str,
     ds: int,
     engine: str,
+    pair_mask=None,
 ) -> tuple:
     """Build FFT cache for a subset of ts_bunch1 (worker function).
 
@@ -691,6 +708,8 @@ def _build_fft_cache_worker(
         Downsampling factor.
     engine : str
         Computation engine: 'auto', 'fft', or 'loop'.
+    pair_mask : ndarray or None, optional
+        Mask rows for this subset. Shape (len(ts_bunch1_subset), len(ts_bunch2)).
 
     Returns
     -------
@@ -698,7 +717,8 @@ def _build_fft_cache_worker(
         (partial_cache, partial_fft_type_counts) for this subset.
     """
     return _build_fft_cache_core(
-        ts_bunch1_subset, ts_bunch2, metric, mi_estimator, ds, engine
+        ts_bunch1_subset, ts_bunch2, metric, mi_estimator, ds, engine,
+        pair_mask=pair_mask,
     )
 
 
@@ -710,6 +730,7 @@ def _build_fft_cache_parallel(
     ds: int,
     engine: str,
     n_jobs: int = -1,
+    pair_mask=None,
 ) -> tuple:
     """Parallel version of _build_fft_cache.
 
@@ -732,6 +753,9 @@ def _build_fft_cache_parallel(
         Computation engine: 'auto', 'fft', or 'loop'.
     n_jobs : int, optional
         Number of parallel jobs. Default: -1 (all CPU cores).
+    pair_mask : ndarray or None, optional
+        Boolean/int mask of shape (len(ts_bunch1), len(ts_bunch2)).
+        Rows are sliced per worker to match ts_bunch1 splits.
 
     Returns
     -------
@@ -746,13 +770,21 @@ def _build_fft_cache_parallel(
     split_inds = np.array_split(np.arange(len(ts_bunch1)), n_jobs_effective)
     split_ts_bunch1 = [[ts_bunch1[i] for i in idxs] for idxs in split_inds if len(idxs) > 0]
 
+    # Slice mask rows for each worker
+    split_masks = (
+        [pair_mask[idxs] for idxs in split_inds if len(idxs) > 0]
+        if pair_mask is not None
+        else [None] * len(split_ts_bunch1)
+    )
+
     # Parallel execution with backend-specific config
     with _parallel_executor(n_jobs_effective) as parallel:
         results = parallel(
             delayed(_build_fft_cache_worker)(
-                subset, ts_bunch2, metric, mi_estimator, ds, engine
+                subset, ts_bunch2, metric, mi_estimator, ds, engine,
+                pair_mask=mask_slice,
             )
-            for subset in split_ts_bunch1
+            for subset, mask_slice in zip(split_ts_bunch1, split_masks)
         )
 
     # Merge results
