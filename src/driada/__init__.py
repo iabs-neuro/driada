@@ -65,7 +65,7 @@ from . import recurrence
 from .experiment import Experiment
 from .information import TimeSeries, MultiTimeSeries
 from .network import Network
-from .recurrence import RecurrenceGraph
+from .recurrence import RecurrenceGraph, VisibilityGraph, OrdinalPartitionNetwork
 
 # Main INTENSE pipeline functions
 from .intense import (
@@ -126,6 +126,8 @@ __all__ = [
     "MultiTimeSeries",
     "Network",
     "RecurrenceGraph",
+    "VisibilityGraph",
+    "OrdinalPartitionNetwork",
     # INTENSE pipelines
     "compute_cell_feat_significance",
     "compute_feat_feat_significance",
