@@ -573,7 +573,7 @@ def compute_cell_feat_significance(
                         feat_01, ca_data
                     )
                 else:
-                    computed_stats[cell_id][feat_id]["signal_ratio"] = float('nan')
+                    computed_stats[cell_id][feat_id]["signal_ratio"] = None
 
                 if save_computed_stats:
                     stage2_only = True if mode == "stage2" else False

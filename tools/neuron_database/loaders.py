@@ -135,6 +135,7 @@ def load_session_from_csvs(stats_path, sig_path):
                 'me': s.get('me', np.nan),
                 'pval': s.get('pval', np.nan),
                 'opt_delay': s.get('opt_delay', np.nan),
+                'signal_ratio': np.nan if s.get('signal_ratio') is None else s['signal_ratio'],
             })
     return records
 

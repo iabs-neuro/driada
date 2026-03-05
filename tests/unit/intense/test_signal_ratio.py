@@ -1,10 +1,11 @@
-"""Tests for signal_ratio computation in INTENSE pipeline.
+"""Tests for signal_ratio computation and anti-selectivity filtering.
 
-Tests that signal_ratio is correctly computed for binary discrete features
-and set to NaN for continuous features.
+Tests that signal_ratio is correctly computed for binary discrete features,
+set to NaN for continuous features, and properly filtered in neuron_database.
 """
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from driada.information.info_base import TimeSeries, calc_signal_ratio
@@ -95,14 +96,14 @@ class TestSignalRatioInPipeline:
                     f"signal_ratio should be positive, got {sr}"
                 )
 
-    def test_signal_ratio_nan_for_continuous_feature(self, pipeline_result):
-        """signal_ratio should be NaN for continuous (non-binary) features."""
+    def test_signal_ratio_none_for_continuous_feature(self, pipeline_result):
+        """signal_ratio should be None for continuous (non-binary) features."""
         stats, exp = pipeline_result
         for cell_id in stats:
             if "speed" in stats[cell_id]:
                 sr = stats[cell_id]["speed"]["signal_ratio"]
-                assert np.isnan(sr), (
-                    f"signal_ratio for continuous feature should be NaN, got {sr}"
+                assert sr is None, (
+                    f"signal_ratio for continuous feature should be None, got {sr}"
                 )
 
     def test_signal_ratio_key_present_in_all_pairs(self, pipeline_result):
@@ -113,3 +114,130 @@ class TestSignalRatioInPipeline:
                 assert "signal_ratio" in stats[cell_id][feat_id], (
                     f"signal_ratio missing for cell={cell_id}, feat={feat_id}"
                 )
+
+
+class TestSignalRatioCsvRoundtrip:
+    """signal_ratio survives CSV save/load cycle."""
+
+    def test_roundtrip(self, tmp_path):
+        from tools.selectivity_dynamics.export import save_stats_csv
+
+        stats = {
+            '0': {
+                'freezing': {'me': 0.05, 'pval': 0.001, 'opt_delay': 0,
+                             'signal_ratio': 1.35},
+                'speed': {'me': 0.03, 'pval': 0.01, 'opt_delay': 5,
+                          'signal_ratio': None},
+            }
+        }
+        csv_path = tmp_path / 'test_stats.csv'
+        save_stats_csv(stats, ['freezing', 'speed'], csv_path)
+
+        from tools.neuron_database.loaders import parse_stats_csv
+        loaded = parse_stats_csv(csv_path)
+        assert loaded[0]['freezing']['signal_ratio'] == pytest.approx(1.35)
+        assert loaded[0]['speed']['signal_ratio'] is None
+
+
+class TestLoaderExtractsSignalRatio:
+    """neuron_database loader picks up signal_ratio from stats CSV."""
+
+    def test_load_session(self, tmp_path):
+        from tools.selectivity_dynamics.export import save_stats_csv, save_significance_csv
+        from tools.neuron_database.loaders import load_session_from_csvs
+
+        stats = {
+            '0': {
+                'freezing': {'me': 0.05, 'pval': 0.001, 'opt_delay': 0,
+                             'signal_ratio': 1.35},
+                'speed': {'me': 0.03, 'pval': 0.01, 'opt_delay': 5,
+                          'signal_ratio': None},
+            }
+        }
+        sig = {'0': {'freezing': True, 'speed': False}}
+
+        stats_path = tmp_path / 'stats.csv'
+        sig_path = tmp_path / 'sig.csv'
+        save_stats_csv(stats, ['freezing', 'speed'], stats_path)
+        save_significance_csv(sig, ['freezing', 'speed'], sig_path)
+
+        records = load_session_from_csvs(stats_path, sig_path)
+
+        freezing_rec = [r for r in records if r['feature'] == 'freezing'][0]
+        assert freezing_rec['signal_ratio'] == pytest.approx(1.35)
+
+        speed_rec = [r for r in records if r['feature'] == 'speed'][0]
+        assert np.isnan(speed_rec['signal_ratio'])
+
+
+class TestApplySignificanceFiltersAntiSelectivity:
+    """Anti-selectivity filtering in apply_significance_filters."""
+
+    def test_filters_suppressed_neurons(self):
+        from tools.neuron_database.tables import apply_significance_filters
+
+        df = pd.DataFrame({
+            'significant': [True, True, True, True],
+            'me': [0.05, 0.06, 0.05, 0.07],
+            'pval': [0.0001, 0.0001, 0.0001, 0.0001],
+            'delay_sign': [1, 1, 1, 1],
+            'signal_ratio': [1.35, 0.8, float('nan'), 1.1],
+        })
+
+        # Default (filter on): remove suppressed, keep NaN
+        filtered = apply_significance_filters(df, filter_anti_selectivity=True)
+        assert len(filtered) == 3
+        assert 0.8 not in filtered['signal_ratio'].values
+
+        # Filter off: keep all
+        unfiltered = apply_significance_filters(df, filter_anti_selectivity=False)
+        assert len(unfiltered) == 4
+
+    def test_no_signal_ratio_column(self):
+        """Graceful when column is missing (old data)."""
+        from tools.neuron_database.tables import apply_significance_filters
+
+        df = pd.DataFrame({
+            'significant': [True, True],
+            'me': [0.05, 0.06],
+            'pval': [0.0001, 0.0001],
+            'delay_sign': [1, 1],
+        })
+        filtered = apply_significance_filters(df, filter_anti_selectivity=True)
+        assert len(filtered) == 2
+
+
+class TestQueryAntiSelectivity:
+    """NeuronDatabase.query() anti_selectivity parameter."""
+
+    def test_query_filters_suppressed(self):
+        from tools.neuron_database.database import NeuronDatabase
+
+        data = pd.DataFrame({
+            'mouse': ['H01'] * 3,
+            'session': ['1D'] * 3,
+            'matched_id': [0, 1, 2],
+            'neuron_idx': [0, 1, 2],
+            'feature': ['freezing', 'freezing', 'speed'],
+            'significant': [True, True, True],
+            'me': [0.05, 0.06, 0.04],
+            'pval': [0.0001, 0.0001, 0.0001],
+            'opt_delay': [0, 0, 0],
+            'delay_sign': [0, 0, 0],
+            'signal_ratio': [1.3, 0.7, float('nan')],
+        })
+        matching = {'H01': pd.DataFrame({'1D': [1, 2, 3]})}
+        db = NeuronDatabase(['1D'], matching, data)
+
+        # No filtering by default
+        result = db.query(feature='freezing')
+        assert len(result) == 2
+
+        # Filter anti-selectivities
+        result = db.query(feature='freezing', anti_selectivity=True)
+        assert len(result) == 1
+        assert result.iloc[0]['signal_ratio'] == pytest.approx(1.3)
+
+        # NaN passes through
+        result = db.query(feature='speed', anti_selectivity=True)
+        assert len(result) == 1

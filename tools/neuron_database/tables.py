@@ -21,7 +21,8 @@ def _resolve_filter_delay(filter_delay, db):
 
 def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
                                 pval_threshold=PVAL_THRESHOLD,
-                                filter_delay=True):
+                                filter_delay=True,
+                                filter_anti_selectivity=True):
     """Apply standard significance filters to a tidy DataFrame.
 
     Parameters
@@ -34,6 +35,10 @@ def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
         Maximum p-value (strict <). None to skip.
     filter_delay : bool
         If True, keep only delay_sign >= 0.
+    filter_anti_selectivity : bool
+        If True and 'signal_ratio' column exists, discard rows where
+        signal_ratio <= 1.0 (suppressed neurons). NaN values (non-binary
+        features) pass through.
 
     Returns
     -------
@@ -47,6 +52,8 @@ def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
         mask = mask & (df['pval'] < pval_threshold)
     if filter_delay:
         mask = mask & (df['delay_sign'] >= 0)
+    if filter_anti_selectivity and 'signal_ratio' in df.columns:
+        mask = mask & (df['signal_ratio'].isna() | (df['signal_ratio'] > 1.0))
     return df[mask]
 
 

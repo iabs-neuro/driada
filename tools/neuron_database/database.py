@@ -303,6 +303,7 @@ class NeuronDatabase:
               mi_min=None, mi_max=None,
               pval_max=None,
               delay_positive=None, delay_negative=None,
+              anti_selectivity=None,
               mice=None, sessions=None,
               exclude_mice=None, exclude_sessions=None):
         """Filter the tidy DataFrame by any combination of criteria.
@@ -325,6 +326,10 @@ class NeuronDatabase:
             If True, require opt_delay > 0.
         delay_negative : bool, optional
             If True, require opt_delay < 0.
+        anti_selectivity : bool, optional
+            If True, keep only activation (signal_ratio > 1.0) for binary
+            features. NaN values (non-binary) pass through. If False or
+            None, no filtering.
         mice : list[str], optional
             Include only these mice (overrides global exclusions for mice).
         sessions : list[str], optional
@@ -388,6 +393,9 @@ class NeuronDatabase:
 
         if delay_negative is True:
             df = df[df['opt_delay'] < 0]
+
+        if anti_selectivity is True and 'signal_ratio' in df.columns:
+            df = df[df['signal_ratio'].isna() | (df['signal_ratio'] > 1.0)]
 
         return df
 
