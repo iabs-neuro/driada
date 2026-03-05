@@ -4,7 +4,7 @@ import numpy as np
 
 from .stats import stats_not_empty, DEFAULT_METRIC_DISTR_TYPE
 from .intense_base import compute_me_stats, IntenseResults
-from ..information.info_base import TimeSeries, MultiTimeSeries
+from ..information.info_base import TimeSeries, MultiTimeSeries, calc_signal_ratio
 from .disentanglement import disentangle_all_selectivities, DEFAULT_MULTIFEATURE_MAP
 from ..experiment.exp_base import DEFAULT_STATS
 
@@ -550,6 +550,30 @@ def compute_cell_feat_significance(
                         neural_entropy = exp.neurons[int(cell_id)].sp.get_entropy(ds=ds)
                     computed_stats[cell_id][feat_id]["rel_me_beh"] = me_val / feat_entropy
                     computed_stats[cell_id][feat_id]["rel_me_ca"] = me_val / neural_entropy
+
+                # Compute signal_ratio for binary discrete features
+                feat_ts = feats[j]
+                if (hasattr(feat_ts, 'int_data') and feat_ts.int_data is not None
+                        and len(np.unique(feat_ts.int_data)) == 2):
+                    # Get optimal delay in frames and shift calcium
+                    opt_delay = int(info["optimal_delays"][i, j])
+                    ca_data = signals[i].data.copy()
+                    if opt_delay > 0:
+                        ca_data = ca_data[opt_delay:]
+                        feat_binary = feat_ts.int_data[:len(ca_data)]
+                    elif opt_delay < 0:
+                        feat_binary = feat_ts.int_data[-opt_delay:]
+                        ca_data = ca_data[:len(feat_binary)]
+                    else:
+                        feat_binary = feat_ts.int_data[:len(ca_data)]
+                    # Normalize binary feature to 0/1
+                    unique_vals = np.unique(feat_binary)
+                    feat_01 = (feat_binary == unique_vals[1]).astype(float)
+                    computed_stats[cell_id][feat_id]["signal_ratio"] = calc_signal_ratio(
+                        feat_01, ca_data
+                    )
+                else:
+                    computed_stats[cell_id][feat_id]["signal_ratio"] = float('nan')
 
                 if save_computed_stats:
                     stage2_only = True if mode == "stage2" else False
