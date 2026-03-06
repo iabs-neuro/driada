@@ -106,6 +106,31 @@ def _lookup_cell_feat_mi(cell_feat_stats, neuron_id, feat_name):
         return None
 
 
+def _lookup_cell_feat_delay(cell_feat_stats, neuron_id, feat_name):
+    """Look up optimal delay for a (neuron, feature) pair.
+
+    Parameters
+    ----------
+    cell_feat_stats : dict or None
+        Nested dictionary: stats[cell_id][feat_name]["opt_delay"] = delay.
+    neuron_id : any
+        Neuron identifier (cell ID).
+    feat_name : str or tuple
+        Feature name/identifier.
+
+    Returns
+    -------
+    int
+        The optimal delay in original frame units, or 0 if not found.
+    """
+    if cell_feat_stats is None:
+        return 0
+    try:
+        return cell_feat_stats[neuron_id][feat_name].get("opt_delay", 0)
+    except (KeyError, TypeError):
+        return 0
+
+
 def _lookup_feat_feat_mi(feat_feat_similarity, feat_names, feat1_name, feat2_name):
     """Look up MI(feature1, feature2) from pre-computed similarity matrix.
 
@@ -145,6 +170,8 @@ def _disentangle_pair_with_precomputed(
     ts3_copnorm=None,
     verbose=False,
     ds=1,
+    delay_feat1=0,
+    delay_feat2=0,
 ):
     """Disentangle with optional pre-computed MI values and copula data.
 
@@ -176,6 +203,12 @@ def _disentangle_pair_with_precomputed(
         If True, print detailed analysis results. Default: False.
     ds : int, optional
         Downsampling factor. Default: 1.
+    delay_feat1 : int, optional
+        Optimal delay for feature 1, in downsampled frame units.
+        Applied as ``np.roll`` shift to align with neural activity. Default: 0.
+    delay_feat2 : int, optional
+        Optimal delay for feature 2, in downsampled frame units.
+        Applied as ``np.roll`` shift to align with neural activity. Default: 0.
 
     Returns
     -------
@@ -184,17 +217,20 @@ def _disentangle_pair_with_precomputed(
     """
     # Compute only missing pairwise MI values
     if mi12 is None:
-        mi12 = get_mi(ts1, ts2, ds=ds)
+        mi12 = get_mi(ts1, ts2, ds=ds, shift=delay_feat1)
     if mi13 is None:
-        mi13 = get_mi(ts1, ts3, ds=ds)
+        mi13 = get_mi(ts1, ts3, ds=ds, shift=delay_feat2)
     if mi23 is None:
         mi23 = get_mi(ts2, ts3, ds=ds)
 
     # Compute conditional MI - use pre-computed copula data if all available (CCC case)
     if ts1_copnorm is not None and ts2_copnorm is not None and ts3_copnorm is not None:
+        # Apply optimal delays to align features with neural activity
+        ts2_cp = np.roll(ts2_copnorm, delay_feat1) if delay_feat1 else ts2_copnorm
+        ts3_cp = np.roll(ts3_copnorm, delay_feat2) if delay_feat2 else ts3_copnorm
         # Direct cmi_ggg call with pre-cached copula data (faster)
-        cmi123 = cmi_ggg(ts1_copnorm, ts2_copnorm, ts3_copnorm, biascorrect=True, demeaned=True)
-        cmi132 = cmi_ggg(ts1_copnorm, ts3_copnorm, ts2_copnorm, biascorrect=True, demeaned=True)
+        cmi123 = cmi_ggg(ts1_copnorm, ts2_cp, ts3_cp, biascorrect=True, demeaned=True)
+        cmi132 = cmi_ggg(ts1_copnorm, ts3_cp, ts2_cp, biascorrect=True, demeaned=True)
     else:
         # Fallback for mixed discrete/continuous cases
         cmi123 = conditional_mi(ts1, ts2, ts3, ds=ds)  # MI(neuron, behavior1 | behavior2)
@@ -485,6 +521,10 @@ def _process_neuron_disentanglement(
                     feat_names[ind1], feat_names[ind2]
                 )
 
+                # Look up optimal delays (original frame units → downsampled)
+                delay1 = _lookup_cell_feat_delay(cell_feat_stats, neuron_id, sel_comb[0])
+                delay2 = _lookup_cell_feat_delay(cell_feat_stats, neuron_id, sel_comb[1])
+
                 # Perform disentanglement analysis only for significant pairs
                 # Pass pre-computed copula data for faster CMI computation
                 disres = _disentangle_pair_with_precomputed(
@@ -493,7 +533,9 @@ def _process_neuron_disentanglement(
                     ts1_copnorm=neur_copnorm,
                     ts2_copnorm=feat_copnorm_cache.get(sel_comb[0]),
                     ts3_copnorm=feat_copnorm_cache.get(sel_comb[1]),
-                    ds=ds, verbose=False
+                    ds=ds, verbose=False,
+                    delay_feat1=delay1 // ds if ds > 1 else delay1,
+                    delay_feat2=delay2 // ds if ds > 1 else delay2,
                 )
                 source = 'standard'
 

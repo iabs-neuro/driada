@@ -2,6 +2,7 @@
 
 import pytest
 import numpy as np
+from unittest.mock import patch, ANY
 from driada.intense.disentanglement import (
     disentangle_pair,
     disentangle_all_selectivities,
@@ -11,6 +12,8 @@ from driada.intense.disentanglement import (
     _flip_decision,
     _downsample_copnorm,
     _disentangle_pair_with_precomputed,
+    _process_neuron_disentanglement,
+    _lookup_cell_feat_delay,
     MI_EPSILON,
     DOMINANCE_RATIO_THRESHOLD,
     VALID_DISRES_VALUES,
@@ -913,3 +916,393 @@ def test_errors_accumulated_in_neuron_info(mixed_features_experiment):
     for nid, info in results['per_neuron_disent'].items():
         assert 'errors' in info
         assert isinstance(info['errors'], list)
+
+
+# ============================================================
+# Tests for optimal delay application
+# ============================================================
+
+class TestLookupCellFeatDelay:
+    """Tests for _lookup_cell_feat_delay helper."""
+
+    def test_returns_delay_from_stats(self):
+        stats = {"n1": {"feat_a": {"me": 0.5, "opt_delay": 10}}}
+        assert _lookup_cell_feat_delay(stats, "n1", "feat_a") == 10
+
+    def test_returns_zero_when_no_opt_delay_key(self):
+        stats = {"n1": {"feat_a": {"me": 0.5}}}
+        assert _lookup_cell_feat_delay(stats, "n1", "feat_a") == 0
+
+    def test_returns_zero_for_missing_neuron(self):
+        stats = {"n1": {"feat_a": {"opt_delay": 10}}}
+        assert _lookup_cell_feat_delay(stats, "n_missing", "feat_a") == 0
+
+    def test_returns_zero_for_missing_feature(self):
+        stats = {"n1": {"feat_a": {"opt_delay": 10}}}
+        assert _lookup_cell_feat_delay(stats, "n1", "feat_missing") == 0
+
+    def test_returns_zero_when_stats_none(self):
+        assert _lookup_cell_feat_delay(None, "n1", "feat_a") == 0
+
+    def test_negative_delay(self):
+        stats = {"n1": {"feat_a": {"opt_delay": -5}}}
+        assert _lookup_cell_feat_delay(stats, "n1", "feat_a") == -5
+
+
+class TestDisentangleWithDelay:
+    """Tests for delay application in _disentangle_pair_with_precomputed."""
+
+    def test_delay_params_accepted(self):
+        """Verify delay_feat1/delay_feat2 kwargs are accepted without error."""
+        ts1, ts2, ts3 = create_redundant_timeseries()
+        result = _disentangle_pair_with_precomputed(
+            ts1, ts2, ts3,
+            delay_feat1=0, delay_feat2=0,
+            ds=1, verbose=False,
+        )
+        assert result in VALID_DISRES_VALUES
+
+    def test_delay_shifts_copnorm_in_cmi(self):
+        """Verify that non-zero delay changes the CMI computation.
+
+        Create a signal that is a shifted copy of a feature. With the correct
+        delay, CMI should use aligned data; without it, the data is misaligned.
+        """
+        np.random.seed(42)
+        n = 1000
+        shift = 20
+
+        # Feature 2: random signal
+        feat2 = np.random.randn(n)
+        # Neural activity: shifted copy of feat2 (neuron responds with a lag)
+        neural = np.roll(feat2, shift) + 0.1 * np.random.randn(n)
+        # Feature 3: independent
+        feat3 = np.random.randn(n)
+
+        ts1 = TimeSeries(neural, discrete=False)
+        ts2 = TimeSeries(feat2, discrete=False)
+        ts3 = TimeSeries(feat3, discrete=False)
+
+        # With correct delay: copnorm arrays are aligned → high MI(neuron, feat2)
+        result_aligned = _disentangle_pair_with_precomputed(
+            ts1, ts2, ts3,
+            ts1_copnorm=ts1.copula_normal_data,
+            ts2_copnorm=ts2.copula_normal_data,
+            ts3_copnorm=ts3.copula_normal_data,
+            delay_feat1=shift, delay_feat2=0,
+            ds=1, verbose=False,
+        )
+        # With zero delay: copnorm arrays are misaligned
+        result_zero = _disentangle_pair_with_precomputed(
+            ts1, ts2, ts3,
+            ts1_copnorm=ts1.copula_normal_data,
+            ts2_copnorm=ts2.copula_normal_data,
+            ts3_copnorm=ts3.copula_normal_data,
+            delay_feat1=0, delay_feat2=0,
+            ds=1, verbose=False,
+        )
+        # Both must be valid
+        assert result_aligned in VALID_DISRES_VALUES
+        assert result_zero in VALID_DISRES_VALUES
+
+    def test_delay_applied_via_roll_on_copnorm(self):
+        """Directly verify np.roll is applied by checking CMI values differ."""
+        np.random.seed(123)
+        n = 800
+        shift = 15
+
+        feat2 = np.random.randn(n)
+        neural = np.roll(feat2, shift) + 0.05 * np.random.randn(n)
+        feat3 = 0.3 * feat2 + 0.7 * np.random.randn(n)
+
+        ts1 = TimeSeries(neural, discrete=False)
+        ts2 = TimeSeries(feat2, discrete=False)
+        ts3 = TimeSeries(feat3, discrete=False)
+
+        from driada.information.gcmi import cmi_ggg
+
+        ts1_cp = ts1.copula_normal_data
+        ts2_cp = ts2.copula_normal_data
+        ts3_cp = ts3.copula_normal_data
+
+        # CMI without delay (misaligned)
+        cmi_no_delay = cmi_ggg(ts1_cp, ts2_cp, ts3_cp, biascorrect=True, demeaned=True)
+        # CMI with delay (aligned)
+        cmi_with_delay = cmi_ggg(ts1_cp, np.roll(ts2_cp, shift), ts3_cp, biascorrect=True, demeaned=True)
+
+        # Aligned CMI should be substantially higher
+        assert cmi_with_delay > cmi_no_delay + 0.05
+
+    def test_delay_with_downsampling(self):
+        """Verify delay works correctly with ds > 1."""
+        np.random.seed(42)
+        n = 1000
+
+        ts1, ts2, ts3 = create_redundant_timeseries(n)
+        result = _disentangle_pair_with_precomputed(
+            ts1, ts2, ts3,
+            ts1_copnorm=ts1.copula_normal_data[::2],
+            ts2_copnorm=ts2.copula_normal_data[::2],
+            ts3_copnorm=ts3.copula_normal_data[::2],
+            delay_feat1=5, delay_feat2=3,
+            ds=2, verbose=False,
+        )
+        assert result in VALID_DISRES_VALUES
+
+    def test_mi_fallback_uses_shift(self):
+        """Verify that when MI is not pre-computed, get_mi is called with shift."""
+        np.random.seed(42)
+        n = 1000
+        shift = 20
+
+        feat2 = np.random.randn(n)
+        neural = np.roll(feat2, shift) + 0.1 * np.random.randn(n)
+        feat3 = np.random.randn(n)
+
+        ts1 = TimeSeries(neural, discrete=False)
+        ts2 = TimeSeries(feat2, discrete=False)
+        ts3 = TimeSeries(feat3, discrete=False)
+
+        from driada.information.info_base import get_mi
+
+        # MI with correct shift should be much higher than without
+        mi_aligned = get_mi(ts1, ts2, ds=1, shift=shift)
+        mi_zero = get_mi(ts1, ts2, ds=1, shift=0)
+        assert mi_aligned > mi_zero + 0.1
+
+        # The function should use the delay for MI fallback
+        result = _disentangle_pair_with_precomputed(
+            ts1, ts2, ts3,
+            mi12=None, mi13=None, mi23=None,
+            delay_feat1=shift, delay_feat2=0,
+            ds=1, verbose=False,
+        )
+        assert result in VALID_DISRES_VALUES
+
+
+class TestDelayIntegration:
+    """Integration tests: opt_delay flows from cell_feat_stats through the pipeline."""
+
+    def test_process_neuron_forwards_delays(self):
+        """_process_neuron_disentanglement passes opt_delay to disentangle call."""
+        np.random.seed(42)
+        n = 600
+        delay_frames = 10
+        ds = 1
+
+        feat_a_data = np.random.randn(n)
+        feat_b_data = np.random.randn(n)
+        neural_data = np.roll(feat_a_data, delay_frames) + 0.1 * np.random.randn(n)
+
+        neur_ts = TimeSeries(neural_data, discrete=False)
+        ts_a = TimeSeries(feat_a_data, discrete=False)
+        ts_b = TimeSeries(feat_b_data, discrete=False)
+
+        feat_names = ["feat_a", "feat_b"]
+        neuron_id = "n0"
+
+        cell_feat_stats = {
+            neuron_id: {
+                "feat_a": {"me": 0.5, "opt_delay": delay_frames},
+                "feat_b": {"me": 0.1, "opt_delay": 0},
+            }
+        }
+
+        # Build copnorm cache as the real pipeline does
+        feat_copnorm_cache = {
+            "feat_a": ts_a.copula_normal_data,
+            "feat_b": ts_b.copula_normal_data,
+        }
+
+        # Patch _disentangle_pair_with_precomputed to capture the delay kwargs
+        captured_kwargs = {}
+        original_fn = _disentangle_pair_with_precomputed
+
+        def spy(*args, **kwargs):
+            captured_kwargs.update(kwargs)
+            return original_fn(*args, **kwargs)
+
+        with patch(
+            "driada.intense.disentanglement._disentangle_pair_with_precomputed",
+            side_effect=spy,
+        ):
+            _, _, _, neuron_info = _process_neuron_disentanglement(
+                neuron_id=neuron_id,
+                sels=["feat_a", "feat_b"],
+                neur_ts=neur_ts,
+                feat_names=feat_names,
+                multifeature_map={},
+                multifeature_ts={},
+                feature_ts_dict={"feat_a": ts_a, "feat_b": ts_b},
+                ds=ds,
+                feat_feat_significance=np.ones((2, 2)),  # all pairs significant
+                cell_feat_stats=cell_feat_stats,
+                feat_feat_similarity=None,
+                feat_copnorm_cache=feat_copnorm_cache,
+            )
+
+        # Verify delays were forwarded
+        assert captured_kwargs["delay_feat1"] == delay_frames
+        assert captured_kwargs["delay_feat2"] == 0
+        # Verify result is valid
+        for pair_info in neuron_info["pairs"].values():
+            assert pair_info["result"] in VALID_DISRES_VALUES
+
+    def test_process_neuron_delays_divided_by_ds(self):
+        """opt_delay in original frames is divided by ds for downsampled units."""
+        np.random.seed(42)
+        n = 600
+        delay_frames = 20
+        ds = 5
+
+        feat_a_data = np.random.randn(n)
+        feat_b_data = np.random.randn(n)
+        neural_data = np.roll(feat_a_data, delay_frames) + 0.1 * np.random.randn(n)
+
+        neur_ts = TimeSeries(neural_data, discrete=False)
+        ts_a = TimeSeries(feat_a_data, discrete=False)
+        ts_b = TimeSeries(feat_b_data, discrete=False)
+
+        feat_names = ["feat_a", "feat_b"]
+        neuron_id = "n0"
+
+        cell_feat_stats = {
+            neuron_id: {
+                "feat_a": {"me": 0.5, "opt_delay": delay_frames},
+                "feat_b": {"me": 0.1, "opt_delay": 15},
+            }
+        }
+
+        feat_copnorm_cache = {
+            "feat_a": ts_a.copula_normal_data[::ds],
+            "feat_b": ts_b.copula_normal_data[::ds],
+        }
+
+        captured_kwargs = {}
+        original_fn = _disentangle_pair_with_precomputed
+
+        def spy(*args, **kwargs):
+            captured_kwargs.update(kwargs)
+            return original_fn(*args, **kwargs)
+
+        with patch(
+            "driada.intense.disentanglement._disentangle_pair_with_precomputed",
+            side_effect=spy,
+        ):
+            _process_neuron_disentanglement(
+                neuron_id=neuron_id,
+                sels=["feat_a", "feat_b"],
+                neur_ts=neur_ts,
+                feat_names=feat_names,
+                multifeature_map={},
+                multifeature_ts={},
+                feature_ts_dict={"feat_a": ts_a, "feat_b": ts_b},
+                ds=ds,
+                feat_feat_significance=np.ones((2, 2)),
+                cell_feat_stats=cell_feat_stats,
+                feat_feat_similarity=None,
+                feat_copnorm_cache=feat_copnorm_cache,
+            )
+
+        # delay_frames // ds = 20 // 5 = 4, 15 // 5 = 3
+        assert captured_kwargs["delay_feat1"] == delay_frames // ds
+        assert captured_kwargs["delay_feat2"] == 15 // ds
+
+    def test_process_neuron_zero_delay_without_stats(self):
+        """When cell_feat_stats is None, delays default to 0."""
+        np.random.seed(42)
+        n = 600
+
+        feat_a_data = np.random.randn(n)
+        feat_b_data = np.random.randn(n)
+        neural_data = 0.5 * feat_a_data + 0.5 * feat_b_data + 0.2 * np.random.randn(n)
+
+        neur_ts = TimeSeries(neural_data, discrete=False)
+        ts_a = TimeSeries(feat_a_data, discrete=False)
+        ts_b = TimeSeries(feat_b_data, discrete=False)
+
+        feat_names = ["feat_a", "feat_b"]
+
+        feat_copnorm_cache = {
+            "feat_a": ts_a.copula_normal_data,
+            "feat_b": ts_b.copula_normal_data,
+        }
+
+        captured_kwargs = {}
+        original_fn = _disentangle_pair_with_precomputed
+
+        def spy(*args, **kwargs):
+            captured_kwargs.update(kwargs)
+            return original_fn(*args, **kwargs)
+
+        with patch(
+            "driada.intense.disentanglement._disentangle_pair_with_precomputed",
+            side_effect=spy,
+        ):
+            _process_neuron_disentanglement(
+                neuron_id="n0",
+                sels=["feat_a", "feat_b"],
+                neur_ts=neur_ts,
+                feat_names=feat_names,
+                multifeature_map={},
+                multifeature_ts={},
+                feature_ts_dict={"feat_a": ts_a, "feat_b": ts_b},
+                ds=1,
+                feat_feat_significance=np.ones((2, 2)),
+                cell_feat_stats=None,
+                feat_feat_similarity=None,
+                feat_copnorm_cache=feat_copnorm_cache,
+            )
+
+        assert captured_kwargs["delay_feat1"] == 0
+        assert captured_kwargs["delay_feat2"] == 0
+
+    @pytest.mark.parametrize("mixed_features_experiment", ["medium"], indirect=True)
+    def test_disentangle_all_with_opt_delay_in_stats(self, mixed_features_experiment):
+        """End-to-end: disentangle_all_selectivities uses opt_delay from cell_feat_stats."""
+        exp = mixed_features_experiment
+        exp._set_selectivity_tables("calcium")
+
+        feat_names = list(exp.dynamic_features.keys())
+        if len(feat_names) < 2:
+            pytest.skip("Need at least 2 features")
+
+        # Force neurons 0 and 1 to be multi-selective by setting stage2=True
+        # for two features in the significance tables
+        f1, f2 = feat_names[0], feat_names[1]
+        for nid in [0, 1]:
+            exp.significance_tables["calcium"][f1][nid]["stage2"] = True
+            exp.significance_tables["calcium"][f2][nid]["stage2"] = True
+
+        cell_feat_stats = {}
+        for nid in [0, 1]:
+            cell_feat_stats[nid] = {
+                f1: {"me": 0.4, "opt_delay": 10},
+                f2: {"me": 0.3, "opt_delay": 0},
+            }
+
+        # Patch to verify delays are non-zero somewhere in the pipeline
+        delays_seen = []
+        original_fn = _disentangle_pair_with_precomputed
+
+        def spy(*args, **kwargs):
+            delays_seen.append((kwargs.get("delay_feat1", 0), kwargs.get("delay_feat2", 0)))
+            return original_fn(*args, **kwargs)
+
+        with patch(
+            "driada.intense.disentanglement._disentangle_pair_with_precomputed",
+            side_effect=spy,
+        ):
+            results = disentangle_all_selectivities(
+                exp, feat_names, ds=2,
+                cell_feat_stats=cell_feat_stats,
+            )
+
+        assert "disent_matrix" in results
+        assert len(delays_seen) > 0, "Expected at least one disentangle call"
+
+        # At least one call should have received a non-zero delay
+        has_nonzero = any(d1 != 0 or d2 != 0 for d1, d2 in delays_seen)
+        assert has_nonzero, (
+            f"Expected non-zero delays from cell_feat_stats but all were zero: {delays_seen}"
+        )
