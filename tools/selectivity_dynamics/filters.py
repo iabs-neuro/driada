@@ -536,10 +536,10 @@ EXPERIMENT_CONFIGS = {
     },
     'FOF': {
         'place_feat_name': 'place',
-        'discrete_place_features': [],
+        'discrete_place_features': ['walls', 'centertrue'],
         'feature_renaming': {},
         'aggregate_features': {('x', 'y'): 'place'},
-        'skip_for_intense': ['x', 'y'],
+        'skip_for_intense': ['x', 'y', 'centermiddle', 'center'],
         'specific_filter': None,
         'feature_types': _CIRCULAR_FEATURES,
     },

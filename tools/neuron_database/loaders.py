@@ -352,6 +352,7 @@ def load_from_csv_directory(data_dir, session_names,
     data = pd.DataFrame(all_records, columns=[
         'mouse', 'session', 'matched_id', 'neuron_idx',
         'feature', 'significant', 'me', 'pval', 'opt_delay',
+        'signal_ratio',
     ])
 
     data['matched_id'] = data['matched_id'].astype(int)
