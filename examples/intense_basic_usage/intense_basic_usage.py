@@ -64,7 +64,7 @@ def main():
     print("   - Mutual information metric")
     print("   - Multiple comparison correction")
 
-    stats, significance, info, results = driada.compute_cell_feat_significance(
+    stats, significance, info, results, _ = driada.compute_cell_feat_significance(
         exp,
         mode="two_stage",
         n_shuffles_stage1=100,

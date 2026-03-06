@@ -237,8 +237,8 @@ class TestIntegrationWithINTENSE:
         )
 
         # Just verify it runs
-        assert len(result) == 4
-        stats, _, _, _ = result
+        assert len(result) == 5
+        stats, _, _, _, _ = result
         assert isinstance(stats, dict)
 
 

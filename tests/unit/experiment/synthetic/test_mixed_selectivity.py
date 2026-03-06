@@ -492,7 +492,7 @@ class TestIntegrationWithAnalysisPipeline:
         n_features_per_neuron = np.sum(selectivity_matrix > 0, axis=0)
         two_feature_neurons = np.where(n_features_per_neuron == 2)[0][:10]
 
-        stats, sig, _, _ = compute_cell_feat_significance(
+        stats, sig, _, _, _ = compute_cell_feat_significance(
             exp,
             cell_bunch=two_feature_neurons.tolist(),
             mode="two_stage",

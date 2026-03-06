@@ -18,7 +18,7 @@ class TestINTENSEToDRIntegration:
         exp = circular_manifold_exp_fast
 
         # Run INTENSE analysis
-        stats, significance, info, results = compute_cell_feat_significance(
+        stats, significance, info, results, _ = compute_cell_feat_significance(
             exp, **intense_params_fast
         )
 
@@ -43,7 +43,7 @@ class TestINTENSEToDRIntegration:
         exp = spatial_2d_exp_fast
 
         # INTENSE analysis
-        stats, significance, info, results = compute_cell_feat_significance(
+        stats, significance, info, results, _ = compute_cell_feat_significance(
             exp, **intense_params_fast
         )
 
@@ -117,7 +117,7 @@ class TestINTENSEToDRIntegration:
         exp = memory_test_exp
 
         # Run INTENSE with downsampling
-        stats, significance, info, results = compute_cell_feat_significance(
+        stats, significance, info, results, _ = compute_cell_feat_significance(
             exp, **intense_params_fast
         )
 
@@ -143,7 +143,7 @@ class TestINTENSEToDRIntegration:
         assert exp.calcium.shape == (exp.n_cells, exp.n_frames)
 
         # INTENSE analysis
-        stats, significance, info, results = compute_cell_feat_significance(
+        stats, significance, info, results, _ = compute_cell_feat_significance(
             exp, **intense_params_fast
         )
 
@@ -171,7 +171,7 @@ class TestINTENSEToDRIntegration:
         exp.calcium.data = np.maximum(0, exp.calcium.data)
 
         # INTENSE should handle constant features gracefully
-        stats, significance, info, results = compute_cell_feat_significance(
+        stats, significance, info, results, _ = compute_cell_feat_significance(
             exp, **intense_params_fast
         )
 

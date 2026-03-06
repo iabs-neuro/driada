@@ -164,7 +164,7 @@ def main(
 
     # 2. Run INTENSE with position_2d MultiTimeSeries
     print("\n2. Running INTENSE analysis on 2D position (MultiTimeSeries)...")
-    stats, significance, info, results = compute_cell_feat_significance(
+    stats, significance, info, results, _ = compute_cell_feat_significance(
         exp,
         feat_bunch=["position_2d"],  # Using MultiTimeSeries only
         find_optimal_delays=False,

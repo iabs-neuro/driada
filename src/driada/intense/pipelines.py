@@ -97,6 +97,7 @@ def compute_cell_feat_significance(
     n_jobs=-1,
     seed=42,
     with_disentanglement=False,
+    feat_feat_pval_thr=0.01,
     multifeature_map=None,
     duplicate_behavior="ignore",
     engine="auto",
@@ -229,6 +230,13 @@ def compute_cell_feat_significance(
         3. Disentangles mixed selectivities using behavioral correlations.
 
         Default is False
+    feat_feat_pval_thr : float, optional
+        P-value threshold for feature-feature significance testing during
+        disentanglement. Separate from cell-feat ``pval_thr`` because the
+        number of feature pairs (~100-200) is much smaller than
+        neuron-feature pairs (thousands), so a stricter threshold is
+        unnecessary. Only used when ``with_disentanglement=True``.
+        Default is 0.01
     multifeature_map : dict or None, optional
         Mapping from multifeature tuples to aggregated names for disentanglement.
         If None, uses DEFAULT_MULTIFEATURE_MAP from disentanglement module.
@@ -357,7 +365,7 @@ def compute_cell_feat_significance(
     ...                              duration=60, fps=10, seed=42, verbose=False)
     >>>
     >>> # Basic neuron-feature analysis (stage1 for speed)
-    >>> stats, sig, info, res = compute_cell_feat_significance(
+    >>> stats, sig, info, res, _ = compute_cell_feat_significance(
     ...     exp,
     ...     cell_bunch=[0, 1],
     ...     feat_bunch=['d_feat_0'],
@@ -644,7 +652,7 @@ def compute_cell_feat_significance(
                 topk1=topk1,
                 topk2=topk2,
                 multicomp_correction=multicomp_correction,
-                pval_thr=pval_thr,
+                pval_thr=feat_feat_pval_thr,
                 verbose=verbose,
                 enable_parallelization=enable_parallelization,
                 n_jobs=n_jobs,
@@ -746,8 +754,7 @@ def compute_cell_feat_significance(
                 disentanglement_results,
             )
 
-        # Return multiple values for backward compatibility
-        return computed_stats, computed_significance, info, intense_res
+        return computed_stats, computed_significance, info, intense_res, None
     finally:
         # Restore original names to leave objects unchanged
         for i, sig in enumerate(signals):
@@ -1603,7 +1610,7 @@ def compute_embedding_selectivity(
 
         try:
             # Run INTENSE analysis
-            stats, significance, info, intense_res = compute_cell_feat_significance(
+            stats, significance, info, intense_res, _ = compute_cell_feat_significance(
                 exp,
                 cell_bunch=cell_bunch,
                 feat_bunch=list(embedding_features.keys()),

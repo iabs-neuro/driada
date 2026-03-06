@@ -587,7 +587,7 @@ def compare_with_intense(
     --------
     >>> # After running LOO analysis and INTENSE
     >>> loo_results = loo_dr_analysis(exp, method='umap')
-    >>> stats, sig, info, intense_res = compute_cell_feat_significance(exp)
+    >>> stats, sig, info, intense_res, _ = compute_cell_feat_significance(exp)
     >>>
     >>> # Add INTENSE metrics for head_direction feature
     >>> combined = compare_with_intense(loo_results, stats, 'head_direction')
@@ -830,7 +830,7 @@ def main():
     # Use head_direction_2d (cos/sin representation) instead of raw head_direction
     # to preserve circular topology - raw angles break continuity
     print("\n[3/4] Running INTENSE analysis...")
-    stats, significant, info, intense_res = compute_cell_feat_significance(
+    stats, significant, info, intense_res, _ = compute_cell_feat_significance(
         exp,
         feat_bunch=['head_direction_2d'],  # Preserves circular topology via cos/sin
         n_shuffles_stage1=100,

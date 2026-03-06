@@ -787,7 +787,7 @@ def test_compute_cell_feat_significance_integration(small_experiment):
     test_feature = available_features[0]
 
     # Run the pipeline with minimal parameters for speed
-    stats, significance, info, results = compute_cell_feat_significance(
+    stats, significance, info, results, _ = compute_cell_feat_significance(
         exp,
         cell_bunch=[0, 1],  # Just 2 cells
         feat_bunch=[test_feature],  # Just 1 feature
@@ -1381,7 +1381,7 @@ def test_intense_handles_no_significant_neurons(balanced_test_params):
     )
 
     # Run INTENSE - should complete without errors
-    stats, significance, info, results = compute_cell_feat_significance(
+    stats, significance, info, results, _ = compute_cell_feat_significance(
         exp,
         n_shuffles_stage1=balanced_test_params["n_shuffles_stage1"],
         n_shuffles_stage2=balanced_test_params["n_shuffles_stage2"],

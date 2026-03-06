@@ -278,9 +278,9 @@ def save_all_results(exp_name, exp, stats, significance, info, results, disent_r
     results_dir.mkdir(exist_ok=True)
     disent_dir.mkdir(exist_ok=True)
 
-    # Get feature names from stats dict (first cell's keys)
-    first_cell = next(iter(stats.values()))
-    feat_names = list(first_cell.keys())
+    # Get feature names as union across all cells (some neurons may have
+    # different feature sets after filtering)
+    feat_names = sorted(set().union(*(cell.keys() for cell in stats.values())))
 
     print(f"\n{'='*60}")
     print("SAVING RESULTS")

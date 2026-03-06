@@ -353,7 +353,7 @@ cells.append(code_cell(
 cells.append(code_cell(
 "print(\"Running INTENSE analysis...\")\n"
 "\n"
-"stats, significance, info, results = driada.compute_cell_feat_significance(\n"
+"stats, significance, info, results, _ = driada.compute_cell_feat_significance(\n"
 "    exp,\n"
 "    mode=\"two_stage\",\n"
 "    n_shuffles_stage1=100,   # fast screening\n"

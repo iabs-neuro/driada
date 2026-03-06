@@ -114,7 +114,7 @@ class TestIntenseCircularSubstitution:
     def test_use_circular_2d_default(self, circular_exp):
         """Test that use_circular_2d=True is the default."""
         # Run INTENSE with default settings
-        stats, sig, info, res = compute_cell_feat_significance(
+        stats, sig, info, res, _ = compute_cell_feat_significance(
             circular_exp,
             feat_bunch=["head_direction"],
             cell_bunch=[0, 1],
@@ -129,7 +129,7 @@ class TestIntenseCircularSubstitution:
     def test_use_circular_2d_disabled(self, circular_exp):
         """Test that use_circular_2d=False uses raw circular features."""
         # Run INTENSE with circular substitution disabled
-        stats, sig, info, res = compute_cell_feat_significance(
+        stats, sig, info, res, _ = compute_cell_feat_significance(
             circular_exp,
             feat_bunch=["head_direction"],
             cell_bunch=[0, 1],
@@ -145,7 +145,7 @@ class TestIntenseCircularSubstitution:
     def test_explicit_2d_feature_not_double_substituted(self, circular_exp):
         """Test that explicitly requesting _2d feature doesn't cause issues."""
         # Explicitly request the _2d version
-        stats, sig, info, res = compute_cell_feat_significance(
+        stats, sig, info, res, _ = compute_cell_feat_significance(
             circular_exp,
             feat_bunch=["head_direction_2d"],
             cell_bunch=[0, 1],
@@ -175,7 +175,7 @@ class TestIntenseResultsWithCircular:
 
     def test_circular_feature_detected_as_significant(self, tuned_circular_exp):
         """Test that circular tuning is detected when using _2d representation."""
-        stats, sig, info, res = compute_cell_feat_significance(
+        stats, sig, info, res, _ = compute_cell_feat_significance(
             tuned_circular_exp,
             feat_bunch=["head_direction"],
             mode="stage1",

@@ -1427,6 +1427,17 @@ def compute_me_stats(
     validate_common_parameters(nsh=n_shuffles_stage1)
     validate_common_parameters(nsh=n_shuffles_stage2)
 
+    # Warn if n_shuffles exceeds available shift space (duplicates will be drawn)
+    n_frames = len(ts_bunch1[0].data) if hasattr(ts_bunch1[0], 'data') else len(ts_bunch1[0])
+    n_shifts = n_frames // ds
+    if n_shifts > 0 and (n_shuffles_stage1 > n_shifts or n_shuffles_stage2 > n_shifts):
+        import warnings
+        warnings.warn(
+            f"n_shuffles ({max(n_shuffles_stage1, n_shuffles_stage2)}) exceeds "
+            f"available unique shifts ({n_shifts} = {n_frames} frames / ds={ds}). "
+            f"Some shifts will be drawn with replacement."
+        )
+
     accumulated_info = dict()
     timings = {} if profile else None
 

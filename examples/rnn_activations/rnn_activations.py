@@ -205,7 +205,7 @@ def build_experiment(activations, inputs, config):
 # =============================================================================
 def run_intense(exp, config):
     """Run INTENSE selectivity analysis."""
-    stats, significance, info, results = driada.compute_cell_feat_significance(
+    stats, significance, info, results, _ = driada.compute_cell_feat_significance(
         exp,
         mode="two_stage",
         n_shuffles_stage1=config["n_shuffles_stage1"],

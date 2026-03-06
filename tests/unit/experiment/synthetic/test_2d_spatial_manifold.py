@@ -305,7 +305,7 @@ class TestGenerate2DManifoldExp:
         )
 
         # Test 1: Individual x,y position analysis
-        stats1, significance1, _, _ = compute_cell_feat_significance(
+        stats1, significance1, _, _, _ = compute_cell_feat_significance(
             exp,
             feat_bunch=["x", "y"],
             mode="two_stage",
@@ -327,7 +327,7 @@ class TestGenerate2DManifoldExp:
         exp.stats_tables = {}
 
         # Test 2: 2D position multifeature analysis
-        stats2, significance2, _, _ = compute_cell_feat_significance(
+        stats2, significance2, _, _, _ = compute_cell_feat_significance(
             exp,
             feat_bunch=["position_2d"],
             find_optimal_delays=False,  # Must disable for MultiTimeSeries

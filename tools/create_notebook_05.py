@@ -597,7 +597,7 @@ cells.append(code_cell(
 
 cells.append(code_cell(
 "print('\\n[3/4] Running INTENSE analysis...')\n"
-"stats_loo, significant_loo, info_loo, intense_res_loo = compute_cell_feat_significance(\n"
+"stats_loo, significant_loo, info_loo, intense_res_loo, _ = compute_cell_feat_significance(\n"
 "    exp_loo,\n"
 "    feat_bunch=['head_direction_2d'],\n"
 "    n_shuffles_stage1=100,\n"
@@ -1159,7 +1159,7 @@ cells.append(code_cell(
 "print('\\n[4] INTENSE SELECTIVITY ANALYSIS')\n"
 "print('-' * 40)\n"
 "\n"
-"stats_rnn, significance_rnn, info_rnn, results_rnn = (\n"
+"stats_rnn, significance_rnn, info_rnn, results_rnn, _ = (\n"
 "    driada.compute_cell_feat_significance(\n"
 "        exp_rnn,\n"
 "        mode='two_stage',\n"

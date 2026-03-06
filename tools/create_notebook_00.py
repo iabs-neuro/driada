@@ -477,7 +477,7 @@ cells.append(md_cell(
 cells.append(code_cell(
 "from driada.intense import compute_cell_feat_significance\n"
 "\n"
-"stats, significance, info, results = compute_cell_feat_significance(\n"
+"stats, significance, info, results, _ = compute_cell_feat_significance(\n"
 "    exp_demo, verbose=True,\n"
 ")\n"
 "\n"

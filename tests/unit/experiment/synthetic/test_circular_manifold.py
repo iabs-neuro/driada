@@ -248,7 +248,7 @@ def test_generate_circular_manifold_data_calcium():
 
     # Test that circular selectivity can be detected using INTENSE
     # Use the circular_angle multifeature which properly represents circular variables
-    stats, significance, info_intense, results = compute_cell_feat_significance(
+    stats, significance, info_intense, results, _ = compute_cell_feat_significance(
         exp,
         feat_bunch=["circular_angle"],  # Test circular multifeature approach
         mode="two_stage",  # Need two_stage for significance to be computed
@@ -502,7 +502,7 @@ def test_integration_with_intense():
     )
 
     # Run INTENSE analysis
-    stats, significance, _, _ = compute_cell_feat_significance(
+    stats, significance, _, _, _ = compute_cell_feat_significance(
         exp,
         find_optimal_delays=False,  # Disable delays for MultiTimeSeries (current limitation)
         n_shuffles_stage1=100,
@@ -548,7 +548,7 @@ def test_linear_vs_circular_detection():
     )
 
     # Test 1: Linear head_direction analysis
-    stats1, significance1, info1, results1 = compute_cell_feat_significance(
+    stats1, significance1, info1, results1, _ = compute_cell_feat_significance(
         exp,
         feat_bunch=["head_direction"],
         find_optimal_delays=True,  # Can use delays with single TimeSeries
@@ -571,7 +571,7 @@ def test_linear_vs_circular_detection():
     exp.stats_tables = {}
 
     # Test 2: Circular multifeature analysis
-    stats2, significance2, info2, results2 = compute_cell_feat_significance(
+    stats2, significance2, info2, results2, _ = compute_cell_feat_significance(
         exp,
         feat_bunch=["circular_angle"],
         find_optimal_delays=False,  # Must disable for MultiTimeSeries

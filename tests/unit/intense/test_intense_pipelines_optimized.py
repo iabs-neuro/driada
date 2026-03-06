@@ -143,7 +143,7 @@ def test_compute_cell_feat_significance_continuous_fast(continuous_only_experime
         **FAST_PARAMS,
     )
 
-    assert len(result) == 4
+    assert len(result) == 5
 
 
 @pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
@@ -239,7 +239,7 @@ class TestEdgeCasesFast:
     def test_single_neuron(self, small_experiment):
         """Test with single neuron."""
         result = compute_cell_feat_significance(small_experiment, cell_bunch=[0], **FAST_PARAMS)
-        assert len(result) == 4
+        assert len(result) == 5
 
     def test_single_feature(self, small_experiment):
         """Test with single feature."""
@@ -531,7 +531,7 @@ def test_compute_cell_feat_significance_error_paths(small_experiment):
         **FAST_PARAMS,
     )
 
-    assert len(result) == 4
+    assert len(result) == 5
 
 
 @pytest.mark.skip(reason="create_discrete_pairs feature removed in API consolidation")
@@ -640,9 +640,9 @@ def test_intense_with_ksg_estimator(small_experiment):
 
     # If it's a tuple, unpack appropriately
     if isinstance(result_ksg, tuple):
-        if len(result_ksg) == 4:
-            stats_ksg, sig_ksg, info_ksg, results_ksg = result_ksg
-            stats_gcmi, sig_gcmi, info_gcmi, results_gcmi = result_gcmi
+        if len(result_ksg) == 5:
+            stats_ksg, sig_ksg, info_ksg, results_ksg, _ = result_ksg
+            stats_gcmi, sig_gcmi, info_gcmi, results_gcmi, _ = result_gcmi
         else:
             raise ValueError(f"Unexpected tuple length: {len(result_ksg)}")
     else:
@@ -846,7 +846,7 @@ def test_timing_structure_consistency():
     )
 
     # Run all three pipelines with profiling
-    _, _, info_cf, _ = compute_cell_feat_significance(
+    _, _, info_cf, _, _ = compute_cell_feat_significance(
         exp, cell_bunch=[0, 1], mode='stage1',
         n_shuffles_stage1=10, profile=True, verbose=False
     )

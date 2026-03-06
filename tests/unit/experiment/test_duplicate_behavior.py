@@ -112,7 +112,7 @@ def test_duplicate_behavior_in_pipelines(small_experiment):
     exp = small_experiment
 
     # Test compute_cell_feat_significance
-    stats, significance, info, results = compute_cell_feat_significance(
+    stats, significance, info, results, _ = compute_cell_feat_significance(
         exp,
         cell_bunch=[0, 1],
         feat_bunch=["event_0"],
