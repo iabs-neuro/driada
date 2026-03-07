@@ -204,8 +204,12 @@ def _generate_random_shifts_grid(ts_bunch1, ts_bunch2, optimal_delays, nsh, seed
 
     rng = np.random.RandomState(seed)
 
-    # Bulk generate all shifts uniformly
-    random_shifts = rng.randint(0, n_shifts, size=(n1, n2, nsh)).astype(np.int32)
+    # Generate shifts: exhaustive when nsh covers all unique shifts, random otherwise
+    if nsh >= n_shifts > 0:
+        base = np.arange(n_shifts, dtype=np.int32)
+        random_shifts = np.tile(base, (n1, n2, 1))
+    else:
+        random_shifts = rng.randint(0, n_shifts, size=(n1, n2, nsh)).astype(np.int32)
 
     # Build validity map from shuffle masks (once)
     valid_map, needs_correction = _build_shift_valid_map(
@@ -579,7 +583,11 @@ def scan_pairs(
         # Vectorized bulk generation + rejection resampling
         n_shifts = t // ds
         _rng = np.random.RandomState(seed if seed is not None else 0)
-        random_shifts = _rng.randint(0, n_shifts, size=(n1, n2, nsh)).astype(np.int32)
+        if nsh >= n_shifts > 0:
+            base = np.arange(n_shifts, dtype=np.int32)
+            random_shifts = np.tile(base, (n1, n2, 1))
+        else:
+            random_shifts = _rng.randint(0, n_shifts, size=(n1, n2, nsh)).astype(np.int32)
         valid_map, needs_correction = _build_shift_valid_map(
             ts_bunch1, ts_bunch2, optimal_delays, ds
         )
@@ -1427,16 +1435,14 @@ def compute_me_stats(
     validate_common_parameters(nsh=n_shuffles_stage1)
     validate_common_parameters(nsh=n_shuffles_stage2)
 
-    # Warn if n_shuffles exceeds available shift space (duplicates will be drawn)
+    # Cap n_shuffles to available unique circular shifts
     n_frames = len(ts_bunch1[0].data) if hasattr(ts_bunch1[0], 'data') else len(ts_bunch1[0])
     n_shifts = n_frames // ds
-    if n_shifts > 0 and (n_shuffles_stage1 > n_shifts or n_shuffles_stage2 > n_shifts):
-        import warnings
-        warnings.warn(
-            f"n_shuffles ({max(n_shuffles_stage1, n_shuffles_stage2)}) exceeds "
-            f"available unique shifts ({n_shifts} = {n_frames} frames / ds={ds}). "
-            f"Some shifts will be drawn with replacement."
-        )
+    if n_shifts > 0:
+        if n_shuffles_stage1 > n_shifts:
+            n_shuffles_stage1 = n_shifts
+        if n_shuffles_stage2 > n_shifts:
+            n_shuffles_stage2 = n_shifts
 
     accumulated_info = dict()
     timings = {} if profile else None
