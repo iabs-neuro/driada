@@ -36,9 +36,11 @@ def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
     filter_delay : bool
         If True, keep only delay_sign >= 0.
     filter_anti_selectivity : bool
-        If True and 'signal_ratio' column exists, discard rows where
-        signal_ratio <= 1.0 (suppressed neurons). NaN values (non-binary
-        features) pass through.
+        If True (default) and 'signal_ratio' column exists, discard rows
+        where signal_ratio <= 1.0 (neurons suppressed when the feature is
+        active). NaN values (non-binary features) pass through. Enabled by
+        default because anti-selective neurons inflate selectivity counts
+        in cross-session comparisons.
 
     Returns
     -------

@@ -96,14 +96,17 @@ class TestSignalRatioInPipeline:
                     f"signal_ratio should be positive, got {sr}"
                 )
 
-    def test_signal_ratio_none_for_continuous_feature(self, pipeline_result):
-        """signal_ratio should be None for continuous (non-binary) features."""
+    def test_signal_ratio_computed_for_linear_continuous_feature(self, pipeline_result):
+        """signal_ratio should be a float for linear continuous features (e.g. speed)."""
         stats, exp = pipeline_result
         for cell_id in stats:
             if "speed" in stats[cell_id]:
                 sr = stats[cell_id]["speed"]["signal_ratio"]
-                assert sr is None, (
-                    f"signal_ratio for continuous feature should be None, got {sr}"
+                assert isinstance(sr, (float, np.floating)), (
+                    f"signal_ratio for linear feature should be float, got {type(sr)}"
+                )
+                assert sr > 0 or np.isnan(sr) or np.isinf(sr), (
+                    f"signal_ratio should be positive, got {sr}"
                 )
 
     def test_signal_ratio_key_present_in_all_pairs(self, pipeline_result):
@@ -238,8 +241,8 @@ class TestRemoveAntiSelective:
                         f"cell={cell_id} feat={feat_id} SR={sr:.2f} significance changed"
                     )
 
-    def test_continuous_features_unaffected(self, results_with_removal):
-        """Continuous features (signal_ratio=None) should not be affected."""
+    def test_features_without_signal_ratio_unaffected(self, results_with_removal):
+        """Features with signal_ratio=None (non-binary, non-linear) should not be affected."""
         (stats_on, sig_on, *_), (stats_off, sig_off, *_) = results_with_removal
 
         for cell_id in stats_on:
@@ -248,7 +251,7 @@ class TestRemoveAntiSelective:
                 if sr is None:
                     assert sig_on[cell_id][feat_id].get("stage2") == \
                            sig_off[cell_id][feat_id].get("stage2"), (
-                        f"cell={cell_id} feat={feat_id} continuous feature affected"
+                        f"cell={cell_id} feat={feat_id} feature without SR affected"
                     )
 
     def test_signal_ratio_always_stored(self, results_with_removal):

@@ -255,6 +255,41 @@ def test_mirror(correlated_ts_medium, aggregate_two_ts_func, strict_test_params)
     assert len(false_positives) <= 2, f"Too many false positives: {false_positives}"
 
 
+def test_mts_first_in_bunch(correlated_ts_medium, aggregate_two_ts_func, fast_test_params):
+    """Test compute_me_stats when ts_bunch1[0] is MultiTimeSeries.
+
+    Regression test: n_frames cap used len(mts.data) which returns
+    n_components (2) instead of n_frames for MultiTimeSeries, causing
+    shape mismatch between random_shifts and noise arrays.
+    """
+    tslist1, tslist2, n = correlated_ts_medium
+    k = n // 2
+
+    # Put MultiTimeSeries FIRST in both bunches (feat-feat scenario)
+    mts = aggregate_two_ts_func(tslist2[0], tslist2[1])
+    mixed_bunch = [mts] + list(tslist2[2:])
+
+    computed_stats, computed_significance, info = compute_me_stats(
+        mixed_bunch,
+        mixed_bunch,
+        mode="two_stage",
+        n_shuffles_stage1=fast_test_params["n_shuffles_stage1"],
+        n_shuffles_stage2=fast_test_params["n_shuffles_stage2"],
+        metric_distr_type="gamma",
+        noise_ampl=fast_test_params["noise_ampl"],
+        ds=fast_test_params["ds"],
+        topk1=1,
+        topk2=5,
+        pval_thr=0.001,
+        enable_parallelization=fast_test_params["enable_parallelization"],
+        verbose=False,
+    )
+
+    # Should complete without shape mismatch error
+    assert computed_stats is not None
+    assert computed_significance is not None
+
+
 def test_two_stage_corr(correlated_ts_small, fast_test_params):
     """Test two-stage mode with correlation metric."""
     tslist1, tslist2, n = correlated_ts_small

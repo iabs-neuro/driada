@@ -581,6 +581,26 @@ def compute_cell_feat_significance(
                     computed_stats[cell_id][feat_id]["signal_ratio"] = calc_signal_ratio(
                         feat_01, ca_data
                     )
+                elif (isinstance(feat_ts, TimeSeries)
+                        and getattr(feat_ts, 'type_info', None) is not None
+                        and feat_ts.type_info.subtype == 'linear'):
+                    # Linear continuous feature: median-split signal_ratio
+                    opt_delay = int(info["optimal_delays"][i, j])
+                    ca_data = signals[i].data.copy()
+                    feat_data = feat_ts.data.copy()
+                    if opt_delay > 0:
+                        ca_data = ca_data[opt_delay:]
+                        feat_data = feat_data[:len(ca_data)]
+                    elif opt_delay < 0:
+                        feat_data = feat_data[-opt_delay:]
+                        ca_data = ca_data[:len(feat_data)]
+                    else:
+                        feat_data = feat_data[:len(ca_data)]
+                    median_val = np.median(feat_data)
+                    feat_binary = (feat_data > median_val).astype(float)
+                    computed_stats[cell_id][feat_id]["signal_ratio"] = calc_signal_ratio(
+                        feat_binary, ca_data
+                    )
                 else:
                     computed_stats[cell_id][feat_id]["signal_ratio"] = None
 
@@ -601,7 +621,7 @@ def compute_cell_feat_significance(
                             sig, cell_id, feat_id, mode=data_type
                         )
 
-        # Remove anti-selective binary features from significance
+        # Remove anti-selective pairs from significance (binary + linear continuous)
         if remove_anti_selective:
             n_removed = 0
             for i, cell_id in enumerate(cell_ids):

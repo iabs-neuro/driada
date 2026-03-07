@@ -252,6 +252,8 @@ Examples:
                         help='Similarity metric (default: mi)')
     parser.add_argument('--no-disentanglement', action='store_true',
                         help='Disable disentanglement analysis')
+    parser.add_argument('--no-remove-anti-selective', action='store_true',
+                        help='Disable anti-selectivity filtering (keep SR<=1 neurons as significant)')
     parser.add_argument('--parallel-backend', type=str, default='loky',
                         choices=['loky', 'threading', 'multiprocessing'],
                         help='Joblib parallel backend: loky (default, true parallelism), '
@@ -271,6 +273,7 @@ Examples:
         'engine': args.engine,
         'metric': args.metric,
         'with_disentanglement': not args.no_disentanglement,
+        'remove_anti_selective': not args.no_remove_anti_selective,
     }
 
     # Expand paths from --dir option or from positional arguments
@@ -326,6 +329,7 @@ Examples:
     print(f"  Engine: {config['engine']}")
     print(f"  Metric: {config['metric']}")
     print(f"  Disentanglement: {config['with_disentanglement']}")
+    print(f"  Remove anti-selective: {config['remove_anti_selective']}")
     print(f"  Skip/aggregate features: experiment-specific (from EXPERIMENT_CONFIGS)")
     print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
     print(f"  Skip computed: {args.skip_computed}")

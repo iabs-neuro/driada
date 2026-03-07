@@ -1436,7 +1436,7 @@ def compute_me_stats(
     validate_common_parameters(nsh=n_shuffles_stage2)
 
     # Cap n_shuffles to available unique circular shifts
-    n_frames = len(ts_bunch1[0].data) if hasattr(ts_bunch1[0], 'data') else len(ts_bunch1[0])
+    n_frames = ts_bunch1[0].data.shape[-1]
     n_shifts = n_frames // ds
     if n_shifts > 0:
         if n_shuffles_stage1 > n_shifts:

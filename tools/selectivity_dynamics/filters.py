@@ -41,7 +41,7 @@ Key Advantages
 Example Usage
 -------------
 >>> # Create a priority filter
->>> rules = [('headdirection', 'bodydirection'), ('freezing', 'rest')]
+>>> rules = [('bodydirection', 'headdirection'), ('freezing', 'rest')]
 >>> priority_filter = build_priority_filter(rules)
 >>>
 >>> # Compose multiple filters
@@ -83,19 +83,19 @@ def build_priority_filter(priority_rules):
     Examples
     --------
     >>> rules = [
-    ...     ('headdirection', 'bodydirection'),  # headdirection > bodydirection
+    ...     ('bodydirection', 'headdirection'),  # bodydirection > headdirection
     ...     ('freezing', 'rest'),                # freezing > rest
     ...     ('locomotion', 'speed'),             # locomotion > speed
     ... ]
     >>> filter_func = build_priority_filter(rules)
     >>>
     >>> # Test the filter
-    >>> neuron_sels = {0: ['headdirection', 'bodydirection', 'place'], 1: ['speed', 'place']}
+    >>> neuron_sels = {0: ['bodydirection', 'headdirection', 'place'], 1: ['speed', 'place']}
     >>> decisions = {0: {}, 1: {}}
     >>> renames = {0: {}, 1: {}}
     >>> filter_func(neuron_sels, decisions, renames)
     >>> decisions[0]
-    {('headdirection', 'bodydirection'): 0}
+    {('bodydirection', 'headdirection'): 0}
     >>> decisions[1]  # No decision for neuron 1 (no matching pair)
     {}
     """
@@ -248,7 +248,8 @@ def build_exclusion_filter(exclusion_map):
 
 # General priority rules: first feature wins over second when both present
 GENERAL_PRIORITY_RULES = [
-    ('headdirection', 'bodydirection'),  # head direction > body direction
+    ('bodydirection', 'headdirection'),      # body direction > head direction
+    ('bodydirection_2d', 'headdirection_2d'),  # body direction > head direction (_2d variant)
     ('freezing', 'rest'),                # freezing > rest
     ('locomotion', 'speed'),             # locomotion > speed
     ('rest', 'speed'),                   # rest > speed

@@ -159,6 +159,7 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         post_filter_func=post_filter_func,
         filter_kwargs=filter_kwargs,
         use_circular_2d=use_circular_2d,
+        remove_anti_selective=config.get('remove_anti_selective', True),
     )
     stats, significance, info, results, disent_results = result
 
