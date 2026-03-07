@@ -106,6 +106,7 @@ def compute_cell_feat_significance(
     pre_filter_func=None,
     post_filter_func=None,
     filter_kwargs=None,
+    remove_anti_selective=True,
     use_circular_2d=True,
 ) -> tuple:
     """
@@ -599,6 +600,24 @@ def compute_cell_feat_significance(
                         exp.update_neuron_feature_pair_significance(
                             sig, cell_id, feat_id, mode=data_type
                         )
+
+        # Remove anti-selective binary features from significance
+        if remove_anti_selective:
+            n_removed = 0
+            for i, cell_id in enumerate(cell_ids):
+                for j, feat_id in enumerate(feat_ids):
+                    sr = computed_stats[cell_id][feat_id].get("signal_ratio")
+                    if sr is not None and sr <= 1.0:
+                        if computed_significance[cell_id][feat_id].get("stage2", False):
+                            computed_significance[cell_id][feat_id]["stage2"] = False
+                            n_removed += 1
+                            if save_computed_stats:
+                                exp.update_neuron_feature_pair_significance(
+                                    computed_significance[cell_id][feat_id],
+                                    cell_id, feat_id, mode=data_type,
+                                )
+            if verbose and n_removed > 0:
+                print(f"  Anti-selective pairs removed: {n_removed}")
 
         # save all results to a single object
         intense_params = {

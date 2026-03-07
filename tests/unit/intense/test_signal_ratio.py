@@ -170,6 +170,106 @@ class TestLoaderExtractsSignalRatio:
         assert np.isnan(speed_rec['signal_ratio'])
 
 
+class TestRemoveAntiSelective:
+    """Test that remove_anti_selective drops significance for SR <= 1."""
+
+    @pytest.fixture(scope="class")
+    def results_with_removal(self):
+        """Run pipeline with remove_anti_selective=True on an experiment
+        that has both selective and anti-selective neurons for a binary feature."""
+        population = [
+            {"name": "event_cells", "count": 3, "features": ["event_0"]},
+            {"name": "nonselective", "count": 2, "features": []},
+        ]
+        exp = generate_tuned_selectivity_exp(
+            population, duration=30, fps=20, seed=42, verbose=False
+        )
+        result_on = compute_cell_feat_significance(
+            exp,
+            data_type="calcium",
+            mode="two_stage",
+            n_shuffles_stage1=100,
+            n_shuffles_stage2=500,
+            ds=5,
+            find_optimal_delays=False,
+            save_computed_stats=False,
+            use_precomputed_stats=False,
+            verbose=False,
+            remove_anti_selective=True,
+        )
+        result_off = compute_cell_feat_significance(
+            exp,
+            data_type="calcium",
+            mode="two_stage",
+            n_shuffles_stage1=100,
+            n_shuffles_stage2=500,
+            ds=5,
+            find_optimal_delays=False,
+            save_computed_stats=False,
+            use_precomputed_stats=False,
+            verbose=False,
+            remove_anti_selective=False,
+        )
+        return result_on, result_off
+
+    def test_anti_selective_loses_significance(self, results_with_removal):
+        """Neurons with signal_ratio <= 1.0 should not have stage2=True
+        when remove_anti_selective=True."""
+        (stats_on, sig_on, *_), (stats_off, sig_off, *_) = results_with_removal
+
+        for cell_id in stats_on:
+            for feat_id in stats_on[cell_id]:
+                sr = stats_on[cell_id][feat_id].get("signal_ratio")
+                if sr is not None and sr <= 1.0:
+                    assert sig_on[cell_id][feat_id].get("stage2") is not True, (
+                        f"cell={cell_id} feat={feat_id} SR={sr:.2f} should lose significance"
+                    )
+
+    def test_selective_keeps_significance(self, results_with_removal):
+        """Neurons with signal_ratio > 1.0 should keep their original significance."""
+        (stats_on, sig_on, *_), (stats_off, sig_off, *_) = results_with_removal
+
+        for cell_id in stats_on:
+            for feat_id in stats_on[cell_id]:
+                sr = stats_on[cell_id][feat_id].get("signal_ratio")
+                if sr is not None and sr > 1.0:
+                    assert sig_on[cell_id][feat_id].get("stage2") == \
+                           sig_off[cell_id][feat_id].get("stage2"), (
+                        f"cell={cell_id} feat={feat_id} SR={sr:.2f} significance changed"
+                    )
+
+    def test_continuous_features_unaffected(self, results_with_removal):
+        """Continuous features (signal_ratio=None) should not be affected."""
+        (stats_on, sig_on, *_), (stats_off, sig_off, *_) = results_with_removal
+
+        for cell_id in stats_on:
+            for feat_id in stats_on[cell_id]:
+                sr = stats_on[cell_id][feat_id].get("signal_ratio")
+                if sr is None:
+                    assert sig_on[cell_id][feat_id].get("stage2") == \
+                           sig_off[cell_id][feat_id].get("stage2"), (
+                        f"cell={cell_id} feat={feat_id} continuous feature affected"
+                    )
+
+    def test_signal_ratio_always_stored(self, results_with_removal):
+        """signal_ratio should be in stats regardless of the flag."""
+        (stats_on, *_), (stats_off, *_) = results_with_removal
+
+        for cell_id in stats_on:
+            for feat_id in stats_on[cell_id]:
+                assert "signal_ratio" in stats_on[cell_id][feat_id]
+                assert stats_on[cell_id][feat_id]["signal_ratio"] == \
+                       stats_off[cell_id][feat_id]["signal_ratio"]
+
+    def test_default_is_true(self):
+        """remove_anti_selective should default to True."""
+        import inspect
+        sig = inspect.signature(compute_cell_feat_significance)
+        param = sig.parameters.get("remove_anti_selective")
+        assert param is not None, "parameter missing"
+        assert param.default is True, f"default should be True, got {param.default}"
+
+
 class TestApplySignificanceFiltersAntiSelectivity:
     """Anti-selectivity filtering in apply_significance_filters."""
 
