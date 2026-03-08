@@ -1980,12 +1980,9 @@ class Embedding:
         else:
             model = self.nnmodel
 
-        # Collect parameters from model and from loss components with trainable params
-        all_params = list(model.parameters())
-        for loss_component in model.losses:
-            if hasattr(loss_component, 'parameters'):
-                all_params.extend(loss_component.parameters())
-        optimizer = optim.Adam(all_params, lr=lr)
+        # Loss component nn.Module attrs are registered on the model,
+        # so model.parameters() includes them automatically
+        optimizer = optim.Adam(model.parameters(), lr=lr)
         if continue_learning and hasattr(self, "_optimizer_state"):
             optimizer.load_state_dict(self._optimizer_state)
             # Apply the (potentially new) learning rate

@@ -65,12 +65,7 @@ class TestClassificationLossInModel:
                 {"name": "classification", "weight": 1.0, "num_classes": 3},
             ],
         )
-        # Collect all trainable params including loss component params
-        all_params = list(model.parameters())
-        for lc in model.losses:
-            if hasattr(lc, 'parameters'):
-                all_params.extend(lc.parameters())
-        optimizer = torch.optim.Adam(all_params, lr=1e-3)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
         x = torch.randn(64, 32)
         labels = torch.randint(0, 3, (64,))

@@ -4,7 +4,7 @@
 # GitHub and Zenodo parse this file automatically
 
 cff-version: 1.2.0
-title: "DRIADA: A Python Framework Bridging Single-Neuron Selectivity and Population Dynamics"
+title: "DRIADA: A Python Framework Bridging Selectivity of Single Neurons and Population Dynamics"
 message: "If you use this software, please cite it as below."
 type: software
 authors:
@@ -14,7 +14,7 @@ authors:
     affiliation: "Institute for Advanced Brain Studies, Lomonosov Moscow State University, Moscow, Russia"
     orcid: "0000-0001-6637-2120"
   - family-names: "Plusnin"
-    given-names: "Victor"
+    given-names: "Viktor"
     affiliation: "Institute for Advanced Brain Studies, Lomonosov Moscow State University, Moscow, Russia"
     orcid: "0000-0001-9784-8283"
   - family-names: "Rogozhnikova"

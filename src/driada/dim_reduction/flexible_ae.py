@@ -109,6 +109,14 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         if loss_components is not None:
             self._initialize_losses(loss_components)
 
+        # Register nn.Module attributes from loss components so they are
+        # included in model.to(), state_dict(), and parameters()
+        for i, loss_component in enumerate(self.losses):
+            for attr_name in dir(loss_component):
+                attr = getattr(loss_component, attr_name, None)
+                if isinstance(attr, nn.Module):
+                    self.add_module(f"loss_{i}_{attr_name}", attr)
+
     def _initialize_losses(self, loss_components: List[Dict]):
         """Initialize loss components from configuration.
 
