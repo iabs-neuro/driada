@@ -625,8 +625,11 @@ class FlexibleVAE(FlexibleAutoencoderBase):
                 {"name": "beta_vae", "weight": 1.0, "beta": 1.0},  # Standard VAE
             ]
 
-        # Initialize base class with loss system
-        super().__init__(loss_components=loss_components, device=device, logger=logger)
+        # Initialize base class with loss system (pass latent_dim for losses that need it)
+        super().__init__(
+            loss_components=loss_components, device=device, logger=logger,
+            _latent_dim=latent_dim,
+        )
 
         # Validate dimensions
         check_positive(input_dim=input_dim, latent_dim=latent_dim, hidden_dim=hidden_dim)

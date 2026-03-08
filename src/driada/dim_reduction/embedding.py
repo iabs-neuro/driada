@@ -1807,6 +1807,10 @@ class Embedding:
             Device to run on.
         logger : logging.Logger, optional
             Logger instance.
+        labels : array-like, optional
+            Integer class labels, shape (n_samples,). Passed to
+            ClassificationLoss during training. If None, classification
+            losses contribute zero.
 
         Examples
         --------

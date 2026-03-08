@@ -84,3 +84,61 @@ class TestClassificationLossInModel:
             losses.append(total_loss.item())
 
         assert losses[-1] < losses[0], "Classification loss should decrease"
+
+
+class TestClassificationLossEndToEnd:
+    def test_mvdata_get_embedding_with_labels(self):
+        """Full pipeline: MVData.get_embedding with classification loss."""
+        from driada.dim_reduction.data import MVData
+
+        np.random.seed(42)
+        n_samples, n_features, n_classes = 200, 32, 3
+        data = np.random.randn(n_features, n_samples)
+        labels_arr = np.repeat(np.arange(n_classes), n_samples // n_classes + 1)[:n_samples]
+        # Add class signal so classification is learnable
+        for c in range(n_classes):
+            data[:3, labels_arr == c] += c * 2
+
+        mv = MVData(data)
+        emb = mv.get_embedding(
+            method="flexible_ae",
+            architecture="ae",
+            dim=8,
+            epochs=5,
+            lr=1e-3,
+            verbose=False,
+            loss_components=[
+                {"name": "reconstruction", "weight": 1.0},
+                {"name": "classification", "weight": 1.0, "num_classes": n_classes},
+            ],
+            labels=labels_arr,
+        )
+        assert emb.coords.shape == (8, n_samples)
+
+    def test_mvdata_vae_with_classification_loss(self):
+        """Full pipeline: VAE architecture with classification loss."""
+        from driada.dim_reduction.data import MVData
+
+        np.random.seed(42)
+        n_samples, n_features, n_classes = 200, 32, 3
+        data = np.random.randn(n_features, n_samples)
+        labels_arr = np.repeat(np.arange(n_classes), n_samples // n_classes + 1)[:n_samples]
+        for c in range(n_classes):
+            data[:3, labels_arr == c] += c * 2
+
+        mv = MVData(data)
+        emb = mv.get_embedding(
+            method="flexible_ae",
+            architecture="vae",
+            dim=8,
+            epochs=5,
+            lr=1e-3,
+            verbose=False,
+            loss_components=[
+                {"name": "reconstruction", "weight": 1.0},
+                {"name": "beta_vae", "weight": 1.0, "beta": 1.0},
+                {"name": "classification", "weight": 1.0, "num_classes": n_classes},
+            ],
+            labels=labels_arr,
+        )
+        assert emb.coords.shape == (8, n_samples)
