@@ -75,6 +75,7 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         loss_components: Optional[List[Dict]] = None,
         device: Optional[torch.device] = None,
         logger: Optional[logging.Logger] = None,
+        _latent_dim: Optional[int] = None,
     ):
         """Initialize the base autoencoder infrastructure.
 
@@ -85,8 +86,11 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
         device : torch.device, optional
             Device for computations. If None, auto-selects CUDA if available.
         logger : logging.Logger, optional
-            Logger instance. If None, creates default logger."""
+            Logger instance. If None, creates default logger.
+        _latent_dim : int, optional
+            Latent dimension, auto-injected into loss configs that need it."""
         super().__init__()
+        self._latent_dim_for_losses = _latent_dim
 
         # Setup device
         if device is None:
@@ -127,6 +131,14 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
             loss_params = loss_config.copy()
             name = loss_params.pop("name")
             weight = loss_params.pop("weight", 1.0)
+            # Auto-inject code_dim for losses whose constructor accepts it
+            if (self._latent_dim_for_losses is not None
+                    and "code_dim" not in loss_params
+                    and name in self.loss_registry.losses):
+                import inspect
+                sig = inspect.signature(self.loss_registry.losses[name].__init__)
+                if "code_dim" in sig.parameters:
+                    loss_params["code_dim"] = self._latent_dim_for_losses
             loss = self.loss_registry.create(name, weight=weight, **loss_params)
             self.losses.append(loss)
 
@@ -353,8 +365,11 @@ class ModularAutoencoder(FlexibleAutoencoderBase):
         if not loss_components:
             loss_components = [{"name": "reconstruction", "weight": 1.0}]
 
-        # Initialize base class with loss system
-        super().__init__(loss_components=loss_components, device=device, logger=logger)
+        # Initialize base class with loss system (pass latent_dim for losses that need it)
+        super().__init__(
+            loss_components=loss_components, device=device, logger=logger,
+            _latent_dim=latent_dim,
+        )
 
         # Validate dimensions
         check_positive(input_dim=input_dim, latent_dim=latent_dim, hidden_dim=hidden_dim)

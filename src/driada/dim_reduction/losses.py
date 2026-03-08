@@ -105,6 +105,51 @@ class AELoss(ABC):
         self._weight = value
 
 
+class ClassificationLoss(AELoss):
+    """Classification loss for supervised dimensionality reduction.
+
+    Trains a linear classifier on the latent code to predict class labels,
+    forcing the latent representation to preserve class-relevant information.
+
+    Parameters
+    ----------
+    num_classes : int
+        Number of target classes.
+    code_dim : int
+        Dimension of the latent code (auto-injected by ModularAutoencoder).
+    weight : float, default=1.0
+        Weight for this loss component.
+    """
+
+    def __init__(self, num_classes: int, code_dim: int, weight: float = 1.0, **kwargs):
+        super().__init__(weight=weight, **kwargs)
+        self.classifier = nn.Linear(code_dim, num_classes)
+        self.criterion = nn.CrossEntropyLoss()
+
+    def compute(self, code, recon, inputs, labels=None, **kwargs):
+        """Compute cross-entropy loss between predicted and true labels.
+
+        Parameters
+        ----------
+        code : torch.Tensor
+            Latent representation, shape (batch_size, code_dim).
+        labels : torch.Tensor, optional
+            Integer class labels, shape (batch_size,). If None, returns 0.
+
+        Returns
+        -------
+        torch.Tensor
+            Scalar cross-entropy loss."""
+        if labels is None:
+            return torch.tensor(0.0, device=code.device)
+        logits = self.classifier(code)
+        return self.criterion(logits, labels.to(code.device))
+
+    def parameters(self):
+        """Return classifier parameters for optimizer."""
+        return self.classifier.parameters()
+
+
 class LossRegistry:
     """Registry for dynamically managing loss components.
 
@@ -174,6 +219,7 @@ class LossRegistry:
             "sparse": SparsityLoss,
             "contractive": ContractiveLoss,
             "mmd": MMDLoss,
+            "classification": ClassificationLoss,
         }
 
         for name, loss_class in defaults.items():

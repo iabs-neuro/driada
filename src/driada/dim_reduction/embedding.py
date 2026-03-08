@@ -1764,6 +1764,7 @@ class Embedding:
         log_every=1,
         device=None,
         logger=None,
+        labels=None,
     ):
         """Create flexible autoencoder embedding with modular loss composition.
 
@@ -1920,6 +1921,11 @@ class Embedding:
             batch_size=batch_size, train_size=train_size, seed=seed
         )
 
+        # Prepare labels if provided (for classification loss)
+        labels_tensor = None
+        if labels is not None:
+            labels_tensor = torch.tensor(labels, dtype=torch.long)
+
         if device is None:
             device = device_to_use
 
@@ -1970,8 +1976,12 @@ class Embedding:
         else:
             model = self.nnmodel
 
-        # Create optimizer and restore state if continuing
-        optimizer = optim.Adam(model.parameters(), lr=lr)
+        # Collect parameters from model and from loss components with trainable params
+        all_params = list(model.parameters())
+        for loss_component in model.losses:
+            if hasattr(loss_component, 'parameters'):
+                all_params.extend(loss_component.parameters())
+        optimizer = optim.Adam(all_params, lr=lr)
         if continue_learning and hasattr(self, "_optimizer_state"):
             optimizer.load_state_dict(self._optimizer_state)
             # Apply the (potentially new) learning rate
@@ -2006,7 +2016,10 @@ class Embedding:
                 noisy_features = noisy_features.float()
 
                 # Compute loss
-                total_loss, loss_dict = model.compute_loss(noisy_features, indices=indices)
+                batch_labels = labels_tensor[indices] if labels_tensor is not None else None
+                total_loss, loss_dict = model.compute_loss(
+                    noisy_features, indices=indices, labels=batch_labels
+                )
 
                 # Backward pass
                 total_loss.backward()
@@ -2029,7 +2042,10 @@ class Embedding:
                         batch_features = batch_features.to(device).float()
 
                         # Compute loss on clean data
-                        total_loss, loss_dict = model.compute_loss(batch_features, indices=indices)
+                        batch_labels = labels_tensor[indices] if labels_tensor is not None else None
+                        total_loss, loss_dict = model.compute_loss(
+                            batch_features, indices=indices, labels=batch_labels
+                        )
 
                         test_losses.append(loss_dict)
 

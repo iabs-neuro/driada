@@ -42,11 +42,13 @@ INTENSE is DRIADA's core module for analyzing how individual neurons encode beha
 from driada.intense import compute_cell_feat_significance
 
 # Analyze neuronal selectivity
-stats, significance, info, results = compute_cell_feat_significance(
+stats, significance, info, results, disent = compute_cell_feat_significance(
     experiment,
     n_shuffles_stage1=100,   # Quick screening
     n_shuffles_stage2=1000,  # Detailed validation
     ds=5,                    # Downsample for speed
+    with_disentanglement=True,
+    remove_anti_selective=True,
     verbose=True
 )
 
@@ -56,11 +58,30 @@ significant_neurons = experiment.get_significant_neurons()
 
 ## Technical details
 
+### Two-stage significance testing
+
 INTENSE uses a two-stage approach:
 1. **Stage 1**: Quick screening with fewer shuffles to identify candidates
 2. **Stage 2**: Rigorous validation with many shuffles for selected pairs
 
 Statistical significance is determined by comparing actual MI values against null distributions generated through temporal shuffling.
+
+### Anti-selectivity filtering
+
+After significance testing, INTENSE computes a **signal ratio** for each significant neuron-feature pair to detect anti-selective neurons (neurons suppressed when a feature is active). Anti-selective pairs are removed before disentanglement.
+
+Signal ratio is computed as `mean(Ca|feature active) / mean(Ca|feature inactive)`:
+- **Binary discrete features** (locomotion, freezing, rest, etc.): active = feature value 1, inactive = feature value 0
+- **Linear continuous features** (speed): active = above median, inactive = at or below median
+- **Circular and multivariate features**: not applicable (signal_ratio = None, these pass through)
+
+Pairs with signal_ratio ≤ 1.0 are marked as non-significant (stage2 = False). Controlled by the `remove_anti_selective` parameter (default: True).
+
+### Disentanglement
+
+When a neuron is significant for multiple features, disentanglement determines whether the neuron truly encodes each feature independently or is redundantly driven by correlated features. It uses conditional mutual information (CMI) to test whether a neuron's selectivity to feature A persists after conditioning on feature B.
+
+The disentanglement pipeline supports **pre-filters** (priority rules that resolve known feature hierarchies before CMI computation) and **post-filters** (tie-breaking rules applied after CMI results). See `tools/selectivity_dynamics/filters.py` for filter construction utilities.
 
 ## Supported metrics
 

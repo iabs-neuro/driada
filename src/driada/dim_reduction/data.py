@@ -449,6 +449,7 @@ class MVData(object):
                 "architecture",
                 "loss_components",
                 "logger",
+                "labels",
             ]
             for param in nn_params:
                 if param in e_params:
