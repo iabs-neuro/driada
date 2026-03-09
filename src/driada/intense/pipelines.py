@@ -571,17 +571,9 @@ def compute_cell_feat_significance(
                 feat_ts = feats[j]
                 if (hasattr(feat_ts, 'int_data') and feat_ts.int_data is not None
                         and len(np.unique(feat_ts.int_data)) == 2):
-                    # Get optimal delay in frames and shift calcium
                     opt_delay = int(info["optimal_delays"][i, j])
-                    ca_data = signals[i].data.copy()
-                    if opt_delay > 0:
-                        ca_data = ca_data[opt_delay:]
-                        feat_binary = feat_ts.int_data[:len(ca_data)]
-                    elif opt_delay < 0:
-                        feat_binary = feat_ts.int_data[-opt_delay:]
-                        ca_data = ca_data[:len(feat_binary)]
-                    else:
-                        feat_binary = feat_ts.int_data[:len(ca_data)]
+                    ca_data = signals[i].data
+                    feat_binary = np.roll(feat_ts.int_data, opt_delay)[:len(ca_data)]
                     # Normalize binary feature to 0/1
                     unique_vals = np.unique(feat_binary)
                     feat_01 = (feat_binary == unique_vals[1]).astype(float)
@@ -591,18 +583,9 @@ def compute_cell_feat_significance(
                 elif (isinstance(feat_ts, TimeSeries)
                         and getattr(feat_ts, 'type_info', None) is not None
                         and feat_ts.type_info.subtype == 'linear'):
-                    # Linear continuous feature: median-split signal_ratio
                     opt_delay = int(info["optimal_delays"][i, j])
-                    ca_data = signals[i].data.copy()
-                    feat_data = feat_ts.data.copy()
-                    if opt_delay > 0:
-                        ca_data = ca_data[opt_delay:]
-                        feat_data = feat_data[:len(ca_data)]
-                    elif opt_delay < 0:
-                        feat_data = feat_data[-opt_delay:]
-                        ca_data = ca_data[:len(feat_data)]
-                    else:
-                        feat_data = feat_data[:len(ca_data)]
+                    ca_data = signals[i].data
+                    feat_data = np.roll(feat_ts.data, opt_delay)[:len(ca_data)]
                     median_val = np.median(feat_data)
                     feat_binary = (feat_data > median_val).astype(float)
                     computed_stats[cell_id][feat_id]["signal_ratio"] = calc_signal_ratio(
