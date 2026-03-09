@@ -680,7 +680,7 @@ def compute_cell_feat_significance(
                 print("  Step 1: Computing feature-feature significance...")
             feat_feat_similarity, feat_feat_significance, _, feat_names, disent_info = compute_feat_feat_significance(
                 exp,
-                feat_bunch=feat_bunch if feat_bunch is not None else "all",
+                feat_bunch=feat_ids,
                 metric=metric,
                 mode=mode,
                 n_shuffles_stage1=n_shuffles_stage1,

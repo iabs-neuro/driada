@@ -6,6 +6,7 @@ in neural responses when neurons respond to multiple, potentially correlated
 behavioral variables.
 """
 
+import warnings
 import numpy as np
 from itertools import combinations
 from joblib import Parallel, delayed
@@ -830,6 +831,23 @@ def disentangle_all_selectivities(
             # Store per-neuron info if it has any content (including errors)
             if neuron_info['pairs'] or neuron_info['renames'] or neuron_info['errors']:
                 per_neuron_disent[neuron_id] = neuron_info
+
+    # Surface any accumulated errors from per-neuron processing
+    all_errors = []
+    for nid, info in per_neuron_disent.items():
+        for err in info.get('errors', []):
+            all_errors.append(err)
+    if all_errors:
+        neurons_with_errors = len({e[0] for e in all_errors})
+        examples = "; ".join(
+            f"neuron {e[0]}, pair {e[1]}: {e[2]}" for e in all_errors[:5]
+        )
+        suffix = f" (showing 5 of {len(all_errors)})" if len(all_errors) > 5 else ""
+        warnings.warn(
+            f"Disentanglement encountered {len(all_errors)} errors across "
+            f"{neurons_with_errors} neurons{suffix}: {examples}",
+            stacklevel=2,
+        )
 
     # ============================================================
     # PHASE 3: Post-filter (AFTER parallel loop)

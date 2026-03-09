@@ -37,7 +37,7 @@ exp = driada.generate_synthetic_exp(
 )
 
 # Discover significant neuron-feature relationships
-stats, significance, info, results = driada.compute_cell_feat_significance(
+stats, significance, info, results, _ = driada.compute_cell_feat_significance(
     exp,
     mode='two_stage',
     n_shuffles_stage1=50,   # preliminary screening
@@ -55,10 +55,10 @@ for cell_id in list(significant_neurons.keys())[:3]:  # Show first 3 neurons
         pair_stats = exp.get_neuron_feature_pair_stats(cell_id, feat_name)
         
         print(f"Neuron {cell_id} - Feature '{feat_name}':")
-        print(f"  Mutual Information: {pair_stats['pre_rval']:.4f}")
+        print(f"  Rank value (Stage 1): {pair_stats['pre_rval']:.4f}")
         if 'pval' in pair_stats:
             print(f"  P-value: {pair_stats['pval']:.2e}")
-        print(f"  Optimal delay: {pair_stats.get('opt_delay', 0):.2f}s")
+        print(f"  Optimal delay: {pair_stats.get('opt_delay', 0)} frames")
 ```
 
 **Expected output:**
@@ -137,7 +137,7 @@ exp = driada.Experiment(
 print(f"Created experiment with {exp.n_cells} neurons and {exp.n_frames} timepoints")
 
 # Now analyze with INTENSE
-stats, significance, info, results = driada.compute_cell_feat_significance(exp)
+stats, significance, info, results, _ = driada.compute_cell_feat_significance(exp)
 ```
 
 **Key points:**
@@ -228,10 +228,10 @@ where F_Γ is the cumulative distribution function of the fitted gamma distribut
 
 #### Noise addition for numerical stability
 
-A small amount of noise (default: 10^-3) is added to MI values to:
-- Prevent numerical issues with identical values
-- Improve parametric distribution fitting
-- Avoid degeneracies in rank-based statistics
+When using the standard `gamma` distribution, a small amount of noise (10^-3) is added
+to MI values to prevent numerical issues with identical values and improve distribution
+fitting. When using the default `gamma_zi` distribution, noise is not added because the
+zero-inflated model handles zero MI values explicitly.
 
 #### Rank values (r-vals) and non-parametric testing
 
@@ -386,7 +386,7 @@ For negative II (common in neural data), we identify the "weakest" link:
 from driada.intense.pipelines import compute_cell_feat_significance
 
 # Analyze neuronal selectivity in an experiment
-stats, significance, info, results = compute_cell_feat_significance(
+stats, significance, info, results, _ = compute_cell_feat_significance(
     exp,                    # Experiment object
     cell_bunch=None,        # Analyze all neurons
     feat_bunch=['speed', 'head_direction', 'x', 'y'],  # Behavioral variables

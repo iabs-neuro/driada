@@ -131,6 +131,137 @@ def test_compute_cell_feat_significance_with_disentanglement_fast():
         assert "feat_feat_significance" in disent_results
 
 
+def test_disentanglement_with_circular_features():
+    """Disentanglement must work when circular features are substituted with _2d.
+
+    Regression test for bug where feat_bunch (original names) was passed to
+    compute_feat_feat_significance instead of feat_ids (_2d-substituted names),
+    causing all circular feature pairs to be silently skipped.
+    """
+    from driada.experiment import load_exp_from_aligned_data
+
+    np.random.seed(42)
+    n_frames = 2000
+
+    # Create circular feature (head_direction) + continuous feature (speed)
+    head_direction = np.cumsum(np.random.randn(n_frames) * 0.1) % (2 * np.pi)
+    speed = np.abs(np.random.randn(n_frames)) * 5
+
+    # Make neurons selective: neuron 0 to head_direction, neuron 1 to speed,
+    # neuron 2 to both (correlated via speed~abs(sin(hd)))
+    n_neurons = 5
+    calcium = np.random.randn(n_neurons, n_frames) * 0.1 + 0.5
+    # Neuron 0: tuned to head_direction ~= pi
+    calcium[0] += 3.0 * np.exp(-2 * (head_direction - np.pi) ** 2)
+    # Neuron 1: tuned to high speed
+    calcium[1] += 3.0 * (speed > np.median(speed)).astype(float)
+    # Neuron 2: tuned to both
+    calcium[2] += 2.0 * np.exp(-2 * (head_direction - np.pi) ** 2)
+    calcium[2] += 2.0 * (speed > np.median(speed)).astype(float)
+    calcium = np.clip(calcium, 0, None)
+
+    data = {
+        "Calcium": calcium,
+        "head_direction": head_direction,
+        "speed": speed,
+    }
+    exp = load_exp_from_aligned_data(
+        "test_circ", {"animal": "A1"}, data,
+        create_circular_2d=True, verbose=False,
+    )
+
+    # Verify _2d version was created
+    assert "head_direction_2d" in exp.dynamic_features
+
+    stats, significance, info, results, disent_results = compute_cell_feat_significance(
+        exp,
+        feat_bunch=["head_direction", "speed"],
+        mode="two_stage",
+        n_shuffles_stage1=50,
+        n_shuffles_stage2=500,
+        ds=2,
+        pval_thr=0.1,
+        multicomp_correction=None,
+        find_optimal_delays=False,
+        enable_parallelization=False,
+        with_disentanglement=True,
+        use_circular_2d=True,
+        verbose=False,
+        seed=42,
+    )
+
+    assert disent_results is not None
+
+    # Key check: feature_names in disentanglement must contain _2d names
+    feat_names = disent_results["feature_names"]
+    assert "head_direction_2d" in feat_names, (
+        f"Disentanglement feature_names should contain 'head_direction_2d', "
+        f"got {feat_names}"
+    )
+    assert "head_direction" not in feat_names, (
+        f"Disentanglement feature_names should NOT contain original "
+        f"'head_direction', got {feat_names}"
+    )
+
+    # Stats should also use _2d names
+    for cell_id in stats:
+        assert "head_direction" not in stats[cell_id], (
+            f"Stats for neuron {cell_id} should not have 'head_direction' key"
+        )
+
+    # Disentanglement errors should be empty (no silent failures)
+    for nid, ninfo in disent_results.get("per_neuron_disent", {}).items():
+        assert len(ninfo.get("errors", [])) == 0, (
+            f"Neuron {nid} had disentanglement errors: {ninfo['errors']}"
+        )
+
+
+@pytest.mark.parametrize("mixed_features_experiment", ["small"], indirect=True)
+def test_disentanglement_errors_emit_warning(mixed_features_experiment):
+    """Disentanglement must emit a warning when per-neuron errors occur.
+
+    Regression test for Fix 2: errors accumulated in neuron_info were never
+    surfaced. Now they should trigger warnings.warn().
+    """
+    import warnings
+    from driada.intense.disentanglement import disentangle_all_selectivities
+
+    exp = mixed_features_experiment
+    exp._set_selectivity_tables("calcium")
+
+    # Get all feature names, then make neurons significant to all of them
+    all_feats = list(exp.dynamic_features.keys())
+    assert len(all_feats) >= 2, "Need at least 2 features"
+
+    # Make neurons 0 and 1 significant to all features (stage2=True)
+    for feat in all_feats:
+        for nid in [0, 1]:
+            exp.significance_tables["calcium"][feat][nid].update({"stage2": True})
+            exp.stats_tables["calcium"][feat][nid].update({"me": 0.5, "pval": 0.001})
+
+    # Pass only a SUBSET of feat_names — neurons are significant to features
+    # NOT in this list. Those features won't be in feature_ts_dict, causing
+    # ValueError("Feature '...' not found in experiment") in the worker.
+    partial_feats = all_feats[:1]  # Only first feature
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        results = disentangle_all_selectivities(
+            exp,
+            feat_names=partial_feats,
+            ds=1,
+        )
+
+    # Should have emitted a warning about errors
+    disentanglement_warnings = [
+        x for x in w if "Disentanglement encountered" in str(x.message)
+    ]
+    assert len(disentanglement_warnings) > 0, (
+        f"Expected a disentanglement error warning, got warnings: "
+        f"{[str(x.message) for x in w]}"
+    )
+
+
 @pytest.mark.parametrize("continuous_only_experiment", ["small"], indirect=True)
 def test_compute_cell_feat_significance_continuous_fast(continuous_only_experiment):
     """Fast test for continuous features."""

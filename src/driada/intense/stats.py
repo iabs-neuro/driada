@@ -552,7 +552,7 @@ def get_table_of_stats(
     precomputed_mask : np.ndarray, optional
         Binary mask: 1 = compute stats, 0 = skip. Default: all ones.
     metric_distr_type : str, optional
-        Distribution for p-value calculation. Default: 'gamma'.
+        Distribution for p-value calculation. Default: 'gamma_zi'.
     nsh : int, optional
         Number of shuffles. Default: 0.
     stage : int, optional
