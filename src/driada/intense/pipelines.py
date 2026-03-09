@@ -198,7 +198,7 @@ def compute_cell_feat_significance(
         True MI for stage 2 should be among topk2 MI shuffles. Default is 5
     multicomp_correction : str or None, optional
         Type of multiple comparison correction. Supported types are None (no correction),
-        "bonferroni" and "holm". Default is 'holm'
+        "bonferroni", "holm", and "fdr_bh" (Benjamini-Hochberg FDR). Default is 'holm'
     pval_thr : float, optional
         P-value threshold. If multicomp_correction=None, this is a p-value for a single pair.
         Otherwise it is a FWER significance level. Default is 0.01
@@ -325,7 +325,7 @@ def compute_cell_feat_significance(
     Returns
     -------
     stats: dict of dict of dicts
-        Outer dict: dynamic features, inner dict: cells, last dict: stats.
+        Outer dict: cells, inner dict: dynamic features, last dict: stats.
         Can be easily converted to pandas DataFrame by pd.DataFrame(stats)
     significance: dict of dict of bools
         Significance results for each neuron-feature pair
@@ -965,7 +965,10 @@ def compute_feat_feat_significance(
     - Diagonal elements are always zero (self-similarity prevented)
     - No delay optimization is performed between features
     - Supports both discrete and continuous features
-    - Multifeatures are created using aggregate_multiple_ts"""
+    - Multifeatures are created using aggregate_multiple_ts
+    - When called with circular features, ``feat_bunch`` should contain
+      ``_2d``-substituted names (e.g., ``headdirection_2d``) to match the
+      experiment's dynamic features after circular substitution."""
     import numpy as np
 
     # Process feature bunch - default is all features

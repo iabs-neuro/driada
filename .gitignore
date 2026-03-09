@@ -13,6 +13,8 @@ TODO_DISENTANGLEMENT_TESTS.md
 !tools/EXAMPLE_VALIDATION_PROTOCOL.md
 !.github/**/*.md
 !docs/intense_mathematical_framework.md
+!docs/INTENSE_FLOW.md
+!docs/disentanglement_pipeline.md
 
 # Python
 __pycache__/

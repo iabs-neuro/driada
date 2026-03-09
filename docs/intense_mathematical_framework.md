@@ -65,9 +65,9 @@ for cell_id in list(significant_neurons.keys())[:3]:  # Show first 3 neurons
 ```
 Found 8 significant neuron-feature pairs
 Neuron 3 - Feature 'c_feat_0':
-  Mutual Information: 0.2847
+  Rank value (Stage 1): 0.9901
   P-value: 2.45e-05
-  Optimal delay: 0.10s
+  Optimal delay: 3 frames
 ```
 
 **Visualization:**

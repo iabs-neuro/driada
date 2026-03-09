@@ -227,8 +227,8 @@ def _disentangle_pair_with_precomputed(
     # Compute conditional MI - use pre-computed copula data if all available (CCC case)
     if ts1_copnorm is not None and ts2_copnorm is not None and ts3_copnorm is not None:
         # Apply optimal delays to align features with neural activity
-        ts2_cp = np.roll(ts2_copnorm, delay_feat1) if delay_feat1 else ts2_copnorm
-        ts3_cp = np.roll(ts3_copnorm, delay_feat2) if delay_feat2 else ts3_copnorm
+        ts2_cp = np.roll(ts2_copnorm, delay_feat1, axis=-1) if delay_feat1 else ts2_copnorm
+        ts3_cp = np.roll(ts3_copnorm, delay_feat2, axis=-1) if delay_feat2 else ts3_copnorm
         # Direct cmi_ggg call with pre-cached copula data (faster)
         cmi123 = cmi_ggg(ts1_copnorm, ts2_cp, ts3_cp, biascorrect=True, demeaned=True)
         cmi132 = cmi_ggg(ts1_copnorm, ts3_cp, ts2_cp, biascorrect=True, demeaned=True)
@@ -714,6 +714,13 @@ def disentangle_all_selectivities(
     The neuron loop is parallelized using joblib, providing significant speedup
     when analyzing many neurons. Each neuron is processed independently and
     results are merged at the end.
+
+    Feature names in ``feat_names`` must use ``_2d``-substituted names for circular
+    features (e.g., ``headdirection_2d`` not ``headdirection``), matching the names
+    used in ``cell_feat_stats``.
+
+    If any per-neuron disentanglement encounters errors (e.g., missing feature data),
+    a summary warning is emitted via ``warnings.warn`` after all neurons are processed.
 
     **Filter chain execution:**
 
