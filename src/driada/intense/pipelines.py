@@ -40,12 +40,13 @@ def substitute_circular_with_2d(feat_ids, exp, verbose=False):
     """
     substituted = []
     new_feat_ids = []
+    feat_id_set = set(feat_ids)
 
     for feat_id in feat_ids:
         if isinstance(feat_id, str) and not feat_id.endswith("_2d"):
             name_2d = f"{feat_id}_2d"
 
-            # Check if _2d version exists
+            # Check if _2d version exists in experiment
             if name_2d in exp.dynamic_features:
                 # Verify original is circular
                 orig_ts = exp.dynamic_features.get(feat_id)
@@ -54,8 +55,14 @@ def substitute_circular_with_2d(feat_ids, exp, verbose=False):
                     and orig_ts.type_info
                     and orig_ts.type_info.is_circular
                 ):
-                    new_feat_ids.append(name_2d)
-                    substituted.append((feat_id, name_2d))
+                    # Drop original — _2d is already in the list or will be added
+                    if name_2d in feat_id_set:
+                        # _2d already present, just drop the original
+                        substituted.append((feat_id, name_2d))
+                    else:
+                        # _2d not in list, substitute
+                        new_feat_ids.append(name_2d)
+                        substituted.append((feat_id, name_2d))
                     continue
 
         new_feat_ids.append(feat_id)
