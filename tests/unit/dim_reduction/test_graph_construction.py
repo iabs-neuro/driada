@@ -184,6 +184,7 @@ class TestGraphConstruction:
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.6,  # Allow up to 60% node loss
+            "graph_preprocessing": "giant_cc",
         }
         # Note: nn=3 was too small after fixing the graph symmetrization to use
         # minimum instead of addition, which creates a properly symmetric but
@@ -212,6 +213,7 @@ class TestGraphConstruction:
             "weighted": False,
             "dist_to_aff": None,
             "max_deleted_nodes": 0.2,  # Only allow 20% node loss
+            "graph_preprocessing": "giant_cc",
         }
 
         with pytest.raises(Exception, match="more than.*% of nodes discarded"):
@@ -619,6 +621,7 @@ class TestIntrinsicDimension:
             "weighted": True,
             "dist_to_aff": "hk",
             "max_deleted_nodes": 0.6,
+            "graph_preprocessing": "giant_cc",
         }
 
         graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)
@@ -854,6 +857,7 @@ class TestGraphMethods:
             "weighted": True,
             "dist_to_aff": "hk",
             "max_deleted_nodes": 0.6,
+            "graph_preprocessing": "giant_cc",
         }
 
         graph = ProximityGraph(data, m_params, g_params, create_nx_graph=False)

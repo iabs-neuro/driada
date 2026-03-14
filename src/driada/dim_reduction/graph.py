@@ -232,8 +232,8 @@ class ProximityGraph(Network):
         self.verbose = verbose
 
         self.construct_adjacency()
-        # Get graph preprocessing parameter with default value
-        graph_preprocessing = all_params.get("graph_preprocessing", "giant_cc")
+        # Get graph preprocessing parameter — respect explicit None
+        graph_preprocessing = all_params["graph_preprocessing"] if "graph_preprocessing" in all_params else None
         super(ProximityGraph, self).__init__(
             adj=self.adj,
             preprocessing=graph_preprocessing,
