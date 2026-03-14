@@ -1300,7 +1300,16 @@ class TestDelayIntegration:
             )
 
         assert "disent_matrix" in results
-        assert len(delays_seen) > 0, "Expected at least one disentangle call"
+
+        # Surface any silenced errors from the disentanglement pipeline
+        all_errors = []
+        for nid, info in results.get("per_neuron_disent", {}).items():
+            all_errors.extend(info.get("errors", []))
+        assert len(delays_seen) > 0, (
+            f"Expected at least one disentangle call. "
+            f"Features used: f1={f1}, f2={f2}. "
+            f"Errors from pipeline: {all_errors}"
+        )
 
         # At least one call should have received a non-zero delay
         has_nonzero = any(d1 != 0 or d2 != 0 for d1, d2 in delays_seen)
