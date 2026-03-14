@@ -64,7 +64,8 @@ cells.append(md_cell(
 
 cells.append(code_cell(
 "# TODO: revert to '!pip install -q driada' after v1.0.0 PyPI release\n"
-"!pip install -q git+https://github.com/iabs-neuro/driada.git@main\n"
+"# TODO: revert @dev to @main after merging recurrence module to main\n"
+"!pip install -q git+https://github.com/iabs-neuro/driada.git@dev\n"
 "%matplotlib inline\n"
 "\n"
 "import numpy as np\n"
