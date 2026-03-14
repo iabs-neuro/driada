@@ -21,7 +21,7 @@ def _resolve_filter_delay(filter_delay, db):
 
 def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
                                 pval_threshold=PVAL_THRESHOLD,
-                                filter_delay=True,
+                                filter_delay=False,
                                 filter_anti_selectivity=True):
     """Apply standard significance filters to a tidy DataFrame.
 

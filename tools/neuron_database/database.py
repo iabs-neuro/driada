@@ -45,7 +45,7 @@ class NeuronDatabase:
     """
 
     def __init__(self, session_names, matching, data,
-                 delay_strategy='nonnegative',
+                 delay_strategy='all',
                  sessions_to_match=None,
                  mice_metadata_columns=None,
                  mice_info=None,

@@ -15,7 +15,7 @@ class ExperimentConfig:
     matching_subdir: str = 'Matching'
     tables_subdir: str = 'tables_disentangled'
     nontrivial_matching: bool = True
-    delay_strategy: str = 'nonnegative'
+    delay_strategy: str = 'all'
     sessions_to_match: list = None
     mice_metadata: list = field(default_factory=list)
     killed_sessions: list = field(default_factory=list)

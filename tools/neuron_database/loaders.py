@@ -117,12 +117,16 @@ def load_session_from_csvs(stats_path, sig_path):
 
     Returns
     -------
-    list[dict]
+    records : list[dict]
         Flat row dicts with keys: neuron_idx, feature, significant, me, pval, opt_delay.
         Only entries where stats dict is non-empty.
+    n_neurons : int
+        Total number of neurons in the CSV (including those with no data).
     """
     stats = parse_stats_csv(stats_path)
     sig = parse_significance_csv(sig_path)
+
+    n_neurons = len(pd.read_csv(stats_path, index_col=0))
 
     records = []
     for neuron_idx, feat_dict in stats.items():
@@ -137,7 +141,7 @@ def load_session_from_csvs(stats_path, sig_path):
                 'opt_delay': s.get('opt_delay', np.nan),
                 'signal_ratio': np.nan if s.get('signal_ratio') is None else s['signal_ratio'],
             })
-    return records
+    return records, n_neurons
 
 
 def parse_experiment_filename(filename):
@@ -197,15 +201,25 @@ def _build_identity_matching(neuron_counts, session_names, mouse_id):
     Each neuron gets matched_id = neuron_idx (0-based). All neurons are
     assumed present in all sessions.
 
-    Raises ValueError if neuron counts differ across sessions.
+    Raises ValueError if neuron counts differ by more than 1.
+    When counts differ by exactly 1, uses the minimum count and warns.
     """
     counts = set(neuron_counts.values())
     if len(counts) > 1:
-        raise ValueError(
-            f"Mouse {mouse_id}: neuron counts differ across sessions "
-            f"(identity matching requires equal counts): {neuron_counts}"
+        n_min, n_max = min(counts), max(counts)
+        if n_max - n_min > 1:
+            raise ValueError(
+                f"Mouse {mouse_id}: neuron counts differ across sessions "
+                f"(identity matching requires equal counts): {neuron_counts}"
+            )
+        import warnings
+        warnings.warn(
+            f"Mouse {mouse_id}: neuron counts differ by 1 across sessions "
+            f"{neuron_counts}, truncating to {n_min}"
         )
-    n = counts.pop()
+        n = n_min
+    else:
+        n = counts.pop()
     df = pd.DataFrame(
         {s: np.arange(1, n + 1) for s in session_names},
         index=range(n),
@@ -313,7 +327,7 @@ def load_from_csv_directory(data_dir, session_names,
             print(f"  Warning: no significance file for {stats_path.name}")
             continue
 
-        records = load_session_from_csvs(stats_path, sig_path)
+        records, n_neurons = load_session_from_csvs(stats_path, sig_path)
 
         if nontrivial_matching:
             inv = inverse_indices.get(mouse_id, {}).get(session, {})
@@ -327,14 +341,12 @@ def load_from_csv_directory(data_dir, session_names,
                 all_records.append(r)
         else:
             # Identity matching: matched_id = neuron_idx
-            max_idx = 0
             for r in records:
                 r['mouse'] = mouse_id
                 r['session'] = session
                 r['matched_id'] = r['neuron_idx']
-                max_idx = max(max_idx, r['neuron_idx'])
                 all_records.append(r)
-            mouse_session_neuron_counts.setdefault(mouse_id, {})[session] = max_idx + 1
+            mouse_session_neuron_counts.setdefault(mouse_id, {})[session] = n_neurons
 
     if not all_records:
         raise ValueError("No records loaded from CSV files")
