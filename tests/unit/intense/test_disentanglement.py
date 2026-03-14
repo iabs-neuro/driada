@@ -1263,12 +1263,13 @@ class TestDelayIntegration:
         exp = mixed_features_experiment
         exp._set_selectivity_tables("calcium")
 
-        feat_names = list(exp.dynamic_features.keys())
+        feat_names = sorted(exp.dynamic_features.keys())
         if len(feat_names) < 2:
             pytest.skip("Need at least 2 features")
 
         # Force neurons 0 and 1 to be multi-selective by setting stage2=True
-        # for two features in the significance tables
+        # for two features in the significance tables.
+        # Use sorted names for cross-platform determinism.
         f1, f2 = feat_names[0], feat_names[1]
         for nid in [0, 1]:
             exp.significance_tables["calcium"][f1][nid]["stage2"] = True
