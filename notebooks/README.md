@@ -1,6 +1,6 @@
 # DRIADA interactive tutorials
 
-Six self-contained Colab/Jupyter notebooks that walk through the full DRIADA
+Seven self-contained Colab/Jupyter notebooks that walk through the full DRIADA
 toolkit -- from loading data to network analysis and running
 cross-method analyses. Every notebook generates its own synthetic data, so no
 external files are needed.
@@ -73,6 +73,16 @@ Cross-method analyses and non-calcium applications.
 - **Leave-one-out neuron importance** -- measuring each neuron's contribution to manifold reconstruction
 - **RSA** -- `compute_rdm_unified`, `rsa_compare`, cross-region and cross-session RDM comparison, bootstrap confidence intervals, MVData integration
 - **Beyond calcium** -- applying the full DRIADA pipeline (INTENSE + networks + DR) to RNN activations
+
+### 6. [Recurrence analysis](06_recurrence_analysis.ipynb)
+
+Time-series graph analysis for neural dynamics.
+
+- Takens delay embedding: tau estimation (TDMI), dimension estimation (FNN)
+- Recurrence plots and recurrence quantification analysis (DET, LAM, ENTR)
+- Three graph representations: RecurrenceGraph, HorizontalVisibilityGraph, OrdinalPartitionNetwork
+- Windowed RQA for regime transition detection
+- Population workflow: per-neuron recurrence graphs, Jaccard similarity, community detection (Louvain), module recovery validation (ARI)
 
 ## Running the notebooks
 

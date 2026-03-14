@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tutorial notebooks (new)
 
-Six Colab-ready notebooks with auto-generation scripts (`tools/create_notebook_0X.py`):
+Seven Colab-ready notebooks with auto-generation scripts (`tools/create_notebook_0X.py`):
 
 0. **DRIADA overview** — Core data structures, quick tour of INTENSE, dimensionality reduction, and networks (`0f9b806`)
 1. **Data loading & neuron analysis** — Experiment construction, spike reconstruction methods comparison, surrogate generation (`37b71d4`)
@@ -51,8 +51,9 @@ Six Colab-ready notebooks with auto-generation scripts (`tools/create_notebook_0
 3. **Population geometry & DR** — MVData API, method comparison benchmark (PCA, Isomap, UMAP), sequential DR, autoencoder DR, circular manifold extraction, INTENSE-guided DR (`df27aef`)
 4. **Network analysis** — Network construction, spectral decomposition, community detection, thermodynamic entropy, ProximityGraph from DR (`e1515fc`)
 5. **Advanced capabilities** — INTENSE + DR pipeline, leave-one-out importance, RSA, RNN analysis (`b4d2b15`)
+6. **Recurrence analysis** — Delay embedding, recurrence plots, RQA, visibility/ordinal graphs, population module recovery
 
-All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigation links and API documentation links across all 6. Sentence case throughout.
+All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigation links and API documentation links across all 7. Sentence case throughout.
 
 ### Documentation overhaul
 

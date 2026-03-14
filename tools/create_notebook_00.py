@@ -50,6 +50,7 @@ cells.append(md_cell(
 "| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
 "| Network analysis | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
 "| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + dimensionality reduction, leave-one-out importance, RSA, RNN analysis |\n"
+"| Recurrence analysis | [06 -- Recurrence](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/06_recurrence_analysis.ipynb) | Delay embedding, recurrence plots, RQA, graph representations, population module recovery |\n"
 "\n"
 "**What you will learn:**\n"
 "\n"
