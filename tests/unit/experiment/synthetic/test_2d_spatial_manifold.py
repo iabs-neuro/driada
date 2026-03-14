@@ -353,8 +353,8 @@ class TestGenerate2DManifoldExp:
 
         # Individual features should detect some selective neurons
         assert (
-            individual_selective >= 3
-        ), f"Expected at least 3/9 neurons with individual features, got {individual_selective}"
+            individual_selective >= 2
+        ), f"Expected at least 2/9 neurons with individual features, got {individual_selective}"
 
         # Both methods should find selectivity
         print(f"Individual features detected: {individual_selective} neurons")

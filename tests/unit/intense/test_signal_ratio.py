@@ -164,7 +164,7 @@ class TestLoaderExtractsSignalRatio:
         save_stats_csv(stats, ['freezing', 'speed'], stats_path)
         save_significance_csv(sig, ['freezing', 'speed'], sig_path)
 
-        records = load_session_from_csvs(stats_path, sig_path)
+        records, n_neurons = load_session_from_csvs(stats_path, sig_path)
 
         freezing_rec = [r for r in records if r['feature'] == 'freezing'][0]
         assert freezing_rec['signal_ratio'] == pytest.approx(1.35)
