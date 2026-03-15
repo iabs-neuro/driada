@@ -102,3 +102,43 @@ class TestMultiTimeSeriesRecurrence:
         )
         cached_key, cached_rg = ts0._recurrence_graph_cache
         assert isinstance(cached_rg, RecurrenceGraph)
+
+
+class TestCreateNxGraph:
+    """Tests for create_nx_graph=True on recurrence graph types."""
+
+    @pytest.fixture
+    def sine_ts(self):
+        t = np.arange(200)
+        return TimeSeries(np.sin(2 * np.pi * t / 50))
+
+    def test_recurrence_graph_creates_nx_graph(self, sine_ts):
+        """RecurrenceGraph with create_nx_graph=True has .graph."""
+        rg = sine_ts.recurrence_graph(tau=10, m=3, k=5, create_nx_graph=True)
+        assert rg.graph is not None
+        assert rg.graph.number_of_nodes() > 0
+        assert rg.graph.number_of_edges() > 0
+
+    def test_recurrence_graph_default_no_graph(self, sine_ts):
+        """RecurrenceGraph default has .graph = None."""
+        rg = sine_ts.recurrence_graph(tau=10, m=3, k=5)
+        assert rg.graph is None
+
+    def test_visibility_graph_creates_nx_graph(self, sine_ts):
+        """VisibilityGraph with create_nx_graph=True has .graph."""
+        vg = sine_ts.visibility_graph(method="horizontal", create_nx_graph=True)
+        assert vg.graph is not None
+        assert vg.graph.number_of_nodes() == len(sine_ts.data)
+
+    def test_opn_creates_nx_graph(self, sine_ts):
+        """OrdinalPartitionNetwork with create_nx_graph=True has .graph."""
+        opn = sine_ts.ordinal_partition_network(tau=10, create_nx_graph=True)
+        assert opn.graph is not None
+        assert opn.graph.number_of_nodes() > 0
+
+    def test_from_adjacency_creates_nx_graph(self, sine_ts):
+        """RecurrenceGraph.from_adjacency with create_nx_graph=True."""
+        rg = sine_ts.recurrence_graph(tau=10, m=3, k=5)
+        rg2 = RecurrenceGraph.from_adjacency(rg.adj, create_nx_graph=True)
+        assert rg2.graph is not None
+        assert rg2.graph.number_of_nodes() == rg.n

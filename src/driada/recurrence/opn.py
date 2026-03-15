@@ -106,7 +106,7 @@ class OrdinalPartitionNetwork(Network):
     patterns. This is standard practice (Bandt & Pompe, 2002).
     """
 
-    def __init__(self, data, d, tau):
+    def __init__(self, data, d, tau, create_nx_graph=False):
         data = np.asarray(data, dtype=np.float64)
         if data.ndim != 1:
             raise ValueError(
@@ -133,7 +133,7 @@ class OrdinalPartitionNetwork(Network):
 
         Network.__init__(
             self, adj=adj, preprocessing=None,
-            create_nx_graph=False, directed=True,
+            create_nx_graph=create_nx_graph, directed=True,
         )
         self._data = data
         self.d = d

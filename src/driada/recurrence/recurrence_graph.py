@@ -43,6 +43,7 @@ class RecurrenceGraph(ProximityGraph):
         epsilon=None,
         metric='euclidean',
         theiler_window=None,
+        create_nx_graph=False,
         verbose=False,
     ):
         data = np.asarray(data)
@@ -89,7 +90,7 @@ class RecurrenceGraph(ProximityGraph):
         # the band removal at the right time in the initialization sequence.
         self._theiler_window = theiler_window
 
-        super().__init__(data, m_params, g_params, create_nx_graph=False, verbose=verbose)
+        super().__init__(data, m_params, g_params, create_nx_graph=create_nx_graph, verbose=verbose)
 
         self._rqa_cache = None
 
@@ -149,7 +150,7 @@ class RecurrenceGraph(ProximityGraph):
         return self.adj.nnz / total
 
     @classmethod
-    def from_adjacency(cls, adj, theiler_window=None):
+    def from_adjacency(cls, adj, theiler_window=None, create_nx_graph=False):
         """Create RecurrenceGraph from pre-built adjacency matrix.
 
         Bypasses ProximityGraph construction. Used for population
@@ -177,7 +178,7 @@ class RecurrenceGraph(ProximityGraph):
         from ..network.net_base import Network
         Network.__init__(
             instance, adj=adj, preprocessing=None,
-            create_nx_graph=False, directed=False,
+            create_nx_graph=create_nx_graph, directed=False,
         )
         instance.data = None
         instance.lost_nodes = set()

@@ -98,7 +98,7 @@ class VisibilityGraph(Network):
         If True, edges point forward in time only.
     """
 
-    def __init__(self, data, method='horizontal', directed=False):
+    def __init__(self, data, method='horizontal', directed=False, create_nx_graph=False):
         data = np.asarray(data, dtype=np.float64)
         if data.ndim != 1:
             raise ValueError(
@@ -132,7 +132,7 @@ class VisibilityGraph(Network):
 
         Network.__init__(
             self, adj=adj, preprocessing=None,
-            create_nx_graph=False, directed=directed,
+            create_nx_graph=create_nx_graph, directed=directed,
         )
         self._data = data
         self._method = method

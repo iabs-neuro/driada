@@ -69,7 +69,8 @@ def takens_embedding(ts, tau=None, m=None):
 
 
 def recurrence_graph(ts, tau=None, m=None, method='knn', k=5,
-                     epsilon=None, metric='euclidean', theiler_window='auto'):
+                     epsilon=None, metric='euclidean', theiler_window='auto',
+                     create_nx_graph=False):
     """Build RecurrenceGraph for a TimeSeries. Caches result."""
     if ts.discrete:
         raise ValueError("Recurrence analysis requires continuous time series")
@@ -82,7 +83,7 @@ def recurrence_graph(ts, tau=None, m=None, method='knn', k=5,
     if theiler_window == 'auto':
         theiler_window = tau * (m - 1) + 1
 
-    cache_key = (tau, m, method, k, epsilon, metric, theiler_window)
+    cache_key = (tau, m, method, k, epsilon, metric, theiler_window, create_nx_graph)
     if hasattr(ts, '_recurrence_graph_cache') and ts._recurrence_graph_cache is not None:
         cached_key, cached_val = ts._recurrence_graph_cache
         if cached_key == cache_key:
@@ -93,7 +94,7 @@ def recurrence_graph(ts, tau=None, m=None, method='knn', k=5,
     from driada.recurrence.recurrence_graph import RecurrenceGraph
     rg = RecurrenceGraph(
         emb, method=method, k=k, epsilon=epsilon, metric=metric,
-        theiler_window=theiler_window,
+        theiler_window=theiler_window, create_nx_graph=create_nx_graph,
     )
     ts._recurrence_graph_cache = (cache_key, rg)
     return rg
@@ -140,24 +141,25 @@ def population_recurrence_graph(mts, tau=None, m=None, method='joint',
                    binarize_threshold=binarize_threshold)
 
 
-def visibility_graph(ts, method='horizontal', directed=False):
+def visibility_graph(ts, method='horizontal', directed=False, create_nx_graph=False):
     """Build VisibilityGraph for a TimeSeries. Caches result."""
     if ts.discrete:
         raise ValueError("Visibility graph requires continuous time series")
 
-    cache_key = (method, directed)
+    cache_key = (method, directed, create_nx_graph)
     if hasattr(ts, '_vg_cache') and ts._vg_cache is not None:
         cached_key, cached_val = ts._vg_cache
         if cached_key == cache_key:
             return cached_val
 
     from driada.recurrence.visibility import VisibilityGraph
-    vg = VisibilityGraph(ts.data, method=method, directed=directed)
+    vg = VisibilityGraph(ts.data, method=method, directed=directed,
+                         create_nx_graph=create_nx_graph)
     ts._vg_cache = (cache_key, vg)
     return vg
 
 
-def ordinal_partition_network(ts, d=None, tau=None):
+def ordinal_partition_network(ts, d=None, tau=None, create_nx_graph=False):
     """Build OrdinalPartitionNetwork for a TimeSeries. Caches result.
 
     Auto-estimates tau and d if None. d is capped at 7.
@@ -170,14 +172,15 @@ def ordinal_partition_network(ts, d=None, tau=None):
     if d is None:
         d = min(estimate_embedding_dim(ts, tau=tau), 7)
 
-    cache_key = (d, tau)
+    cache_key = (d, tau, create_nx_graph)
     if hasattr(ts, '_opn_cache') and ts._opn_cache is not None:
         cached_key, cached_val = ts._opn_cache
         if cached_key == cache_key:
             return cached_val
 
     from driada.recurrence.opn import OrdinalPartitionNetwork
-    opn = OrdinalPartitionNetwork(ts.data, d=d, tau=tau)
+    opn = OrdinalPartitionNetwork(ts.data, d=d, tau=tau,
+                                  create_nx_graph=create_nx_graph)
     ts._opn_cache = (cache_key, opn)
     return opn
 

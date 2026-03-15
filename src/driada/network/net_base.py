@@ -761,6 +761,10 @@ class Network:
         self.adj = nx.adjacency_matrix(fgraph)
         self.n = nx.number_of_nodes(self.graph)
 
+        # Build init-to-final node mapping (same semantics as _preprocess_adj_and_data)
+        final_nodes = sorted(self.graph.nodes())
+        self._init_to_final_node_mapping = {old: new for new, old in enumerate(final_nodes)}
+
     def _preprocess_adj_and_data(
         self, a=None, preprocessing=None, pos=None, node_attrs=None, create_graph=True
     ):
