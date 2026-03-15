@@ -1297,6 +1297,7 @@ class TestDelayIntegration:
             results = disentangle_all_selectivities(
                 exp, feat_names, ds=2,
                 cell_feat_stats=cell_feat_stats,
+                n_jobs=1,  # serial execution so mock.patch works cross-platform
             )
 
         assert "disent_matrix" in results
