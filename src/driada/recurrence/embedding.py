@@ -170,7 +170,7 @@ def _tau_exponential_fit(tdmi):
 
 
 def estimate_embedding_dim(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0,
-                           fnn_threshold=0.05):
+                           fnn_threshold=0.05, return_fractions=False):
     """Estimate embedding dimension via false nearest neighbors (FNN).
 
     For each candidate dimension *m* (from 2 to *max_dim*), embeds the time
@@ -193,22 +193,33 @@ def estimate_embedding_dim(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0,
     fnn_threshold : float, optional
         FNN fraction below which the dimension is accepted.
         Default: 0.05 (5 %).
+    return_fractions : bool, optional
+        If True, also return per-dimension FNN fractions for diagnostic
+        plots.  Default: False.
 
     Returns
     -------
-    int
-        Estimated embedding dimension.  Minimum 2.
+    int or (int, list of (int, float))
+        Estimated embedding dimension (minimum 2).  When
+        *return_fractions* is True, returns ``(dim, fractions)`` where
+        *fractions* is ``[(m, fnn_fraction), ...]`` for each tested
+        dimension.
     """
     from scipy.spatial import cKDTree
 
     data = np.asarray(data, dtype=float).ravel()
     attractor_size = np.std(data)
     if attractor_size == 0:
+        if return_fractions:
+            return 2, [(m, 0.0) for m in range(2, max_dim + 1)]
         return 2
 
     # Minimum meaningful distance: pairs closer than this are considered
     # true (deterministic) neighbors and excluded from the FNN ratio test.
     dist_tol = attractor_size * 1e-8
+
+    best_dim = max_dim
+    fractions = []
 
     for m in range(2, max_dim + 1):
         emb_m = takens_embedding(data, tau, m).T       # (N_embedded, m)
@@ -232,8 +243,13 @@ def estimate_embedding_dim(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0,
         # (e.g. periodic signals); exclude them from the ratio criterion.
         valid = nn_dists_m > dist_tol
         if not np.any(valid):
-            # All neighbors are true neighbors — no false neighbors at dim m
-            return m
+            fnn_frac = 0.0
+            fractions.append((m, fnn_frac))
+            if best_dim == max_dim:
+                best_dim = m
+            if not return_fractions:
+                return best_dim
+            continue
 
         ratio = np.zeros(n_m1)
         ratio[valid] = (
@@ -242,9 +258,15 @@ def estimate_embedding_dim(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0,
 
         criterion1 = ratio > r_tol
         criterion2 = (nn_dists_m1 / attractor_size) > a_tol
-        fnn_fraction = np.sum(criterion1 | criterion2) / n_m1
+        fnn_frac = np.sum(criterion1 | criterion2) / n_m1
 
-        if fnn_fraction < fnn_threshold:
-            return m
+        fractions.append((m, fnn_frac))
 
-    return max_dim
+        if fnn_frac < fnn_threshold and best_dim == max_dim:
+            best_dim = m
+            if not return_fractions:
+                return best_dim
+
+    if return_fractions:
+        return best_dim, fractions
+    return best_dim

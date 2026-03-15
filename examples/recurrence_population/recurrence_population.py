@@ -56,7 +56,6 @@ from sklearn.metrics import adjusted_rand_score
 import networkx as nx
 
 from driada.experiment.synthetic import generate_tuned_selectivity_exp
-from driada.information import TimeSeries
 from driada.recurrence import (
     RecurrenceGraph,
     plot_recurrence,
@@ -101,8 +100,7 @@ POPULATION = [
 
 CONFIG = {
     "duration": 600,        # 10-minute recording (seconds)
-    "fps": 20,
-    "ds": 4,                # downsample to 5 Hz for recurrence
+    "fps": 5,
     "seed": 42,             # same seed as cell-cell example
     "n_discrete_features": 3,
     # Recurrence graph
@@ -215,7 +213,7 @@ def main():
         # Unpack cached data
         calcium = cache["calcium"]
         n_neurons, n_frames = calcium.shape
-        fps_eff = CONFIG["fps"] / CONFIG["ds"]
+        fps_eff = CONFIG["fps"]
         taus = cache["taus"]
         dims = cache["dims"]
         rqa_results = cache["rqa_results"]
@@ -275,17 +273,16 @@ def main():
             verbose=False,
         )
 
-        calcium = exp.calcium.data[:, :: CONFIG["ds"]]
+        calcium = exp.calcium.data
         n_neurons, n_frames = calcium.shape
-        fps_eff = CONFIG["fps"] / CONFIG["ds"]
+        fps_eff = CONFIG["fps"]
 
         print(f"  {n_neurons} neurons, {n_frames} frames ({fps_eff:.0f} Hz)")
         for g in POPULATION:
             feat_str = " OR ".join(g["features"]) if g["features"] else "none"
             print(f"    {g['count']:>2} {g['name']:<12} -> {feat_str}")
 
-        # Wrap each neuron's trace as a TimeSeries for the recurrence API
-        ts_list = [TimeSeries(calcium[i]) for i in range(n_neurons)]
+        ts_list = exp.calcium.ts_list
 
         # -----------------------------------------------------------------
         # Step 2: Per-neuron embedding and RQA
@@ -521,7 +518,7 @@ def main():
     # PLOTTING (always runs, uses cached or fresh data)
     # =================================================================
     n_neurons, n_frames = calcium.shape
-    fps_eff = CONFIG["fps"] / CONFIG["ds"]
+    fps_eff = CONFIG["fps"]
     example_modules = ["event_0", "event_1", "event_2", "event_0|1"]
     mod_to_int = {m: i for i, m in enumerate(module_names)}
 

@@ -10,7 +10,6 @@ TODO_DISENTANGLEMENT_TESTS.md
 *.md
 !README*.md
 !readme*.md
-!tools/EXAMPLE_VALIDATION_PROTOCOL.md
 !.github/**/*.md
 !docs/intense_mathematical_framework.md
 !docs/INTENSE_FLOW.md
@@ -141,6 +140,8 @@ tools/*
 !tools/*.py
 !tools/selectivity_dynamics/
 !tools/neuron_database/
+!tools/EXAMPLE_VALIDATION_PROTOCOL.md
+!tools/NOTEBOOK_VALIDATION_PROTOCOL.md
 
 # One-off tool scripts (not part of release)
 tools/_doc_audit.py

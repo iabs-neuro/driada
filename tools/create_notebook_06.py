@@ -26,6 +26,42 @@ def code_cell(source):
 
 
 # ---------------------------------------------------------------------------
+# ReadTheDocs link helpers (keep URLs in one place)
+# ---------------------------------------------------------------------------
+
+_RTD = "https://driada.readthedocs.io/en/latest/api"
+
+LINKS = {
+    "RecurrenceGraph": f"[`RecurrenceGraph`]({_RTD}/recurrence/recurrence_graph.html"
+                       f"#driada.recurrence.recurrence_graph.RecurrenceGraph)",
+    "estimate_tau": f"[`estimate_tau`]({_RTD}/recurrence/embedding.html"
+                    f"#driada.recurrence.embedding.estimate_tau)",
+    "estimate_embedding_dim": f"[`estimate_embedding_dim`]({_RTD}/recurrence/embedding.html"
+                              f"#driada.recurrence.embedding.estimate_embedding_dim)",
+    "compute_rqa": f"[`compute_rqa`]({_RTD}/recurrence/rqa.html"
+                   f"#driada.recurrence.rqa.compute_rqa)",
+    "pairwise_jaccard_sparse": f"[`pairwise_jaccard_sparse`]({_RTD}/recurrence/population.html"
+                               f"#driada.recurrence.population.pairwise_jaccard_sparse)",
+    "TimeSeries": f"[`TimeSeries`]({_RTD}/information/core.html"
+                  f"#driada.information.info_base.TimeSeries)",
+    "Network": f"[`Network`]({_RTD}/network/core.html"
+               f"#driada.network.net_base.Network)",
+    "generate_tuned_selectivity_exp": f"[`generate_tuned_selectivity_exp`]({_RTD}/experiment/synthetic.html"
+                                     f"#driada.experiment.synthetic.generators.generate_tuned_selectivity_exp)",
+    "plot_recurrence": f"[`plot_recurrence`]({_RTD}/recurrence/plotting.html"
+                       f"#driada.recurrence.plotting.plot_recurrence)",
+    "VisibilityGraph": f"[`VisibilityGraph`]({_RTD}/recurrence/visibility.html"
+                       f"#driada.recurrence.visibility.VisibilityGraph)",
+    "OrdinalPartitionNetwork": f"[`OrdinalPartitionNetwork`]({_RTD}/recurrence/opn.html"
+                               f"#driada.recurrence.opn.OrdinalPartitionNetwork)",
+    "get_tdmi": f"[`get_tdmi`]({_RTD}/information/core.html"
+                f"#driada.information.info_base.get_tdmi)",
+}
+
+L = LINKS  # shorthand
+
+
+# ---------------------------------------------------------------------------
 # Build cells
 # ---------------------------------------------------------------------------
 
@@ -37,9 +73,13 @@ cells.append(md_cell(
 "# Recurrence analysis\n"
 "\n"
 "Recurrence analysis maps temporal dynamics to graphs, revealing\n"
-"structure invisible to linear methods. This notebook covers\n"
-"fundamentals on classic signals, then applies the workflow to recover\n"
-"functional modules in a synthetic neural population.\n"
+"structure invisible to linear methods.  Unlike correlation or spectral\n"
+"approaches, recurrence captures **nonlinear, non-stationary** patterns\n"
+"-- exactly the kind of dynamics common in neural data.\n"
+"\n"
+"This notebook covers fundamentals on classic signals, then applies\n"
+"the full workflow to recover functional modules in a synthetic neural\n"
+"population -- purely from dynamics, without any behavioral variables.\n"
 "\n"
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
@@ -74,8 +114,6 @@ cells.append(code_cell(
 "import networkx as nx\n"
 "import networkx.algorithms.community as nx_comm\n"
 "from sklearn.metrics import adjusted_rand_score\n"
-"from scipy.spatial import cKDTree\n"
-"from scipy.stats import rankdata\n"
 "from mpl_toolkits.mplot3d import Axes3D  # noqa: F401\n"
 "\n"
 "from driada.recurrence import (\n"
@@ -84,7 +122,7 @@ cells.append(code_cell(
 "    pairwise_jaccard_sparse,\n"
 ")\n"
 "from driada.information import TimeSeries\n"
-"from driada.information.info_base import get_tdmi\n"
+"from driada.information import get_tdmi\n"
 "from driada.experiment.synthetic import generate_tuned_selectivity_exp\n"
 "from driada.network import Network"
 ))
@@ -100,8 +138,18 @@ cells.append(md_cell(
 cells.append(md_cell(
 "### 1.1 Generate signals\n"
 "\n"
-"Three classic signals -- periodic (sine), chaotic (Lorenz), stochastic\n"
-"(noise). Standard testbed for recurrence analysis."
+"We start with three signals representing the main dynamical classes\n"
+"you will encounter in neural data:\n"
+"\n"
+"- **Periodic** (sine) -- regular oscillations, like theta or gamma\n"
+"  rhythms\n"
+"- **Chaotic** (Lorenz attractor) -- deterministic but unpredictable,\n"
+"  like population dynamics during complex behavior\n"
+"- **Stochastic** (white noise) -- no temporal structure, the null\n"
+"  hypothesis\n"
+"\n"
+"Each signal is also wrapped as a " + L["TimeSeries"] + " so we can\n"
+"use the DRIADA high-level API throughout."
 ))
 
 cells.append(code_cell(
@@ -157,6 +205,9 @@ cells.append(code_cell(
 '    "Noise (stochastic)": "#7f7f7f",\n'
 "}\n"
 "\n"
+"# Wrap each signal as a TimeSeries for the DRIADA API\n"
+"ts_signals = {name: TimeSeries(sig) for name, sig in signals.items()}\n"
+"\n"
 "print(f\"Generated {N} points for each signal:\")\n"
 "for name in signals:\n"
 "    sig = signals[name]\n"
@@ -168,59 +219,41 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 1.2 Embedding parameter selection\n"
 "\n"
-"Takens' theorem: reconstruct the attractor from a 1D observable using\n"
-"time-delay embedding. Two parameters are needed:\n"
+"[Takens' theorem](https://en.wikipedia.org/wiki/Takens%27s_theorem)\n"
+"lets us reconstruct the attractor from a single 1D observable using\n"
+"**time-delay embedding**.  Two parameters are needed:\n"
 "\n"
 "- **tau** (time delay) -- first minimum of time-delayed mutual\n"
-"  information (TDMI)\n"
+"  information (TDMI).  In DRIADA:\n"
+"  " + L["estimate_tau"] + "\n"
 "- **dim** (embedding dimension) -- where the false nearest neighbours\n"
-"  (FNN) fraction drops below 5%\n"
+"  (FNN) fraction drops below 5%.  In DRIADA:\n"
+"  " + L["estimate_embedding_dim"] + "\n"
 "\n"
-"For noise, FNN never drops below 5% because there is no attractor to\n"
-"unfold. The returned dim equals max_dim (a ceiling, not a meaningful\n"
-"dimension)."
+"In practice, a single call to `ts.estimate_tau()` and\n"
+"`ts.estimate_embedding_dim()` is all you need.  The diagnostic curves\n"
+"below show what happens under the hood.\n"
+"\n"
+"For noise, FNN never drops below 5 % because there is no attractor to\n"
+"unfold.  The returned dim equals `max_dim` (a ceiling, not a\n"
+"meaningful dimension)."
 ))
 
 cells.append(code_cell(
-"def compute_fnn_fractions(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0):\n"
-'    """Compute FNN fraction for each candidate embedding dimension."""\n'
-"    data = np.asarray(data, dtype=float).ravel()\n"
-"    attractor_size = np.std(data)\n"
-"    dist_tol = attractor_size * 1e-8\n"
-"    fractions = []\n"
-"    for m in range(2, max_dim + 1):\n"
-"        emb_m = takens_embedding(data, tau, m).T\n"
-"        emb_m1 = takens_embedding(data, tau, m + 1).T\n"
-"        n_m1 = emb_m1.shape[0]\n"
-"        emb_m_trimmed = emb_m[:n_m1]\n"
-"        tree = cKDTree(emb_m_trimmed)\n"
-"        dists, indices = tree.query(emb_m_trimmed, k=2)\n"
-"        nn_dists_m = dists[:, 1]\n"
-"        nn_indices = indices[:, 1]\n"
-"        nn_dists_m1 = np.linalg.norm(emb_m1 - emb_m1[nn_indices], axis=1)\n"
-"        valid = nn_dists_m > dist_tol\n"
-"        if not np.any(valid):\n"
-"            fractions.append((m, 0.0))\n"
-"            continue\n"
-"        ratio = np.zeros(n_m1)\n"
-"        ratio[valid] = np.abs(nn_dists_m1[valid] - nn_dists_m[valid]) / nn_dists_m[valid]\n"
-"        c1 = ratio > r_tol\n"
-"        c2 = (nn_dists_m1 / attractor_size) > a_tol\n"
-"        fractions.append((m, np.sum(c1 | c2) / n_m1))\n"
-"    return fractions\n"
-"\n"
-"\n"
 "# Estimate parameters for each signal\n"
 "params = {}\n"
 "tdmi_curves = {}\n"
 "fnn_curves = {}\n"
 "\n"
 "for name, sig in signals.items():\n"
+"    # TDMI curve (for diagnostic plot)\n"
 "    tdmi = get_tdmi(sig, min_shift=1, max_shift=81, estimator=\"gcmi\")\n"
 "    tdmi_curves[name] = tdmi\n"
+"\n"
+"    # Estimate tau and dim via the DRIADA API\n"
 "    tau = estimate_tau(sig, max_shift=80)\n"
-"    dim = estimate_embedding_dim(sig, tau=tau, max_dim=10)\n"
-"    fnn = compute_fnn_fractions(sig, tau, max_dim=10)\n"
+"    dim, fnn = estimate_embedding_dim(sig, tau=tau, max_dim=10,\n"
+"                                       return_fractions=True)\n"
 "    fnn_curves[name] = fnn\n"
 "    params[name] = (tau, dim)\n"
 "    print(f\"{name}: tau={tau}, dim={dim}\")\n"
@@ -274,7 +307,8 @@ cells.append(md_cell(
 "### 1.3 3D delay embedding\n"
 "\n"
 "Delay-embedded Lorenz attractor recovers the butterfly shape from a\n"
-"scalar observable -- Takens' theorem in action."
+"scalar observable -- Takens' theorem in action.  The\n"
+"`takens_embedding` function returns a `(dim, N_embedded)` array."
 ))
 
 cells.append(code_cell(
@@ -326,21 +360,27 @@ cells.append(md_cell(
 "### 1.4 Recurrence plots\n"
 "\n"
 "A recurrence plot (RP) is a binary matrix where a dot at (i, j) means\n"
-"states at times i and j are close in embedding space.\n"
+"states at times i and j are close in embedding space.  We build them\n"
+"using " + L["TimeSeries"] + "`.recurrence_graph()`, which handles\n"
+"embedding and Theiler window automatically:\n"
 "\n"
-"- **Diagonal lines** = determinism\n"
-"- **Vertical lines** = laminarity\n"
-"- **Uniform scatter** = noise (no temporal structure)"
+"- **Diagonal lines** = determinism (the system follows similar\n"
+"  trajectories)\n"
+"- **Vertical lines** = laminarity (the system gets trapped in a\n"
+"  state)\n"
+"- **Uniform scatter** = noise (no temporal structure)\n"
+"\n"
+"See " + L["RecurrenceGraph"] + " and " + L["plot_recurrence"] + "\n"
+"for details."
 ))
 
 cells.append(code_cell(
 "# Build k-NN recurrence graphs (k=5) for all three signals\n"
+"# ts.recurrence_graph() handles embedding + Theiler window automatically\n"
 "graphs = {}\n"
-"for name, sig in signals.items():\n"
+"for name, ts in ts_signals.items():\n"
 "    tau, dim = params[name]\n"
-"    emb = takens_embedding(sig, tau=tau, m=dim)\n"
-"    theiler = tau * (dim - 1) + 1\n"
-"    rg = RecurrenceGraph(emb, method=\"knn\", k=5, theiler_window=theiler)\n"
+"    rg = ts.recurrence_graph(tau=tau, m=dim, k=5)\n"
 "    graphs[name] = rg\n"
 "    print(f\"{name}: {rg.n} embedded points, {rg.adj.nnz} recurrence entries\")\n"
 "\n"
@@ -385,14 +425,16 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 1.5 RQA comparison\n"
 "\n"
-"Recurrence Quantification Analysis (RQA) extracts diagonal and vertical\n"
-"line structures from the RP:\n"
+"Recurrence Quantification Analysis\n"
+"(" + L["compute_rqa"] + ") extracts diagonal and vertical line\n"
+"structures from the RP.  These numbers summarize the *type* of\n"
+"dynamics in a single value:\n"
 "\n"
-"| Measure | Definition | Interpretation |\n"
+"| Measure | Definition | Why it matters |\n"
 "|---|---|---|\n"
-"| DET | Fraction of recurrence in diagonal lines (l >= 2) | Determinism |\n"
-"| LAM | Fraction in vertical lines (v >= 2) | Laminarity |\n"
-"| ENTR | Shannon entropy of diagonal line lengths | Complexity |"
+"| **DET** | Fraction of recurrence in diagonal lines (l >= 2) | High DET = the system revisits similar states in predictable sequences -- a hallmark of **deterministic dynamics** |\n"
+"| **LAM** | Fraction in vertical lines (v >= 2) | High LAM = the system gets **trapped** near certain states (laminar phases) |\n"
+"| **ENTR** | Shannon entropy of diagonal line lengths | High ENTR = the deterministic structure is **complex** (many different recurrence lengths) |"
 ))
 
 cells.append(code_cell(
@@ -435,7 +477,18 @@ cells.append(code_cell(
 # --- 1.6 Three graph representations ---
 
 cells.append(md_cell(
-"### 1.6 Three graph representations"
+"### 1.6 Three graph representations\n"
+"\n"
+"DRIADA provides three ways to turn a time series into a graph.  Each\n"
+"captures different aspects of the dynamics:\n"
+"\n"
+"| Representation | Method | What it captures |\n"
+"|---|---|---|\n"
+"| " + L["RecurrenceGraph"] + " | k-NN in embedding space | State-space proximity |\n"
+"| " + L["VisibilityGraph"] + " | Horizontal line-of-sight | Amplitude structure |\n"
+"| " + L["OrdinalPartitionNetwork"] + " | Rank-pattern transitions | Temporal ordering |\n"
+"\n"
+"All three are built via one-liner methods on " + L["TimeSeries"] + "."
 ))
 
 # 1.6a RecurrenceGraph
@@ -444,19 +497,23 @@ cells.append(md_cell(
 "#### RecurrenceGraph\n"
 "\n"
 "RG connects time points whose embedded states are k-nearest neighbours.\n"
-"The adjacency matrix IS the recurrence plot. Nodes = time points,\n"
-"edges = recurrence."
+"The adjacency matrix IS the recurrence plot.  Since\n"
+"" + L["RecurrenceGraph"] + " inherits from " + L["Network"] + ",\n"
+"all network analysis methods (spectral decomposition, community\n"
+"detection, etc.) are available directly."
 ))
 
 cells.append(code_cell(
-"tau_sine, dim_sine = params[\"Sine (periodic)\"]\n"
+"from scipy.stats import rankdata\n"
 "\n"
-"# Build RG for sine with k=10 and create_nx_graph=True for visualization\n"
-"ts_sine = TimeSeries(sine)\n"
+"tau_sine, dim_sine = params[\"Sine (periodic)\"]\n"
+"ts_sine = ts_signals[\"Sine (periodic)\"]\n"
+"\n"
+"# Build RG with k=10 and a NetworkX graph for visualization\n"
 "rg_sine = ts_sine.recurrence_graph(tau=tau_sine, m=dim_sine, k=10,\n"
 "                                    create_nx_graph=True)\n"
 "\n"
-"# RG inherits from Network -- .graph is the networkx graph\n"
+"# .graph is the NetworkX graph (inherited from Network)\n"
 "G_rg = rg_sine.graph\n"
 "\n"
 "pos_rg = nx.spring_layout(G_rg, seed=42, iterations=80)\n"
@@ -481,13 +538,12 @@ cells.append(md_cell(
 "#### HorizontalVisibilityGraph\n"
 "\n"
 "Two time points are connected if a horizontal line-of-sight is\n"
-"unobstructed (no intermediate value exceeds both endpoints). The degree\n"
-"distribution differentiates periodic, chaotic, and random signals\n"
-"(Lacasa et al. 2008). O(N) construction via monotone stack."
+"unobstructed (no intermediate value exceeds both endpoints).  The\n"
+"degree distribution differentiates periodic, chaotic, and random\n"
+"signals (Lacasa et al. 2008).  O(N) construction via monotone stack."
 ))
 
 cells.append(code_cell(
-"ts_sine = TimeSeries(sine)\n"
 "vg = ts_sine.visibility_graph(method=\"horizontal\", create_nx_graph=True)\n"
 "\n"
 "G_vg = vg.graph\n"
@@ -513,9 +569,10 @@ cells.append(code_cell(
 cells.append(md_cell(
 "#### OrdinalPartitionNetwork\n"
 "\n"
-"Delay-embedded windows are reduced to rank patterns (ordinal patterns).\n"
-"Directed edges connect consecutive patterns. Permutation entropy\n"
-"measures the diversity of visited patterns."
+"Delay-embedded windows are reduced to **rank patterns** (ordinal\n"
+"patterns).  Directed edges connect consecutive patterns.  Permutation\n"
+"entropy measures the diversity of visited patterns -- low entropy\n"
+"means the system prefers a small set of orderings."
 ))
 
 cells.append(code_cell(
@@ -554,8 +611,13 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 1.7 Windowed RQA\n"
 "\n"
-"Sliding window over the RP diagonal, computing DET in each window.\n"
-"Tracks regime transitions in non-stationary signals."
+"Real neural recordings are **non-stationary** -- the dynamics change\n"
+"as the animal moves between behavioral states.  Windowed RQA slides a\n"
+"window along the RP diagonal and computes DET in each window, letting\n"
+"us track regime transitions over time.\n"
+"\n"
+"Below we concatenate sine--Lorenz--sine to simulate a regime change\n"
+"and show how windowed DET drops during the chaotic segment."
 ))
 
 cells.append(code_cell(
@@ -571,12 +633,9 @@ cells.append(code_cell(
 "nonstat_signal = np.concatenate([sine_seg1, lorenz_seg_norm, sine_seg2])\n"
 "print(f\"Non-stationary signal: {len(nonstat_signal)} points (sine-Lorenz-sine)\")\n"
 "\n"
-"# Fixed embedding parameters for mixed signal\n"
-"nonstat_tau, nonstat_dim = 12, 5\n"
-"nonstat_emb = takens_embedding(nonstat_signal, tau=nonstat_tau, m=nonstat_dim)\n"
-"nonstat_theiler = nonstat_tau * (nonstat_dim - 1) + 1\n"
-"nonstat_rg = RecurrenceGraph(nonstat_emb, method=\"knn\", k=5,\n"
-"                              theiler_window=nonstat_theiler)\n"
+"# Build recurrence graph with fixed embedding parameters\n"
+"nonstat_ts = TimeSeries(nonstat_signal)\n"
+"nonstat_rg = nonstat_ts.recurrence_graph(tau=12, m=5, k=5)\n"
 "print(f\"Embedded: {nonstat_rg.n} points, {nonstat_rg.adj.nnz} recurrence entries\")\n"
 "\n"
 "\n"
@@ -647,15 +706,27 @@ cells.append(code_cell(
 cells.append(md_cell(
 "## 2. Recovering functional modules from population dynamics\n"
 "\n"
-"Scientific question: can we identify functional modules from dynamics\n"
-"alone? 120 neurons in 6 modules -- same population as notebook 04. No\n"
-"behavioral variables are used."
+"**Scientific question:** can we identify which neurons belong to the\n"
+"same functional group purely from their calcium dynamics, without\n"
+"ever looking at behavioral variables?\n"
+"\n"
+"We generate a synthetic population with **known ground-truth modules**\n"
+"(120 neurons, 6 modules -- same setup as\n"
+"[Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/04_network_analysis.ipynb))\n"
+"so we can objectively measure how well recurrence-based community\n"
+"detection recovers them."
 ))
 
 # --- 2.1 Generate population ---
 
 cells.append(md_cell(
-"### 2.1 Generate population"
+"### 2.1 Generate population\n"
+"\n"
+"We use " + L["generate_tuned_selectivity_exp"] + " to create the\n"
+"synthetic experiment directly at 5 Hz -- no manual downsampling\n"
+"needed.  The `Experiment` object gives us per-neuron\n"
+"" + L["TimeSeries"] + " via `exp.calcium.ts_list`, ready for\n"
+"recurrence analysis."
 ))
 
 cells.append(code_cell(
@@ -676,7 +747,7 @@ cells.append(code_cell(
 "    population=population,\n"
 "    n_discrete_features=3,\n"
 "    duration=600,\n"
-"    fps=20.0,\n"
+"    fps=5.0,\n"
 "    baseline_rate=0.05,\n"
 "    peak_rate=2.0,\n"
 "    decay_time=2.0,\n"
@@ -685,13 +756,11 @@ cells.append(code_cell(
 "    verbose=True,\n"
 ")\n"
 "\n"
-"# Downsample calcium to 5 Hz\n"
-"ds = 4\n"
-"calcium = exp.calcium.data[:, ::ds]\n"
-"n_neurons, n_frames = calcium.shape\n"
-"fps_eff = 20.0 / ds\n"
+"# exp.calcium is a MultiTimeSeries; .ts_list gives per-neuron TimeSeries\n"
+"n_neurons, n_frames = exp.calcium.data.shape\n"
+"ts_list = exp.calcium.ts_list\n"
 "\n"
-"print(f\"\\n{n_neurons} neurons, {n_frames} frames ({fps_eff:.0f} Hz)\")\n"
+"print(f\"\\n{n_neurons} neurons, {n_frames} frames ({exp.fps:.0f} Hz)\")\n"
 "for g in population:\n"
 "    feat_str = \" OR \".join(g[\"features\"])\n"
 "    print(f\"  {g['count']:>2} {g['name']:<12} -> {feat_str}\")"
@@ -702,8 +771,11 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 2.2 Per-neuron embedding and RQA\n"
 "\n"
-"For each neuron: estimate tau (TDMI), dim (FNN), build k-NN recurrence\n"
-"graph (k=50), compute RQA."
+"Each neuron's calcium trace has its own optimal embedding parameters.\n"
+"We use the " + L["TimeSeries"] + " methods to estimate tau and dim,\n"
+"then build a k-NN recurrence graph (k=50) and compute RQA.  The\n"
+"recurrence graphs are cached on each `TimeSeries`, so we can reuse\n"
+"them later without rebuilding."
 ))
 
 cells.append(code_cell(
@@ -724,18 +796,18 @@ cells.append(code_cell(
 "    groups.setdefault(m, []).append(idx)\n"
 "module_names = sorted(groups.keys())\n"
 "\n"
-"# Wrap each neuron as TimeSeries\n"
-"ts_list = [TimeSeries(calcium[i]) for i in range(n_neurons)]\n"
-"\n"
 "print(\"Computing per-neuron embedding and RQA...\")\n"
 "taus = np.empty(n_neurons, dtype=int)\n"
 "dims = np.empty(n_neurons, dtype=int)\n"
 "rqa_results = []\n"
+"per_neuron_rgs = []\n"
 "\n"
 "for i, ts in enumerate(ts_list):\n"
 "    taus[i] = ts.estimate_tau(max_shift=60)\n"
 "    dims[i] = ts.estimate_embedding_dim(tau=taus[i], max_dim=15)\n"
 "    rqa_results.append(ts.rqa(tau=taus[i], m=dims[i], k=50))\n"
+"    # The RG is now cached on ts; retrieve it for later use\n"
+"    per_neuron_rgs.append(ts.recurrence_graph(tau=taus[i], m=dims[i], k=50))\n"
 "\n"
 "print(f\"\\n{'Module':<15} {'n':>3} {'tau':>6} {'dim':>5}\"\n"
 "      f\" {'DET':>7} {'LAM':>7} {'ENTR':>7}\")\n"
@@ -751,23 +823,65 @@ cells.append(code_cell(
 "          f\" {det.mean():>6.3f} {lam.mean():>6.3f} {entr.mean():>6.3f}\")"
 ))
 
+# --- 2.2b RQA box plots ---
+
+cells.append(md_cell(
+"The table above shows module-level averages.  Box plots reveal the\n"
+"**full distribution** of RQA measures within each module -- do all\n"
+"neurons in a group behave similarly, or is there high variability?"
+))
+
+cells.append(code_cell(
+"MODULE_SHORT = {\n"
+"    \"event_0\": \"E1\", \"event_1\": \"E2\", \"event_2\": \"E3\",\n"
+"    \"event_0|1\": \"E1|E2\", \"event_0|2\": \"E1|E3\", \"event_1|2\": \"E2|E3\",\n"
+"}\n"
+"\n"
+"fig, axes = plt.subplots(1, 3, figsize=(15, 5))\n"
+"\n"
+"for ax, measure in zip(axes, [\"DET\", \"LAM\", \"ENTR\"]):\n"
+"    data_by_mod = []\n"
+"    labels = []\n"
+"    for m in module_names:\n"
+"        vals = [rqa_results[i][measure] for i in groups[m]]\n"
+"        data_by_mod.append(vals)\n"
+"        labels.append(MODULE_SHORT[m])\n"
+"\n"
+"    bp = ax.boxplot(data_by_mod, labels=labels, patch_artist=True)\n"
+"    for patch, m in zip(bp[\"boxes\"], module_names):\n"
+"        patch.set_facecolor(\"#aabbdd\")\n"
+"        patch.set_alpha(0.7)\n"
+"\n"
+"    ax.set_title(measure, fontsize=12)\n"
+"    ax.set_xlabel(\"Module\")\n"
+"    ax.grid(axis=\"y\", alpha=0.3)\n"
+"\n"
+"axes[0].set_ylabel(\"Value\")\n"
+"fig.suptitle(\"RQA measure distributions by module\", fontsize=13, y=1.01)\n"
+"fig.tight_layout()\n"
+"plt.show()"
+))
+
 # --- 2.3 Pairwise Jaccard ---
 
 cells.append(md_cell(
 "### 2.3 Pairwise Jaccard similarity\n"
 "\n"
-"Jaccard = |intersection| / |union| of binary RG entries. Same-module\n"
-"neurons recur together, producing higher Jaccard."
+"If two neurons respond to the same events, they recur at the same\n"
+"time points.  The **Jaccard index** quantifies this overlap:\n"
+"\n"
+"$$J(A, B) = \\frac{|A \\cap B|}{|A \\cup B|}$$\n"
+"\n"
+"where A and B are the sets of recurrence entries (nonzero elements of\n"
+"the binary RP).  High Jaccard = neurons share dynamical structure.\n"
+"\n"
+"We use " + L["pairwise_jaccard_sparse"] + " to compute all pairs\n"
+"efficiently via sparse matrix multiplication, then compare\n"
+"within-module vs between-module similarity."
 ))
 
 cells.append(code_cell(
-"# Build recurrence graphs and trim to common size\n"
-"print(\"Building per-neuron recurrence graphs...\")\n"
-"per_neuron_rgs = []\n"
-"for i, ts in enumerate(ts_list):\n"
-"    rg = ts.recurrence_graph(tau=taus[i], m=dims[i], k=50)\n"
-"    per_neuron_rgs.append(rg)\n"
-"\n"
+"# Trim all RGs to common size (different tau/dim -> different embedded lengths)\n"
 "sizes = [rg.n for rg in per_neuron_rgs]\n"
 "min_n = min(sizes)\n"
 "trimmed_adjs = []\n"
@@ -806,9 +920,11 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 2.4 Permutation test\n"
 "\n"
-"Shuffle module labels 1000 times, recompute the within/between ratio\n"
-"each time to build a null distribution. p-value = fraction of shuffled\n"
-"ratios >= observed."
+"Is the within-module similarity genuinely higher, or could it arise\n"
+"by chance?  A **permutation test** answers this: we shuffle module\n"
+"labels 1000 times, recompute the within/between ratio each time, and\n"
+"build a null distribution.  The p-value is the fraction of shuffled\n"
+"ratios that equal or exceed the observed value."
 ))
 
 cells.append(code_cell(
@@ -832,7 +948,22 @@ cells.append(code_cell(
 "\n"
 "print(f\"Observed within/between ratio: {observed_ratio:.3f}\")\n"
 "print(f\"Null distribution: {perm_ratios.mean():.3f} +/- {perm_ratios.std():.3f}\")\n"
-"print(f\"p-value: {perm_p_value:.4f} (1000 permutations)\")"
+"print(f\"p-value: {perm_p_value:.4f} (1000 permutations)\")\n"
+"\n"
+"# Histogram of null distribution vs observed\n"
+"fig, ax = plt.subplots(figsize=(8, 4))\n"
+"ax.hist(perm_ratios, bins=40, color=\"#aabbdd\", edgecolor=\"white\",\n"
+"        linewidth=0.5, label=\"Null distribution\")\n"
+"ax.axvline(observed_ratio, color=\"#d62728\", linewidth=2, linestyle=\"--\",\n"
+"           label=f\"Observed = {observed_ratio:.3f}\")\n"
+"ax.set_xlabel(\"Within/between Jaccard ratio\")\n"
+"ax.set_ylabel(\"Count\")\n"
+"ax.set_title(f\"Permutation test (p = {perm_p_value:.4f}, {n_perms} permutations)\",\n"
+"             fontsize=12)\n"
+"ax.legend(fontsize=9)\n"
+"ax.grid(axis=\"y\", alpha=0.3)\n"
+"fig.tight_layout()\n"
+"plt.show()"
 ))
 
 # --- 2.5 Community detection ---
@@ -840,8 +971,21 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 2.5 Community detection\n"
 "\n"
-"Threshold Jaccard at 90th percentile, extract giant connected\n"
-"component, run Louvain, and compare to ground truth with ARI."
+"Finally, we threshold the Jaccard matrix into a network and run\n"
+"community detection to recover the original modules.\n"
+"\n"
+"- **Threshold** the Jaccard matrix at the 90th percentile to keep\n"
+"  only the strongest edges\n"
+"- Extract the **giant connected component** using " + L["Network"] + "\n"
+"- Run **Louvain** community detection -- a greedy algorithm that\n"
+"  groups nodes to maximize\n"
+"  [modularity](https://en.wikipedia.org/wiki/Modularity_(networks))\n"
+"  (the fraction of edges within communities compared to a random\n"
+"  network)\n"
+"- Compare to ground truth with the **Adjusted Rand Index (ARI)** --\n"
+"  a measure of agreement between two clusterings, corrected for\n"
+"  chance.  ARI = 1.0 is perfect match; ARI near 0 is no better than\n"
+"  random."
 ))
 
 cells.append(code_cell(
@@ -907,18 +1051,16 @@ cells.append(code_cell(
 cells.append(md_cell(
 "### 2.6 Visualizations\n"
 "\n"
-"Three views of results: network graph, Jaccard matrices, and confusion\n"
-"matrix."
+"Three views of the results: the similarity network colored by\n"
+"ground-truth module, Jaccard matrices ordered by module vs by\n"
+"detected community, and a confusion matrix showing how well each\n"
+"community maps to a ground-truth module."
 ))
 
 cells.append(code_cell(
 "MODULE_COLORS = {\n"
 "    \"event_0\": \"#1a5acd\", \"event_1\": \"#ffaa00\", \"event_2\": \"#33cc33\",\n"
 "    \"event_0|1\": \"#cc44cc\", \"event_0|2\": \"#00dddd\", \"event_1|2\": \"#ff4444\",\n"
-"}\n"
-"MODULE_SHORT = {\n"
-"    \"event_0\": \"E1\", \"event_1\": \"E2\", \"event_2\": \"E3\",\n"
-"    \"event_0|1\": \"E1|E2\", \"event_0|2\": \"E1|E3\", \"event_1|2\": \"E2|E3\",\n"
 "}\n"
 "\n"
 "legend_order = [\"event_0\", \"event_1\", \"event_2\",\n"
@@ -1057,6 +1199,11 @@ cells.append(md_cell(
 "\n"
 "- [recurrence_basic](https://github.com/iabs-neuro/driada/tree/main/examples/recurrence_basic) -- Recurrence fundamentals on classic signals\n"
 "- [recurrence_population](https://github.com/iabs-neuro/driada/tree/main/examples/recurrence_population) -- Recovering functional modules from population dynamics\n"
+"\n"
+"API reference:\n"
+"\n"
+"- [Recurrence module](https://driada.readthedocs.io/en/latest/api/recurrence/index.html) -- " + L["RecurrenceGraph"] + ", " + L["estimate_tau"] + ", " + L["estimate_embedding_dim"] + ", " + L["compute_rqa"] + "\n"
+"- [Network module](https://driada.readthedocs.io/en/latest/api/network/index.html) -- " + L["Network"] + " for graph analysis\n"
 "\n"
 "Reference: Marwan, N., Romano, M. C., Thiel, M. & Kurths, J. (2007).\n"
 "Recurrence plots for the analysis of complex systems. *Physics Reports*,\n"

@@ -41,7 +41,7 @@ from driada.recurrence import (
     plot_recurrence,
     compute_rqa,
 )
-from driada.information.info_base import get_tdmi
+from driada.information import get_tdmi
 
 # =============================================================================
 # SIGNAL COLORS (consistent throughout all figures)
@@ -94,71 +94,6 @@ def _lorenz_series(n, dt=0.01, seed=42):
 
     return x_series
 
-
-def _compute_fnn_fractions(data, tau, max_dim=10, r_tol=10.0, a_tol=2.0):
-    """Compute FNN fraction for each candidate embedding dimension.
-
-    Replicates the logic from ``estimate_embedding_dim`` but collects the
-    FNN fraction at every dimension instead of returning early.
-
-    Parameters
-    ----------
-    data : array-like, 1D
-        Time series.
-    tau : int
-        Time delay for embedding.
-    max_dim : int
-        Maximum dimension to evaluate.
-
-    Returns
-    -------
-    dims : list of int
-        Dimensions tested (2 to max_dim).
-    fractions : list of float
-        FNN fraction at each dimension.
-    """
-    from scipy.spatial import cKDTree
-
-    data = np.asarray(data, dtype=float).ravel()
-    attractor_size = np.std(data)
-    dist_tol = attractor_size * 1e-8
-
-    dims, fractions = [], []
-    for m in range(2, max_dim + 1):
-        try:
-            emb_m = takens_embedding(data, tau, m).T
-            emb_m1 = takens_embedding(data, tau, m + 1).T
-        except ValueError:
-            break  # series too short for this dimension
-
-        n_m1 = emb_m1.shape[0]
-        emb_m_trimmed = emb_m[:n_m1]
-
-        tree = cKDTree(emb_m_trimmed)
-        dists, indices = tree.query(emb_m_trimmed, k=2)
-
-        nn_dists_m = dists[:, 1]
-        nn_indices = indices[:, 1]
-
-        nn_dists_m1 = np.linalg.norm(emb_m1 - emb_m1[nn_indices], axis=1)
-
-        valid = nn_dists_m > dist_tol
-        if not np.any(valid):
-            dims.append(m)
-            fractions.append(0.0)
-            continue
-
-        ratio = np.zeros(n_m1)
-        ratio[valid] = np.abs(nn_dists_m1[valid] - nn_dists_m[valid]) / nn_dists_m[valid]
-
-        criterion1 = ratio > r_tol
-        criterion2 = (nn_dists_m1 / attractor_size) > a_tol
-        fnn_fraction = np.sum(criterion1 | criterion2) / n_m1
-
-        dims.append(m)
-        fractions.append(fnn_fraction)
-
-    return dims, fractions
 
 
 def _windowed_det(adj_csr, window_size, step):
@@ -226,7 +161,9 @@ def _fig_embedding(signals, signal_colors, params, max_shift=80, max_dim=10):
 
         # --- FNN curve ---
         ax_fnn = axes[1, col]
-        fnn_dims, fnn_fracs = _compute_fnn_fractions(sig, tau, max_dim=max_dim)
+        dim, fnn = estimate_embedding_dim(sig, tau, max_dim=max_dim, return_fractions=True)
+        fnn_dims = [f[0] for f in fnn]
+        fnn_fracs = [f[1] for f in fnn]
         ax_fnn.plot(fnn_dims, fnn_fracs, "o-", color=color, linewidth=1.5,
                     markersize=5)
         ax_fnn.axhline(0.05, color="k", linestyle="--", linewidth=1, alpha=0.7,

@@ -122,6 +122,37 @@ class TestEstimateEmbeddingDim:
         m = estimate_embedding_dim(data, tau=15, max_dim=8)
         assert 3 <= m <= 6
 
+    def test_return_fractions_type(self):
+        """return_fractions=True returns (int, list of tuples)."""
+        t = np.arange(2000)
+        data = np.sin(2 * np.pi * t / 40)
+        result = estimate_embedding_dim(data, tau=10, max_dim=8,
+                                        return_fractions=True)
+        assert isinstance(result, tuple) and len(result) == 2
+        dim, fractions = result
+        assert isinstance(dim, (int, np.integer))
+        assert isinstance(fractions, list)
+        assert len(fractions) == 7  # max_dim - 1 = 8 - 1
+        for m, frac in fractions:
+            assert isinstance(m, (int, np.integer))
+            assert 0.0 <= frac <= 1.0
+
+    def test_return_fractions_matches_default(self):
+        """Dimension from return_fractions=True matches the default call."""
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal(800)
+        dim_default = estimate_embedding_dim(data, tau=3, max_dim=6)
+        dim_frac, fractions = estimate_embedding_dim(
+            data, tau=3, max_dim=6, return_fractions=True)
+        assert dim_default == dim_frac
+
+    def test_return_fractions_false_is_int(self):
+        """return_fractions=False (default) returns plain int."""
+        data = np.random.randn(500)
+        result = estimate_embedding_dim(data, tau=5, max_dim=6,
+                                        return_fractions=False)
+        assert isinstance(result, (int, np.integer))
+
 
 class TestGetTdmiFFTEquivalence:
     """Verify FFT-accelerated GCMI TDMI matches loop-based computation."""

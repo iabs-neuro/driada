@@ -28,10 +28,12 @@ def estimate_tau(ts, max_shift=100, method='first_minimum', estimator='gcmi', **
     return tau
 
 
-def estimate_embedding_dim(ts, tau=None, max_dim=10, **kw):
+def estimate_embedding_dim(ts, tau=None, max_dim=10, return_fractions=False,
+                           **kw):
     """Estimate embedding dimension for a TimeSeries.
 
-    If tau is None, calls estimate_tau() first. Caches result.
+    If tau is None, calls estimate_tau() first. Caches the dimension
+    (int) regardless of *return_fractions*.
     """
     if ts.discrete:
         raise ValueError("Recurrence analysis requires continuous time series")
@@ -39,16 +41,26 @@ def estimate_embedding_dim(ts, tau=None, max_dim=10, **kw):
     if tau is None:
         tau = estimate_tau(ts)
 
+    from driada.recurrence.embedding import estimate_embedding_dim as _estimate_dim
+
+    if return_fractions:
+        dim, fractions = _estimate_dim(
+            ts.data, tau=tau, max_dim=max_dim, return_fractions=True, **kw
+        )
+        # Cache the int dimension for future non-fractions calls
+        cache_key = (tau, max_dim, tuple(sorted(kw.items())))
+        ts._recurrence_embedding_dim = (cache_key, dim)
+        return dim, fractions
+
     cache_key = (tau, max_dim, tuple(sorted(kw.items())))
     if hasattr(ts, '_recurrence_embedding_dim') and ts._recurrence_embedding_dim is not None:
         cached_key, cached_val = ts._recurrence_embedding_dim
         if cached_key == cache_key:
             return cached_val
 
-    from driada.recurrence.embedding import estimate_embedding_dim as _estimate_dim
-    m = _estimate_dim(ts.data, tau=tau, max_dim=max_dim, **kw)
-    ts._recurrence_embedding_dim = (cache_key, m)
-    return m
+    dim = _estimate_dim(ts.data, tau=tau, max_dim=max_dim, **kw)
+    ts._recurrence_embedding_dim = (cache_key, dim)
+    return dim
 
 
 def takens_embedding(ts, tau=None, m=None):
