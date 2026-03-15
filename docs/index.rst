@@ -24,6 +24,7 @@ Welcome to DRIADA's documentation!
    api/experiment
    api/information
    api/network
+   api/recurrence
    api/rsa
    api/utils
    api/gdrive
