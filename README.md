@@ -36,6 +36,7 @@ All notebooks generate synthetic data internally — no external files needed. S
 - 📐 **Dimensionality Estimation** — PCA-based, effective rank, k-NN, correlation, and geodesic dimension
 - 🔗 **Integration** — map single-cell selectivity onto population manifolds and embedding components
 - 🌐 **Network Analysis** — general-purpose graph analysis (spectral, entropy, communities) for connectomes, functional networks, or dimensionality reduction proximity graphs
+- 🔄 **Recurrence Analysis** — delay embedding, recurrence plots, RQA, visibility graphs, ordinal partition networks for nonlinear dynamics and population module recovery
 - 📏 **RSA** — representational dissimilarity matrices, cross-region and cross-session comparisons
 - 🧪 **Synthetic Data** — generate populations with known ground truth for validation
 - 🔬 **Neuron** — calcium kinetics optimization (rise/decay fitting), event detection, and signal quality metrics

@@ -491,7 +491,14 @@ class Network:
     - 'nlap': Normalized Laplacian (undirected only)
     - 'rwlap': Random walk Laplacian (undirected only)
     - 'lap_out': Out-Laplacian (directed only)
-    - 'lap_in': In-Laplacian (directed only)"""
+    - 'lap_in': In-Laplacian (directed only)
+
+    See Also
+    --------
+    driada.recurrence.RecurrenceGraph : Recurrence graph (subclass via ProximityGraph).
+    driada.recurrence.VisibilityGraph : Visibility graph (subclass).
+    driada.recurrence.OrdinalPartitionNetwork : Ordinal partition network (subclass).
+    driada.dim_reduction.graph.ProximityGraph : k-NN proximity graph (subclass)."""
 
     def __init__(
         self,

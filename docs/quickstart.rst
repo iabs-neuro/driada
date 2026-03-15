@@ -534,6 +534,11 @@ Explore comprehensive examples demonstrating real-world workflows:
 - ``examples/dr_sequence/dr_sequence_neural_example.py`` - Sequential dimensionality reduction pipeline
 - ``examples/dr_simplified_api/dr_simplified_api_demo.py`` - Simple dimensionality reduction API with all supported methods
 
+**Recurrence analysis:**
+
+- ``examples/recurrence_basic/recurrence_basic.py`` - Recurrence plots, RQA, visibility and ordinal graphs
+- ``examples/recurrence_population/recurrence_population.py`` - Recover functional modules from population dynamics
+
 **Complete pipelines:**
 
 - ``examples/full_intense_pipeline/full_intense_pipeline.py`` - Full INTENSE workflow with disentanglement

@@ -156,6 +156,20 @@ class TimeSeries:
         Apply signal filtering and return new TimeSeries.
     approximate_entropy(m=2, r=None)
         Calculate approximate entropy (continuous only).
+    estimate_tau(**kwargs)
+        Estimate optimal embedding delay via TDMI (continuous only).
+    estimate_embedding_dim(**kwargs)
+        Estimate embedding dimension via FNN (continuous only).
+    recurrence_graph(**kwargs)
+        Build recurrence graph with automatic embedding.
+    rqa(**kwargs)
+        Compute recurrence quantification analysis measures.
+    visibility_graph(**kwargs)
+        Build horizontal or natural visibility graph.
+    ordinal_partition_network(**kwargs)
+        Build ordinal partition network from rank patterns.
+    permutation_entropy(**kwargs)
+        Compute permutation entropy.
     define_ts_type(ts)
         Legacy static method for type detection (deprecated).
 

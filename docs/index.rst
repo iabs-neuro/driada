@@ -43,6 +43,7 @@ Key features
 * **INTENSE Analysis**: Information-theoretic selectivity analysis for single neurons
 * **Dimensionality Reduction**: Comprehensive suite including PCA, UMAP, Isomap, autoencoders, and more
 * **Network Analysis**: Graph-based analysis of neural connectivity and dynamics
+* **Recurrence Analysis**: Delay embedding, recurrence plots, RQA, visibility graphs, and ordinal partition networks for nonlinear dynamics
 * **Integration Framework**: Seamlessly connect single-neuron selectivity with population manifolds
 * **RSA**: Representational Similarity Analysis for comparing neural representations
 * **Information Theory**: Entropy and mutual information estimators with advanced corrections
