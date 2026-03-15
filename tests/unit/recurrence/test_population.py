@@ -162,3 +162,28 @@ class TestPairwiseJaccardSparse:
         result = pairwise_jaccard_sparse([m])
         assert result.shape == (1, 1)
         assert result[0, 0] == 1.0
+
+    def test_different_sizes_raises_by_default(self):
+        """Different-sized matrices raise ValueError without trim_to_min."""
+        m1 = sp.eye(5, format='csr')
+        m2 = sp.eye(6, format='csr')
+        with pytest.raises(ValueError, match="trim_to_min"):
+            pairwise_jaccard_sparse([m1, m2])
+
+    def test_trim_to_min(self):
+        """trim_to_min=True trims larger matrices to smallest common size."""
+        m1 = sp.eye(5, format='csr')
+        m2 = sp.eye(6, format='csr')
+        result = pairwise_jaccard_sparse([m1, m2], trim_to_min=True)
+        assert result.shape == (2, 2)
+        assert result[0, 0] == 1.0
+        assert result[1, 1] == 1.0
+
+    def test_accepts_recurrence_graph_objects(self):
+        """RecurrenceGraph objects are accepted via .adj attribute."""
+        data = np.sin(np.linspace(0, 4 * np.pi, 200))
+        emb = takens_embedding(data, tau=5, m=3)
+        rg = RecurrenceGraph(emb, method='knn', k=3)
+        result = pairwise_jaccard_sparse([rg, rg])
+        assert result.shape == (2, 2)
+        assert abs(result[0, 1] - 1.0) < 1e-10

@@ -77,7 +77,7 @@ def population_recurrence_graph(recurrence_graphs, method='joint', threshold=1.0
     return RecurrenceGraph.from_adjacency(adj)
 
 
-def pairwise_jaccard_sparse(matrices):
+def pairwise_jaccard_sparse(matrices, trim_to_min=False):
     """Compute pairwise Jaccard similarity for sparse binary matrices.
 
     Uses sparse matrix multiplication to compute all pairwise intersection
@@ -85,8 +85,14 @@ def pairwise_jaccard_sparse(matrices):
 
     Parameters
     ----------
-    matrices : list of scipy.sparse matrices
-        Square binary adjacency matrices, all of the same shape.
+    matrices : list of scipy.sparse matrices or RecurrenceGraph objects
+        Square binary adjacency matrices.  RecurrenceGraph objects are
+        accepted (uses ``.adj``).
+    trim_to_min : bool, default=False
+        If True, matrices with different sizes (e.g., from per-neuron
+        embeddings with different tau/dim) are trimmed to the smallest
+        common size before comparison.  If False (default), different
+        sizes raise ValueError.
 
     Returns
     -------
@@ -97,14 +103,31 @@ def pairwise_jaccard_sparse(matrices):
     Raises
     ------
     ValueError
-        If matrices have different shapes or list is empty.
+        If list is empty, or if matrices have different shapes and
+        *trim_to_min* is False.
     """
     if not matrices:
         raise ValueError("matrices must be non-empty")
 
-    shapes = {m.shape for m in matrices}
-    if len(shapes) > 1:
-        raise ValueError(f"All matrices must have the same shape, got {shapes}")
+    # Accept RecurrenceGraph objects
+    adjs = []
+    for m in matrices:
+        adjs.append(m.adj if hasattr(m, 'adj') else m)
+    matrices = adjs
+
+    sizes = [m.shape[0] for m in matrices]
+    if len(set(sizes)) > 1:
+        if not trim_to_min:
+            raise ValueError(
+                f"All matrices must have the same shape, got sizes "
+                f"{sorted(set(sizes))}. Pass trim_to_min=True to trim "
+                f"to the smallest common size."
+            )
+        min_n = min(sizes)
+        matrices = [
+            m[:min_n, :min_n] if m.shape[0] > min_n else m
+            for m in matrices
+        ]
 
     n_matrices = len(matrices)
     n = matrices[0].shape[0]

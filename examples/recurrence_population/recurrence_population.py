@@ -218,8 +218,6 @@ def main():
         dims = cache["dims"]
         rqa_results = cache["rqa_results"]
         sim_matrix = cache["sim_matrix"]
-        trimmed_adjs = cache["trimmed_adjs"]
-        min_n = cache["min_n"]
         demo_rg_adj = cache["demo_rg_adj"]
         demo_vg_adj = cache["demo_vg_adj"]
         demo_opn_adj = cache["demo_opn_adj"]
@@ -351,7 +349,7 @@ def main():
         demo_opn_pattern_ids = demo_opn._pattern_ids
 
         # -----------------------------------------------------------------
-        # Step 4: Build recurrence graphs and trim to common size
+        # Step 4: Build per-neuron recurrence graphs
         # -----------------------------------------------------------------
         print("\n[4] Building recurrence graphs...")
 
@@ -359,27 +357,16 @@ def main():
         for i, ts in enumerate(ts_list):
             rg = ts.recurrence_graph(tau=taus[i], m=dims[i], k=CONFIG["k"])
             per_neuron_rgs.append(rg)
-
-        # Different tau/dim per neuron means different embedded lengths.
-        # Trim all RGs to the smallest so Jaccard is computed on equal-size matrices.
-        sizes = [rg.n for rg in per_neuron_rgs]
-        min_n = min(sizes)
-        trimmed_adjs = []
-        for rg in per_neuron_rgs:
-            if rg.n > min_n:
-                trimmed_adjs.append(rg.adj[:min_n, :min_n])
-            else:
-                trimmed_adjs.append(rg.adj)
-        print(f"  {n_neurons} graphs, trimmed to {min_n} time points")
+        print(f"  {n_neurons} graphs built")
 
         # -----------------------------------------------------------------
         # Step 5: Pairwise Jaccard similarity
         # -----------------------------------------------------------------
         print("\n[5] Pairwise Jaccard similarity...")
 
-        # Jaccard(A,B) = |A inter B| / |A union B| on flattened binary RG entries.
-        # Uses sparse matrix multiplication for all pairs in one shot.
-        sim_matrix = pairwise_jaccard_sparse(trimmed_adjs)
+        # Accepts RecurrenceGraph objects directly; trim_to_min handles
+        # different embedded lengths from per-neuron tau/dim.
+        sim_matrix = pairwise_jaccard_sparse(per_neuron_rgs, trim_to_min=True)
 
         # Split pairwise Jaccard into within-module and between-module pairs
         within_vals = []
@@ -488,8 +475,6 @@ def main():
             "dims": dims,
             "rqa_results": rqa_results,
             "sim_matrix": sim_matrix,
-            "trimmed_adjs": trimmed_adjs,
-            "min_n": min_n,
             "demo_rg_adj": demo_rg_adj,
             "demo_vg_adj": demo_vg_adj,
             "demo_opn_adj": demo_opn_adj,
