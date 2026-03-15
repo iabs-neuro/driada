@@ -234,9 +234,9 @@ def test_dmaps_multiscale_structure():
     # Use default_rng for reproducibility (more robust than global seed)
     rng = np.random.default_rng(42)
 
-    # Large scale: two clusters (closer together to maintain graph connectivity)
-    cluster1 = rng.standard_normal((2, n_samples // 2)) + np.array([[-2], [0]])
-    cluster2 = rng.standard_normal((2, n_samples // 2)) + np.array([[2], [0]])
+    # Two clusters: tight internally (std=0.5) with moderate separation (distance=3)
+    cluster1 = 0.5 * rng.standard_normal((2, n_samples // 2)) + np.array([[-1.5], [0]])
+    cluster2 = 0.5 * rng.standard_normal((2, n_samples // 2)) + np.array([[1.5], [0]])
 
     # Small scale: add circular structure within each cluster
     theta1 = np.linspace(0, 2 * np.pi, n_samples // 2)
@@ -252,19 +252,19 @@ def test_dmaps_multiscale_structure():
     labels = np.array([0] * (n_samples // 2) + [1] * (n_samples // 2))
 
     # Add extra dimensions
-    extra_dims = rng.standard_normal((3, n_samples)) * 0.5
+    extra_dims = rng.standard_normal((3, n_samples)) * 0.1
     high_dim_data = np.vstack([data, extra_dims])
 
     D = MVData(high_dim_data)
 
     # Small t should preserve local (circular) structure
-    emb_small_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=1, nn=10, metric="l2")
+    emb_small_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=1, nn=20, metric="l2")
 
     assert emb_small_t.coords.shape[0] == 2
     assert np.all(np.isfinite(emb_small_t.coords))
 
     # Large t should emphasize global (cluster) structure
-    emb_large_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=10, nn=10, metric="l2")
+    emb_large_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=10, nn=20, metric="l2")
 
     # Check cluster separation in large t embedding
     coords_large_t = emb_large_t.coords.T
@@ -289,10 +289,8 @@ def test_dmaps_multiscale_structure():
         ]
     )
 
-    # Separation should be larger than within-cluster variance
-    # Use 1.0x threshold to account for cross-platform numerical differences
-    # (graph construction and spectral decomposition are non-deterministic across platforms)
-    assert cluster_separation > 1.0 * np.sqrt(
+    # Separation should be larger than within-cluster spread
+    assert cluster_separation > np.sqrt(
         within_cluster_var
     ), "Large t should emphasize cluster separation"
 

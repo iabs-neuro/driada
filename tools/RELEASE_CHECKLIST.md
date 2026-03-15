@@ -20,6 +20,8 @@
 - [ ] Publication dates match release year (if applicable)
 - [ ] README BibTeX citation key and year are current
 - [ ] README has no "pre-release" or stale version language
+- [ ] No hardcoded counts that go stale (example counts, notebook counts,
+  test counts) — use vague language or omit
 - [ ] Python version requirement is correct everywhere (README, pyproject.toml, classifiers)
 
 **Found:** 4 files had different version numbers (0.6.6, 0.7.2, 1.0.0 simultaneously),
