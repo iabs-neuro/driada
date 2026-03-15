@@ -23,9 +23,25 @@
 - [ ] No hardcoded counts that go stale (example counts, notebook counts,
   test counts) — use vague language or omit
 - [ ] Python version requirement is correct everywhere (README, pyproject.toml, classifiers)
+- [ ] Project name/title consistent across all surfaces:
+  - `CITATION.cff` title
+  - README acronym expansion (line 3)
+  - `docs/index.rst` description
+  - BibTeX blocks in README, `docs/license.rst`, `PUBLICATIONS.md`
+  - `src/driada/__init__.py` module docstring
+- [ ] New modules referenced in ALL key documentation:
+  - README Key Capabilities list
+  - `docs/index.rst` Key features list
+  - `docs/examples.rst` (with all example scripts)
+  - `docs/quickstart.rst` Next steps
+  - Notebook 00 "Next steps" list
+  - Class docstrings (TimeSeries methods, Network subclasses in See Also)
 
 **Found:** 4 files had different version numbers (0.6.6, 0.7.2, 1.0.0 simultaneously),
 placeholder dates in CITATION.cff, stale BibTeX key, README still saying "pre-release."
+In v1.1.0: CITATION.cff had different title than bibtex everywhere; recurrence missing
+from README Key Capabilities, index.rst Key features, quickstart Next steps, TimeSeries
+docstring, Network See Also.
 
 ---
 

@@ -4,7 +4,7 @@
 # GitHub and Zenodo parse this file automatically
 
 cff-version: 1.2.0
-title: "DRIADA: A Python Framework Bridging Selectivity of Single Neurons and Population Dynamics"
+title: "DRIADA: Dimensionality Reduction for Integrated Activity Data Analysis"
 message: "If you use this software, please cite it as below."
 type: software
 authors:

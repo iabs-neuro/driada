@@ -1,6 +1,6 @@
 # DRIADA
 
-**D**imensionality **R**eduction for **I**ntegrated **A**ctivity **Da**ta — a Python framework for analyzing neural population activity at both single-neuron and population levels.
+**D**imensionality **R**eduction for **I**ntegrated **A**ctivity **D**ata **A**nalysis — a Python framework for analyzing neural population activity at both single-neuron and population levels.
 
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://img.shields.io/pypi/v/driada.svg)](https://pypi.org/project/driada/)
