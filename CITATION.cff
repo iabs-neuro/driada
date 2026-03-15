@@ -52,8 +52,8 @@ authors:
 repository-code: "https://github.com/iabs-neuro/driada"
 url: "https://driada.readthedocs.io"
 license: MIT
-version: 1.0.0
-date-released: 2026-03-01
+version: 1.1.0
+date-released: 2026-03-15
 keywords:
   - neuroscience
   - calcium imaging

@@ -22,7 +22,7 @@ The complete license text is available in the `LICENSE <https://github.com/iabs-
 Citation
 --------
 
-A paper describing DRIADA has been submitted to the `Journal of Open Source Software (JOSS) <https://joss.theoj.org/>`_. In the meantime, please cite:
+If you use DRIADA in your research, please cite:
 
 .. code-block:: bibtex
 

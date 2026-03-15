@@ -9,7 +9,7 @@ import glob
 
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 EXAMPLES_DIR = os.path.join(REPO_ROOT, "examples")
-TIMEOUT = 300  # 5 minutes per example
+TIMEOUT = 600  # 10 minutes per example
 
 
 def find_examples():

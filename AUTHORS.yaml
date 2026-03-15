@@ -2,9 +2,8 @@
 #
 # This file contains author information used in:
 # - CITATION.cff (machine-readable citation)
-# - paper.md (JOSS paper)
 #
-# When adding/updating authors, manually sync to those files.
+# When adding/updating authors, manually sync to CITATION.cff.
 
 authors:
   - family-names: "Pospelov"

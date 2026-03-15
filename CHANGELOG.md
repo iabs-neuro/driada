@@ -7,9 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-03-15
+
+**Recurrence analysis module and INTENSE improvements**
+
+68 commits, 136 files changed, 12,017 insertions, 1,118 deletions since v1.0.0.
+2,052 tests passing on Linux, macOS, Windows (Python 3.9-3.13).
+
+### Recurrence analysis (new module)
+
+Full nonlinear time series analysis toolkit in `driada.recurrence`:
+
+- **`RecurrenceGraph`** — k-NN and epsilon-ball recurrence graphs with Theiler window exclusion, inheriting from Network for full spectral/community analysis
+- **`VisibilityGraph`** — horizontal (O(N) monotone stack) and natural visibility graphs for amplitude-structure analysis
+- **`OrdinalPartitionNetwork`** — ordinal rank-pattern transition networks with permutation entropy for temporal ordering analysis
+- **`compute_rqa`** — recurrence quantification analysis extracting DET, LAM, ENTR, and 7 other measures from diagonal/vertical line structures
+- **`estimate_tau` / `estimate_embedding_dim`** — automated Takens embedding parameter selection via TDMI first minimum and FNN criterion. `return_fractions=True` mode for diagnostic plots
+- **`pairwise_jaccard_sparse`** — vectorized pairwise Jaccard similarity via sparse matmul. Accepts RecurrenceGraph objects directly; `trim_to_min=True` handles different-sized embeddings from per-neuron parameters
+- **`population_recurrence_graph`** — combine per-neuron recurrence graphs via joint (AND threshold) or mean strategies
+- **TimeSeries integration** — all recurrence functions available as cached methods on `TimeSeries` and `MultiTimeSeries`, with automatic tau/dim estimation and Theiler window calculation
+- **Optional Numba acceleration** — JIT-compiled RQA scanning for large recurrence matrices
+
+### INTENSE features
+
+- **Signal ratio** — quantitative selectivity strength metric for binary and linear continuous features. Measures how much stronger the neural response is during active vs baseline periods (`b913762`, `b87d39d`)
+- **Anti-selectivity filter** — `remove_anti_selective` option drops neurons with signal_ratio <= 1 before disentanglement, removing suppressed responses that confuse redundancy/synergy analysis (`ca68532`)
+- **Disentanglement delay correction** — optimal delays now applied during CMI computation in the disentanglement pipeline, fixing a bias where unshifted features underestimated multi-feature interactions (`81cb05c`)
+- **Exhaustive shuffle sampling** — when the number of valid circular shifts is small, INTENSE now samples exhaustively instead of drawing with replacement, eliminating duplicate shuffles (`20de17b`)
+
+### INTENSE bug fixes
+
+- **Circular feature `_2d` handling** — original circular features now correctly excluded from the feature bunch when their `_2d` (cos, sin) counterparts are present, preventing double-counting in significance testing (`2ec0299`)
+- **2D copula axis bug** — `np.roll` axis corrected for 2D copula-normal data in the FFT path (`cef50be`)
+- **Signal ratio delay alignment** — uses `np.roll` instead of array truncation, preserving frame count consistency (`c9ee988`)
+- **Feature-feature pipeline return arity** — `compute_feat_feat_significance` now returns a consistent 5-tuple across all code paths (`c7f3ddb`)
+
+### Dimensionality reduction
+
+- **ClassificationLoss** — supervised loss component for autoencoders that trains embeddings to preserve categorical structure alongside reconstruction (`46e5a75`)
+- **FlexibleVAE latent dimension** — `_latent_dim` now correctly passed during VAE construction (`f33b31b`)
+- **Optimizer parameter deduplication** — duplicate parameter registration in autoencoder models fixed (`70426b9`)
+- **Graph preprocessing** — explicit `None` for `graph_preprocessing` now respected instead of falling through to default (`ecd2e45`)
+
+### Performance
+
+- **FFT-accelerated TDMI** — `get_tdmi` uses FFT cross-correlation for GCMI estimator, matching the INTENSE pipeline optimization (`8a4848d`)
+- **INTENSE pair masking** — FFT cache builder skips unused neuron-feature pairs when `pair_mask` is provided (`ca59fa8`)
+- **Cell-cell memory** — float32/int32 casting for cell-cell significance arrays reduces peak memory by 50% (`bb2661c`)
+- **ProximityGraph construction** — skip directionality detection, use cKDTree for neighbor search, vectorized sparse operations (`66a327a`, `6cd8823`)
+
+### Tutorial notebook
+
+- **Notebook 06: Recurrence analysis** — Colab-ready tutorial covering delay embedding, recurrence plots, RQA, three graph representations (RG, HVG, OPN), windowed regime detection, and population module recovery via Jaccard similarity network. Full ReadTheDocs API cross-links and metric explanations
+
+### Documentation
+
+- **Recurrence API reference** — 7 Sphinx pages covering all recurrence submodules (embedding, recurrence_graph, rqa, population, visibility, opn, plotting)
+- **Notebook validation protocol** — added checks for API cross-links and user-friendly concept explanations
+- **Example validation** — all 25 examples re-verified; output path fixes, ASCII compliance
+
+---
+
 ## [1.0.0] - 2026-03-01
 
-**First stable release — JOSS publication**
+**First stable release**
 
 95 commits, 282 files changed, 30,481 insertions, 9,826 deletions since v0.7.2.
 1,875 tests passing on Linux, macOS, Windows (Python 3.9-3.13).
@@ -43,7 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tutorial notebooks (new)
 
-Seven Colab-ready notebooks with auto-generation scripts (`tools/create_notebook_0X.py`):
+Six Colab-ready notebooks with auto-generation scripts (`tools/create_notebook_0X.py`):
 
 0. **DRIADA overview** — Core data structures, quick tour of INTENSE, dimensionality reduction, and networks (`0f9b806`)
 1. **Data loading & neuron analysis** — Experiment construction, spike reconstruction methods comparison, surrogate generation (`37b71d4`)
@@ -51,9 +112,8 @@ Seven Colab-ready notebooks with auto-generation scripts (`tools/create_notebook
 3. **Population geometry & DR** — MVData API, method comparison benchmark (PCA, Isomap, UMAP), sequential DR, autoencoder DR, circular manifold extraction, INTENSE-guided DR (`df27aef`)
 4. **Network analysis** — Network construction, spectral decomposition, community detection, thermodynamic entropy, ProximityGraph from DR (`e1515fc`)
 5. **Advanced capabilities** — INTENSE + DR pipeline, leave-one-out importance, RSA, RNN analysis (`b4d2b15`)
-6. **Recurrence analysis** — Delay embedding, recurrence plots, RQA, visibility/ordinal graphs, population module recovery
 
-All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigation links and API documentation links across all 7. Sentence case throughout.
+All notebooks verified executable via `tools/verify_notebooks.py`. Cross-navigation links and API documentation links. Sentence case throughout.
 
 ### Documentation overhaul
 

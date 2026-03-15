@@ -13,7 +13,8 @@ Alternatively, you can view the `changelog on GitHub <https://github.com/iabs-ne
 Version History
 ---------------
 
-- **1.0.0** (2026-01-XX) - First stable release with JOSS publication
+- **1.1.0** (2026-03-15) - Recurrence analysis module, INTENSE signal ratio, supervised DR
+- **1.0.0** (2026-03-01) - First stable release
 - **0.6.6** (2025-12-XX) - Lazy torch imports, distribution optimization
 - **0.6.5** (2025-12-XX) - Wavelet batch optimization
 - **0.6.4** (2025-11-XX) - Publication figure framework, spike reconstruction refactor

@@ -122,7 +122,7 @@ Pospelov, N.A., Plusnin, V.V., Rogozhnikova, O., Ivanova, A., Sotskov, V., Torop
 
 ## Citing DRIADA
 
-A paper describing DRIADA has been submitted to the [Journal of Open Source Software (JOSS)](https://joss.theoj.org/). In the meantime, please cite:
+If you use DRIADA in your research, please cite:
 
 ```bibtex
 @software{driada2026,

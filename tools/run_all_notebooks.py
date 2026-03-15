@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Regenerate and syntax-check all DRIADA notebooks."""
+"""Regenerate, syntax-check, and execute all DRIADA notebooks."""
 
 import os
 import sys
@@ -7,10 +7,12 @@ import time
 import subprocess
 import glob
 import json
+import argparse
 
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 TOOLS_DIR = os.path.join(REPO_ROOT, "tools")
 NOTEBOOKS_DIR = os.path.join(REPO_ROOT, "notebooks")
+EXECUTE_TIMEOUT = 900  # 15 minutes per notebook
 
 
 def find_generators():
@@ -106,17 +108,61 @@ def check_ascii(nb_path):
     return hits
 
 
+def execute_notebook(nb_path):
+    """Execute a notebook top-to-bottom, return (success, elapsed, error_msg)."""
+    out_path = nb_path.replace(".ipynb", "_executed.ipynb")
+    env = os.environ.copy()
+    env["MPLBACKEND"] = "Agg"
+    start = time.time()
+    try:
+        result = subprocess.run(
+            [
+                sys.executable, "-m", "jupyter", "nbconvert",
+                "--to", "notebook", "--execute",
+                "--ExecutePreprocessor.timeout=600",
+                "--output", os.path.basename(out_path),
+                nb_path,
+            ],
+            capture_output=True, text=True, timeout=EXECUTE_TIMEOUT,
+            cwd=REPO_ROOT, env=env,
+        )
+        elapsed = time.time() - start
+        if result.returncode == 0:
+            # Clean up executed notebook
+            if os.path.exists(out_path):
+                os.remove(out_path)
+            return True, elapsed, ""
+        else:
+            error = result.stderr[-500:] if result.stderr else "unknown error"
+            if os.path.exists(out_path):
+                os.remove(out_path)
+            return False, elapsed, error
+    except subprocess.TimeoutExpired:
+        if os.path.exists(out_path):
+            os.remove(out_path)
+        return False, EXECUTE_TIMEOUT, "TIMEOUT"
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Validate DRIADA notebooks")
+    parser.add_argument("--execute", action="store_true",
+                        help="Execute notebooks top-to-bottom (slow)")
+    parser.add_argument("--only", type=str, default=None,
+                        help="Only process notebooks matching this pattern (e.g. '06')")
+    args = parser.parse_args()
+
     print("=" * 60)
     print("Phase 1: Regenerate notebooks from generators")
     print("=" * 60)
     gen_results = run_generators()
 
     print(f"\n{'=' * 60}")
-    print("Phase 2: Syntax check all notebooks")
+    print("Phase 2: Syntax and content check")
     print("=" * 60)
 
     notebooks = find_notebooks()
+    if args.only:
+        notebooks = [n for n in notebooks if args.only in os.path.basename(n)]
     print(f"\nFound {len(notebooks)} notebooks\n")
 
     all_pass = True
@@ -142,6 +188,30 @@ def main():
             print(f"    ERROR: {e}")
         for w in warnings:
             print(f"    WARN: {w}")
+
+    if args.execute:
+        print(f"\n{'=' * 60}")
+        print("Phase 3: Execute notebooks")
+        print("=" * 60)
+        print()
+
+        exec_results = []
+        for nb_path in notebooks:
+            name = os.path.basename(nb_path)
+            print(f"  {name} ... ", end="", flush=True)
+            ok, elapsed, error = execute_notebook(nb_path)
+            status = "OK" if ok else "FAIL"
+            print(f"{status} ({elapsed:.0f}s)")
+            if not ok:
+                all_pass = False
+                for line in error.strip().split("\n")[-5:]:
+                    print(f"    {line}")
+            exec_results.append((name, ok, elapsed))
+
+        total_exec = sum(t for _, _, t in exec_results)
+        exec_passed = sum(1 for _, ok, _ in exec_results if ok)
+        exec_failed = sum(1 for _, ok, _ in exec_results if not ok)
+        print(f"\n  Execution: {exec_passed} passed, {exec_failed} failed ({total_exec:.0f}s total)")
 
     # Summary
     gen_passed = sum(1 for _, ok in gen_results if ok)
