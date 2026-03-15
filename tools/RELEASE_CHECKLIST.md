@@ -17,7 +17,7 @@
 - [ ] `CHANGELOG.md` has actual date (not placeholder)
 - [ ] `CITATION.cff` has actual `date-released` (not placeholder)
 - [ ] `CITATION.cff` ORCID is real (not `0000-0000-0000-0000`)
-- [ ] `paper.md` / `paper.bib` dates match release year
+- [ ] Publication dates match release year (if applicable)
 - [ ] README BibTeX citation key and year are current
 - [ ] README has no "pre-release" or stale version language
 - [ ] Python version requirement is correct everywhere (README, pyproject.toml, classifiers)
@@ -143,7 +143,7 @@ Run the full protocol from `tools/NOTEBOOK_VALIDATION_PROTOCOL.md` on all notebo
   ```bash
   python tools/verify_notebooks.py -v
   ```
-  All 5 must report PASS. Fix any failures before proceeding to manual review.
+  All 7 must report PASS. Fix any failures before proceeding to manual review.
 
 ### Phase 1: Pre-analysis
 - [ ] All imports resolve against current installed package
@@ -197,7 +197,7 @@ markers in educational content.
 
 - [ ] Run each generator and diff output against checked-in notebook:
   ```bash
-  for i in 01 02 03 04 05; do
+  for i in 00 01 02 03 04 05 06; do
     cp notebooks/${i}_*.ipynb /tmp/nb${i}_before.ipynb
     python tools/create_notebook_${i}.py
     python -c "

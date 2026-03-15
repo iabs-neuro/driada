@@ -29,7 +29,7 @@ validation.
 
 ```bash
 cd tools
-for i in 01 02 03 04 05; do
+for i in 00 01 02 03 04 05 06; do
   echo -n "create_notebook_${i}.py ... "
   python create_notebook_${i}.py && echo "OK" || echo "FAIL"
 done
@@ -41,7 +41,7 @@ Any FAIL = stop and fix before proceeding.
 **Action**: Compare freshly generated notebooks against committed versions.
 
 ```bash
-for i in 01 02 03 04 05; do
+for i in 00 01 02 03 04 05 06; do
   python tools/create_notebook_${i}.py
   diff <(python -m json.tool notebooks/*_${i}_*.ipynb) <(python -m json.tool /tmp/generated_${i}.ipynb) || echo "DIVERGED: notebook ${i}"
 done
@@ -50,7 +50,7 @@ done
 If generators and committed notebooks diverge, the generator is the source
 of truth — regenerate and commit.
 
-**Deliverable**: All 5 generators execute cleanly; generated notebooks match committed versions.
+**Deliverable**: All 7 generators execute cleanly; generated notebooks match committed versions.
 
 ---
 
@@ -476,7 +476,7 @@ Wait for explicit user approval before updating any status files.
 For each notebook, verify:
 
 **Phase 0 -- Generator executability**:
-- [ ] All 5 generators run without errors (exit code 0)
+- [ ] All 7 generators run without errors (exit code 0)
 - [ ] Generated notebooks match committed versions
 
 **Phase 1 -- Pre-analysis**:
@@ -527,7 +527,7 @@ For each notebook, verify:
 ## EXECUTION TEMPLATE
 
 ```
-0. Run all 5 generators — verify exit code 0, diff against committed notebooks
+0. Run all 7 generators — verify exit code 0, diff against committed notebooks
 1. Explore relevant DRIADA modules for the notebook's topic
 2. Read the notebook
 3. Fact-check every API call against source code (Phase 2)
