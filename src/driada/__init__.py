@@ -1,5 +1,5 @@
 """
-DRIADA - Dimensionality Reduction for Integrated Activity Data
+DRIADA - Dimensionality Reduction for Integrated Activity Data Analysis
 
 A library for single neuron and population-level analysis of inner workings
 of intelligent systems, from brain neural recordings in vivo to RNNs.

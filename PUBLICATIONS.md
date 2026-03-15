@@ -126,7 +126,7 @@ If you use DRIADA in your research, please cite:
 
 ```bibtex
 @software{driada2026,
-  title = {DRIADA: Dimensionality Reduction for Integrated Activity Data},
+  title = {DRIADA: Dimensionality Reduction for Integrated Activity Data Analysis},
   author = {Pospelov, Nikita and contributors},
   year = {2026},
   url = {https://github.com/iabs-neuro/driada}

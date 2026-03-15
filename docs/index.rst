@@ -3,7 +3,7 @@
 Welcome to DRIADA's documentation!
 ===================================
 
-**DRIADA** (Dimensionality Reduction for Integrated Activity Data) is a comprehensive Python library for analyzing neural population activity through the lens of both single-neuron selectivity and population-level dimensionality reduction.
+**DRIADA** (Dimensionality Reduction for Integrated Activity Data Analysis) is a comprehensive Python library for analyzing neural population activity through the lens of both single-neuron selectivity and population-level dimensionality reduction.
 
 .. toctree::
    :maxdepth: 2

@@ -104,6 +104,23 @@ Network Analysis
        and Gromov hyperbolicity.
 
 
+Recurrence Analysis
+--------------------
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 0
+
+   * - `recurrence_basic <https://github.com/iabs-neuro/driada/tree/main/examples/recurrence_basic>`__
+     - Recurrence fundamentals on classic signals (sine, Lorenz, noise):
+       embedding parameter selection (TDMI, FNN), recurrence plots, RQA measures,
+       three graph representations (RG, HVG, OPN), and windowed regime detection.
+   * - `recurrence_population <https://github.com/iabs-neuro/driada/tree/main/examples/recurrence_population>`__
+     - Recover functional modules from population dynamics alone: per-neuron
+       recurrence graphs, pairwise Jaccard similarity, permutation testing,
+       community detection (Louvain), and ground-truth validation (ARI).
+
+
 RSA — Representational Similarity
 -----------------------------------
 
