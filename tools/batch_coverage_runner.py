@@ -374,7 +374,7 @@ sys.exit(pytest.main([
 
         for module_name, coverage in sorted(module_coverage.items()):
             weighted_cov = coverage["weighted_average"]
-            status = "✅" if weighted_cov >= 85 else "⚠️" if weighted_cov >= 70 else "❌"
+            status = "[OK]" if weighted_cov >= 85 else "[WARN]" if weighted_cov >= 70 else "[FAIL]"
 
             print(
                 f"{status} {module_name:20s}: {weighted_cov:5.1f}% "
@@ -391,7 +391,7 @@ sys.exit(pytest.main([
             for f in uncovered_files:
                 if f["coverage_pct"] < 85:
                     print(
-                        f"  ❌ {f['file'].split('/')[-1]:30s}: {f['coverage_pct']:5.1f}% ({f['statements']} lines)"
+                        f"  [FAIL] {f['file'].split('/')[-1]:30s}: {f['coverage_pct']:5.1f}% ({f['statements']} lines)"
                     )
 
         # Count tests
@@ -422,7 +422,7 @@ sys.exit(pytest.main([
         if failing_modules:
             print("\nFAILING MODULES:")
             for module in failing_modules:
-                print(f"  ❌ {module}")
+                print(f"  [FAIL] {module}")
 
         # Save detailed results
         output = {
@@ -445,7 +445,7 @@ sys.exit(pytest.main([
         with open("batch_coverage_results_v2.json", "w") as f:
             json.dump(output, f, indent=2)
 
-        print("\n✅ Detailed results saved to batch_coverage_results_v2.json")
+        print("\n[OK] Detailed results saved to batch_coverage_results_v2.json")
 
     def run_all_modules(self) -> Dict[str, any]:
         """Run all test modules."""
@@ -463,7 +463,7 @@ sys.exit(pytest.main([
 
 def main():
     """Run batch coverage analysis with improved aggregation."""
-    print("🚀 Starting Batch Coverage Runner V2")
+    print("-- Starting Batch Coverage Runner V2")
     print("Features: Best coverage aggregation, weighted by file size\n")
 
     runner = BatchCoverageRunnerV2()

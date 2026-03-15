@@ -83,12 +83,12 @@ cells.append(md_cell(
 "\n"
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
-"| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
-"| Neuron analysis | [01 -- Neuron analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/01_data_loading_and_neurons.ipynb) | Spike reconstruction, kinetics optimization, quality metrics, surrogates |\n"
-"| Single-neuron selectivity | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
-"| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
-"| Network analysis | [04 -- Network analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/04_network_analysis.ipynb) | Build and analyze interaction graphs |\n"
-"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
+"| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
+"| Neuron analysis | [01 -- Neuron analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | Spike reconstruction, kinetics optimization, quality metrics, surrogates |\n"
+"| Single-neuron selectivity | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
+"| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
+"| Network analysis | [04 -- Network analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | Build and analyze interaction graphs |\n"
+"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
 "| **Recurrence analysis** | **06 -- this notebook** | Recurrence graphs, RQA, graph representations, population modules |\n"
 "\n"
 "**In this notebook:**\n"
@@ -103,9 +103,7 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# TODO: revert to '!pip install -q driada' after v1.0.0 PyPI release\n"
-"# TODO: revert @dev to @main after merging recurrence module to main\n"
-"!pip install -q git+https://github.com/iabs-neuro/driada.git@dev\n"
+"!pip install -q driada\n"
 "%matplotlib inline\n"
 "\n"
 "import numpy as np\n"
@@ -712,7 +710,7 @@ cells.append(md_cell(
 "\n"
 "We generate a synthetic population with **known ground-truth modules**\n"
 "(120 neurons, 6 modules -- same setup as\n"
-"[Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/04_network_analysis.ipynb))\n"
+"[Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb))\n"
 "so we can objectively measure how well recurrence-based community\n"
 "detection recovers them."
 ))

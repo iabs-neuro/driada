@@ -44,13 +44,13 @@ cells.append(md_cell(
 "\n"
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
-"| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
-"| Neuron analysis | [01 -- Neuron analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/01_data_loading_and_neurons.ipynb) | Spike reconstruction, kinetics optimization, quality metrics, surrogates |\n"
+"| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
+"| Neuron analysis | [01 -- Neuron analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | Spike reconstruction, kinetics optimization, quality metrics, surrogates |\n"
 "| **Single-neuron selectivity** | **02 -- this notebook** | Detect which neurons encode which behavioral variables |\n"
-"| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
-"| Network analysis | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
-"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
-"| Recurrence analysis | [06 -- Recurrence](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/06_recurrence_analysis.ipynb) | Delay embedding, recurrence plots, RQA, graph representations, population module recovery |\n"
+"| Population geometry | [03 -- Dimensionality reduction](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | Extract low-dimensional manifolds from population activity |\n"
+"| Network analysis | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
+"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
+"| Recurrence analysis | [06 -- Recurrence](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/06_recurrence_analysis.ipynb) | Delay embedding, recurrence plots, RQA, graph representations, population module recovery |\n"
 "\n"
 "**What you will learn:**\n"
 "\n"
@@ -65,8 +65,7 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# TODO: revert to '!pip install -q driada' after v1.0.0 PyPI release\n"
-"!pip install -q git+https://github.com/iabs-neuro/driada.git@main\n"
+"!pip install -q driada\n"
 "%matplotlib inline\n"
 "\n"
 "import os\n"
@@ -109,9 +108,9 @@ cells.append(md_cell(
 "\n"
 "| Pair type | GCMI (fast, copula-based) | KSG (accurate, nearest-neighbor) |\n"
 "|---|---|---|\n"
-"| continuous–continuous | [`mi_gg`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#mi-gg) | [`nonparam_mi_cc`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#nonparam-mi-cc) |\n"
-"| continuous–discrete | [`mi_model_gd`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#mi-model-gd) | [`nonparam_mi_cd`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#nonparam-mi-cd) |\n"
-"| discrete–discrete | exact MI from joint distribution | — |"
+"| continuous--continuous | [`mi_gg`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#mi-gg) | [`nonparam_mi_cc`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#nonparam-mi-cc) |\n"
+"| continuous--discrete | [`mi_model_gd`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#mi-model-gd) | [`nonparam_mi_cd`](https://driada.readthedocs.io/en/latest/api/information/mutual_information.html#nonparam-mi-cd) |\n"
+"| discrete--discrete | exact MI from joint distribution | --|"
 ))
 
 cells.append(code_cell(
@@ -218,7 +217,7 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# Noisy sine wave — TDMI reveals the underlying periodicity\n"
+"# Noisy sine wave --TDMI reveals the underlying periodicity\n"
 "period_samples = 30\n"
 "t_demo = np.arange(n)\n"
 "clean_sine = np.sin(2 * np.pi * t_demo / period_samples)\n"
@@ -328,7 +327,7 @@ cells.append(md_cell(
 "individual neuron-feature relationships.\n"
 "\n"
 "For loading your own experimental data into an `Experiment` object, see\n"
-"[Notebook 00](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/00_driada_overview.ipynb).\n"
+"[Notebook 00](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb).\n"
 "The workflow below is identical for real recordings."
 ))
 
@@ -382,7 +381,7 @@ cells.append(code_cell(
 ))
 
 cells.append(code_cell(
-"# Visualize an event neuron — shaded regions show when the event is active\n"
+"# Visualize an event neuron --shaded regions show when the event is active\n"
 "event_neurons = [cid for cid, feats in significant_neurons.items()\n"
 "                 if 'event_0' in feats]\n"
 "if event_neurons:\n"

@@ -46,13 +46,13 @@ cells.append(md_cell(
 "\n"
 "| Step | Notebook | What it does |\n"
 "|---|---|---|\n"
-"| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
-"| Neuron analysis | [01 -- Neuron analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/01_data_loading_and_neurons.ipynb) | Spike reconstruction, kinetics optimization, quality metrics, surrogates |\n"
-"| Single-neuron selectivity | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
+"| **Overview** | [00 -- DRIADA overview](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | Core data structures, quick tour of INTENSE, DR, networks |\n"
+"| Neuron analysis | [01 -- Neuron analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | Spike reconstruction, kinetics optimization, quality metrics, surrogates |\n"
+"| Single-neuron selectivity | [02 -- INTENSE](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | Detect which neurons encode which behavioral variables |\n"
 "| **Population geometry** | **03 -- this notebook** | Extract low-dimensional manifolds from population activity |\n"
-"| Network analysis | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
-"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
-"| Recurrence analysis | [06 -- Recurrence](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/06_recurrence_analysis.ipynb) | Delay embedding, recurrence plots, RQA, graph representations, population module recovery |\n"
+"| Network analysis | [04 -- Networks](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | Build and analyze cell-cell interaction graphs |\n"
+"| Putting it together | [05 -- Advanced](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | Combine INTENSE + DR, leave-one-out importance, RSA, RNN analysis |\n"
+"| Recurrence analysis | [06 -- Recurrence](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/06_recurrence_analysis.ipynb) | Delay embedding, recurrence plots, RQA, graph representations, population module recovery |\n"
 "\n"
 "**Sections:**\n"
 "\n"
@@ -68,8 +68,7 @@ cells.append(md_cell(
 ))
 
 cells.append(code_cell(
-"# TODO: revert to '!pip install -q driada' after v1.0.0 PyPI release\n"
-"!pip install -q git+https://github.com/iabs-neuro/driada.git@main\n"
+"!pip install -q driada\n"
 "%matplotlib inline\n"
 "\n"
 "import numpy as np\n"
@@ -150,7 +149,7 @@ cells.append(md_cell(
 "that inherits from\n"
 "[`Network`](https://driada.readthedocs.io/en/latest/api/network/core.html#driada.network.net_base.Network),\n"
 "giving access to spectral analysis, entropy, and community detection\n"
-"(see cells below and [Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/04_network_analysis.ipynb))."
+"(see cells below and [Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb))."
 ))
 
 cells.append(code_cell(
@@ -260,7 +259,7 @@ cells.append(md_cell(
 "\n"
 "Access it via `embedding.graph` after running any graph-based method.\n"
 "For a full treatment of network spectral analysis, see\n"
-"[Notebook 04 -- Network analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/04_network_analysis.ipynb).\n"
+"[Notebook 04 -- Network analysis](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb).\n"
 "\n"
 "**Lost nodes:** When the k-NN graph is disconnected, DRIADA extracts the\n"
 "giant connected component and discards all nodes outside it. The removed\n"
@@ -335,7 +334,7 @@ cells.append(md_cell(
 "\n"
 "These same spectral tools apply to *any* [`Network`](https://driada.readthedocs.io/en/latest/api/network/core.html#driada.network.net_base.Network) -- functional\n"
 "connectivity from INTENSE, structural connectomes, or correlation\n"
-"networks. See [Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/dev/notebooks/04_network_analysis.ipynb)\n"
+"networks. See [Notebook 04](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb)\n"
 "for the full spectral analysis toolkit."
 ))
 
@@ -422,7 +421,7 @@ cells.append(md_cell(
 "## 3. Circular manifold & dimensionality estimation\n"
 "\n"
 "Synthetic benchmarks show what methods *can* do; real neural data shows what\n"
-"they *must* handle. Head direction cells encode a circular variable — a\n"
+"they *must* handle. Head direction cells encode a circular variable --a\n"
 "topology that some DR methods preserve better than others.\n"
 "\n"
 "Head direction cells encode a ring. We generate 100 HD cells with\n"
@@ -721,7 +720,7 @@ cells.append(md_cell(
 "\n"
 "The methods above (PCA, Isomap, UMAP) use fixed neighborhoods or geodesics.\n"
 "How do neural network methods handle the same circular manifold data?\n"
-"Autoencoders learn a flexible nonlinear mapping — at the cost of more\n"
+"Autoencoders learn a flexible nonlinear mapping --at the cost of more\n"
 "hyperparameters and training time.\n"
 "\n"
 "Neural network DR via [`flexible_ae`](https://driada.readthedocs.io/en/latest/api/dim_reduction/neural_methods.html): **standard autoencoder** (AE) with\n"

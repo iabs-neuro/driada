@@ -278,14 +278,14 @@ def main():
         print("BENCHMARK SUMMARY")
         print("=" * 70)
         print()
-        print("✓ RFFT optimization: ~50% speedup for real inputs")
-        print("✓ Memory optimization: 10-20x reduction for typical INTENSE workloads")
-        print("✓ All functions working correctly with optimizations")
+        print("[OK] RFFT optimization: ~50% speedup for real inputs")
+        print("[OK] Memory optimization: 10-20x reduction for typical INTENSE workloads")
+        print("[OK] All functions working correctly with optimizations")
         print()
         print("=" * 70)
 
     except Exception as e:
-        print(f"\n❌ Benchmark failed: {e}")
+        print(f"\n[FAIL] Benchmark failed: {e}")
         import traceback
         traceback.print_exc()
 

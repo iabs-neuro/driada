@@ -36,7 +36,7 @@ with open('src/driada/information/info_base.py', 'w', encoding='utf-8') as f:
 old_lines = len(info_base_lines)
 new_lines = len(new_info_base)
 print(f"  Removed {old_lines - new_lines + 9} lines, added 9 re-export lines")
-print(f"  info_base.py: {old_lines} → {new_lines} lines")
+print(f"  info_base.py: {old_lines} -> {new_lines} lines")
 
 # Step 2: Update entropy.py - Remove mi_cd_fft and add re-export
 print("\nStep 2: Updating entropy.py...")
@@ -67,7 +67,7 @@ with open('src/driada/information/entropy.py', 'w', encoding='utf-8') as f:
 old_lines = len(entropy_lines)
 new_lines = len(new_entropy)
 print(f"  Removed {old_lines - new_lines + 3} lines, added 3 re-export lines")
-print(f"  entropy.py: {old_lines} → {new_lines} lines")
+print(f"  entropy.py: {old_lines} -> {new_lines} lines")
 
 # Step 3: Update intense_base.py - Change import source
 print("\nStep 3: Updating intense_base.py...")
@@ -87,9 +87,9 @@ with open('src/driada/intense/intense_base.py', 'w', encoding='utf-8') as f:
 print(f"  Updated FFT imports to use info_fft module")
 print(f"  intense_base.py: {len(intense_lines)} lines (unchanged)")
 
-print("\n✓ All files updated successfully!")
+print("\n[OK] All files updated successfully!")
 print("\nSummary:")
 print(f"  - Created: info_fft.py (1129 lines)")
-print(f"  - Updated: info_base.py ({old_lines} → {new_lines} lines, -{old_lines-new_lines+9} lines)")
-print(f"  - Updated: entropy.py ({len(entropy_lines)} → {len(new_entropy)} lines, -{len(entropy_lines)-len(new_entropy)+3} lines)")
+print(f"  - Updated: info_base.py ({old_lines} -> {new_lines} lines, -{old_lines-new_lines+9} lines)")
+print(f"  - Updated: entropy.py ({len(entropy_lines)} -> {len(new_entropy)} lines, -{len(entropy_lines)-len(new_entropy)+3} lines)")
 print(f"  - Updated: intense_base.py (import source changed)")
