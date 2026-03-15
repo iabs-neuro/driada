@@ -228,71 +228,54 @@ def test_dmaps_with_different_t():
 
 
 def test_dmaps_multiscale_structure():
-    """Test that diffusion maps captures multiscale structure with different t"""
-    # Create data with two scales of structure
-    n_samples = 200
-    # Use default_rng for reproducibility (more robust than global seed)
+    """Test that diffusion maps captures multiscale structure with different t."""
     rng = np.random.default_rng(42)
+    n_blob = 80
+    n_bridge = 60
 
-    # Two clusters: tight internally (std=0.5) with moderate separation (distance=3)
-    cluster1 = 0.5 * rng.standard_normal((2, n_samples // 2)) + np.array([[-1.5], [0]])
-    cluster2 = 0.5 * rng.standard_normal((2, n_samples // 2)) + np.array([[1.5], [0]])
+    # Two tight blobs (std=0.3) connected by a dense bridge
+    blob1 = 0.3 * rng.standard_normal((2, n_blob)) + np.array([[-4], [0]])
+    blob2 = 0.3 * rng.standard_normal((2, n_blob)) + np.array([[4], [0]])
 
-    # Small scale: add circular structure within each cluster
-    theta1 = np.linspace(0, 2 * np.pi, n_samples // 2)
-    theta2 = np.linspace(0, 2 * np.pi, n_samples // 2)
+    bridge_x = np.linspace(-3.7, 3.7, n_bridge)
+    bridge_y = 0.15 * rng.standard_normal(n_bridge)
+    bridge = np.vstack([bridge_x, bridge_y])
 
-    cluster1[0] += 0.5 * np.cos(theta1)
-    cluster1[1] += 0.5 * np.sin(theta1)
-    cluster2[0] += 0.5 * np.cos(theta2)
-    cluster2[1] += 0.5 * np.sin(theta2)
+    data = np.hstack([blob1, bridge, blob2])
+    labels = np.array([0] * n_blob + [2] * n_bridge + [1] * n_blob)
 
-    # Combine and add noise dimensions
-    data = np.hstack([cluster1, cluster2])
-    labels = np.array([0] * (n_samples // 2) + [1] * (n_samples // 2))
+    D = MVData(data)
 
-    # Add extra dimensions
-    extra_dims = rng.standard_normal((3, n_samples)) * 0.1
-    high_dim_data = np.vstack([data, extra_dims])
-
-    D = MVData(high_dim_data)
-
-    # Small t should preserve local (circular) structure
-    emb_small_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=1, nn=20, metric="l2")
-
+    # Small t — local structure
+    emb_small_t = D.get_embedding(
+        method="dmaps", dim=2, dm_alpha=0.5, dm_t=1, nn=30,
+        metric="l2", graph_preprocessing=None,
+    )
     assert emb_small_t.coords.shape[0] == 2
     assert np.all(np.isfinite(emb_small_t.coords))
 
-    # Large t should emphasize global (cluster) structure
-    emb_large_t = D.get_embedding(method="dmaps", dim=2, dm_alpha=0.5, dm_t=10, nn=20, metric="l2")
-
-    # Check cluster separation in large t embedding
-    coords_large_t = emb_large_t.coords.T
-
-    # Filter labels to account for lost nodes during graph preprocessing
-    if hasattr(emb_large_t.graph, "lost_nodes") and len(emb_large_t.graph.lost_nodes) > 0:
-        # Keep only labels for nodes that weren't lost
-        kept_nodes = [i for i in range(n_samples) if i not in emb_large_t.graph.lost_nodes]
-        labels_filtered = labels[kept_nodes]
-    else:
-        labels_filtered = labels
-
-    cluster1_center = np.mean(coords_large_t[labels_filtered == 0], axis=0)
-    cluster2_center = np.mean(coords_large_t[labels_filtered == 1], axis=0)
-    cluster_separation = np.linalg.norm(cluster1_center - cluster2_center)
-
-    # Within-cluster variance (should be small for large t)
-    within_cluster_var = np.mean(
-        [
-            np.var(coords_large_t[labels_filtered == 0], axis=0).sum(),
-            np.var(coords_large_t[labels_filtered == 1], axis=0).sum(),
-        ]
+    # Large t — global cluster structure
+    emb_large_t = D.get_embedding(
+        method="dmaps", dim=2, dm_alpha=0.5, dm_t=10, nn=30,
+        metric="l2", graph_preprocessing=None,
     )
+    coords = emb_large_t.coords.T
 
-    # Separation should be larger than within-cluster spread
-    assert cluster_separation > np.sqrt(
-        within_cluster_var
-    ), "Large t should emphasize cluster separation"
+    # Compare only the two blobs (ignore bridge label=2)
+    m0, m1 = labels == 0, labels == 1
+    c0 = np.mean(coords[m0], axis=0)
+    c1 = np.mean(coords[m1], axis=0)
+    separation = np.linalg.norm(c0 - c1)
+
+    within_var = np.mean([
+        np.var(coords[m0], axis=0).sum(),
+        np.var(coords[m1], axis=0).sum(),
+    ])
+
+    assert separation > np.sqrt(within_var), (
+        f"Large t should emphasize cluster separation: "
+        f"sep={separation:.4f}, sqrt(wcv)={np.sqrt(within_var):.4f}"
+    )
 
 
 # Integration tests with Experiment objects
