@@ -507,6 +507,13 @@ def plot_neuron_feature_pair(
     ca = exp.neurons[cell_id].ca.scdata[ind1:ind2][::ds]
     rca = rescale(rankdata(ca))
     feature = getattr(exp, featname)
+    if feature.data.ndim > 1:
+        raise ValueError(
+            f"plot_neuron_feature_pair requires a 1D feature, but "
+            f"'{featname}' has shape {feature.data.shape}. "
+            f"Use the original feature name (e.g., 'head_direction' "
+            f"instead of 'head_direction_2d')."
+        )
     bdata = feature.scdata[ind1:ind2][::ds]
     rbdata = rescale(rankdata(bdata))
 

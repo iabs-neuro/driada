@@ -116,11 +116,13 @@ def main():
 
     if significant_neurons:
         # Plot first significant neuron-feature pair
+        # Use 1D feature for plotting (_2d variants are MultiTimeSeries)
         cell_id = list(significant_neurons.keys())[0]
         feat_name = significant_neurons[cell_id][0]
+        plot_feat = feat_name.removesuffix("_2d")
 
         fig, ax = plt.subplots(figsize=(10, 6))
-        driada.intense.plot_neuron_feature_pair(exp, cell_id, feat_name, ax=ax)
+        driada.intense.plot_neuron_feature_pair(exp, cell_id, plot_feat, ax=ax)
         plt.title(f"Neuron {cell_id} selectivity to {feat_name}")
         plt.tight_layout()
 
