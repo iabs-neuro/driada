@@ -2524,11 +2524,12 @@ class Experiment:
 
         # Check if embedding matches expected timepoints (accounting for downsampling)
         ds = metadata.get("ds", 1) if metadata else 1
-        expected_frames = self.n_frames // ds
+        # data[:, ::ds] gives ceil(n_frames / ds) timepoints
+        expected_frames = -(-self.n_frames // ds)  # ceiling division
         if embedding.shape[0] != expected_frames:
             raise ValueError(
                 f"Embedding timepoints ({embedding.shape[0]}) must match expected frames "
-                f"({expected_frames} = {self.n_frames} / ds={ds})"
+                f"({expected_frames} = ceil({self.n_frames} / ds={ds}))"
             )
 
         self.embeddings[data_type][method_name] = {
@@ -2691,7 +2692,7 @@ class Experiment:
         embedding = embedding_obj.coords.T  # Transpose to (n_timepoints, n_components)
 
         # Check if embedding has all timepoints (accounting for downsampling)
-        expected_frames = self.n_frames // ds
+        expected_frames = -(-self.n_frames // ds)  # ceiling division
         if embedding.shape[0] < expected_frames:
             n_missing = expected_frames - embedding.shape[0]
             raise ValueError(
