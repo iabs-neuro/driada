@@ -19,10 +19,12 @@ class TestRecurrenceGraphConstruction:
         return takens_embedding(data, tau=10, m=3)
 
     def test_is_proximity_graph(self, sine_embedded):
-        """RecurrenceGraph must inherit from ProximityGraph."""
+        """RecurrenceGraph must inherit from ProximityGraph with valid structure."""
         rg = RecurrenceGraph(sine_embedded, method='knn', k=5)
         assert isinstance(rg, ProximityGraph)
         assert isinstance(rg, Network)
+        assert rg.n == sine_embedded.shape[1]
+        assert rg.adj.nnz > 0
 
     def test_knn_method(self, sine_embedded):
         """k-NN method produces sparse binary adjacency."""

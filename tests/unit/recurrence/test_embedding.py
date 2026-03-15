@@ -147,11 +147,13 @@ class TestEstimateEmbeddingDim:
         assert dim_default == dim_frac
 
     def test_return_fractions_false_is_int(self):
-        """return_fractions=False (default) returns plain int."""
-        data = np.random.randn(500)
+        """return_fractions=False (default) returns plain int with valid value."""
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal(500)
         result = estimate_embedding_dim(data, tau=5, max_dim=6,
                                         return_fractions=False)
         assert isinstance(result, (int, np.integer))
+        assert 2 <= result <= 6
 
 
 class TestGetTdmiFFTEquivalence:

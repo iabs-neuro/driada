@@ -46,6 +46,8 @@ class TestTimeSeriesOPN:
         ts = TimeSeries(data, discrete=False)
         opn = ts.ordinal_partition_network(d=3, tau=1)
         assert isinstance(opn, Network)
+        assert opn.n > 0
+        assert opn.adj.nnz > 0
 
     def test_auto_estimation(self):
         t = np.arange(500)
@@ -53,6 +55,9 @@ class TestTimeSeriesOPN:
         ts = TimeSeries(data, discrete=False)
         opn = ts.ordinal_partition_network()  # auto d and tau
         assert isinstance(opn, Network)
+        assert opn.n > 0
+        pe = ts.permutation_entropy()
+        assert 0.0 < pe <= 1.0
 
     def test_permutation_entropy_shortcut(self):
         np.random.seed(42)

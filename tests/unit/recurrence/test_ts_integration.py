@@ -41,9 +41,11 @@ class TestTimeSeriesRecurrence:
         assert emb.shape[1] == 1000 - 2 * 10
 
     def test_recurrence_graph(self, sine_ts):
-        """TimeSeries.recurrence_graph() returns RecurrenceGraph."""
+        """TimeSeries.recurrence_graph() returns valid RecurrenceGraph."""
         rg = sine_ts.recurrence_graph(tau=10, m=3, method='knn', k=5)
         assert isinstance(rg, RecurrenceGraph)
+        assert rg.n == 1000 - 2 * 10  # N - tau*(m-1)
+        assert rg.adj.nnz > 0
 
     def test_recurrence_graph_auto_theiler(self, sine_ts):
         """Auto theiler_window = tau*(m-1)+1."""
@@ -84,9 +86,12 @@ class TestMultiTimeSeriesRecurrence:
         return MultiTimeSeries(data, discrete=False, allow_zero_columns=True)
 
     def test_population_recurrence_graph(self, sine_mts):
-        """MTS.population_recurrence_graph() returns a RecurrenceGraph."""
-        pop = sine_mts.population_recurrence_graph(tau=8, m=3, method='joint', n_jobs=1)
+        """MTS.population_recurrence_graph() returns valid RecurrenceGraph."""
+        pop = sine_mts.population_recurrence_graph(
+            tau=8, m=3, method='mean', n_jobs=1)
         assert isinstance(pop, RecurrenceGraph)
+        assert pop.n == 500 - 8 * 2  # N - tau*(m-1)
+        assert pop.adj.nnz > 0
 
     def test_population_caches_individual_graphs(self, sine_mts):
         """After population call, individual TS should have cached graphs."""
