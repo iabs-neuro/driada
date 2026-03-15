@@ -11,6 +11,7 @@ For place cell DETECTION, use INTENSE (MI-based, shuffle-tested).
 This example shows VISUALIZATION utilities only.
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from driada.experiment.synthetic import generate_2d_manifold_data
@@ -129,6 +130,7 @@ def create_neuron_visualization_figure(
 
 def main():
     """Run the visualization example."""
+    OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
     print("Spatial Data Visualization Example")
     print("=" * 60)
 
@@ -185,14 +187,14 @@ def main():
     # Create visualizations
     print("\nCreating spatial context figure...")
     fig1 = create_spatial_context_figure(positions, sampling_rate=20.0)
-    fig1.savefig("spatial_context.png", dpi=150, bbox_inches="tight")
+    fig1.savefig(os.path.join(OUTPUT_DIR, "spatial_context.png"), dpi=150, bbox_inches="tight")
     print("  Saved: spatial_context.png")
 
     print("\nCreating neuron visualization figure...")
     fig2 = create_neuron_visualization_figure(
         calcium_signals, positions, sampling_rate=20.0, trace_duration=60
     )
-    fig2.savefig("neuron_visualization.png", dpi=150, bbox_inches="tight")
+    fig2.savefig(os.path.join(OUTPUT_DIR, "neuron_visualization.png"), dpi=150, bbox_inches="tight")
     print("  Saved: neuron_visualization.png")
 
     print("\n" + "=" * 60)

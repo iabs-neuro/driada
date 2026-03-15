@@ -19,10 +19,13 @@ The API automatically handles:
 - Method-specific configurations
 """
 
+import os
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_swiss_roll
 
 from driada.dim_reduction import MVData, dr_sequence
+
+OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def generate_demo_data():
@@ -162,7 +165,7 @@ def visualize_embeddings(embeddings, names, color):
             plt.colorbar(scatter, ax=ax, label="Position on roll")
 
     plt.tight_layout()
-    plt.savefig("dr_simplified_api_comparison.png", dpi=150, bbox_inches="tight")
+    plt.savefig(os.path.join(OUTPUT_DIR, "dr_simplified_api_comparison.png"), dpi=150, bbox_inches="tight")
     print("\nSaved visualization to: dr_simplified_api_comparison.png")
     plt.show()
 

@@ -209,7 +209,7 @@ def interpret_disentanglement_results(
     # Show a few examples if available
     if redundancy_cases and len(redundancy_cases) > 0:
         feat1, feat2 = redundancy_cases[0][1]
-        print(f"Example redundancy: {feat1} ↔ {feat2}")
+        print(f"Example redundancy: {feat1} <-> {feat2}")
     elif synergy_cases and len(synergy_cases) > 0:
         feat1, feat2 = synergy_cases[0][1]
         print(f"Example synergy: {feat1} + {feat2}")

@@ -9,11 +9,14 @@ This example demonstrates:
 5. Working with MVData objects
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from driada import rsa
 from driada.dim_reduction.data import MVData
 from driada.experiment.synthetic import generate_tuned_selectivity_exp
+
+OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def create_stimulus_labels_from_events(exp, event_names):
@@ -113,7 +116,7 @@ def example_1_stimulus_conditions():
         title="Neural RDM - Stimulus Conditions",
         show_values=True,
     )
-    plt.savefig("examples/rsa/rsa_stimulus_conditions.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "rsa_stimulus_conditions.png"))
     plt.close()
 
     return exp, rdm, labels
@@ -165,7 +168,7 @@ def example_2_compare_regions():
     fig = rsa.plot_rdm_comparison(
         [rdm1, rdm2], titles=["V1 Representation", "V2 Representation"]
     )
-    plt.savefig("examples/rsa/rsa_compare_regions.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "rsa_compare_regions.png"))
     plt.close()
 
     return similarity
@@ -253,7 +256,7 @@ def example_3_compare_experiments():
         labels=label_names[:len(labels1)],
         titles=["Session 1", "Session 2"],
     )
-    plt.savefig("examples/rsa/rsa_compare_experiments.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "rsa_compare_experiments.png"))
     plt.close()
 
     return similarity
@@ -358,7 +361,7 @@ def example_4_bootstrap_testing():
         labels=label_names[:len(labels1)],
         titles=["Population 1", "Population 2"],
     )
-    plt.savefig("examples/rsa/rsa_bootstrap_testing.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "rsa_bootstrap_testing.png"))
     plt.close()
 
     return rdm1, rdm2, bootstrap_results["observed"]
@@ -399,7 +402,7 @@ def example_5_mvdata_integration():
         title="RDM from MVData",
         show_values=True,
     )
-    plt.savefig("examples/rsa/rsa_mvdata_integration.png")
+    plt.savefig(os.path.join(OUTPUT_DIR, "rsa_mvdata_integration.png"))
     plt.close()
 
     return mvdata, rdm

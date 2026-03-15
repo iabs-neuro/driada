@@ -17,6 +17,7 @@ Usage:
     Use --quick flag for a faster comparison with reduced dataset sizes.
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -606,6 +607,8 @@ def main(quick: bool = False):
     quick : bool
         If True, use smaller datasets and skip slow methods
     """
+    OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
+
     print("=" * 70)
     print("DIMENSIONALITY REDUCTION METHODS COMPARISON")
     print("=" * 70)
@@ -636,13 +639,13 @@ def main(quick: bool = False):
     results_df = run_comparison(datasets, methods, quick=quick)
 
     # Save results
-    results_df.to_csv("dr_comparison_results.csv", index=False)
+    results_df.to_csv(os.path.join(OUTPUT_DIR, "dr_comparison_results.csv"), index=False)
     print("\nResults saved to: dr_comparison_results.csv")
 
     # Visualize results
     print("\n4. GENERATING VISUALIZATIONS")
     print("-" * 40)
-    visualize_comparison_results(results_df)
+    visualize_comparison_results(results_df, save_prefix=os.path.join(OUTPUT_DIR, "dr_comparison"))
 
     # Generate recommendations
     print("\n5. RECOMMENDATIONS")

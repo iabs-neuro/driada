@@ -367,7 +367,7 @@ cells.append(code_cell(
 "    ('ISI-based', neuron.get_reconstructed(\n"
 "        t_rise_frames=int(0.15 * neuron.fps),\n"
 "        t_off_frames=int(1.5 * neuron.fps),\n"
-"        spikes=shuffled_sp,\n"
+"        spike_data=shuffled_sp,\n"
 "    ).data, '#d62728'),\n"
 "]\n"
 "\n"

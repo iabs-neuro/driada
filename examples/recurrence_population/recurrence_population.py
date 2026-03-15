@@ -75,8 +75,8 @@ MODULE_COLORS = {
 }
 MODULE_SHORT = {
     "event_0": "E1", "event_1": "E2", "event_2": "E3",
-    "event_0|1": "E1\u222aE2", "event_0|2": "E1\u222aE3",
-    "event_1|2": "E2\u222aE3",
+    "event_0|1": "E1|E2", "event_0|2": "E1|E3",
+    "event_1|2": "E2|E3",
 }
 
 

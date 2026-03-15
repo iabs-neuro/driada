@@ -15,7 +15,7 @@ import sys
 import os
 
 # Add the src directory to the path to import driada
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 import driada
 from driada.experiment.synthetic import generate_tuned_selectivity_exp

@@ -11,6 +11,7 @@ catch overlapping events. Comparing event overlap at varying tolerance reveals
 timing differences between detection mechanisms.
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
@@ -18,6 +19,7 @@ from driada.experiment import generate_synthetic_exp
 
 
 def main():
+    OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
     # Generate synthetic experiment with calcium signals
     print("Generating synthetic calcium imaging data...")
     exp = generate_synthetic_exp(
@@ -91,7 +93,7 @@ def main():
     )
 
     plt.tight_layout()
-    plt.savefig("spike_reconstruction_comparison.png", dpi=150, bbox_inches="tight")
+    plt.savefig(os.path.join(OUTPUT_DIR, "spike_reconstruction_comparison.png"), dpi=150, bbox_inches="tight")
     print("\nFigure saved as: spike_reconstruction_comparison.png")
     plt.close()
 
@@ -154,7 +156,7 @@ def main():
     ax2.set_ylim(0, 105)
     ax2.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig("spike_reconstruction_tolerance.png", dpi=150, bbox_inches="tight")
+    plt.savefig(os.path.join(OUTPUT_DIR, "spike_reconstruction_tolerance.png"), dpi=150, bbox_inches="tight")
     print("\nTolerance curve saved as: spike_reconstruction_tolerance.png")
     plt.close()
 

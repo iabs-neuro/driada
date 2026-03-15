@@ -5,6 +5,7 @@ This demonstrates the effects of sequential dimensionality reduction on
 manifold learning for high-dimensional neural activity data.
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from driada.experiment.synthetic import generate_2d_manifold_data
@@ -47,6 +48,7 @@ def compute_manifold_metrics(true_positions, embedding_coords, k=10):
 
 
 def main():
+    OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
     print("Generating synthetic neural data from 2D spatial environment...")
 
     # Generate synthetic data with 2D spatial manifold
@@ -160,7 +162,7 @@ def main():
 
     plt.colorbar(scatter, ax=[ax1, ax2, ax3], label="Time", fraction=0.02)
     plt.tight_layout()
-    plt.savefig("dr_sequence_neural_comparison.png", dpi=150, bbox_inches="tight")
+    plt.savefig(os.path.join(OUTPUT_DIR, "dr_sequence_neural_comparison.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     # Print improvement percentages
@@ -200,7 +202,7 @@ def main():
         with_trajectory=False,  # No trajectory plots
         compute_metrics=False,  # We already computed metrics
         figsize=(15, 10),
-        save_path="dr_sequence_embedding_comparison.png",
+        save_path=os.path.join(OUTPUT_DIR, "dr_sequence_embedding_comparison.png"),
     )
 
     # Create metrics comparison plot
@@ -246,7 +248,7 @@ def main():
     ax.grid(axis="y", alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("dr_sequence_detailed_comparison.png", dpi=150, bbox_inches="tight")
+    plt.savefig(os.path.join(OUTPUT_DIR, "dr_sequence_detailed_comparison.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     # Print improvement summary

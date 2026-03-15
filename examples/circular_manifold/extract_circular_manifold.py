@@ -155,7 +155,9 @@ def main():
     print("=" * 70)
 
     # Create output directory for results
-    os.makedirs("circular_manifold_results", exist_ok=True)
+    OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(OUTPUT_DIR, "circular_manifold_results")
+    os.makedirs(results_dir, exist_ok=True)
 
     print("\n1. Generating head direction cell population...")
 
@@ -232,7 +234,7 @@ def main():
     print("\n3. Plotting eigenvalue spectrum...")
     eigen_fig = plot_eigenspectrum(neural_data)
     plt.savefig(
-        "circular_manifold_results/eigenspectrum.png", dpi=150, bbox_inches="tight"
+        os.path.join(results_dir, "eigenspectrum.png"), dpi=150, bbox_inches="tight"
     )
 
     # Apply dimensionality reduction using MVData
@@ -280,7 +282,7 @@ def main():
     embeddings_list = [embeddings_dict[method] for method in ["PCA", "Isomap", "UMAP"]]
     fig_embedding = visualize_circular_manifold(
         embeddings_list, true_angles_ds, ["PCA", "Isomap", "UMAP"],
-        save_path="circular_manifold_results/embedding_comparison.png"
+        save_path=os.path.join(results_dir, "embedding_comparison.png")
     )
 
     # Additional analysis: temporal continuity
@@ -297,7 +299,7 @@ def main():
         embeddings=trajectories_dict,
         trajectory_kwargs={"arrow_spacing": 50, "linewidth": 0.5, "alpha": 0.5},
         figsize=(15, 5),
-        save_path="circular_manifold_results/trajectories.png",
+        save_path=os.path.join(results_dir, "trajectories.png"),
         dpi=DEFAULT_DPI,
     )
 
