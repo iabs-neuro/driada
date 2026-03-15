@@ -649,6 +649,7 @@ cells.append(md_cell(
 "3. [**Population geometry & dimensionality reduction**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) -- PCA, UMAP, Isomap, Laplacian Eigenmaps, sequential DR, alignment metrics.\n"
 "4. [**Network analysis**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) -- degree distributions, community detection, spectral analysis, null models.\n"
 "5. [**Advanced capabilities**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) -- INTENSE + DR pipeline, leave-one-out importance, RSA, RNN analysis.\n"
+"6. [**Recurrence analysis**](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/06_recurrence_analysis.ipynb) -- delay embedding, recurrence plots, RQA, visibility/ordinal graphs, population module recovery.\n"
 "\n"
 "**Standalone examples** (run directly, no external data needed):\n"
 "- [intense_basic_usage](https://github.com/iabs-neuro/driada/tree/main/examples/intense_basic_usage) -- Minimal INTENSE workflow\n"
