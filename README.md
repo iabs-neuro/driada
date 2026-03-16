@@ -1,6 +1,6 @@
 # DRIADA
 
-**D**imensionality **R**eduction for **I**ntegrated **A**ctivity **D**ata **A**nalysis — a Python framework for analyzing neural population activity at both single-neuron and population levels.
+**D**imensionality **R**eduction for **I**ntegrated **A**ctivity **D**ata **A**nalysis — a Python framework for cross-scale analysis of neural population activity.
 
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://img.shields.io/pypi/v/driada.svg)](https://pypi.org/project/driada/)
@@ -11,23 +11,25 @@
 [![Docs](https://readthedocs.org/projects/driada/badge/?version=latest)](https://driada.readthedocs.io/en/latest/)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://github.com/iabs-neuro/driada/actions/workflows/tests.yml)
 
-DRIADA connects single-neuron selectivity analysis with population-level dimensionality reduction. Given neural activity and related behavior/environment variables, it identifies which neurons encode which variables, extracts low-dimensional population structure, and links the two.
+## Integrating analysis scales
 
-## 🚀 Tutorials
+Neuroscience describes brain activity through three complementary paradigms: **single-neuron selectivity** (what does each cell encode?), **population dynamics** (what is the collective geometry?), and **networks** (how are units connected?). These are not competing theories — they are complementary lenses on the same data. The same neuron can be viewed simultaneously as a feature detector, a dimension of a population manifold, and a node in a functional circuit.
 
-Interactive notebooks — click a badge to open in Google Colab (no setup required):
+Yet in practice, each paradigm has its own tools, its own data formats, its own packages. If you want to ask a question that crosses paradigm boundaries — *does selectivity predict network membership? does filtering by tuning improve manifold structure? how do individual neurons contribute to population coding? do temporal dynamics of single neurons reveal population-level organisation?* — you have to build a custom pipeline from incompatible parts.
 
-| | Notebook | Topics |
-|---|---|---|
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | **DRIADA overview** | `Experiment` objects, feature types, quick tour of INTENSE, dimensionality reduction, networks |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | **Neuron analysis** | Spike reconstruction, kinetics optimization, quality metrics, surrogates |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | **Selectivity detection (INTENSE)** | Mutual information, two-stage testing, optimal delays, mixed selectivity |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | **Population geometry & dimensionality reduction** | PCA, UMAP, Isomap, autoencoders, manifold quality metrics, dimensionality estimation |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | **Network analysis** | Cell-cell significance, spectral analysis, communities, graph entropy |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | **Advanced capabilities** | Embedding selectivity, leave-one-out importance, RSA, RNN analysis |
-| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/06_recurrence_analysis.ipynb) | **Recurrence analysis** | Delay embedding, recurrence plots, RQA, visibility & ordinal graphs, population module recovery |
+DRIADA provides a **shared data model** where all three paradigms operate on the same objects. Results from one domain flow directly into the others:
 
-All notebooks generate synthetic data internally — no external files needed. See the [examples reference](https://driada.readthedocs.io/en/latest/examples.html) for standalone scripts covering additional use cases.
+<p align="center">
+  <img src="docs/architecture.png" alt="DRIADA architecture" width="600">
+</p>
+
+Three bidirectional bridges connect the paradigms:
+
+- **Neurons ↔ Populations.** Selective neurons filter the population matrix for dimensionality reduction; embedding coordinates feed back into neuron-level importance estimation, revealing which cells drive each manifold dimension.
+- **Neurons ↔ Networks.** Pairwise MI significance testing builds functional connectivity from neural activity; per-neuron recurrence graphs, visibility graphs, and ordinal partition networks yield functional networks grounded in temporal dynamics rather than correlations.
+- **Populations ↔ Networks.** Graph-based dimensionality reduction (Isomap, diffusion maps) returns proximity graphs that inherit the full network toolkit — spectral decomposition, community detection, entropy — without format conversion. RSA provides a complementary route from population representations to network structure.
+
+DRIADA's strength is integrating these scales — crossing them should be a function call, not a weekend of data wrangling.
 
 ## 🔬 Key Capabilities
 
@@ -39,11 +41,27 @@ All notebooks generate synthetic data internally — no external files needed. S
 - 🔄 **Recurrence Analysis** — delay embedding, recurrence plots, RQA, visibility graphs, ordinal partition networks for nonlinear dynamics and population module recovery
 - 📏 **RSA** — representational dissimilarity matrices, cross-region and cross-session comparisons
 - 🧪 **Synthetic Data** — generate populations with known ground truth for validation
-- 🔬 **Neuron** — calcium kinetics optimization (rise/decay fitting), event detection, and signal quality metrics
+- ⚡ **Neuron** — calcium kinetics optimization (rise/decay fitting), event detection, and signal quality metrics
+
+## 🚀 Tutorials
+
+Interactive notebooks — click a badge to open in Google Colab (no setup required):
+
+| | Notebook | Topics |
+|---|---|---|
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/00_driada_overview.ipynb) | **DRIADA overview** | `Experiment` objects, feature types, quick tour of INTENSE, dimensionality reduction, networks |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/01_data_loading_and_neurons.ipynb) | **Neuron analysis** | Spike reconstruction, kinetics optimization, quality metrics, surrogates |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/02_selectivity_detection_intense.ipynb) | **Selectivity detection (INTENSE)** | Mutual information, two-stage testing, optimal delays, mixed selectivity |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/03_population_geometry_dr.ipynb) | **Population geometry & DR** | PCA, UMAP, Isomap, autoencoders, manifold quality metrics, dimensionality estimation |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/04_network_analysis.ipynb) | **Network analysis** | Cell-cell significance, spectral analysis, communities, graph entropy |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/05_advanced_capabilities.ipynb) | **Advanced capabilities** | Embedding selectivity, leave-one-out importance, RSA, RNN analysis |
+| [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/iabs-neuro/driada/blob/main/notebooks/06_recurrence_analysis.ipynb) | **Recurrence analysis** | Delay embedding, recurrence plots, RQA, visibility & ordinal graphs, population module recovery |
+
+All notebooks generate synthetic data internally — no external files needed. See the [examples reference](https://driada.readthedocs.io/en/latest/examples.html) for 25+ standalone scripts covering additional use cases.
 
 ## Data
 
-DRIADA is designed for **calcium imaging** data but works with any neural activity represented as a `(n_units, n_frames)` array — RNN activations, firing rates, LFP channels, or anything else. Behavioral variables are 1D or multi-component arrays of the same length.
+DRIADA is designed for **calcium imaging** data but works with any neural activity represented as a `(n_units, n_frames)` array — RNN activations, firing rates, LFP channels, or anything else. Behavioral variables are 1D or multi-component arrays of the same length. Variable types (continuous, discrete, circular, multivariate) are auto-detected and preprocessed appropriately.
 
 **Input workflow:** load your arrays into a Python dict and call `load_exp_from_aligned_data`:
 
