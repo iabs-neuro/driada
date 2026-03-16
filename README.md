@@ -33,15 +33,15 @@ DRIADA's strength is integrating these scales — crossing them should be a func
 
 ## 🔬 Key Capabilities
 
-- 🧠 **INTENSE** — detect neuron-feature selectivity via mutual information with rigorous two-stage statistical testing, delay optimization, and mixed selectivity disentanglement
-- 📊 **Dimensionality Reduction** — linear (PCA), graph-based (Isomap, diffusion maps, LLE), neighbor-embedding (UMAP, t-SNE), and neural network-based (autoencoders) with manifold quality metrics
-- 📐 **Dimensionality Estimation** — PCA-based, effective rank, k-NN, correlation, and geodesic dimension
-- 🔗 **Integration** — map single-cell selectivity onto population manifolds and embedding components
-- 🌐 **Network Analysis** — general-purpose graph analysis (spectral, entropy, communities) for connectomes, functional networks, or dimensionality reduction proximity graphs
-- 🔄 **Recurrence Analysis** — delay embedding, recurrence plots, RQA, visibility graphs, ordinal partition networks for nonlinear dynamics and population module recovery
-- 📏 **RSA** — representational dissimilarity matrices, cross-region and cross-session comparisons
-- 🧪 **Synthetic Data** — generate populations with known ground truth for validation
-- ⚡ **Neuron** — calcium kinetics optimization (rise/decay fitting), event detection, and signal quality metrics
+- 🧠 **[INTENSE](https://driada.readthedocs.io/en/latest/api/intense.html)** — detect neuron-feature selectivity via mutual information with rigorous two-stage statistical testing, delay optimization, and mixed selectivity disentanglement
+- 📊 **[Dimensionality Reduction](https://driada.readthedocs.io/en/latest/api/dim_reduction.html)** — linear (PCA), graph-based (Isomap, diffusion maps, LLE), neighbor-embedding (UMAP, t-SNE), and neural network-based (autoencoders) with manifold quality metrics
+- 📐 **[Dimensionality Estimation](https://driada.readthedocs.io/en/latest/api/dimensionality.html)** — PCA-based, effective rank, k-NN, correlation, and geodesic dimension
+- 🔗 **[Integration](https://driada.readthedocs.io/en/latest/api/integration.html)** — map single-cell selectivity onto population manifolds and embedding components
+- 🌐 **[Network Analysis](https://driada.readthedocs.io/en/latest/api/network.html)** — general-purpose graph analysis (spectral, entropy, communities) for connectomes, functional networks, or dimensionality reduction proximity graphs
+- 🔄 **[Recurrence Analysis](https://driada.readthedocs.io/en/latest/api/recurrence.html)** — delay embedding, recurrence plots, RQA, visibility graphs, ordinal partition networks for nonlinear dynamics and population module recovery
+- 📏 **[RSA](https://driada.readthedocs.io/en/latest/api/rsa.html)** — representational dissimilarity matrices, cross-region and cross-session comparisons
+- 🧪 **[Synthetic Data](https://driada.readthedocs.io/en/latest/api/experiment.html)** — generate populations with known ground truth for validation
+- ⚡ **[Neuron](https://driada.readthedocs.io/en/latest/api/experiment.html)** — calcium kinetics optimization (rise/decay fitting), event detection, and signal quality metrics
 
 ## 🚀 Tutorials
 
