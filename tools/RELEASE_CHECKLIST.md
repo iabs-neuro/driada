@@ -310,6 +310,8 @@ No publish workflow existed initially.
   - JSON round-trip key types (int keys become strings)
 - [ ] Planned deprecations executed or still warned
   (check `tools/FUTURE.md` deprecation schedule against current code)
+- [ ] Review `DEPRECATIONS.md` — remove deprecated APIs scheduled for this version,
+  update warnings for upcoming removals
 
 **Found:** t-SNE `perplexity` and UMAP `random_state` silently ignored via
 `**kwargs`. 28 critical docstring-signature mismatches. README had 3 bugs.

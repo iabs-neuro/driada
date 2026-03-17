@@ -880,9 +880,9 @@ cells.append(md_cell(
 
 cells.append(code_cell(
 "# Pairwise Jaccard -- accepts RecurrenceGraph objects directly;\n"
-"# trim_to_min=True handles different embedded lengths from per-neuron tau/dim\n"
+"# adaptive trim (default) handles different embedded lengths from per-neuron tau/dim\n"
 "print(\"Computing pairwise Jaccard similarity...\")\n"
-"sim_matrix = pairwise_jaccard_sparse(per_neuron_rgs, trim_to_min=True)\n"
+"sim_matrix, _mask = pairwise_jaccard_sparse(per_neuron_rgs)\n"
 "print(f\"{n_neurons} graphs compared\")\n"
 "\n"
 "# Within-module vs between-module\n"

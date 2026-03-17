@@ -393,7 +393,7 @@ def main():
     t5 = time.time()
 
     n_pairs = n_neurons * (n_neurons - 1) // 2
-    sim_matrix = pairwise_jaccard_sparse([rg.adj for rg in trimmed])
+    sim_matrix, _mask = pairwise_jaccard_sparse([rg.adj for rg in trimmed])
 
     dt_jac = time.time() - t5
     upper = sim_matrix[np.triu_indices(n_neurons, k=1)]

@@ -120,13 +120,18 @@ def rqa(ts, tau=None, m=None, l_min=2, v_min=2, **rg_kwargs):
 
 def population_recurrence_graph(mts, tau=None, m=None, method='joint',
                                  threshold=1.0, binarize_threshold=None,
+                                 trim='adaptive',
                                  rg_method='knn', k=5, epsilon=None,
                                  metric='euclidean', theiler_window='auto',
-                                 n_jobs=-1, verbose=False):
+                                 n_jobs=-1, verbose=False, **trim_kwargs):
     """Build population recurrence graph from a MultiTimeSeries.
 
     Constructs per-component recurrence graphs (parallelized), then combines.
     Individual graphs are cached on each ts_list entry.
+
+    When tau/m are None (default), each component estimates its own parameters,
+    producing graphs of different sizes. ``trim='adaptive'`` (default)
+    removes outlier components and trims the rest to the smallest common size.
     """
     if mts.discrete:
         raise ValueError("Recurrence analysis requires continuous time series")
@@ -150,7 +155,8 @@ def population_recurrence_graph(mts, tau=None, m=None, method='joint',
         )
 
     return _pop_rg(graphs, method=method, threshold=threshold,
-                   binarize_threshold=binarize_threshold)
+                   binarize_threshold=binarize_threshold,
+                   trim=trim, **trim_kwargs)
 
 
 def visibility_graph(ts, method='horizontal', directed=False, create_nx_graph=False):

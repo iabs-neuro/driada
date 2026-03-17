@@ -364,9 +364,9 @@ def main():
         # -----------------------------------------------------------------
         print("\n[5] Pairwise Jaccard similarity...")
 
-        # Accepts RecurrenceGraph objects directly; trim_to_min handles
-        # different embedded lengths from per-neuron tau/dim.
-        sim_matrix = pairwise_jaccard_sparse(per_neuron_rgs, trim_to_min=True)
+        # Accepts RecurrenceGraph objects directly; adaptive trim (default)
+        # handles different embedded lengths from per-neuron tau/dim.
+        sim_matrix, _mask = pairwise_jaccard_sparse(per_neuron_rgs)
 
         # Split pairwise Jaccard into within-module and between-module pairs
         within_vals = []
