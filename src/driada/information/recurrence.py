@@ -29,17 +29,24 @@ def estimate_tau(ts, max_shift=100, method='first_minimum', estimator='gcmi', **
 
 
 def estimate_embedding_dim(ts, tau=None, max_dim=10, return_fractions=False,
-                           **kw):
+                           tau_method='first_minimum', **kw):
     """Estimate embedding dimension for a TimeSeries.
 
     If tau is None, calls estimate_tau() first. Caches the dimension
     (int) regardless of *return_fractions*.
+
+    Parameters
+    ----------
+    tau_method : str, optional
+        Method for auto-estimating tau when ``tau=None``.
+        Passed as ``method`` to :func:`estimate_tau`.
+        Default: ``'first_minimum'``.
     """
     if ts.discrete:
         raise ValueError("Recurrence analysis requires continuous time series")
 
     if tau is None:
-        tau = estimate_tau(ts)
+        tau = estimate_tau(ts, method=tau_method)
 
     from driada.recurrence.embedding import estimate_embedding_dim as _estimate_dim
 
@@ -63,18 +70,28 @@ def estimate_embedding_dim(ts, tau=None, max_dim=10, return_fractions=False,
     return dim
 
 
-def takens_embedding(ts, tau=None, m=None):
+def takens_embedding(ts, tau=None, m=None, tau_method='first_minimum',
+                     max_dim=10):
     """Compute Takens delay embedding for a TimeSeries.
 
     Auto-estimates tau and m if None.
+
+    Parameters
+    ----------
+    tau_method : str, optional
+        Method for auto-estimating tau when ``tau=None``.
+        Default: ``'first_minimum'``.
+    max_dim : int, optional
+        Maximum embedding dimension for FNN when ``m=None``.
+        Default: 10.
     """
     if ts.discrete:
         raise ValueError("Recurrence analysis requires continuous time series")
 
     if tau is None:
-        tau = estimate_tau(ts)
+        tau = estimate_tau(ts, method=tau_method)
     if m is None:
-        m = estimate_embedding_dim(ts, tau=tau)
+        m = estimate_embedding_dim(ts, tau=tau, max_dim=max_dim)
 
     from driada.recurrence.embedding import takens_embedding as _embed
     return _embed(ts.data, tau=tau, m=m)
@@ -82,15 +99,26 @@ def takens_embedding(ts, tau=None, m=None):
 
 def recurrence_graph(ts, tau=None, m=None, method='knn', k=5,
                      epsilon=None, metric='euclidean', theiler_window='auto',
-                     create_nx_graph=False):
-    """Build RecurrenceGraph for a TimeSeries. Caches result."""
+                     create_nx_graph=False,
+                     tau_method='first_minimum', max_dim=10):
+    """Build RecurrenceGraph for a TimeSeries. Caches result.
+
+    Parameters
+    ----------
+    tau_method : str, optional
+        Method for auto-estimating tau when ``tau=None``.
+        ``'first_minimum'`` (default) or ``'exponential_fit'``.
+    max_dim : int, optional
+        Maximum embedding dimension for FNN when ``m=None``.
+        Default: 10.
+    """
     if ts.discrete:
         raise ValueError("Recurrence analysis requires continuous time series")
 
     if tau is None:
-        tau = estimate_tau(ts)
+        tau = estimate_tau(ts, method=tau_method)
     if m is None:
-        m = estimate_embedding_dim(ts, tau=tau)
+        m = estimate_embedding_dim(ts, tau=tau, max_dim=max_dim)
 
     if theiler_window == 'auto':
         theiler_window = tau * (m - 1) + 1
@@ -123,7 +151,9 @@ def population_recurrence_graph(mts, tau=None, m=None, method='joint',
                                  trim='adaptive',
                                  rg_method='knn', k=5, epsilon=None,
                                  metric='euclidean', theiler_window='auto',
-                                 n_jobs=-1, verbose=False, **trim_kwargs):
+                                 n_jobs=-1, verbose=False,
+                                 tau_method='first_minimum', max_dim=10,
+                                 **trim_kwargs):
     """Build population recurrence graph from a MultiTimeSeries.
 
     Constructs per-component recurrence graphs (parallelized), then combines.
@@ -132,6 +162,15 @@ def population_recurrence_graph(mts, tau=None, m=None, method='joint',
     When tau/m are None (default), each component estimates its own parameters,
     producing graphs of different sizes. ``trim='adaptive'`` (default)
     removes outlier components and trims the rest to the smallest common size.
+
+    Parameters
+    ----------
+    tau_method : str, optional
+        Method for auto-estimating tau when ``tau=None``.
+        ``'first_minimum'`` (default) or ``'exponential_fit'``.
+    max_dim : int, optional
+        Maximum embedding dimension for FNN when ``m=None``.
+        Default: 10.
     """
     if mts.discrete:
         raise ValueError("Recurrence analysis requires continuous time series")
@@ -144,6 +183,7 @@ def population_recurrence_graph(mts, tau=None, m=None, method='joint',
         return recurrence_graph(
             ts_component, tau=tau, m=m, method=rg_method, k=k,
             epsilon=epsilon, metric=metric, theiler_window=theiler_window,
+            tau_method=tau_method, max_dim=max_dim,
         )
 
     # Force threading backend: NumPy/scipy release GIL, and threading
@@ -177,16 +217,23 @@ def visibility_graph(ts, method='horizontal', directed=False, create_nx_graph=Fa
     return vg
 
 
-def ordinal_partition_network(ts, d=None, tau=None, create_nx_graph=False):
+def ordinal_partition_network(ts, d=None, tau=None, create_nx_graph=False,
+                              tau_method='first_minimum'):
     """Build OrdinalPartitionNetwork for a TimeSeries. Caches result.
 
     Auto-estimates tau and d if None. d is capped at 7.
+
+    Parameters
+    ----------
+    tau_method : str, optional
+        Method for auto-estimating tau when ``tau=None``.
+        Default: ``'first_minimum'``.
     """
     if ts.discrete:
         raise ValueError("OPN requires continuous time series")
 
     if tau is None:
-        tau = estimate_tau(ts)
+        tau = estimate_tau(ts, method=tau_method)
     if d is None:
         d = min(estimate_embedding_dim(ts, tau=tau), 7)
 

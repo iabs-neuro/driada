@@ -96,6 +96,27 @@ class TestFullPipeline:
         assert rg.directed is False
         assert len(rg.deg) == rg.n
 
+    def test_population_exponential_fit_workflow(self):
+        """Full workflow with tau_method='exponential_fit'."""
+        t = np.arange(500)
+        rng = np.random.default_rng(42)
+        data = np.vstack([
+            np.sin(2 * np.pi * t / (30 + i * 2)) + 0.05 * rng.standard_normal(500)
+            for i in range(5)
+        ])
+        mts = MultiTimeSeries(data, discrete=False)
+
+        pop = mts.population_recurrence_graph(
+            method='mean', rg_method='knn', k=5, n_jobs=1,
+            tau_method='exponential_fit', max_dim=5,
+        )
+        assert isinstance(pop, RecurrenceGraph)
+        assert pop.n > 0
+        assert pop.adj.nnz > 0
+
+        ts0 = mts.ts_list[0]
+        assert ts0._recurrence_graph_cache is not None
+
     def test_top_level_import(self):
         """RecurrenceGraph importable from top-level driada."""
         from driada import RecurrenceGraph as RG

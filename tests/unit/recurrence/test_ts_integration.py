@@ -70,6 +70,39 @@ class TestTimeSeriesRecurrence:
         sine_ts.clear_caches()
         assert not hasattr(sine_ts, '_recurrence_tau') or sine_ts._recurrence_tau is None
 
+    def test_estimate_tau_exponential_fit(self, sine_ts):
+        """TimeSeries.estimate_tau(method='exponential_fit') returns smaller tau."""
+        tau_fm = sine_ts.estimate_tau(max_shift=50, method='first_minimum')
+        sine_ts.clear_caches()
+        tau_ef = sine_ts.estimate_tau(max_shift=50, method='exponential_fit')
+        assert isinstance(tau_ef, (int, np.integer))
+        assert tau_ef >= 1
+        assert tau_ef <= tau_fm
+
+    def test_estimate_tau_method_cached_separately(self, sine_ts):
+        """Different tau methods produce separate cache entries."""
+        tau_fm = sine_ts.estimate_tau(max_shift=50, method='first_minimum')
+        tau_ef = sine_ts.estimate_tau(max_shift=50, method='exponential_fit')
+        tau_fm2 = sine_ts.estimate_tau(max_shift=50, method='first_minimum')
+        assert tau_fm == tau_fm2
+
+    def test_recurrence_graph_tau_method(self, sine_ts):
+        """recurrence_graph(tau_method='exponential_fit') uses exp_fit tau."""
+        rg = sine_ts.recurrence_graph(tau_method='exponential_fit', k=5)
+        assert isinstance(rg, RecurrenceGraph)
+        assert rg.n > 0
+
+    def test_recurrence_graph_max_dim(self, sine_ts):
+        """recurrence_graph(max_dim=3) caps embedding dimension."""
+        rg = sine_ts.recurrence_graph(max_dim=3, k=5)
+        assert isinstance(rg, RecurrenceGraph)
+        assert rg.n > 0
+
+    def test_rqa_tau_method_passthrough(self, sine_ts):
+        """rqa(tau_method=...) works via **rg_kwargs passthrough."""
+        result = sine_ts.rqa(tau_method='exponential_fit', k=5)
+        assert 'DET' in result
+
 
 class TestMultiTimeSeriesRecurrence:
     """Tests for MultiTimeSeries recurrence methods."""
@@ -107,6 +140,25 @@ class TestMultiTimeSeriesRecurrence:
         )
         cached_key, cached_rg = ts0._recurrence_graph_cache
         assert isinstance(cached_rg, RecurrenceGraph)
+
+    def test_population_tau_method(self, sine_mts):
+        """population_recurrence_graph(tau_method='exponential_fit') works."""
+        pop = sine_mts.population_recurrence_graph(
+            method='mean', tau_method='exponential_fit', n_jobs=1)
+        assert isinstance(pop, RecurrenceGraph)
+        assert pop.adj.nnz > 0
+
+    def test_population_max_dim(self, sine_mts):
+        """population_recurrence_graph(max_dim=3) caps per-neuron dim."""
+        pop = sine_mts.population_recurrence_graph(
+            method='mean', max_dim=3, n_jobs=1)
+        assert isinstance(pop, RecurrenceGraph)
+        assert pop.adj.nnz > 0
+        for ts in sine_mts.ts_list:
+            if ts._recurrence_graph_cache is not None:
+                cache_key = ts._recurrence_graph_cache[0]
+                cached_m = cache_key[1]  # (tau, m, ...)
+                assert cached_m <= 3
 
 
 class TestCreateNxGraph:
