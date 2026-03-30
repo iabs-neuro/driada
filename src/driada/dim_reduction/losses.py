@@ -108,7 +108,7 @@ class AELoss(ABC):
 class ClassificationLoss(AELoss):
     """Classification loss for supervised dimensionality reduction.
 
-    Trains a linear classifier on the latent code to predict class labels,
+    Trains a classifier on the latent code to predict class labels,
     forcing the latent representation to preserve class-relevant information.
 
     Parameters
@@ -117,13 +117,24 @@ class ClassificationLoss(AELoss):
         Number of target classes.
     code_dim : int
         Dimension of the latent code (auto-injected by ModularAutoencoder).
+    hidden_dim : int or None, default=None
+        If None, uses a linear classifier. If int, uses a 2-layer MLP
+        (code_dim -> hidden_dim -> num_classes) with LeakyReLU activation.
     weight : float, default=1.0
         Weight for this loss component.
     """
 
-    def __init__(self, num_classes: int, code_dim: int, weight: float = 1.0, **kwargs):
+    def __init__(self, num_classes: int, code_dim: int, hidden_dim: int = None,
+                 weight: float = 1.0, **kwargs):
         super().__init__(weight=weight, **kwargs)
-        self.classifier = nn.Linear(code_dim, num_classes)
+        if hidden_dim is None:
+            self.classifier = nn.Linear(code_dim, num_classes)
+        else:
+            self.classifier = nn.Sequential(
+                nn.Linear(code_dim, hidden_dim),
+                nn.LeakyReLU(),
+                nn.Linear(hidden_dim, num_classes),
+            )
         self.criterion = nn.CrossEntropyLoss()
 
     def compute(self, code, recon, inputs, labels=None, **kwargs):
