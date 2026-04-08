@@ -20,16 +20,24 @@ def save_exp_to_nwb(
         identifier=None,
         session_start_time=None,
         protocol=None,
-        device_name='Microscope',
-        optical_channel_name='Ch1',
-        optical_channel_desc='525nm',
+        device_name='UCLA Miniscope v4.4',
+        optical_channel_name='GCaMP_channel',
+        optical_channel_desc='Single green fluorescence channel '
+                             'for one-photon calcium imaging with Miniscope v4.4 '
+                             '(GCaMP6s-compatible filter set).',
         emission_lambda=525.0,
-        imaging_plane_name='ImagingPlane',
-        imaging_plane_desc='Brain Region',
-        excitation_lambda=488.0,
-        indicator='GCaMP',
-        location='TargetArea',
-        pos_reference_frame='arena_center',
+        imaging_plane_name='CA1_imaging_plane',
+        imaging_plane_desc='One-photon calcium imaging plane recorded from '
+                           'dorsal hippocampal CA1 in mouse using UCLA Miniscope v4.4. '
+                           'Viral expression: AAV/DJ-CAG-GCaMP6s. '
+                           'Stereotaxic target coordinates: AP -1.94 mm, ML 1.46 mm, '
+                           'DV 1.20 mm relative to bregma.',
+        excitation_lambda=470.0,
+        indicator='GCaMP6s',
+        location='Hippocampus, dorsal CA1',
+        pos_reference_frame='ROI coordinates are defined relative to the top-left corner '
+                            'of the motion-corrected imaging field of view '
+                            '(image origin: x increases to the right, y increases downward).',
         feat_reference_frame='none',
         pos_unit='pixels',
         feat_unit='various',
