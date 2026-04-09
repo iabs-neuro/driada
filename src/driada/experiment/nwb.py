@@ -1,16 +1,17 @@
-import numpy as np
-import sys
-import uuid
-
 import json
-from pathlib import Path
+import uuid
+import warnings
 from datetime import datetime, timezone
+from pathlib import Path
+
+import numpy as np
 
 from pynwb import NWBFile, NWBHDF5IO
 from pynwb.ophys import Fluorescence, RoiResponseSeries, ImageSegmentation, OpticalChannel
 from pynwb.behavior import Position, SpatialSeries
 
 from driada.experiment.exp_build import load_exp_from_aligned_data
+from driada.utils.naming import parse_iabs_filename
 
 
 def save_exp_to_nwb(
@@ -119,16 +120,22 @@ def save_exp_to_nwb(
         protocol=protocol
     )
 
-    parts = session_name.split('_')
-    animal_id = parts[1] if len(parts) > 1 else "unknown"
-    notes_str = f"animal_id: {animal_id}"
+    parsed = parse_iabs_filename(session_name)
+    animal_id = parsed['animal_id'] if parsed else "Unknown"
+    # `notes` is reserved for free-form experimenter text; structured
+    # metadata is stored separately in NWB scratch.
+    nwbfile.notes = f"animal_id: {animal_id}"
 
-    extra_meta = {k: v for k, v in meta.items() if k not in ['metrics_df', 'session_name', 'fps', 'export_timestamp']}
-
+    extra_meta = {
+        k: v for k, v in meta.items()
+        if k not in ['metrics_df', 'session_name', 'fps', 'export_timestamp']
+    }
     if extra_meta:
-        meta_json = json.dumps(extra_meta, default=str, indent=2)
-        notes_str += f"\n\n--- DRIADA METADATA ---\n{meta_json}"
-    nwbfile.notes = notes_str
+        nwbfile.add_scratch(
+            name='driada_metadata',
+            data=json.dumps(extra_meta, default=str, indent=2),
+            description='DRIADA-specific experiment metadata (JSON-encoded)',
+        )
 
     device = nwbfile.create_device(name=device_name)
     optical_channel = OpticalChannel(
@@ -156,27 +163,50 @@ def save_exp_to_nwb(
     num_neurons = exp.n_cells
     metrics_df = meta.get('metrics_df', {})
 
-    valid_indices = list(range(num_neurons))
+    # All exported cells must have decision='ok'; rejected cells are
+    # expected to be filtered out upstream of this function.
     if 'decision' in metrics_df:
-        ok_indices = [i for i, d in enumerate(metrics_df['decision']) if d == 'ok']
-        if len(ok_indices) == num_neurons:
-            valid_indices = ok_indices
+        bad = [i for i, d in enumerate(metrics_df['decision']) if d != 'ok']
+        if bad:
+            preview = bad[:5]
+            suffix = '...' if len(bad) > 5 else ''
+            raise ValueError(
+                f"save_exp_to_nwb: expected all cells to have decision='ok', "
+                f"but {len(bad)} cells are rejected (indices: {preview}{suffix}). "
+                f"Filter rejected cells before saving."
+            )
 
+    # DRIADA tracks only neuron centers, not spatial footprints. Centers
+    # are stored as explicit scalar columns; image_mask is left as a 1x1
+    # null placeholder because pynwb requires at least one mask per ROI.
+    ps.add_column(name='center_y', description='Neuron center row (pixels)')
+    ps.add_column(name='center_x', description='Neuron center column (pixels)')
+
+    reserved_cols = {'center', 'decision', 'component_idx', 'center_y', 'center_x'}
     custom_cols = []
     for key, vals in metrics_df.items():
-        if key not in ['center', 'decision', 'component_idx'] and isinstance(vals, list):
+        if key in reserved_cols:
+            continue
+        if isinstance(vals, list):
             ps.add_column(name=key, description=f'DRIADA metric: {key}')
             custom_cols.append(key)
 
     centers = metrics_df.get('center', [])
-    for idx in valid_indices:
+    null_image_mask = np.zeros((1, 1), dtype=np.uint8)
+    for idx in range(num_neurons):
         if centers and idx < len(centers):
-            y, x = centers[idx]
-            mask = [(int(x), int(y), 1.0)]
+            y_val, x_val = centers[idx]
+            cy = float(y_val) if y_val is not None else float('nan')
+            cx = float(x_val) if x_val is not None else float('nan')
         else:
-            mask = [(0, 0, 1.0)]
+            cy = float('nan')
+            cx = float('nan')
 
-        roi_kwargs = {'pixel_mask': mask}
+        roi_kwargs = {
+            'image_mask': null_image_mask,
+            'center_y': cy,
+            'center_x': cx,
+        }
         for col in custom_cols:
             val = metrics_df[col][idx]
             roi_kwargs[col] = np.nan if val is None else val
@@ -197,7 +227,7 @@ def save_exp_to_nwb(
 
     ophys_mod.add(Fluorescence(roi_response_series=series_list))
 
-    beh_mod = nwbfile.create_processing_module('behavior', 'Tracking and state masks')
+    beh_mod = nwbfile.create_processing_module('behavior', 'Tracking position and behavioral features')
 
     x_data = exp.dynamic_features['x'].data
     y_data = exp.dynamic_features['y'].data
@@ -210,19 +240,45 @@ def save_exp_to_nwb(
     beh_mod.add(pos)
 
     exclude = {'x', 'y'}
+    feature_set = set(exp.dynamic_features.keys())
 
     for feature_name in exp.dynamic_features.keys():
-        if feature_name not in exclude and not feature_name.endswith('_2d'):
-            feat = exp.dynamic_features[feature_name]
-            s_ts = SpatialSeries(
-                name=feature_name,
-                data=feat.data,
-                reference_frame=feat_reference_frame,
-                rate=fps,
-                unit=feat_unit,
-                description=f'Behavioral feature: {feature_name}'
-            )
-            beh_mod.add(s_ts)
+        if feature_name in exclude:
+            continue
+
+        if feature_name.endswith('_2d'):
+            parent = feature_name[:-3]
+            if parent in feature_set:
+                # _2d is a cos/sin projection of `parent` and will be rebuilt
+                # on load via create_circular_2d=True. Skip to keep the NWB
+                # free of redundant derived data.
+                if verbose:
+                    print(
+                        f"  skipping derived '{feature_name}' "
+                        f"(will be rebuilt from '{parent}' on load)"
+                    )
+            else:
+                warnings.warn(
+                    f"Dropping derived feature '{feature_name}' with no 1-d "
+                    f"parent '{parent}' present in the experiment. It cannot "
+                    f"be rebuilt on load and will be permanently lost from "
+                    f"the NWB file. Persist '{parent}' alongside "
+                    f"'{feature_name}' to preserve it.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            continue
+
+        feat = exp.dynamic_features[feature_name]
+        s_ts = SpatialSeries(
+            name=feature_name,
+            data=feat.data,
+            reference_frame=feat_reference_frame,
+            rate=fps,
+            unit=feat_unit,
+            description=f'Behavioral feature: {feature_name}'
+        )
+        beh_mod.add(s_ts)
 
     final_output = Path(output_path) / f"{session_name}.nwb"
     with NWBHDF5IO(str(final_output), 'w') as io:
@@ -263,24 +319,24 @@ def load_exp_from_nwb(
     if verbose:
         print(f"Loading file: {path.name}")
 
-    sys.modules['numpy._core'] = np
-
     with NWBHDF5IO(str(path), mode='r') as io:
         nwb = io.read()
 
         notes = nwb.notes or ""
         animal_id = "Unknown"
+        extra_metadata = {}
+
         if "animal_id:" in notes:
             first_line = notes.split('\n')[0]
             animal_id = first_line.replace('animal_id: ', '').strip()
 
-            extra_metadata = {}
-            if "--- DRIADA METADATA ---" in notes:
-                try:
-                    json_str = notes.split("--- DRIADA METADATA ---")[1].strip()
-                    extra_metadata = json.loads(json_str)
-                except Exception:
-                    pass
+        if 'driada_metadata' in nwb.scratch:
+            raw = nwb.scratch['driada_metadata'].data
+            if hasattr(raw, 'item'):
+                raw = raw.item()
+            if isinstance(raw, bytes):
+                raw = raw.decode('utf-8')
+            extra_metadata = json.loads(raw)
 
         extra_metadata['session_name'] = nwb.session_id
 
@@ -298,17 +354,24 @@ def load_exp_from_nwb(
         if 'ImageSegmentation' in ophys_mod.data_interfaces:
             ps = ophys_mod.data_interfaces['ImageSegmentation']['PlaneSegmentation']
 
+            skip_cols = {
+                'pixel_mask', 'voxel_mask', 'image_mask',
+                'center_y', 'center_x',
+            }
             for col_name in ps.colnames:
-                if col_name != 'pixel_mask':
-                    metrics_df[col_name] = ps[col_name].data[:].tolist()
+                if col_name in skip_cols:
+                    continue
+                metrics_df[col_name] = ps[col_name].data[:].tolist()
 
-            centers = []
-            for i in range(len(ps)):
-                mask = ps['pixel_mask'][i]
-                centers.append([mask[0][1], mask[0][0]])
-            metrics_df['center'] = centers
+            if 'center_y' in ps.colnames and 'center_x' in ps.colnames:
+                ys = ps['center_y'].data[:].tolist()
+                xs = ps['center_x'].data[:].tolist()
+                metrics_df['center'] = [[y, x] for y, x in zip(ys, xs)]
 
-        data = {'Calcium': series.data[:].T, '_metadata': {**extra_metadata, 'metrics_df': metrics_df}}
+        meta_out = dict(extra_metadata)
+        if metrics_df:
+            meta_out['metrics_df'] = metrics_df
+        data = {'Calcium': series.data[:].T, '_metadata': meta_out}
 
         if 'Reconstructions' in fluo.roi_response_series:
             data['Reconstructions'] = fluo.roi_response_series['Reconstructions'].data[:].T
