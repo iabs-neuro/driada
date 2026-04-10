@@ -490,7 +490,6 @@ def dtc_gg(x, biascorrect=True):
     Parameters
     ----------
     x : ndarray, shape (n_variables, n_samples)
-        Copula-normalized data.
     biascorrect : bool, default True
 
     Returns
@@ -498,7 +497,22 @@ def dtc_gg(x, biascorrect=True):
     dtc : float
         Dual total correlation in bits (>= 0).
     """
-    raise NotImplementedError
+    x = np.atleast_2d(x)
+    if x.ndim != 2:
+        raise ValueError(
+            f"x must be 2D (n_vars, n_samples), got shape {x.shape}"
+        )
+    n = x.shape[0]
+    if n < 2:
+        raise ValueError(f"DTC requires at least 2 variables, got {n}")
+
+    h_joint = ent_g(x, biascorrect=biascorrect)
+    h_loo = 0.0
+    for i in range(n):
+        mask = np.ones(n, dtype=bool)
+        mask[i] = False
+        h_loo += ent_g(x[mask, :], biascorrect=biascorrect)
+    return h_loo - (n - 1) * h_joint
 
 
 def o_info_gg(x, biascorrect=True, return_components=False):

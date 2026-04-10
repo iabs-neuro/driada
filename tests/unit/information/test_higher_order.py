@@ -41,3 +41,35 @@ class TestTCgg:
         x = np.zeros((2, 3, 4))
         with pytest.raises(ValueError, match="2D"):
             tc_gg(x)
+
+
+class TestDTCgg:
+    def test_independent_gaussians_near_zero(self):
+        """DTC of independent Gaussian variables should be near zero."""
+        x = _gen_gaussian(n_vars=5, n_samples=5000, seed=42)
+        x_cn = copnorm(x)
+        dtc = dtc_gg(x_cn)
+        assert dtc >= 0
+        assert dtc < 0.1
+
+    def test_tc_equals_dtc_for_n_eq_2(self):
+        """For n=2, TC == DTC == I(X1; X2)."""
+        rng = np.random.default_rng(7)
+        x1 = rng.standard_normal(5000)
+        x2 = 0.7 * x1 + 0.3 * rng.standard_normal(5000)
+        x = np.vstack([x1, x2])
+        x_cn = copnorm(x)
+        tc = tc_gg(x_cn)
+        dtc = dtc_gg(x_cn)
+        assert abs(tc - dtc) < 1e-10
+
+    def test_requires_at_least_2_variables(self):
+        x = _gen_gaussian(n_vars=1, n_samples=1000)
+        x_cn = copnorm(x)
+        with pytest.raises(ValueError, match="at least 2 variables"):
+            dtc_gg(x_cn)
+
+    def test_rejects_non_2d_input(self):
+        x = np.zeros((2, 3, 4))
+        with pytest.raises(ValueError, match="2D"):
+            dtc_gg(x)
