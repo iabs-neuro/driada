@@ -29,6 +29,9 @@ from .gcmi import (
     gccmi_ccd,
     cmi_ggg,
     mi_model_gd,
+    tc_gg,
+    dtc_gg,
+    o_info_gg,
 )
 
 # KSG estimator functions
@@ -37,6 +40,13 @@ from .ksg import (
     nonparam_mi_cc,
     nonparam_mi_cd,
     nonparam_mi_dc,
+)
+
+# Higher-order information (O-information, TC, DTC)
+from .higher_order import (
+    total_correlation,
+    dual_total_correlation,
+    o_information,
 )
 
 # Entropy functions
@@ -81,11 +91,18 @@ __all__ = [
     "gccmi_ccd",
     "cmi_ggg",
     "mi_model_gd",
+    "tc_gg",
+    "dtc_gg",
+    "o_info_gg",
     # KSG
     "nonparam_entropy_c",
     "nonparam_mi_cc",
     "nonparam_mi_cd",
     "nonparam_mi_dc",
+    # Higher-order information
+    "total_correlation",
+    "dual_total_correlation",
+    "o_information",
     # Entropy
     "entropy_d",
     "probs_to_entropy",
