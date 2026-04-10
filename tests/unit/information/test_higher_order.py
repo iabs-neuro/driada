@@ -124,3 +124,59 @@ class TestOInfoGg:
         x = np.zeros((2, 3, 4))
         with pytest.raises(ValueError, match="2D"):
             o_info_gg(x)
+
+
+class TestOInfoClosedForm:
+    def test_3d_gaussian_matches_analytic(self):
+        """O-info on 3D Gaussian matches closed-form from covariance determinants.
+
+        For a multivariate Gaussian with covariance Sigma,
+        H(X) = 0.5 * log2((2*pi*e)^d * det(Sigma))
+        Omega = (n-2)*H(X) + sum_i [H(X_i) - H(X_{-i})]
+        """
+        rng = np.random.default_rng(23)
+        n_samples = 20000
+
+        # Construct a 3D Gaussian with known structure
+        sigma = np.array([
+            [1.0, 0.5, 0.3],
+            [0.5, 1.0, 0.4],
+            [0.3, 0.4, 1.0],
+        ])
+        x = rng.multivariate_normal(np.zeros(3), sigma, size=n_samples).T
+        x_cn = copnorm(x)
+
+        # Estimator output
+        omega_est = o_info_gg(x_cn, biascorrect=False)
+
+        # Analytic Omega from the SAMPLE covariance of copula-normalized data
+        # (not from the true sigma, since copnorm changes marginals).
+        # For Gaussian copula data, copnorm is approximately identity in
+        # distribution -> sample cov of x_cn should be close to the correlation
+        # matrix of sigma. We compute the analytic Omega using the sample cov
+        # of the copula-normalized data for direct comparison.
+        S = np.cov(x_cn, bias=False)
+        two_pi_e = 2 * np.pi * np.e
+
+        def gauss_h(cov):
+            if np.ndim(cov) == 0:
+                d = 1
+                det = float(cov)
+            else:
+                d = cov.shape[0]
+                det = np.linalg.det(cov)
+            return 0.5 * np.log2((two_pi_e ** d) * det)
+
+        h_joint = gauss_h(S)
+        h_marg = sum(gauss_h(S[i, i]) for i in range(3))
+        h_loo = 0.0
+        for i in range(3):
+            mask = np.ones(3, dtype=bool)
+            mask[i] = False
+            h_loo += gauss_h(S[np.ix_(mask, mask)])
+
+        tc_analytic = h_marg - h_joint
+        dtc_analytic = h_loo - 2 * h_joint
+        omega_analytic = tc_analytic - dtc_analytic
+
+        assert abs(omega_est - omega_analytic) < 1e-3
