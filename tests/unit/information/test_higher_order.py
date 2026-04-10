@@ -230,3 +230,25 @@ class TestTotalCorrelation:
         mts = _make_mts(n_vars=4, n_samples=2000, seed=4)
         with pytest.raises(ValueError, match="Unknown estimator"):
             total_correlation(mts, estimator="xyz")
+
+
+class TestDualTotalCorrelation:
+    def test_returns_float(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=5)
+        dtc = dual_total_correlation(mts)
+        assert isinstance(dtc, float)
+
+    def test_matches_low_level(self):
+        mts = _make_mts(n_vars=4, n_samples=3000, seed=6)
+        dtc_high = dual_total_correlation(mts)
+        dtc_low = dtc_gg(mts.copula_normal_data)
+        assert abs(dtc_high - dtc_low) < 1e-12
+
+    def test_rejects_non_mts(self):
+        with pytest.raises(TypeError, match="MultiTimeSeries"):
+            dual_total_correlation(np.zeros((3, 100)))
+
+    def test_ksg_not_implemented(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=7)
+        with pytest.raises(NotImplementedError, match="curse of dimensionality"):
+            dual_total_correlation(mts, estimator="ksg")
