@@ -263,8 +263,6 @@ def load_exp_from_nwb(
     if verbose:
         print(f"Loading file: {path.name}")
 
-    sys.modules['numpy._core'] = np
-
     with NWBHDF5IO(str(path), mode='r') as io:
         nwb = io.read()
 
