@@ -252,3 +252,43 @@ class TestDualTotalCorrelation:
         mts = _make_mts(n_vars=4, n_samples=2000, seed=7)
         with pytest.raises(NotImplementedError, match="curse of dimensionality"):
             dual_total_correlation(mts, estimator="ksg")
+
+
+class TestOInformation:
+    def test_returns_float_by_default(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=8)
+        omega = o_information(mts)
+        assert isinstance(omega, float)
+
+    def test_return_components_returns_dict(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=9)
+        result = o_information(mts, return_components=True)
+        assert isinstance(result, dict)
+        assert set(result.keys()) == {"omega", "tc", "dtc"}
+        assert abs(result["omega"] - (result["tc"] - result["dtc"])) < 1e-12
+
+    def test_matches_low_level(self):
+        mts = _make_mts(n_vars=4, n_samples=3000, seed=10)
+        omega_high = o_information(mts)
+        omega_low = o_info_gg(mts.copula_normal_data)
+        assert abs(omega_high - omega_low) < 1e-12
+
+    def test_rejects_non_mts(self):
+        with pytest.raises(TypeError, match="MultiTimeSeries"):
+            o_information(np.zeros((3, 100)))
+
+    def test_ksg_not_implemented(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=11)
+        with pytest.raises(NotImplementedError, match="curse of dimensionality"):
+            o_information(mts, estimator="ksg")
+
+    def test_unknown_estimator(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=12)
+        with pytest.raises(ValueError, match="Unknown estimator"):
+            o_information(mts, estimator="xyz")
+
+    def test_n_lt_3_mts_raises(self):
+        """MTS with only 2 components -> o_info_gg raises n>=3 error."""
+        mts = _make_mts(n_vars=2, n_samples=2000, seed=13)
+        with pytest.raises(ValueError, match="n >= 3"):
+            o_information(mts)
