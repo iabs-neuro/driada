@@ -73,3 +73,54 @@ class TestDTCgg:
         x = np.zeros((2, 3, 4))
         with pytest.raises(ValueError, match="2D"):
             dtc_gg(x)
+
+
+class TestOInfoGg:
+    def test_redundancy_positive(self):
+        """Three variables sharing a latent should give positive Omega."""
+        rng = np.random.default_rng(11)
+        n_samples = 5000
+        latent = rng.standard_normal(n_samples)
+        x = np.vstack([
+            latent + 0.3 * rng.standard_normal(n_samples),
+            latent + 0.3 * rng.standard_normal(n_samples),
+            latent + 0.3 * rng.standard_normal(n_samples),
+        ])
+        x_cn = copnorm(x)
+        omega = o_info_gg(x_cn)
+        assert omega > 0.5  # clearly redundancy-dominated
+
+    def test_synergy_negative(self):
+        """X3 = X1 + X2 + small noise should give negative Omega."""
+        rng = np.random.default_rng(13)
+        n_samples = 5000
+        x1 = rng.standard_normal(n_samples)
+        x2 = rng.standard_normal(n_samples)
+        x3 = x1 + x2 + 0.05 * rng.standard_normal(n_samples)
+        x = np.vstack([x1, x2, x3])
+        x_cn = copnorm(x)
+        omega = o_info_gg(x_cn)
+        assert omega < -0.2  # synergy-dominated
+
+    def test_return_components(self):
+        """return_components=True returns (omega, tc, dtc) and omega == tc - dtc."""
+        rng = np.random.default_rng(17)
+        x = rng.standard_normal((4, 3000))
+        x_cn = copnorm(x)
+        omega, tc, dtc = o_info_gg(x_cn, return_components=True)
+        assert isinstance(omega, float)
+        assert isinstance(tc, float)
+        assert isinstance(dtc, float)
+        assert abs(omega - (tc - dtc)) < 1e-12
+
+    def test_n_lt_3_raises(self):
+        """O-info is identically 0 for n=2, so function refuses."""
+        x = _gen_gaussian(n_vars=2, n_samples=1000)
+        x_cn = copnorm(x)
+        with pytest.raises(ValueError, match="n >= 3"):
+            o_info_gg(x_cn)
+
+    def test_rejects_non_2d_input(self):
+        x = np.zeros((2, 3, 4))
+        with pytest.raises(ValueError, match="2D"):
+            o_info_gg(x)

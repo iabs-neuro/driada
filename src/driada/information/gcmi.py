@@ -537,7 +537,25 @@ def o_info_gg(x, biascorrect=True, return_components=False):
     ValueError
         If n_variables < 3 (O-info is identically 0 for n=2).
     """
-    raise NotImplementedError
+    x = np.atleast_2d(x)
+    if x.ndim != 2:
+        raise ValueError(
+            f"x must be 2D (n_vars, n_samples), got shape {x.shape}"
+        )
+    n = x.shape[0]
+    if n < 3:
+        raise ValueError(
+            f"O-information is only defined for n >= 3 variables "
+            f"(for n=2, O = TC - DTC = 0). Got n={n}."
+        )
+
+    tc = tc_gg(x, biascorrect=biascorrect)
+    dtc = dtc_gg(x, biascorrect=biascorrect)
+    omega = tc - dtc
+
+    if return_components:
+        return omega, tc, dtc
+    return omega
 
 
 @conditional_njit()
