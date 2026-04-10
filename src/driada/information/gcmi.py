@@ -453,6 +453,79 @@ def ent_g(x, biascorrect=True):
     return HX / ln2
 
 
+def tc_gg(x, biascorrect=True):
+    """Total correlation (multi-information) for Gaussian copula data.
+
+    Parameters
+    ----------
+    x : ndarray, shape (n_variables, n_samples)
+        Copula-normalized data. Each row is one variable.
+    biascorrect : bool, default True
+        Apply analytic bias correction (as in ent_g, mi_gg).
+
+    Returns
+    -------
+    tc : float
+        Total correlation in bits (>= 0, 0 iff variables independent).
+    """
+    x = np.atleast_2d(x)
+    if x.ndim != 2:
+        raise ValueError(
+            f"x must be 2D (n_vars, n_samples), got shape {x.shape}"
+        )
+    n = x.shape[0]
+    if n < 2:
+        raise ValueError(f"TC requires at least 2 variables, got {n}")
+
+    h_joint = ent_g(x, biascorrect=biascorrect)
+    h_marginals = sum(
+        ent_g(x[[i], :], biascorrect=biascorrect) for i in range(n)
+    )
+    return h_marginals - h_joint
+
+
+def dtc_gg(x, biascorrect=True):
+    """Dual total correlation (binding information) for Gaussian copula data.
+
+    Parameters
+    ----------
+    x : ndarray, shape (n_variables, n_samples)
+        Copula-normalized data.
+    biascorrect : bool, default True
+
+    Returns
+    -------
+    dtc : float
+        Dual total correlation in bits (>= 0).
+    """
+    raise NotImplementedError
+
+
+def o_info_gg(x, biascorrect=True, return_components=False):
+    """O-information for Gaussian copula data.
+
+    Omega = TC - DTC. Positive -> redundancy-dominated;
+    negative -> synergy-dominated.
+
+    Parameters
+    ----------
+    x : ndarray, shape (n_variables, n_samples)
+    biascorrect : bool, default True
+    return_components : bool, default False
+        If True, return (omega, tc, dtc) tuple.
+
+    Returns
+    -------
+    omega : float (or tuple (omega, tc, dtc) if return_components=True)
+
+    Raises
+    ------
+    ValueError
+        If n_variables < 3 (O-info is identically 0 for n=2).
+    """
+    raise NotImplementedError
+
+
 @conditional_njit()
 def mi_gg(x, y, biascorrect=True, demeaned=False):
     """Mutual information (MI) between two Gaussian variables in bits.
