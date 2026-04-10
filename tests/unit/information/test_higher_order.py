@@ -3,6 +3,12 @@ import numpy as np
 import pytest
 
 from driada.information.gcmi import tc_gg, dtc_gg, o_info_gg, copnorm
+from driada.information.higher_order import (
+    total_correlation,
+    dual_total_correlation,
+    o_information,
+)
+from driada.information.info_base import TimeSeries, MultiTimeSeries
 
 
 def _gen_gaussian(n_vars, n_samples, cov=None, seed=0):
@@ -11,6 +17,22 @@ def _gen_gaussian(n_vars, n_samples, cov=None, seed=0):
     if cov is None:
         cov = np.eye(n_vars)
     return rng.multivariate_normal(np.zeros(n_vars), cov, size=n_samples).T
+
+
+def _make_mts(n_vars=4, n_samples=3000, seed=0, cov=None):
+    """Helper: build a MultiTimeSeries from n continuous Gaussian signals."""
+    rng = np.random.default_rng(seed)
+    if cov is None:
+        data = rng.standard_normal((n_vars, n_samples))
+    else:
+        data = rng.multivariate_normal(
+            np.zeros(n_vars), cov, size=n_samples
+        ).T
+    ts_list = [
+        TimeSeries(data[i], discrete=False, name=f"var_{i}")
+        for i in range(n_vars)
+    ]
+    return MultiTimeSeries(ts_list)
 
 
 class TestTCgg:
@@ -180,3 +202,31 @@ class TestOInfoClosedForm:
         omega_analytic = tc_analytic - dtc_analytic
 
         assert abs(omega_est - omega_analytic) < 1e-3
+
+
+class TestTotalCorrelation:
+    def test_returns_float(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=1)
+        tc = total_correlation(mts)
+        assert isinstance(tc, float)
+
+    def test_matches_low_level(self):
+        """High-level result equals low-level result on same data."""
+        mts = _make_mts(n_vars=4, n_samples=3000, seed=2)
+        tc_high = total_correlation(mts)
+        tc_low = tc_gg(mts.copula_normal_data)
+        assert abs(tc_high - tc_low) < 1e-12
+
+    def test_rejects_non_mts(self):
+        with pytest.raises(TypeError, match="MultiTimeSeries"):
+            total_correlation(np.zeros((3, 100)))
+
+    def test_ksg_not_implemented(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=3)
+        with pytest.raises(NotImplementedError, match="curse of dimensionality"):
+            total_correlation(mts, estimator="ksg")
+
+    def test_unknown_estimator(self):
+        mts = _make_mts(n_vars=4, n_samples=2000, seed=4)
+        with pytest.raises(ValueError, match="Unknown estimator"):
+            total_correlation(mts, estimator="xyz")
