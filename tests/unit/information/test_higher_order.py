@@ -292,3 +292,33 @@ class TestOInformation:
         mts = _make_mts(n_vars=2, n_samples=2000, seed=13)
         with pytest.raises(ValueError, match="n >= 3"):
             o_information(mts)
+
+
+class TestCopulaDataMissing:
+    def test_discrete_mts_raises(self):
+        """MTS built from discrete TS has no copula_normal_data."""
+        rng = np.random.default_rng(14)
+        # Discrete binary signals
+        data = (rng.random((3, 2000)) > 0.5).astype(int)
+        ts_list = [
+            TimeSeries(data[i], discrete=True, name=f"d{i}")
+            for i in range(3)
+        ]
+        mts = MultiTimeSeries(ts_list, allow_zero_columns=True)
+        # Sanity: discrete MTS should have copula_normal_data == None
+        assert mts.copula_normal_data is None
+
+        with pytest.raises(ValueError, match="copula_normal_data"):
+            o_information(mts)
+
+    def test_after_clear_caches_raises(self):
+        """clear_caches() sets copula_normal_data to None."""
+        mts = _make_mts(n_vars=4, n_samples=1500, seed=15)
+        # Sanity: continuous MTS has copula_normal_data before clearing
+        assert mts.copula_normal_data is not None
+
+        mts.clear_caches()
+        assert mts.copula_normal_data is None
+
+        with pytest.raises(ValueError, match="clear_caches"):
+            total_correlation(mts)
