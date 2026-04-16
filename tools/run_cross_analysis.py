@@ -17,6 +17,7 @@ import argparse
 import json
 import sys
 from dataclasses import asdict
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -71,7 +72,8 @@ def main():
         print(f"Error: Tables not found at {tables_dir}")
         sys.exit(1)
 
-    out_dir = data_dir / f"cross-analysis 3.0 {args.tag}" / exp_id
+    today = date.today().strftime('%d.%m.%Y')
+    out_dir = data_dir / f"{exp_id} cross analysis {today}"
 
     # Build config with overridden tables_subdir
     base = EXPERIMENT_CONFIGS[exp_id]

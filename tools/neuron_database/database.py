@@ -268,7 +268,7 @@ class NeuronDatabase:
                 cols = [s for s in sessions if s in match_df.columns]
                 present_count = match_df[cols].notna().sum(axis=1)
                 result[mouse] = set(match_df.index[present_count >= spec])
-            return result
+            return {m: ids for m, ids in result.items() if ids}
         else:
             result = {}
             for mouse in self.mice:
@@ -279,7 +279,7 @@ class NeuronDatabase:
                 else:
                     mask = match_df[cols].notna().all(axis=1)
                     result[mouse] = set(match_df.index[mask])
-            return result
+            return {m: ids for m, ids in result.items() if ids}
 
     @staticmethod
     def matching_label(spec):

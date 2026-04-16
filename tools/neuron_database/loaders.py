@@ -30,7 +30,7 @@ def parse_matching_csv(path, session_names):
         columns = session_names,
         values = neuron indices (0 replaced with NaN).
     """
-    df = pd.read_csv(path, header=None)
+    df = pd.read_csv(path, header=None, sep=None, engine='python')
     if len(df.columns) != len(session_names):
         raise ValueError(
             f"Matching table {path} has {len(df.columns)} columns, "

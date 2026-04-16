@@ -92,7 +92,7 @@ EXPERIMENT_CONFIGS = {
         matching_subdir='MatchData',
         delay_strategy=DELAY_STRATEGY,
         mice_metadata=['Line', 'Group'],
-        killed_sessions=['BOWL_F30_3D'],
+        excluded_mice=['BOWL_D04', 'BOWL_F52', 'BOWL_F30'],
         discrete_place_features=_BOWL_DISCRETE_PLACE,
         aggregate_features=_BOWL_AGGREGATE,
     ),

@@ -19,6 +19,13 @@ def _resolve_filter_delay(filter_delay, db):
     return filter_delay
 
 
+def _resolve_mice(db, matched_ids_per_mouse):
+    """Return mice list scoped to matched dict when provided."""
+    if matched_ids_per_mouse is None:
+        return db.mice
+    return [m for m in db.mice if m in matched_ids_per_mouse]
+
+
 def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
                                 pval_threshold=PVAL_THRESHOLD,
                                 filter_delay=False,
@@ -166,11 +173,12 @@ def significance_count_table(db, feature, matched_ids_per_mouse=None,
     if matched_ids_per_mouse is not None:
         df = _filter_by_matched_ids(df, matched_ids_per_mouse)
 
+    mice = _resolve_mice(db, matched_ids_per_mouse)
     if df.empty:
-        table = pd.DataFrame(0, index=db.mice, columns=db.sessions)
+        table = pd.DataFrame(0, index=mice, columns=db.sessions)
     else:
         table = df.groupby(['mouse', 'session']).size().unstack(fill_value=0)
-        table = table.reindex(index=db.mice, columns=db.sessions, fill_value=0)
+        table = table.reindex(index=mice, columns=db.sessions, fill_value=0)
 
     table.index.name = 'mouse'
     return table.astype(int)
@@ -202,14 +210,18 @@ def _selectivity_counts(db, matched_ids_per_mouse=None,
     return counts
 
 
-def _sel_count_to_table(counts, db, n_sel):
+def _sel_count_to_table(counts, db, n_sel, mice=None):
     """Build mice x sessions table from selectivity counts.
 
     n_sel : int
         If positive, count neurons with this many selectivities
         (exact match for 1-2, >= for 3+).
         If 0, count all selective neurons (any n_sel >= 1).
+    mice : list[str], optional
+        Mouse IDs for rows. Defaults to db.mice.
     """
+    if mice is None:
+        mice = db.mice
     if n_sel == 0:
         filtered = counts
     else:
@@ -217,11 +229,11 @@ def _sel_count_to_table(counts, db, n_sel):
             else counts[counts['n_sel'] == n_sel]
 
     if filtered.empty:
-        table = pd.DataFrame(0, index=db.mice, columns=db.sessions)
+        table = pd.DataFrame(0, index=mice, columns=db.sessions)
     else:
         table = (filtered.groupby(['mouse', 'session'])
                  .size().unstack(fill_value=0))
-        table = table.reindex(index=db.mice, columns=db.sessions, fill_value=0)
+        table = table.reindex(index=mice, columns=db.sessions, fill_value=0)
 
     table.index.name = 'mouse'
     return table.astype(int)
@@ -234,8 +246,9 @@ def _neuron_count_table(db, matched_ids_per_mouse=None):
     Otherwise, count all neurons from the matching tables.
     """
     if matched_ids_per_mouse is not None:
+        mice = _resolve_mice(db, matched_ids_per_mouse)
         rows = {}
-        for mouse in db.mice:
+        for mouse in mice:
             match_df = db.matching[mouse]
             matched_ids = matched_ids_per_mouse.get(mouse, set())
             counts = {}
@@ -247,7 +260,7 @@ def _neuron_count_table(db, matched_ids_per_mouse=None):
                     counts[session] = 0
             rows[mouse] = counts
         table = pd.DataFrame(rows).T
-        table = table.reindex(index=db.mice, columns=db.sessions, fill_value=0)
+        table = table.reindex(index=mice, columns=db.sessions, fill_value=0)
         table.index.name = 'mouse'
         return table.astype(int)
     else:
@@ -346,8 +359,9 @@ def export_count_tables_excel(db, output_path, matched_ids_per_mouse=None,
         # Composite sheets
         sel = _selectivity_counts(db, matched_ids_per_mouse,
                                   min_selectivities=min_selectivities, **fkw)
+        mice = _resolve_mice(db, matched_ids_per_mouse)
         for n_sel, name in [(0, 'all'), (1, 'sel1'), (2, 'sel2'), (3, 'sel3')]:
-            table = _sel_count_to_table(sel, db, n_sel)
+            table = _sel_count_to_table(sel, db, n_sel, mice=mice)
             annotate_mice_table(table, db)
             table.to_excel(writer, sheet_name=name)
 
@@ -386,8 +400,9 @@ def export_fraction_tables_excel(db, output_path, matched_ids_per_mouse=None,
         sel = _selectivity_counts(db, matched_ids_per_mouse,
                                   min_selectivities=min_selectivities, **fkw)
         totals = _neuron_count_table(db, matched_ids_per_mouse)
+        mice = _resolve_mice(db, matched_ids_per_mouse)
         for n_sel, name in [(0, 'all'), (1, 'sel1'), (2, 'sel2'), (3, 'sel3')]:
-            counts = _sel_count_to_table(sel, db, n_sel)
+            counts = _sel_count_to_table(sel, db, n_sel, mice=mice)
             frac = ((counts / totals.replace(0, float('nan'))) * 100).round(2)
             annotate_mice_table(frac, db)
             frac.to_excel(writer, sheet_name=name)
@@ -420,7 +435,8 @@ def export_fraction_of_sel_tables_excel(db, output_path,
     # Compute total selective neurons once (the 'all' composite)
     sel = _selectivity_counts(db, matched_ids_per_mouse,
                               min_selectivities=min_selectivities, **fkw)
-    sel_totals = _sel_count_to_table(sel, db, 0)
+    mice = _resolve_mice(db, matched_ids_per_mouse)
+    sel_totals = _sel_count_to_table(sel, db, 0, mice=mice)
 
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
         for feature in features:
@@ -433,7 +449,7 @@ def export_fraction_of_sel_tables_excel(db, output_path,
 
         # Composite sheets: sel1/sel2/sel3 as fraction of all selective
         for n_sel, name in [(1, 'sel1'), (2, 'sel2'), (3, 'sel3')]:
-            counts = _sel_count_to_table(sel, db, n_sel)
+            counts = _sel_count_to_table(sel, db, n_sel, mice=mice)
             frac = ((counts / sel_totals.replace(0, float('nan'))) * 100).round(2)
             annotate_mice_table(frac, db)
             frac.to_excel(writer, sheet_name=name)
@@ -716,21 +732,22 @@ def retention_count_table(db, feature, matched_ids_per_mouse=None,
     n_sessions = len(db.sessions)
     columns = list(range(1, n_sessions + 1))
 
+    mice = _resolve_mice(db, matched_ids_per_mouse)
     if df.empty:
-        table = pd.DataFrame(0, index=db.mice, columns=columns)
+        table = pd.DataFrame(0, index=mice, columns=columns)
     else:
         # Count sessions each neuron is significant in
         session_counts = df.groupby(['mouse', 'matched_id'])['session'].nunique()
 
         rows = {}
-        for mouse in db.mice:
+        for mouse in mice:
             if mouse in session_counts.index.get_level_values(0):
                 mc = session_counts.loc[mouse]
                 rows[mouse] = [int((mc >= k).sum()) for k in columns]
             else:
                 rows[mouse] = [0] * n_sessions
         table = pd.DataFrame.from_dict(rows, orient='index', columns=columns)
-        table = table.reindex(index=db.mice, fill_value=0)
+        table = table.reindex(index=mice, fill_value=0)
 
     table.index.name = 'mouse'
     table.loc['total'] = table.sum()
@@ -1188,26 +1205,20 @@ def export_all(db, output_dir, features=None,
         export_cross_stats_excel(
             db, folder / f'{_fname("cross-stats", tag)}.xlsx',
             min_sessions=min_sess, **fkw)
+        export_retention_tables_excel(
+            db, folder / f'{_fname("retention", tag)}.xlsx',
+            matched_ids_per_mouse=matched, features=features, **fkw)
+        export_retention_enrichment_excel(
+            db, folder / f'{_fname("retention_enrichment", tag)}.xlsx',
+            matched_ids_per_mouse=matched, features=features, **fkw)
 
         print(f"  -> {folder}")
 
-    # Retention stays at root
-    export_retention_tables_excel(
-        db, output_dir / f'{_fname("retention")}.xlsx',
-        features=features, **fkw)
-    export_retention_enrichment_excel(
-        db, output_dir / f'{_fname("retention_enrichment")}.xlsx',
-        features=features, **fkw)
-
-    # Core data table (human-readable)
-    db.data.drop(columns='significant').to_excel(
-        output_dir / f'{_fname("data")}.xlsx',
-        index=False, engine='openpyxl')
-
-    # Full database snapshot (HDF5)
+    # Full database snapshot (HDF5 + CSV)
     h5_path = output_dir / f'{_fname("database")}.h5'
+    data = db.data.drop(columns='significant')
     with pd.HDFStore(h5_path, mode='w') as store:
-        store['data'] = db.data.drop(columns='significant')
+        store['data'] = data
         for mouse, match_df in db.matching.items():
             store[f'matching/{mouse}'] = match_df
         store['config'] = pd.Series({
@@ -1215,5 +1226,8 @@ def export_all(db, output_dir, features=None,
             'sessions': ','.join(db.sessions),
             'delay_strategy': db.delay_strategy,
         })
+
+    csv_path = h5_path.with_suffix('.csv')
+    data.to_csv(csv_path, index=False)
 
     print(f"\nAll tables exported to: {output_dir}")
