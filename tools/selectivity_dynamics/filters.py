@@ -590,6 +590,15 @@ EXPERIMENT_CONFIGS = {
         'post_filter': tdm_post_filter,
         'feature_types': _CIRCULAR_FEATURES,
     },
+    'TRACE': {
+        'place_feat_name': 'place',
+        'discrete_place_features': [],
+        'feature_renaming': {},
+        'aggregate_features': {},
+        'skip_for_intense': [],
+        'specific_filter': None,
+        'feature_types': _CIRCULAR_FEATURES,
+    },
 }
 
 
