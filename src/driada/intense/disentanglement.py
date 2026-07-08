@@ -750,13 +750,24 @@ def disentangle_all_selectivities(
     multifeature_ts = {}
     for mf_tuple, agg_name in multifeature_map.items():
         if agg_name in feat_names:
+            # If a component was dropped (e.g. degenerate coordinate), fall back
+            # to the pre-built aggregate; skip with a warning only if neither is
+            # available, rather than crashing the whole session.
+            missing = [c for c in mf_tuple if not hasattr(exp, c)]
+            if missing:
+                if hasattr(exp, agg_name):
+                    multifeature_ts[agg_name] = getattr(exp, agg_name)
+                else:
+                    warnings.warn(
+                        f"Multifeature '{agg_name}' skipped: missing components "
+                        f"{missing} and no pre-built aggregate available"
+                    )
+                continue
+
             # Get individual TimeSeries for each component
             component_ts = []
             for component in mf_tuple:
-                if hasattr(exp, component):
-                    component_ts.append(getattr(exp, component))
-                else:
-                    raise ValueError(f"Component '{component}' not found in experiment")
+                component_ts.append(getattr(exp, component))
 
             # Create MultiTimeSeries
             # Allow zero columns since behavioral features might be constant
