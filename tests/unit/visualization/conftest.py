@@ -20,6 +20,7 @@ def mock_matplotlib():
         patch("matplotlib.pyplot.subplots") as mock_subplots,
         patch("matplotlib.pyplot.show") as mock_show,
         patch("matplotlib.pyplot.savefig") as mock_savefig,
+        patch("matplotlib.pyplot.colorbar") as mock_colorbar,
     ):
 
         # Create mock figure and axes
@@ -28,6 +29,7 @@ def mock_matplotlib():
 
         # Configure mock returns
         mock_figure.return_value = mock_fig
+        mock_colorbar.return_value = MagicMock()
         mock_subplots.return_value = (mock_fig, mock_ax)
         mock_fig.add_subplot.return_value = mock_ax
 

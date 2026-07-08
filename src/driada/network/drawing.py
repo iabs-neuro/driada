@@ -4,7 +4,6 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 from itertools import combinations
-from matplotlib import cm
 import matplotlib as mpl
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize as color_normalize
@@ -463,7 +462,7 @@ def draw_net(net, colors=None, nodesize=None, ax=None):
 
     node_options = {
         "node_size": nodesize,
-        "cmap": cm.get_cmap("Spectral"),
+        "cmap": mpl.colormaps["Spectral"],
     }
     edge_options = {}
 
