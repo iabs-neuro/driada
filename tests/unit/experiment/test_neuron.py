@@ -1402,3 +1402,52 @@ class TestDeconvolveWithEventMask:
         assert len(amp_with_mask) == 1
         assert amp_no_mask[0] > 0
         assert amp_with_mask[0] > 0
+
+
+class TestEventSNRDb:
+    """Test the decibel event-SNR metric and its relationship to get_event_snr."""
+
+    @staticmethod
+    def _signal_with_events(seed=42):
+        rng = np.random.default_rng(seed)
+        ca_data = rng.normal(0.2, 0.05, 1000)
+        for t in (100, 300, 500, 700, 900):
+            ca_data[t : t + 20] += np.linspace(0, 0.5, 20)
+            ca_data[t + 20 : t + 60] += np.linspace(0.5, 0, 40)
+        return ca_data
+
+    def test_event_snr_db_returns_decibels(self):
+        """get_event_snr_db reports a dB value, distinct from the linear wavelet SNR."""
+        neuron = Neuron("cell_snr_db_1", self._signal_with_events(), None)
+
+        snr_db = neuron.get_event_snr_db()
+
+        assert isinstance(snr_db, float)
+        assert np.isfinite(snr_db)
+        assert snr_db > 0
+        # dB is a log-scale quantity: converting back must reproduce a plain ratio > 1
+        assert 10 ** (snr_db / 20) > 1
+
+    def test_event_snr_db_honours_n_mad(self):
+        """The n_mad threshold is a live parameter, not a dead signature."""
+        neuron = Neuron("cell_snr_db_2", self._signal_with_events(), None)
+
+        lenient = neuron.get_event_snr_db(n_mad=2.0)
+        strict = neuron.get_event_snr_db(n_mad=5.0)
+
+        # Only that n_mad reaches the computation. The direction is deliberately not
+        # asserted: raising the threshold also pushes event flanks into the baseline,
+        # inflating std(baseline), so the reported dB can move either way.
+        assert lenient != strict
+
+    def test_event_snr_db_raises_without_events(self):
+        """A flat trace has nothing above threshold."""
+        rng = np.random.default_rng(0)
+        neuron = Neuron("cell_snr_db_3", rng.normal(0.2, 0.05, 1000), None)
+
+        with pytest.raises(ValueError, match="No events detected"):
+            neuron.get_event_snr_db(n_mad=50.0)
+
+    def test_get_event_snr_stays_an_alias_of_wavelet_snr(self):
+        """Back-compat guard: get_event_snr must keep resolving to get_wavelet_snr."""
+        assert Neuron.get_event_snr is Neuron.get_wavelet_snr
