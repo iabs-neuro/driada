@@ -1451,3 +1451,46 @@ class TestEventSNRDb:
     def test_get_event_snr_stays_an_alias_of_wavelet_snr(self):
         """Back-compat guard: get_event_snr must keep resolving to get_wavelet_snr."""
         assert Neuron.get_event_snr is Neuron.get_wavelet_snr
+
+
+class TestWaveletSNRPrecompute:
+    """Pre-computed wavelet SNR supplied via metrics."""
+
+    @staticmethod
+    def _flat_trace():
+        # No event regions: any recomputation would raise, so a returned value proves
+        # the cached one was used.
+        return np.random.default_rng(0).normal(0.2, 0.05, 1000)
+
+    def test_wavelet_snr_metric_is_used_without_recomputation(self):
+        """metrics['wavelet_snr'] populates the cache get_wavelet_snr reads."""
+        neuron = Neuron("cell_pre_1", self._flat_trace(), None, metrics={"wavelet_snr": 7.3})
+
+        assert neuron.wavelet_snr == 7.3
+        assert neuron.get_wavelet_snr() == 7.3
+        assert neuron.get_event_snr() == 7.3
+
+    def test_event_snr_metric_does_not_feed_the_wavelet_cache(self):
+        """metrics['event_snr'] is a foreign-pipeline value: it must not become wavelet SNR.
+
+        BOWL npz metrics_df carries an 'event_snr' column produced by the CaImAn
+        autoinspection pipeline (median ~1.3), which is a different quantity from
+        DRIADA's wavelet SNR (~3-28). Feeding it into the wavelet cache would silently
+        swap one metric for another.
+        """
+        neuron = Neuron("cell_pre_2", self._flat_trace(), None, metrics={"event_snr": 1.3})
+
+        assert neuron.event_snr == 1.3          # still stored for callers that want it
+        assert neuron.wavelet_snr is None       # but it must NOT seed the wavelet cache
+        with pytest.raises(ValueError, match="No event regions detected"):
+            neuron.get_wavelet_snr()
+
+    def test_wavelet_snr_metric_wins_over_event_snr(self):
+        """When both keys are present the explicit wavelet_snr is the one used."""
+        neuron = Neuron(
+            "cell_pre_3", self._flat_trace(), None,
+            metrics={"event_snr": 1.3, "wavelet_snr": 7.3},
+        )
+
+        assert neuron.event_snr == 1.3
+        assert neuron.get_wavelet_snr() == 7.3

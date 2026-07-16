@@ -205,9 +205,17 @@ class Neuron:
             Pre-computed quality metrics dictionary. Recognized keys include
             't_rise' and 't_off' (kinetics in seconds, converted to frames),
             'r2_score' and 'snr_recon' (reconstruction quality),
-            'event_r2_score' and 'event_snr' (event-level quality), and
+            'event_r2_score' and 'event_snr' (event-level quality),
+            'wavelet_snr' (pre-computed get_wavelet_snr value), and
             'noise_level' (noise amplitude). Unrecognized keys are stored
             but otherwise ignored.
+
+            Note the two SNR keys are NOT interchangeable. 'wavelet_snr' pre-fills the
+            cache get_wavelet_snr (and hence get_event_snr) reads, so supplying it skips
+            recomputation. 'event_snr' is kept as an upstream-pipeline value on the
+            event_snr attribute and is never used as the wavelet SNR: producers such as
+            CaImAn autoinspection define it by a different formula and on a different
+            scale, so the two must not be conflated.
 
         Raises
         ------
@@ -306,8 +314,16 @@ class Neuron:
             if 'event_r2_score' in metrics and metrics['event_r2_score'] is not None:
                 self.event_r2 = float(metrics['event_r2_score'])
 
+            # Stored for callers that want it, but deliberately NOT fed into
+            # self.wavelet_snr: upstream pipelines (e.g. CaImAn autoinspection, which
+            # writes this column into BOWL metrics_df) define event_snr differently from
+            # get_wavelet_snr, so seeding the cache with it would silently swap metrics.
+            # Use the explicit 'wavelet_snr' key below to pre-fill that cache.
             if 'event_snr' in metrics and metrics['event_snr'] is not None:
                 self.event_snr = float(metrics['event_snr'])
+
+            if 'wavelet_snr' in metrics and metrics['wavelet_snr'] is not None:
+                self.wavelet_snr = float(metrics['wavelet_snr'])
 
             if 'noise_level' in metrics and metrics['noise_level'] is not None:
                 self.noise_ampl = float(metrics['noise_level'])
