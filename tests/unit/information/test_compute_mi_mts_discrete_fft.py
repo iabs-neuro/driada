@@ -219,16 +219,21 @@ class TestMTSDiscreteFFTDimensions:
         assert np.all(np.isfinite(mi))
         assert np.all(mi >= 0)
 
-    def test_d4_raises(self):
-        """d=4 should raise NotImplementedError."""
-        np.random.seed(50)
-        n, d, Ym = 100, 4, 2
+    @pytest.mark.parametrize("d,Ym", [(4, 2), (5, 3)])
+    def test_high_dim_matches_mi_model_gd(self, d, Ym):
+        """d=4/d=5 use the extended FFT path and match the loop reference."""
+        rng = np.random.RandomState(50 + d)
+        n = 800
 
-        mts = copnorm(np.random.randn(d, n))
-        discrete = np.random.randint(0, Ym, n)
+        mts = copnorm(rng.randn(d, n))
+        discrete = rng.randint(0, Ym, n).astype(float)
+        shifts = np.array([0, 11, 53, 300])
 
-        with pytest.raises(NotImplementedError, match="d > 3 is not implemented"):
-            compute_mi_mts_discrete_fft(mts, discrete, np.array([0]))
+        mi_fft = compute_mi_mts_discrete_fft(mts, discrete, shifts, biascorrect=True)
+        mi_loop = np.array([
+            mi_model_gd(mts, np.roll(discrete, int(s)), Ym, True, True) for s in shifts
+        ])
+        np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-7, atol=1e-10)
 
 
 class TestClassCounts:

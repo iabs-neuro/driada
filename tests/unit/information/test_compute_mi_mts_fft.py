@@ -1,11 +1,12 @@
 """
 Tests for compute_mi_mts_fft function (MultiTimeSeries FFT acceleration).
 
-Tests all dimensions (d=1,2,3,4), edge cases, and validation.
+Tests all supported dimensions (d=1..5), edge cases, and validation.
 """
 import pytest
 import numpy as np
 from driada.information.info_base import compute_mi_mts_fft
+from driada.information.gcmi import mi_gg, copnorm
 
 
 class TestMultiTimeSeriesFFTDimensions:
@@ -53,16 +54,39 @@ class TestMultiTimeSeriesFFTDimensions:
         assert np.all(np.isfinite(mi_values))
         assert np.all(mi_values >= 0)
 
-    def test_mts_fft_d4_raises(self):
-        """Test with 4D MultiTimeSeries (should raise NotImplementedError)."""
+    @pytest.mark.parametrize("d", [4, 5])
+    def test_mts_fft_high_dim(self, d):
+        """Test with 4D/5D MultiTimeSeries (extended FFT path)."""
         n = 100
-        # Create 4D multivariate data (d=4, n=100)
-        copnorm_x = np.random.randn(4, n)
+        copnorm_x = np.random.randn(d, n)
         copnorm_z = np.random.randn(n)
         shifts = np.array([0, 1])
 
-        with pytest.raises(NotImplementedError, match="d > 3 is not implemented"):
-            compute_mi_mts_fft(copnorm_z, copnorm_x, shifts)
+        mi_values = compute_mi_mts_fft(copnorm_z, copnorm_x, shifts)
+
+        assert mi_values.shape == (len(shifts),)
+        assert np.all(np.isfinite(mi_values))
+        assert np.all(mi_values >= 0)
+
+    @pytest.mark.parametrize("d", [4, 5])
+    def test_mts_fft_high_dim_matches_mi_gg(self, d):
+        """Extended FFT path must match the mi_gg loop reference at all shifts."""
+        rng = np.random.RandomState(300 + d)
+        n = 800
+        z = rng.randn(n)
+        x = np.vstack([(0.2 + 0.1 * k) * z
+                       + np.sqrt(1 - (0.2 + 0.1 * k) ** 2) * rng.randn(n)
+                       for k in range(d)])
+        copnorm_z = copnorm(z).ravel()
+        copnorm_x = copnorm(x)
+        shifts = np.array([0, 13, 77, 400])
+
+        mi_fft = compute_mi_mts_fft(copnorm_z, copnorm_x, shifts, biascorrect=True)
+        mi_loop = np.array([
+            mi_gg(copnorm_z, np.roll(copnorm_x, int(s), axis=1), biascorrect=True)
+            for s in shifts
+        ])
+        np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-5, atol=1e-8)
 
 
 class TestEdgeCases:

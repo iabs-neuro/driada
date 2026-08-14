@@ -21,13 +21,14 @@ Univariate:
     compute_mi_dd_fft : Wrapper for mi_dd_fft (discrete-discrete MI)
 
 Multivariate:
-    compute_mi_mts_fft : MI between 1D and multi-dimensional (d≤3) continuous variables
+    compute_mi_mts_fft : MI between 1D and d-dimensional continuous variables
     compute_mi_mts_mts_fft : MI between two multi-dimensional (d1,d2≤3) continuous variables
     compute_mi_mts_discrete_fft : MI between multi-dimensional continuous and discrete variables
 
 Internal helpers (not for direct use):
-    _compute_joint_entropy_3x3_mts : 3×3 determinant-based entropy
-    _compute_joint_entropy_4x4_mts : 4×4 determinant-based entropy
+    _compute_joint_entropy_3x3_mts : 3×3 determinant-based entropy (d=2)
+    _compute_joint_entropy_4x4_mts : 4×4 determinant-based entropy (d=3)
+    _compute_joint_entropy_general_mts : (d+1)×(d+1) batched determinant entropy (d≥4)
     _compute_joint_entropy_mts_mts_block : Block determinant for MTS-MTS MI
 
 Author: DRIADA Development Team
@@ -334,13 +335,16 @@ def compute_mi_mts_fft(
 
     Raises
     ------
-    NotImplementedError
-        If copnorm_x has more than 3 dimensions (d > 3).
+    ValueError
+        If the within-covariance of copnorm_x is nearly singular (linearly
+        dependent dimensions).
 
     Notes
     -----
-    For d=2 (3x3 determinant) and d=3 (4x4 determinant), uses closed-form
-    vectorized determinant formulas for maximum performance.
+    For d=1 (2x2), d=2 (3x3) and d=3 (4x4), uses closed-form vectorized
+    determinant formulas for maximum performance. For d>=4 the joint entropy is
+    evaluated from a batched (d+1)x(d+1) determinant via ``np.linalg.slogdet``,
+    which is numerically equivalent to the closed forms at d<=3.
 
     The FFT computes cross-covariances Cov(Z, Xi) for all n possible shifts
     in O(n log n) time per dimension. The invariant statistics (Var(Z),
@@ -365,7 +369,7 @@ def compute_mi_mts_fft(
         if copnorm_x.shape[0] > copnorm_x.shape[1]:
             raise ValueError(
                 f"MultiTimeSeries data shape looks transposed: {copnorm_x.shape}. "
-                f"Expected shape (d, n) with d <= 3 and n > d."
+                f"Expected shape (d, n) with n > d."
             )
     else:
         raise ValueError(f"copnorm_x must be 1D or 2D, got {copnorm_x.ndim}D")
@@ -378,12 +382,6 @@ def compute_mi_mts_fft(
     if n < 2:
         raise ValueError(
             f"MultiTimeSeries FFT requires at least 2 samples for bias correction. Got n={n}."
-        )
-
-    if d > 3:
-        raise NotImplementedError(
-            f"FFT-accelerated MI for MultiTimeSeries with d > 3 is not implemented. "
-            f"Got d={d}. Use engine='loop' for higher dimensions."
         )
 
     # Demean all variables (copnorm should be ~zero mean, but ensure stability)
@@ -450,6 +448,10 @@ def compute_mi_mts_fft(
     elif d == 3:
         # 4x4 case: closed-form determinant
         H_ZX = _compute_joint_entropy_4x4_mts(var_z, cov_xx, cov_zx)
+
+    else:
+        # d >= 4: general (d+1)x(d+1) determinant via batched slogdet
+        H_ZX = _compute_joint_entropy_general_mts(var_z, cov_xx, cov_zx)
 
     # --- Step 4: Compute MI = H(Z) + H(X) - H(Z,X) ---
 
@@ -619,6 +621,76 @@ def _compute_joint_entropy_4x4_mts(
     det = np.maximum(det, REG_DET_3D_THRESHOLD)
 
     return 0.5 * np.log(det)
+
+
+
+
+def _compute_joint_entropy_general_mts(
+    var_z: float, cov_xx: np.ndarray, cov_zx: np.ndarray
+) -> np.ndarray:
+    """Vectorized (d+1)×(d+1) determinant for joint entropy H(Z,X), general d.
+
+    Builds the joint covariance matrix
+
+        [[var_z,       cov_zx[:, k]ᵀ],
+         [cov_zx[:, k], cov_xx      ]]
+
+    for every requested shift k and evaluates 0.5·log|det| via a single batched
+    ``np.linalg.slogdet``. Used for d ≥ 4, where the closed-form cofactor
+    expansions are not provided; it is numerically equivalent to the d = 1, 2, 3
+    closed forms.
+
+    Parameters
+    ----------
+    var_z : float
+        Variance of z (scalar).
+    cov_xx : ndarray of shape (d, d)
+        Covariance matrix of x (shift-invariant).
+    cov_zx : ndarray of shape (d, nsh)
+        Cross-covariances Cov(Z, Xi) for each shift.
+
+    Returns
+    -------
+    H_ZX : ndarray of shape (nsh,)
+        Joint entropy H(Z,X) for each shift, in nats.
+
+    Raises
+    ------
+    ValueError
+        If cov_xx is nearly singular (linearly dependent dimensions).
+    """
+    d, nsh = cov_zx.shape
+
+    # Guard against an ill-conditioned within-covariance (linearly dependent
+    # MultiTimeSeries dimensions), mirroring the d = 2 closed form.
+    det_xx = np.linalg.det(cov_xx)
+    if det_xx < REG_DET_3D_THRESHOLD:
+        raise ValueError(
+            f"Covariance matrix is nearly singular (det_xx={det_xx:.2e}). "
+            f"MultiTimeSeries dimensions may be linearly dependent."
+        )
+
+    # Assemble the (nsh, d+1, d+1) batch of joint covariance matrices.
+    joint = np.empty((nsh, d + 1, d + 1))
+    joint[:, 0, 0] = var_z
+    joint[:, 0, 1:] = cov_zx.T
+    joint[:, 1:, 0] = cov_zx.T
+    joint[:, 1:, 1:] = cov_xx
+
+    sign, logdet = np.linalg.slogdet(joint)
+
+    # Regularize non-positive-definite or underflowed determinants.
+    floor = np.log(REG_DET_3D_THRESHOLD)
+    bad = (sign <= 0) | ~np.isfinite(logdet)
+    if np.any(bad | (logdet < floor)):
+        warnings.warn(
+            "Conditional covariance determinant near zero for one or more "
+            "shifts. MI estimate may be unreliable. Applying regularization.",
+            UserWarning,
+        )
+    logdet = np.where(bad, floor, np.maximum(logdet, floor))
+
+    return 0.5 * logdet
 
 
 
@@ -923,8 +995,6 @@ def compute_mi_mts_discrete_fft(
     ------
     ValueError
         If input shapes are invalid or transposed.
-    NotImplementedError
-        If d > 3 (use engine='loop' for higher dimensions).
 
     Notes
     -----
@@ -959,7 +1029,7 @@ def compute_mi_mts_discrete_fft(
         if copnorm_mts.shape[0] > copnorm_mts.shape[1]:
             raise ValueError(
                 f"MultiTimeSeries data shape looks transposed: {copnorm_mts.shape}. "
-                f"Expected shape (d, n) with d <= 3 and n > d."
+                f"Expected shape (d, n) with n > d."
             )
     else:
         raise ValueError(f"copnorm_mts must be 1D or 2D, got {copnorm_mts.ndim}D")
@@ -980,13 +1050,6 @@ def compute_mi_mts_discrete_fft(
     if n < 2:
         raise ValueError(
             f"MTS-discrete FFT requires at least 2 samples. Got n={n}."
-        )
-
-    # Dimension limit check
-    if d > 3:
-        raise NotImplementedError(
-            f"FFT-accelerated MI for MultiTimeSeries with d > 3 is not implemented. "
-            f"Got d={d}. Use engine='loop' for higher dimensions."
         )
 
     # Demean all variables
@@ -1088,6 +1151,14 @@ def compute_mi_mts_discrete_fft(
             )
             det_c = np.maximum(det_c, REG_DET_3D_THRESHOLD)
             H_c = 0.5 * np.log(det_c)  # in nats
+        else:
+            # d >= 4: general vectorized determinant via batched slogdet
+            # cov_c is (d, d, n); move the shift axis to the front for slogdet.
+            sign_c, logdet_c = np.linalg.slogdet(np.moveaxis(cov_c, 2, 0))
+            floor_c = np.log(REG_DET_3D_THRESHOLD)
+            bad_c = (sign_c <= 0) | ~np.isfinite(logdet_c)
+            logdet_c = np.where(bad_c, floor_c, np.maximum(logdet_c, floor_c))
+            H_c = 0.5 * logdet_c  # in nats
 
         # Bias correction per class (constant across shifts)
         if biascorrect and n_c > 2:
