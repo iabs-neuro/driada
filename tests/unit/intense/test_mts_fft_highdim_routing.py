@@ -1,14 +1,19 @@
 """Integration tests for routing and end-to-end equivalence of the high-d FFT path.
 
-With ``MAX_FFT_MTS_DIMENSIONS = 5``, MultiTimeSeries of dimension 4 and 5 must be
-routed through the FFT engine (continuous and discrete), while dimension 6 still
-falls back to the loop engine. The FFT observed MI must match the loop engine.
+MultiTimeSeries up to ``MAX_FFT_MTS_DIMENSIONS`` must be routed through the FFT
+engine (continuous and discrete), while anything above that bound falls back to
+the loop engine. The FFT observed MI must match the loop engine.
 """
 import numpy as np
 import pytest
 
 from driada.information.info_base import TimeSeries, MultiTimeSeries
-from driada.intense.fft import get_fft_type, FFT_MULTIVARIATE, FFT_MTS_DISCRETE
+from driada.intense.fft import (
+    get_fft_type,
+    FFT_MULTIVARIATE,
+    FFT_MTS_DISCRETE,
+    MAX_FFT_MTS_DIMENSIONS,
+)
 from driada.intense import compute_me_stats
 
 
@@ -18,7 +23,7 @@ def _continuous_mts(d, n, seed):
 
 
 class TestRouting:
-    @pytest.mark.parametrize("d", [4, 5])
+    @pytest.mark.parametrize("d", [4, 5, MAX_FFT_MTS_DIMENSIONS])
     def test_continuous_mts_routes_to_fft(self, d):
         n = 300
         mts = _continuous_mts(d, n, seed=d)
@@ -26,7 +31,7 @@ class TestRouting:
         assert get_fft_type(mts, ts, metric="mi", mi_estimator="gcmi",
                             count=50, engine="auto") == FFT_MULTIVARIATE
 
-    @pytest.mark.parametrize("d", [4, 5])
+    @pytest.mark.parametrize("d", [4, 5, MAX_FFT_MTS_DIMENSIONS])
     def test_discrete_mts_routes_to_fft(self, d):
         n = 300
         mts = _continuous_mts(d, n, seed=10 + d)
@@ -35,9 +40,9 @@ class TestRouting:
         assert get_fft_type(mts, disc, metric="mi", mi_estimator="gcmi",
                             count=50, engine="auto") == FFT_MTS_DISCRETE
 
-    def test_d6_still_falls_back(self):
+    def test_above_limit_still_falls_back(self):
         n = 300
-        mts = _continuous_mts(6, n, seed=99)
+        mts = _continuous_mts(MAX_FFT_MTS_DIMENSIONS + 1, n, seed=99)
         disc = TimeSeries(np.random.RandomState(3).randint(0, 3, n).astype(float),
                           discrete=True)
         assert get_fft_type(mts, disc, metric="mi", mi_estimator="gcmi",
@@ -48,7 +53,7 @@ class TestRouting:
 
 
 class TestEndToEndEquivalence:
-    @pytest.mark.parametrize("d", [4, 5])
+    @pytest.mark.parametrize("d", [4, 5, MAX_FFT_MTS_DIMENSIONS])
     def test_fft_matches_loop_observed_mi(self, d):
         """Observed MI (stats['me']) must match between FFT and loop engines."""
         rng = np.random.RandomState(500 + d)

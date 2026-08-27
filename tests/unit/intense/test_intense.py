@@ -1603,13 +1603,13 @@ def test_fft_mts_discrete_uses_fft_type():
 
 def test_fft_mts_discrete_falls_back_when_d_too_large():
     """Test that INTENSE uses loop fallback when d exceeds the FFT limit for MTS-discrete."""
-    from driada.intense.fft import get_fft_type
+    from driada.intense.fft import get_fft_type, MAX_FFT_MTS_DIMENSIONS
 
     length = 200
     np.random.seed(201)
 
-    # Create MTS with d=6 (exceeds MAX_FFT_MTS_DIMENSIONS=5)
-    signals = [np.random.randn(length) for _ in range(6)]
+    # Create MTS one dimension above the FFT limit
+    signals = [np.random.randn(length) for _ in range(MAX_FFT_MTS_DIMENSIONS + 1)]
     mts = MultiTimeSeries([TimeSeries(s, discrete=False) for s in signals])
 
     # Create discrete TimeSeries

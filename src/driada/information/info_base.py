@@ -1811,7 +1811,11 @@ def get_mi(x, y, shift=0, ds=1, k=5, estimator="gcmi", check_for_coincidence=Fal
             raise NotImplementedError("KSG estimator is not supported for dim>1 yet")
 
         if check_for_coincidence:
-            if np.allclose(mts1.data, mts2.data) and shift == 0:
+            if (
+                mts1.data.shape == mts2.data.shape
+                and np.allclose(mts1.data, mts2.data)
+                and shift == 0
+            ):
                 if mts1.discrete and mts2.discrete:
                     # For discrete multivariate variables, MI(X,X) = H(X) is well-defined
                     # but not yet implemented for multivariate discrete entropy

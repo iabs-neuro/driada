@@ -336,6 +336,17 @@ class TestGetMI:
         assert isinstance(mi_shift, float)
         assert np.isfinite(mi_shift)
 
+    def test_mts_mts_different_dimensions(self):
+        """MI between MultiTimeSeries of unequal dimension is computed, not refused."""
+        np.random.seed(11)
+        n = 400
+        mts1 = MultiTimeSeries(np.random.randn(2, n), discrete=False)
+        mts2 = MultiTimeSeries(np.random.randn(3, n), discrete=False)
+
+        mi = get_mi(mts1, mts2, check_for_coincidence=True)
+        assert isinstance(mi, float)
+        assert np.isfinite(mi)
+
 
 class TestGet1DMI:
     """Test get_1d_mi function."""

@@ -44,9 +44,10 @@ MIN_SHIFTS_FOR_FFT_DELAYS = 1
 
 # Maximum dimensions for FFT acceleration of MultiTimeSeries.
 # d=4 covers second-harmonic circular encodings ([cos, sin, cos2, sin2]);
-# d=5 covers anisotropic 2D place bases ([x, y, x^2, y^2, xy]). Higher d falls
+# d=5 covers anisotropic 2D place bases ([x, y, x^2, y^2, xy]); larger d covers
+# richer polynomial and harmonic bases built on top of those. Higher d falls
 # back to the loop engine.
-MAX_FFT_MTS_DIMENSIONS = 5
+MAX_FFT_MTS_DIMENSIONS = 9
 MAX_MTS_MTS_FFT_DIMENSIONS = 6  # Total d1+d2 limit for MTS-MTS pairs
 
 # FFT type constants
