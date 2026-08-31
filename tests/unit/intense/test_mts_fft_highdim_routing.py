@@ -59,10 +59,10 @@ class TestEndToEndEquivalence:
         rng = np.random.RandomState(500 + d)
         n = 600
         z = rng.randn(n)
-        # Feature dimensions partially coupled to z so MI is non-trivial.
-        rows = [(0.25 + 0.08 * k) * z
-                + np.sqrt(1 - (0.25 + 0.08 * k) ** 2) * rng.randn(n)
-                for k in range(d)]
+        # Feature dimensions partially coupled to z so MI is non-trivial;
+        # coupling coefficients stay below 1 for any d.
+        coeffs = 0.2 + 0.6 * np.arange(d) / max(d - 1, 1)
+        rows = [a * z + np.sqrt(1 - a ** 2) * rng.randn(n) for a in coeffs]
         mts = MultiTimeSeries([TimeSeries(r, discrete=False) for r in rows])
         mts.name = "feature"
         ts = TimeSeries(z, discrete=False)

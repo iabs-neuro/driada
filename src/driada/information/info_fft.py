@@ -663,12 +663,16 @@ def _compute_joint_entropy_general_mts(
 
     # Guard against an ill-conditioned within-covariance (linearly dependent
     # MultiTimeSeries dimensions), mirroring the d = 2 closed form.
-    det_xx = np.linalg.det(cov_xx)
-    if det_xx < REG_DET_3D_THRESHOLD:
+    # Dimension-aware guard: a determinant is a product of d eigenvalues and
+    # underflows for large d even when the matrix is well conditioned, so the
+    # test is on the eigenvalue ratio (condition number), not on det_xx.
+    eig_xx = np.linalg.eigvalsh(cov_xx)
+    if eig_xx.min() <= 0 or eig_xx.min() / eig_xx.max() < 1e-12:
         raise ValueError(
-            f"Covariance matrix is nearly singular (det_xx={det_xx:.2e}). "
-            f"MultiTimeSeries dimensions may be linearly dependent."
+            f"Covariance matrix is nearly singular (min/max eigenvalue="
+            f"{eig_xx.min() / eig_xx.max():.2e}). MultiTimeSeries dimensions may be linearly dependent."
         )
+    sign_xx, logdet_xx = np.linalg.slogdet(cov_xx)
 
     # Assemble the (nsh, d+1, d+1) batch of joint covariance matrices.
     joint = np.empty((nsh, d + 1, d + 1))
@@ -679,8 +683,10 @@ def _compute_joint_entropy_general_mts(
 
     sign, logdet = np.linalg.slogdet(joint)
 
-    # Regularize non-positive-definite or underflowed determinants.
-    floor = np.log(REG_DET_3D_THRESHOLD)
+    # Regularize the CONDITIONAL variance var(z | x) = det(joint) / det(cov_xx)
+    # relative to det(cov_xx): an absolute floor on det(joint) would clamp
+    # legitimate high-d determinants (product of many eigenvalues < 1).
+    floor = logdet_xx + np.log(REG_DET_2D_THRESHOLD)
     bad = (sign <= 0) | ~np.isfinite(logdet)
     if np.any(bad | (logdet < floor)):
         warnings.warn(
@@ -1071,6 +1077,8 @@ def compute_mi_mts_discrete_fft(
     # H(X) via Cholesky in nats
     chol_xx = regularized_cholesky(cov_xx)
     H_X = np.sum(np.log(np.diag(chol_xx)))
+    # Reference log-determinant for the relative regularization floor below.
+    logdet_xx = 2.0 * np.sum(np.log(np.diag(chol_xx)))
 
     # Bias correction for H(X)
     if biascorrect and n > 2:
@@ -1155,7 +1163,10 @@ def compute_mi_mts_discrete_fft(
             # d >= 4: general vectorized determinant via batched slogdet
             # cov_c is (d, d, n); move the shift axis to the front for slogdet.
             sign_c, logdet_c = np.linalg.slogdet(np.moveaxis(cov_c, 2, 0))
-            floor_c = np.log(REG_DET_3D_THRESHOLD)
+            # Floor relative to the overall covariance determinant: an absolute
+            # floor would clamp legitimate high-d determinants (product of many
+            # eigenvalues < 1) and silently bias the conditional entropy.
+            floor_c = logdet_xx + np.log(REG_DET_2D_THRESHOLD)
             bad_c = (sign_c <= 0) | ~np.isfinite(logdet_c)
             logdet_c = np.where(bad_c, floor_c, np.maximum(logdet_c, floor_c))
             H_c = 0.5 * logdet_c  # in nats

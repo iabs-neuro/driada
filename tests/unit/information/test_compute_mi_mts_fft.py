@@ -88,6 +88,43 @@ class TestMultiTimeSeriesFFTDimensions:
         ])
         np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-5, atol=1e-8)
 
+    @pytest.mark.parametrize("d", [9, 16, 25, 36])
+    def test_mts_fft_very_high_dim_matches_mi_gg(self, d):
+        """High-d FFT path must stay finite and match mi_gg at all shifts.
+
+        Determinants of well-conditioned high-d covariances underflow any
+        absolute threshold, so both the singularity guard and the
+        regularization floor must scale with dimension.
+        """
+        rng = np.random.RandomState(500 + d)
+        n = 1500
+        z = rng.randn(n)
+        coeffs = 0.1 + 0.4 * np.arange(d) / d
+        x = np.vstack([a * z + np.sqrt(1 - a ** 2) * rng.randn(n)
+                       for a in coeffs])
+        copnorm_z = copnorm(z).ravel()
+        copnorm_x = copnorm(x)
+        shifts = np.array([0, 17, 251, 900])
+
+        mi_fft = compute_mi_mts_fft(copnorm_z, copnorm_x, shifts, biascorrect=True)
+        mi_loop = np.array([
+            mi_gg(copnorm_z, np.roll(copnorm_x, int(s), axis=1), biascorrect=True)
+            for s in shifts
+        ])
+        np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-3, atol=5e-5)
+
+    def test_mts_fft_high_dim_singular_raises(self):
+        """Linearly dependent dimensions must still be rejected at high d."""
+        rng = np.random.RandomState(7)
+        n = 400
+        x = rng.randn(9, n)
+        x[3] = 2 * x[1]
+        copnorm_z = rng.randn(n)
+        shifts = np.array([0])
+
+        with pytest.raises(ValueError, match="nearly singular"):
+            compute_mi_mts_fft(copnorm_z, x, shifts)
+
 
 class TestEdgeCases:
     """Test edge cases and error handling."""

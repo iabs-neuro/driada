@@ -70,6 +70,27 @@ class TestMTSDiscreteFFTCorrectness:
         # FFT must match loop at ALL shifts (this is the gold standard)
         np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-7, atol=1e-10)
 
+    @pytest.mark.parametrize("d", [16, 25])
+    def test_fft_matches_loop_high_dim(self, d):
+        """High-d FFT path must match the loop at all shifts.
+
+        Class-conditional determinants of well-conditioned high-d covariances
+        fall below any absolute threshold, so the regularization floor must be
+        relative to the overall covariance determinant.
+        """
+        rng = np.random.RandomState(200 + d)
+        n, Ym = 1200, 3
+        discrete = rng.randint(0, Ym, n)
+        mts = copnorm(rng.randn(d, n) + 0.3 * discrete[np.newaxis, :])
+        shifts = np.array([0, 5, 111, 700])
+
+        mi_fft = compute_mi_mts_discrete_fft(mts, discrete, shifts, biascorrect=True)
+        mi_loop = np.array([
+            mi_model_gd(mts, np.roll(discrete, int(s)), Ym, True, True)
+            for s in shifts
+        ])
+        np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-6, atol=1e-9)
+
     def test_fft_matches_loop_all_shifts_d3_ym2(self):
         """CRITICAL: Verify FFT matches loop at ALL shifts (d=3, Ym=2)."""
         np.random.seed(100)
