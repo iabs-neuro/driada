@@ -205,9 +205,17 @@ class Neuron:
             Pre-computed quality metrics dictionary. Recognized keys include
             't_rise' and 't_off' (kinetics in seconds, converted to frames),
             'r2_score' and 'snr_recon' (reconstruction quality),
-            'event_r2_score' and 'event_snr' (event-level quality), and
+            'event_r2_score' and 'event_snr' (event-level quality),
+            'wavelet_snr' (pre-computed get_wavelet_snr value), and
             'noise_level' (noise amplitude). Unrecognized keys are stored
             but otherwise ignored.
+
+            Note the two SNR keys are NOT interchangeable. 'wavelet_snr' pre-fills the
+            cache get_wavelet_snr (and hence get_event_snr) reads, so supplying it skips
+            recomputation. 'event_snr' is kept as an upstream-pipeline value on the
+            event_snr attribute and is never used as the wavelet SNR: producers such as
+            CaImAn autoinspection define it by a different formula and on a different
+            scale, so the two must not be conflated.
 
         Raises
         ------
@@ -306,8 +314,16 @@ class Neuron:
             if 'event_r2_score' in metrics and metrics['event_r2_score'] is not None:
                 self.event_r2 = float(metrics['event_r2_score'])
 
+            # Stored for callers that want it, but deliberately NOT fed into
+            # self.wavelet_snr: upstream pipelines (e.g. CaImAn autoinspection, which
+            # writes this column into BOWL metrics_df) define event_snr differently from
+            # get_wavelet_snr, so seeding the cache with it would silently swap metrics.
+            # Use the explicit 'wavelet_snr' key below to pre-fill that cache.
             if 'event_snr' in metrics and metrics['event_snr'] is not None:
                 self.event_snr = float(metrics['event_snr'])
+
+            if 'wavelet_snr' in metrics and metrics['wavelet_snr'] is not None:
+                self.wavelet_snr = float(metrics['wavelet_snr'])
 
             if 'noise_level' in metrics and metrics['noise_level'] is not None:
                 self.noise_ampl = float(metrics['noise_level'])
@@ -712,7 +728,7 @@ class Neuron:
         Not cached (computed on-demand, parameter-dependent):
         - get_nmae(n_mad): Depends on n_mad parameter
         - get_nrmse(n_mad): Depends on n_mad parameter
-        - get_event_snr(n_mad): Depends on n_mad parameter
+        - get_event_snr_db(n_mad): Depends on n_mad parameter
         - get_baseline_noise_std(n_mad): Depends on n_mad parameter
         - get_reconstruction_r2(event_only=True, n_mad): With event_only flag
 
@@ -1611,7 +1627,7 @@ class Neuron:
         residuals = self.ca.data - recon.data
         return float(np.std(residuals))
 
-    def get_event_snr(self, n_mad=4.0):
+    def get_event_snr_db(self, n_mad=4.0):
         """Get event SNR in dB (signal quality metric).
 
         Computes SNR as the ratio of mean event amplitude to baseline noise std,
@@ -1620,7 +1636,7 @@ class Neuron:
 
         Parameters
         ----------
-        n_mad : float, default=3.0
+        n_mad : float, default=4.0
             Number of MAD units above median for event detection threshold.
 
         Returns
@@ -1631,6 +1647,8 @@ class Neuron:
             SNR 10-15 dB: Good signal quality
             SNR 5-10 dB: Moderate signal quality
             SNR < 5 dB: Poor signal quality (noisy)
+            These bands are heuristic and apply to this dB metric only. They must not
+            be used to judge get_wavelet_snr, which reports a linear ratio.
 
         Raises
         ------
@@ -1641,8 +1659,18 @@ class Neuron:
         -----
         SNR_dB = 20 * log10(mean(events) / std(baseline))
 
-        This metric assesses signal quality independent of reconstruction.
+        This metric assesses signal quality independent of reconstruction: it needs
+        only the calcium trace, whereas get_wavelet_snr requires detected event
+        regions. The trade-off is that both the threshold and the baseline are derived
+        from the whole trace, so dense transients inflate the MAD and leak event flanks
+        into the baseline. Prefer get_wavelet_snr when event regions are available.
+
         Low SNR suggests noisy data or detection threshold issues.
+
+        See Also
+        --------
+        get_wavelet_snr : Event-region based SNR, reported as a linear ratio.
+        get_event_snr : Alias of get_wavelet_snr, NOT of this method.
         """
         if self.ca is None or len(self.ca.data) == 0:
             raise ValueError("Calcium signal data required for event SNR")
@@ -1703,6 +1731,8 @@ class Neuron:
         --------
         get_snr : Simple SNR based on spike times
         get_event_snr : Alias for this method
+        get_event_snr_db : Threshold-based SNR in decibels; a different metric on a
+            different scale, and it needs no event regions.
         reconstruct_spikes : Spike reconstruction (wavelet or threshold)
 
         Examples
@@ -1716,7 +1746,9 @@ class Neuron:
             self.wavelet_snr = self._calc_wavelet_snr()
         return self.wavelet_snr
 
-    # Alias for method-agnostic naming
+    # Alias for method-agnostic naming. Deliberate and load-bearing: get_event_snr is
+    # public API and callers rely on it returning the wavelet SNR (a linear ratio).
+    # The decibel metric lives at get_event_snr_db — a separate method, not this alias.
     get_event_snr = get_wavelet_snr
 
     def _calc_wavelet_snr(self):
