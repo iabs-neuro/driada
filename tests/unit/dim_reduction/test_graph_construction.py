@@ -305,6 +305,26 @@ class TestGraphConstruction:
         union_dense = graph_union.adj.toarray()
         assert np.all(union_dense >= inter_dense)
 
+    def test_knn_default_matches_sklearn_union(self, sample_data):
+        """Default k-NN graph has the same edges as sklearn's symmetrized kneighbors_graph."""
+        from sklearn.neighbors import kneighbors_graph
+
+        m_params = {"metric_name": "euclidean", "sigma": 1.0}
+        g_params = {
+            "g_method_name": "knn",
+            "nn": 5,
+            "weighted": False,
+            "dist_to_aff": None,
+            "max_deleted_nodes": 1.0,
+            "graph_preprocessing": None,
+            "knn_engine": "cKDTree",
+        }
+        graph = ProximityGraph(sample_data, m_params, g_params, create_nx_graph=False)
+
+        sk = kneighbors_graph(sample_data.T, n_neighbors=5, mode="connectivity")
+        sk_union = ((sk + sk.T) > 0).astype(int).toarray()
+        assert np.array_equal(graph.adj.toarray() > 0, sk_union > 0)
+
     def test_knn_cKDTree_union_combined(self, sample_data):
         """cKDTree + union produces valid symmetric graph."""
         m_params = {"metric_name": "euclidean", "sigma": 1.0}

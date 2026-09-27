@@ -427,8 +427,13 @@ class ProximityGraph(Network):
         - ``'pynndescent'`` (default): approximate NN, supports custom metrics
         - ``'cKDTree'``: exact NN via scipy, faster for moderate dimensions
 
-        Symmetrization can be ``'intersection'`` (default, ``.minimum()``) or
-        ``'union'`` (``.maximum()``).
+        Symmetrization can be ``'union'`` (default) or ``'intersection'``.
+        With ``'union'`` two points are connected if either is among the other's
+        k nearest neighbors, as in scikit-learn's Isomap. With ``'intersection'``
+        only mutual neighbors are connected. On time series with strong temporal
+        autocorrelation (e.g. calcium imaging) mutual neighbors are mostly
+        adjacent frames, so the intersection graph degenerates into a chain
+        along time.
 
         Raises
         ------
@@ -441,7 +446,7 @@ class ProximityGraph(Network):
             raise ValueError(f"nn ({self.nn}) must be less than number of samples ({N})")
 
         engine = getattr(self, 'knn_engine', 'pynndescent')
-        sym = getattr(self, 'symmetrization', 'intersection')
+        sym = getattr(self, 'symmetrization', 'union')
 
         if engine == 'cKDTree':
             self._create_knn_cKDTree(N)
@@ -452,12 +457,13 @@ class ProximityGraph(Network):
                 f"Unknown knn_engine '{engine}'. Choose 'pynndescent' or 'cKDTree'."
             )
 
-        # Symmetrize
-        if sym == 'union':
-            self.neigh_distmat = self.neigh_distmat.maximum(self.neigh_distmat.T)
-        else:
-            # 'intersection' — default, same as sklearn
+        # Symmetrize. Missing entries of a sparse matrix count as zero, so
+        # .maximum() keeps an edge present in either direction and .minimum()
+        # keeps only edges present in both.
+        if sym == 'intersection':
             self.neigh_distmat = self.neigh_distmat.minimum(self.neigh_distmat.T)
+        else:
+            self.neigh_distmat = self.neigh_distmat.maximum(self.neigh_distmat.T)
 
         # Create binary adjacency from distance matrix
         self.bin_adj = (self.neigh_distmat > 0).astype(int)
