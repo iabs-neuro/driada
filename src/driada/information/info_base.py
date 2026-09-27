@@ -2236,6 +2236,63 @@ def aggregate_multiple_ts(*ts_args, noise=1e-7, name=None):
     return mts
 
 
+def _conditional_ent_g(x, z, biascorrect=True, rtol=1e-10):
+    """Gaussian conditional entropy H(X|Z) in bits, robust to degenerate Z.
+
+    Computed from the residual covariance ``Sxx - Sxz pinv(Szz) Szx`` rather than as
+    ``ent_g([X; Z]) - ent_g(Z)``. When Z is nearly constant (e.g. inside a discrete
+    state that is itself defined by Z) both joint and marginal entropies are huge
+    and regularised differently, so their difference loses all precision. Here Z is
+    scaled to unit variance and only its well-determined directions (eigenvalues of
+    its covariance above ``rtol`` times the largest) are used. On well-conditioned
+    data the result equals ``ent_g([X; Z]) - ent_g(Z)``, including the bias
+    correction, with dim(Z) replaced by the number of retained directions.
+
+    Parameters
+    ----------
+    x : ndarray, shape (n_x, n_samples)
+        Variable whose entropy is conditioned.
+    z : ndarray, shape (n_z, n_samples)
+        Conditioning variable.
+    biascorrect : bool, optional
+        Apply the finite-sample bias correction of :func:`ent_g`. Default True.
+    rtol : float, optional
+        Relative eigenvalue threshold for the directions of Z that are kept.
+
+    Returns
+    -------
+    float
+        Conditional entropy in bits.
+    """
+    x = np.atleast_2d(np.asarray(x, dtype=float))
+    z = np.atleast_2d(np.asarray(z, dtype=float))
+    n = x.shape[1]
+    n_x = x.shape[0]
+    x = x - x.mean(axis=1, keepdims=True)
+    z = z - z.mean(axis=1, keepdims=True)
+    sd = z.std(axis=1, ddof=1)
+    z = z[sd > 0] / sd[sd > 0, None]
+
+    cov_x = x @ x.T / (n - 1)
+    rank_z = 0
+    if z.shape[0] > 0:
+        cov_z = z @ z.T / (n - 1)
+        eigval, eigvec = np.linalg.eigh(cov_z)
+        kept = eigval > rtol * eigval.max()
+        rank_z = int(kept.sum())
+        proj = (x @ z.T / (n - 1)) @ (eigvec[:, kept] / np.sqrt(eigval[kept]))
+        cov_x = cov_x - proj @ proj.T
+
+    _, logdet = np.linalg.slogdet(cov_x)
+    h = 0.5 * logdet + 0.5 * n_x * (np.log(2 * np.pi) + 1.0)
+    if biascorrect:
+        # Terms of ent_g([X; Z]) - ent_g(Z): the X rows follow the rank_z rows of Z.
+        orders = np.arange(rank_z + 1, rank_z + n_x + 1, dtype=np.float64)
+        psiterms = py_fast_digamma_arr((n - orders) / 2.0) / 2.0
+        h = h - n_x * (np.log(2.0) - np.log(n - 1.0)) / 2.0 - psiterms.sum()
+    return h / np.log(2.0)
+
+
 def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
     """Calculate conditional mutual information I(X;Y|Z).
 
@@ -2270,7 +2327,10 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
     Supports four cases:
     - CCC: All continuous - uses Gaussian copula
     - CCD: X,Y continuous, Z discrete - uses Gaussian copula per Z value
-    - CDC: X,Z continuous, Y discrete - uses chain rule identity
+    - CDC: X,Z continuous, Y discrete - uses I(X;Y|Z) = H(X|Z) - H(X|Y,Z), with
+      each Gaussian conditional entropy computed from the residual covariance of X
+      given the well-determined directions of Z, so that a Z nearly constant inside
+      a state of Y does not break the estimate
     - CDD: X continuous, Y,Z discrete - uses entropy decomposition
 
     For the CDD case, GCMI estimator has limitations due to uncontrollable
@@ -2321,11 +2381,7 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
         x_data = x_ds.reshape(1, -1) if x_ds.ndim == 1 else x_ds
         z_data = z_ds.reshape(1, -1) if z_ds.ndim == 1 else z_ds
 
-        # Joint data for H(X,Z) and marginal H(Z)
-        xz_joint = np.vstack([x_data, z_data])
-        H_xz = ent_g(xz_joint, biascorrect=True)
-        H_z = ent_g(z_data, biascorrect=True)
-        H_x_given_z = H_xz - H_z
+        H_x_given_z = _conditional_ent_g(x_data, z_data, biascorrect=True)
 
         # H(X|Y,Z) - conditional entropy of X given both Y (discrete) and Z (continuous)
         unique_y_vals = np.unique(y_int_ds)
@@ -2337,19 +2393,12 @@ def conditional_mi(ts1, ts2, ts3, ds=1, k=5):
             n_y = np.sum(y_mask)
 
             if n_y > 2:  # Need sufficient samples for entropy estimation
-                # Extract X,Z values for this Y group
-                x_subset = x_data[:, y_mask]
-                z_subset = z_data[:, y_mask]
-
-                # Joint entropy H(X,Z|Y=y_val)
-                xz_subset = np.vstack([x_subset, z_subset])
-                H_xz_given_y = ent_g(xz_subset, biascorrect=True)
-
-                # Marginal entropy H(Z|Y=y_val)
-                H_z_given_y = ent_g(z_subset, biascorrect=True)
-
-                # Conditional entropy H(X|Z,Y=y_val) = H(X,Z|Y=y_val) - H(Z|Y=y_val)
-                H_x_given_z_y = H_xz_given_y - H_z_given_y
+                # Conditional entropy H(X|Z,Y=y_val). Z is often nearly constant
+                # inside a state (a state defined by Z itself), which is why the
+                # residual form is used instead of a difference of entropies.
+                H_x_given_z_y = _conditional_ent_g(
+                    x_data[:, y_mask], z_data[:, y_mask], biascorrect=True
+                )
 
                 # Weight by probability P(Y=y_val)
                 p_y = n_y / len(y_int_ds)
