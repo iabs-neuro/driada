@@ -15,6 +15,7 @@ Module Components
    :maxdepth: 1
 
    intense/pipelines
+   intense/representations
    intense/stats
    intense/visual
    intense/disentanglement
@@ -34,6 +35,7 @@ Quick Links
    * :func:`~driada.intense.pipelines.compute_feat_feat_significance` - Feature-feature dependencies
    * :func:`~driada.intense.pipelines.compute_cell_cell_significance` - Neuron-neuron connectivity
    * :func:`~driada.intense.pipelines.compute_embedding_selectivity` - Embedding dimension selectivity
+   * :doc:`intense/representations` - Type-based feature representations (``representation='by_type'``)
 
 **Statistical Tools**
    * :doc:`intense/stats` - Distribution fitting, testing, and p-value computation

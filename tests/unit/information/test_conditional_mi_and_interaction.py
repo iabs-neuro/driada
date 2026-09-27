@@ -209,6 +209,45 @@ def test_conditional_mi_cdc_chain_rule():
     assert cmi <= mi_xy, "CMI should not exceed marginal MI"
 
 
+def test_conditional_ent_g_matches_entropy_difference():
+    """On well-conditioned data the residual form equals ent_g([X;Z]) - ent_g(Z)."""
+    from driada.information.gcmi import ent_g
+    from driada.information.info_base import _conditional_ent_g
+
+    rng = np.random.default_rng(0)
+    n = 3000
+    for d in (1, 2, 5, 9):
+        z = rng.normal(size=(d, n))
+        x = (0.3 * z.sum(axis=0) + rng.normal(size=n))[None, :]
+        expected = ent_g(np.vstack([x, z]), True) - ent_g(z, True)
+        assert np.isclose(_conditional_ent_g(x, z), expected, rtol=0, atol=1e-8)
+
+
+def test_conditional_mi_cdc_condition_nearly_constant_within_state():
+    """Z almost constant inside one state of Y (a state defined by Z itself).
+
+    The difference of joint and marginal entropies loses precision there and used
+    to give large negative values; the estimate must stay finite, close to the
+    positive truth and free of the negative-CMI warning.
+    """
+    import warnings
+
+    rng = np.random.default_rng(1)
+    n = 6000
+    state = (np.arange(n) // 300) % 2
+    z = np.where(state == 1, 1e-5 * rng.normal(size=n), rng.normal(size=n))
+    x = 0.5 * state + 0.3 * z + rng.normal(size=n)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        cmi = conditional_mi(
+            TimeSeries(x, discrete=False),
+            TimeSeries(state, discrete=True),
+            TimeSeries(z, discrete=False),
+        )
+    assert 0.0 < cmi < 0.2
+
+
 def test_conditional_mi_cdd_xor_relationship():
     """Test CDD case with XOR-like relationship."""
     np.random.seed(42)

@@ -26,6 +26,10 @@ Usage
     # Resume batch processing, skipping already-computed files
     python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE --skip-computed
 
+    # Type-based feature representations (results go to INTENSE/by_type)
+    python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE \
+        --representation by_type
+
     # Save single file results to specific output
     python tools/run_intense_analysis.py "DRIADA data/LNOF_J01_4D_aligned.npz" \
         --output results.json
@@ -254,6 +258,11 @@ Examples:
                         help='Disable disentanglement analysis')
     parser.add_argument('--no-remove-anti-selective', action='store_true',
                         help='Disable anti-selectivity filtering (keep SR<=1 neurons as significant)')
+    parser.add_argument('--representation', type=str, default='raw',
+                        choices=['raw', 'by_type'],
+                        help='Feature representation: raw (default, features as they are) or '
+                             'by_type (quadratic for linear features and place, second harmonic '
+                             'for circular ones; results go to a by_type subfolder)')
     parser.add_argument('--parallel-backend', type=str, default='loky',
                         choices=['loky', 'threading', 'multiprocessing'],
                         help='Joblib parallel backend: loky (default, true parallelism), '
@@ -274,6 +283,7 @@ Examples:
         'metric': args.metric,
         'with_disentanglement': not args.no_disentanglement,
         'remove_anti_selective': not args.no_remove_anti_selective,
+        'representation': args.representation,
     }
 
     # Expand paths from --dir option or from positional arguments
@@ -330,6 +340,7 @@ Examples:
     print(f"  Metric: {config['metric']}")
     print(f"  Disentanglement: {config['with_disentanglement']}")
     print(f"  Remove anti-selective: {config['remove_anti_selective']}")
+    print(f"  Representation: {config['representation']}")
     print(f"  Skip/aggregate features: experiment-specific (from EXPERIMENT_CONFIGS)")
     print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
     print(f"  Skip computed: {args.skip_computed}")
@@ -345,6 +356,10 @@ Examples:
 
     # Process each file
     output_dir = Path(args.output_dir) if args.output_dir else None
+    if output_dir is not None and config['representation'] == 'by_type':
+        # Keep results of the two representations apart: --skip-computed and
+        # the batch summary look only at the experiment name.
+        output_dir = output_dir / 'by_type'
     summaries = []
     low_selectivity_warnings = []
     t_batch_start = time.time()

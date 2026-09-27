@@ -29,6 +29,7 @@ Internal helpers (not for direct use):
     _compute_joint_entropy_3x3_mts : 3×3 determinant-based entropy (d=2)
     _compute_joint_entropy_4x4_mts : 4×4 determinant-based entropy (d=3)
     _compute_joint_entropy_general_mts : (d+1)×(d+1) batched determinant entropy (d≥4)
+    _check_mts_covariance_conditioning : singularity guard shared by the d≥3 paths
     _compute_joint_entropy_mts_mts_block : Block determinant for MTS-MTS MI
 
 Author: DRIADA Development Team
@@ -541,6 +542,33 @@ def _compute_joint_entropy_3x3_mts(
 
 
 
+def _check_mts_covariance_conditioning(cov_xx: np.ndarray) -> None:
+    """Raise if the within-covariance of a MultiTimeSeries is nearly singular.
+
+    Linearly dependent dimensions make the joint determinant collapse for every
+    shift; without this check the closed forms would return a constant, finite
+    MI instead of an error. The test is on the eigenvalue ratio (condition
+    number), not on det(cov_xx): a determinant is a product of d eigenvalues and
+    underflows for large d even when the matrix is well conditioned.
+
+    Parameters
+    ----------
+    cov_xx : ndarray of shape (d, d)
+        Covariance matrix of the MultiTimeSeries dimensions.
+
+    Raises
+    ------
+    ValueError
+        If the smallest/largest eigenvalue ratio is below 1e-12 or non-positive.
+    """
+    eig_xx = np.linalg.eigvalsh(cov_xx)
+    if eig_xx.min() <= 0 or eig_xx.min() / eig_xx.max() < 1e-12:
+        raise ValueError(
+            f"Covariance matrix is nearly singular (min/max eigenvalue="
+            f"{eig_xx.min() / eig_xx.max():.2e}). MultiTimeSeries dimensions may be linearly dependent."
+        )
+
+
 def _compute_joint_entropy_4x4_mts(
     var_z: float, cov_xx: np.ndarray, cov_zx: np.ndarray
 ) -> np.ndarray:
@@ -565,7 +593,14 @@ def _compute_joint_entropy_4x4_mts(
     -------
     H_ZX : ndarray of shape (nsh,)
         Joint entropy H(Z,X) for each shift, in nats.
+
+    Raises
+    ------
+    ValueError
+        If cov_xx is nearly singular (linearly dependent dimensions).
     """
+    _check_mts_covariance_conditioning(cov_xx)
+
     # Extract elements for clarity
     a = var_z
     b = cov_zx[0, :]  # shape (nsh,)
@@ -661,17 +696,7 @@ def _compute_joint_entropy_general_mts(
     """
     d, nsh = cov_zx.shape
 
-    # Guard against an ill-conditioned within-covariance (linearly dependent
-    # MultiTimeSeries dimensions), mirroring the d = 2 closed form.
-    # Dimension-aware guard: a determinant is a product of d eigenvalues and
-    # underflows for large d even when the matrix is well conditioned, so the
-    # test is on the eigenvalue ratio (condition number), not on det_xx.
-    eig_xx = np.linalg.eigvalsh(cov_xx)
-    if eig_xx.min() <= 0 or eig_xx.min() / eig_xx.max() < 1e-12:
-        raise ValueError(
-            f"Covariance matrix is nearly singular (min/max eigenvalue="
-            f"{eig_xx.min() / eig_xx.max():.2e}). MultiTimeSeries dimensions may be linearly dependent."
-        )
+    _check_mts_covariance_conditioning(cov_xx)
     sign_xx, logdet_xx = np.linalg.slogdet(cov_xx)
 
     # Assemble the (nsh, d+1, d+1) batch of joint covariance matrices.
