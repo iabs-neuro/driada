@@ -125,6 +125,22 @@ class TestMultiTimeSeriesFFTDimensions:
         with pytest.raises(ValueError, match="nearly singular"):
             compute_mi_mts_fft(copnorm_z, x, shifts)
 
+    def test_mts_fft_d3_singular_raises(self):
+        """The d = 3 closed form must reject linearly dependent dimensions.
+
+        Without the guard the 4x4 determinant collapses for every shift and a
+        constant, finite MI is returned instead of an error.
+        """
+        rng = np.random.RandomState(11)
+        n = 400
+        x = rng.randn(3, n)
+        x[2] = -0.5 * x[0]
+        copnorm_z = rng.randn(n)
+        shifts = np.arange(0, 40, 10)
+
+        with pytest.raises(ValueError, match="nearly singular"):
+            compute_mi_mts_fft(copnorm_z, x, shifts)
+
 
 class TestEdgeCases:
     """Test edge cases and error handling."""
