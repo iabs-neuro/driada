@@ -20,6 +20,8 @@ INTENSE operates on an Experiment object containing two types of time-aligned da
 - **Multivariate** features (e.g., 2D position from x,y coordinates) are represented as MultiTimeSeries with shape (d, n_frames) where d is typically 2 or 3. Individual components like x and y are aggregated into a single "place" feature via a multifeature map.
 - **Spatial discrete** features (e.g., corners, walls, center zones) are binary indicators marking when the animal occupies a specific region.
 
+GCMI only detects dependence that is monotone in each component of a feature, so a neuron tuned to the middle of a variable's range (a speed optimum, a place field in the center of the arena, both ends of an axis) can go undetected. With `representation='by_type'` each feature is replaced before analysis by a representation chosen from its type alone: a linear feature `x` by `[x, (x - c)^2]` (`{name}_quad`), a circular feature by its first two harmonics `[cos, sin, cos 2theta, sin 2theta]` (`{name}_harm2`), a linear feature with two or three components such as place by its full quadratic expansion, 5 or 9 dimensions (`{name}_quad`); discrete features are unchanged. The default, `representation='raw'`, uses the features as they are. See `driada.intense.representations`.
+
 ## 3. Two-Stage Significance Testing
 
 The central operation of INTENSE is determining whether the mutual information between a neuron's activity and a behavioral feature is statistically significant. This is done by comparing the observed MI against a null distribution generated from temporally shuffled data. A two-stage procedure balances computational cost against statistical rigor.
@@ -31,6 +33,9 @@ Experiment
     |
     v
 [Circular 2d substitution] -- headdirection -> headdirection_2d (cos, sin)
+    |
+    v
+[Type-based representation] -- optional, representation='by_type': speed -> speed_quad, ...
     |
     v
 [FFT cache build] -- precompute MI for all circular shifts per pair
@@ -123,7 +128,7 @@ INTENSE supports two MI estimators, selected via `mi_estimator`:
 - **Continuous-discrete** (e.g., calcium vs trial type): MI is decomposed as `I(X;Y) = H(Y) - sum_k p(k) * H(Y|X=k)`, where class-conditional entropies are estimated on copula-normalized subsets.
 - **Discrete-discrete** (e.g., two binary features): MI is computed from contingency tables using empirical probabilities.
 - **Circular features**: Replaced by their (cos, sin) 2D representation before analysis. The resulting MultiTimeSeries is treated as a multivariate continuous variable.
-- **Multivariate** (e.g., 2D position): MI is computed from the joint covariance matrix using closed-form determinant formulas for dimensions up to 3.
+- **Multivariate** (e.g., 2D position): MI is computed from the joint covariance matrix, using closed-form determinant formulas for dimensions up to 3 and a batched determinant for higher dimensions.
 
 ### FFT Acceleration
 

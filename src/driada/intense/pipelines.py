@@ -7,6 +7,11 @@ from .intense_base import compute_me_stats, IntenseResults
 from ..information.info_base import TimeSeries, MultiTimeSeries, calc_signal_ratio
 from .disentanglement import disentangle_all_selectivities, DEFAULT_MULTIFEATURE_MAP
 from ..experiment.exp_base import DEFAULT_STATS
+from .representations import (
+    REPRESENTATION_MODES,
+    restore_source_features,
+    substitute_by_type,
+)
 
 
 def substitute_circular_with_2d(feat_ids, exp, verbose=False):
@@ -115,6 +120,7 @@ def compute_cell_feat_significance(
     filter_kwargs=None,
     remove_anti_selective=True,
     use_circular_2d=True,
+    representation="raw",
 ) -> tuple:
     """
     Calculates significant neuron-feature pairs
@@ -328,6 +334,24 @@ def compute_cell_feat_significance(
         counterparts (cos, sin representation) for MI computation. This improves
         MI estimation accuracy for circular variables like head direction.
         Requires that `create_circular_2d=True` was used during experiment loading.
+    representation : {'raw', 'by_type'}, default='raw'
+        Representation of the features passed to the estimator. 'raw' uses the
+        features as they are. 'by_type' replaces each feature with a
+        representation chosen from its type only: continuous linear 1D ->
+        ``[x, (x - c)^2]`` (feature ``{name}_quad``), circular ->
+        ``[cos, sin, cos 2theta, sin 2theta]`` (``{name}_harm2``), continuous
+        feature with 2 or 3 components (e.g. place) -> the components, their
+        centred squares and pairwise products, 5 or 9 dimensions
+        (``{name}_quad``). The centre ``c`` is the median,
+        or the mean when the median equals the minimum or maximum. Discrete
+        features and linear features with fewer than three distinct values are
+        unchanged. This makes non-monotone tuning (a central peak, axis tuning,
+        a field in the middle of the arena) visible to GCMI. Derived features
+        are added to ``exp.dynamic_features`` and results are reported under
+        their names. When ``feat_bunch`` is None, derived features from earlier
+        calls are replaced by their sources before the representation is
+        applied, so each feature is tested once. See
+        :mod:`driada.intense.representations`.
 
     Returns
     -------
@@ -356,6 +380,9 @@ def compute_cell_feat_significance(
     ValueError
         If data_type is not 'calcium' or 'spikes'
         If features are not found in experiment
+        If representation is not 'raw' or 'by_type'
+        If representation='by_type' and a feature with the name of a derived
+        representation already exists but was not created by it
 
     Notes
     -----
@@ -405,12 +432,24 @@ def compute_cell_feat_significance(
 
     exp.check_ds(ds)
 
+    if representation not in REPRESENTATION_MODES:
+        raise ValueError(
+            f"representation must be one of {REPRESENTATION_MODES}, got {representation!r}"
+        )
+
     cell_ids = exp._process_cbunch(cell_bunch)
     feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=True, mode=data_type)
+    if feat_bunch is None:
+        # The default feature set may contain representations derived by an
+        # earlier representation='by_type' call; test each source only once.
+        feat_ids = restore_source_features(feat_ids, exp)
 
     # Substitute circular features with _2d counterparts for better MI estimation
     if use_circular_2d:
         feat_ids, _ = substitute_circular_with_2d(feat_ids, exp, verbose=verbose)
+
+    if representation == "by_type":
+        feat_ids, _ = substitute_by_type(feat_ids, exp, verbose=verbose)
 
     cells = [exp.neurons[cell_id] for cell_id in cell_ids]
 
