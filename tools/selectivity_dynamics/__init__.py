@@ -21,6 +21,7 @@ Filters
 - GENERAL_PRIORITY_RULES: General behavioral priority rules
 - build_priority_filter: Create filter from priority rules
 - compose_filters: Chain multiple filters
+- with_source_feature_names: Run filters on source names with representation='by_type'
 - get_filter_for_experiment: Get composed filter for experiment type
 - nof_filter, tdm_filter, spatial_filter: Experiment-specific filters
 
@@ -62,6 +63,7 @@ from .filters import (
     GENERAL_PRIORITY_RULES,
     build_priority_filter,
     compose_filters,
+    with_source_feature_names,
     build_mi_ratio_filter,
     build_exclusion_filter,
     nof_filter,
@@ -121,6 +123,7 @@ __all__ = [
     'GENERAL_PRIORITY_RULES',
     'build_priority_filter',
     'compose_filters',
+    'with_source_feature_names',
     'build_mi_ratio_filter',
     'build_exclusion_filter',
     'nof_filter',

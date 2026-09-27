@@ -162,6 +162,95 @@ def compose_filters(*filters):
     return composed_filter
 
 
+# Filter state that a filter may mutate; translated back after the call.
+_MUTABLE_FILTER_ARGS = ('neuron_selectivities', 'pair_decisions', 'renames',
+                        'per_neuron_disent')
+# Read-only filter inputs that are keyed by feature names.
+_NAMED_FILTER_ARGS = ('cell_feat_stats', 'feat_names')
+
+
+def _rename_features(obj, mapping):
+    """Recursively rename feature names in dict keys, tuples, lists and strings."""
+    if isinstance(obj, str):
+        return mapping.get(obj, obj)
+    if isinstance(obj, tuple):
+        return tuple(_rename_features(o, mapping) for o in obj)
+    if isinstance(obj, list):
+        return [_rename_features(o, mapping) for o in obj]
+    if isinstance(obj, dict):
+        return {_rename_features(k, mapping): _rename_features(v, mapping)
+                for k, v in obj.items()}
+    return obj
+
+
+def with_source_feature_names(filter_func, exp):
+    """Run a filter on source feature names when type-based representations are used.
+
+    With ``representation='by_type'`` INTENSE reports features under derived
+    names (``place_quad``, ``speed_quad``, ``headdirection_harm2``, ...). Filters
+    are written against the source names (``place``, ``speed``,
+    ``headdirection``). The wrapper renames derived features to their sources
+    before calling the filter and renames them back in the mutated state
+    afterwards, so every rule works unchanged in both modes. Works for pre-
+    and post-filters.
+
+    Parameters
+    ----------
+    filter_func : callable
+        Pre-filter or post-filter following the filter protocol of this module.
+    exp : Experiment
+        Experiment whose derived representations are looked up at call time.
+
+    Returns
+    -------
+    callable
+        Wrapped filter with the same calling convention.
+
+    Examples
+    --------
+    >>> from types import SimpleNamespace
+    >>> exp = SimpleNamespace(_representation_sources={'speed_quad': 'speed'})
+    >>> rule = build_priority_filter([('locomotion', 'speed')])
+    >>> wrapped = with_source_feature_names(rule, exp)
+    >>> sels = {0: ['locomotion', 'speed_quad']}
+    >>> decisions = {0: {}}
+    >>> wrapped(sels, decisions, {0: {}})
+    >>> decisions
+    {0: {('locomotion', 'speed_quad'): 0}}
+    """
+    # Imported here: the package puts the local driada sources on sys.path in
+    # analysis.py, which may be imported after this module.
+    from driada.intense.representations import get_representation_sources
+
+    def wrapped(*args, **kwargs):
+        to_source = get_representation_sources(exp)
+        if not to_source:
+            return filter_func(*args, **kwargs)
+        to_derived = {source: derived for derived, source in to_source.items()}
+
+        new_args = [_rename_features(a, to_source) for a in args]
+        new_kwargs = dict(kwargs)
+        for key in _MUTABLE_FILTER_ARGS + _NAMED_FILTER_ARGS:
+            if key in kwargs:
+                new_kwargs[key] = _rename_features(kwargs[key], to_source)
+
+        result = filter_func(*new_args, **new_kwargs)
+
+        # Positional arguments are the mutable state (selectivities, decisions,
+        # renames for pre-filters; per-neuron results for post-filters).
+        for original, renamed in zip(args, new_args):
+            if isinstance(original, dict):
+                original.clear()
+                original.update(_rename_features(renamed, to_derived))
+        for key in _MUTABLE_FILTER_ARGS:
+            if key in kwargs and isinstance(kwargs[key], dict):
+                kwargs[key].clear()
+                kwargs[key].update(_rename_features(new_kwargs[key], to_derived))
+        return result
+
+    return wrapped
+
+
 def build_mi_ratio_filter(feat_pair, mi_ratio_threshold=1.5):
     """Build a filter that decides based on MI ratio between features.
 

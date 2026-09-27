@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
 import numpy as np
 import driada
 
+from .filters import with_source_feature_names
 from .loader import build_feature_list
 
 
@@ -95,7 +96,10 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
     exp : Experiment
         Experiment object to analyze
     config : dict
-        Configuration parameters for INTENSE
+        Configuration parameters for INTENSE. The optional key
+        ``'representation'`` ('raw' or 'by_type', default 'raw') is passed to
+        ``compute_cell_feat_significance``; with 'by_type' the filters are run
+        on source feature names (see ``with_source_feature_names``).
     skip_features : list
         Feature names to exclude from analysis
     pre_filter_func : callable, optional
@@ -116,6 +120,12 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
     _fix_normalized_circular_features(exp)
 
     metric = config.get('metric', 'mi')
+    representation = config.get('representation', 'raw')
+    if representation == 'by_type' and metric != 'mi':
+        raise ValueError(
+            f"representation='by_type' produces multi-dimensional features, "
+            f"which metric '{metric}' cannot handle; use metric='mi'"
+        )
     feat_bunch = build_feature_list(exp, skip_features)
 
     # Non-MI metrics cannot handle multi-dimensional features
@@ -137,6 +147,13 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         print(f"Pre-filter: {pre_filter_func.__name__ if hasattr(pre_filter_func, '__name__') else 'composed'}")
     if post_filter_func:
         print(f"Post-filter: {post_filter_func.__name__ if hasattr(post_filter_func, '__name__') else 'composed'}")
+
+    print(f"Representation: {representation}")
+    if representation == 'by_type':
+        if pre_filter_func is not None:
+            pre_filter_func = with_source_feature_names(pre_filter_func, exp)
+        if post_filter_func is not None:
+            post_filter_func = with_source_feature_names(post_filter_func, exp)
 
     with_disentanglement = config.get('with_disentanglement', True)
     result = driada.compute_cell_feat_significance(
@@ -160,6 +177,7 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         filter_kwargs=filter_kwargs,
         use_circular_2d=use_circular_2d,
         remove_anti_selective=config.get('remove_anti_selective', True),
+        representation=representation,
     )
     stats, significance, info, results, disent_results = result
 
