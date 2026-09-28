@@ -112,7 +112,8 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
     print(f"\nLoading experiment...")
     t_start = time.time()
     exp = load_experiment_from_npz(npz_path, agg_features=exp_config['aggregate_features'],
-                                      feature_types=exp_config.get('feature_types'))
+                                      feature_types=exp_config.get('feature_types'),
+                                      seed=config.get('seed'))
     t_load = time.time() - t_start
 
     print(f"  Loaded: {exp.signature}")
@@ -263,6 +264,10 @@ Examples:
                         help='Feature representation: raw (default, features as they are) or '
                              'by_type (quadratic for linear features and place, second harmonic '
                              'for circular ones; results go to a by_type subfolder)')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='Seed for the tie-breaking noise added to calcium when the experiment '
+                             'is built and for INTENSE shuffles (default: 42). The same seed gives '
+                             'identical results.')
     parser.add_argument('--parallel-backend', type=str, default='loky',
                         choices=['loky', 'threading', 'multiprocessing'],
                         help='Joblib parallel backend: loky (default, true parallelism), '
@@ -284,6 +289,7 @@ Examples:
         'with_disentanglement': not args.no_disentanglement,
         'remove_anti_selective': not args.no_remove_anti_selective,
         'representation': args.representation,
+        'seed': args.seed,
     }
 
     # Expand paths from --dir option or from positional arguments
@@ -341,6 +347,7 @@ Examples:
     print(f"  Disentanglement: {config['with_disentanglement']}")
     print(f"  Remove anti-selective: {config['remove_anti_selective']}")
     print(f"  Representation: {config['representation']}")
+    print(f"  Seed: {config['seed']}")
     print(f"  Skip/aggregate features: experiment-specific (from EXPERIMENT_CONFIGS)")
     print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
     print(f"  Skip computed: {args.skip_computed}")
@@ -425,7 +432,8 @@ Examples:
             exp_type = exp_name.split('_')[0] if '_' in exp_name else None
             exp_config = get_experiment_config(exp_type)
             exp = load_experiment_from_npz(Path(npz_path), agg_features=exp_config['aggregate_features'],
-                                            feature_types=exp_config.get('feature_types'), verbose=False)
+                                            feature_types=exp_config.get('feature_types'), verbose=False,
+                                            seed=config.get('seed'))
             pre_filter = get_filter_for_experiment(exp_type) if use_filters else None
             post_filter = exp_config.get('post_filter') if use_filters else None
             filter_kwargs = None

@@ -31,7 +31,7 @@ def build_feature_list(exp, skip_features):
 
 
 def load_experiment_from_npz(npz_path, agg_features=None, feature_types=None,
-                             verbose=True):
+                             verbose=True, seed=None):
     """Load experiment from NPZ file.
 
     Parameters
@@ -45,6 +45,9 @@ def load_experiment_from_npz(npz_path, agg_features=None, feature_types=None,
         Feature type overrides. See load_exp_from_aligned_data.
     verbose : bool
         Whether to print loading info
+    seed : int, optional
+        Seed for the tie-breaking noise added when the experiment is built
+        (see load_exp_from_aligned_data). None gives non-reproducible noise.
 
     Returns
     -------
@@ -84,6 +87,7 @@ def load_experiment_from_npz(npz_path, agg_features=None, feature_types=None,
         static_features=static_features,
         aggregate_features=agg_features,
         verbose=verbose,
+        seed=seed,
     )
 
     return exp
