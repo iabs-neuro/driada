@@ -65,6 +65,7 @@ def load_exp_from_aligned_data(
     n_jobs=-1,
     enable_parallelization=True,
     create_circular_2d=True,
+    seed=None,
 ):
     """Create an Experiment object from aligned neural and behavioral data.
 
@@ -155,6 +156,12 @@ def load_exp_from_aligned_data(
         Original features are preserved. E.g., 'headdirection' -> also creates
         'headdirection_2d'. This improves MI estimation accuracy for circular
         variables like head direction.
+    seed : int, optional
+        Seed for the tiny tie-breaking noise added to calcium traces and to
+        aggregated features. The noise changes the ranks of equal values
+        (e.g. calcium clipped to zero) and therefore copula-based mutual
+        information, so pass a seed when results must be reproducible.
+        Default None (not reproducible).
 
     Returns
     -------
@@ -290,6 +297,13 @@ def load_exp_from_aligned_data(
     # Process dynamic features, handling multidimensional arrays
     filt_dyn_features = {}
 
+    # Independent seeds for the neurons and for each aggregated feature
+    n_agg = len(aggregate_features) if aggregate_features else 0
+    if seed is None:
+        exp_seed, agg_seeds = None, [None] * n_agg
+    else:
+        exp_seed, *agg_seeds = (int(v) for v in np.random.SeedSequence(seed).generate_state(1 + n_agg))
+
     # Process feature aggregations first (before individual feature processing)
     # Note: component features are NOT consumed - they remain available as individual features
     if aggregate_features:
@@ -311,7 +325,9 @@ def load_exp_from_aligned_data(
                 ts_list.append(ts)
 
             # Create MultiTimeSeries from components (adds noise to break degeneracy)
-            filt_dyn_features[combined_name] = aggregate_multiple_ts(*ts_list, name=combined_name)
+            filt_dyn_features[combined_name] = aggregate_multiple_ts(
+                *ts_list, name=combined_name, seed=agg_seeds.pop(0)
+            )
 
     dyn_features = adata.copy()
 
@@ -505,6 +521,7 @@ def load_exp_from_aligned_data(
         reconstructions=reconstructions,
         metadata=metadata,
         create_circular_2d=create_circular_2d,
+        seed=exp_seed,
     )
 
     return exp

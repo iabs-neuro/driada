@@ -1043,7 +1043,7 @@ def compute_feat_feat_significance(
         if isinstance(feat_id, tuple):
             # Create MultiTimeSeries for tuples using aggregate_multiple_ts
             ts_list = [exp.dynamic_features[f] for f in feat_id]
-            ts = aggregate_multiple_ts(*ts_list)
+            ts = aggregate_multiple_ts(*ts_list, seed=seed)
         else:
             ts = exp.dynamic_features[feat_id]
         feature_ts.append(ts)

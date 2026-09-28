@@ -326,6 +326,10 @@ class Experiment:
               of circular features (detected via type_info.is_circular) as (cos, sin)
               MultiTimeSeries. Original features are preserved. E.g., 'headdirection'
               -> also creates 'headdirection_2d'. Default True.
+            - seed (int or None): Seed for the tie-breaking noise added to each
+              neuron's calcium trace. Each neuron gets its own stream derived
+              from it, so a build with the same seed gives identical traces.
+              Default None (not reproducible).
 
         Raises
         ------
@@ -399,6 +403,7 @@ class Experiment:
         spike_kwargs = kwargs.get("spike_kwargs", None)
         self.verbose = kwargs.get("verbose", True)
         create_circular_2d = kwargs.get("create_circular_2d", True)
+        seed = kwargs.get("seed", None)
 
         # Parallelization settings
         self._n_jobs = kwargs.get("n_jobs", -1)
@@ -509,6 +514,12 @@ class Experiment:
         t_off = static_features.get("t_off_sec")
         fps = static_features.get("fps")
 
+        # One independent noise stream per neuron, all derived from the experiment seed
+        if seed is None:
+            neuron_seeds = [None] * self.n_cells
+        else:
+            neuron_seeds = np.random.SeedSequence(seed).spawn(self.n_cells)
+
         for i in tqdm.tqdm(
             np.arange(self.n_cells), position=0, leave=True, disable=not self.verbose
         ):
@@ -531,6 +542,7 @@ class Experiment:
                 str(i),
                 calcium[i, :],
                 spikes[i, :] if spikes is not None else None,
+                seed=neuron_seeds[i],
                 **neuron_kwargs
             )
             self.neurons.append(cell)

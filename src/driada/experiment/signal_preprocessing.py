@@ -25,8 +25,10 @@ def calcium_preprocessing(ca, seed=None):
     ----------
     ca : array-like
         Raw calcium signal. Must be 1D.
-    seed : int, optional
-        Random seed for reproducible noise. If None, uses current state.
+    seed : int, numpy.random.SeedSequence or numpy.random.Generator, optional
+        Seed for the noise, passed to ``numpy.random.default_rng``. With the
+        same seed the output is identical between calls and processes. If
+        None, fresh entropy is used and the noise differs between calls.
 
     Returns
     -------
@@ -41,7 +43,13 @@ def calcium_preprocessing(ca, seed=None):
     Notes
     -----
     The small noise (1e-8 scale) prevents division by zero and other
-    numerical issues in downstream spike reconstruction algorithms.
+    numerical issues in downstream spike reconstruction algorithms. It also
+    breaks ties between equal values (e.g. clipped zeros), so it changes the
+    ranks used by copula-based mutual information; pass a seed when results
+    must be reproducible.
+
+    The noise is drawn outside the Numba-compiled part: Numba keeps its own
+    random state, which ``np.random.seed`` called from Python does not reach.
 
     Examples
     --------
@@ -55,9 +63,9 @@ def calcium_preprocessing(ca, seed=None):
     ca = np.asarray(ca)
     if ca.size == 0:
         raise ValueError("Calcium signal cannot be empty")
-    if seed is not None:
-        np.random.seed(seed)
-    return _calcium_preprocessing_jit(ca)
+    ca = _calcium_preprocessing_jit(ca)
+    ca += np.random.default_rng(seed).random(len(ca)) * 1e-08
+    return ca
 
 
 def _calcium_preprocessing_jit(ca):
@@ -74,23 +82,11 @@ def _calcium_preprocessing_jit(ca):
     Returns
     -------
     ndarray
-        Preprocessed signal with negative values clipped and noise added.
-
-    Notes
-    -----
-    - Negative values are clipped to 0 (physical constraint)
-    - Small uniform noise (1e-8 scale) prevents numerical issues
-    - Random state should be set externally if reproducibility needed
-    - JIT compilation provides significant speedup for large arrays
-
-    Side Effects
-    ------------
-    Uses np.random without explicit state management. Set seed
-    externally for reproducibility.
+        Signal as float64 with negative values clipped to 0. The tie-breaking
+        noise is added by the caller, outside the compiled code.
     """
     ca = ca.astype(np.float64)
     ca[ca < 0] = 0
-    ca += np.random.random(len(ca)) * 1e-08
     return ca
 
 
