@@ -99,7 +99,8 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         Configuration parameters for INTENSE. The optional key
         ``'representation'`` ('raw' or 'by_type', default 'raw') is passed to
         ``compute_cell_feat_significance``; with 'by_type' the filters are run
-        on source feature names (see ``with_source_feature_names``).
+        on source feature names (see ``with_source_feature_names``). The
+        optional key ``'seed'`` (default 42) is the INTENSE shuffle seed.
     skip_features : list
         Feature names to exclude from analysis
     pre_filter_func : callable, optional
@@ -178,6 +179,7 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         use_circular_2d=use_circular_2d,
         remove_anti_selective=config.get('remove_anti_selective', True),
         representation=representation,
+        seed=config.get('seed', 42),
     )
     stats, significance, info, results, disent_results = result
 
