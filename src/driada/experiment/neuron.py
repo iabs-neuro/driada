@@ -195,8 +195,9 @@ class Neuron:
         wvt_ridges : list or None, optional
             Pre-computed wavelet ridges (from prior reconstruction). Used for
             kinetics optimization to provide event boundaries.
-        seed : int, optional
-            Random seed for preprocessing reproducibility.
+        seed : int, numpy.random.SeedSequence or numpy.random.Generator, optional
+            Seed for the tie-breaking noise added to the calcium trace (see
+            ``calcium_preprocessing``). None gives non-reproducible noise.
         reconstructed : array-like or None, optional
             Pre-computed reconstructed calcium signal. If provided, must have
             same length as ca. Skips reconstruction step and directly populates
