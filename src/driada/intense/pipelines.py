@@ -9,6 +9,7 @@ from .disentanglement import disentangle_all_selectivities, DEFAULT_MULTIFEATURE
 from ..experiment.exp_base import DEFAULT_STATS
 from .representations import (
     REPRESENTATION_MODES,
+    get_representation_sources,
     restore_source_features,
     substitute_by_type,
 )
@@ -350,7 +351,9 @@ def compute_cell_feat_significance(
         are added to ``exp.dynamic_features`` and results are reported under
         their names. When ``feat_bunch`` is None, derived features from earlier
         calls are replaced by their sources before the representation is
-        applied, so each feature is tested once. See
+        applied, so each feature is tested once. Anti-selective removal
+        (``remove_anti_selective``) judges a derived feature by its source, so
+        a linear feature is filtered the same way in both modes. See
         :mod:`driada.intense.representations`.
 
     Returns
@@ -582,6 +585,7 @@ def compute_cell_feat_significance(
         )
 
         exp.optimal_nf_delays = info["optimal_delays"]
+        representation_sources = get_representation_sources(exp)
         # add hash data and update Experiment saved statistics and significance if needed
         for i, cell_id in enumerate(cell_ids):
             for j, feat_id in enumerate(feat_ids):
@@ -608,6 +612,12 @@ def compute_cell_feat_significance(
 
                 # Compute signal_ratio for binary discrete features
                 feat_ts = feats[j]
+                # A type-based representation is judged by the direction of its
+                # source feature: the removal of anti-selective pairs is meant
+                # for every linear feature, whatever representation is tested.
+                source = representation_sources.get(feat_id) if isinstance(feat_id, str) else None
+                if source is not None:
+                    feat_ts = exp.dynamic_features[source]
                 if (hasattr(feat_ts, 'int_data') and feat_ts.int_data is not None
                         and len(np.unique(feat_ts.int_data)) == 2):
                     opt_delay = int(info["optimal_delays"][i, j])

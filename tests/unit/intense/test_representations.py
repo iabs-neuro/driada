@@ -262,6 +262,61 @@ class TestPipelineByType:
             )
 
 
+class TestAntiSelectiveByType:
+    """Anti-selective removal treats a linear feature alike in both modes."""
+
+    @pytest.fixture(scope="class")
+    def monotone_exp(self):
+        rng = np.random.RandomState(11)
+        fps, n = 20, 20 * 60 * 10
+        x = _smooth_walk(n, 3.0 * fps, rng)
+        k = np.exp(-np.arange(6 * fps) / (2.0 * fps))
+        calcium = []
+        # Two neurons fire more at high x, two are suppressed by x.
+        for i, shape in enumerate([0.1 + x, 0.1 + x, 1.1 - x, 1.1 - x]):
+            rate = 1.0 / fps * shape / shape.mean()
+            ev = np.random.RandomState(300 + i).poisson(rate).astype(float)
+            ca = np.convolve(ev, k)[:n] + 0.05 * np.random.RandomState(400 + i).randn(n)
+            calcium.append(np.clip(ca, 0, None))
+        return Experiment(
+            "monotone",
+            np.vstack(calcium),
+            None,
+            {},
+            {"fps": float(fps)},
+            {"xvar": TimeSeries(x, discrete=False)},
+            reconstruct_spikes=None,
+            verbose=False,
+        )
+
+    def _significant(self, exp, representation, remove_anti_selective):
+        _, sig, _, _, _ = compute_cell_feat_significance(
+            exp,
+            mode="two_stage",
+            n_shuffles_stage1=100,
+            n_shuffles_stage2=1000,
+            ds=5,
+            pval_thr=0.001,
+            multicomp_correction=None,
+            representation=representation,
+            remove_anti_selective=remove_anti_selective,
+            verbose=False,
+            seed=1,
+            use_precomputed_stats=False,
+            save_computed_stats=False,
+        )
+        name = "xvar_quad" if representation == "by_type" else "xvar"
+        return [bool(sig[c][name]["stage2"]) for c in range(4)]
+
+    @pytest.mark.parametrize("representation", ["raw", "by_type"])
+    def test_suppressed_neurons_removed(self, monotone_exp, representation):
+        # Without the removal all four are detected, so the removal is what differs.
+        assert all(self._significant(monotone_exp, representation, False))
+        assert self._significant(monotone_exp, representation, True) == [
+            True, True, False, False
+        ]
+
+
 class TestDefaultFeatureSet:
     """Derived features must not leak into later runs with the default feature set."""
 
