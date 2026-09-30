@@ -78,6 +78,23 @@ class TestParameterMappingIntegration:
         emb2 = sample_data.get_embedding(method="isomap", nn=30, dim=2)
         assert emb2.graph.nn == 30, "nn parameter not propagated to graph!"
 
+    def test_explicit_param_groups_with_method(self, sample_data):
+        """Explicit g_params/e_params passed with ``method`` override the defaults."""
+        emb = sample_data.get_embedding(
+            method="isomap",
+            g_params={"nn": 12, "symmetrization": "intersection"},
+            e_params={"dim": 3},
+        )
+        assert emb.graph.nn == 12
+        assert emb.graph.symmetrization == "intersection"
+        assert emb.coords.shape[0] == 3
+
+    def test_explicit_g_params_do_not_drop_flat_kwargs(self, sample_data):
+        """Flat kwargs and an explicit parameter group can be combined."""
+        emb = sample_data.get_embedding(method="isomap", dim=2, g_params={"nn": 12})
+        assert emb.graph.nn == 12
+        assert emb.coords.shape[0] == 2
+
     def test_k_parameter_works_in_practice(self, sample_data):
         """Test that k parameter works as nn alias."""
         emb = sample_data.get_embedding(method="le", k=15, dim=2)
