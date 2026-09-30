@@ -4,8 +4,8 @@ import umap.umap_ as umap
 from pydiffmap import diffusion_map as dm
 from scipy.sparse.csgraph import shortest_path
 
-from sklearn.decomposition import PCA
-from sklearn.manifold import spectral_embedding, Isomap, LocallyLinearEmbedding, TSNE
+from sklearn.decomposition import PCA, KernelPCA
+from sklearn.manifold import spectral_embedding, LocallyLinearEmbedding, TSNE
 from sklearn.model_selection import train_test_split
 
 # from sklearn.cluster.spectral import discretize
@@ -352,10 +352,10 @@ class Embedding:
         Requires a proximity graph. Uses Dijkstra's algorithm to compute
         shortest paths, then applies classical MDS to the geodesic distance matrix.
 
-        Warning: Converts sparse adjacency to dense matrix which may
-        use excessive memory for large datasets.
+        Warning: The geodesic distance matrix is dense (n_samples x n_samples),
+        which may use excessive memory for large datasets.
 
-        The Isomap object is stored in ``self.reducer_`` for potential reuse.
+        The fitted KernelPCA object is stored in ``self.reducer_``.
 
         Examples
         --------
@@ -381,12 +381,15 @@ class Embedding:
         check_positive(dim=self.dim, nn=self.graph.nn)
 
         A = self.graph.adj
-        isomap_reducer = Isomap(
-            n_components=self.dim, n_neighbors=self.graph.nn, metric="precomputed"
-        )
-        # self.coords = sp.csr_matrix(map.fit_transform(self.graph.data.A.T).T)
-        spmatrix = shortest_path(A.todense(), method="D", directed=False)
-        self.coords = isomap_reducer.fit_transform(spmatrix).T
+        # Geodesics are taken on the graph exactly as built. Handing them to
+        # sklearn's Isomap(metric="precomputed") would rebuild a k-NN graph on
+        # the geodesics and rerun shortest paths: on a union-symmetrized graph,
+        # where degrees exceed k, that silently drops edges (with arbitrary
+        # tie-breaking on unweighted graphs) and doubles the cost. Isomap is
+        # kernel PCA of -D^2/2 on these geodesics.
+        geodesic = shortest_path(A, method="D", directed=False)
+        isomap_reducer = KernelPCA(n_components=self.dim, kernel="precomputed")
+        self.coords = isomap_reducer.fit_transform(-0.5 * geodesic**2).T
         self.reducer_ = isomap_reducer
 
     def create_mds_embedding_(self):
