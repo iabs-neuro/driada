@@ -380,6 +380,12 @@ class MVData(object):
         if method is not None:
             # Merge with defaults
             params = merge_params_with_defaults(method, method_kwargs)
+            # Parameter groups passed explicitly alongside ``method`` override the
+            # method defaults instead of being discarded by them.
+            for key, given in (("e_params", e_params), ("g_params", g_params),
+                               ("m_params", m_params)):
+                if given:
+                    params[key] = {**(params[key] or {}), **given}
             e_params = params["e_params"]
             g_params = params["g_params"]
             m_params = params["m_params"]
