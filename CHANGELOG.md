@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+**Type-based feature representations in INTENSE, now the default**
+
+### Changed behaviour
+
+- **`representation='by_type'` is the default in `compute_cell_feat_significance`** — features are replaced by their type-based representations before the analysis, so **feature names in the results change**: a continuous linear feature `speed` is reported as `speed_quad`, a circular `headdirection` (previously `headdirection_2d`) as `headdirection_harm2`, a two- or three-component linear feature `place` as `place_quad`; discrete features keep their names. The derived features are added to `exp.dynamic_features`. To get the previous names and values, pass `representation='raw'`. The representations are applied only with `metric='mi'` and `mi_estimator='gcmi'`; other metrics and the KSG estimator use the features as they are. `compute_embedding_selectivity` keeps analysing embedding components as they are (`3612f59`)
+- **`run_intense_analysis.py` uses `by_type` by default** — with `--metric mi` the tool runs the type-based representation and writes to the `by_type` subfolder of `--output-dir`; `--representation raw` gives the previous analysis and writes to `--output-dir` itself, as before. With other metrics the default is `raw` (`3612f59`)
+- **Place vs zone rule in `run_intense_analysis.py`** — neurons selective to both place and a discrete zone are resolved by the zone's share of the neuron's position information (`--zone-rule information_share`, the new default); nothing is merged into `place-<zone>`. The previous rule is available as `--zone-rule top_activity` (`c879c48`)
+- **k-NN graphs are symmetrized by union** — `ProximityGraph` connects two points if either is among the other's neighbours, as sklearn does; the previous mutual-neighbour rule is available as `'intersection'`. Affects graph-based embeddings (Isomap, Laplacian eigenmaps, diffusion maps) and geodesic dimension (`377b5a4`)
+- **Population recurrence graphs of different sizes** — `population_recurrence_graph` and `pairwise_jaccard_sparse` reconcile graph sizes with `trim='adaptive'` by default (`738ab6f`)
+
+### INTENSE features
+
+- **Type-based feature representations** — `representation='by_type'` makes non-monotone tuning (a peak in the middle of the range, axis tuning, a place field in the centre of the arena) visible to GCMI: linear 1D feature -> `[x, (x - c)^2]`, circular feature -> first two harmonics, linear feature with 2 or 3 components -> full quadratic expansion (5 or 9 dimensions). New module `driada.intense.representations`. When the default feature set is used, derived features are replaced by their sources, so each feature is tested once (`41785af`)
+- **FFT path for wider MultiTimeSeries** — the FFT MI engine handles MultiTimeSeries up to d=36 (previously d<=3), covering the harmonic and quadratic representations; MI between MultiTimeSeries of unequal dimension no longer raises a broadcast error (`9888bf2`, `7f249f7`, `053fb17`)
+- **Derived names in plots** — `plot_neuron_feature_pair` and `plot_neuron_feature_density` accept the name of a type-based representation and plot its source feature (`3612f59`)
+
+### INTENSE bug fixes
+
+- **Singular covariance at d=3** — the closed-form FFT path for three-component MultiTimeSeries returned a constant finite MI for linearly dependent components; it now raises like d=2 and d>=4 (`21eb527`)
+- **FFT MTS regularization** — the singularity guard uses the eigenvalue ratio instead of an absolute determinant threshold, which rejected valid high-dimensional inputs (`053fb17`)
+- **Conditional MI with a discrete variable** — the Gaussian conditional entropy is computed from the residual covariance, removing large negative values (clipped to zero) when the conditioning variable is nearly constant within a state (`766a1f3`)
+- **Anti-selective removal for derived representations** — `remove_anti_selective` judges a type-based representation by its source feature, so a linear feature is filtered the same way in both modes (`630f193`)
+- **Dropped multifeature components** — disentanglement falls back to the pre-built aggregate when a positional component was dropped as degenerate, instead of aborting the session (`3b0738b`)
+- **Feature-feature default set** — `compute_feat_feat_significance` with the default feature set skips derived representations left by an earlier INTENSE run (`3612f59`)
+
+### Analysis tool (`tools/run_intense_analysis.py`)
+
+- **`--representation`** — `by_type` or `raw`; disentanglement filters run on source feature names, so existing rules apply unchanged (`038ae13`)
+- **`--zone-rule`** — `information_share` or `top_activity` (`c879c48`)
+- **`--seed`** — seed for the tie-breaking noise and INTENSE shuffles (default 42); runs with the same seed give identical results (`69a97fb`)
+- **TRACE experiment config** — trace conditioning sessions (`Trace_*_*.npz`) are dispatched without spatial features or specific filters (`82e9834`)
+
+### Reproducibility
+
+- **Seeded tie-breaking noise** — `load_exp_from_aligned_data`, `Experiment` and `aggregate_multiple_ts` accept `seed`; the small noise added to calcium traces and aggregated features is drawn from streams derived from it, so INTENSE results are identical between runs. Without a seed the behaviour is unchanged (`3082956`)
+
+### Information theory
+
+- **Higher-order measures** — `total_correlation`, `dual_total_correlation` and `o_information` for MultiTimeSeries (new module `driada.information.higher_order`), with Gaussian copula estimators `tc_gg`, `dtc_gg`, `o_info_gg` (`71288b1`, `16d3e60`, `f588920`, `05a6deb`, `5d3c4aa`)
+
+### Dimensionality reduction
+
+- **Isomap embeds the graph as built** — graph geodesics are embedded directly (classical MDS) instead of being passed to sklearn's Isomap, which rebuilt a k-NN graph on them and dropped edges of union-symmetrized graphs (`3bbfff0`)
+- **Explicit parameter groups** — `get_embedding(method=..., g_params=...)` keeps explicit `g_params`, `e_params` and `m_params` instead of replacing them by the method defaults (`fffea6e`)
+- **ClassificationLoss MLP head** — optional `hidden_dim` adds a two-layer classifier (`eb0de37`)
+
+### Experiment
+
+- **NWB I/O** — `save_exp_to_nwb` and `load_exp_from_nwb`; loading no longer pollutes `sys.modules`, DRIADA metadata is stored in scratch, neuron centers in explicit columns (`94b5d67`, `a913658`)
+- **Event SNR in dB** — the decibel event-SNR implementation, shadowed by an alias, is callable as `get_event_snr_db`; `get_event_snr` remains an alias of `get_wavelet_snr` (`802175e`)
+- **Pre-computed wavelet SNR** — `metrics['wavelet_snr']` pre-fills the cache read by `get_wavelet_snr` (`a708a37`)
+
+### Recurrence analysis
+
+- **`tau_method` and `max_dim`** — exposed in `recurrence_graph`, `population_recurrence_graph`, `estimate_embedding_dim`, `takens_embedding` and `ordinal_partition_network` (`66ed25a`)
+
+### Other
+
+- **matplotlib >= 3.9** — network drawing uses the `mpl.colormaps` registry instead of the removed `matplotlib.cm.get_cmap` (`86c1f6f`)
+- **Neuron database tools** — retention and enrichment exports scoped to matched pools (`70ebbf7`)
+- **README** — rewritten around cross-scale integration, with an architecture diagram and links to the API pages (`44e0bd6`, `ec50a37`)
+
+---
+
 ## [1.1.0] - 2026-03-15
 
 **Recurrence analysis module and INTENSE improvements**
