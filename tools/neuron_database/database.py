@@ -28,6 +28,32 @@ def pretransform_merge_composite_place(data, discrete_place_features):
     return data
 
 
+# Suffixes of type-based INTENSE representations and the feature names the
+# same variables carry in tables computed without them.
+_REPRESENTATION_SUFFIXES = (('_quad', ''), ('_harm2', '_2d'))
+
+
+def pretransform_representation_names(data):
+    """Rename type-based representation features to their plain names.
+
+    INTENSE run with ``representation='by_type'`` reports 'place_quad',
+    'speed_quad' or 'headdirection_harm2'. Configs, aggregates and earlier
+    tables use 'place', 'speed' and 'headdirection_2d', so the names are
+    mapped back before anything is looked up by name.
+    """
+    renamed = {}
+    for name in data['feature'].unique():
+        for suffix, plain in _REPRESENTATION_SUFFIXES:
+            if name.endswith(suffix):
+                renamed[name] = name[:-len(suffix)] + plain
+                break
+    if not renamed:
+        return data
+    data = data.copy()
+    data['feature'] = data['feature'].replace(renamed)
+    return data
+
+
 class NeuronDatabase:
     """Cross-session database for INTENSE selectivity results.
 

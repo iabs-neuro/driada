@@ -431,7 +431,8 @@ def load_experiment(experiment_id, data_dir, config=None):
         features injected.
     """
     from .configs import EXPERIMENT_CONFIGS, DISCARDED_FEATURES
-    from .database import NeuronDatabase, pretransform_merge_composite_place
+    from .database import (NeuronDatabase, pretransform_merge_composite_place,
+                           pretransform_representation_names)
 
     if config is None:
         config = EXPERIMENT_CONFIGS[experiment_id]
@@ -445,6 +446,8 @@ def load_experiment(experiment_id, data_dir, config=None):
         experiment_prefix=config.experiment_id,
         nontrivial_matching=config.nontrivial_matching,
     )
+
+    data = pretransform_representation_names(data)
 
     if DISCARDED_FEATURES:
         found = set(data['feature'].unique()) & DISCARDED_FEATURES

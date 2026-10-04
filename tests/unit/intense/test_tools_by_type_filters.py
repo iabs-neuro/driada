@@ -122,3 +122,21 @@ def test_representation_passed_to_pipeline(monkeypatch, config, expected):
     }
     with pytest.raises(_Captured, match=f"^{expected}$"):
         run_intense_analysis(SimpleNamespace(dynamic_features={}), config, [])
+
+
+def test_cross_analysis_loader_maps_derived_names_to_plain_ones():
+    import pandas as pd
+
+    from tools.neuron_database.database import pretransform_representation_names
+
+    data = pd.DataFrame({"feature": [
+        "place_quad", "speed_quad", "headdirection_harm2", "bodydirection_harm2",
+        "place", "headdirection_2d", "walls", "place-corners",
+    ]})
+    out = pretransform_representation_names(data)
+    assert list(out["feature"]) == [
+        "place", "speed", "headdirection_2d", "bodydirection_2d",
+        "place", "headdirection_2d", "walls", "place-corners",
+    ]
+    assert list(data["feature"])[0] == "place_quad"
+

@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`--representation`** — `by_type` or `raw`; disentanglement filters run on source feature names, so existing rules apply unchanged (`038ae13`)
 - **`--zone-rule`** — `information_share` or `top_activity` (`c879c48`)
+- **Cross-session analysis (`tools/neuron_database`)** — features of type-based representations are loaded under their plain names (`place_quad` as `place`, `headdirection_harm2` as `headdirection_2d`), so configs and aggregates such as `any place` keep working on `by_type` results
 - **`--seed`** — seed for the tie-breaking noise and INTENSE shuffles (default 42); runs with the same seed give identical results (`69a97fb`)
 - **TRACE experiment config** — trace conditioning sessions (`Trace_*_*.npz`) are dispatched without spatial features or specific filters (`82e9834`)
 
