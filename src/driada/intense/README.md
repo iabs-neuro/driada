@@ -56,6 +56,11 @@ stats, significance, info, results, disent = compute_cell_feat_significance(
 significant_neurons = experiment.get_significant_neurons()
 ```
 
+By default (`representation='by_type'`) continuous features are tested through
+type-based representations and reported under derived names: `speed` as
+`speed_quad`, `head_direction` as `head_direction_harm2`. Pass
+`representation='raw'` to test the features as they are and keep their names.
+
 ## Technical details
 
 ### Two-stage significance testing

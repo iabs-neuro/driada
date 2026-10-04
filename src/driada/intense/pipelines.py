@@ -121,7 +121,7 @@ def compute_cell_feat_significance(
     filter_kwargs=None,
     remove_anti_selective=True,
     use_circular_2d=True,
-    representation="raw",
+    representation="by_type",
 ) -> tuple:
     """
     Calculates significant neuron-feature pairs
@@ -335,7 +335,7 @@ def compute_cell_feat_significance(
         counterparts (cos, sin representation) for MI computation. This improves
         MI estimation accuracy for circular variables like head direction.
         Requires that `create_circular_2d=True` was used during experiment loading.
-    representation : {'raw', 'by_type'}, default='raw'
+    representation : {'by_type', 'raw'}, default='by_type'
         Representation of the features passed to the estimator. 'raw' uses the
         features as they are. 'by_type' replaces each feature with a
         representation chosen from its type only: continuous linear 1D ->
@@ -353,8 +353,13 @@ def compute_cell_feat_significance(
         calls are replaced by their sources before the representation is
         applied, so each feature is tested once. Anti-selective removal
         (``remove_anti_selective``) judges a derived feature by its source, so
-        a linear feature is filtered the same way in both modes. See
-        :mod:`driada.intense.representations`.
+        a linear feature is filtered the same way in both modes. The
+        representations exist for the Gaussian copula estimator and are
+        multi-dimensional, so they are applied only with ``metric='mi'`` and
+        ``mi_estimator='gcmi'``; with any other metric or estimator the
+        features are used as they are, whatever the value of this parameter.
+        Pass ``representation='raw'`` to keep the source feature names in the
+        results. See :mod:`driada.intense.representations`.
 
     Returns
     -------
@@ -451,7 +456,10 @@ def compute_cell_feat_significance(
     if use_circular_2d:
         feat_ids, _ = substitute_circular_with_2d(feat_ids, exp, verbose=verbose)
 
-    if representation == "by_type":
+    # Type-based representations close a blind spot of GCMI and are
+    # multi-dimensional; correlation-like metrics and the KSG estimator take
+    # one-dimensional features only.
+    if representation == "by_type" and metric == "mi" and mi_estimator == "gcmi":
         feat_ids, _ = substitute_by_type(feat_ids, exp, verbose=verbose)
 
     cells = [exp.neurons[cell_id] for cell_id in cell_ids]
@@ -880,7 +888,9 @@ def compute_feat_feat_significance(
     exp : Experiment
         Experiment object containing behavioral data.
     feat_bunch : str, list or None
-        Feature names to analyze. Default: 'all' (all features including multifeatures).
+        Feature names to analyze. Default: 'all' (all features including multifeatures,
+        except type-based representations derived by ``compute_cell_feat_significance``,
+        which are functions of their source features).
         Can be a list of specific feature names.
     metric : str, optional
         Similarity metric to use. Default: 'mi' (mutual information).
@@ -1014,6 +1024,10 @@ def compute_feat_feat_significance(
     if feat_bunch == "all":
         feat_bunch = None  # None means all features in _process_fbunch
     feat_ids = exp._process_fbunch(feat_bunch, allow_multifeatures=True, mode="calcium")
+    if feat_bunch is None:
+        # Type-based representations added by compute_cell_feat_significance
+        # are functions of their sources; compare each feature only once.
+        feat_ids = restore_source_features(feat_ids, exp)
     n_features = len(feat_ids)
 
     # Handle empty feature list case
@@ -1720,6 +1734,9 @@ def compute_embedding_selectivity(
                 enable_parallelization=enable_parallelization,
                 n_jobs=n_jobs,
                 seed=seed,
+                # Results are read back by component name, and the temporary
+                # components are removed from the experiment afterwards.
+                representation="raw",
             )
 
             # Extract significant neurons from the significance results

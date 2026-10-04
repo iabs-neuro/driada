@@ -479,6 +479,7 @@ cells.append(code_cell(
 "\n"
 "stats, significance, info, results, _ = compute_cell_feat_significance(\n"
 "    exp_demo, verbose=True,\n"
+"    representation='raw',  # ground truth names the features themselves\n"
 ")\n"
 "\n"
 "# results is an IntenseResults object -- the primary container for outputs.\n"

@@ -4,7 +4,10 @@ Feature Representations
 .. automodule:: driada.intense.representations
    :no-members:
 
-Type-based representations used by ``compute_cell_feat_significance(..., representation='by_type')``.
+Type-based representations used by ``compute_cell_feat_significance`` by default
+(``representation='by_type'``). Results are reported under the derived feature names
+(``speed_quad``, ``headdirection_harm2``); pass ``representation='raw'`` to analyse the
+features as they are and keep their names.
 
 Functions
 ---------

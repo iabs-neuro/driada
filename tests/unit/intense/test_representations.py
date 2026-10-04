@@ -1,5 +1,7 @@
 """Tests for type-based feature representations in INTENSE."""
 
+import inspect
+
 import numpy as np
 import pytest
 from scipy.stats import spearmanr
@@ -351,3 +353,111 @@ class TestDefaultFeatureSet:
 
         assert by_type == {"head_direction_harm2", "speed_quad", "state"}
         assert raw_before == raw_after == {"head_direction_2d", "speed", "state"}
+
+
+class TestDefaultRepresentation:
+    """The type-based representation is the default; 'raw' keeps source features."""
+
+    @pytest.fixture
+    def exp(self):
+        rng = np.random.RandomState(8)
+        n = 2000
+        data = {
+            "Calcium": np.abs(rng.randn(3, n)),
+            "head_direction": rng.uniform(0, 2 * np.pi, n),
+            "speed": rng.uniform(0, 10, n),
+            "state": rng.randint(0, 3, n),
+        }
+        return load_exp_from_aligned_data(
+            "test", {"animal": "A1"}, data, create_circular_2d=True, verbose=False
+        )
+
+    @staticmethod
+    def _stats(exp, **kwargs):
+        stats, *_ = compute_cell_feat_significance(
+            exp,
+            mode="stage1",
+            n_shuffles_stage1=10,
+            verbose=False,
+            enable_parallelization=False,
+            use_precomputed_stats=False,
+            save_computed_stats=False,
+            **kwargs,
+        )
+        return stats
+
+    def test_signature_default_is_by_type(self):
+        default = inspect.signature(compute_cell_feat_significance).parameters[
+            "representation"
+        ].default
+        assert default == "by_type"
+
+    def test_default_matches_explicit_by_type(self, exp):
+        default = self._stats(exp)
+        explicit = self._stats(exp, representation="by_type")
+
+        assert set(default[0]) == {"head_direction_harm2", "speed_quad", "state"}
+        assert set(explicit[0]) == set(default[0])
+        for cell_id in default:
+            for feat_id in default[cell_id]:
+                assert default[cell_id][feat_id]["me"] == explicit[cell_id][feat_id]["me"]
+
+    def test_explicit_raw_keeps_source_features(self, exp):
+        features_before = set(exp.dynamic_features)
+        stats = self._stats(exp, representation="raw")
+
+        assert set(stats[0]) == {"head_direction_2d", "speed", "state"}
+        # Nothing is derived or registered in the experiment in raw mode.
+        assert set(exp.dynamic_features) == features_before
+        assert get_representation_sources(exp) == {}
+
+    def test_raw_values_differ_from_by_type_only_where_substituted(self, exp):
+        raw = self._stats(exp, representation="raw")
+        by_type = self._stats(exp)
+
+        for cell_id in raw:
+            # A discrete feature has no type-based representation.
+            assert raw[cell_id]["state"]["me"] == by_type[cell_id]["state"]["me"]
+            assert raw[cell_id]["speed"]["me"] != by_type[cell_id]["speed_quad"]["me"]
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [{"metric": "spearmanr"}, {"metric": "mi", "mi_estimator": "ksg"}],
+        ids=["spearmanr", "ksg"],
+    )
+    def test_default_leaves_features_raw_without_gcmi(self, exp, kwargs):
+        # The derived features are multi-dimensional and meant for GCMI only.
+        stats = self._stats(
+            exp, feat_bunch=["speed"], find_optimal_delays=False, **kwargs
+        )
+
+        assert set(stats[0]) == {"speed"}
+        assert get_representation_sources(exp) == {}
+
+    def test_derived_name_is_plotted_through_its_source(self, exp):
+        import matplotlib.pyplot as plt
+
+        from driada.intense.visual import plot_neuron_feature_pair
+
+        self._stats(exp)
+        fig = plot_neuron_feature_pair(exp, 0, "speed_quad", add_density_plot=False)
+        try:
+            assert fig.axes[0].get_legend_handles_labels()[1][-1] == "speed"
+        finally:
+            plt.close(fig)
+
+    def test_feat_feat_default_set_skips_derived_features(self, exp):
+        from driada.intense.pipelines import compute_feat_feat_significance
+
+        self._stats(exp)
+        assert "speed_quad" in exp.dynamic_features
+
+        *_, feat_ids, _ = compute_feat_feat_significance(
+            exp,
+            mode="stage1",
+            n_shuffles_stage1=10,
+            verbose=False,
+            enable_parallelization=False,
+        )
+        assert not set(feat_ids) & set(get_representation_sources(exp))
+        assert "speed" in feat_ids

@@ -833,6 +833,7 @@ def main():
     stats, significant, info, intense_res, _ = compute_cell_feat_significance(
         exp,
         feat_bunch=['head_direction_2d'],  # Preserves circular topology via cos/sin
+        representation='raw',  # Keep this name in the results (default: head_direction_harm2)
         n_shuffles_stage1=100,
         n_shuffles_stage2=10000,
         find_optimal_delays=True,

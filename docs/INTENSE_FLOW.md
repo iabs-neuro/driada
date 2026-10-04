@@ -20,7 +20,7 @@ INTENSE operates on an Experiment object containing two types of time-aligned da
 - **Multivariate** features (e.g., 2D position from x,y coordinates) are represented as MultiTimeSeries with shape (d, n_frames) where d is typically 2 or 3. Individual components like x and y are aggregated into a single "place" feature via a multifeature map.
 - **Spatial discrete** features (e.g., corners, walls, center zones) are binary indicators marking when the animal occupies a specific region.
 
-GCMI only detects dependence that is monotone in each component of a feature, so a neuron tuned to the middle of a variable's range (a speed optimum, a place field in the center of the arena, both ends of an axis) can go undetected. With `representation='by_type'` each feature is replaced before analysis by a representation chosen from its type alone: a linear feature `x` by `[x, (x - c)^2]` (`{name}_quad`), a circular feature by its first two harmonics `[cos, sin, cos 2theta, sin 2theta]` (`{name}_harm2`), a linear feature with two or three components such as place by its full quadratic expansion, 5 or 9 dimensions (`{name}_quad`); discrete features are unchanged. The default, `representation='raw'`, uses the features as they are. See `driada.intense.representations`.
+GCMI only detects dependence that is monotone in each component of a feature, so a neuron tuned to the middle of a variable's range (a speed optimum, a place field in the center of the arena, both ends of an axis) can go undetected. With `representation='by_type'` (the default) each feature is replaced before analysis by a representation chosen from its type alone: a linear feature `x` by `[x, (x - c)^2]` (`{name}_quad`), a circular feature by its first two harmonics `[cos, sin, cos 2theta, sin 2theta]` (`{name}_harm2`), a linear feature with two or three components such as place by its full quadratic expansion, 5 or 9 dimensions (`{name}_quad`); discrete features are unchanged. Results are reported under the derived names. `representation='raw'` uses the features as they are and keeps their names; the same happens with any metric other than MI or an estimator other than GCMI, which cannot take the multi-dimensional representations. See `driada.intense.representations`.
 
 ## 3. Two-Stage Significance Testing
 
@@ -35,7 +35,7 @@ Experiment
 [Circular 2d substitution] -- headdirection -> headdirection_2d (cos, sin)
     |
     v
-[Type-based representation] -- optional, representation='by_type': speed -> speed_quad, ...
+[Type-based representation] -- default, representation='by_type': speed -> speed_quad, ... (skipped with 'raw')
     |
     v
 [FFT cache build] -- precompute MI for all circular shifts per pair

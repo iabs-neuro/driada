@@ -250,6 +250,7 @@ def test_generate_circular_manifold_data_calcium():
     # Use the circular_angle multifeature which properly represents circular variables
     stats, significance, info_intense, results, _ = compute_cell_feat_significance(
         exp,
+        representation="raw",
         feat_bunch=["circular_angle"],  # Test circular multifeature approach
         mode="two_stage",  # Need two_stage for significance to be computed
         find_optimal_delays=False,  # Disable delays for multifeature
@@ -550,6 +551,7 @@ def test_linear_vs_circular_detection():
     # Test 1: Linear head_direction analysis
     stats1, significance1, info1, results1, _ = compute_cell_feat_significance(
         exp,
+        representation="raw",
         feat_bunch=["head_direction"],
         find_optimal_delays=True,  # Can use delays with single TimeSeries
         n_shuffles_stage1=100,
@@ -573,6 +575,7 @@ def test_linear_vs_circular_detection():
     # Test 2: Circular multifeature analysis
     stats2, significance2, info2, results2, _ = compute_cell_feat_significance(
         exp,
+        representation="raw",
         feat_bunch=["circular_angle"],
         find_optimal_delays=False,  # Must disable for MultiTimeSeries
         n_shuffles_stage1=100,

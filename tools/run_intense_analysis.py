@@ -26,9 +26,10 @@ Usage
     # Resume batch processing, skipping already-computed files
     python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE --skip-computed
 
-    # Type-based feature representations (results go to INTENSE/by_type)
+    # Features as they are, without type-based representations. Results of
+    # the default by_type representation go to INTENSE/by_type, these to INTENSE
     python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE \
-        --representation by_type
+        --representation raw
 
     # Previous place-vs-zone rule (merge place with a zone by top activity)
     python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE         --zone-rule top_activity
@@ -277,11 +278,13 @@ Examples:
                         help='Disable disentanglement analysis')
     parser.add_argument('--no-remove-anti-selective', action='store_true',
                         help='Disable anti-selectivity filtering (keep SR<=1 neurons as significant)')
-    parser.add_argument('--representation', type=str, default='raw',
-                        choices=['raw', 'by_type'],
-                        help='Feature representation: raw (default, features as they are) or '
-                             'by_type (quadratic for linear features and place, second harmonic '
-                             'for circular ones; results go to a by_type subfolder)')
+    parser.add_argument('--representation', type=str, default=None,
+                        choices=['by_type', 'raw'],
+                        help='Feature representation: by_type (default with --metric mi; quadratic '
+                             'for linear features and place, second harmonic for circular ones; '
+                             'results go to a by_type subfolder of --output-dir) or raw (features '
+                             'as they are, the default with any other metric; results go to '
+                             '--output-dir itself)')
     parser.add_argument('--seed', type=int, default=42,
                         help='Seed for the tie-breaking noise added to calcium when the experiment '
                              'is built and for INTENSE shuffles (default: 42). The same seed gives '
@@ -291,6 +294,9 @@ Examples:
                         help='Joblib parallel backend: loky (default, true parallelism), '
                              'threading (stable, good for NumPy), multiprocessing (legacy)')
     args = parser.parse_args()
+    if args.representation is None:
+        # Type-based representations are multi-dimensional, which only MI handles.
+        args.representation = 'by_type' if args.metric == 'mi' else 'raw'
 
     # Set parallel backend before any heavy computation
     import driada
@@ -372,7 +378,8 @@ Examples:
     print(f"  Skip computed: {args.skip_computed}")
     print(f"  Parallel backend: {args.parallel_backend}")
     if args.output_dir:
-        print(f"  Output directory: {args.output_dir}")
+        print(f"  Output directory: {args.output_dir}"
+              + (" (results in the by_type subfolder)" if config['representation'] == 'by_type' else ""))
 
     # Validate files exist
     for npz_path in npz_paths:

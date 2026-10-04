@@ -89,3 +89,36 @@ def test_by_type_requires_mi_metric():
     config = {"metric": "fast_pearsonr", "representation": "by_type"}
     with pytest.raises(ValueError, match="by_type"):
         run_intense_analysis(SimpleNamespace(dynamic_features={}), config, [])
+
+
+class _Captured(Exception):
+    """Stops run_intense_analysis once the pipeline arguments are known."""
+
+
+@pytest.mark.parametrize(
+    "config, expected",
+    [
+        ({"metric": "mi"}, "by_type"),
+        ({"metric": "fast_pearsonr"}, "raw"),
+        ({"metric": "mi", "representation": "raw"}, "raw"),
+    ],
+    ids=["mi-default", "non-mi-default", "explicit-raw"],
+)
+def test_representation_passed_to_pipeline(monkeypatch, config, expected):
+    import driada
+
+    def fake_pipeline(exp, **kwargs):
+        raise _Captured(kwargs["representation"])
+
+    monkeypatch.setattr(driada, "compute_cell_feat_significance", fake_pipeline)
+    config = {
+        "n_shuffles_stage1": 10,
+        "n_shuffles_stage2": 100,
+        "ds": 1,
+        "pval_thr": 0.01,
+        "multicomp_correction": None,
+        "engine": "auto",
+        **config,
+    }
+    with pytest.raises(_Captured, match=f"^{expected}$"):
+        run_intense_analysis(SimpleNamespace(dynamic_features={}), config, [])

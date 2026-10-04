@@ -186,6 +186,7 @@ def test_disentanglement_with_circular_features():
         enable_parallelization=False,
         with_disentanglement=True,
         use_circular_2d=True,
+        representation="raw",
         verbose=False,
         seed=42,
     )
@@ -750,6 +751,7 @@ def test_intense_with_ksg_estimator(small_experiment):
         exp,
         cell_bunch=[0, 1, 2],
         feat_bunch=None,
+        representation="raw",
         mi_estimator="gcmi",  # Use GCMI estimator (default)
         mode="stage1",
         n_shuffles_stage1=100,

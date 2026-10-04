@@ -574,6 +574,7 @@ cells.append(code_cell(
 "stats3, significance3, info3, results3, disent_results3 = driada.compute_cell_feat_significance(\n"
 "    exp3,\n"
 "    feat_bunch=feat_bunch,\n"
+"    representation='raw',  # ground truth names the features themselves\n"
 "    mode='two_stage',\n"
 "    n_shuffles_stage1=CONFIG['n_shuffles_stage1'],\n"
 "    n_shuffles_stage2=CONFIG['n_shuffles_stage2'],\n"

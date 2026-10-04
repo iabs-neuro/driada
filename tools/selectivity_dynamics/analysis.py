@@ -97,7 +97,8 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
         Experiment object to analyze
     config : dict
         Configuration parameters for INTENSE. The optional key
-        ``'representation'`` ('raw' or 'by_type', default 'raw') is passed to
+        ``'representation'`` ('by_type' or 'raw'; default 'by_type' with
+        metric 'mi', 'raw' with any other metric) is passed to
         ``compute_cell_feat_significance``; with 'by_type' the filters are run
         on source feature names (see ``with_source_feature_names``). The
         optional key ``'seed'`` (default 42) is the INTENSE shuffle seed.
@@ -121,7 +122,9 @@ def run_intense_analysis(exp, config, skip_features, pre_filter_func=None, post_
     _fix_normalized_circular_features(exp)
 
     metric = config.get('metric', 'mi')
-    representation = config.get('representation', 'raw')
+    representation = config.get('representation')
+    if representation is None:
+        representation = 'by_type' if metric == 'mi' else 'raw'
     if representation == 'by_type' and metric != 'mi':
         raise ValueError(
             f"representation='by_type' produces multi-dimensional features, "

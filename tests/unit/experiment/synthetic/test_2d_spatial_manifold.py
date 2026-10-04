@@ -308,6 +308,7 @@ class TestGenerate2DManifoldExp:
         stats1, significance1, _, _, _ = compute_cell_feat_significance(
             exp,
             feat_bunch=["x", "y"],
+            representation="raw",
             mode="two_stage",
             n_shuffles_stage1=100,
             n_shuffles_stage2=5000,

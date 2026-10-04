@@ -124,6 +124,9 @@ def run_intense_analysis(exp, config, verbose=True):
         multicomp_correction=config["multicomp_correction"],
         use_precomputed_stats=False,  # Force fresh computation
         with_disentanglement=True,
+        # Ground truth names the features themselves; the default 'by_type'
+        # would report derived names (speed_quad, head_direction_harm2).
+        representation="raw",
         verbose=True,
     )
 

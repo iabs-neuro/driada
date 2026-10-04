@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ..utils.plot import create_default_figure, make_beautiful
 from ..utils.data import rescale
+from .representations import get_representation_sources
 from scipy.stats import rankdata, gaussian_kde, wasserstein_distance
 import seaborn as sns
 
@@ -284,6 +285,8 @@ def plot_neuron_feature_density(
     if data_type == "spikes":
         sig = exp.neurons[cell_id].sp.scdata[ind1:ind2][::ds]
 
+    # Results name a type-based representation; its source is what is plotted.
+    featname = get_representation_sources(exp).get(featname, featname)
     feature = getattr(exp, featname)
     bdata = feature.scdata[ind1:ind2][::ds]
     rbdata = rescale(rankdata(bdata))
@@ -420,7 +423,8 @@ def plot_neuron_feature_pair(
     cell_id : int
         Index of the neuron.
     featname : str
-        Name of the behavioral feature.
+        Name of the behavioral feature. The name of a type-based
+        representation (e.g. 'speed_quad') is replaced by its source feature.
     ind1 : int, optional
         Start frame index. Default: 0.
     ind2 : int, optional
@@ -506,6 +510,8 @@ def plot_neuron_feature_pair(
     ind2 = min(exp.n_frames, ind2)
     ca = exp.neurons[cell_id].ca.scdata[ind1:ind2][::ds]
     rca = rescale(rankdata(ca))
+    # Results name a type-based representation; its source is what is plotted.
+    featname = get_representation_sources(exp).get(featname, featname)
     feature = getattr(exp, featname)
     if feature.data.ndim > 1:
         raise ValueError(
