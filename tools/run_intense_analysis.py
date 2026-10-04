@@ -30,6 +30,9 @@ Usage
     python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE \
         --representation by_type
 
+    # Previous place-vs-zone rule (merge place with a zone by top activity)
+    python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE         --zone-rule top_activity
+
     # Save single file results to specific output
     python tools/run_intense_analysis.py "DRIADA data/LNOF_J01_4D_aligned.npz" \
         --output results.json
@@ -52,6 +55,8 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 # Import from selectivity_dynamics package
 from selectivity_dynamics import (
     DEFAULT_CONFIG,
+    DEFAULT_ZONE_RULE,
+    ZONE_RULES,
     get_experiment_config,
     get_filter_for_experiment,
     extract_filter_data,
@@ -73,7 +78,8 @@ from selectivity_dynamics import (
 )
 
 
-def process_single_experiment(npz_path, config, output_dir=None, plot=False, use_filters=True):
+def process_single_experiment(npz_path, config, output_dir=None, plot=False, use_filters=True,
+                              zone_rule=DEFAULT_ZONE_RULE):
     """Process a single experiment file.
 
     Parameters
@@ -88,6 +94,9 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
         Whether to plot disentanglement heatmap
     use_filters : bool
         Whether to use experiment-specific disentanglement filters (default: True)
+    zone_rule : str
+        Rule for neurons selective to both place and a discrete zone, see
+        get_filter_for_experiment (default: 'information_share')
 
     Returns
     -------
@@ -124,7 +133,7 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
     post_filter_func = None
     filter_kwargs = None
     if use_filters:
-        pre_filter_func = get_filter_for_experiment(exp_type)
+        pre_filter_func = get_filter_for_experiment(exp_type, zone_rule=zone_rule)
         post_filter_func = exp_config.get('post_filter')
         print(f"  Using filter for experiment type: {exp_type}")
         if post_filter_func:
@@ -139,9 +148,10 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
             'correspondence_threshold': 0.4,
         }
 
-        # Extract calcium/feature data for spatial_filter if needed
+        # Extract calcium/feature/position data for the place-vs-zone filter if needed
         if exp_config['discrete_place_features']:
-            spatial_data = extract_filter_data(exp, discrete_place_features=exp_config['discrete_place_features'])
+            spatial_data = extract_filter_data(exp, discrete_place_features=exp_config['discrete_place_features'],
+                                               place_feat_name=exp_config['place_feat_name'])
             filter_kwargs.update(spatial_data)
             print(f"  Extracted spatial filter data for {len(spatial_data['calcium_data'])} neurons")
 
@@ -251,6 +261,14 @@ Examples:
                         help='Computation engine: auto (default), fft, or loop')
     parser.add_argument('--no-filters', action='store_true',
                         help='Disable experiment-specific disentanglement filters')
+    parser.add_argument('--zone-rule', type=str, default=DEFAULT_ZONE_RULE,
+                        choices=list(ZONE_RULES),
+                        help='Rule for neurons selective to both place and a discrete zone: '
+                             'information_share (default, the zone wins when it carries at least '
+                             'half of the position information of the neuron and the neuron is more '
+                             'active inside it; otherwise place wins) or top_activity (place and '
+                             'zone are merged into place-<zone> when the strongest activity falls '
+                             'into the zone)')
     parser.add_argument('--skip-computed', action='store_true',
                         help='Skip files that already have results in output directory')
     parser.add_argument('--metric', type=str, default='mi', choices=['mi', 'fast_pearsonr'],
@@ -350,6 +368,7 @@ Examples:
     print(f"  Seed: {config['seed']}")
     print(f"  Skip/aggregate features: experiment-specific (from EXPERIMENT_CONFIGS)")
     print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
+    print(f"  Zone rule: {args.zone_rule}")
     print(f"  Skip computed: {args.skip_computed}")
     print(f"  Parallel backend: {args.parallel_backend}")
     if args.output_dir:
@@ -404,7 +423,8 @@ Examples:
             continue
 
         print(f"\n[{i+1}/{len(npz_paths)}] Processing {npz_name}")
-        summary = process_single_experiment(npz_path, config, output_dir, args.plot, use_filters)
+        summary = process_single_experiment(npz_path, config, output_dir, args.plot, use_filters,
+                                            zone_rule=args.zone_rule)
         summaries.append(summary)
         processed_count += 1
 
@@ -434,7 +454,7 @@ Examples:
             exp = load_experiment_from_npz(Path(npz_path), agg_features=exp_config['aggregate_features'],
                                             feature_types=exp_config.get('feature_types'), verbose=False,
                                             seed=config.get('seed'))
-            pre_filter = get_filter_for_experiment(exp_type) if use_filters else None
+            pre_filter = get_filter_for_experiment(exp_type, zone_rule=args.zone_rule) if use_filters else None
             post_filter = exp_config.get('post_filter') if use_filters else None
             filter_kwargs = None
             if pre_filter:

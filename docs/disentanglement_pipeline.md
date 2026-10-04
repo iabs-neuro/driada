@@ -13,7 +13,7 @@ run_intense_analysis.py
   │
   ├─ load_experiment_from_npz()          ← Load data, build aggregates (e.g. x,y → place)
   ├─ get_filter_for_experiment()         ← Build composed pre-filter chain
-  ├─ extract_filter_data()               ← Pre-extract calcium/feature arrays for spatial filter
+  ├─ extract_filter_data()               ← Pre-extract calcium/feature/position arrays for the place-vs-zone filter
   │
   └─ compute_cell_feat_significance()    [pipelines.py]
        │
@@ -29,7 +29,7 @@ run_intense_analysis.py
             ├─ PHASE 1: Pre-filter chain (population-level, serial)
             │   ├─ general_filter           ← Priority rules (e.g. headdirection > bodydirection)
             │   ├─ experiment-specific       ← e.g. nof_filter: object1 > objects > center
-            │   └─ spatial_filter           ← Merge place + discrete zones by activity correspondence
+            │   └─ zone_share_filter        ← Place vs discrete zone by the zone's information share
             │   → pair_decisions[neuron][(feat_i, feat_j)] = 0/0.5/1
             │   → renames[neuron][new_name] = (old1, old2)
             │
@@ -84,15 +84,28 @@ Each experiment type (NOF, LNOF, 3DM, FOF) has custom rules:
 - **NOF**: `object1 > objects > center` — specific objects beat general categories
 - **3DM**: `3d-place > z`, `start_box > 3d-place`, `speed > speed_z`
 
-### Filter 3: Spatial Filter
+### Filter 3: Place-vs-Zone Filter
 
-For experiments with discrete spatial features (corners, walls, center), checks whether a neuron's high-activity frames (top 2%) correspond to the discrete zone:
+For experiments with discrete spatial features (corners, walls, center, objects), decides between place and each discrete zone a neuron is selective to. The rule is chosen by `--zone-rule` (`zone_rule` in `get_filter_for_experiment`).
+
+**`information_share` (default, `zone_share_filter`)** — for every (neuron, zone) pair:
+
+1. Shift calcium by the INTENSE optimal delay of the pair and copula-normalise it
+2. Build the neuron's activity map (20×20 bins, Gaussian smoothing 1.5 bins, occupancy-normalised), cut the frames into 8 equal-duration levels of the map value at the visited bin; position label = level × zone (16 classes)
+3. `I_pos` = MI(calcium, position label), `I_zone` = MI(calcium, zone), Gaussian class-conditional estimator with bias correction
+4. Subtract from both the mean over 100 circular shifts of calcium (at least 20 s, fixed seed), with the map rebuilt for every shift
+5. share = corrected `I_zone` / corrected `I_pos`
+6. If share ≥ 0.5 and mean calcium inside the zone is above the mean outside → the zone wins, `(place, zone) = 1`. Otherwise place wins, `(place, zone) = 0`
+
+Nothing is merged; several zones of one neuron are decided independently.
+
+**`top_activity` (`spatial_filter`)** — checks whether a neuron's high-activity frames (top 2%) correspond to the discrete zone:
 
 1. Compute correspondence = fraction of high-activity frames where zone is active
 2. If correspondence > 0.4 → merge into combined feature (e.g. `place-corners`)
 3. Set pair decisions and renames accordingly
 
-This runs only when `discrete_place_features` is non-empty (NOF, LNOF experiments).
+Both run only when `discrete_place_features` is non-empty (NOF, LNOF experiments).
 
 ## Phase 2: Information-Theoretic Disentanglement
 
@@ -213,9 +226,8 @@ A NOF neuron is selective to `[place, corners, object1, speed]`:
 
 1. **General filter**: `rest > speed` — no match (no rest). No decisions.
 2. **NOF filter**: `object1 > center` — no match (no center). No decisions.
-3. **Spatial filter**: neuron has place + corners. Top-2% activity overlaps 60% with corners zone → merge into `place-corners`. Decisions: `(place, corners) = 0.5`, rename `place-corners`.
+3. **Place-vs-zone filter**: neuron has place + corners + object1. Corners carry 70% of its position information and it is more active in the corners → `(place, corners) = 1`. object1 carries 10% → `(place, object1) = 0`.
 4. **Phase 2**: Remaining undecided pairs go through CMI analysis:
-   - `(place-corners, object1)`: feat-feat significant? If yes → compute interaction information at optimal delays. If object1's MI is mostly explained by place-corners → object1 is redundant.
-   - `(place-corners, speed)`: feat-feat not significant → auto 0.5 (true mixed selectivity).
-   - `(object1, speed)`: feat-feat not significant → auto 0.5.
-5. **Result**: `final_sels = [place-corners, speed]` (object1 removed as redundant to place).
+   - `(corners, object1)`: feat-feat significant? If yes → compute interaction information at optimal delays.
+   - `(place, speed)`, `(corners, speed)`, `(object1, speed)`: feat-feat not significant → auto 0.5 (true mixed selectivity).
+5. **Result**: `final_sels = [corners, speed]` (place lost to corners, object1 lost to place).

@@ -23,7 +23,8 @@ Filters
 - compose_filters: Chain multiple filters
 - with_source_feature_names: Run filters on source names with representation='by_type'
 - get_filter_for_experiment: Get composed filter for experiment type
-- nof_filter, tdm_filter, spatial_filter: Experiment-specific filters
+- nof_filter, tdm_filter: Experiment-specific filters
+- zone_share_filter, spatial_filter: Place-vs-zone filters (see ZONE_RULES)
 
 Example Usage
 -------------
@@ -69,6 +70,9 @@ from .filters import (
     nof_filter,
     tdm_filter,
     spatial_filter,
+    zone_share_filter,
+    ZONE_RULES,
+    DEFAULT_ZONE_RULE,
     extract_filter_data,
     EXPERIMENT_CONFIGS,
     get_experiment_config,
@@ -129,6 +133,9 @@ __all__ = [
     'nof_filter',
     'tdm_filter',
     'spatial_filter',
+    'zone_share_filter',
+    'ZONE_RULES',
+    'DEFAULT_ZONE_RULE',
     'extract_filter_data',
     'EXPERIMENT_CONFIGS',
     'get_experiment_config',

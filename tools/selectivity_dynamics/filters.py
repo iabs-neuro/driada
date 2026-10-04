@@ -57,6 +57,9 @@ Example Usage
 """
 
 import numpy as np
+from scipy.ndimage import gaussian_filter
+from scipy.special import digamma
+from scipy.stats import norm, rankdata
 
 
 # =============================================================================
@@ -553,8 +556,273 @@ def spatial_filter(neuron_selectivities, pair_decisions, renames,
                     pair_decisions[nid][(place_feat_name, discr_feat)] = 0
 
 
-def extract_filter_data(exp, discrete_place_features=None):
-    """Extract calcium and feature data for spatial_filter.
+# Position map used by zone_share_filter: bins per axis, Gaussian smoothing
+# width in bins, number of equal-duration map levels.
+_MAP_BINS = 20
+_MAP_SIGMA = 1.5
+_MAP_LEVELS = 8
+
+
+def _position_bins(position):
+    """Index of the map bin visited at every frame.
+
+    Parameters
+    ----------
+    position : np.ndarray
+        Coordinates of shape (2, n_frames).
+
+    Returns
+    -------
+    np.ndarray
+        Flat bin index in [0, _MAP_BINS ** 2) per frame.
+    """
+    idx = []
+    for coord in position:
+        lo, hi = coord.min(), coord.max()
+        scaled = (coord - lo) / (hi - lo + 1e-9) * _MAP_BINS
+        idx.append(np.clip(scaled.astype(int), 0, _MAP_BINS - 1))
+    return idx[0] * _MAP_BINS + idx[1]
+
+
+def _gaussian_entropy_bias(n):
+    """Bias term of the Gaussian entropy of a 1D sample of size n."""
+    n = np.maximum(np.asarray(n, float), 2)
+    return (np.log(2) - np.log(n - 1)) / 2 + digamma((n - 1) / 2) / 2
+
+
+def _class_conditional_mi(signals, labels, n_classes):
+    """Gaussian class-conditional MI between each signal and its own labels.
+
+    Same estimator as ``driada.information.gcmi.mi_model_gd`` for a 1D signal
+    with ``biascorrect=True``, computed for all rows at once: the null
+    distribution needs it for every circular shift.
+
+    Parameters
+    ----------
+    signals : np.ndarray
+        Copula-normalised signals of shape (n_rows, n_frames).
+    labels : np.ndarray
+        Integer class labels in [0, n_classes) of shape (n_rows, n_frames).
+    n_classes : int
+        Number of classes.
+
+    Returns
+    -------
+    np.ndarray
+        MI in bits for every row. Not clipped at zero.
+    """
+    n_rows, n_frames = signals.shape
+    x = signals - signals.mean(1, keepdims=True)
+    h_total = (0.5 * np.log(np.einsum('rn,rn->r', x, x) / (n_frames - 1))
+               - _gaussian_entropy_bias(n_frames))
+
+    idx = (labels + n_classes * np.arange(n_rows)[:, None]).ravel()
+    size = n_rows * n_classes
+    shape = (n_rows, n_classes)
+    count = np.bincount(idx, minlength=size).reshape(shape).astype(float)
+    s1 = np.bincount(idx, weights=x.ravel(), minlength=size).reshape(shape)
+    s2 = np.bincount(idx, weights=(x * x).ravel(), minlength=size).reshape(shape)
+
+    # A variance needs two samples; smaller classes get zero weight.
+    usable = count >= 2
+    var = np.where(usable, (s2 - s1 ** 2 / np.maximum(count, 1)) / np.maximum(count - 1, 1), 1.0)
+    h_class = 0.5 * np.log(np.maximum(var, 1e-12)) - _gaussian_entropy_bias(count)
+    weight = np.where(usable, count / n_frames, 0.0)
+    return (h_total - (h_class * weight).sum(1)) / np.log(2)
+
+
+def _map_levels(signals, bins):
+    """Level of each signal's own activity map at the visited bin, per frame.
+
+    For every row an occupancy-normalised, Gaussian-smoothed map of the signal
+    over position bins is built and each frame gets the map value of its bin.
+    Frames are then cut into ``_MAP_LEVELS`` groups of equal duration by that
+    value, so the levels describe position as seen by this particular signal.
+
+    Parameters
+    ----------
+    signals : np.ndarray
+        Signals of shape (n_rows, n_frames).
+    bins : np.ndarray
+        Flat position bin per frame (see ``_position_bins``).
+
+    Returns
+    -------
+    np.ndarray
+        Integer levels in [0, _MAP_LEVELS) of shape (n_rows, n_frames).
+    """
+    n_rows, n_frames = signals.shape
+    n_bins = _MAP_BINS * _MAP_BINS
+    idx = (bins + n_bins * np.arange(n_rows)[:, None]).ravel()
+    sums = np.bincount(idx, weights=signals.ravel(), minlength=n_rows * n_bins)
+    occupancy = np.bincount(bins, minlength=n_bins).astype(float)
+    num = gaussian_filter(sums.reshape(n_rows, _MAP_BINS, _MAP_BINS), (0, _MAP_SIGMA, _MAP_SIGMA))
+    den = gaussian_filter(occupancy.reshape(_MAP_BINS, _MAP_BINS), _MAP_SIGMA)
+    frame_values = (num / np.maximum(den, 1e-9)).reshape(n_rows, n_bins)[:, bins]
+
+    # Stable order: frames of one bin share a value and are split by time.
+    order = np.argsort(frame_values, axis=1, kind='stable')
+    ranks = np.empty_like(order)
+    np.put_along_axis(ranks, order, np.arange(n_frames)[None, :], axis=1)
+    return ranks * _MAP_LEVELS // n_frames
+
+
+def zone_information_share(calcium, zone, bins, shifts, delay=0):
+    """Share of a neuron's position information that is explained by a zone.
+
+    Position is described by the neuron's own activity map (``_map_levels``)
+    refined by the zone, so the zone is a function of position and its
+    information is a part of the position information. Both quantities are
+    corrected by their mean over circular shifts of calcium against behaviour,
+    with the map rebuilt for every shift: the estimator bias grows with the
+    number of classes and a map fitted to the signal is informative by
+    construction.
+
+    Parameters
+    ----------
+    calcium : np.ndarray
+        Calcium trace of the neuron, shape (n_frames,).
+    zone : np.ndarray
+        Boolean zone indicator, shape (n_frames,).
+    bins : np.ndarray
+        Flat position bin per frame (see ``_position_bins``).
+    shifts : array-like of int
+        Circular shifts (frames) forming the null distribution.
+    delay : int, optional
+        Frames by which calcium lags behaviour. Default: 0.
+
+    Returns
+    -------
+    share : float
+        Corrected zone information divided by corrected position information.
+        ``inf`` when only the zone information is positive, ``nan`` when
+        neither is.
+    excess : float
+        Mean calcium inside the zone minus mean calcium outside it.
+    """
+    calcium = np.roll(calcium, -int(delay))
+    x = norm.ppf(rankdata(calcium) / (calcium.size + 1))
+    signals = np.vstack([x] + [np.roll(x, s) for s in shifts])
+    in_zone = zone.astype(int)
+
+    i_pos = _class_conditional_mi(signals, _map_levels(signals, bins) * 2 + in_zone,
+                                  2 * _MAP_LEVELS)
+    i_zone = _class_conditional_mi(signals, np.broadcast_to(in_zone, signals.shape), 2)
+    i_pos = i_pos[0] - i_pos[1:].mean()
+    i_zone = i_zone[0] - i_zone[1:].mean()
+
+    if i_pos > 0:
+        share = i_zone / i_pos
+    elif i_zone > 0:
+        share = np.inf
+    else:
+        share = np.nan
+    return share, calcium[zone].mean() - calcium[~zone].mean()
+
+
+def zone_share_filter(neuron_selectivities, pair_decisions, renames,
+                      calcium_data=None,
+                      feature_data=None,
+                      position_data=None,
+                      discrete_place_features=None,
+                      place_feat_name='place',
+                      cell_feat_stats=None,
+                      fps=20,
+                      zone_share_threshold=0.5,
+                      n_shifts=100,
+                      min_shift_sec=20,
+                      shift_seed=0,
+                      **kwargs):
+    """Spatial filter: place vs discrete zone by the zone's information share.
+
+    For NOF/LNOF-like experiments. When a neuron has both place and a discrete
+    spatial feature (corners, walls, objects, ...), the zone wins if it carries
+    at least ``zone_share_threshold`` of the neuron's position information
+    (see ``zone_information_share``) and the neuron is more active inside the
+    zone than outside. Otherwise place wins. Features are never merged, and
+    every zone of a neuron is decided independently.
+
+    Respects pair_decisions from earlier filters: zones already marked as
+    losers are left untouched.
+
+    Parameters (via filter_kwargs)
+    ------------------------------
+    calcium_data : dict
+        Pre-extracted calcium data: {neuron_id: np.array}
+    feature_data : dict
+        Pre-extracted feature data: {feature_name: np.array}
+    position_data : np.ndarray
+        Coordinates of the animal, shape (2, n_frames)
+    discrete_place_features : list
+        Discrete features to check against place
+    place_feat_name : str
+        Name of continuous place feature. Default: 'place'
+    cell_feat_stats : dict
+        INTENSE statistics; ``stats[neuron_id][zone]['opt_delay']`` is the
+        calcium delay (frames) used for the neuron-zone pair, 0 if absent
+    fps : float
+        Sampling rate, frames per second. Default: 20
+    zone_share_threshold : float
+        Minimum information share for the zone to win. Default: 0.5
+    n_shifts : int
+        Number of circular shifts in the null distribution. Default: 100
+    min_shift_sec : float
+        Minimum circular shift, seconds. Default: 20
+    shift_seed : int
+        Seed of the shift generator; the same seed gives identical decisions.
+        Default: 0
+    """
+    # No-op if discrete_place_features is empty or None
+    if not discrete_place_features:
+        return
+
+    have_data = calcium_data is not None and feature_data is not None and position_data is not None
+    if have_data:
+        bins = _position_bins(np.asarray(position_data, float))
+        # Shifts are drawn once so that a decision does not depend on which
+        # other neurons are processed.
+        min_shift = min(int(min_shift_sec * fps), (bins.size - 1) // 2)
+        shifts = np.random.default_rng(shift_seed).integers(
+            min_shift, bins.size - min_shift, n_shifts)
+
+    for nid, sels in neuron_selectivities.items():
+        discrete_in_sels = set(discrete_place_features).intersection(sels)
+        if place_feat_name not in sels or not discrete_in_sels:
+            continue
+
+        if not have_data:
+            # Fallback: just mark as undistinguishable (0.5) for non-loser features
+            for discr_feat in discrete_in_sels:
+                if not _feature_is_loser(discr_feat, sels, pair_decisions[nid]):
+                    pair_decisions[nid][(place_feat_name, discr_feat)] = 0.5
+            continue
+
+        if nid not in calcium_data:
+            continue
+
+        for discr_feat in sorted(discrete_in_sels):  # sorted for deterministic order
+            if _feature_is_loser(discr_feat, sels, pair_decisions[nid]):
+                continue
+
+            zone_wins = False
+            if discr_feat in feature_data:
+                try:
+                    delay = cell_feat_stats[nid][discr_feat].get('opt_delay', 0)
+                except (KeyError, TypeError):
+                    delay = 0
+                # Zone indicators can hold fractional values at zone borders
+                # after resampling to the imaging frame rate.
+                zone = np.asarray(feature_data[discr_feat]) > 0.5
+                share, excess = zone_information_share(
+                    calcium_data[nid], zone, bins, shifts, delay=delay)
+                zone_wins = share >= zone_share_threshold and excess > 0
+
+            # 1 = second feature of the pair (the zone) is primary
+            pair_decisions[nid][(place_feat_name, discr_feat)] = 1 if zone_wins else 0
+
+
+def extract_filter_data(exp, discrete_place_features=None, place_feat_name='place'):
+    """Extract calcium, feature and position data for the spatial filters.
 
     Parameters
     ----------
@@ -562,6 +830,9 @@ def extract_filter_data(exp, discrete_place_features=None):
         Experiment object with neurons and features
     discrete_place_features : list, optional
         Features to extract. Default: ['corners', 'walls', 'center']
+    place_feat_name : str, optional
+        Name of the aggregated place feature whose first two components are
+        the coordinates. Default: 'place'
 
     Returns
     -------
@@ -583,11 +854,15 @@ def extract_filter_data(exp, discrete_place_features=None):
             feat = getattr(exp, feat_name)
             feature_data[feat_name] = feat.data
 
-    return {
+    filter_data = {
         'calcium_data': calcium_data,
         'feature_data': feature_data,
         'discrete_place_features': discrete_place_features,
+        'fps': exp.fps,
     }
+    if hasattr(exp, place_feat_name):
+        filter_data['position_data'] = getattr(exp, place_feat_name).data[:2]
+    return filter_data
 
 
 # =============================================================================
@@ -718,18 +993,32 @@ def get_experiment_config(exp_type):
     return EXPERIMENT_CONFIGS[exp_type].copy()
 
 
-def get_filter_for_experiment(exp_type):
+# Rules deciding between place and a discrete zone, by --zone-rule value
+ZONE_RULES = {
+    'information_share': zone_share_filter,
+    'top_activity': spatial_filter,
+}
+DEFAULT_ZONE_RULE = 'information_share'
+
+
+def get_filter_for_experiment(exp_type, zone_rule=DEFAULT_ZONE_RULE):
     """Get composed filter for experiment type.
 
     All experiments use:
     1. general_filter (behavioral priorities)
     2. specific_filter from config (if not None)
-    3. spatial_filter (with experiment config)
+    3. place-vs-zone filter chosen by ``zone_rule`` (with experiment config)
 
     Parameters
     ----------
     exp_type : str
         Experiment type identifier (e.g., 'NOF', 'LNOF', '3DM', 'BOF')
+    zone_rule : {'information_share', 'top_activity'}, optional
+        Rule for neurons selective to both place and a discrete zone.
+        'information_share' (default): ``zone_share_filter``, the zone wins
+        when it carries most of the neuron's position information.
+        'top_activity': ``spatial_filter``, place and zone are merged when the
+        strongest activity falls into the zone.
 
     Returns
     -------
@@ -739,12 +1028,16 @@ def get_filter_for_experiment(exp_type):
     Raises
     ------
     ValueError
-        If exp_type is not in EXPERIMENT_CONFIGS
+        If exp_type is not in EXPERIMENT_CONFIGS or zone_rule is unknown
     """
     if exp_type not in EXPERIMENT_CONFIGS:
         raise ValueError(
             f"Unknown experiment type: {exp_type}. "
             f"Known types: {list(EXPERIMENT_CONFIGS.keys())}"
+        )
+    if zone_rule not in ZONE_RULES:
+        raise ValueError(
+            f"Unknown zone rule: {zone_rule}. Known rules: {list(ZONE_RULES.keys())}"
         )
 
     config = EXPERIMENT_CONFIGS[exp_type]
@@ -757,8 +1050,8 @@ def get_filter_for_experiment(exp_type):
     if config['specific_filter'] is not None:
         filters.append(config['specific_filter'])
 
-    # Always add spatial filter (no-op if discrete_place_features is empty)
-    filters.append(spatial_filter)
+    # Always add the place-vs-zone filter (no-op if discrete_place_features is empty)
+    filters.append(ZONE_RULES[zone_rule])
 
     return compose_filters(*filters)
 
