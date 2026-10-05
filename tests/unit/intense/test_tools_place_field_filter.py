@@ -14,7 +14,7 @@ from tools.selectivity_dynamics.filters import (
 
 FPS = 20
 ARENA = 50.0
-OBJECT_CELL, FAR_CELL, MANY_FIELDS_CELL, NEAR_CELL = 0, 1, 2, 3
+OBJECT_CELL, FAR_CELL, MANY_FIELDS_CELL, NEAR_CELL, ALL_CORNERS_CELL = 0, 1, 2, 3, 4
 OBJECT_XY, OBJECT_RADIUS = (15.0, 35.0), 4.0
 
 
@@ -47,19 +47,22 @@ def session():
     zone = (x - OBJECT_XY[0]) ** 2 + (y - OBJECT_XY[1]) ** 2 < OBJECT_RADIUS ** 2
     centre = np.full(2, ARENA / 2)
     walls = (np.minimum(x, ARENA - x) < 6) | (np.minimum(y, ARENA - y) < 6)
+    corners = (np.minimum(x, ARENA - x) < 9) & (np.minimum(y, ARENA - y) < 9)
     tuning = {
         OBJECT_CELL: _field(x, y, OBJECT_XY),
         FAR_CELL: _field(x, y, (38.0, 12.0)),
         MANY_FIELDS_CELL: (_field(x, y, OBJECT_XY) + 0.9 * _field(x, y, (38.0, 12.0))
                            + 0.9 * _field(x, y, (38.0, 38.0))),
         NEAR_CELL: _field(x, y, (OBJECT_XY[0] + 14.0, OBJECT_XY[1])),
+        ALL_CORNERS_CELL: sum(_field(x, y, c, sigma=4.0) for c in ((3, 3), (3, 47), (47, 3), (47, 47))),
     }
     return {
         "calcium_data": {nid: t + rng.standard_normal(t.size) * 0.3 for nid, t in tuning.items()},
         "feature_data": {"object1": zone.astype(float), "walls": walls.astype(float),
+                         "corners": corners.astype(float),
                          "center": (np.abs(pos - centre[:, None]).max(axis=0) < 12).astype(float)},
         "position_data": pos,
-        "discrete_place_features": ["object1", "walls", "center"],
+        "discrete_place_features": ["object1", "walls", "center", "corners"],
         "place_feat_name": "place",
     }
 
@@ -97,9 +100,16 @@ def test_field_elsewhere_stays_place(session, nid):
 def test_several_comparable_fields_stay_place(session):
     sels, decisions, _ = _run(place_field_filter, session)
     assert decisions[MANY_FIELDS_CELL] == {("place", "object1"): 0}
-    # The other fields stop mattering once the main field may be a minority.
-    sels, _, _ = _run(place_field_filter, session, main_field_threshold=0.3)
+    # The other fields stop mattering once the fields in the zone may be a minority.
+    sels, _, _ = _run(place_field_filter, session, zone_fields_threshold=0.3)
     assert "place-object1" in sels[MANY_FIELDS_CELL]
+
+
+def test_fields_in_the_zone_are_counted_together(session):
+    """A cell active in all four corners has four fields, none of them a majority."""
+    sels, _, renames = _run(place_field_filter, session, features=("place", "corners"))
+    assert sels[ALL_CORNERS_CELL] == ["place-corners"]
+    assert renames[ALL_CORNERS_CELL] == {"place-corners": ("place", "corners")}
 
 
 def test_decision_does_not_depend_on_time_in_zone(session):

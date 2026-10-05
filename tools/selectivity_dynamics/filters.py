@@ -845,13 +845,15 @@ def place_field_map(calcium, bins):
 
 
 def place_field_in_zone(calcium, zone, bins, delay=0, peak_fraction=0.5,
-                        main_field_threshold=0.5, peak_tolerance_bins=1):
+                        zone_fields_threshold=0.5, peak_tolerance_bins=1):
     """Decide whether the main place field of a neuron lies in a zone.
 
     Fields are connected regions of the activity map above ``peak_fraction``
     of its peak, the map minimum being the baseline; the main field is the
     one that holds the peak. The neuron is a zone cell when the peak lies in
-    the zone and the main field is not one of several comparable fields.
+    the zone and the fields lying in the zone outweigh the fields outside it.
+    Fields in the zone are counted together because a zone can be a set of
+    separate places (four corners) that one cell covers with several fields.
 
     Parameters
     ----------
@@ -865,9 +867,9 @@ def place_field_in_zone(calcium, zone, bins, delay=0, peak_fraction=0.5,
         Frames by which calcium lags behaviour. Default: 0.
     peak_fraction : float, optional
         Field boundary as a fraction of the peak above baseline. Default: 0.5
-    main_field_threshold : float, optional
-        Minimum share of the main field in the activity of all fields.
-        Default: 0.5
+    zone_fields_threshold : float, optional
+        Minimum share of the fields lying in the zone (their own peak is in
+        the zone) in the activity of all fields. Default: 0.5
     peak_tolerance_bins : int, optional
         The peak counts as lying in the zone when a map bin within this
         distance of it belongs to the zone; a zone can be smaller than the
@@ -889,7 +891,7 @@ def place_field_in_zone(calcium, zone, bins, delay=0, peak_fraction=0.5,
         return False, 0.0
 
     fields = activity >= peak_fraction * peak
-    labels, _ = label(fields, structure=np.ones((3, 3)))
+    labels, n_fields = label(fields, structure=np.ones((3, 3)))
     peak_bin = np.unravel_index(np.argmax(activity), activity.shape)
     main = labels == labels[peak_bin]
 
@@ -899,10 +901,16 @@ def place_field_in_zone(calcium, zone, bins, delay=0, peak_fraction=0.5,
                   / np.maximum(occupancy, 1)).reshape(activity.shape)
 
     size = 2 * peak_tolerance_bins + 1
-    peak_in_zone = maximum_filter(zone_share, size=size)[peak_bin] > 0.5
-    main_share = activity[main].sum() / activity[fields].sum()
+    near_zone = maximum_filter(zone_share, size=size) > 0.5
+    in_zone_fields = 0.0
+    for k in range(1, n_fields + 1):
+        field = labels == k
+        field_peak = np.unravel_index(np.argmax(np.where(field, activity, -1.0)), activity.shape)
+        if near_zone[field_peak]:
+            in_zone_fields += activity[field].sum()
+    zone_fields_share = in_zone_fields / activity[fields].sum()
     overlap = float((activity * zone_share)[main].sum() / activity[main].sum())
-    return bool(peak_in_zone and main_share > main_field_threshold), overlap
+    return bool(near_zone[peak_bin] and zone_fields_share > zone_fields_threshold), overlap
 
 
 def place_field_filter(neuron_selectivities, pair_decisions, renames,
@@ -914,7 +922,7 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
                        cell_feat_stats=None,
                        feature_renaming=None,
                        peak_fraction=0.5,
-                       main_field_threshold=0.5,
+                       zone_fields_threshold=0.5,
                        peak_tolerance_bins=1,
                        **kwargs):
     """Spatial filter: a neuron is a zone cell when its main place field lies in the zone.
@@ -946,7 +954,7 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
         optimal delay of the (neuron, zone) pair aligns calcium to behaviour
     feature_renaming : dict, optional
         Rename discrete features in the merged name: {'corners': 'corner'}
-    peak_fraction, main_field_threshold, peak_tolerance_bins
+    peak_fraction, zone_fields_threshold, peak_tolerance_bins
         See ``place_field_in_zone``.
     """
     # No-op if discrete_place_features is empty or None
@@ -991,7 +999,7 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
             in_zone, overlap = place_field_in_zone(
                 calcium_data[nid], zone, bins, delay=delay,
                 peak_fraction=peak_fraction,
-                main_field_threshold=main_field_threshold,
+                zone_fields_threshold=zone_fields_threshold,
                 peak_tolerance_bins=peak_tolerance_bins)
             if in_zone:
                 candidates.append((overlap, discr_feat))

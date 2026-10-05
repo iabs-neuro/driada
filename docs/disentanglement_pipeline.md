@@ -93,10 +93,10 @@ For experiments with discrete spatial features (corners, walls, center, objects)
 1. Shift calcium by the INTENSE optimal delay of the pair
 2. Build the neuron's activity map (20×20 bins, occupancy-normalised, Gaussian smoothing 1.5 bins); never-visited bins are left out
 3. Fields = connected regions above half of the peak, the map minimum being the baseline; the main field holds the peak
-4. The zone holds the main field if the peak bin or one of its neighbours belongs to the zone (more than half of the time spent in that bin was spent in the zone) and the main field carries more than half of the activity of all fields
+4. The zone holds the main field if the peak bin or one of its neighbours belongs to the zone (more than half of the time spent in that bin was spent in the zone) and the fields lying in the zone (their own peak is in the zone) together carry more than half of the activity of all fields
 5. If so → merge into a combined feature (e.g. `place-corners`); of several such zones the one covering the largest part of the main field is merged and the others lose to place. Otherwise place wins, `(place, zone) = 0`
 
-The map is normalised by occupancy, so the decision does not depend on how long the animal stays in the zone. The second condition only rejects neurons with several comparable fields: with two fields the one holding the peak is usually the larger half.
+The map is normalised by occupancy, so the decision does not depend on how long the animal stays in the zone. Fields in the zone are counted together because a zone can be a set of separate places (four corners) that one cell covers with several fields.
 
 **`information_share` (`zone_share_filter`)** — for every (neuron, zone) pair:
 
