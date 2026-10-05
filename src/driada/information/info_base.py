@@ -2193,7 +2193,7 @@ def get_multi_mi(tslist, ts2, shift=0, ds=1, k=DEFAULT_NN, estimator="gcmi", mi_
     return mi
 
 
-def aggregate_multiple_ts(*ts_args, noise=1e-7, name=None, seed=None):
+def aggregate_multiple_ts(*ts_args, noise=1e-7, name=None, seed=None, ts_types=None):
     """Aggregate multiple continuous TimeSeries into a single MultiTimeSeries.
 
     Adds small noise to break degeneracy and creates a MultiTimeSeries from
@@ -2210,6 +2210,12 @@ def aggregate_multiple_ts(*ts_args, noise=1e-7, name=None, seed=None):
     seed : int, numpy.random.SeedSequence or numpy.random.Generator, optional
         Seed for the noise, passed to ``numpy.random.default_rng``. If None,
         the noise differs between calls.
+    ts_types : sequence of (TimeSeriesType or str or None), optional
+        Declared type of each component, in the order of ``ts_args``. A
+        component with a declared type keeps it; a None entry (and every
+        component when ``ts_types`` is None) has its type detected from the
+        data. Declaring the type matters for code that branches on it, e.g.
+        when a coordinate would be detected as circular.
 
     Returns
     -------
@@ -2219,7 +2225,8 @@ def aggregate_multiple_ts(*ts_args, noise=1e-7, name=None, seed=None):
     Raises
     ------
     ValueError
-        If any input TimeSeries is discrete.
+        If any input TimeSeries is discrete, or if ``ts_types`` does not have
+        one entry per component.
 
     Examples
     --------
@@ -2227,13 +2234,23 @@ def aggregate_multiple_ts(*ts_args, noise=1e-7, name=None, seed=None):
     >>> ts2 = TimeSeries(np.random.randn(100), discrete=False)
     >>> mts = aggregate_multiple_ts(ts1, ts2, name='position')"""
     # add small noise to break degeneracy
+    if ts_types is None:
+        ts_types = [None] * len(ts_args)
+    elif len(ts_types) != len(ts_args):
+        raise ValueError(
+            f"ts_types has {len(ts_types)} entries for {len(ts_args)} components"
+        )
     rng = np.random.default_rng(seed)
     mod_tslist = []
-    for i, ts in enumerate(ts_args):
+    for i, (ts, ts_type) in enumerate(zip(ts_args, ts_types)):
         if ts.discrete:
             raise ValueError("this is not applicable to discrete TimeSeries")
         ts_name = f"{name}_{i}" if name else None
-        mod_ts = TimeSeries(ts.data + rng.random(size=len(ts.data)) * noise, discrete=False, name=ts_name)
+        mod_data = ts.data + rng.random(size=len(ts.data)) * noise
+        if ts_type is None:
+            mod_ts = TimeSeries(mod_data, discrete=False, name=ts_name)
+        else:
+            mod_ts = TimeSeries(mod_data, ts_type=ts_type, name=ts_name)
         mod_tslist.append(mod_ts)
 
     mts = MultiTimeSeries(mod_tslist, name=name)

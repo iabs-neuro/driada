@@ -304,6 +304,16 @@ def load_exp_from_aligned_data(
     else:
         exp_seed, *agg_seeds = (int(v) for v in np.random.SeedSequence(seed).generate_state(1 + n_agg))
 
+    # Deprecation bridge: convert force_continuous to feature_types
+    if force_continuous and not feature_types:
+        warnings.warn(
+            "force_continuous is deprecated. Use feature_types={'name': 'linear'} instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        feature_types = {f: 'continuous' for f in force_continuous}
+    feature_types = feature_types or {}
+
     # Process feature aggregations first (before individual feature processing)
     # Note: component features are NOT consumed - they remain available as individual features
     if aggregate_features:
@@ -315,18 +325,24 @@ def load_exp_from_aligned_data(
                     warnings.warn(f"Skipping aggregation '{combined_name}': missing keys {missing}")
                 continue
 
-            # Read component arrays (don't pop - keep them for individual processing)
+            # Read component arrays (don't pop - keep them for individual processing).
+            # A component declared in feature_types keeps that type inside the
+            # aggregate; auto-detection can mistake a coordinate for an angle.
             ts_list = []
-            for i, key in enumerate(component_keys):
+            comp_types = [feature_types.get(key) for key in component_keys]
+            for i, (key, comp_type) in enumerate(zip(component_keys, comp_types)):
                 arr = np.asarray(adata[key])
                 if arr.ndim != 1:
                     raise ValueError(f"Aggregation component '{key}' must be 1D, got {arr.ndim}D")
-                ts = TimeSeries(arr, discrete=False, name=f"{combined_name}_{i}")
+                if comp_type is None:
+                    ts = TimeSeries(arr, discrete=False, name=f"{combined_name}_{i}")
+                else:
+                    ts = TimeSeries(arr, ts_type=comp_type, name=f"{combined_name}_{i}")
                 ts_list.append(ts)
 
             # Create MultiTimeSeries from components (adds noise to break degeneracy)
             filt_dyn_features[combined_name] = aggregate_multiple_ts(
-                *ts_list, name=combined_name, seed=agg_seeds.pop(0)
+                *ts_list, name=combined_name, seed=agg_seeds.pop(0), ts_types=comp_types
             )
 
     dyn_features = adata.copy()
@@ -359,16 +375,6 @@ def load_exp_from_aligned_data(
         return np.all(nan_mask) or (len(np.unique(arr[~nan_mask])) <= 1)
 
     # Process remaining dynamic features
-    # Deprecation bridge: convert force_continuous to feature_types
-    if force_continuous and not feature_types:
-        warnings.warn(
-            "force_continuous is deprecated. Use feature_types={'name': 'linear'} instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        feature_types = {f: 'continuous' for f in force_continuous}
-    feature_types = feature_types or {}
-
     for f, vals in dyn_features.items():
         # Skip reserved keys (case-insensitive for neural keys)
         if f.lower() in RESERVED_NEURAL_KEYS or f in RESERVED_METADATA_KEYS:
