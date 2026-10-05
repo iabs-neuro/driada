@@ -7,7 +7,6 @@ import pytest
 
 from driada.information.gcmi import mi_model_gd
 from tools.selectivity_dynamics.filters import (
-    DEFAULT_ZONE_RULE,
     GENERAL_PRIORITY_RULES,
     _class_conditional_mi,
     build_priority_filter,
@@ -83,7 +82,7 @@ def _run(filter_func, session, **overrides):
 
 @pytest.fixture(scope="module")
 def default_result(session):
-    return _run(get_filter_for_experiment("NOF"), session)
+    return _run(get_filter_for_experiment("NOF", zone_rule="information_share"), session)
 
 
 def test_estimator_matches_library():
@@ -112,11 +111,8 @@ def test_place_field_stays_place(default_result, nid):
     assert renames[nid] == {}
 
 
-def test_information_share_is_default(session, default_result):
-    assert DEFAULT_ZONE_RULE == "information_share"
-    explicit = _run(get_filter_for_experiment("NOF", zone_rule="information_share"), session)
-    direct = _run(zone_share_filter, session)
-    assert default_result == explicit == direct
+def test_information_share_rule_is_zone_share_filter(session, default_result):
+    assert default_result == _run(zone_share_filter, session)
 
 
 def test_top_activity_rule_is_spatial_filter(session, default_result):
@@ -139,7 +135,7 @@ def test_unknown_zone_rule_raises():
 
 
 def test_decisions_are_reproducible(session, default_result):
-    assert _run(get_filter_for_experiment("NOF"), session) == default_result
+    assert _run(get_filter_for_experiment("NOF", zone_rule="information_share"), session) == default_result
 
 
 def test_delay_is_taken_from_intense_stats(session, default_result):

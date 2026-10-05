@@ -31,7 +31,7 @@ Usage
     python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE \
         --representation raw
 
-    # Previous place-vs-zone rule (merge place with a zone by top activity)
+    # Another place-vs-zone rule (see --zone-rule)
     python tools/run_intense_analysis.py --dir "DRIADA data" --output-dir INTENSE         --zone-rule top_activity
 
     # Save single file results to specific output
@@ -265,11 +265,13 @@ Examples:
     parser.add_argument('--zone-rule', type=str, default=DEFAULT_ZONE_RULE,
                         choices=list(ZONE_RULES),
                         help='Rule for neurons selective to both place and a discrete zone: '
-                             'information_share (default, the zone wins when it carries at least '
-                             'half of the position information of the neuron and the neuron is more '
-                             'active inside it; otherwise place wins) or top_activity (place and '
-                             'zone are merged into place-<zone> when the strongest activity falls '
-                             'into the zone)')
+                             'place_field (default, place and zone are merged into place-<zone> '
+                             'when the peak of the main place field of the neuron lies in the zone; '
+                             'otherwise place wins), information_share (the zone wins when it '
+                             'carries at least half of the position information of the neuron and '
+                             'the neuron is more active inside it; nothing is merged) or '
+                             'top_activity (merged when the strongest activity frames fall into '
+                             'the zone)')
     parser.add_argument('--skip-computed', action='store_true',
                         help='Skip files that already have results in output directory')
     parser.add_argument('--metric', type=str, default='mi', choices=['mi', 'fast_pearsonr'],

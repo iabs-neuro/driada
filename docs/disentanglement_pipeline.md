@@ -88,7 +88,17 @@ Each experiment type (NOF, LNOF, 3DM, FOF) has custom rules:
 
 For experiments with discrete spatial features (corners, walls, center, objects), decides between place and each discrete zone a neuron is selective to. The rule is chosen by `--zone-rule` (`zone_rule` in `get_filter_for_experiment`).
 
-**`information_share` (default, `zone_share_filter`)** — for every (neuron, zone) pair:
+**`place_field` (default, `place_field_filter`)** — a neuron is a zone cell when its main place field lies in the zone. For every (neuron, zone) pair:
+
+1. Shift calcium by the INTENSE optimal delay of the pair
+2. Build the neuron's activity map (20×20 bins, occupancy-normalised, Gaussian smoothing 1.5 bins); never-visited bins are left out
+3. Fields = connected regions above half of the peak, the map minimum being the baseline; the main field holds the peak
+4. The zone holds the main field if the peak bin or one of its neighbours belongs to the zone (more than half of the time spent in that bin was spent in the zone) and the main field carries more than half of the activity of all fields
+5. If so → merge into a combined feature (e.g. `place-corners`); of several such zones the one covering the largest part of the main field is merged and the others lose to place. Otherwise place wins, `(place, zone) = 0`
+
+The map is normalised by occupancy, so the decision does not depend on how long the animal stays in the zone. The second condition only rejects neurons with several comparable fields: with two fields the one holding the peak is usually the larger half.
+
+**`information_share` (`zone_share_filter`)** — for every (neuron, zone) pair:
 
 1. Shift calcium by the INTENSE optimal delay of the pair and copula-normalise it
 2. Build the neuron's activity map (20×20 bins, Gaussian smoothing 1.5 bins, occupancy-normalised), cut the frames into 8 equal-duration levels of the map value at the visited bin; position label = level × zone (16 classes)
@@ -105,7 +115,7 @@ Nothing is merged; several zones of one neuron are decided independently.
 2. If correspondence > 0.4 → merge into combined feature (e.g. `place-corners`)
 3. Set pair decisions and renames accordingly
 
-Both run only when `discrete_place_features` is non-empty (NOF, LNOF experiments).
+All three run only when `discrete_place_features` is non-empty (NOF, LNOF experiments).
 
 ## Phase 2: Information-Theoretic Disentanglement
 

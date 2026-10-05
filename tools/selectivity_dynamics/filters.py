@@ -57,7 +57,7 @@ Example Usage
 """
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, label, maximum_filter
 from scipy.special import digamma
 from scipy.stats import norm, rankdata
 
@@ -821,6 +821,203 @@ def zone_share_filter(neuron_selectivities, pair_decisions, renames,
             pair_decisions[nid][(place_feat_name, discr_feat)] = 1 if zone_wins else 0
 
 
+def place_field_map(calcium, bins):
+    """Occupancy-normalised, Gaussian-smoothed activity map of a neuron.
+
+    Parameters
+    ----------
+    calcium : np.ndarray
+        Calcium trace of the neuron, shape (n_frames,).
+    bins : np.ndarray
+        Flat position bin per frame (see ``_position_bins``).
+
+    Returns
+    -------
+    np.ndarray
+        Map of shape (_MAP_BINS, _MAP_BINS); bins that were never visited
+        are NaN.
+    """
+    shape = (_MAP_BINS, _MAP_BINS)
+    occupancy = np.bincount(bins, minlength=_MAP_BINS ** 2).astype(float).reshape(shape)
+    sums = np.bincount(bins, weights=calcium, minlength=_MAP_BINS ** 2).reshape(shape)
+    rate = gaussian_filter(sums, _MAP_SIGMA) / np.maximum(gaussian_filter(occupancy, _MAP_SIGMA), 1e-9)
+    return np.where(occupancy > 0, rate, np.nan)
+
+
+def place_field_in_zone(calcium, zone, bins, delay=0, peak_fraction=0.5,
+                        main_field_threshold=0.5, peak_tolerance_bins=1):
+    """Decide whether the main place field of a neuron lies in a zone.
+
+    Fields are connected regions of the activity map above ``peak_fraction``
+    of its peak, the map minimum being the baseline; the main field is the
+    one that holds the peak. The neuron is a zone cell when the peak lies in
+    the zone and the main field is not one of several comparable fields.
+
+    Parameters
+    ----------
+    calcium : np.ndarray
+        Calcium trace of the neuron, shape (n_frames,).
+    zone : np.ndarray
+        Boolean zone indicator, shape (n_frames,).
+    bins : np.ndarray
+        Flat position bin per frame (see ``_position_bins``).
+    delay : int, optional
+        Frames by which calcium lags behaviour. Default: 0.
+    peak_fraction : float, optional
+        Field boundary as a fraction of the peak above baseline. Default: 0.5
+    main_field_threshold : float, optional
+        Minimum share of the main field in the activity of all fields.
+        Default: 0.5
+    peak_tolerance_bins : int, optional
+        The peak counts as lying in the zone when a map bin within this
+        distance of it belongs to the zone; a zone can be smaller than the
+        map resolution needed to place a peak inside it. Default: 1
+
+    Returns
+    -------
+    in_zone : bool
+        True when both conditions hold.
+    overlap : float
+        Activity-weighted share of the main field that lies in the zone;
+        used to choose between several zones of one neuron.
+    """
+    amap = place_field_map(np.roll(calcium, -int(delay)), bins)
+    activity = amap - np.nanmin(amap)
+    activity = np.where(np.isnan(activity), 0.0, activity)
+    peak = activity.max()
+    if peak <= 0:
+        return False, 0.0
+
+    fields = activity >= peak_fraction * peak
+    labels, _ = label(fields, structure=np.ones((3, 3)))
+    peak_bin = np.unravel_index(np.argmax(activity), activity.shape)
+    main = labels == labels[peak_bin]
+
+    # Share of the time spent in every map bin that was spent inside the zone
+    occupancy = np.bincount(bins, minlength=_MAP_BINS ** 2)
+    zone_share = (np.bincount(bins, weights=zone.astype(float), minlength=_MAP_BINS ** 2)
+                  / np.maximum(occupancy, 1)).reshape(activity.shape)
+
+    size = 2 * peak_tolerance_bins + 1
+    peak_in_zone = maximum_filter(zone_share, size=size)[peak_bin] > 0.5
+    main_share = activity[main].sum() / activity[fields].sum()
+    overlap = float((activity * zone_share)[main].sum() / activity[main].sum())
+    return bool(peak_in_zone and main_share > main_field_threshold), overlap
+
+
+def place_field_filter(neuron_selectivities, pair_decisions, renames,
+                       calcium_data=None,
+                       feature_data=None,
+                       position_data=None,
+                       discrete_place_features=None,
+                       place_feat_name='place',
+                       cell_feat_stats=None,
+                       feature_renaming=None,
+                       peak_fraction=0.5,
+                       main_field_threshold=0.5,
+                       peak_tolerance_bins=1,
+                       **kwargs):
+    """Spatial filter: a neuron is a zone cell when its main place field lies in the zone.
+
+    For NOF/LNOF-like experiments. When a neuron has both place and a discrete
+    spatial feature (corners, walls, objects, ...), its activity map decides
+    (see ``place_field_in_zone``). If the main field lies in the zone, place
+    and the zone are merged into a combined feature (e.g. 'place-corners');
+    otherwise place wins. Of several zones that hold the main field, the one
+    covering the largest part of it is merged and the others lose to place.
+
+    Respects pair_decisions from earlier filters: zones already marked as
+    losers are not considered.
+
+    Parameters (via filter_kwargs)
+    ------------------------------
+    calcium_data : dict
+        Pre-extracted calcium data: {neuron_id: np.array}
+    feature_data : dict
+        Pre-extracted feature data: {feature_name: np.array}
+    position_data : np.ndarray
+        Coordinates of shape (2, n_frames)
+    discrete_place_features : list
+        Discrete features to check against place
+    place_feat_name : str
+        Name of continuous place feature. Default: 'place'
+    cell_feat_stats : dict
+        INTENSE statistics {neuron_id: {feature: {'opt_delay': ...}}}; the
+        optimal delay of the (neuron, zone) pair aligns calcium to behaviour
+    feature_renaming : dict, optional
+        Rename discrete features in the merged name: {'corners': 'corner'}
+    peak_fraction, main_field_threshold, peak_tolerance_bins
+        See ``place_field_in_zone``.
+    """
+    # No-op if discrete_place_features is empty or None
+    if not discrete_place_features:
+        return
+
+    if feature_renaming is None:
+        feature_renaming = {}
+
+    have_data = calcium_data is not None and feature_data is not None and position_data is not None
+    if have_data:
+        bins = _position_bins(np.asarray(position_data, float))
+
+    for nid, sels in neuron_selectivities.items():
+        discrete_in_sels = set(discrete_place_features).intersection(sels)
+        if place_feat_name not in sels or not discrete_in_sels:
+            continue
+
+        if not have_data:
+            # Fallback: just mark as undistinguishable (0.5) for non-loser features
+            for discr_feat in discrete_in_sels:
+                if not _feature_is_loser(discr_feat, sels, pair_decisions[nid]):
+                    pair_decisions[nid][(place_feat_name, discr_feat)] = 0.5
+            continue
+
+        if nid not in calcium_data:
+            continue
+
+        candidates = []
+        for discr_feat in sorted(discrete_in_sels):  # sorted for deterministic order
+            if _feature_is_loser(discr_feat, sels, pair_decisions[nid]):
+                continue
+            if discr_feat not in feature_data:
+                continue
+            try:
+                delay = cell_feat_stats[nid][discr_feat].get('opt_delay', 0) or 0
+            except (KeyError, TypeError):
+                delay = 0
+            # Zone indicators can hold fractional values at zone borders
+            # after resampling to the imaging frame rate.
+            zone = np.asarray(feature_data[discr_feat]) > 0.5
+            in_zone, overlap = place_field_in_zone(
+                calcium_data[nid], zone, bins, delay=delay,
+                peak_fraction=peak_fraction,
+                main_field_threshold=main_field_threshold,
+                peak_tolerance_bins=peak_tolerance_bins)
+            if in_zone:
+                candidates.append((overlap, discr_feat))
+
+        if candidates:
+            _, best_feat = max(candidates)
+            renamed = feature_renaming.get(best_feat, best_feat)
+            combined_name = f'{place_feat_name}-{renamed}'
+
+            # Remove both original features, add combined
+            sels.remove(place_feat_name)
+            sels.remove(best_feat)
+            sels.append(combined_name)
+            renames[nid][combined_name] = (place_feat_name, best_feat)
+
+            # Mark other discrete features as losing to place
+            for discr_feat in discrete_in_sels:
+                if discr_feat != best_feat and discr_feat in sels:
+                    pair_decisions[nid][(place_feat_name, discr_feat)] = 0
+        else:
+            # Main field is elsewhere - place wins over all discrete features
+            for discr_feat in discrete_in_sels:
+                if not _feature_is_loser(discr_feat, sels, pair_decisions[nid]):
+                    pair_decisions[nid][(place_feat_name, discr_feat)] = 0
+
+
 def extract_filter_data(exp, discrete_place_features=None, place_feat_name='place'):
     """Extract calcium, feature and position data for the spatial filters.
 
@@ -995,10 +1192,11 @@ def get_experiment_config(exp_type):
 
 # Rules deciding between place and a discrete zone, by --zone-rule value
 ZONE_RULES = {
+    'place_field': place_field_filter,
     'information_share': zone_share_filter,
     'top_activity': spatial_filter,
 }
-DEFAULT_ZONE_RULE = 'information_share'
+DEFAULT_ZONE_RULE = 'place_field'
 
 
 def get_filter_for_experiment(exp_type, zone_rule=DEFAULT_ZONE_RULE):
