@@ -869,7 +869,11 @@ def extract_filter_data(exp, discrete_place_features=None, place_feat_name='plac
 # Experiment Configurations
 # =============================================================================
 
-_CIRCULAR_FEATURES = {'bodydirection': 'circular', 'headdirection': 'circular'}
+# Declared feature types. Position coordinates are declared linear because
+# auto-detection can take a coordinate for an angle, and place then gets no
+# type-based representation.
+_FEATURE_TYPES = {'bodydirection': 'circular', 'headdirection': 'circular',
+                  'x': 'linear', 'y': 'linear'}
 
 EXPERIMENT_CONFIGS = {
     'RT': {
@@ -879,7 +883,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y'],
         'specific_filter': None,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     'NOF': {
         'place_feat_name': 'place',
@@ -888,7 +892,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y'],
         'specific_filter': nof_filter,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     'LNOF': {
         'place_feat_name': 'place',
@@ -897,7 +901,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y'],
         'specific_filter': nof_filter,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     'FOF': {
         'place_feat_name': 'place',
@@ -906,7 +910,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y', 'centermiddle', 'center'],
         'specific_filter': None,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     'BOF': {
         'place_feat_name': 'place',
@@ -915,7 +919,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y'],
         'specific_filter': None,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     'BOWL': {
         'place_feat_name': 'place',
@@ -924,7 +928,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y', 'bowl_interaction_any', 'object1_interaction_any', 'object2_interaction_any'],
         'specific_filter': None,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     'MSS': {
         'place_feat_name': 'place',
@@ -933,7 +937,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y'],
         'specific_filter': None,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     'HOS': {
         'place_feat_name': 'place',
@@ -942,7 +946,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {('x', 'y'): 'place'},
         'skip_for_intense': ['x', 'y'],
         'specific_filter': None,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     '3DM': {
         'place_feat_name': '3d-place',
@@ -952,7 +956,7 @@ EXPERIMENT_CONFIGS = {
         'skip_for_intense': ['x', 'y'],  # Keep z for 3d-place > z rule
         'specific_filter': tdm_filter,
         'post_filter': tdm_post_filter,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
     'TRACE': {
         'place_feat_name': 'place',
@@ -961,7 +965,7 @@ EXPERIMENT_CONFIGS = {
         'aggregate_features': {},
         'skip_for_intense': [],
         'specific_filter': None,
-        'feature_types': _CIRCULAR_FEATURES,
+        'feature_types': _FEATURE_TYPES,
     },
 }
 
