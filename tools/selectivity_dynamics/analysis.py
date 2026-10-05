@@ -333,7 +333,8 @@ def build_disentangled_stats(stats, significance, disent_results, exp):
                 old1, old2 = renames[feat]
                 combined_stats = _combine_feature_stats(
                     stats[nid].get(old1, {}),
-                    stats[nid].get(old2, {})
+                    stats[nid].get(old2, {}),
+                    names=(old1, old2),
                 )
                 combined_sig = _combine_feature_significance(
                     significance[nid].get(old1, {}),
@@ -351,10 +352,15 @@ def build_disentangled_stats(stats, significance, disent_results, exp):
     return disent_stats, disent_significance
 
 
-def _combine_feature_stats(stats1, stats2):
+_COMPONENT_STAT_KEYS = ('me', 'pval', 'opt_delay', 'signal_ratio')
+
+
+def _combine_feature_stats(stats1, stats2, names=None):
     """Combine stats from two features into one merged entry.
 
-    Uses max for MI values, min for p-values.
+    Uses max for MI values, min for p-values. With ``names`` the entry also
+    keeps the main statistics of each component under 'component_stats', so
+    that a reader of the merged entry can tell them apart.
     """
     combined = {}
 
@@ -386,10 +392,17 @@ def _combine_feature_stats(stats1, stats2):
             combined[key] = dominant[key]
 
     # Mark as merged
-    combined['merged_from'] = [
-        stats1.get('feature_name', 'feat1'),
-        stats2.get('feature_name', 'feat2')
-    ]
+    if names is not None:
+        combined['merged_from'] = list(names)
+        combined['component_stats'] = {
+            name: {key: comp[key] for key in _COMPONENT_STAT_KEYS if key in comp}
+            for name, comp in zip(names, (stats1, stats2))
+        }
+    else:
+        combined['merged_from'] = [
+            stats1.get('feature_name', 'feat1'),
+            stats2.get('feature_name', 'feat2')
+        ]
 
     return combined
 
