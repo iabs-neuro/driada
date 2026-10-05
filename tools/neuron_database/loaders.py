@@ -112,14 +112,26 @@ def parse_significance_csv(path):
     return result
 
 
+def _zone_component_stats(feature, stats):
+    """Statistics of the zone inside a merged 'place-<zone>' entry, or None."""
+    if not feature.startswith('place-'):
+        return None
+    components = stats.get('component_stats')
+    if not isinstance(components, dict):
+        return None
+    return components.get(feature[len('place-'):])
+
+
 def load_session_from_csvs(stats_path, sig_path):
     """Load one session from stats + significance CSVs.
 
     Returns
     -------
     records : list[dict]
-        Flat row dicts with keys: neuron_idx, feature, significant, me, pval, opt_delay.
-        Only entries where stats dict is non-empty.
+        Flat row dicts with keys: neuron_idx, feature, significant, me, pval, opt_delay,
+        signal_ratio, zone_stats. Only entries where stats dict is non-empty.
+        ``zone_stats`` holds the zone's own statistics of a merged 'place-<zone>'
+        entry (None for other entries and for tables written without them).
     n_neurons : int
         Total number of neurons in the CSV (including those with no data).
     """
@@ -140,6 +152,7 @@ def load_session_from_csvs(stats_path, sig_path):
                 'pval': s.get('pval', np.nan),
                 'opt_delay': s.get('opt_delay', np.nan),
                 'signal_ratio': np.nan if s.get('signal_ratio') is None else s['signal_ratio'],
+                'zone_stats': _zone_component_stats(feature, s),
             })
     return records, n_neurons
 
@@ -364,7 +377,7 @@ def load_from_csv_directory(data_dir, session_names,
     data = pd.DataFrame(all_records, columns=[
         'mouse', 'session', 'matched_id', 'neuron_idx',
         'feature', 'significant', 'me', 'pval', 'opt_delay',
-        'signal_ratio',
+        'signal_ratio', 'zone_stats',
     ])
 
     data['matched_id'] = data['matched_id'].astype(int)
@@ -457,6 +470,8 @@ def load_experiment(experiment_id, data_dir, config=None):
 
     # Pre-transform: undo place-X disentanglement merges
     data = pretransform_merge_composite_place(data, config.discrete_place_features)
+    _add_delay_sign(data, fps=20)
+    data = data.drop(columns='zone_stats', errors='ignore')
 
     mice_info_dict = {}
     if config.mice_metadata:

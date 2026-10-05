@@ -12,7 +12,10 @@ def pretransform_merge_composite_place(data, discrete_place_features):
     """Rename 'place-X' features to 'X' for known discrete place features.
 
     Only renames when X is in discrete_place_features, leaving other
-    composite features (e.g., place-object) unchanged.
+    composite features (e.g., place-object) unchanged. A renamed entry takes
+    the zone's own statistics when the table carries them ('zone_stats'):
+    the merged entry holds the larger of the place and zone values, which
+    would otherwise report place information under the name of the zone.
     """
     if not discrete_place_features:
         return data
@@ -25,6 +28,14 @@ def pretransform_merge_composite_place(data, discrete_place_features):
     rename_mask = prefix_mask & stripped.isin(targets)
     if rename_mask.any():
         data.loc[rename_mask, 'feature'] = stripped[rename_mask]
+        if 'zone_stats' in data.columns:
+            for idx in data.index[rename_mask]:
+                zone_stats = data.at[idx, 'zone_stats']
+                if not isinstance(zone_stats, dict):
+                    continue
+                for key in ('me', 'pval', 'opt_delay', 'signal_ratio'):
+                    value = zone_stats.get(key)
+                    data.at[idx, key] = np.nan if value is None else value
     return data
 
 
