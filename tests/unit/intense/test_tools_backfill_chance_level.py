@@ -34,16 +34,18 @@ def _without_chance_level(stats):
 def saved(tmp_path_factory):
     """A saved result as written before chance levels existed, and the fresh statistics."""
     exp = generate_synthetic_exp(n_dfeats=2, n_cfeats=2, nneurons=6, duration=120, seed=3, verbose=False)
-    stats, significance, info, results, _ = driada.compute_cell_feat_significance(
-        exp, mode='two_stage', n_shuffles_stage1=50, n_shuffles_stage2=300, ds=2,
+    stats, _, info, results, _ = driada.compute_cell_feat_significance(
+        exp, mode='stage2', n_shuffles_stage2=300, ds=2,
         find_optimal_delays=False, with_disentanglement=False,
         enable_parallelization=False, seed=1, verbose=False,
-        # Loose thresholds keep enough significant pairs for the tables.
-        pval_thr=0.5, multicomp_correction=None,
     )
     fresh = copy.deepcopy(stats)
     old = _without_chance_level(stats)
     results.update('stats', old)
+    # The tables hold significant pairs only; every pair is written here so
+    # that the fixture does not depend on what the test finds significant.
+    significance = {cell: {feat: {'stage1': True, 'stage2': True} for feat in feats}
+                    for cell, feats in old.items()}
     src = tmp_path_factory.mktemp('saved')
     save_all_results(NAME, exp, old, significance, info, results, None, src)
     return src, fresh
@@ -51,7 +53,8 @@ def saved(tmp_path_factory):
 
 def test_fixture_has_stage2_pairs(saved):
     _, fresh = saved
-    assert sum('rval' in pair for feats in fresh.values() for pair in feats.values()) >= 3
+    assert all('rval' in pair for feats in fresh.values() for pair in feats.values())
+    assert sum(len(feats) for feats in fresh.values()) == 24
 
 
 def test_levels_match_a_fresh_run(saved):
@@ -78,7 +81,7 @@ def test_tables_are_written_to_a_new_folder(saved, tmp_path):
     for cell, feats in new.items():
         assert set(feats) == set(old[cell])
         for feat, pair in feats.items():
-            reference = fresh[cell][feat] if cell in fresh else fresh[str(cell)][feat]
+            reference = fresh[cell][feat]
             assert pair['me_null'] == pytest.approx(reference['me_null'], abs=TOLERANCE)
             assert pair['me_excess'] == pytest.approx(reference['me_excess'], abs=TOLERANCE)
             assert {k: v for k, v in pair.items() if k not in ('me_null', 'me_excess')} == old[cell][feat]
@@ -99,7 +102,7 @@ def test_existing_output_is_not_overwritten(saved, tmp_path):
 def test_merged_zone_entry_takes_the_levels_of_its_components(saved, tmp_path):
     src, fresh = saved
     raw = parse_stats_csv(src / 'tables' / f'{NAME} INTENSE stats.csv')
-    cell, feats = next((cell, feats) for cell, feats in raw.items() if len(feats) >= 2)
+    cell, feats = next(iter(raw.items()))
     first, second = sorted(feats)[:2]
     merged_name = f'{first}-{second}'
     merged = {str(cell): {
@@ -115,7 +118,7 @@ def test_merged_zone_entry_takes_the_levels_of_its_components(saved, tmp_path):
     out = tmp_path / 'backfilled'
     backfill_output_dir(src, out)
     entry = parse_stats_csv(out / 'tables_disentangled' / f'{NAME} INTENSE stats.csv')[cell][merged_name]
-    reference = fresh[cell] if cell in fresh else fresh[str(cell)]
+    reference = fresh[cell]
     dominant = first if feats[first]['me'] >= feats[second]['me'] else second
     assert entry['me_null'] == pytest.approx(reference[dominant]['me_null'], abs=TOLERANCE)
     assert entry['me_excess'] == pytest.approx(reference[dominant]['me_excess'], abs=TOLERANCE)
