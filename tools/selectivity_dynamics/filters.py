@@ -56,6 +56,9 @@ Example Usage
 ... )
 """
 
+import warnings
+from pathlib import Path
+
 import numpy as np
 from scipy.ndimage import gaussian_filter, label, maximum_filter
 from scipy.special import digamma
@@ -586,6 +589,46 @@ def _position_bins(position):
     return idx[0] * _MAP_BINS + idx[1]
 
 
+def _axis_bins(values, coord):
+    """Map bin of every value on the axis spanned by the trajectory ``coord``; -1 outside it."""
+    lo, hi = coord.min(), coord.max()
+    scaled = (values - lo) / (hi - lo + 1e-9) * _MAP_BINS
+    idx = np.floor(scaled).astype(int)
+    idx[(scaled < 0) | (scaled >= _MAP_BINS)] = -1
+    return idx
+
+
+def zone_mask_share(mask, step, position):
+    """Share of the area of every map bin that a zone mask covers.
+
+    Parameters
+    ----------
+    mask : np.ndarray
+        Boolean raster of the zone, shape (ny, nx), indexed [iy, ix]; the
+        centre of a raster cell is (ix * step, iy * step).
+    step : float
+        Raster step in the units of ``position``.
+    position : np.ndarray
+        Coordinates of shape (2, n_frames) that define the map grid
+        (see ``_position_bins``).
+
+    Returns
+    -------
+    np.ndarray
+        Shares in [0, 1] of shape (_MAP_BINS, _MAP_BINS), indexed
+        [x bin, y bin] as the activity map.
+    """
+    ny, nx = mask.shape
+    bx = _axis_bins(np.arange(nx) * step, position[0])
+    by = _axis_bins(np.arange(ny) * step, position[1])
+    keep_x, keep_y = bx >= 0, by >= 0
+    flat = (bx[keep_x][None, :] * _MAP_BINS + by[keep_y][:, None]).ravel()
+    covered = np.bincount(flat, weights=mask[np.ix_(keep_y, keep_x)].ravel().astype(float),
+                          minlength=_MAP_BINS ** 2)
+    total = np.bincount(flat, minlength=_MAP_BINS ** 2)
+    return (covered / np.maximum(total, 1)).reshape(_MAP_BINS, _MAP_BINS)
+
+
 def _gaussian_entropy_bias(n):
     """Bias term of the Gaussian entropy of a 1D sample of size n."""
     n = np.maximum(np.asarray(n, float), 2)
@@ -847,7 +890,8 @@ def place_field_map(calcium, bins):
 
 
 def place_field_in_zone(calcium, zone, bins, delay=0, peak_fraction=0.5,
-                        zone_fields_threshold=0.5, peak_tolerance_bins=1):
+                        zone_fields_threshold=0.5, peak_tolerance_bins=1,
+                        zone_share=None):
     """Decide whether the main place field of a neuron lies in a zone.
 
     Fields are connected regions of the activity map above ``peak_fraction``
@@ -874,8 +918,15 @@ def place_field_in_zone(calcium, zone, bins, delay=0, peak_fraction=0.5,
         the zone) in the activity of all fields. Default: 0.5
     peak_tolerance_bins : int, optional
         The peak counts as lying in the zone when a map bin within this
-        distance of it belongs to the zone; a zone can be smaller than the
-        map resolution needed to place a peak inside it. Default: 1
+        distance of it belongs to the zone. The map is built from the
+        position of the body centre, while the animal reaches a zone with
+        another point of the body (an object with the nose), so the field of
+        a zone cell lies beside the zone rather than on it. Default: 1
+    zone_share : np.ndarray, optional
+        Share of every map bin that belongs to the zone, shape
+        (_MAP_BINS, _MAP_BINS), e.g. from ``zone_mask_share``. When given,
+        it replaces the share of time with the zone indicator on and
+        ``zone`` is not used. Default: None
 
     Returns
     -------
@@ -897,10 +948,11 @@ def place_field_in_zone(calcium, zone, bins, delay=0, peak_fraction=0.5,
     peak_bin = np.unravel_index(np.argmax(activity), activity.shape)
     main = labels == labels[peak_bin]
 
-    # Share of the time spent in every map bin that was spent inside the zone
-    occupancy = np.bincount(bins, minlength=_MAP_BINS ** 2)
-    zone_share = (np.bincount(bins, weights=zone.astype(float), minlength=_MAP_BINS ** 2)
-                  / np.maximum(occupancy, 1)).reshape(activity.shape)
+    if zone_share is None:
+        # Share of the time spent in every map bin that was spent inside the zone
+        occupancy = np.bincount(bins, minlength=_MAP_BINS ** 2)
+        zone_share = (np.bincount(bins, weights=zone.astype(float), minlength=_MAP_BINS ** 2)
+                      / np.maximum(occupancy, 1)).reshape(activity.shape)
 
     size = 2 * peak_tolerance_bins + 1
     near_zone = maximum_filter(zone_share, size=size) > 0.5
@@ -923,6 +975,7 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
                        place_feat_name='place',
                        cell_feat_stats=None,
                        feature_renaming=None,
+                       zone_masks=None,
                        peak_fraction=0.5,
                        zone_fields_threshold=0.5,
                        peak_tolerance_bins=1,
@@ -957,6 +1010,12 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
         optimal delay of the (neuron, zone) pair aligns calcium to behaviour
     feature_renaming : dict, optional
         Rename discrete features in the merged name: {'corners': 'corner'}
+    zone_masks : dict, optional
+        Geometry of the zones of this session (see ``load_zone_masks``):
+        ``{'step': raster step, 'masks': {feature: bool raster [iy, ix]}}``
+        in the units of ``position_data``. A zone that has a mask is the
+        area of the mask; a zone without one is where its indicator in
+        ``feature_data`` is on.
     peak_fraction, zone_fields_threshold, peak_tolerance_bins
         See ``place_field_in_zone``.
     """
@@ -968,8 +1027,13 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
         feature_renaming = {}
 
     have_data = calcium_data is not None and feature_data is not None and position_data is not None
+    zone_shares = {}
     if have_data:
-        bins = _position_bins(np.asarray(position_data, float))
+        position = np.asarray(position_data, float)
+        bins = _position_bins(position)
+        if zone_masks is not None:
+            zone_shares = {feat: zone_mask_share(mask, zone_masks['step'], position)
+                           for feat, mask in zone_masks['masks'].items()}
 
     for nid, sels in neuron_selectivities.items():
         discrete_in_sels = set(discrete_place_features).intersection(sels)
@@ -990,20 +1054,23 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
         for discr_feat in sorted(discrete_in_sels):  # sorted for deterministic order
             if _feature_is_loser(discr_feat, sels, pair_decisions[nid]):
                 continue
-            if discr_feat not in feature_data:
+            if discr_feat not in feature_data and discr_feat not in zone_shares:
                 continue
             try:
                 delay = cell_feat_stats[nid][discr_feat].get('opt_delay', 0) or 0
             except (KeyError, TypeError):
                 delay = 0
-            # Zone indicators can hold fractional values at zone borders
-            # after resampling to the imaging frame rate.
-            zone = np.asarray(feature_data[discr_feat]) > 0.5
+            zone = None
+            if discr_feat not in zone_shares:
+                # Zone indicators can hold fractional values at zone borders
+                # after resampling to the imaging frame rate.
+                zone = np.asarray(feature_data[discr_feat]) > 0.5
             in_zone, overlap = place_field_in_zone(
                 calcium_data[nid], zone, bins, delay=delay,
                 peak_fraction=peak_fraction,
                 zone_fields_threshold=zone_fields_threshold,
-                peak_tolerance_bins=peak_tolerance_bins)
+                peak_tolerance_bins=peak_tolerance_bins,
+                zone_share=zone_shares.get(discr_feat))
             if in_zone:
                 candidates.append((overlap, discr_feat))
 
@@ -1032,7 +1099,96 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
                     pair_decisions[nid][(place_feat_name, discr_feat)] = 0
 
 
-def extract_filter_data(exp, discrete_place_features=None, place_feat_name='place'):
+# Zone feature of a session -> name of the zone in the mask files
+ZONE_MASK_NAMES = {
+    'corners': 'ArenaCornersAllRealOut',
+    'walls': 'ArenaWallsAllRealOut',
+    'center': 'Center',
+    'object1': 'Object1RealOut',
+    'object2': 'Object2RealOut',
+    'object3': 'Object3RealOut',
+    'object4': 'Object4RealOut',
+    'objects': 'ObjectAllRealOut',
+}
+
+
+def find_zone_mask(masks_dir, exp_name):
+    """Path of the zone mask file of a session, or None with a warning.
+
+    The geometry of the arena differs between sessions of one animal, so
+    only the file of the session itself is accepted.
+
+    Parameters
+    ----------
+    masks_dir : str or Path
+        Folder with ``<session>_zones_cm.npz`` files, either directly in it
+        or in a subfolder named after the experiment type (``NOF``, ``LNOF``).
+    exp_name : str
+        Session name, e.g. ``'NOF_H01_1D'``.
+
+    Returns
+    -------
+    Path or None
+        None when the session has no mask file.
+    """
+    masks_dir = Path(masks_dir)
+    file_name = f'{exp_name}_zones_cm.npz'
+    for path in (masks_dir / exp_name.split('_')[0] / file_name, masks_dir / file_name):
+        if path.exists():
+            return path
+    warnings.warn(f'No zone masks for {exp_name} in {masks_dir}: '
+                  'the zones are taken from the zone indicators of the session')
+    return None
+
+
+def load_zone_masks(path, position=None, min_on_arena=0.99):
+    """Load the zone masks of one session for ``place_field_filter``.
+
+    Parameters
+    ----------
+    path : str or Path
+        File ``<session>_zones_cm.npz`` with ``masks`` (n_zones, ny, nx),
+        ``zone_names`` and ``grid_step_cm``; the centre of a raster cell is
+        (ix * step, iy * step).
+    position : np.ndarray, optional
+        Coordinates of shape (2, n_frames). When given, the share of frames
+        lying on the arena floor is checked.
+    min_on_arena : float, optional
+        Smallest accepted share of frames on the arena floor. Default: 0.99
+
+    Returns
+    -------
+    dict
+        ``{'step': float, 'masks': {feature: bool array}, 'arena': bool array}``
+
+    Raises
+    ------
+    ValueError
+        If the trajectory does not lie on the arena floor of the masks.
+    """
+    with np.load(path, allow_pickle=False) as data:
+        names = [str(name) for name in data['zone_names']]
+        rasters = data['masks'].astype(bool)
+        step = float(data['grid_step_cm'])
+    by_name = dict(zip(names, rasters))
+    zones = {'step': step, 'arena': by_name['ArenaReal'],
+             'masks': {feat: by_name[name] for feat, name in ZONE_MASK_NAMES.items() if name in by_name}}
+    if position is not None:
+        # Masks of other sessions are shifted by centimetres; a file that
+        # does not belong to the trajectory must not pass unnoticed.
+        position = np.asarray(position, float)
+        ix = np.floor(position[0] / step + 0.5).astype(int)
+        iy = np.floor(position[1] / step + 0.5).astype(int)
+        ny, nx = zones['arena'].shape
+        inside = (ix >= 0) & (iy >= 0) & (ix < nx) & (iy < ny)
+        on_arena = np.zeros(ix.size, bool)
+        on_arena[inside] = zones['arena'][iy[inside], ix[inside]]
+        if on_arena.mean() < min_on_arena:
+            raise ValueError(f'{on_arena.mean():.3f} of the frames lie on the arena floor of {path}')
+    return zones
+
+
+def extract_filter_data(exp, discrete_place_features=None, place_feat_name='place', zone_mask_path=None):
     """Extract calcium, feature and position data for the spatial filters.
 
     Parameters
@@ -1044,6 +1200,9 @@ def extract_filter_data(exp, discrete_place_features=None, place_feat_name='plac
     place_feat_name : str, optional
         Name of the aggregated place feature whose first two components are
         the coordinates. Default: 'place'
+    zone_mask_path : str or Path, optional
+        Zone mask file of this session (see ``load_zone_masks``); the
+        place_field rule then takes the zones from the masks. Default: None
 
     Returns
     -------
@@ -1073,6 +1232,8 @@ def extract_filter_data(exp, discrete_place_features=None, place_feat_name='plac
     }
     if hasattr(exp, place_feat_name):
         filter_data['position_data'] = getattr(exp, place_feat_name).data[:2]
+        if zone_mask_path is not None:
+            filter_data['zone_masks'] = load_zone_masks(zone_mask_path, filter_data['position_data'])
     return filter_data
 
 
