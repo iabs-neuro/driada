@@ -93,10 +93,16 @@ For experiments with discrete spatial features (corners, walls, center, objects)
 1. Shift calcium by the INTENSE optimal delay of the pair
 2. Build the neuron's activity map (20×20 bins, occupancy-normalised, Gaussian smoothing 1.5 bins); never-visited bins are left out
 3. Fields = connected regions above half of the peak, the map minimum being the baseline; the main field holds the peak
-4. The zone holds the main field if the peak bin or one of its neighbours belongs to the zone (more than half of the time spent in that bin was spent in the zone) and the fields lying in the zone (their own peak is in the zone) together carry more than half of the activity of all fields
+4. The zone holds the main field if the peak bin or one of its neighbours belongs to the zone (more than half of the bin is the zone, see below) and the fields lying in the zone (their own peak is in the zone) together carry more than half of the activity of all fields
 5. If so → merge into a combined feature (e.g. `place-corners`); every zone that holds the main field is merged, so a neuron can carry several combined features; the other zones lose to place and are removed from the neuron together with the merge (a pair decision naming place or the merged zone could no longer be applied). Otherwise place wins, `(place, zone) = 0`
 
 The map is normalised by occupancy, so the decision does not depend on how long the animal stays in the zone. Fields in the zone are counted together because a zone can be a set of separate places (four corners) that one cell covers with several fields.
+
+*Which bins belong to a zone.* By default the zone is known only from its indicator in the session file: a bin belongs to the zone when the indicator was on for more than half of the time spent in the bin. With `--zone-masks-dir` (`zone_masks` in the filter arguments, built by `load_zone_masks`) the zone is its geometry: a boolean raster of the arena in the units of the coordinates, and a bin belongs to the zone when the mask covers more than half of its area (`zone_mask_share`). The two differ because the indicators and the map follow different points of the body: the map is built from the body centre, an object indicator is set by the nose, so the frames with the indicator on form a ring around the object rather than the object itself. Significance of the neuron-zone pair is still computed from the indicator; the mask is used only to decide where the field lies.
+
+- Mask files are `<session>_zones_cm.npz` in the folder or in its subfolder named after the experiment type (`NOF/NOF_H01_1D_zones_cm.npz`), with `masks` (n_zones, ny, nx), `zone_names` and `grid_step_cm`; the centre of a raster cell is `(ix * step, iy * step)`. Zone features map to mask names by `ZONE_MASK_NAMES` (`object1` → `Object1RealOut`, `corners` → `ArenaCornersAllRealOut`, ...); a zone feature without a mask is decided by its indicator.
+- Only the file of the session itself is used: the arena and the objects are shifted between the sessions of one animal. A session without a file is analysed by the indicators and a warning is issued. A file whose arena floor (`ArenaReal`) holds less than 99% of the trajectory is refused with an error.
+- The neighbour tolerance of step 4 stays at one bin with masks: a cell responding to contact with an object has its field where the body centre is at that moment, beside the object.
 
 **`information_share` (`zone_share_filter`)** — for every (neuron, zone) pair:
 

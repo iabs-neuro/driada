@@ -61,6 +61,7 @@ from selectivity_dynamics import (
     get_experiment_config,
     get_filter_for_experiment,
     extract_filter_data,
+    find_zone_mask,
     load_experiment_from_npz,
     run_intense_analysis,
     print_results,
@@ -80,7 +81,7 @@ from selectivity_dynamics import (
 
 
 def process_single_experiment(npz_path, config, output_dir=None, plot=False, use_filters=True,
-                              zone_rule=DEFAULT_ZONE_RULE):
+                              zone_rule=DEFAULT_ZONE_RULE, zone_masks_dir=None):
     """Process a single experiment file.
 
     Parameters
@@ -98,6 +99,11 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
     zone_rule : str
         Rule for neurons selective to both place and a discrete zone, see
         get_filter_for_experiment (default: 'information_share')
+    zone_masks_dir : str or Path, optional
+        Folder with the zone mask files of the sessions, see find_zone_mask.
+        A session that has a file takes its zones from the masks in the
+        place_field rule; a session without one takes them from the zone
+        indicators.
 
     Returns
     -------
@@ -151,10 +157,14 @@ def process_single_experiment(npz_path, config, output_dir=None, plot=False, use
 
         # Extract calcium/feature/position data for the place-vs-zone filter if needed
         if exp_config['discrete_place_features']:
+            zone_mask_path = find_zone_mask(zone_masks_dir, exp_name) if zone_masks_dir else None
             spatial_data = extract_filter_data(exp, discrete_place_features=exp_config['discrete_place_features'],
-                                               place_feat_name=exp_config['place_feat_name'])
+                                               place_feat_name=exp_config['place_feat_name'],
+                                               zone_mask_path=zone_mask_path)
             filter_kwargs.update(spatial_data)
             print(f"  Extracted spatial filter data for {len(spatial_data['calcium_data'])} neurons")
+            if 'zone_masks' in spatial_data:
+                print(f"  Zone masks: {zone_mask_path} ({', '.join(spatial_data['zone_masks']['masks'])})")
 
     # Run INTENSE analysis
     print(f"\nRunning INTENSE analysis...")
@@ -272,6 +282,13 @@ Examples:
                              'the neuron is more active inside it; nothing is merged) or '
                              'top_activity (merged when the strongest activity frames fall into '
                              'the zone)')
+    parser.add_argument('--zone-masks-dir', type=str, default=None,
+                        help='Folder with zone mask files <session>_zones_cm.npz (directly in it or in '
+                             'a subfolder named after the experiment type, e.g. NOF). With --zone-rule '
+                             'place_field a zone is then the area of its mask instead of the frames '
+                             'where the zone indicator is on. Only the file of the session itself is '
+                             'used; a session without one is analysed by the zone indicators, with a '
+                             'warning')
     parser.add_argument('--skip-computed', action='store_true',
                         help='Skip files that already have results in output directory')
     parser.add_argument('--metric', type=str, default='mi', choices=['mi', 'fast_pearsonr'],
@@ -377,6 +394,7 @@ Examples:
     print(f"  Skip/aggregate features: experiment-specific (from EXPERIMENT_CONFIGS)")
     print(f"  Disentanglement filters: {'disabled' if args.no_filters else 'enabled (experiment-specific)'}")
     print(f"  Zone rule: {args.zone_rule}")
+    print(f"  Zone masks: {args.zone_masks_dir or 'none (zone indicators)'}")
     print(f"  Skip computed: {args.skip_computed}")
     print(f"  Parallel backend: {args.parallel_backend}")
     if args.output_dir:
@@ -433,7 +451,7 @@ Examples:
 
         print(f"\n[{i+1}/{len(npz_paths)}] Processing {npz_name}")
         summary = process_single_experiment(npz_path, config, output_dir, args.plot, use_filters,
-                                            zone_rule=args.zone_rule)
+                                            zone_rule=args.zone_rule, zone_masks_dir=args.zone_masks_dir)
         summaries.append(summary)
         processed_count += 1
 
