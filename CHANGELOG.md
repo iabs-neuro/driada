@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Type-based feature representations** — `representation='by_type'` makes non-monotone tuning (a peak in the middle of the range, axis tuning, a place field in the centre of the arena) visible to GCMI: linear 1D feature -> `[x, (x - c)^2]`, circular feature -> first two harmonics, linear feature with 2 or 3 components -> full quadratic expansion (5 or 9 dimensions). New module `driada.intense.representations`. When the default feature set is used, derived features are replaced by their sources, so each feature is tested once (`41785af`)
 - **FFT path for wider MultiTimeSeries** — the FFT MI engine handles MultiTimeSeries up to d=36 (previously d<=3), covering the harmonic and quadratic representations; MI between MultiTimeSeries of unequal dimension no longer raises a broadcast error (`9888bf2`, `7f249f7`, `053fb17`)
+- **Chance level of every pair** — INTENSE statistics carry `me_null`, the mean of the metric over the pair's shuffles, and `me_excess = me - me_null` (may be negative). An MI estimate on a finite recording is positive for unrelated signals, more so for short recordings, autocorrelated signals and multi-component features; `me_excess` removes that offset. Significance, p-values and `me` are unchanged
 - **Derived names in plots** — `plot_neuron_feature_pair` and `plot_neuron_feature_density` accept the name of a type-based representation and plot its source feature (`3612f59`)
 
 ### INTENSE bug fixes

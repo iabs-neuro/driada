@@ -101,6 +101,10 @@ Alternative distribution models (standard gamma, lognormal, normal) are supporte
 
 After both stages complete, their statistics and significance results are merged. Each pair retains its Stage 1 rank (`pre_rval`) alongside Stage 2 statistics (`rval`, `pval`, `me`). The final significance is determined by Stage 2 results alone; Stage 1 serves only as a filter.
 
+### Chance Level of the Metric
+
+An MI estimate on a finite recording is positive even for unrelated signals, and the size of this offset grows with the autocorrelation of the signals, the number of feature components and the inverse of the recording length. Circular shuffles keep all three, so the mean of the shuffled values estimates the offset of the given pair. It is stored as `me_null`, and `me_excess = me - me_null` is the MI above it. The mean is used rather than the median: the shuffle distribution is skewed and its median leaves part of the offset in place. Neither value takes part in the significance test; they are meant for thresholds on the effect size and for comparing recordings of different length.
+
 ### Multiple Comparison Correction
 
 INTENSE tests many neuron-feature pairs simultaneously, requiring correction for multiple comparisons. The correction is applied to Stage 2 p-values only (Stage 1 uses a rank criterion, not p-values). Supported methods:
@@ -264,6 +268,8 @@ The function returns a 5-tuple:
 
 1. **stats** (`dict`): Nested dictionary `stats[cell_id][feat_name]` containing per-pair statistics:
    - `me`: observed MI value at optimal delay
+   - `me_null`: chance level of the pair, the mean MI over its shuffles (Stage 2 shuffles if the pair reached Stage 2, otherwise Stage 1)
+   - `me_excess`: `me - me_null`, the MI above the chance level; can be negative
    - `pval`: p-value from Stage 2 distribution fitting (None if pair did not reach Stage 2)
    - `rval`: rank of observed MI among Stage 2 shuffles
    - `pre_rval`: rank of observed MI among Stage 1 shuffles

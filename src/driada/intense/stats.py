@@ -561,7 +561,9 @@ def get_table_of_stats(
     Returns
     -------
     stage_stats : dict of dict
-        Nested dictionary with computed statistics for each pair."""
+        Nested dictionary with computed statistics for each pair. Besides the
+        stage statistics every pair gets ``me_null``, the mean of its shuffled
+        values, and ``me_excess = me - me_null``, which may be negative."""
     # 0 in mask values means that stats for this pair will not be calculated
     # 1 in mask values means that stats for this pair will be calculated from new results.
     if precomputed_mask is None:
@@ -585,6 +587,11 @@ def get_table_of_stats(
         z_scores = (metable[:, :, 0] - means) / (stds + 1e-30)
         pvals_matrix = norm.sf(z_scores)
 
+    # Chance level of the metric: an estimate on finite data is positive even
+    # for unrelated signals. The mean is used because the shuffle distribution
+    # is skewed and its median leaves part of that level in place.
+    null_mean = metable[:, :, 1:].mean(axis=2)
+
     for i in range(a):
         for j in range(b):
             if precomputed_mask[i, j]:
@@ -599,6 +606,8 @@ def get_table_of_stats(
                     new_stats["pre_pval"] = None  # Not computed for performance
                     new_stats["opt_delay"] = opt_delay
                     new_stats["me"] = me
+                    new_stats["me_null"] = float(null_mean[i, j])
+                    new_stats["me_excess"] = float(me - null_mean[i, j])
 
                 elif stage == 2:
                     # Stage 2 needs p-value for multiple comparison correction
@@ -613,6 +622,8 @@ def get_table_of_stats(
                     new_stats["pval"] = pval
                     new_stats["me"] = me
                     new_stats["opt_delay"] = opt_delay
+                    new_stats["me_null"] = float(null_mean[i, j])
+                    new_stats["me_excess"] = float(me - null_mean[i, j])
 
                 stage_stats[i][j].update(new_stats)
 

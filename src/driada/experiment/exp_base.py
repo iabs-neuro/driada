@@ -30,6 +30,8 @@ STATS_VARS = [
     "pval",
     "rval",
     "me",
+    "me_null",
+    "me_excess",
     "rel_me_beh",
     "rel_me_ca",
 ]
