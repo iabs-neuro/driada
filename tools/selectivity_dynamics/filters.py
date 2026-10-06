@@ -933,8 +933,9 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
     spatial feature (corners, walls, objects, ...), its activity map decides
     (see ``place_field_in_zone``). If the main field lies in the zone, place
     and the zone are merged into a combined feature (e.g. 'place-corners');
-    otherwise place wins. Of several zones that hold the main field, the one
-    covering the largest part of it is merged and the others lose to place.
+    otherwise place wins. Every zone that holds the main field is merged, so
+    a neuron can carry several combined features; the zones that do not hold
+    it lose to place.
 
     Respects pair_decisions from earlier filters: zones already marked as
     losers are not considered.
@@ -1007,21 +1008,22 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
                 candidates.append((overlap, discr_feat))
 
         if candidates:
-            _, best_feat = max(candidates)
-            renamed = feature_renaming.get(best_feat, best_feat)
-            combined_name = f'{place_feat_name}-{renamed}'
-
-            # Remove both original features, add combined
+            # Every zone that holds the main field is merged with place: a field
+            # on an object standing in a corner belongs to both zones.
+            merged = [feat for _, feat in sorted(candidates, reverse=True)]
             sels.remove(place_feat_name)
-            sels.remove(best_feat)
-            sels.append(combined_name)
-            renames[nid][combined_name] = (place_feat_name, best_feat)
+            for zone_feat in merged:
+                renamed = feature_renaming.get(zone_feat, zone_feat)
+                combined_name = f'{place_feat_name}-{renamed}'
+                sels.remove(zone_feat)
+                sels.append(combined_name)
+                renames[nid][combined_name] = (place_feat_name, zone_feat)
 
-            # The other discrete features lose to place. They are removed here:
-            # place and the merged zone have left sels, so a pair decision
-            # naming either of them would never be applied.
+            # The remaining discrete features lose to place. They are removed
+            # here: place and the merged zones have left sels, so a pair
+            # decision naming either of them would never be applied.
             for discr_feat in discrete_in_sels:
-                if discr_feat != best_feat and discr_feat in sels:
+                if discr_feat not in merged and discr_feat in sels:
                     sels.remove(discr_feat)
         else:
             # Main field is elsewhere - place wins over all discrete features

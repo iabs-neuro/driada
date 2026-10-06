@@ -128,14 +128,14 @@ def test_decision_does_not_depend_on_time_in_zone(session):
     assert not place_field_in_zone(calcium[keep], walls[keep], bins[keep])[0]
 
 
-def test_one_zone_is_merged_and_the_rest_lose(session):
-    """A field on the object inside the walls strip: the zone holding more of the field is merged."""
+def test_every_zone_holding_the_field_is_merged(session):
+    """A field on the object inside the walls strip belongs to both zones; a zone elsewhere is dropped."""
     x, y = session["position_data"]
     near_wall = (np.minimum(x, ARENA - x) < 22) | (np.minimum(y, ARENA - y) < 22)
     data = {**session, "feature_data": {**session["feature_data"], "walls": near_wall.astype(float)}}
-    sels, decisions, renames = _run(place_field_filter, data, features=("place", "object1", "walls"))
-    assert sels[OBJECT_CELL] == ["place-walls"]
-    assert renames[OBJECT_CELL] == {"place-walls": ("place", "walls")}
+    sels, decisions, renames = _run(place_field_filter, data, features=("place", "object1", "walls", "corners"))
+    assert sels[OBJECT_CELL] == ["place-walls", "place-object1"]
+    assert renames[OBJECT_CELL] == {"place-walls": ("place", "walls"), "place-object1": ("place", "object1")}
 
 
 def test_zone_that_lost_to_the_merged_zone_is_removed(session):
