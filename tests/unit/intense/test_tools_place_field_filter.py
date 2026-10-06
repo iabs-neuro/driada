@@ -134,8 +134,20 @@ def test_one_zone_is_merged_and_the_rest_lose(session):
     near_wall = (np.minimum(x, ARENA - x) < 22) | (np.minimum(y, ARENA - y) < 22)
     data = {**session, "feature_data": {**session["feature_data"], "walls": near_wall.astype(float)}}
     sels, decisions, renames = _run(place_field_filter, data, features=("place", "object1", "walls"))
-    assert sels[OBJECT_CELL] == ["object1", "place-walls"]
-    assert decisions[OBJECT_CELL] == {("place", "object1"): 0}
+    assert sels[OBJECT_CELL] == ["place-walls"]
+    assert renames[OBJECT_CELL] == {"place-walls": ("place", "walls")}
+
+
+def test_zone_that_lost_to_the_merged_zone_is_removed(session):
+    """'objects' loses to a specific object; it must not survive the merge of that object with place."""
+    data = {**session,
+            "feature_data": {**session["feature_data"], "objects": session["feature_data"]["object1"]},
+            "discrete_place_features": session["discrete_place_features"] + ["objects"]}
+    sels = {OBJECT_CELL: ["place", "object1", "objects", "speed"]}
+    decisions = {OBJECT_CELL: {("object1", "objects"): 0}}
+    renames = {OBJECT_CELL: {}}
+    place_field_filter(sels, decisions, renames, **data)
+    assert sels[OBJECT_CELL] == ["speed", "place-object1"]
 
 
 def test_delay_is_taken_from_intense_stats(session):

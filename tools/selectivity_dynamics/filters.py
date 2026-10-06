@@ -545,10 +545,12 @@ def spatial_filter(neuron_selectivities, pair_decisions, renames,
             sels.append(combined_name)
             renames[nid][combined_name] = (place_feat_name, best_feat)
 
-            # Mark other discrete features as losing to place
+            # The other discrete features lose to place. They are removed here:
+            # place and the merged zone have left sels, so a pair decision
+            # naming either of them would never be applied.
             for discr_feat in discrete_in_sels:
                 if discr_feat != best_feat and discr_feat in sels:
-                    pair_decisions[nid][(place_feat_name, discr_feat)] = 0
+                    sels.remove(discr_feat)
         else:
             # No merge candidates - place wins over all discrete features
             for discr_feat in discrete_in_sels:
@@ -1015,10 +1017,12 @@ def place_field_filter(neuron_selectivities, pair_decisions, renames,
             sels.append(combined_name)
             renames[nid][combined_name] = (place_feat_name, best_feat)
 
-            # Mark other discrete features as losing to place
+            # The other discrete features lose to place. They are removed here:
+            # place and the merged zone have left sels, so a pair decision
+            # naming either of them would never be applied.
             for discr_feat in discrete_in_sels:
                 if discr_feat != best_feat and discr_feat in sels:
-                    pair_decisions[nid][(place_feat_name, discr_feat)] = 0
+                    sels.remove(discr_feat)
         else:
             # Main field is elsewhere - place wins over all discrete features
             for discr_feat in discrete_in_sels:
