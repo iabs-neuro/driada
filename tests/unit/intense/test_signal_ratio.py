@@ -282,6 +282,7 @@ class TestApplySignificanceFiltersAntiSelectivity:
         df = pd.DataFrame({
             'significant': [True, True, True, True],
             'me': [0.05, 0.06, 0.05, 0.07],
+            'me_excess': [0.05, 0.06, 0.05, 0.07],
             'pval': [0.0001, 0.0001, 0.0001, 0.0001],
             'delay_sign': [1, 1, 1, 1],
             'signal_ratio': [1.35, 0.8, float('nan'), 1.1],
@@ -303,6 +304,7 @@ class TestApplySignificanceFiltersAntiSelectivity:
         df = pd.DataFrame({
             'significant': [True, True],
             'me': [0.05, 0.06],
+            'me_excess': [0.05, 0.06],
             'pval': [0.0001, 0.0001],
             'delay_sign': [1, 1],
         })

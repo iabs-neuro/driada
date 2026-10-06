@@ -68,3 +68,40 @@ def test_composite_outside_the_zone_list_is_left_alone(session_records):
     assert row['feature'] == 'place-object1'
     assert row['me'] == pytest.approx(0.20)
     assert not np.isnan(row['opt_delay'])
+
+
+@pytest.fixture
+def backfilled_records(tmp_path):
+    place = dict(PLACE, me_null=0.012, me_excess=0.188)
+    zone = dict(ZONE, me_null=0.004, me_excess=0.026)
+    stats = {'0': {'place-object1': _combine_feature_stats(place, zone, names=('place', 'object1')),
+                   'speed': {'me': 0.02, 'me_null': 0.005, 'me_excess': 0.015, 'pval': 1e-3, 'opt_delay': 0},
+                   'rear': {'me': 0.02, 'pval': 1e-3, 'opt_delay': 0}}}
+    sig = {nid: {feat: {'stage1': True, 'stage2': True} for feat in feats} for nid, feats in stats.items()}
+    features = ['place-object1', 'speed', 'rear']
+    save_stats_csv(stats, features, tmp_path / 'S INTENSE stats.csv')
+    save_significance_csv(sig, features, tmp_path / 'S INTENSE significance.csv')
+    records, _ = load_session_from_csvs(tmp_path / 'S INTENSE stats.csv', tmp_path / 'S INTENSE significance.csv')
+    return pd.DataFrame(records)
+
+
+def test_loader_reads_the_chance_level(backfilled_records):
+    rows = backfilled_records.set_index('feature')
+    assert rows.loc['speed', 'me_null'] == pytest.approx(0.005)
+    assert rows.loc['speed', 'me_excess'] == pytest.approx(0.015)
+    assert rows.loc['place-object1', 'me_excess'] == pytest.approx(0.188)
+    assert np.isnan(rows.loc['rear', 'me_null']) and np.isnan(rows.loc['rear', 'me_excess'])
+
+
+def test_zone_takes_its_own_chance_level(backfilled_records):
+    data = pretransform_merge_composite_place(backfilled_records, ['object1'])
+    row = data[data.feature == 'object1'].iloc[0]
+    assert row['me'] == pytest.approx(0.03)
+    assert row['me_null'] == pytest.approx(0.004)
+    assert row['me_excess'] == pytest.approx(0.026)
+
+
+def test_zone_without_its_own_chance_level_gets_none(session_records):
+    data = pretransform_merge_composite_place(session_records, ['object1'])
+    row = data[(data.neuron_idx == 0) & (data.feature == 'object1')].iloc[0]
+    assert np.isnan(row['me_excess']) and np.isnan(row['me_null'])

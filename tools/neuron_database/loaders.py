@@ -128,8 +128,10 @@ def load_session_from_csvs(stats_path, sig_path):
     Returns
     -------
     records : list[dict]
-        Flat row dicts with keys: neuron_idx, feature, significant, me, pval, opt_delay,
-        signal_ratio, zone_stats. Only entries where stats dict is non-empty.
+        Flat row dicts with keys: neuron_idx, feature, significant, me, me_null,
+        me_excess, pval, opt_delay, signal_ratio, zone_stats. Only entries where
+        stats dict is non-empty. ``me_null`` and ``me_excess`` are NaN for tables
+        written without the chance level.
         ``zone_stats`` holds the zone's own statistics of a merged 'place-<zone>'
         entry (None for other entries and for tables written without them).
     n_neurons : int
@@ -149,6 +151,8 @@ def load_session_from_csvs(stats_path, sig_path):
                 'feature': feature,
                 'significant': neuron_sig.get(feature, False),
                 'me': s.get('me', np.nan),
+                'me_null': s.get('me_null', np.nan),
+                'me_excess': s.get('me_excess', np.nan),
                 'pval': s.get('pval', np.nan),
                 'opt_delay': s.get('opt_delay', np.nan),
                 'signal_ratio': np.nan if s.get('signal_ratio') is None else s['signal_ratio'],
@@ -271,7 +275,7 @@ def load_from_csv_directory(data_dir, session_names,
         {mouse_id: matching_table_dataframe}
     data : pd.DataFrame
         Tidy DataFrame with columns: mouse, session, matched_id, neuron_idx,
-        feature, significant, me, pval, opt_delay.
+        feature, significant, me, me_null, me_excess, pval, opt_delay.
     """
     data_dir = Path(data_dir)
     tables_dir = data_dir / tables_subdir
@@ -376,8 +380,8 @@ def load_from_csv_directory(data_dir, session_names,
     # --- Build tidy DataFrame ---
     data = pd.DataFrame(all_records, columns=[
         'mouse', 'session', 'matched_id', 'neuron_idx',
-        'feature', 'significant', 'me', 'pval', 'opt_delay',
-        'signal_ratio', 'zone_stats',
+        'feature', 'significant', 'me', 'me_null', 'me_excess', 'pval',
+        'opt_delay', 'signal_ratio', 'zone_stats',
     ])
 
     data['matched_id'] = data['matched_id'].astype(int)

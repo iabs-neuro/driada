@@ -12,7 +12,8 @@ Usage
 
 from .database import NeuronDatabase
 from .configs import (ExperimentConfig, EXPERIMENT_CONFIGS, DELAY_STRATEGY,
-                      DISCARDED_FEATURES, MI_THRESHOLD, PVAL_THRESHOLD)
+                      DISCARDED_FEATURES, MI_THRESHOLD, MI_THRESHOLD_ON,
+                      PVAL_THRESHOLD)
 from .loaders import load_from_csv_directory, load_experiment
 from .visual import plot_mi_pval_scatter, plot_mi_pval_grid
 from .tables import (apply_significance_filters,
@@ -33,7 +34,7 @@ from .tables import (apply_significance_filters,
 
 __all__ = ['NeuronDatabase', 'ExperimentConfig', 'EXPERIMENT_CONFIGS',
            'DELAY_STRATEGY', 'DISCARDED_FEATURES',
-           'MI_THRESHOLD', 'PVAL_THRESHOLD',
+           'MI_THRESHOLD', 'MI_THRESHOLD_ON', 'PVAL_THRESHOLD',
            'load_from_csv_directory', 'load_experiment',
            'apply_significance_filters',
            'get_fully_matched_ids', 'significance_count_table',

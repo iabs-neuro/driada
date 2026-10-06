@@ -8,7 +8,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from .configs import MI_THRESHOLD, PVAL_THRESHOLD
+from .configs import MI_THRESHOLD, MI_THRESHOLD_ON, PVAL_THRESHOLD
+from .database import mi_threshold_values
 from .metadata import annotate_mice_table, annotate_neuron_table
 
 
@@ -29,13 +30,15 @@ def _resolve_mice(db, matched_ids_per_mouse):
 def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
                                 pval_threshold=PVAL_THRESHOLD,
                                 filter_delay=False,
-                                filter_anti_selectivity=True):
+                                filter_anti_selectivity=True,
+                                mi_column=MI_THRESHOLD_ON):
     """Apply standard significance filters to a tidy DataFrame.
 
     Parameters
     ----------
     df : pd.DataFrame
-        Must have columns: significant, me, pval, delay_sign.
+        Must have columns: significant, me, pval, delay_sign, and me_excess
+        when the threshold is applied to it.
     mi_threshold : float or None
         Minimum MI (strict >). None to skip.
     pval_threshold : float or None
@@ -48,6 +51,11 @@ def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
         active). NaN values (non-binary features) pass through. Enabled by
         default because anti-selective neurons inflate selectivity counts
         in cross-session comparisons.
+    mi_column : {'excess', 'me'}
+        What ``mi_threshold`` is compared with: the MI above the chance level
+        of the pair (default, see ``configs.MI_THRESHOLD_ON``) or the raw
+        value. With 'excess' and no chance level in the data a ValueError is
+        raised.
 
     Returns
     -------
@@ -56,7 +64,7 @@ def apply_significance_filters(df, mi_threshold=MI_THRESHOLD,
     """
     mask = df['significant']
     if mi_threshold is not None:
-        mask = mask & (df['me'] > mi_threshold)
+        mask = mask & (mi_threshold_values(df, mi_column) > mi_threshold)
     if pval_threshold is not None:
         mask = mask & (df['pval'] < pval_threshold)
     if filter_delay:
@@ -508,8 +516,9 @@ def mi_table(db, feature, matched_ids_per_mouse=None,
     Returns
     -------
     pd.DataFrame
-        Columns: sessions (MI values, 0 if absent), {session}_nsel,
-        mouse, matched_id.
+        Columns: sessions (MI values, 0 if absent), {session}_excess (MI
+        above the chance level, 0 if absent), {session}_nsel, mouse,
+        matched_id.
     """
     filter_delay = _resolve_filter_delay(filter_delay, db)
     fkw = dict(mi_threshold=mi_threshold, pval_threshold=pval_threshold,
@@ -526,6 +535,7 @@ def mi_table(db, feature, matched_ids_per_mouse=None,
 
     if df.empty:
         return pd.DataFrame(columns=sessions +
+                            [f'{s}_excess' for s in sessions] +
                             [f'{s}_nsel' for s in sessions] +
                             ['mouse', 'matched_id'])
 
@@ -535,6 +545,16 @@ def mi_table(db, feature, matched_ids_per_mouse=None,
                               aggfunc='first')
     mi_pivot = mi_pivot.reindex(columns=sessions, fill_value=0).fillna(0)
     mi_pivot = mi_pivot.round(3)
+
+    # The same pivot for the MI above the chance level
+    excess_cols = [f'{s}_excess' for s in sessions]
+    excess_pivot = df.pivot_table(index=['mouse', 'matched_id'],
+                                  columns='session', values='me_excess',
+                                  aggfunc='first')
+    excess_pivot = excess_pivot.reindex(columns=sessions, fill_value=0).fillna(0)
+    excess_pivot = excess_pivot.round(3)
+    excess_pivot.columns = excess_cols
+    mi_pivot = mi_pivot.join(excess_pivot)
 
     # Nsel across all features
     nsel_pivot = _build_nsel_per_neuron(db, matched_ids_per_mouse,
@@ -548,7 +568,7 @@ def mi_table(db, feature, matched_ids_per_mouse=None,
     result = result.reset_index()
 
     # Reorder columns
-    col_order = sessions + nsel_cols + ['mouse', 'matched_id']
+    col_order = sessions + excess_cols + nsel_cols + ['mouse', 'matched_id']
     result = result[col_order]
 
     # Ensure nsel columns are int
@@ -595,14 +615,17 @@ def mi_table_composite(db, n_sel, matched_ids_per_mouse=None,
     if matched_ids_per_mouse is not None:
         df = _filter_by_matched_ids(df, matched_ids_per_mouse)
 
+    excess_cols = [f'{s}_excess' for s in sessions]
+    empty_columns = (sessions + excess_cols + [f'{s}_nsel' for s in sessions] +
+                     ['mouse', 'matched_id'])
     if df.empty:
-        return pd.DataFrame(columns=sessions +
-                            [f'{s}_nsel' for s in sessions] +
-                            ['mouse', 'matched_id'])
+        return pd.DataFrame(columns=empty_columns)
 
     # Mean MI and nsel per (mouse, matched_id, session)
     per_neuron_session = (df.groupby(['mouse', 'matched_id', 'session'])
-                          .agg(mean_mi=('me', 'mean'), nsel=('me', 'size'))
+                          .agg(mean_mi=('me', 'mean'),
+                               mean_excess=('me_excess', 'mean'),
+                               nsel=('me', 'size'))
                           .reset_index())
 
     # Determine which sessions match the selectivity criterion
@@ -614,9 +637,7 @@ def mi_table_composite(db, n_sel, matched_ids_per_mouse=None,
         qualifying = per_neuron_session[per_neuron_session['nsel'] == n_sel]
 
     if qualifying.empty:
-        return pd.DataFrame(columns=sessions +
-                            [f'{s}_nsel' for s in sessions] +
-                            ['mouse', 'matched_id'])
+        return pd.DataFrame(columns=empty_columns)
 
     # Neuron identities that qualify in at least one session
     qual_ids = qualifying[['mouse', 'matched_id']].drop_duplicates()
@@ -632,6 +653,11 @@ def mi_table_composite(db, n_sel, matched_ids_per_mouse=None,
     mi_pivot = qualifying_key['mean_mi'].unstack(fill_value=0)
     mi_pivot = mi_pivot.reindex(columns=sessions, fill_value=0).fillna(0)
     mi_pivot = mi_pivot.round(3)
+    excess_pivot = qualifying_key['mean_excess'].unstack(fill_value=0)
+    excess_pivot = excess_pivot.reindex(columns=sessions, fill_value=0).fillna(0)
+    excess_pivot = excess_pivot.round(3)
+    excess_pivot.columns = excess_cols
+    mi_pivot = mi_pivot.join(excess_pivot)
 
     # Nsel: actual nsel for ALL sessions of qualifying neurons
     nsel_pivot = all_sessions.pivot_table(index=['mouse', 'matched_id'],
@@ -645,7 +671,7 @@ def mi_table_composite(db, n_sel, matched_ids_per_mouse=None,
     result = result.reset_index()
 
     nsel_cols = [f'{s}_nsel' for s in sessions]
-    col_order = sessions + nsel_cols + ['mouse', 'matched_id']
+    col_order = sessions + excess_cols + nsel_cols + ['mouse', 'matched_id']
     result = result[col_order]
 
     for c in nsel_cols:

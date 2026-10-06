@@ -7,6 +7,43 @@ linked by matching tables that track neuron identity across sessions.
 import numpy as np
 import pandas as pd
 
+from .configs import MI_COLUMNS, MI_THRESHOLD_ON
+
+
+def mi_threshold_values(df, mi_column=MI_THRESHOLD_ON):
+    """Values the MI threshold is compared with.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Tidy data with 'me' and, for ``mi_column='excess'``, 'me_excess'.
+    mi_column : {'excess', 'me'}
+        'excess' takes the information above the chance level of the pair,
+        'me' the raw estimate.
+
+    Returns
+    -------
+    pd.Series
+
+    Raises
+    ------
+    ValueError
+        For an unknown ``mi_column``, or when 'excess' is asked for and the
+        data carry no chance level: falling back to the raw value would
+        change the meaning of the threshold without a trace.
+    """
+    if mi_column not in MI_COLUMNS:
+        raise ValueError(
+            f"mi_column must be one of {sorted(MI_COLUMNS)}, got {mi_column!r}")
+    column = MI_COLUMNS[mi_column]
+    if mi_column == 'excess' and len(df) and (
+            column not in df.columns or df[column].isna().all()):
+        raise ValueError(
+            "The tables carry no chance level (me_excess). Add it to saved "
+            "results with tools/selectivity_dynamics/backfill_chance_level.py, "
+            "or pass mi_column='me' to threshold the raw value.")
+    return df[column]
+
 
 def pretransform_merge_composite_place(data, discrete_place_features):
     """Rename 'place-X' features to 'X' for known discrete place features.
@@ -33,7 +70,8 @@ def pretransform_merge_composite_place(data, discrete_place_features):
                 zone_stats = data.at[idx, 'zone_stats']
                 if not isinstance(zone_stats, dict):
                     continue
-                for key in ('me', 'pval', 'opt_delay', 'signal_ratio'):
+                for key in ('me', 'me_null', 'me_excess', 'pval', 'opt_delay',
+                            'signal_ratio'):
                     value = zone_stats.get(key)
                     data.at[idx, key] = np.nan if value is None else value
     return data
@@ -78,7 +116,7 @@ class NeuronDatabase:
         (NaN if absent).
     data : pd.DataFrame
         Tidy DataFrame with columns: mouse, session, matched_id, neuron_idx,
-        feature, significant, me, pval, opt_delay.
+        feature, significant, me, me_null, me_excess, pval, opt_delay.
     """
 
     def __init__(self, session_names, matching, data,
@@ -154,7 +192,8 @@ class NeuronDatabase:
         return self._aggregate_feature_names
 
     def inject_aggregate_features(self, aggregate_features,
-                                   mi_threshold=0.04):
+                                   mi_threshold=0.04,
+                                   mi_column=MI_THRESHOLD_ON):
         """Add synthetic rows for aggregate features.
 
         For each neuron-session where ANY constituent feature passes the
@@ -167,12 +206,15 @@ class NeuronDatabase:
             {aggregate_name: [constituent_feature1, constituent_feature2, ...]}.
         mi_threshold : float
             Minimum MI for a constituent to be included.
+        mi_column : {'excess', 'me'}
+            What the threshold is compared with, see ``mi_threshold_values``.
         """
         self._aggregate_feature_names.update(aggregate_features.keys())
         new_rows = []
         for agg_name, constituents in aggregate_features.items():
             df = self._data[self._data['feature'].isin(constituents)]
-            mask = df['significant'] & (df['me'] > mi_threshold)
+            mask = df['significant'] & (
+                mi_threshold_values(df, mi_column) > mi_threshold)
             if self.filter_delay:
                 mask = mask & (df['delay_sign'] >= 0)
             sig = df[mask]
@@ -188,6 +230,8 @@ class NeuronDatabase:
                     'feature': agg_name,
                     'significant': True,
                     'me': grp['me'].mean(),
+                    'me_null': grp['me_null'].mean(),
+                    'me_excess': grp['me_excess'].mean(),
                     'pval': grp['pval'].min(),
                     'opt_delay': 0,
                     'delay_sign': 0,

@@ -521,3 +521,102 @@ class TestCrossTableConsistency:
             for mouse in db.mice:
                 assert ret.loc[mouse, n_sessions] <= len(fully[mouse]), (
                     f"{feat}/{mouse}: retention k={n_sessions} > fully matched")
+
+
+# ---------------------------------------------------------------------------
+# 14. Threshold on the information above the chance level (synthetic data)
+# ---------------------------------------------------------------------------
+
+def _synthetic_db(with_excess=True):
+    from neuron_database import NeuronDatabase
+
+    # (matched_id, feature, me, me_null)
+    pairs = [
+        (0, 'walls', 0.05, 0.02),    # above the threshold only before subtraction
+        (0, 'corners', 0.09, 0.01),
+        (1, 'walls', 0.10, 0.02),
+        (2, 'walls', 0.03, 0.00),    # below the threshold either way
+    ]
+    rows = [{
+        'mouse': 'M1', 'session': '1D', 'matched_id': mid, 'neuron_idx': mid,
+        'feature': feature, 'significant': True, 'me': me,
+        'me_null': me_null if with_excess else np.nan,
+        'me_excess': me - me_null if with_excess else np.nan,
+        'pval': 1e-6, 'opt_delay': 0, 'signal_ratio': np.nan, 'delay_sign': 0,
+    } for mid, feature, me, me_null in pairs]
+    matching = pd.DataFrame({'1D': [1, 2, 3]}, index=pd.Index(range(3), name='matched_id'))
+    return NeuronDatabase(['1D'], {'M1': matching}, pd.DataFrame(rows),
+                          sessions_to_match=[1])
+
+
+class TestChanceLevelThreshold:
+
+    def test_default_is_the_excess(self):
+        from neuron_database.configs import MI_THRESHOLD_ON
+        assert MI_THRESHOLD_ON == 'excess'
+
+    def test_pair_above_threshold_only_by_chance_is_excluded(self):
+        df = _synthetic_db().query(feature='walls')
+        assert sorted(apply_significance_filters(df)['matched_id']) == [1]
+        assert sorted(apply_significance_filters(df, mi_column='excess')['matched_id']) == [1]
+        assert sorted(apply_significance_filters(df, mi_column='me')['matched_id']) == [0, 1]
+
+    def test_counts_follow_the_default_column(self):
+        db = _synthetic_db()
+        assert significance_count_table(db, 'walls').loc['M1', '1D'] == 1
+        assert significance_count_table(db, 'corners').loc['M1', '1D'] == 1
+
+    def test_missing_excess_is_an_error_naming_the_backfill_tool(self):
+        df = _synthetic_db(with_excess=False).query()
+        with pytest.raises(ValueError, match='backfill_chance_level'):
+            apply_significance_filters(df)
+        with pytest.raises(ValueError, match='backfill_chance_level'):
+            apply_significance_filters(df.drop(columns='me_excess'))
+        assert len(apply_significance_filters(df, mi_column='me')) == 3
+
+    def test_no_threshold_needs_no_excess(self):
+        df = _synthetic_db(with_excess=False).query()
+        assert len(apply_significance_filters(df, mi_threshold=None)) == 4
+
+    def test_unknown_column_is_an_error(self):
+        with pytest.raises(ValueError, match='mi_column'):
+            apply_significance_filters(_synthetic_db().query(), mi_column='median')
+
+    def test_aggregate_follows_the_excess(self):
+        db = _synthetic_db()
+        db.inject_aggregate_features({'any place': ['walls', 'corners']})
+        agg = db.query(feature='any place').set_index('matched_id')
+        assert sorted(agg.index) == [0, 1]
+        # Neuron 0 enters through 'corners' only.
+        assert agg.loc[0, 'me'] == pytest.approx(0.09)
+        assert agg.loc[0, 'me_excess'] == pytest.approx(0.08)
+        assert agg.loc[0, 'me_null'] == pytest.approx(0.01)
+        assert significance_count_table(db, 'any place').loc['M1', '1D'] == 2
+
+    def test_aggregate_follows_the_raw_value_when_asked(self):
+        db = _synthetic_db()
+        db.inject_aggregate_features({'any place': ['walls', 'corners']}, mi_column='me')
+        agg = db.query(feature='any place').set_index('matched_id')
+        assert agg.loc[0, 'me'] == pytest.approx(0.07)
+        assert agg.loc[0, 'me_excess'] == pytest.approx(0.055)
+
+    def test_aggregate_without_excess_is_an_error(self):
+        db = _synthetic_db(with_excess=False)
+        with pytest.raises(ValueError, match='backfill_chance_level'):
+            db.inject_aggregate_features({'any place': ['walls', 'corners']})
+
+    def test_mi_table_keeps_me_and_adds_the_excess(self):
+        table = mi_table(_synthetic_db(), 'walls')
+        assert list(table.columns) == ['1D', '1D_excess', '1D_nsel', 'mouse', 'matched_id']
+        assert table['1D'].tolist() == [0.1]
+        assert table['1D_excess'].tolist() == [0.08]
+
+    def test_composite_mi_table_adds_the_mean_excess(self):
+        db = _synthetic_db()
+        db._data.loc[db._data['matched_id'] == 1, 'feature'] = 'corners'
+        db._data.loc[db._data['matched_id'] == 1, 'matched_id'] = 0
+        table = mi_table_composite(db, 0)
+        assert list(table.columns) == ['1D', '1D_excess', '1D_nsel', 'mouse', 'matched_id']
+        # Two features of one neuron: 0.09 - 0.01 and 0.10 - 0.02.
+        assert table['1D'].tolist() == [0.095]
+        assert table['1D_excess'].tolist() == [0.08]

@@ -26,6 +26,14 @@ class ExperimentConfig:
 
 DELAY_STRATEGY = 'all'
 MI_THRESHOLD = 0.04
+# What MI_THRESHOLD is compared with: 'excess' is the information above the
+# chance level of the pair (me_excess), 'me' the raw estimate. An estimate on
+# a finite recording is positive for unrelated signals, more so in short
+# sessions, so a threshold on the raw value means different things in
+# recordings of different length. For a Gaussian relation 0.04 bits of excess
+# is 5.4% of the variance of rank-normalised activity, a correlation of 0.23.
+MI_THRESHOLD_ON = 'excess'
+MI_COLUMNS = {'excess': 'me_excess', 'me': 'me'}
 PVAL_THRESHOLD = 0.001
 
 DISCARDED_FEATURES = {'speed_2d'}
