@@ -352,7 +352,7 @@ def build_disentangled_stats(stats, significance, disent_results, exp):
     return disent_stats, disent_significance
 
 
-_COMPONENT_STAT_KEYS = ('me', 'pval', 'opt_delay', 'signal_ratio')
+_COMPONENT_STAT_KEYS = ('me', 'me_null', 'me_excess', 'pval', 'opt_delay', 'signal_ratio')
 
 
 def _combine_feature_stats(stats1, stats2, names=None):

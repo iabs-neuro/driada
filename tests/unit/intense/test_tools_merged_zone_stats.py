@@ -20,6 +20,14 @@ def test_merged_entry_keeps_component_stats():
     assert merged['component_stats'] == {'place': PLACE, 'object1': ZONE}
 
 
+def test_component_stats_carry_the_chance_level():
+    place = dict(PLACE, me_null=0.012, me_excess=0.188)
+    zone = dict(ZONE, me_null=0.004, me_excess=0.026)
+    merged = _combine_feature_stats(place, zone, names=('place', 'object1'))
+    assert merged['component_stats'] == {'place': place, 'object1': zone}
+    assert merged['me_null'] == 0.012 and merged['me_excess'] == 0.188
+
+
 def test_without_names_nothing_is_added():
     assert 'component_stats' not in _combine_feature_stats(PLACE, ZONE)
 
