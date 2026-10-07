@@ -388,7 +388,19 @@ class Embedding:
         # tie-breaking on unweighted graphs) and doubles the cost. Isomap is
         # kernel PCA of -D^2/2 on these geodesics.
         geodesic = shortest_path(A, method="D", directed=False)
-        isomap_reducer = KernelPCA(n_components=self.dim, kernel="precomputed")
+        # ARPACK instead of sklearn's default dense solver on small graphs: the
+        # dense solver asks LAPACK for an index range of eigenvalues, which can
+        # come back empty when a repeated eigenvalue sits on the boundary of the
+        # range, and hop-count geodesics of unweighted graphs have such spectra.
+        # ARPACK needs dim < n; with dim >= n the dense solver takes the whole
+        # spectrum and is safe. The seed fixes ARPACK's starting vector.
+        eigen_solver = "arpack" if self.dim < geodesic.shape[0] else "dense"
+        isomap_reducer = KernelPCA(
+            n_components=self.dim,
+            kernel="precomputed",
+            eigen_solver=eigen_solver,
+            random_state=42,
+        )
         self.coords = isomap_reducer.fit_transform(-0.5 * geodesic**2).T
         self.reducer_ = isomap_reducer
 
