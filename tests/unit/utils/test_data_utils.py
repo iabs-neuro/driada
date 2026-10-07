@@ -182,6 +182,36 @@ class TestCorrelatedGaussianData:
         assert abs(corr_matrix[0, 1] - 0.5) < 0.1
         assert abs(corr_matrix[2, 3] - (-0.7)) < 0.1
 
+    def test_seeded_sample_does_not_depend_on_eigenbasis(self):
+        """A seed fixes the sample itself, not only its distribution.
+
+        The correlation matrix has a repeated eigenvalue (every uncorrelated
+        feature contributes a 1), so a factor built from an eigenbasis or an
+        SVD is not unique and differs between LAPACK builds. The expected
+        values below are closed-form and hold for any build.
+        """
+        n_features, n_samples, seed = 20, 200, 42
+        rho = 0.9
+        data, _ = create_correlated_gaussian_data(
+            n_features=n_features,
+            n_samples=n_samples,
+            correlation_pairs=[(1, 19, rho), (2, 18, 0.8), (5, 15, 0.7)],
+            seed=seed,
+        )
+
+        np.random.seed(seed)
+        z = np.random.standard_normal((n_samples, n_features)).T
+
+        # Uncorrelated features are the standard normal draws themselves
+        for i in (0, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17):
+            np.testing.assert_allclose(data[i], z[i], rtol=0, atol=1e-12)
+
+        # A correlated pair mixes only its own two draws
+        a = (np.sqrt(1 + rho) + np.sqrt(1 - rho)) / 2
+        b = (np.sqrt(1 + rho) - np.sqrt(1 - rho)) / 2
+        np.testing.assert_allclose(data[1], a * z[1] + b * z[19], rtol=0, atol=1e-12)
+        np.testing.assert_allclose(data[19], b * z[1] + a * z[19], rtol=0, atol=1e-12)
+
 
 class TestRescale:
     """Test cases for rescale function."""

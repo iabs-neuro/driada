@@ -52,6 +52,10 @@ def create_correlated_gaussian_data(
     The correlation matrix is made positive definite if needed by adding a
     small value to the diagonal.
 
+    Samples are standard normal draws multiplied by the symmetric square root
+    of the correlation matrix, so a given seed yields the same data on every
+    platform and linear algebra backend (up to floating point rounding).
+
     Examples
     --------
     >>> data, corr = create_correlated_gaussian_data(n_features=3, n_samples=100)
@@ -82,8 +86,12 @@ def create_correlated_gaussian_data(
     if min_eig < 0:
         C += (-min_eig + 0.01) * np.eye(n_features)
 
-    # Generate data
-    data = np.random.multivariate_normal(np.zeros(n_features), C, size=n_samples).T
+    # Generate data. The symmetric square root of C is unique, while an SVD or
+    # eigenvector factor is not when C has repeated eigenvalues (every
+    # uncorrelated feature adds one), and then depends on the LAPACK build.
+    eigvals, eigvecs = np.linalg.eigh(C)
+    root = (eigvecs * np.sqrt(np.clip(eigvals, 0, None))) @ eigvecs.T
+    data = (np.random.standard_normal((n_samples, n_features)) @ root).T
 
     return data, C
 
