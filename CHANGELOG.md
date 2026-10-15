@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.2.0] - 2026-10-15
 
 **Type-based feature representations in INTENSE, now the default**
+
+68 commits, 97 files changed since v1.1.0.
 
 ### Changed behaviour
 
@@ -50,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Reproducibility
 
 - **Seeded tie-breaking noise** — `load_exp_from_aligned_data`, `Experiment` and `aggregate_multiple_ts` accept `seed`; the small noise added to calcium traces and aggregated features is drawn from streams derived from it, so INTENSE results are identical between runs. Without a seed the behaviour is unchanged (`3082956`)
+- **Seeded correlated test data is the same on every platform** — `create_correlated_gaussian_data` draws through the symmetric square root of the correlation matrix instead of `np.random.multivariate_normal`, whose factor is not unique for repeated eigenvalues and differed between numpy builds (Windows wheels of numpy 2.5). The values for a given seed change on every platform (`6efc9b2`)
 
 ### Information theory
 
@@ -58,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dimensionality reduction
 
 - **Isomap embeds the graph as built** — graph geodesics are embedded directly (classical MDS) instead of being passed to sklearn's Isomap, which rebuilt a k-NN graph on them and dropped edges of union-symmetrized graphs (`3bbfff0`)
+- **Isomap on repeated eigenvalues** — the embedding is computed with ARPACK and a fixed starting vector; sklearn's default dense solver could return no eigenvalues on OpenBLAS builds when a repeated eigenvalue sat on the boundary of the requested range, which hop-count geodesics of unweighted graphs produce (`219f355`)
 - **Explicit parameter groups** — `get_embedding(method=..., g_params=...)` keeps explicit `g_params`, `e_params` and `m_params` instead of replacing them by the method defaults (`fffea6e`)
 - **ClassificationLoss MLP head** — optional `hidden_dim` adds a two-layer classifier (`eb0de37`)
 
