@@ -253,18 +253,20 @@ class TestDiscreteDiscreteFFTPerformance:
         y = np.random.randint(0, Yn, n)
         shifts = np.arange(nsh)
 
+        # perf_counter, not time.time: on Windows time.time can be too coarse to
+        # resolve the FFT call, which then measures as zero
         # Time FFT
-        start = time.time()
+        start = time.perf_counter()
         mi_fft = compute_mi_dd_fft(x, y, shifts, biascorrect=False)
-        time_fft = time.time() - start
+        time_fft = time.perf_counter() - start
 
         # Time loop
-        start = time.time()
+        start = time.perf_counter()
         mi_loop = np.zeros(nsh)
         for i, s in enumerate(shifts):
             y_shifted = np.roll(y, int(s))
             mi_loop[i] = mutual_info_score(x, y_shifted) / np.log(2)
-        time_loop = time.time() - start
+        time_loop = time.perf_counter() - start
 
         # Verify correctness
         np.testing.assert_allclose(mi_fft, mi_loop, rtol=1e-10, atol=1e-14)
