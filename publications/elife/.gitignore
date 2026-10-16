@@ -1,0 +1,10 @@
+# experimental data and regenerated outputs stay out of the repository
+/data/
+/output/
+# too large to ship; written by fig2/fig2_data.py and fig5/fig5_data.py
+/cache/fig2_*.npz
+/cache/fig5_rnn.npz
+# the root .gitignore hides everything named elife*
+!/elife_paths.py
+# the root .gitignore hides *.md other than readmes
+!/dandi/dandiset_description.md

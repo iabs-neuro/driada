@@ -1,0 +1,2 @@
+# the root .gitignore hides everything named elife*; this folder is meant to be tracked
+!/elife/
