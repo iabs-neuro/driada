@@ -415,7 +415,7 @@ def compute_cell_feat_significance(
     >>> stats, sig, info, res, _ = compute_cell_feat_significance(
     ...     exp,
     ...     cell_bunch=[0, 1],
-    ...     feat_bunch=['d_feat_0'],
+    ...     feat_bunch=['event_0'],
     ...     mode='stage1',
     ...     n_shuffles_stage1=10,
     ...     verbose=False
@@ -423,7 +423,7 @@ def compute_cell_feat_significance(
     ...
     >>> len(stats)  # Number of neurons analyzed
     2
-    >>> 'd_feat_0' in stats[0]  # Feature present in results
+    >>> 'event_0' in stats[0]  # Feature present in results
     True
     >>>
     >>> # With disentanglement analysis
@@ -999,7 +999,7 @@ def compute_feat_feat_significance(
     >>> # Analyze specific features only
     >>> sim_mat2, sig_mat2, pval_mat2, features2, info2 = compute_feat_feat_significance(
     ...     exp,
-    ...     feat_bunch=['d_feat_0', 'd_feat_1'],
+    ...     feat_bunch=['event_0', 'event_1'],
     ...     mode='stage1',
     ...     n_shuffles_stage1=10,
     ...     verbose=False
@@ -1324,7 +1324,7 @@ def compute_cell_cell_significance(
     True
     >>> np.allclose(np.diag(sim_mat), 0)  # Self-correlation is zero
     True
-    >>> sim_mat[0, 1] > sim_mat[0, 2]  # Neurons 0,1 more correlated than 0,2
+    >>> bool(sim_mat[0, 1] > sim_mat[0, 2])  # Neurons 0,1 more correlated than 0,2
     True
 
     Raises
