@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 from scipy.sparse.linalg import eigs
 import umap.umap_ as umap
@@ -1412,8 +1414,8 @@ class Embedding:
         best_test_epoch = -1
         if continue_learning:
             best_test_loss = self.nn_loss
-            best_test_model = model.state_dict().copy()
-            best_optimizer_state = optimizer.state_dict()
+            best_test_model = copy.deepcopy(model.state_dict())
+            best_optimizer_state = copy.deepcopy(optimizer.state_dict())
         else:
             best_test_loss = 1e10
             best_test_model = None
@@ -1525,8 +1527,10 @@ class Embedding:
                 if tloss < best_test_loss:
                     best_test_loss = tloss
                     best_test_epoch = epoch + 1
-                    best_test_model = model.state_dict().copy()
-                    best_optimizer_state = optimizer.state_dict()
+                    # deep copies: state_dict() tensors share storage with the live weights
+                    # and the optimizer state, which later steps update in place
+                    best_test_model = copy.deepcopy(model.state_dict())
+                    best_optimizer_state = copy.deepcopy(optimizer.state_dict())
                 if verbose:
                     print(
                         f"epoch : {epoch + 1}/{epochs}, train loss = {loss:.8f}, test loss = {tloss:.8f}"
@@ -1672,8 +1676,8 @@ class Embedding:
         best_test_epoch = -1
         if continue_learning:
             best_test_loss = self.nn_loss if hasattr(self, 'nn_loss') else 1e10
-            best_test_model = model.state_dict().copy()
-            best_optimizer_state = optimizer.state_dict()
+            best_test_model = copy.deepcopy(model.state_dict())
+            best_optimizer_state = copy.deepcopy(optimizer.state_dict())
         else:
             best_test_loss = 1e10
             best_test_model = None
@@ -1742,8 +1746,10 @@ class Embedding:
                 if tloss < best_test_loss:
                     best_test_loss = tloss
                     best_test_epoch = epoch + 1
-                    best_test_model = model.state_dict().copy()
-                    best_optimizer_state = optimizer.state_dict()
+                    # deep copies: state_dict() tensors share storage with the live weights
+                    # and the optimizer state, which later steps update in place
+                    best_test_model = copy.deepcopy(model.state_dict())
+                    best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
                 if verbose:
                     print(
@@ -2017,8 +2023,8 @@ class Embedding:
         best_test_epoch = -1
         if continue_learning:
             best_test_loss = self.nn_loss
-            best_test_model = model.state_dict().copy()
-            best_optimizer_state = optimizer.state_dict()
+            best_test_model = copy.deepcopy(model.state_dict())
+            best_optimizer_state = copy.deepcopy(optimizer.state_dict())
         else:
             best_test_loss = 1e10
             best_test_model = None
@@ -2089,8 +2095,10 @@ class Embedding:
                 if test_loss < best_test_loss:
                     best_test_loss = test_loss
                     best_test_epoch = epoch + 1
-                    best_test_model = model.state_dict().copy()
-                    best_optimizer_state = optimizer.state_dict()
+                    # deep copies: state_dict() tensors share storage with the live weights
+                    # and the optimizer state, which later steps update in place
+                    best_test_model = copy.deepcopy(model.state_dict())
+                    best_optimizer_state = copy.deepcopy(optimizer.state_dict())
 
                 if verbose:
                     train_loss = avg_train_losses["total_loss"]
