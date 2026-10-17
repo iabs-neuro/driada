@@ -1160,7 +1160,10 @@ class Embedding:
         Notes
         -----
         Uses sklearn's train_test_split with shuffle=False to preserve
-        temporal order in the data split."""
+        temporal order in the data split. Both loaders yield
+        ``(sample, index)`` pairs where ``index`` is the frame's position in
+        the full recording, so per-frame external data and labels can be
+        indexed with it on either part."""
         # Validate parameters
         check_positive(batch_size=batch_size)
         check_nonnegative(seed=seed)
@@ -1169,7 +1172,7 @@ class Embedding:
 
         try:
             import torch
-            from torch.utils.data import DataLoader
+            from torch.utils.data import DataLoader, Subset
             from sklearn.model_selection import train_test_split
             from .neural import NeuroDataset
         except (ImportError, OSError) as e:
@@ -1194,9 +1197,11 @@ class Embedding:
             indices, train_size=train_size, random_state=seed, shuffle=False
         )
 
-        # Create datasets with the split indices
-        train_dataset = NeuroDataset(self.init_data[:, train_indices])
-        test_dataset = NeuroDataset(self.init_data[:, test_indices])
+        # Subsets of one dataset over the whole recording, so both parts yield
+        # global frame indices: losses and labels look up per-frame data by them
+        full_dataset = NeuroDataset(self.init_data)
+        train_dataset = Subset(full_dataset, train_indices)
+        test_dataset = Subset(full_dataset, test_indices)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 

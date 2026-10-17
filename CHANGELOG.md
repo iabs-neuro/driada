@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Dimensionality reduction
+
+- **Held-out frames reach the losses with their own external data and labels** — the autoencoder loaders reported the held-out frames by their position inside the held-out part, starting from zero, so `OrthogonalityLoss` with `external_data` and the `labels` of `ClassificationLoss` were looked up for frames shifted back by the length of the training part. Both loaders now yield frame indices in the full recording. Training batches are unchanged; in `flexible_ae` with these losses the held-out loss, and therefore the epoch kept as the best model, can change. Models trained without these losses are unaffected
+
 ## [1.2.0] - 2026-10-15
 
 **Type-based feature representations in INTENSE, now the default**
