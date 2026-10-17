@@ -110,11 +110,14 @@ class FlexibleAutoencoderBase(nn.Module, ABC):
             self._initialize_losses(loss_components)
 
         # Register nn.Module attributes from loss components so they are
-        # included in model.to(), state_dict(), and parameters()
+        # included in model.to(), state_dict(), and parameters(). Modules a loss
+        # trains with its own optimizer (e.g. the Factor-VAE discriminator) are
+        # left out, so the autoencoder optimizer never updates them.
         for i, loss_component in enumerate(self.losses):
+            separate = getattr(loss_component, "separately_optimized", ())
             for attr_name in dir(loss_component):
                 attr = getattr(loss_component, attr_name, None)
-                if isinstance(attr, nn.Module):
+                if isinstance(attr, nn.Module) and attr_name not in separate:
                     self.add_module(f"loss_{i}_{attr_name}", attr)
 
     def _initialize_losses(self, loss_components: List[Dict]):

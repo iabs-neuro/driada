@@ -1934,6 +1934,7 @@ class Embedding:
             import torch.optim as optim
             from torch.utils.data import DataLoader
             from .flexible_ae import ModularAutoencoder, FlexibleVAE
+            from .losses import FactorVAELoss
         except (ImportError, OSError):
             raise ImportError(
                 "PyTorch is required for autoencoder methods. "
@@ -2001,7 +2002,8 @@ class Embedding:
             model = self.nnmodel
 
         # Loss component nn.Module attrs are registered on the model,
-        # so model.parameters() includes them automatically
+        # so model.parameters() includes them automatically (except modules
+        # a loss trains with its own optimizer, see FactorVAELoss)
         optimizer = optim.Adam(model.parameters(), lr=lr)
         if continue_learning and hasattr(self, "_optimizer_state"):
             optimizer.load_state_dict(self._optimizer_state)
@@ -2045,6 +2047,12 @@ class Embedding:
                 # Backward pass
                 total_loss.backward()
                 optimizer.step()
+
+                # The Factor-VAE discriminator is not in the model optimizer;
+                # it is trained on the codes of this batch by its own optimizer
+                for loss_component in model.losses:
+                    if isinstance(loss_component, FactorVAELoss):
+                        loss_component.discriminator_step()
 
                 train_losses.append(loss_dict)
 
