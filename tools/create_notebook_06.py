@@ -845,7 +845,8 @@ cells.append(code_cell(
 "        data_by_mod.append(vals)\n"
 "        labels.append(MODULE_SHORT[m])\n"
 "\n"
-"    bp = ax.boxplot(data_by_mod, labels=labels, patch_artist=True)\n"
+"    bp = ax.boxplot(data_by_mod, patch_artist=True)\n"
+"    ax.set_xticks(range(1, len(labels) + 1), labels)\n"
 "    for patch, m in zip(bp[\"boxes\"], module_names):\n"
 "        patch.set_facecolor(\"#aabbdd\")\n"
 "        patch.set_alpha(0.7)\n"
@@ -880,9 +881,10 @@ cells.append(md_cell(
 
 cells.append(code_cell(
 "# Pairwise Jaccard -- accepts RecurrenceGraph objects directly;\n"
-"# adaptive trim (default) handles different embedded lengths from per-neuron tau/dim\n"
+"# trim=\"min\" handles different embedded lengths from per-neuron tau/dim and keeps\n"
+"# every neuron, so sim_matrix rows stay aligned with neuron_modules\n"
 "print(\"Computing pairwise Jaccard similarity...\")\n"
-"sim_matrix, _mask = pairwise_jaccard_sparse(per_neuron_rgs)\n"
+"sim_matrix, _ = pairwise_jaccard_sparse(per_neuron_rgs, trim=\"min\")\n"
 "print(f\"{n_neurons} graphs compared\")\n"
 "\n"
 "# Within-module vs between-module\n"
