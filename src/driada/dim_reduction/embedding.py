@@ -1512,13 +1512,15 @@ class Embedding:
                     # compute test reconstruction loss
                     test_loss = criterion(outputs, batch_features.float())
 
+                    if add_mi_loss or add_corr_loss:
+                        test_code = model.encoder(noisy_batch_features.float()).T
+
                     if add_mi_loss:
                         ortdata = torch.tensor(minimize_mi_data[:, indices]).float().to(device)
-                        train_loss += mi_hyperweight * data_orthogonality_loss(code, ortdata)
+                        test_loss += mi_hyperweight * data_orthogonality_loss(test_code, ortdata)
 
                     if add_corr_loss:
-                        code = model.encoder(noisy_batch_features.float()).T
-                        train_loss += corr_hyperweight * correlation_loss(code)
+                        test_loss += corr_hyperweight * correlation_loss(test_code)
 
                     tloss += test_loss.item()
 

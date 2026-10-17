@@ -1,6 +1,7 @@
 """Training-loop behaviour shared by the autoencoder embeddings."""
 
 import numpy as np
+import pytest
 import torch
 
 from driada.dim_reduction.data import MVData
@@ -39,3 +40,23 @@ def test_ae_returns_the_best_epoch_not_the_last():
         loss = torch.nn.functional.mse_loss(model(held_out), held_out).item()
 
     assert np.isclose(loss, emb.nn_loss, rtol=1e-5)
+
+
+@pytest.mark.parametrize("flag", ["add_mi_loss", "add_corr_loss"])
+def test_ae_validation_with_extra_losses_and_uneven_batches(flag):
+    """Validation must use the codes of its own batch, also when the last
+    training batch has a different size from the validation batches."""
+    data = _data(50)
+    extra = {"add_mi_loss": {"mi_hyperweight": 0.1, "minimize_mi_data": data[:1]},
+             "add_corr_loss": {"corr_hyperweight": 0.1}}[flag]
+    emb = MVData(data).get_embedding(
+        method="ae",
+        dim=2,
+        epochs=2,
+        seed=0,
+        batch_size=16,
+        verbose=False,
+        **{flag: True},
+        **extra,
+    )
+    assert emb.coords.shape == (2, 50)
