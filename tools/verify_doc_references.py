@@ -73,7 +73,7 @@ def extract_references(file_path: Path) -> List[Tuple[int, str, str]]:
         (r'.. automethod:: (driada\.[^\s]+)', 'automethod'),
     ]
     
-    with open(file_path, 'r') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         for line_num, line in enumerate(f, 1):
             for pattern, ref_type in patterns:
                 matches = re.findall(pattern, line)

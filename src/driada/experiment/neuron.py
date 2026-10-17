@@ -1359,7 +1359,7 @@ class Neuron:
         return ca_recon_scaled
 
     def get_mae(self):
-        """Get Mean Absolute Error between observed and reconstructed calcium.
+        r"""Get Mean Absolute Error between observed and reconstructed calcium.
 
         Computes MAE as the mean absolute deviation between observed calcium
         signal and reconstruction from detected spikes. Provides intuitive
@@ -1472,7 +1472,7 @@ class Neuron:
         return event_rmse
 
     def get_event_mae(self, n_mad=4.0, use_detected_events=True):
-        """Get MAE during event periods only.
+        r"""Get MAE during event periods only.
 
         Measures reconstruction error only during calcium transient events,
         ignoring baseline noise. Provides a more accurate measure of
