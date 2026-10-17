@@ -90,16 +90,17 @@ draw_degree_distr(net)
 ## Example: functional network from INTENSE
 
 ```python
+import scipy.sparse as sp
 from driada.intense import compute_cell_cell_significance
 from driada.network import Network
 
 # Build functional network from cell-cell MI significance
-stats, significance, info, results = compute_cell_cell_significance(
+sim_mat, sig_mat, pval_mat, cell_ids, info = compute_cell_cell_significance(
     exp, n_shuffles_stage1=100, n_shuffles_stage2=1000
 )
 
 # Wrap into Network for full spectral/topological analysis
-net = Network(significance['adjacency'], directed=False)
+net = Network(adj=sp.csr_matrix(sig_mat), preprocessing='giant_cc')
 net.diagonalize(mode='lap')
 ```
 
