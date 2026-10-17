@@ -58,7 +58,7 @@ def extract_code_blocks(file_path: Path) -> List[Tuple[int, str]]:
     """
     code_blocks = []
     
-    with open(file_path, 'r') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
     
     i = 0
@@ -350,7 +350,7 @@ globs['fps'] = 20.0
 # Run doctests on the RST file
 try:
     failures, tests = doctest.testfile(
-        "{file_path}",
+        {str(file_path)!r},  # repr keeps Windows backslashes from being read as escapes
         module_relative=False,
         globs=globs,
         optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS,

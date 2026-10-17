@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`tc_vae` penalises total correlation against the product of marginals** — the `tc` term was log q(z) minus the log prior, which is total correlation plus dimension-wise KL, and the dimension-wise term was close to zero. The three terms are now the β-TCVAE decomposition of Chen et al. (2018): mutual information, total correlation against the product of the aggregate marginals, and dimension-wise KL against the prior, weighted by `alpha`, `beta` and `gamma`. With `beta` larger than `gamma`, the extra pressure now falls on dependence between latent axes only, not on the marginals' distance from the prior, so `tc_vae` embeddings and loss values change. With equal weights the loss is a sampled estimate of the KL term with the same expectation as before
 - **Factor-VAE penalised nothing** — the `factor_vae` loss permuted whole rows of the batch instead of each latent dimension separately, so the "independent" codes had the same joint distribution as the real ones, and its discriminator was created inside the first loss call, after the optimizer, and was never trained. The returned term was the cross-entropy of a random untrained network and did not depend on how dependent the latent axes were. The loss now follows Kim & Mnih (2018): every latent dimension is permuted independently, the discriminator is built when the latent size is known and trained after each optimizer step by its own Adam optimizer (new `discriminator_lr`, default 1e-4) to tell codes from permuted codes, and the encoder is penalised with `gamma` times the mean logit difference, the discriminator estimate of the total correlation. The discriminator is not registered on the model, so it is absent from `model.parameters()` and `state_dict()` and is never updated by the autoencoder optimizer. Results with `factor_vae` change: the term can be negative, and its size follows `gamma` and the dependence between latent axes. Models without `factor_vae` train exactly as before
 
+### Added
+
+- **Documentation for NWB I/O and higher-order information measures** — API reference pages for `save_exp_to_nwb` / `load_exp_from_nwb` and for `total_correlation`, `dual_total_correlation`, `o_information` and their Gaussian copula estimators, listed in the README and the documentation index
+
+### Fixed
+
+- **Notebooks 05 and 06 run on driada 1.2 and matplotlib 3.11** — notebook 06 unpacks the `(similarity, kept_mask)` pair returned by `pairwise_jaccard_sparse` and passes `trim='min'`, so every neuron is kept and stays aligned with its module label; both notebooks set box plot tick labels with `set_xticks`, since `Axes.boxplot` no longer accepts `labels=`
+- **Examples unpack five values from `compute_cell_feat_significance`** — the quick start, the INTENSE pipelines page and the integration page unpacked four and failed with "too many values to unpack"; the Returns section of the docstring states that the fifth value is always returned (None without disentanglement)
+- **Doctests of the INTENSE pipelines API page pass** — the examples use the `event_N` features that `generate_synthetic_exp` creates instead of `d_feat_N`, and compare NumPy scalars through `bool()` so the expected output does not depend on the NumPy 2 repr (`np.True_`)
+- **Documentation tests fail CI when they fail** — the doctest workflow names `quickstart.rst` and `installation.rst` (the bare names were not found) and no longer continues on error; `tools/run_doctests.py` handles Windows paths
+- **Notebook links to the API reference** — nine links pointed at missing pages (`api/<module>/index.html`) or anchors
+- **Module README examples** — the network README unpacks five values from `compute_cell_cell_significance` and builds the `Network` from the significance matrix; the integration README creates the embeddings it analyses and passes `n_shuffles_stage1`/`n_shuffles_stage2` instead of the unsupported `n_shuffles`
+- **No `SyntaxWarning` on import under Python 3.12+** — three docstrings with reST backslash escapes are raw strings; the documentation tools read and write files as UTF-8
+
 ---
 
 ## [1.2.0] - 2026-10-15
@@ -22,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Type-based feature representations in INTENSE, now the default**
 
 68 commits, 97 files changed since v1.1.0.
+
+### Breaking changes
+
+- **`pairwise_jaccard_sparse` returns a pair** — it returns `(jaccard, kept_mask)` instead of the similarity matrix, so code written for 1.1.0 must unpack the result. With the default `trim='adaptive'` graphs much smaller than the rest are dropped and the matrix covers only the graphs where `kept_mask` is True; `trim='min'` keeps every graph, as `trim_to_min=True` did (that argument is deprecated) (`738ab6f`)
+- **`pynwb` is a required dependency** — installing driada also installs `pynwb` and its dependencies (`hdmf`, `h5py`) for the NWB I/O (`94b5d67`)
+- **`ClassificationLoss` takes `hidden_dim` as its third positional argument** — the signature is `ClassificationLoss(num_classes, code_dim, hidden_dim=None, weight=1.0)`; a weight passed positionally in third place is now taken as `hidden_dim`, so pass `weight` by keyword (`eb0de37`)
 
 ### Changed behaviour
 
@@ -61,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Reproducibility
 
-- **Seeded tie-breaking noise** — `load_exp_from_aligned_data`, `Experiment` and `aggregate_multiple_ts` accept `seed`; the small noise added to calcium traces and aggregated features is drawn from streams derived from it, so INTENSE results are identical between runs. Without a seed the behaviour is unchanged (`3082956`)
+- **Seeded tie-breaking noise** — `load_exp_from_aligned_data`, `Experiment` and `aggregate_multiple_ts` accept `seed`; the small noise added to calcium traces and aggregated features is drawn from streams derived from it, so INTENSE results are identical between runs. Without a seed the noise still differs between runs, but `aggregate_multiple_ts` no longer draws it from the global NumPy generator: `np.random.seed` no longer makes it reproducible, and calling it no longer advances the global random stream. Pass `seed` instead (`3082956`)
 - **Seeded correlated test data is the same on every platform** — `create_correlated_gaussian_data` draws through the symmetric square root of the correlation matrix instead of `np.random.multivariate_normal`, whose factor is not unique for repeated eigenvalues and differed between numpy builds (Windows wheels of numpy 2.5). The values for a given seed change on every platform (`6efc9b2`)
 
 ### Information theory

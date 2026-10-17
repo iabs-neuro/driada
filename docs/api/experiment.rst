@@ -16,6 +16,7 @@ Module Components
 
    experiment/core
    experiment/loading
+   experiment/nwb
    experiment/reconstruction
    experiment/wavelet
    experiment/synthetic
@@ -34,6 +35,11 @@ Quick Links
    * :func:`~driada.experiment.exp_build.save_exp_to_pickle` - Save experiments
    * :func:`~driada.experiment.exp_build.load_exp_from_pickle` - Load pickled experiments
    * :doc:`experiment/loading` - All I/O functions
+
+**NWB Files**
+   * :func:`~driada.experiment.nwb.save_exp_to_nwb` - Save to Neurodata Without Borders
+   * :func:`~driada.experiment.nwb.load_exp_from_nwb` - Load from an NWB file
+   * :doc:`experiment/nwb` - NWB input and output
 
 **Spike Reconstruction**
    * :func:`~driada.experiment.spike_reconstruction.reconstruct_spikes` - Main reconstruction function

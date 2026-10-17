@@ -28,7 +28,7 @@ def extract_code_blocks(file_path: Path) -> List[Tuple[int, str]]:
     """Extract Python code blocks from RST file."""
     code_blocks = []
     
-    with open(file_path, 'r') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
     
     i = 0

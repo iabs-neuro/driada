@@ -40,6 +40,8 @@ DRIADA's strength is integrating these scales — crossing them should be a func
 - 🌐 **[Network Analysis](https://driada.readthedocs.io/en/latest/api/network.html)** — general-purpose graph analysis (spectral, entropy, communities) for connectomes, functional networks, or dimensionality reduction proximity graphs
 - 🔄 **[Recurrence Analysis](https://driada.readthedocs.io/en/latest/api/recurrence.html)** — delay embedding, recurrence plots, RQA, visibility graphs, ordinal partition networks for nonlinear dynamics and population module recovery
 - 📏 **[RSA](https://driada.readthedocs.io/en/latest/api/rsa.html)** — representational dissimilarity matrices, cross-region and cross-session comparisons
+- ➕ **[Higher-Order Information](https://driada.readthedocs.io/en/latest/api/information/higher_order.html)** — total correlation, dual total correlation, and O-information (redundancy vs synergy) for groups of neurons or features
+- 💾 **[NWB I/O](https://driada.readthedocs.io/en/latest/api/experiment/nwb.html)** — save experiments to Neurodata Without Borders files and load them back
 - 🧪 **[Synthetic Data](https://driada.readthedocs.io/en/latest/api/experiment.html)** — generate populations with known ground truth for validation
 - ⚡ **[Neuron](https://driada.readthedocs.io/en/latest/api/experiment.html)** — calcium kinetics optimization (rise/decay fitting), event detection, and signal quality metrics
 

@@ -24,11 +24,16 @@ Compares functional organization across different DR methods:
 from driada.integration import get_functional_organization
 from driada.intense import compute_embedding_selectivity
 
+# Store the embeddings on the experiment
+exp.create_embedding('pca', n_components=3)
+exp.create_embedding('umap', n_components=2)
+
 # First, analyze how neurons respond to embedding components
 emb_results = compute_embedding_selectivity(
     exp,
     embedding_methods=['pca', 'umap'],
-    n_shuffles=1000,
+    n_shuffles_stage1=100,
+    n_shuffles_stage2=1000,
     ds=5
 )
 

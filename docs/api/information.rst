@@ -17,6 +17,7 @@ Module Components
    information/core
    information/entropy
    information/mutual_information
+   information/higher_order
    information/estimators
    information/utilities
 
@@ -33,6 +34,12 @@ Quick Links
    * :func:`~driada.information.info_base.conditional_mi` - Conditional MI
    * :func:`~driada.information.info_base.interaction_information` - Multi-variable interactions
    * :doc:`information/mutual_information` - All MI-related functions
+
+**Higher-Order Measures**
+   * :func:`~driada.information.higher_order.total_correlation` - Total correlation
+   * :func:`~driada.information.higher_order.dual_total_correlation` - Dual total correlation
+   * :func:`~driada.information.higher_order.o_information` - O-information (redundancy vs synergy)
+   * :doc:`information/higher_order` - Measures for three or more variables
 
 **Entropy Estimation**
    * :doc:`information/entropy` - Discrete and continuous entropy (JIT-optimized)

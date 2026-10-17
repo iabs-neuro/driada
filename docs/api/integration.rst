@@ -27,7 +27,7 @@ Usage Example
    exp = load_demo_experiment()
 
    # First, run INTENSE analysis
-   stats, sig, info, intense_results = compute_cell_feat_significance(
+   stats, sig, info, intense_results, _ = compute_cell_feat_significance(
        exp,
        find_optimal_delays=False  # Skip temporal alignment for demo
    )

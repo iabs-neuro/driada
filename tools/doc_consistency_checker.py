@@ -31,13 +31,13 @@ class DocConsistencyChecker:
     def _load_cache(self) -> Dict:
         """Load the cache of previous implementation signatures."""
         if os.path.exists(self.cache_file):
-            with open(self.cache_file, 'r') as f:
+            with open(self.cache_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
         return {}
     
     def _save_cache(self):
         """Save the current implementation signatures to cache."""
-        with open(self.cache_file, 'w') as f:
+        with open(self.cache_file, 'w', encoding='utf-8') as f:
             json.dump(self.cache, f, indent=2)
     
     def _get_function_signature_hash(self, node: ast.FunctionDef) -> str:

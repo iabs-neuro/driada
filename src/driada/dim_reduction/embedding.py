@@ -22,7 +22,7 @@ from ..utils.data import check_positive, check_nonnegative
 
 
 class Embedding:
-    """Low-dimensional representation of high-dimensional data.
+    r"""Low-dimensional representation of high-dimensional data.
 
     This is an internal class typically created by MVData.get_embedding().
     It provides a unified interface for various dimensionality reduction methods
