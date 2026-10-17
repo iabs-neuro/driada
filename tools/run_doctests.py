@@ -350,7 +350,7 @@ globs['fps'] = 20.0
 # Run doctests on the RST file
 try:
     failures, tests = doctest.testfile(
-        "{file_path}",
+        {str(file_path)!r},  # repr keeps Windows backslashes from being read as escapes
         module_relative=False,
         globs=globs,
         optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS,
