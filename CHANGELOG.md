@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Documentation for NWB I/O and higher-order information measures** — API reference pages for `save_exp_to_nwb` / `load_exp_from_nwb` and for `total_correlation`, `dual_total_correlation`, `o_information` and their Gaussian copula estimators, listed in the README and the documentation index
+
 ### Fixed
 
 - **Notebooks 05 and 06 run on driada 1.2 and matplotlib 3.11** — notebook 06 unpacks the `(similarity, kept_mask)` pair returned by `pairwise_jaccard_sparse` and passes `trim='min'`, so every neuron is kept and stays aligned with its module label; both notebooks set box plot tick labels with `set_xticks`, since `Axes.boxplot` no longer accepts `labels=`

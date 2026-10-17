@@ -46,7 +46,8 @@ Key features
 * **Recurrence Analysis**: Delay embedding, recurrence plots, RQA, visibility graphs, and ordinal partition networks for nonlinear dynamics
 * **Integration Framework**: Seamlessly connect single-neuron selectivity with population manifolds
 * **RSA**: Representational Similarity Analysis for comparing neural representations
-* **Information Theory**: Entropy and mutual information estimators with advanced corrections
+* **Information Theory**: Entropy and mutual information estimators with advanced corrections, and higher-order measures (total correlation, dual total correlation, O-information)
+* **NWB I/O**: Save experiments to Neurodata Without Borders files and load them back
 * **Synthetic Data**: Generate controlled datasets with known ground truth
 * **Visualization Tools**: Rich plotting utilities for neural data exploration
 
