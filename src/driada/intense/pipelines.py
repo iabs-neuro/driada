@@ -366,14 +366,16 @@ def compute_cell_feat_significance(
     stats: dict of dict of dicts
         Outer dict: cells, inner dict: dynamic features, last dict: stats.
         Can be easily converted to pandas DataFrame by pd.DataFrame(stats)
-    significance: dict of dict of bools
-        Significance results for each neuron-feature pair
+    significance: dict of dict of dicts
+        Significance results for each neuron-feature pair, one dict per
+        stage (``significance[cell][feat]['stage2']`` is the final verdict
+        in two-stage mode)
     info: dict
         Additional information from compute_me_stats
     intense_res: IntenseResults
         Complete results object
-    disentanglement_results : dict (only if with_disentanglement=True)
-        Contains:
+    disentanglement_results : dict or None
+        None unless ``with_disentanglement=True``. Otherwise contains:
 
         - 'feat_feat_significance': Feature-feature significance matrix
         - 'disent_matrix': Disentanglement results matrix
@@ -394,6 +396,8 @@ def compute_cell_feat_significance(
 
     Notes
     -----
+    - Five values are returned in every mode; unpack them as
+      ``stats, significance, info, intense_res, disent = ...``
     - shift_window is converted from seconds to frames using exp.fps
     - Updates exp.optimal_nf_delays as a side effect
     - Relative MI values are computed using appropriate neural data entropy

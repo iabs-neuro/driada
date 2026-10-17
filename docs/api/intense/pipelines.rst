@@ -53,7 +53,7 @@ Usage Example
 
    exp = load_demo_experiment()
 
-   stats, significance, info, results = compute_cell_feat_significance(
+   stats, significance, info, results, _ = compute_cell_feat_significance(
        exp,
        n_shuffles_stage1=100,
        n_shuffles_stage2=1000,

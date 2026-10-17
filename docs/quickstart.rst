@@ -73,7 +73,7 @@ Discover which neurons encode which variables:
    from driada.experiment import load_demo_experiment
 
    exp = load_demo_experiment()  # Load sample experiment
-   stats, significance, info, results = compute_cell_feat_significance(
+   stats, significance, info, results, _ = compute_cell_feat_significance(
        exp,
        n_shuffles_stage1=100,    # Quick screening
        n_shuffles_stage2=1000,   # Rigorous validation
