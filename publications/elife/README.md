@@ -41,9 +41,10 @@ INTENSE/by_type/tables_disentangled/
 ### Data availability
 
 The calcium imaging dataset (synchronized activity and behaviour of the free
-open field sessions) will be published together with a separate data paper.
-Until then it is available from the authors on request. Figures 1, 2 and 5
-and the supplementary figure on autoencoder initializations need no
+open field sessions, 13 mice) is openly available on DANDI as dandiset 002030,
+https://doi.org/10.48324/dandi.002030/0.261016.1321. Raw miniscope and
+behavioural videos will be released with a separate data descriptor.
+Figures 1, 2 and 5, including the autoencoder-initialization sweep, need no
 experimental data.
 
 ## Figures
