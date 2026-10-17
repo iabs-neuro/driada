@@ -832,27 +832,34 @@ class FactorVAELoss(AELoss):
     Factor-VAE encourages disentanglement by using an adversarial discriminator
     to estimate and minimize the total correlation (TC) in the latent space.
     The discriminator is trained to distinguish between samples from q(z)
-    (the aggregate posterior) and the product of marginals Π q(z_i).
+    (the aggregate posterior) and the product of marginals Π q(z_i), obtained
+    by permuting every latent dimension independently across the batch.
 
     This approach avoids the sampling difficulties of TC-VAE while still
     targeting the total correlation for disentanglement.
 
     Notes
     -----
-    The discriminator provides a density ratio estimate that can be used to
-    approximate the total correlation. The VAE is trained to minimize this
-    estimate (fool the discriminator) while the discriminator is trained to
-    maximize it (correctly classify real vs permuted codes).
+    The discriminator logit difference log D(z) - log(1 - D(z)) estimates the
+    density ratio q(z) / Π q(z_i), so its batch mean estimates the total
+    correlation. ``compute`` returns ``gamma`` times this estimate as the
+    penalty for the encoder. The discriminator has its own optimizer and is
+    updated by ``discriminator_step``, which the flexible autoencoder training
+    loop calls after every optimizer step of the autoencoder. Its parameters
+    are not registered on the autoencoder, so they are not part of
+    ``model.parameters()`` and are never updated by the autoencoder optimizer.
 
-    IMPORTANT: The discriminator requires separate optimization in the training
-    loop. This loss only returns the TC penalty for the VAE.
-
-    FUTURE: Implement a complete FactorVAE training system that handles both
-    VAE and discriminator optimization, possibly as a separate Trainer class.
+    The Factor-VAE objective also contains the KL term of the VAE, so this
+    loss is meant to be combined with ``reconstruction`` and ``beta_vae``
+    (``beta=1``) in a ``vae`` architecture.
 
     References
     ----------
     Kim, H., & Mnih, A. (2018). Disentangling by Factorising. ICML 2018."""
+
+    # Trained by their own optimizer: FlexibleAutoencoderBase does not register
+    # these on the model, so the autoencoder optimizer cannot update them.
+    separately_optimized = ("discriminator",)
 
     def __init__(
         self,
@@ -860,6 +867,8 @@ class FactorVAELoss(AELoss):
         discriminator_dims: Optional[list] = None,
         weight: float = 1.0,
         device: Optional[torch.device] = None,
+        code_dim: Optional[int] = None,
+        discriminator_lr: float = 1e-4,
     ):
         """Initialize Factor-VAE loss.
 
@@ -872,16 +881,27 @@ class FactorVAELoss(AELoss):
         weight : float, default=1.0
             Loss weight.
         device : torch.device, optional
-            Device for discriminator."""
+            Device for discriminator.
+        code_dim : int, optional
+            Latent dimension (auto-injected by the flexible autoencoders).
+            If given, the discriminator and its optimizer are built here;
+            otherwise they are built on the first call to ``compute``.
+        discriminator_lr : float, default=1e-4
+            Learning rate of the discriminator Adam optimizer."""
         super().__init__(weight=weight)
         self.gamma = gamma
         self.discriminator_dims = discriminator_dims or [256, 256]
         self.device = device or torch.device("cpu")
+        self.discriminator_lr = discriminator_lr
         self.discriminator = None
+        self.discriminator_optimizer = None
         self._latent_dim = None
+        self._last_code = None
+        if code_dim is not None:
+            self._build_discriminator(code_dim)
 
     def _build_discriminator(self, latent_dim: int):
-        """Build discriminator network.
+        """Build discriminator network and its optimizer.
 
         Creates a multi-layer perceptron to distinguish between samples from
         the aggregate posterior q(z) and the product of marginals.
@@ -896,10 +916,11 @@ class FactorVAELoss(AELoss):
         The discriminator architecture:
         - Input: latent code (latent_dim)
         - Hidden layers: specified by discriminator_dims
-        - Output: 2 classes (real vs permuted)
+        - Output: 2 logits, class 0 for q(z), class 1 for permuted codes
         - Activation: LeakyReLU with dropout for regularization
 
-        The discriminator requires separate optimization in the training loop."""
+        The optimizer is Adam with betas (0.5, 0.9) over the discriminator
+        parameters only."""
         layers = []
         in_dim = latent_dim
 
@@ -909,17 +930,32 @@ class FactorVAELoss(AELoss):
 
         layers.append(nn.Linear(in_dim, 2))  # Binary classification
 
-        self.discriminator = nn.Sequential(*layers)
-        self.discriminator.device = None  # Will be set when needed
+        self.discriminator = nn.Sequential(*layers).to(self.device)
+        self.discriminator_optimizer = torch.optim.Adam(
+            self.discriminator.parameters(), lr=self.discriminator_lr, betas=(0.5, 0.9)
+        )
         self._latent_dim = latent_dim
 
-    def compute(self, code, recon, inputs, **kwargs):
-        """Compute Factor-VAE discriminator-based loss.
+    @staticmethod
+    def _permute_dims(code):
+        """Permute every latent dimension independently across the batch.
 
-        Trains a discriminator to estimate the total correlation and uses it
-        to penalize the encoder. The discriminator distinguishes between:
-        - Real: samples from q(z) (the aggregate posterior)
-        - Fake: samples where dimensions are independently permuted
+        Parameters
+        ----------
+        code : torch.Tensor
+            Latent codes, shape (batch_size, latent_dim).
+
+        Returns
+        -------
+        torch.Tensor
+            Codes with the same per-dimension values as ``code`` and the
+            dependence between dimensions broken, i.e. samples from the
+            product of marginals Π q(z_i)."""
+        order = torch.argsort(torch.rand(code.shape, device=code.device), dim=0)
+        return torch.gather(code, 0, order)
+
+    def compute(self, code, recon, inputs, **kwargs):
+        """Compute the Factor-VAE total correlation penalty.
 
         Parameters
         ----------
@@ -935,43 +971,71 @@ class FactorVAELoss(AELoss):
         Returns
         -------
         torch.Tensor
-            Total correlation penalty estimated by the discriminator.
+            ``gamma`` times the discriminator estimate of the total
+            correlation: the batch mean of the logit of class 0 (q(z)) minus
+            the logit of class 1 (product of marginals).
 
         Notes
         -----
-        The permutation breaks dependencies between latent dimensions,
-        approximating samples from the product of marginals Π q(z_i).
-        The discriminator's confidence in classifying real samples
-        indicates the strength of the total correlation."""
-        batch_size = code.shape[0]
-        latent_dim = code.shape[1]
-
-        # Build discriminator if needed
+        With gradients enabled the detached code is kept for the next
+        ``discriminator_step``, so the discriminator is trained on the codes
+        of training batches and never on validation batches."""
         if self.discriminator is None:
-            self._build_discriminator(latent_dim)
+            self._build_discriminator(code.shape[1])
 
-        # Move discriminator to correct device if needed
-        if self.discriminator.device != code.device:
-            self.discriminator = self.discriminator.to(code.device)
+        # Module.to moves parameters in place, so the optimizer keeps tracking them
+        if next(self.discriminator.parameters()).device != code.device:
+            self.discriminator.to(code.device)
 
-        # Create permuted code (break factorial structure)
-        indices = torch.randperm(batch_size).to(code.device)
-        permuted_code = code[indices]
+        if torch.is_grad_enabled():
+            self._last_code = code.detach()
 
-        # Discriminator predictions
-        real_pred = self.discriminator(code)
-        fake_pred = self.discriminator(permuted_code.detach())
+        # Dropout regularizes discriminator training; the estimate uses the full network
+        self.discriminator.eval()
+        logits = self.discriminator(code)
+        tc_estimate = (logits[:, 0] - logits[:, 1]).mean()
 
-        # Discriminator loss (standard GAN loss) - for reference, not returned
-        # disc_loss = F.cross_entropy(real_pred, torch.ones(batch_size, dtype=torch.long).to(code.device))
-        # disc_loss += F.cross_entropy(fake_pred, torch.zeros(batch_size, dtype=torch.long).to(code.device))
+        return self.gamma * tc_estimate
 
-        # Total correlation loss (fool discriminator)
-        tc_loss = F.cross_entropy(
-            real_pred, torch.zeros(batch_size, dtype=torch.long).to(code.device)
+    def discriminator_step(self):
+        """Update the discriminator on the codes of the last training batch.
+
+        Trains the discriminator with its own optimizer to classify the codes
+        as class 0 and the same codes with independently permuted dimensions
+        as class 1. The codes are detached, so this step does not change the
+        autoencoder.
+
+        Returns
+        -------
+        float
+            Discriminator cross-entropy loss before the update.
+
+        Raises
+        ------
+        RuntimeError
+            If ``compute`` has not been called with gradients enabled since
+            the last step."""
+        if self._last_code is None:
+            raise RuntimeError("discriminator_step requires a preceding compute() call")
+
+        code = self._last_code
+        self._last_code = None
+        permuted = self._permute_dims(code)
+        batch_size = code.shape[0]
+        real_labels = torch.zeros(batch_size, dtype=torch.long, device=code.device)
+        permuted_labels = torch.ones(batch_size, dtype=torch.long, device=code.device)
+
+        self.discriminator.train()
+        # The autoencoder backward pass also leaves gradients on the discriminator
+        self.discriminator_optimizer.zero_grad()
+        disc_loss = 0.5 * (
+            F.cross_entropy(self.discriminator(code), real_labels)
+            + F.cross_entropy(self.discriminator(permuted), permuted_labels)
         )
+        disc_loss.backward()
+        self.discriminator_optimizer.step()
 
-        return self.gamma * tc_loss
+        return disc_loss.item()
 
 
 # Regularization Losses

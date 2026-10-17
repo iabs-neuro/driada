@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Autoencoder bug fixes
+
+- **Factor-VAE penalised nothing** — the `factor_vae` loss permuted whole rows of the batch instead of each latent dimension separately, so the "independent" codes had the same joint distribution as the real ones, and its discriminator was created inside the first loss call, after the optimizer, and was never trained. The returned term was the cross-entropy of a random untrained network and did not depend on how dependent the latent axes were. The loss now follows Kim & Mnih (2018): every latent dimension is permuted independently, the discriminator is built when the latent size is known and trained after each optimizer step by its own Adam optimizer (new `discriminator_lr`, default 1e-4) to tell codes from permuted codes, and the encoder is penalised with `gamma` times the mean logit difference, the discriminator estimate of the total correlation. The discriminator is not registered on the model, so it is absent from `model.parameters()` and `state_dict()` and is never updated by the autoencoder optimizer. Results with `factor_vae` change: the term can be negative, and its size follows `gamma` and the dependence between latent axes. Models without `factor_vae` train exactly as before
+
+---
+
 ## [1.2.0] - 2026-10-15
 
 **Type-based feature representations in INTENSE, now the default**
