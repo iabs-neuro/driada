@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dimensionality reduction
 
 - **Held-out frames reach the losses with their own external data and labels** — the autoencoder loaders reported the held-out frames by their position inside the held-out part, starting from zero, so `OrthogonalityLoss` with `external_data` and the `labels` of `ClassificationLoss` were looked up for frames shifted back by the length of the training part. Both loaders now yield frame indices in the full recording. Training batches are unchanged; in `flexible_ae` with these losses the held-out loss, and therefore the epoch kept as the best model, can change. Models trained without these losses are unaffected
+- **`tc_vae` penalises total correlation against the product of marginals** — the `tc` term was log q(z) minus the log prior, which is total correlation plus dimension-wise KL, and the dimension-wise term was close to zero. The three terms are now the β-TCVAE decomposition of Chen et al. (2018): mutual information, total correlation against the product of the aggregate marginals, and dimension-wise KL against the prior, weighted by `alpha`, `beta` and `gamma`. With `beta` larger than `gamma`, the extra pressure now falls on dependence between latent axes only, not on the marginals' distance from the prior, so `tc_vae` embeddings and loss values change. With equal weights the loss is a sampled estimate of the KL term with the same expectation as before
 
 ## [1.2.0] - 2026-10-15
 

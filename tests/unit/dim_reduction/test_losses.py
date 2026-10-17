@@ -272,6 +272,80 @@ class TestBetaVAELoss:
 
 
 @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch not available")
+class TestTCVAELoss:
+    """Test the β-TCVAE decomposition of the KL term."""
+
+    batch_size = 512
+    latent_dim = 4
+    posterior_std = 0.3
+
+    def _sample(self, mu, seed=0):
+        """Draw z ~ q(z|x) for diagonal Gaussian posteriors centred at mu."""
+        gen = torch.Generator().manual_seed(seed)
+        log_var = torch.full_like(mu, 2 * np.log(self.posterior_std))
+        code = mu + self.posterior_std * torch.randn(mu.shape, generator=gen)
+        return mu, log_var, code
+
+    @staticmethod
+    def _term(mu, log_var, code, alpha=0.0, beta=0.0, gamma=0.0):
+        """Evaluate the loss with the chosen weights, isolating single terms."""
+        loss = TCVAELoss(alpha=alpha, beta=beta, gamma=gamma)
+        return loss.compute(code, None, None, mu=mu, log_var=log_var).item()
+
+    def _independent_means(self):
+        gen = torch.Generator().manual_seed(1)
+        return torch.randn(self.batch_size, self.latent_dim, generator=gen)
+
+    def test_tc_rises_with_dependent_axes(self):
+        """TC grows when latent axes become near copies of each other."""
+        z = self._independent_means()
+        gen = torch.Generator().manual_seed(2)
+        noise = torch.randn(z.shape, generator=gen)
+        dependent = z[:, :1].repeat(1, self.latent_dim) * 0.995 + 0.1 * noise
+
+        tc_indep = self._term(*self._sample(z), beta=1.0)
+        tc_dep = self._term(*self._sample(dependent), beta=1.0)
+
+        assert tc_dep > tc_indep + 1.0
+
+    def test_marginal_shift_moves_only_dimension_wise_kl(self):
+        """Shifting independent marginals away from the prior is not TC."""
+        shift = 2.0
+        mu, log_var, code = self._sample(self._independent_means())
+        shifted = (mu + shift, log_var, code + shift)
+
+        for weights in ({"alpha": 1.0}, {"beta": 1.0}):
+            assert self._term(*shifted, **weights) == pytest.approx(
+                self._term(mu, log_var, code, **weights), abs=1e-3
+            )
+
+        # log p(z) - log p(z + s) = s * z + s^2 / 2 per axis, so the
+        # dimension-wise KL grows by about latent_dim * shift^2 / 2.
+        dwkl_gain = self._term(*shifted, gamma=1.0) - self._term(mu, log_var, code, gamma=1.0)
+        assert dwkl_gain == pytest.approx(self.latent_dim * shift**2 / 2, abs=0.5)
+
+    def test_terms_sum_to_kl_estimate(self):
+        """MI + TC + dimension-wise KL equals log q(z|x) - log p(z)."""
+        mu, log_var, code = self._sample(self._independent_means() * 0.8)
+
+        total = self._term(mu, log_var, code, alpha=1.0, beta=1.0, gamma=1.0)
+        parts = sum(
+            self._term(mu, log_var, code, **{name: 1.0}) for name in ("alpha", "beta", "gamma")
+        )
+        assert parts == pytest.approx(total, rel=1e-5)
+
+        def log_normal(x, m, lv):
+            return (-0.5 * (np.log(2 * np.pi) + lv + (x - m) ** 2 / lv.exp())).sum(1)
+
+        zeros = torch.zeros_like(code)
+        kl_sample = (log_normal(code, mu, log_var) - log_normal(code, zeros, zeros)).mean()
+        assert total == pytest.approx(kl_sample.item(), rel=1e-4)
+
+        kl_analytic = (-0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1)).mean()
+        assert total == pytest.approx(kl_analytic.item(), rel=0.05)
+
+
+@pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch not available")
 class TestSparsityLoss:
     """Test sparsity loss."""
 
