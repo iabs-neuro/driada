@@ -663,6 +663,22 @@ class TCVAELoss(AELoss):
     - β controls disentanglement (via total correlation)
     - γ controls deviation from the prior
 
+    For a sample z ~ q(z|x) the three terms are estimated as
+    log q(z|x) - log q(z), log q(z) - Σ_j log q(z_j) and
+    Σ_j log q(z_j) - Σ_j log p(z_j), so they sum to log q(z|x) - log p(z),
+    a single-sample estimate of KL[q(z|x)||p(z)].
+
+    The aggregate posterior q(z) and its marginals q(z_j) are estimated from
+    the minibatch alone, as the mixture of the M posteriors in it. The loss
+    does not know the dataset size N, so the minibatch-weighted sampling
+    correction of Chen et al. is not applied; for that estimator the
+    correction only shifts the terms by constants (+log N for MI,
+    +(D-1) log N for TC, -D log N for the dimension-wise KL, with D latent
+    dimensions), which leaves the gradients unchanged. The minibatch
+    estimate of TC is biased upwards, especially for narrow posteriors and
+    small batches, so compare its values between models at the same batch
+    size rather than reading them as absolute total correlation.
+
     References
     ----------
     Chen, T. Q., et al. (2018). Isolating Sources of Disentanglement in
@@ -729,10 +745,6 @@ class TCVAELoss(AELoss):
             raise ValueError("TC-VAE loss requires mu and log_var")
 
         batch_size = mu.shape[0]
-        latent_dim = mu.shape[1]
-
-        # Standard KL divergence
-        kl = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1)
 
         # Log probability of code under the prior
         log_pz = self._log_density_gaussian(code, torch.zeros_like(code), torch.zeros_like(code))
@@ -740,17 +752,16 @@ class TCVAELoss(AELoss):
         # Log probability of code under the posterior
         log_qz_given_x = self._log_density_gaussian(code, mu, log_var)
 
-        # Log probability of code under the marginal posterior
-        # Approximate with minibatch-weighted sampling
-        log_qz = self._log_importance_weight_matrix(code, mu, log_var).logsumexp(dim=1) - np.log(
-            batch_size
-        )
+        # Aggregate posterior q(z) and its marginals q(z_j), both estimated
+        # from the minibatch
+        log_weights = self._log_importance_weight_matrix(code, mu, log_var)
+        log_qz = log_weights.sum(dim=2).logsumexp(dim=1) - np.log(batch_size)
+        log_qz_marginals = (log_weights.logsumexp(dim=1) - np.log(batch_size)).sum(dim=1)
 
         # Decomposed terms (sum over latent dimensions)
-        # Note: MI = I(x;z) = log q(z|x) - log q(z) = KL[q(z|x)||q(z)]
         mi = log_qz_given_x.sum(dim=1) - log_qz  # Mutual Information
-        tc = log_qz - log_pz.sum(dim=1)  # Total Correlation
-        dwkl = kl - mi - tc  # Dimension-wise KL
+        tc = log_qz - log_qz_marginals  # Total Correlation
+        dwkl = log_qz_marginals - log_pz.sum(dim=1)  # Dimension-wise KL
 
         # Weighted combination
         loss = self.alpha * mi.mean() + self.beta * tc.mean() + self.gamma * dwkl.mean()
@@ -803,27 +814,22 @@ class TCVAELoss(AELoss):
         Returns
         -------
         torch.Tensor
-            Log importance weight matrix, shape (batch_size, batch_size).
-            Element [i,j] contains log q(z_i|x_j).
+            Per-dimension log importance weights, shape
+            (batch_size, batch_size, latent_dim). Element [i, j, d] contains
+            log q(z_i,d | x_j).
 
         Notes
         -----
-        Used for estimating log q(z) ≈ log(1/N Σ_j q(z|x_j)) via importance
-        sampling, which is needed for the TC-VAE decomposition."""
-        batch_size, latent_dim = batch.shape
-
+        Summing over the last axis gives log q(z_i|x_j), used to estimate
+        log q(z) ≈ log(1/M Σ_j q(z|x_j)); keeping the axes separate gives the
+        marginals log q(z_d) ≈ log(1/M Σ_j q(z_d|x_j)). Both are needed for the
+        TC-VAE decomposition."""
         # Expand for broadcasting
         batch = batch.unsqueeze(1)  # (batch, 1, latent)
         mu = mu.unsqueeze(0)  # (1, batch, latent)
         log_var = log_var.unsqueeze(0)  # (1, batch, latent)
 
-        # Compute log densities
-        log_density = self._log_density_gaussian(batch, mu, log_var)
-
-        # Sum over latent dimensions
-        log_importance = log_density.sum(dim=2)
-
-        return log_importance
+        return self._log_density_gaussian(batch, mu, log_var)
 
 
 class FactorVAELoss(AELoss):
