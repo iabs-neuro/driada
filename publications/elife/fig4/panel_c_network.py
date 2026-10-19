@@ -261,8 +261,8 @@ def draw_network_legend(fig, bbox_anchor=(0.5, 0.67), loc="upper center",
         Number of legend columns.
     """
     from matplotlib.patches import Patch
-    # Displayed labels: "locomotion" group is shown as "run"
-    label_map = {"locomotion": "run"}
+    # Displayed labels: "locomotion" group is shown as "run"; "HD" merges head and body direction
+    label_map = {"locomotion": "run", "HD": "HD/BD"}
     legend_handles = [Patch(facecolor=SEL_COLORS[g], label=label_map.get(g, g))
                       for g in ["place", "HD", "speed", "locomotion",
                                 "rest", "rear", "spatial", "non-sel."]]

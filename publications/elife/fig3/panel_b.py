@@ -132,6 +132,8 @@ def create_panel_B(fig, subplot_spec, style, panel_size_cm):
     mean_ca[counts < min_visits] = np.nan
     mean_ca_smooth = gaussian_filter(np.nan_to_num(mean_ca, nan=0.0), sigma=1.5)
     mean_ca_smooth[counts < min_visits] = np.nan
+    # Relative to the map maximum: the panel shows the shape of the field, not its amplitude
+    mean_ca_smooth = mean_ca_smooth / np.nanmax(mean_ca_smooth)
 
     im = ax_place.imshow(mean_ca_smooth.T, origin="lower", aspect="equal",
                          cmap="jet",
@@ -140,7 +142,7 @@ def create_panel_B(fig, subplot_spec, style, panel_size_cm):
     divider = make_axes_locatable(ax_place)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     cbar = fig.colorbar(im, cax=cax)
-    cbar.set_label(r"Mean $\Delta$F/F", fontsize=style.base_tick_labelsize)
+    cbar.set_label("Mean activity (norm.)", fontsize=style.base_tick_labelsize)
     cbar.ax.tick_params(labelsize=style.base_tick_labelsize - 1)
     ax_place.set_xlabel("x (cm)")
     ax_place.set_ylabel("y (cm)")
@@ -288,6 +290,8 @@ def plot_on_axes(ax_place, ax_hd, ax_loco, ax_density, fig, style, sub_sizes):
     mean_ca[counts < min_visits] = np.nan
     mean_ca_smooth = gaussian_filter(np.nan_to_num(mean_ca, nan=0.0), sigma=1.5)
     mean_ca_smooth[counts < min_visits] = np.nan
+    # Relative to the map maximum: the panel shows the shape of the field, not its amplitude
+    mean_ca_smooth = mean_ca_smooth / np.nanmax(mean_ca_smooth)
 
     im = ax_place.imshow(mean_ca_smooth.T, origin="lower", aspect="equal",
                          cmap="jet",
@@ -297,7 +301,7 @@ def plot_on_axes(ax_place, ax_hd, ax_loco, ax_density, fig, style, sub_sizes):
                       bbox_to_anchor=(0, -0.38, 1, 1),
                       bbox_transform=ax_place.transAxes, borderpad=0)
     cbar = fig.colorbar(im, cax=cax, orientation="horizontal")
-    cbar.set_label(r"Mean $\Delta$F/F", fontsize=max(style.base_label_size - 2, 4))
+    cbar.set_label("Mean activity (norm.)", fontsize=max(style.base_label_size - 2, 4))
     cbar.ax.tick_params(labelsize=max(style.base_tick_labelsize - 2, 4))
     ax_place.set_xlabel("x (cm)")
     ax_place.set_ylabel("y (cm)")
