@@ -230,10 +230,13 @@ def draw_shuffled_network(ax, data):
 def draw_spectrum(ax, spectrum, color, title, style, panel_size_cm):
     """Draw normalized Laplacian spectral density histogram."""
     bins = np.linspace(0, 2, 50)
-    ax.hist(spectrum, bins=bins, color=color, alpha=0.8,
-            edgecolor="white", linewidth=0.5)
+    # log10(count + 1): single isolated eigenvalues below the bulk stay
+    # visible next to bins holding tens of eigenvalues.
+    counts, _ = np.histogram(spectrum, bins=bins)
+    ax.bar(bins[:-1], np.log10(counts + 1), width=np.diff(bins), align="edge",
+           color=color, alpha=0.8, edgecolor="white", linewidth=0.5)
     ax.set_xlabel("eigenvalue")
-    ax.set_ylabel("count")
+    ax.set_ylabel("log$_{10}$(count + 1)")
     ax.set_title(title)
     ax.set_xlim(0, 2)
     style.apply_to_axes(ax, panel_size_cm, "cm")
