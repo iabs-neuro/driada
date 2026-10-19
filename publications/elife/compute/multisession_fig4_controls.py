@@ -56,17 +56,18 @@ OUT_DIR = os.environ.get("OUT_DIR", os.path.join(elife_paths.OUTPUT_DIR, "multis
 
 SMOKE = bool(os.environ.get("SMOKE"))
 DS, NN, DIM = 5, 40, 2
-N_RANDOM = int(os.environ.get("N_RANDOM", 2 if SMOKE else 20))
-N_SHUF = int(os.environ.get("N_SHUF", 1 if SMOKE else 5))
+N_RANDOM = int(os.environ.get("N_RANDOM", 2 if SMOKE else 10))
+N_SHUF = int(os.environ.get("N_SHUF", 1 if SMOKE else 3))
 N_SHUF1 = 100
 N_SHUF2 = int(os.environ.get("N_SHUF2", 200 if SMOKE else 10000))
 MIN_FILT = int(os.environ.get("MIN_FILT", 10))
 MAX_LOST_FRAC = 0.05  # reverse analysis is skipped if Isomap dropped more frames
 PVAL_THR = 0.05
 SEED = 42
-# k-NN graph symmetrisation for Isomap: 'intersection' (mutual neighbours, driada default)
-# or 'union' (an edge if either point is among the other's neighbours, as in textbook Isomap)
-SYMMETRIZATION = os.environ.get("SYMMETRIZATION", "intersection")
+# k-NN graph symmetrisation for Isomap: 'union' (an edge if either point is among the other's
+# neighbours; the driada default, used for the manuscript) or 'intersection' (mutual
+# neighbours only). The choice changes held-out R^2 markedly.
+SYMMETRIZATION = os.environ.get("SYMMETRIZATION", "union")
 
 # by_type representations name the place feature place_quad, direction
 # features *_harm2 and speed speed_quad

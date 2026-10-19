@@ -204,7 +204,7 @@ def create_panel_B(fig, subplot_spec, style, panel_size_cm):
         axs=(ax_trace, ax_density),
         skip_tight_layout=True,
         bcolor=DISCRETE_COLOR,
-        neuron_label=f"neuron {DISCRETE_IDX}",
+        neuron_label="neuron",
         feature_label=DISCRETE_LABEL,
         non_feature_label=DISCRETE_NON_LABEL,
     )
@@ -353,7 +353,7 @@ def plot_on_axes(ax_place, ax_hd, ax_loco, ax_density, fig, style, sub_sizes):
         axs=(ax_loco, ax_density),
         skip_tight_layout=True,
         bcolor=DISCRETE_COLOR,
-        neuron_label=f"neuron {DISCRETE_IDX}",
+        neuron_label="neuron",
         feature_label=DISCRETE_LABEL,
         non_feature_label=DISCRETE_NON_LABEL,
     )

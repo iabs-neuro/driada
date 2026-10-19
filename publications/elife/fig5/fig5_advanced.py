@@ -347,7 +347,7 @@ def create_panel_d(fig, d_axes, style, data):
         sp.set_visible(False)
     ax_left.set_box_aspect(1)
     ax_left.set_anchor("NW")  # pin to top-left for column alignment
-    ax_left.set_title("$\\theta_1$", fontsize=style.base_label_size, pad=2)
+    ax_left.set_title("$\\phi_1$", fontsize=style.base_label_size, pad=2)
 
     # Colorbar below left
     cb = fig.colorbar(sc, cax=ax_cbar_l, orientation="horizontal")
@@ -390,7 +390,7 @@ def create_panel_d(fig, d_axes, style, data):
                         labelpad=1)
     ax_right.set_ylabel("$\\phi_2$", fontsize=style.base_label_size - 1,
                         labelpad=1)
-    ax_right.set_title("$(\\theta_1, \\theta_2)$ plane",
+    ax_right.set_title("$(\\phi_1, \\phi_2)$ plane",
                        fontsize=style.base_label_size, pad=2)
     style.apply_to_axes(ax_right, (5, 5), "cm")
 
