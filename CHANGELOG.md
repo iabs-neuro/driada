@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.2] - 2026-10-19
+
+**Scripts of the eLife manuscript reproduce version 10.0 of the paper**
+
+The library is unchanged; only `publications/elife` changes.
+
+### Fixed
+
+- **Cross-session stability figure runs on 1.2.1** — `supp_cross_session_stability.py` counted a neuron as selective only above an MI threshold that the INTENSE tables no longer support, and failed. A neuron-feature pair now counts as selective at p < 0.001 without a threshold on MI, as in the manuscript
+- **Figure 5 states its feature representation** — `fig5_data.py` requests `representation="by_type"` explicitly, so the INTENSE results do not depend on the library default
+
+### Changed
+
+- **Reverse analysis at stricter thresholds** — `multisession_fig4_controls.py` also reports the share of non-selective neurons among embedding-informative neurons at p < 0.01 and p < 0.001
+- **Figures 3 and 4** — overlapping y labels removed from Figure 3A; Figure 4A whiskers are 95% confidence intervals over random subsets; the pies of Figure 4B use p < 0.001; the network cache folder of Figure 4C can be set by `DRIADA_ELIFE_NETWORK_CACHE`
+- **Caches recomputed on 1.2.1** — Figure 4A-B, the session table, the autoencoder sweep and the INTENSE and VAE results of Figure 5; the network matrices of Figure 4C are from an earlier version, as the README states
+
 ## [1.2.1] - 2026-10-18
 
 **Autoencoder fixes, working tutorial notebooks and documentation checks**

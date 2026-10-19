@@ -37,7 +37,7 @@ except ImportError:
 project = 'DRIADA'
 copyright = '2020-2026, DRIADA Contributors'
 author = 'DRIADA Contributors'
-release = '1.2.1'
+release = '1.2.2'
 
 # -- General configuration ---------------------------------------------------
 extensions = [
