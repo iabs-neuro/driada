@@ -9,7 +9,7 @@ feed several figures live in `compute/`. All paths come from `elife_paths.py`.
 - DRIADA 1.2 or newer (`pip install -e .` from the repository root). Version 1.2
   brings the `place_field` rule for neurons selective to both place and a zone
   and the fix for aggregate feature types; older versions give different
-  selectivity tables.
+  selectivity tables. The manuscript results were computed with release 1.2.1.
 - The `tools/` folder of the repository (`run_intense_analysis.py`,
   `selectivity_dynamics`, `neuron_database`, `load_synchronized_experiments.py`).
   It is found automatically when the scripts run from a checkout; otherwise set
@@ -42,8 +42,7 @@ INTENSE/by_type/tables_disentangled/
 
 The calcium imaging dataset (synchronized activity and behaviour of the free
 open field sessions, 13 mice) is openly available on DANDI as dandiset 002030,
-https://doi.org/10.48324/dandi.002030/0.261016.1321. Raw miniscope and
-behavioural videos will be released with a separate data descriptor.
+https://doi.org/10.48324/dandi.002030/0.261016.1321.
 Figures 1, 2 and 5, including the autoencoder-initialization sweep, need no
 experimental data.
 
@@ -113,7 +112,8 @@ recomputes to the same bits:
   of the same data are not bit-identical, so a rerun of
   `multisession_fig4_controls.py` gives close but not identical values, with
   the largest spread in sessions where the embedding fits position poorly.
-- **Cross-session stability, panel B**: the enrichment test draws unseeded
+- **Cross-session stability**: a neuron counts as selective in a session at
+  p < 0.001, without a threshold on MI, as in Methods. In panel B the enrichment test draws unseeded
   shuffles; the bars move slightly between runs. Panel A (counts) is exact.
 - **Figure 2**: the population and the detection scores (precision, recall,
   F1) recompute exactly; mutual information values, the Isomap coordinates and

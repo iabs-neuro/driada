@@ -170,8 +170,13 @@ def reverse_analysis(exp, coords, kept, T, sig, stats, filt, n):
         return (100.0 * sum(primary_selectivity(i, sig, stats) == "non-sel." for i in ids) / len(ids)
                 if ids else np.nan)
 
+    # stricter per-pair thresholds, so the reported fraction can be chosen afterwards
+    strict = {tag: sorted({int(nid) for nid, nd in res["stats"].items() for s in nd.values()
+                           if isinstance(s, dict) and s.get("pval") is not None and s["pval"] < thr
+                           and int(nid) in raw})
+              for tag, thr in (("p01", 0.01), ("p001", 0.001))}
     out = dict(base_pct_nonsel=base, holm_thr=holm_thr)
-    for tag, ids in (("raw", raw), ("holm", holm)):
+    for tag, ids in (("raw", raw), ("holm", holm), *strict.items()):
         ext = [i for i in ids if i not in fset]
         out.update({f"n_inf_{tag}": len(ids), f"pct_nonsel_{tag}": pct(ids),
                     f"n_inf_{tag}_excl": len(ext), f"pct_nonsel_{tag}_excl": pct(ext)})

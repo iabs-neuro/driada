@@ -37,6 +37,9 @@ SKIP_FEATURES = {'bodydirection_2d', 'headdirection_2d', 'speed_2d'}
 
 # Retention enrichment shuffles
 N_ENRICHMENT_SHUFFLES = 1000
+# A neuron-feature pair counts as selective on significance alone (p < 0.001), as in the
+# rest of the paper; no threshold on the size of the mutual information.
+MI_THRESHOLD = None
 
 
 def load_fof_database():
@@ -71,7 +74,7 @@ def compute_retention(db):
     results = {}
     for feat in features:
         print(f"  {feat}...", end=" ")
-        rt = retention_count_table(db, feat)
+        rt = retention_count_table(db, feat, mi_threshold=MI_THRESHOLD)
         total_row = rt.loc['total']
         print(f"  1-session={total_row.get(1, 0)}, "
               f"2-session={total_row.get(2, 0)}, "
@@ -80,7 +83,7 @@ def compute_retention(db):
         # Enrichment: is 3-session retention more than chance?
         try:
             enrich = retention_enrichment(
-                db, feat, n_shuffles=N_ENRICHMENT_SHUFFLES
+                db, feat, n_shuffles=N_ENRICHMENT_SHUFFLES, mi_threshold=MI_THRESHOLD
             )
         except Exception as e:
             print(f"    Enrichment failed: {e}")

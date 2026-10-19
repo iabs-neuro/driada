@@ -230,6 +230,9 @@ def run_intense(exp):
         exp,
         data_type="calcium",
         mi_estimator="gcmi",
+        # the same type-based representation as the hippocampal analysis: each angle enters
+        # as cos, sin, cos 2x, sin 2x
+        representation="by_type",
         mode="two_stage",
         n_shuffles_stage1=100,
         n_shuffles_stage2=10000,

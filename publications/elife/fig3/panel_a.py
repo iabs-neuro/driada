@@ -373,7 +373,9 @@ def plot_on_axes(ax_traj, ax_occ, ax_umap, ax_umaps, fig, style, sub_sizes):
     cbar.set_label("Time (s)", fontsize=max(style.base_label_size - 2, 4))
     cbar.ax.tick_params(labelsize=max(style.base_tick_labelsize - 2, 4))
     ax_occ.set_xlim(arena_xlim); ax_occ.set_ylim(arena_ylim)
-    ax_occ.set_xlabel("x (cm)"); ax_occ.set_ylabel("y (cm)")
+    # the right column carries no y label: it would overlap the left panel,
+    # and both columns share the same y axis
+    ax_occ.set_xlabel("x (cm)")
     ax_occ.set_title("Occupancy")
     style.apply_to_axes(ax_occ, sub_sizes["A_occ"], "cm")
 
@@ -399,7 +401,7 @@ def plot_on_axes(ax_traj, ax_occ, ax_umap, ax_umaps, fig, style, sub_sizes):
     ax_umaps.set_xlim(umap_lim); ax_umaps.set_ylim(umap_lim)
     ax_umaps.set_aspect("equal", adjustable="box")
     ax_umaps.set_anchor("N")
-    ax_umaps.set_xlabel("x (aligned)"); ax_umaps.set_ylabel("y (aligned)")
+    ax_umaps.set_xlabel("x (aligned)")
     ax_umaps.set_title("UMAP (shuffled)")
     style.apply_to_axes(ax_umaps, sub_sizes["A_umaps"], "cm")
     _add_colorstamp_inset(ax_umaps, cstamp, x_min, x_max, y_min, y_max, _cx, _cy, _r)

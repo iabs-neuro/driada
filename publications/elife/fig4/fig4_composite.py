@@ -67,6 +67,8 @@ N_RANDOM = 10       # random subsets of the filtered-set size
 N_SHUF = 3          # circular-shift shuffles per neuron set
 N_SHUF1, N_SHUF2 = 100, 10000   # two-stage embedding selectivity
 PVAL_THR = 0.05
+# threshold of the reported reverse analysis (pies of panel B)
+REPORT_PVAL_THR = 0.001
 SEED = 42
 
 # Figure geometry
@@ -239,6 +241,13 @@ def compute_ab_cache(sig_json):
              if isinstance(s, dict) and s.get("pval") is not None]
     holm_thr = get_multicomp_correction_thr(PVAL_THR, mode="holm", all_pvals=pvals)
     inf_raw = sorted(set(comp_sel[0]) | set(comp_sel[1]))
+    # per-neuron p-value of each dimension (NaN when stage 1 dropped the pair)
+    comp_pvals = np.full((n, DIM), np.nan)
+    for nid, nd in res["stats"].items():
+        for ci in range(DIM):
+            s = nd.get(f"isomap_comp{ci}")
+            if isinstance(s, dict) and s.get("pval") is not None:
+                comp_pvals[int(nid), ci] = s["pval"]
     inf_holm = sorted({int(nid) for nid, nd in res["stats"].items() for s in nd.values()
                        if isinstance(s, dict) and s.get("pval") is not None
                        and s["pval"] < holm_thr and int(nid) in inf_raw})
@@ -251,6 +260,7 @@ def compute_ab_cache(sig_json):
         m_shuf_all=np.array(m_shuf_all), m_shuf_filt=np.array(m_shuf_filt),
         comp_sel_0=np.array(comp_sel[0], int), comp_sel_1=np.array(comp_sel[1], int),
         inf_raw=np.array(inf_raw, int), inf_holm=np.array(inf_holm, int), holm_thr=holm_thr,
+        comp_pvals=comp_pvals,
         n_neurons=n, n_shuffles=np.array([N_SHUF1, N_SHUF2]), seed=SEED)
 
 
@@ -264,6 +274,48 @@ def load_multisession(path):
     out["session"] = [r["session"] for r in rows]
     out["mouse"] = [r["mouse"] for r in rows]
     return out
+
+
+def example_metrics(metrics, table_path):
+    """Bar values of the example session: per group a value per metric, the 95% CI
+    half-width of the random subsets and their individual values (None if unknown).
+
+    The approximate k-NN search behind Isomap is not seeded, so a rerun of the
+    example session gives a somewhat different all-neuron embedding. The bars are
+    therefore taken from the example-session row of the multisession table, the
+    same run the reported numbers come from; that run kept only the mean and SD of
+    the random subsets, so their individual values are not drawn. Without the row
+    the bars come from the panel A/B cache."""
+    from scipy.stats import t as t_dist
+    import csv
+    rows = []
+    if os.path.exists(table_path):
+        with open(table_path, encoding="utf-8") as f:
+            rows = [r for r in csv.DictReader(f) if r["session"] == SESSION and r["status"] == "ok"]
+    out = {g: {} for g in ("all", "rand", "filt", "shuf_all", "shuf_filt")}
+    ci, points = {}, {}
+    for k in ("r2cv", "dcorr"):
+        if rows:
+            r = rows[0]
+            for g in ("all", "filt"):
+                out[g][k] = float(r[f"{k}_{g}"])
+            for g in ("shuf_all", "shuf_filt"):
+                out[g][k] = float(r[f"{k}_{g}"])
+            out["rand"][k] = float(r[f"{k}_rand_mean"])
+            sd, n = float(r[f"{k}_rand_sd"]), N_RANDOM
+            points[k] = None
+        else:
+            for g in out:
+                out[g][k] = float(np.mean(metrics[g][k]))
+            v = metrics["rand"][k]
+            sd, n = np.std(v, ddof=1), len(v)
+            points[k] = v
+        ci[k] = t_dist.ppf(0.975, n - 1) * sd / np.sqrt(n)
+        print(f"  [Example bars, {'table' if rows else 'cache'}] {k}: all={out['all'][k]:.3f} "
+              f"filt={out['filt'][k]:.3f} rand={out['rand'][k]:.3f} "
+              f"(95% CI {out['rand'][k] - ci[k]:.3f}-{out['rand'][k] + ci[k]:.3f}) "
+              f"shuf_all={out['shuf_all'][k]:.3f} shuf_filt={out['shuf_filt'][k]:.3f}")
+    return {"values": out, "rand_ci": ci, "rand_points": points}
 
 
 def load_data():
@@ -305,10 +357,15 @@ def load_data():
               f"rand={metrics['rand'][k].mean():.3f}+-{metrics['rand'][k].std(ddof=1):.3f} "
               f"shuf_all={metrics['shuf_all'][k].mean():.3f} "
               f"shuf_filt={metrics['shuf_filt'][k].mean():.3f}")
+    example = example_metrics(metrics, MULTISESSION_CSV)
 
     # --- Pie chart data: per-dimension selectivity composition ---
     GROUP_ORDER = ["place", "spatial", "HD", "locomotion", "speed", "rest", "rear", "non-sel."]
-    comp_sel = [cache["comp_sel_0"], cache["comp_sel_1"]]
+    if "comp_pvals" not in cache.files:
+        raise RuntimeError(f"{CACHE_PATH} has no per-dimension p-values; delete it to recompute")
+    pv = cache["comp_pvals"]
+    comp_sel = [np.array([i for i in cache[f"comp_sel_{ci}"] if pv[i, ci] < REPORT_PVAL_THR], int)
+                for ci in range(DIM)]
     dim_compositions = []
     for ci in range(DIM):
         counts = {}
@@ -319,8 +376,10 @@ def load_data():
         print(f"    Dim {ci + 1} ({len(comp_sel[ci])} neurons): "
               + ", ".join(f"{g}={counts.get(g, 0)}" for g in GROUP_ORDER if counts.get(g, 0) > 0))
     inf_raw, inf_holm = cache["inf_raw"], cache["inf_holm"]
+    inf_rep = sorted(set(comp_sel[0]) | set(comp_sel[1]))
     nonsel = lambda ids: sum(selectivities[i] == "non-sel." for i in ids)
     print(f"  [Embed sel] informative: {len(inf_raw)} (non-sel. {nonsel(inf_raw)}), "
+          f"p<{REPORT_PVAL_THR}: {len(inf_rep)} (non-sel. {nonsel(inf_rep)}), "
           f"Holm: {len(inf_holm)} (non-sel. {nonsel(inf_holm)}), "
           f"base non-sel. {nonsel(range(n_neurons))}/{n_neurons}, "
           f"shuffles {cache['n_shuffles'].tolist()}")
@@ -355,6 +414,7 @@ def load_data():
         "n_all": n_neurons,
         "n_filt": len(cache["filt_idx"]),
         "metrics": metrics,
+        "example": example,
         "multisession": load_multisession(MULTISESSION_CSV),
         "dim_compositions": dim_compositions,
         "comp_counts": [len(comp_sel[ci]) for ci in range(DIM)],
@@ -440,9 +500,11 @@ COLOR_ALL, COLOR_FILT, COLOR_RAND = "#BBBBBB", "#2CA02C", "#A8D5A8"
 def draw_quality_metrics(ax, data, style, panel_size_cm):
     """Held-out position R^2 and distance correlation in the example session.
 
-    Random subsets (same size as the filtered set) are shown as mean +- SD
-    with individual subsets as dots; shuffles as the mean of the controls."""
-    m = data["metrics"]
+    Random subsets (same size as the filtered set) are shown as mean with
+    95% CI (t-distribution across subsets) and, when known, individual subsets
+    as dots; shuffles as the mean of the controls."""
+    ex = data["example"]
+    m = ex["values"]
     metric_keys = ["r2cv", "dcorr"]
     metric_names = ["Held-out\nposition R$^2$", "Distance\ncorrelation"]
     positions = np.arange(len(metric_keys))
@@ -457,17 +519,18 @@ def draw_quality_metrics(ax, data, style, panel_size_cm):
     rng = np.random.RandomState(0)  # horizontal jitter of the subset dots only
     for gi, (key, color, label, is_shuf) in enumerate(groups):
         xs = positions + (gi - 2) * bar_w
-        vals = [np.mean(m[key][k]) for k in metric_keys]
+        vals = [m[key][k] for k in metric_keys]
         ax.bar(xs, vals, bar_w, color=color, edgecolor="black", linewidth=0.4,
                alpha=0.4 if is_shuf else 1.0, hatch="//" if is_shuf else None,
                label=label)
         if key == "rand":
-            sds = [np.std(m[key][k], ddof=1) for k in metric_keys]
-            ax.errorbar(xs, vals, yerr=sds, fmt="none", ecolor="black",
-                        elinewidth=0.6, capsize=1.5, capthick=0.6)
+            ax.errorbar(xs, vals, yerr=[ex["rand_ci"][k] for k in metric_keys], fmt="none",
+                        ecolor="black", elinewidth=0.6, capsize=1.5, capthick=0.6)
             for xi, k in zip(xs, metric_keys):
-                ax.scatter(xi + rng.uniform(-0.04, 0.04, len(m[key][k])), m[key][k],
-                           s=2, color="black", zorder=3, linewidths=0)
+                pts = ex["rand_points"][k]
+                if pts is not None:
+                    ax.scatter(xi + rng.uniform(-0.04, 0.04, len(pts)), pts,
+                               s=2, color="black", zorder=3, linewidths=0)
     ax.axhline(0, color="black", linewidth=0.5)
     ax.set_xticks(positions)
     ax.set_xticklabels(metric_names)

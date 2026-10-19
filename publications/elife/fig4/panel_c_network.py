@@ -57,8 +57,9 @@ SEL_COLORS = {
 SEL_DRAW_ORDER = ["non-sel.", "spatial", "rear", "rest",
                   "locomotion", "speed", "HD", "place"]
 
-# Cell-cell significance matrices (compute/compute_cell_cell_network.py) and the layout cache
-_DATA_DIR = elife_paths.CACHE_DIR
+# Cell-cell significance matrices (compute/compute_cell_cell_network.py) and the layout cache;
+# DRIADA_ELIFE_NETWORK_CACHE lets the network come from another cache folder than panels A-B
+_DATA_DIR = os.environ.get("DRIADA_ELIFE_NETWORK_CACHE", elife_paths.CACHE_DIR)
 
 
 def _get_primary_selectivity(neuron_idx, sig_json, stats_json):
