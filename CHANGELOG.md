@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.2.2] - 2026-10-19
+## [1.2.2] - 2026-10-20
 
 **Scripts of the eLife manuscript reproduce version 10.0 of the paper**
 
@@ -23,6 +23,8 @@ The library is unchanged; only `publications/elife` changes.
 - **Figure 4 session script defaults match the manuscript** — `multisession_fig4_controls.py` now defaults to union symmetrisation of the k-NN graph, 10 random subsets and 3 circular-shift controls, the settings the manuscript was computed with; it previously defaulted to intersection, 20 and 5 and did not reproduce Figure 4A
 - **Reverse analysis at stricter thresholds** — `multisession_fig4_controls.py` also reports the share of non-selective neurons among embedding-informative neurons at p < 0.01 and p < 0.001
 - **Figures 3 and 4** — overlapping y labels removed from Figure 3A; Figure 4A whiskers are 95% confidence intervals over random subsets; the pies of Figure 4B use p < 0.001; the network cache folder of Figure 4C can be set by `DRIADA_ELIFE_NETWORK_CACHE`
+- **Figures 3 and 4, display** — the eigenvalue histograms of Figure 4C are drawn on a log10(count + 1) scale, so that isolated eigenvalues below the bulk are visible; the legend of Figure 4C labels the merged head and body direction group `HD/BD`; the place-cell map of Figure 3B is scaled to its maximum
+- **Figure 2C statistic has a script** — `fig2/fig2_circ_stats.py` computes the circular correlation between the Isomap angle and head direction and its circular-shift p-value, as described in Methods
 - **Caches recomputed on 1.2.1** — Figure 4A-B, the session table, the autoencoder sweep and the INTENSE and VAE results of Figure 5; the network matrices of Figure 4C are from an earlier version, as the README states
 
 ## [1.2.1] - 2026-10-18

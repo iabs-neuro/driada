@@ -53,7 +53,7 @@ Times are rough, on a laptop, with the caches in place.
 | Figure | Script | Inputs | Output | Time |
 |---|---|---|---|---|
 | 1 | `fig1/fig1_architecture.py`, `fig1_objects.py`, `fig1_network.py`, `fig1_traces.py`, then `fig1/fig1_compose.py` | `fig1/fig1_assembled.pdf` (see "Not reproduced by scripts") | `fig1.png/pdf` and the four component drawings | 3 min |
-| 2 | `fig2/fig2_data.py`, then `fig2/fig2_synthetic.py` | none (synthetic population, seeded) | `cache/fig2_*.npz`, `fig2.png/pdf` | 3 min + 1 min |
+| 2 | `fig2/fig2_data.py`, then `fig2/fig2_synthetic.py`; `fig2/fig2_circ_stats.py` prints the circular correlation of panel C | none (synthetic population, seeded) | `cache/fig2_*.npz`, `fig2.png/pdf` | 3 min + 1 min + 1 min |
 | 3 | `fig3/fig3_composite.py` (panels: `panel_a.py`, `panel_b.py`, `panel_e.py`) | synchronized file of session `FOF_F28_1D`, INTENSE results and disentangled tables of all sessions, `cache/FOF_F28_1D_umap_cache.npz` | `fig3.png/pdf` | 6 min |
 | 4 | `fig4/fig4_composite.py` (network panels: `panel_c_network.py`) | INTENSE results of `FOF_F28_1D`, `cache/fig4_ab_cache_nn40.npz`, `cache/fig4_multisession_sessions.csv`, `cache/network_*.npz` | `fig4.png/pdf` | 2 min |
 | 5 | `fig5/fig5_data.py`, then `fig5/fig5_advanced.py` | none (simulated attractor network, seeded); `cache/fig5_ae_sweep.npz` from `supplementary/dci_sweep.py` | `cache/fig5_*.npz`, `fig5.png/pdf` | data: not timed end to end (minutes to tens of minutes); drawing 1 min |
