@@ -1,0 +1,191 @@
+# Locations and settings of the scripts of the INTENSE paper (manuscript version 12).
+#
+# Every script reads this file through intense_paths.py (and paths_v11.py,
+# figure_chain/_paths_fig.py) and builds no path of its own. To use another copy,
+# set INTENSE_PAPER_CONFIG=<path of the copy>.
+#
+# Locations start with one of two roots:
+#   ${INTENSE_DATA}     the downloaded inputs           default: <this folder>/data
+#   ${INTENSE_RESULTS}  everything the scripts write    default: <this folder>/results
+# Set the environment variables INTENSE_DATA and INTENSE_RESULTS to move them. Other
+# environment variables in a value are expanded too; a relative path is resolved
+# against the folder of this file. README.md lists where each input comes from.
+
+[driada]
+# Source tree of the DRIADA release the paper was computed with. The branch that holds
+# this folder is release 1.2.2 itself, so the default is the src/ and tools/ folders of
+# this repository. Leave src empty to use an installed driada 1.2.2 instead; the
+# version is checked either way.
+src = "../../src"
+tools = "../../tools"
+version = "1.2.2"
+
+[analysis]
+representation = "by_type"
+# Random seed of the INTENSE shuffles, the calibration nulls and the synthetic data.
+seed = 42
+# No single rate: each session has its own in _metadata['fps'] (see fps_by_session.csv).
+fps = nan
+# Acceptance criterion of a neuron-feature pair used throughout the paper.
+pval_thr = 0.001
+mi_excess_thr = 0.04
+zone_rule = "place_field"
+
+[data]
+# Synchronized NOF sessions with the frame rate of each session in _metadata, written by
+# compute/make_v2_data.py from [v11] nof_v1 and [v11] fps_table.
+nof_aligned = "${INTENSE_DATA}/NOF/SynchronizedData26_v2"
+# Earlier export of the same sessions (one extra leading calcium row, behavior of another
+# synchronization). The example caches of Figures 1 and 2 were built from it; it is not part of the
+# deposited data, and those caches are in figure_chain/saved_inputs (README.md).
+nof_legacy = "${INTENSE_DATA}/NOF/legacy_export"
+# Zone masks of the place_field rule, in centimetres: <zone_masks>/NOF/<session>_zones_cm.npz.
+zone_masks = "${INTENSE_DATA}/zone_masks"
+# MATLAB output of a co-author's event-based place-cell analysis; read only by --classic A of
+# figure_chain/figures_v10.4/work/fig2_src/fig2_data_v104.py, a variant the paper does not use.
+# Not deposited.
+classic_mat = "${INTENSE_DATA}/classic/zscoreThr4_binsize4_center.mat"
+
+[results]
+# INTENSE with disentanglement (compute/run_disent_pair_delays.py); by_type/ is appended.
+intense_root = "${INTENSE_RESULTS}/intense"
+# compute/build_db_fps.py --round-boundary
+db_dir = "${INTENSE_RESULTS}/db"
+# numbers/*.py
+numbers_dir = "${INTENSE_RESULTS}/numbers"
+# Pearson run (compute/run_pearson.py), read by numbers/overlap_mi_corr.py and
+# numbers/gamma_tail_mi_corr.py.
+pearson_dir = "${INTENSE_RESULTS}/pearson"
+# Calibration of false discoveries (ed_calibration/calib_run_part_fps.py, then
+# ed_calibration/analyze.py).
+calibration_dir = "${INTENSE_RESULTS}/calibration"
+
+[figures]
+# Figure caches written by fig1/fig1_data.py and fig3/fig3_data.py.
+cache_dir = "${INTENSE_RESULTS}/fig_cache"
+# Figures; the scripts of figure_chain/ write under <output_dir>/figure_chain.
+output_dir = "${INTENSE_RESULTS}/figures"
+fig1_scheme = "assets/fig1c_scheme.png"
+# The same with the two stage labels set again (figure_chain/figures_v11.1/work/fig1/make_scheme_v111.py).
+fig1_scheme_v111 = "assets/fig1c_scheme_v111.png"
+fig3_mouse_a = "assets/fig3a_mouse_object.png"
+fig3_mouse_b = "assets/fig3b_mouse_rearing.png"
+
+[v11]
+# Locations added in version 11 of the manuscript (read by paths_v11.py).
+# "aligned": conditional MI of disentanglement at the optimal delays of the pair
+# (the paper); "asis": as DRIADA 1.2.2 computes it.
+cmi_delays = "aligned"
+# Second-stage results of the paper run with interaction information
+# (compute/run_intense_interaction.py --output-dir ${INTENSE_RESULTS}/stage2), read by the
+# disentanglement replay and by the comparisons of MI with correlation.
+stage2_results = "${INTENSE_RESULTS}/stage2/by_type/results"
+# Multiple correlation on the type-based representations (compute/corr_by_type.py --variant rmult).
+rmult_dir = "${INTENSE_RESULTS}/corr/rmult"
+# Synchronized sessions without the frame rate: the arrays deposited on DANDI.
+nof_v1 = "${INTENSE_DATA}/NOF/SynchronizedData26_v1"
+# Frame rate of each session (64 rows; written by compute/make_fps_table.py).
+fps_table = "fps_by_session.csv"
+# Sources of the frame rates, read only by compute/make_fps_table.py and, when fps_table
+# is missing, by classic/detect_events.py: the CaImAn frame rate 'fr' of the BEARMIND
+# processing of each session and the compressed raw pickles. Not deposited.
+bearmind_fr = "${INTENSE_DATA}/bearmind/fr_sorted.csv"
+bearmind_pickles = "${INTENSE_DATA}/bearmind/raw_compressed"
+# Classic event-based place-cell method re-implemented in Python (classic/).
+classic_dir = "${INTENSE_RESULTS}/classic"
+# Synthetic benchmark of Figure 4 (synthetic/run_benchmark.py); the Figure 4 script reads
+# saved_synthetic, which is the same folder.
+synthetic_dir = "${INTENSE_RESULTS}/synthetic"
+saved_synthetic = "${INTENSE_RESULTS}/synthetic"
+# Map similarity of Figure 2e per session (figure_chain/fig2_v10.4/work/ssim_v104.py).
+fig2_ssim_cache = "${INTENSE_RESULTS}/figures/figure_chain/fig2_v10.4/work/cache"
+# Per-neuron selections of the forward-selection GLM on the CA1 recordings (glm/ca1_glm_numbers.py).
+glm_ca1_per_neuron = "${INTENSE_RESULTS}/glm/s1_real_per_neuron.csv"
+# Path length and arena coverage of every session (figure_chain/explore.py, from [v11] nof_v1). The
+# example neurons of Supplementary Fig. 4 and the candidates for the example of Fig. 3d,e are taken
+# only from sessions in which the mouse covered at least 10 m.
+glm_explore_json = "${INTENSE_RESULTS}/figures/figure_chain/explore.json"
+# Where the figure scripts read what the producers of figure_chain/ wrote, in the relative layout of
+# figure_chain/ (figure_chain/_paths_fig.py). By default this is where those producers write.
+figure_artifacts = "${INTENSE_RESULTS}/figures/figure_chain"
+
+[glm]
+# Supplementary Section S1, comparison with the GLM (scripts in glm/).
+# Synthetic benchmark (glm/synth_compute.py): per-cell outcomes in parts/, the queue of the workers in
+# claims/, done/, failed/ and logs/; glm/synth_numbers.py writes tables/ next to them.
+synth_dir = "${INTENSE_RESULTS}/glm/synth"
+# Which features of the linear-mixture cells each method finds (glm/mixtures_*.py).
+mixtures_dir = "${INTENSE_RESULTS}/glm/mixtures"
+# Comparison at matched false-positive rates (glm/matched_fpr.py, glm/matched_fpr_numbers.py).
+matched_fpr_dir = "${INTENSE_RESULTS}/glm/matched_fpr"
+# Supplementary Figs 1-3 (glm/synth_figures.py, glm/matched_fpr_figure.py).
+figures_dir = "${INTENSE_RESULTS}/figures/glm"
+# CA1 GLM of Section S1.4: parts/ of glm/ca1_glm.py; glm/ca1_glm_numbers.py joins them, writes
+# [v11] glm_ca1_per_neuron (forward selection) and the per-feature selection here.
+ca1_glm_dir = "${INTENSE_RESULTS}/glm/ca1_glm"
+# CA1 INTENSE without delay search (glm/ca1_intense_zero_lag.py: delays_off/results/) and the
+# counts of Supplementary Table 4 (glm/ca1_numbers.py).
+ca1_intense_dir = "${INTENSE_RESULTS}/glm/ca1_intense"
+
+[mec]
+# Medial entorhinal cortex data of Obenhaus et al. (2022), Supplementary Section S1.5 (scripts in mec/).
+# The MySQL dump of the authors' DataJoint database, from the NIRD Research Data Archive
+# (https://doi.org/10.11582/2022.00005): file dump.sql, 101,479,145,429 bytes, sha256
+# 97da8a3ee5f9aa4bc0767d181420258e2e707b386a73f9ba8833bf5f8ca65b92. The scripts read 17 of its
+# 178 tables, about 19 GB (README.md lists them).
+dump = "${INTENSE_DATA}/MEC/dump.sql"
+# Byte offset of every table in that file (its lines "-- Table structure for table `...`"), as
+# `grep -b` prints them; shipped with the scripts.
+table_offsets = "mec/table_offsets.txt"
+# Tracking, curated cells, frame times, session metadata and the authors' tuning curves cut out of
+# the dump (mec/extract_tables.py validate).
+dump_extract = "${INTENSE_RESULTS}/mec/extract_validation.sql"
+# Signal dataset and channel the authors scored in each session (mec/extract_dataset_map.py),
+# read by the decoder.
+signal_datasets = "${INTENSE_RESULTS}/mec/authors_signal_dataset.csv"
+# One file per session: calcium of the curated cells, their cell_ids, x, y, speed, head direction
+# (mec/decode_cohort_primary.py).
+sessions_dir = "${INTENSE_RESULTS}/mec/sessions"
+# Frame rate of each analysed session from the frame times of the dump (column fps_true), with
+# its microscope and label; read by mec/run_xyfix.py and mec/confident_by_config.py. Shipped;
+# mec/sync_fps.py, mec/join_fps.py and mec/list_over_1pct.py rebuild it into fps_dir.
+fps_table = "mec/si_sessions_fps.csv"
+# Rate and other measurements of every session of the dump; column in_npz marks the 215 sessions with a
+# session file, in_si_final the 213 of fps_table. Read by mec/run_xyfix_primary.py for the rate of the two
+# others and by mec/run_recompute_primary.py for the list of sessions. Shipped; mec/join_fps.py rebuilds
+# it into fps_dir.
+fps_all = "mec/fps_by_session.csv"
+fps_dir = "${INTENSE_RESULTS}/mec/fps"
+# The authors' scores and shuffle cutoffs per analysed cell (mec/arbiter_labels.py).
+arbiter_dir = "${INTENSE_RESULTS}/mec/arbiter"
+# INTENSE and GLM of every session (mec/run_xyfix.py -> parts/) and the cohort files computed
+# from them: variants/new_on/ (results.csv, cell_sets.jsonl, arbiter_*.csv, recall_vs_margin.csv,
+# confident_by_config.csv) and figures_new_on/, which the MEC figure scripts read.
+recompute_dir = "${INTENSE_RESULTS}/mec/recompute"
+
+[s2]
+# Disentanglement on synthetic neurons with known selectivity, on the recorded behavior of one
+# session per mouse (Supplementary Section S2, Supplementary Table 6, the last row of
+# Supplementary Table 7, Supplementary Fig. 8, and the 4.5% against 11.2% of Results). Everything
+# the scripts of s2/ write, in this layout:
+#   sessions_all64.csv, sessions_16.csv   s2/select_sessions.py (the 16 sessions used by the rest)
+#   s2/      synthetic neurons of Supplementary Table 6 (synth_npz/, truth/), their INTENSE
+#            results (results/) and scores (tables/): s2/s2_synth_fps_16.py make, run, score
+#   s7/      synthetic place, body-direction and place + body-direction neurons at the
+#            information of CA1 neurons: s2/7_s7_make.py, s2/7_s7_run.py
+#   data/    tables of the analysis, s2/3_ca1_table.py ... s2/16_significance.py; read by
+#            numbers/s2_numbers.py, numbers/wilcoxon_table.py and the script of Supplementary Fig. 8
+#   plots/   diagnostic plots of s2/4_calibration.py and s2/5_composition.py
+out_dir = "${INTENSE_RESULTS}/s2_16mice"
+
+[fft]
+# Speed-up of the FFT cache for one pair of the synthetic benchmark (Methods, FFT-accelerated
+# permutation testing): the chosen pairs (fft/d_fft_timing2.py prepare, read from the saved
+# benchmark in [v11] saved_synthetic) and the timings (fft/d_fft_core.py, fft/d_fft_interleaved.py).
+out_dir = "${INTENSE_RESULTS}/fft"
+
+[fig2_numbers]
+# Per-cell table of Figure 2 (classic method of classic/ at the frame rate of each session), written
+# by figure_chain/figures_v10.4/work/fig2_src/fig2_data_v104.py --classic B; read by
+# numbers/place_cell_agreement.py.
+cells = "${INTENSE_RESULTS}/figures/figure_chain/figures_v10.4/work/cache/fig2_v104_cells_B.csv"

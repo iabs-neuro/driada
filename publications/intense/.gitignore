@@ -1,0 +1,7 @@
+# default roots of the inputs and of everything the scripts write (config.toml)
+/data/
+/results/
+__pycache__/
+# folders the repository ignores by name elsewhere, needed here
+!/figure_chain/science/
+!/glm/saved/synth/parts/

@@ -1,0 +1,5 @@
+target_fpr,M_cv_wilcox,M_cv_wilcox_actual_fpr,M_ho_shift,M_ho_shift_actual_fpr,INTENSE_delay,INTENSE_delay_actual_fpr,INTENSE_nodelay,INTENSE_nodelay_actual_fpr
+0.0,0.0,0.0,0.0,0.0,0.84,0.0,0.52,0.0
+0.05,0.483,0.05,0.478,0.06,0.883,0.05,0.763,0.05
+0.1,0.725,0.12,0.578,0.11,0.897,0.09,0.817,0.1
+0.2,0.828,0.19,0.648,0.21,0.908,0.21,0.838,0.2
