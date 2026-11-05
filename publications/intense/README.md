@@ -67,7 +67,7 @@ renders (noise of amplitude 1e-8 added to the calcium when a neuron is built). O
 Supplementary Section S1 the generator adds tie-breaking noise without a seed, so a rerun from scratch gives F1
 values within 0.02 of the printed ones (in a repeat of three seeds 122 of 135 values were identical, the others
 differed by one cell). The printed values come from the saved outcomes per cell, which are in this folder:
-`glm/saved/`, 4.4 MB (see Supplementary Section S1 below).
+`glm/saved/`, about 4 MB (see Supplementary Section S1 below).
 
 ## Data
 
@@ -82,6 +82,10 @@ differed by one cell). The printed values come from the saved outcomes per cell,
 Everything is located by `config.toml`. By default the inputs go under `data/` and the results under
 `results/` next to this file; set the environment variables `INTENSE_DATA` and `INTENSE_RESULTS` to move
 them, or edit `config.toml` (or point `INTENSE_PAPER_CONFIG` at a copy).
+
+**A known feature of the data.** The head-direction column of the CA1 session files (`headdirection`) was smoothed
+with a one-second window over the angle itself, so its values are distorted near the cut at +/-pi. Confirmation and a
+fix are with the authors of the Sphynx package.
 
 ## Order of the steps
 
@@ -128,7 +132,7 @@ decision and a ratio of this order, not the same digits.
 |---|---|---|---|
 | 13 | `python glm/synth_compute.py --worker K` for K = 1..4 side by side | per-cell outcomes, `<[glm] synth_dir>/parts` | 42 min |
 | 14 | `python glm/synth_numbers.py`, `python glm/synth_figures.py` | Supplementary Table 3, Figs 1, 2; 0.004-0.07 bits, 88%; 0.40, 0.12, 0.27; 0.26-0.30; nearly four, 2.7 | seconds |
-| 15 | `python glm/mixtures_breakdown.py`, `python glm/mixtures_components.py --workers 4`, `python glm/mixtures_summary.py` | 31-38%, 72-93%, 95%, 92%, 1.5-1.9 times; half of the modulation; one half to one third of the SNR | 2 min |
+| 15 | `python glm/mixtures_breakdown.py`, `python glm/mixtures_components.py --workers 4`, `python glm/mixtures_summary.py` | 1.5-1.9 times; half of the modulation | 2 min |
 | 16 | `python glm/matched_fpr.py`, `python glm/matched_fpr_numbers.py`, `python glm/matched_fpr_figure.py` | Supplementary Fig. 3; 0.76, 0.88, 0.48; 0.67, 0.85, 0.34; 1/201 | 19 min |
 | 17 | `python glm/ca1_glm.py --shard k/2` for k = 0, 1 side by side, then `python glm/ca1_glm_numbers.py` | GLM columns of Supplementary Table 4, `[v11] glm_ca1_per_neuron` (needed by steps 18, 19 and Supplementary Fig. 4) | 90 min |
 | 18 | `python glm/ca1_intense_zero_lag.py --delays off --shard k/3 --n-jobs 1` for k = 0, 1, 2 side by side, then `python glm/ca1_numbers.py` | INTENSE columns of Supplementary Table 4; more than ten times; 65 against 86; 393 | 90 min |
@@ -163,7 +167,9 @@ Figs 1-3 come out byte for byte as printed.
 ### Supplementary Section S1.5: medial entorhinal cortex (MEC)
 
 The main folder of this analysis is `mec/`. Steps marked A need the MEC environment above, the others the
-main one.
+main one. The comparison with the authors' labels uses 213 of the 215 sessions: we have no copies of the authors'
+scores for the two added sessions, the two that are not in `mec/si_sessions_fps.csv`, so the cell list of step 27d
+leaves them out.
 
 | Step | Command | Reproduces | Time |
 |---|---|---|---|
@@ -197,8 +203,10 @@ Supplementary Figs 1-3 are drawn in steps 14 and 16.
 **Example panels of an earlier export.** Figs 1a, 1b, 1d and 2b were drawn from an earlier export of the same
 sessions, which is not part of the deposit. Its calcium is the deposited calcium with one extra leading row;
 its behavior went through another synchronization: positions in 0-1 (correlation with the deposited
-coordinates above 0.999), the object-4 label drawn in Figs 1b and 1d different in up to 0.2% of the frames. So that these panels
-come out as printed, their small inputs are in `figure_chain/saved_inputs/` (150 KB): `fig1a_data.npz`,
+coordinates above 0.999), the object-4 label drawn in Figs 1b and 1d different in up to 0.2% of the frames. Head
+direction, drawn in Fig. 1b, is in that export the angle from head center to the nose, and in the analysed files the
+angle from head center to the miniscope (recomputed from the tracking of two other sessions of the same mouse). So
+that these panels come out as printed, their small inputs are in `figure_chain/saved_inputs/` (150 KB): `fig1a_data.npz`,
 `fig1b_data.npz`, `NOF_H01_2D_object4_earlier_export.npz`, `fig2b_data_v104_onsets.npz`. The scripts that made
 them need the earlier export (`[data] nof_legacy`) and are kept as the record: `fig1/cache_examples.py`,
 `fig2/cache_examples.py`, `fig2/fig2_loader.py`, `legacy_loader.py`, `figure_chain/fig2_v10.4/work/fig2b_onsets.py`.
@@ -225,5 +233,3 @@ sheet.
 * The inputs named above under "Example panels of an earlier export": their scripts need that export.
 * The behavior analysis (Sphynx) and the processing of the videos (BEARMIND) are other repositories, named in
   the Code availability of the paper.
-* MEC: the passage of Section S1.5 on five sessions with slow drift (260 of 1,760 GLM position cells) rests on a
-  diagnostic of the earlier decode that is not in this folder.

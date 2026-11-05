@@ -12,7 +12,7 @@
 # against the folder of this file. README.md lists where each input comes from.
 
 [driada]
-# Source tree of the DRIADA release the paper was computed with. The branch that holds
+# Source tree of the DRIADA release the paper was computed with. The release v1.2.2-intense that holds
 # this folder is release 1.2.2 itself, so the default is the src/ and tools/ folders of
 # this repository. Leave src empty to use an installed driada 1.2.2 instead; the
 # version is checked either way.
