@@ -92,8 +92,8 @@ largest differences are 3e-5 in calcium (traces reach about 1,000), 1.5e-4 cm in
 rad in direction and 2e-4 in the discrete variables, and the 17 zone masks agree in every cell. INTENSE with the
 settings of the paper then accepts the same 88 pairs before disentanglement, at the same delays, and keeps the same 81
 after it; MI moves by at most 1.1e-5 bits. So the NWB files should give the numbers of the paper, not byte for byte, and
-a count of pairs can differ by one or two: in the database of the paper 2 pairs lie within 1.1e-5 bits of the 0.04-bit
-threshold.
+a count of pairs can differ by a few: in the database of the paper, with 9,598 accepted pairs, 6 pairs lie within
+1.1e-5 bits of the 0.04-bit threshold.
 
 Everything is located by `config.toml`. By default the inputs go under `data/` and the results under
 `results/` next to this file; set the environment variables `INTENSE_DATA` and `INTENSE_RESULTS` to move
