@@ -82,7 +82,7 @@ cmi_delays = "aligned"
 stage2_results = "${INTENSE_RESULTS}/stage2/by_type/results"
 # Multiple correlation on the type-based representations (compute/corr_by_type.py --variant rmult).
 rmult_dir = "${INTENSE_RESULTS}/corr/rmult"
-# Synchronized sessions without the frame rate: the arrays deposited on DANDI.
+# Synchronized sessions without the frame rate, written from the NWB files by compute/data_from_dandi.py.
 nof_v1 = "${INTENSE_DATA}/NOF/SynchronizedData26_v1"
 # Frame rate of each session (64 rows; written by compute/make_fps_table.py).
 fps_table = "fps_by_session.csv"
