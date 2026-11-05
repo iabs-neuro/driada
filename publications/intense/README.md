@@ -83,10 +83,6 @@ Everything is located by `config.toml`. By default the inputs go under `data/` a
 `results/` next to this file; set the environment variables `INTENSE_DATA` and `INTENSE_RESULTS` to move
 them, or edit `config.toml` (or point `INTENSE_PAPER_CONFIG` at a copy).
 
-**A known feature of the data.** The head-direction column of the CA1 session files (`headdirection`) was smoothed
-with a one-second window over the angle itself, so its values are distorted near the cut at +/-pi. Confirmation and a
-fix are with the authors of the Sphynx package.
-
 ## Order of the steps
 
 Times are for one machine with 8 cores, from the logs of the runs that produced the paper unless marked as
