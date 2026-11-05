@@ -7,6 +7,11 @@ the main text, Methods, Extended Data and Supplementary Information.
 file and key that hold the value. Run every command from this folder; on Windows use `python -X utf8`, so
 that a script that prints names with non-ASCII characters does not stop on the console encoding.
 
+To run INTENSE on your own recordings, start from the examples of DRIADA:
+[`intense_basic_usage`](../../examples/intense_basic_usage), [`full_intense_pipeline`](../../examples/full_intense_pipeline),
+[`mixed_selectivity`](../../examples/mixed_selectivity) and the
+[examples page of the documentation](https://driada.readthedocs.io/en/latest/examples.html).
+
 | Folder | What it reproduces |
 |---|---|
 | `compute/` | session files from DANDI, INTENSE with disentanglement, the databases, the runs with correlation |
@@ -27,7 +32,7 @@ In `numbers_v12.csv` and below, `[section] key` is an entry of `config.toml`, an
 
 ## Software
 
-* **DRIADA 1.2.2.** Release `v1.2.2-intense` of the repository is release 1.2.2 with this folder added;
+* **DRIADA 1.2.2.** Release `v1.2.2-intense` of the repository holds the code of release 1.2.2 with this folder added;
   `config.toml` points at `../../src` and `../../tools` of the same checkout, and every script stops
   if it imports another version. To use an installed package instead (`pip install driada==1.2.2`),
   set `[driada] src = ""` and `tools` to the `tools/` folder of the release.
@@ -52,7 +57,7 @@ In `numbers_v12.csv` and below, `[section] key` is an entry of `config.toml`, an
 | frame rate | each session its own: 26 sessions at about 19.8 frames/s, 38 at about 29.8 ([`fps_by_session.csv`](fps_by_session.csv)); the delay window, the excluded shifts and the delay categories follow it. MEC: [`mec/si_sessions_fps.csv`](mec/si_sessions_fps.csv), [`mec/fps_by_session.csv`](mec/fps_by_session.csv) | `[v11] fps_table`, written into the session files by `compute/make_v2_data.py`; `[mec] fps_table`, `[mec] fps_all` |
 | feature representation | type-based (`by_type`) | `[analysis] representation` |
 | zone rule | `place_field` | `[analysis] zone_rule` |
-| conditional MI of disentanglement | at the optimal delays of the pair | `[v11] cmi_delays = "aligned"` (`compute/run_disent_pair_delays.py`); DRIADA alone gives 872 instead of 868 |
+| conditional MI of disentanglement | at the optimal delays of the pair | `[v11] cmi_delays = "aligned"` (`compute/run_disent_pair_delays.py`) |
 | delay categories | negative, near zero, positive at round(0.75 s x frame rate) frames | `compute/build_db_fps.py --round-boundary` |
 | Supplementary Section S1, synthetic | seeds 42, 123, 7, 11, 19, 23, 31, 44, 57, 64, 73, 88, 91, 101, 113, 127, 139, 151, 163, 177 (20 for Table 3 and Fig. 1, the first 15 for three-feature mixtures, the first 10 for Fig. 2, matched FPR and the GLM controls); INTENSE seed 42, p < 0.001 per pair in Table 3, p < 0.05 with Holm correction in Figs 1, 2; no delay search; bootstrap seed 0 | `glm/synth_common.py`, `glm/synth_compute.py`, `glm/synth_numbers.py` |
 | GLM | 24 head-direction bins, 10 quantile speed bins, 7 x 7 position bins, ridge alpha 1, 10 block folds, one-sided Wilcoxon test, alpha 0.05 with Bonferroni correction | `glm/glm_variants.py`, `glm/ca1_glm.py`, `mec/analyze_cohort.py` |
@@ -84,16 +89,13 @@ differed by one cell). The printed values come from the saved outcomes per cell,
 zones are outlines in video pixels. `compute/data_from_dandi.py` brings them to the files the scripts read, by the rule
 that made the files of the paper: behavior goes to the calcium frames by linear interpolation on the timestamps, as in
 the mode "2 timelines" of the IABS data synchronizer (https://github.com/iabs-neuro/iabs_synchronizer, version 1.1.0;
-not needed to run the script). The rebuilt arrays are not bit-identical to the files of the paper, because NWB holds the
-traces in float32 and the timestamps on a grid of 6.4 microseconds. With `--check DIR_SESSIONS DIR_MASKS` the script
-writes nothing, compares every array with the file of the same name in those folders and prints its shape, its median
-and maximum difference and the tolerance written in the script. On session H01_1D, the only one compared so far, the
-largest differences are 3e-5 in calcium (traces reach about 1,000), 1.5e-4 cm in position, 1.3e-3 cm/s in speed, 1.3e-3
-rad in direction and 2e-4 in the discrete variables, and the 17 zone masks agree in every cell. INTENSE with the
-settings of the paper then accepts the same 88 pairs before disentanglement, at the same delays, and keeps the same 81
-after it; MI moves by at most 1.1e-5 bits. So the NWB files should give the numbers of the paper, not byte for byte, and
-a count of pairs can differ by a few: in the database of the paper, with 9,598 accepted pairs, 6 pairs lie within
-1.1e-5 bits of the 0.04-bit threshold.
+not needed to run the script). With `--check DIR_SESSIONS DIR_MASKS` the script writes nothing, compares every array
+with the file of the same name in those folders and prints its shape, its median and maximum difference and the
+tolerance written in the script. NWB holds the traces in float32 and the timestamps on a grid of 6.4 microseconds, so the
+arrays differ in the last digits: on session H01_1D the largest differences are 3e-5 in calcium (traces reach about
+1,000), 1.5e-4 cm in position, 1.3e-3 cm/s in speed, 1.3e-3 rad in direction and 2e-4 in the discrete variables, and the
+17 zone masks agree in every cell. INTENSE with the settings of the paper then accepts the same 88 pairs before
+disentanglement, at the same delays, and keeps the same 81 after it; MI moves by at most 1.1e-5 bits.
 
 Everything is located by `config.toml`. By default the inputs go under `data/` and the results under
 `results/` next to this file; set the environment variables `INTENSE_DATA` and `INTENSE_RESULTS` to move
@@ -213,19 +215,14 @@ default). `figure_chain/` keeps the version layout of the manuscript: a figure s
 Supplementary Figs 1-3 are drawn in steps 14 and 16.
 
 **Example panels of an earlier export.** Figs 1a, 1b, 1d and 2b were drawn from an earlier export of the same
-sessions, which is not part of the deposit. Its calcium is the deposited calcium with one extra leading row;
-its behavior went through another synchronization: positions in 0-1 (correlation with the deposited
-coordinates above 0.999), the object-4 label drawn in Figs 1b and 1d different in up to 0.2% of the frames. Head
-direction, drawn in Fig. 1b, is in that export the angle from head center to the nose, and in the analysed files the
-angle from head center to the miniscope (recomputed from the tracking of two other sessions of the same mouse). So
-that these panels come out as printed, their small inputs are in `figure_chain/saved_inputs/` (150 KB): `fig1a_data.npz`,
-`fig1b_data.npz`, `NOF_H01_2D_object4_earlier_export.npz`, `fig2b_data_v104_onsets.npz`. The scripts that made
-them need the earlier export (`[data] nof_legacy`) and are kept as the record: `fig1/cache_examples.py`,
-`fig2/cache_examples.py`, `fig2/fig2_loader.py`, `legacy_loader.py`, `figure_chain/fig2_v10.4/work/fig2b_onsets.py`.
-Everything else in these figures is computed from the deposit.
+sessions. Their small inputs are in `figure_chain/saved_inputs/` (150 KB): `fig1a_data.npz`, `fig1b_data.npz`,
+`NOF_H01_2D_object4_earlier_export.npz`, `fig2b_data_v104_onsets.npz`. The scripts that made them read that export
+(`[data] nof_legacy`) and are kept as the record: `fig1/cache_examples.py`, `fig2/cache_examples.py`,
+`fig2/fig2_loader.py`, `legacy_loader.py`, `figure_chain/fig2_v10.4/work/fig2b_onsets.py`. Everything else in these
+figures is computed from the deposit.
 
-The scheme of Fig. 1c is a raster image without an editable source: `assets/fig1c_scheme.png`, with the two
-stage labels set again by `figure_chain/figures_v11.1/work/fig1/make_scheme_v111.py` (needs the Roboto font) into
+The scheme of Fig. 1c is `assets/fig1c_scheme.png`, with the two stage labels set again by
+`figure_chain/figures_v11.1/work/fig1/make_scheme_v111.py` (needs the Roboto font) into
 `assets/fig1c_scheme_v111.png`, which the figure reads.
 
 ### Source Data workbooks
@@ -238,10 +235,10 @@ Each builder re-draws its figure (about 5 min) and writes `<[figures] output_dir
 with the values of the drawn objects; the check reads the input of every panel again and compares it with the
 sheet.
 
-## What cannot be rerun from the deposit
+## Steps outside this folder
 
-* `compute/make_fps_table.py`: the frame rates come from the CaImAn metadata of the BEARMIND processing and the
-  raw pickles, not deposited; the resulting table is in this folder (`fps_by_session.csv`).
-* The inputs named above under "Example panels of an earlier export": their scripts need that export.
+* `compute/make_fps_table.py` reads the frame rates from the CaImAn metadata of the BEARMIND processing and the
+  raw pickles; its table is in this folder (`fps_by_session.csv`).
+* The inputs named above under "Example panels of an earlier export" are in this folder; their scripts read that export.
 * The behavior analysis (Sphynx) and the processing of the videos (BEARMIND) are other repositories, named in
   the Code availability of the paper.

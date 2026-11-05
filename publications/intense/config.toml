@@ -35,9 +35,8 @@ zone_rule = "place_field"
 # Synchronized NOF sessions with the frame rate of each session in _metadata, written by
 # compute/make_v2_data.py from [v11] nof_v1 and [v11] fps_table.
 nof_aligned = "${INTENSE_DATA}/NOF/SynchronizedData26_v2"
-# Earlier export of the same sessions (one extra leading calcium row, behavior of another
-# synchronization). The example caches of Figures 1 and 2 were built from it; it is not part of the
-# deposited data, and those caches are in figure_chain/saved_inputs (README.md).
+# Earlier export of the same sessions. The example caches of Figures 1 and 2 were built from it; those
+# caches are in figure_chain/saved_inputs (README.md).
 nof_legacy = "${INTENSE_DATA}/NOF/legacy_export"
 # Zone masks of the place_field rule, in centimetres: <zone_masks>/NOF/<session>_zones_cm.npz.
 zone_masks = "${INTENSE_DATA}/zone_masks"
