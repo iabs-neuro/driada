@@ -1,21 +1,24 @@
 """The three MEC figures of the SI for v11.1, on the MEC run with declared x, y ([mec] recompute_dir,
 variant new_on).
 
-usage: python -X utf8 -B figure_chain/figures_v11.1/work/mec/make_mec_v111.py control
+usage: python -X utf8 -B figure_chain/figures_v11.1/work/mec/make_mec_v111.py control [213]
             # switches off -> work/mec/control/*.png, must equal <recompute_dir>/figures_new_on/*.png
-       python -X utf8 -B figure_chain/figures_v11.1/work/mec/make_mec_v111.py final
+       python -X utf8 -B figure_chain/figures_v11.1/work/mec/make_mec_v111.py final [213]
             # -> si/: cohort with letters a, b; venn as drawn (copied from figures_new_on);
             #    margin with the v10.4 layout fix
        (outputs under [figures] output_dir/figure_chain/figures_v11.1)
 
+The cohort figure counts all analysed sessions, or with the argument 213 the sessions with the authors'
+labels, into si_213/ and figures_new_on_213/. The other two figures rest on the labels either way.
+
 mec_src/make_mec_figures.py is a copy of figures_v10.4/work/mec_src/make_mec_figures.py with one more
-switch, LOWERCASE_LETTERS. The margin figure is redrawn as in figures_v10.4/work/make_mec_v104.py: the
-layout fix of v10.4 (one x-axis title, legend under the row of counts) and the pixel box of the
-unfixed layout, so the figure keeps its size.
-Read from [mec] recompute_dir: variants/new_on/{results.csv, cell_sets.jsonl, arbiter_venn.csv,
-recall_vs_margin.csv} and figures_new_on/ (the figures that make_mec_figures.py draws from these files with
-its switches off, drawn here when they are not there yet: mec_arbiter_venn.png is the SI figure itself, the
-others and mec_numbers.json are compared with).
+switch, LOWERCASE_LETTERS, and upper limits of two axes that follow the counts. The margin figure is redrawn
+as in figures_v10.4/work/make_mec_v104.py: the layout fix of v10.4 (one x-axis title, legend under the row of
+counts) and the pixel box of the unfixed layout, so the figure keeps its size.
+Read from [mec] recompute_dir: variants/new_on/{results_all.csv, cell_sets_all.jsonl (with 213: results.csv,
+cell_sets.jsonl), arbiter_venn.csv, recall_vs_margin.csv}. figures_new_on/ holds the figures that
+make_mec_figures.py draws from these files with its switches off: mec_arbiter_venn.png is the SI figure
+itself, the others and mec_numbers.json are compared with.
 """
 import hashlib
 import json
@@ -36,12 +39,19 @@ import _paths_fig as _F  # noqa: E402  (puts the paper folder on sys.path)
 
 X = _F.P.get("mec", "recompute_dir")
 V = X / "variants" / "new_on"
-NEW_ON = X / "figures_new_on"
-ARGS = dict(results=V / "results.csv", sets=V / "cell_sets.jsonl", venn=V / "arbiter_venn.csv",
-            margin=V / "recall_vs_margin.csv")
+# base: results, cell sets, folder of the figures with the switches off, folder of the SI figures
+BASES = {"all": ("results_all.csv", "cell_sets_all.jsonl", "figures_new_on", "si"),
+         "213": ("results.csv", "cell_sets.jsonl", "figures_new_on_213", "si_213")}
 NAMES = ("mec_cohort_bytype.png", "mec_arbiter_venn.png", "mec_arbiter_margin.png")
-OUT = _F.out_dir(HERE.parents[1]) / "si"
 WORK_OUT = _F.out_dir(HERE)
+
+
+def use_base(base):
+    global ARGS, NEW_ON, OUT
+    results, sets, new_on, si = BASES[base]
+    ARGS = dict(results=V / results, sets=V / sets, venn=V / "arbiter_venn.csv", margin=V / "recall_vs_margin.csv")
+    NEW_ON = X / new_on
+    OUT = _F.out_dir(HERE.parents[1]) / si
 
 
 def md5(p):
@@ -76,10 +86,11 @@ def draw_new_on():
     M.main()
 
 
-def main(mode):
-    if not (NEW_ON / NAMES[1]).exists():
-        draw_new_on()
+def main(mode, base="all"):
+    use_base(base)
     if mode == "control":
+        if not (NEW_ON / NAMES[1]).exists():
+            draw_new_on()
         out = WORK_OUT / "control"
         if out.exists() and any(out.iterdir()):
             sys.exit(f"{out} is not empty")
@@ -98,12 +109,15 @@ def main(mode):
     for n in NAMES:
         if (OUT / n).exists():
             sys.exit(f"{OUT / n} exists; not overwriting")
+    # drawn every time: an SI figure is copied from here, so it must not stay behind the numbers of the cohort
+    draw_new_on()
     res = {}
     M.FIGS = OUT
     M.LOWERCASE_LETTERS = True
     C, glm, bt, cov, cat, pf = M.mec_counts(ARGS["results"], ARGS["sets"])
     M.fig_mec(C, glm, bt, cov)
-    res[NAMES[0]] = dict(letters="a, b", vs_figures_new_on=same_pixels(NEW_ON / NAMES[0], OUT / NAMES[0]),
+    res[NAMES[0]] = dict(letters="a, b", ymax=M.cohort_ymax(C, glm, bt),
+                         vs_figures_new_on=same_pixels(NEW_ON / NAMES[0], OUT / NAMES[0]),
                          glm=dict(zip(C, glm)), intense=dict(zip(C, bt)),
                          recovered={c: cov[c] for c in C})
     shutil.copy2(NEW_ON / NAMES[1], OUT / NAMES[1])
@@ -128,9 +142,10 @@ def main(mode):
     res[NAMES[2]] = dict(layout_fix="v10.4 MARGIN_LAYOUT_FIX", saved_box_inches=[round(v, 4) for v in box.bounds],
                          size=list(Image.open(OUT / NAMES[2]).size), size_figures_new_on=list(Image.open(NEW_ON / NAMES[2]).size),
                          text_clashes_unfixed_layout=before, text_clashes=after)
-    (WORK_OUT / "final.json").write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
+    name = "final.json" if base == "all" else f"final_{base}.json"
+    (WORK_OUT / name).write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
     print(json.dumps(res, indent=1, ensure_ascii=False))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(*sys.argv[1:])

@@ -4,7 +4,8 @@
 Copy of the MEC part of science/intense_paper/extracted/make_appendix_figures.py in the
 DRIADA repository (functions mec_counts, fig_mec, fig_concordance, fig_venn, fig_margin and
 the style block), with the input files and the output folder as arguments; drawing code
-unchanged. Also writes the numbers the SI text takes from these files (mec_numbers.json):
+unchanged but for the upper limits of two axes, which follow the counts (cohort_ymax,
+category_ymax). Also writes the numbers the SI text takes from these files (mec_numbers.json):
 detections per method, their ratio, the share of GLM detections INTENSE recovers per
 feature and the per-cell agreement categories.
 
@@ -93,6 +94,21 @@ def mec_counts(results, sets):
     return C, glm, bt, cov, cat, pf
 
 
+def cohort_ymax(C, glm, bt):
+    """Upper limit of panel A of the cohort figure: 7300 cells unless the bars then do not fit, go under
+    the legend or take less than half of the axis. The legend stands over the position bars and the GLM
+    bar of head direction, so those have to stay below about 62% of the axis."""
+    g, b = dict(zip(C, glm)), dict(zip(C, bt))
+    need = max(1.12 * max(max(glm), max(bt)), max(g["place"], b["place"], g["head_direction"]) / 0.62)
+    return 7300 if 0.5 * 7300 <= need <= 7300 else int(np.ceil(need / 500) * 500)
+
+
+def category_ymax(cat):
+    """Upper limit of panel B of the concordance figure: 85% unless a category and its label need more."""
+    tot = sum(cat.values())
+    return 105 if 100 * max(v / tot for v in cat.values()) + 5 > 85 else 85
+
+
 def fig_mec(C, glm, bt, cov):
     RU = ["position", "head\ndirection", "speed"]
     fig, axes = plt.subplots(1, 2, figsize=(12.5 * CM, 5 * CM))
@@ -101,12 +117,14 @@ def fig_mec(C, glm, bt, cov):
     w = 0.38
     ax.bar(x - w / 2, glm, w, color="#2171b5", label="GLM")
     ax.bar(x + w / 2, bt, w, color=RED, label="INTENSE")
+    ymax = cohort_ymax(C, glm, bt)
     for xi, (g, b) in enumerate(zip(glm, bt)):
-        ax.text(xi + w / 2, b + 120, f"{b / g:.2g}x", ha="center", fontsize=7)
+        # the labels rise with the limit, to keep their distance from the bars on the drawn axis
+        ax.text(xi + w / 2, b + 120 + 120 * (ymax / 7300 - 1), f"{b / g:.2g}x", ha="center", fontsize=7)
     ax.set_xticks(x)
     ax.set_xticklabels(RU)
     ax.set_ylabel("selective cells")
-    ax.set_ylim(0, 7300)
+    ax.set_ylim(0, ymax)
     ax.legend(frameon=False, loc="upper left")
     letter(ax, "A")
     ax = axes[1]
@@ -148,12 +166,13 @@ def fig_concordance(C, cat, pf):
     tot = sum(cat.values())
     vals = [100 * cat[k] / tot for k in ("overlap", "asym", "conflict")]
     ax.bar(np.arange(3), vals, 0.5, color=["#6a51a3", "#fdae6b", "#cb181d"])
+    ymax = category_ymax(cat)
     for xi, v in zip(np.arange(3), vals):
-        ax.text(xi, v + 2, f"{v:.1f}%", ha="center", fontsize=7)
+        ax.text(xi, v + 2 + 2 * (ymax / 85 - 1), f"{v:.1f}%", ha="center", fontsize=7)
     ax.set_xticks(np.arange(3))
     ax.set_xticklabels(["overlap", "one-sided", "conflict"])
     ax.set_ylabel("active cells (%)")
-    ax.set_ylim(0, 85)
+    ax.set_ylim(0, ymax)
     letter(ax, "B")
     fig.subplots_adjust(wspace=0.4)
     fig.savefig(FIGS / "mec_concordance_full.png", **SAVE)

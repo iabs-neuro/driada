@@ -27,7 +27,7 @@ In `numbers_v12.csv` and below, `[section] key` is an entry of `config.toml`, an
 
 ## Software
 
-* **DRIADA 1.2.2.** This branch of the repository is release 1.2.2 with this folder added;
+* **DRIADA 1.2.2.** Release `v1.2.2-intense` of the repository is release 1.2.2 with this folder added;
   `config.toml` points at `../../src` and `../../tools` of the same checkout, and every script stops
   if it imports another version. To use an installed package instead (`pip install driada==1.2.2`),
   set `[driada] src = ""` and `tools` to the `tools/` folder of the release.
@@ -170,8 +170,8 @@ main one.
 | 27a | A: `python -B mec/extract_tables.py validate`, `python -B mec/extract_dataset_map.py` | small tables of the dump, the signal dataset the authors scored in each session | 2 min for the map |
 | 27b | A: `python -B mec/decode_cohort_primary.py` (after an interruption: `mec/find_resume_offset.py`, `mec/finish_decode_then_recompute.py`, `mec/decode_cohort_primary_resume.py`) | 215 session files in `[mec] sessions_dir` | about 1 h |
 | 27c | `python -X utf8 -B mec/run_recompute_primary.py`: runs `mec/run_xyfix_primary.py` three times for INTENSE and three times for the GLM, all at once | INTENSE and GLM of every session, `<[mec] recompute_dir>/parts` | 2-2.5 h with 6 processes; about 5.6 h per pass in one process |
-| 27d | `python -B mec/arbiter_labels.py` (reads 3.3 GB of score tables of the dump) | the authors' labels at the 95th and 99th shuffle percentiles | 21 min |
-| 27e | `python -X utf8 -B mec/numbers_primary.py`: the numbers of the MEC analysis, from the parts of step 27c and the labels of step 27d. It writes `<[mec] recompute_dir>/variants/new_on/{results.csv, cell_sets.jsonl}` and calls `mec/arbiter_join.py`, `mec/arbiter_stats.py`, `mec/confident_by_config.py` | Supplementary Table 5; the numbers of Sections S1.5, S1.5.1; 48% versus 22% of Results | minutes |
+| 27d | `python -X utf8 -B mec/numbers_primary.py`, which while there are no labels only writes the analysed cells, `<[mec] recompute_dir>/variants/new_on/cell_sets.jsonl`, and stops; then `python -B mec/arbiter_labels.py` (reads 3.3 GB of score tables of the dump) | the authors' labels at the 95th and 99th shuffle percentiles | 21 min |
+| 27e | `python -X utf8 -B mec/numbers_primary.py`: the numbers of the MEC analysis, from the parts of step 27c, the session files and the labels of step 27d. It writes into `<[mec] recompute_dir>`: `numbers_primary.json` (four variants: with and without the delay search and the 0.04-bit threshold; on all analysed sessions and on the 213 of `mec/si_sessions_fps.csv`, whole and by imaging configuration; the comparison with the labels on the sessions that have them); the parts joined (`cohort_results_primary.csv`, `cohort_cell_sets_primary.jsonl`, `pairs_primary.csv`); `variants/new_on/` and likewise `new_on_mi04/`, `new_off/`, `new_off_mi04/` with `results.csv`, `cell_sets.jsonl` on the sessions with labels and what `mec/arbiter_join.py`, `mec/arbiter_stats.py`, `mec/confident_by_config.py` write from them; `variants/new_on/results_all.csv`, `cell_sets_all.jsonl` on all analysed sessions | Supplementary Table 5; the numbers of Sections S1.5, S1.5.1 and of the MEC paragraph of Results | minutes |
 | 27f | optional check, A: `python -B mec/sync_fps.py`, `python -B mec/join_fps.py > <[mec] fps_dir>/summary.txt`, `python -B mec/list_over_1pct.py` | must rebuild `mec/si_sessions_fps.csv`, `mec/fps_by_session.csv` | 3 min |
 
 ### Figures
@@ -189,7 +189,7 @@ default). `figure_chain/` keeps the version layout of the manuscript: a figure s
 | 32 | `python -X utf8 -B figure_chain/figures_v11.1/work/fig4/make_fig4_v111.py` | **Fig. 4**, needs step 10 | 3 min |
 | 33 | `python ed_calibration/ed_calibration_fps.py` | **Extended Data Fig. 1** and its workbook, needs step 8 | seconds |
 | 34 | `python -X utf8 -B figure_chain/figures_v11.1/work/glm_examples/make_glm_examples_v111.py` | **Supplementary Fig. 4**, needs steps 3, 17, 28 | seconds |
-| 35 | `python -X utf8 -B figure_chain/figures_v11.1/work/mec/make_mec_v111.py final` | **Supplementary Figs 5-7**, needs step 27e | seconds |
+| 35 | `python -X utf8 -B figure_chain/figures_v11.1/work/mec/make_mec_v111.py final` (Fig. 5 on all analysed sessions, into `figures_v11.1/si/`) or `... final 213` (Fig. 5 on the 213 sessions with labels, into `figures_v11.1/si_213/`) | **Supplementary Figs 5-7**, needs step 27e | seconds |
 | 36 | `python -X utf8 -B figure_chain/figures_v11.1/work/figx/fig_x_v111.py` | **Supplementary Fig. 8**, needs step 25 | 1 min |
 
 Supplementary Figs 1-3 are drawn in steps 14 and 16.
@@ -197,7 +197,7 @@ Supplementary Figs 1-3 are drawn in steps 14 and 16.
 **Example panels of an earlier export.** Figs 1a, 1b, 1d and 2b were drawn from an earlier export of the same
 sessions, which is not part of the deposit. Its calcium is the deposited calcium with one extra leading row;
 its behavior went through another synchronization: positions in 0-1 (correlation with the deposited
-coordinates above 0.999), labels different in up to 0.2% of the frames of the examples. So that these panels
+coordinates above 0.999), the object-4 label drawn in Figs 1b and 1d different in up to 0.2% of the frames. So that these panels
 come out as printed, their small inputs are in `figure_chain/saved_inputs/` (150 KB): `fig1a_data.npz`,
 `fig1b_data.npz`, `NOF_H01_2D_object4_earlier_export.npz`, `fig2b_data_v104_onsets.npz`. The scripts that made
 them need the earlier export (`[data] nof_legacy`) and are kept as the record: `fig1/cache_examples.py`,

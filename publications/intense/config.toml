@@ -147,20 +147,22 @@ signal_datasets = "${INTENSE_RESULTS}/mec/authors_signal_dataset.csv"
 # (mec/decode_cohort_primary.py).
 sessions_dir = "${INTENSE_RESULTS}/mec/sessions"
 # Frame rate of each analysed session from the frame times of the dump (column fps_true), with
-# its microscope and label; read by mec/run_xyfix.py and mec/confident_by_config.py. Shipped;
+# its microscope and label; read by mec/run_xyfix.py, mec/confident_by_config.py and mec/numbers_primary.py
+# (its sessions are the second base of the counts). Shipped;
 # mec/sync_fps.py, mec/join_fps.py and mec/list_over_1pct.py rebuild it into fps_dir.
 fps_table = "mec/si_sessions_fps.csv"
 # Rate and other measurements of every session of the dump; column in_npz marks the 215 sessions with a
 # session file, in_si_final the 213 of fps_table. Read by mec/run_xyfix_primary.py for the rate of the two
-# others and by mec/run_recompute_primary.py for the list of sessions. Shipped; mec/join_fps.py rebuilds
-# it into fps_dir.
+# others, by mec/run_recompute_primary.py for the list of sessions and by mec/numbers_primary.py for the imaging
+# configuration and the object in the arena. Shipped; mec/join_fps.py rebuilds it into fps_dir.
 fps_all = "mec/fps_by_session.csv"
 fps_dir = "${INTENSE_RESULTS}/mec/fps"
 # The authors' scores and shuffle cutoffs per analysed cell (mec/arbiter_labels.py).
 arbiter_dir = "${INTENSE_RESULTS}/mec/arbiter"
-# INTENSE and GLM of every session (mec/run_xyfix.py -> parts/) and the cohort files computed
-# from them: variants/new_on/ (results.csv, cell_sets.jsonl, arbiter_*.csv, recall_vs_margin.csv,
-# confident_by_config.csv) and figures_new_on/, which the MEC figure scripts read.
+# INTENSE and GLM of every session (mec/run_xyfix.py -> parts/), the cohort files computed from them
+# (mec/numbers_primary.py): numbers_primary.json, variants/new_on/ (results*.csv, cell_sets*.jsonl,
+# arbiter_*.csv, recall_vs_margin.csv, confident_by_config.csv), which the MEC figure script reads, and the
+# figures that script draws with its switches off, figures_new_on/ and figures_new_on_213/.
 recompute_dir = "${INTENSE_RESULTS}/mec/recompute"
 
 [s2]
